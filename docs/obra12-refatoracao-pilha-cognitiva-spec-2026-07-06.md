@@ -35,19 +35,36 @@ Método: 4 finders read-only por dimensão (famílias/clones, god-methods, trans
 | ID | Slice | Arquivos-chave | LOC líq. | Risco | Prova |
 |---|---|---|---|---|---|
 | S-01 | Trait `TestsWithLedgerEvents` para o setUp/tearDown clonado em 7 testes de Cognitive (Failure/Dreyfus/SRL) | tests/Unit/Ai/Cognitive/* | ~118 | baixo | placar idêntico por arquivo |
-| S-02 | Traits de família nos scorers/gates do Aucri: `ScalarExtraction` (int/float/string/boolValue duplicados em AucriSegmentRoiScorer + RecallContextBudgetSplitScorer) + clamp helper LOCAL (RetrievalFanoutGate, IrrelevantContextRatioGate, QualityCertification) | app/Services/Ai/Context/{Aucri,Gates}/ | ~145 | baixo | testes unit dos scorers + `atlas:context:quality-certify` |
+| S-02 | **ENTREGUE 06/07 (real: −3; estimativa ~145 refutada)**: só intValue era duplicado literal → trait ExtractsScalarFields. **Clamps NÃO consolidáveis: divergem em NaN** (max(min) vs min(max), provado php -r — trap N-05); clampRatio/Ceiling existem 1× cada. | Context/Concerns/ | −3 | — | commit 7ccf2415d |
 | ~~S-03~~ | ~~EmitsCanonicalJson nos 27 certify~~ **REFUTADA por medição (06/07)**: shape real é 1 site/comando (`line(json_encode ?: '{}')` → `jsonLine()` = 1:1, LOC-neutro) + 2 de adoção/arquivo = **net POSITIVO**. Mesma classe do strictExit — o finder contou "2 linhas/comando" errado. | — | 0 | — | — |
 | S-04 | RuntimeBoundary: trait/factory para o construtor + `run()` clonados nos 5 clients Python (GraphRank/StatsEngine/NearDuplicate/SemanticRag/HonestMetrics) | app/Services/Ai/RuntimeBoundary/ | ~70 | baixo | contratos de boundary + `atlas:ai:local-rag-readiness` |
 | S-05 | AiCompactionService: normalizadores (must-keep/forced-discards/string-list) → canon compartilhado + `normalizeCompactionInput()` no compactForScope (128 ln) | app/Services/Ai/AiCompactionService.php | ~85 | baixo | testes de compaction + APCR certify 14/14 |
-| S-06 | Consolidações intra-arquivo dos grandes: const `POLICY_PROVIDER_SAFE_DEFAULTS` (3 serviços), tabela única `ScopeTypeLabels` (2 matches duplicados), `extractRefMetadata()` e `reportSection()` helpers | Context/ + AiContextPackBuilder | ~100 | baixo | byte-identity dos subarrays policy/reason + ACIE certify 13/13 |
+| S-06 | **ENTREGUE 06/07 (real: −5 de ~100)**: reason table aplicada. **Refutados por prova**: POLICY_DEFAULTS sem par byte-igual (ordens de chave distintas = comportamento em hash canônico); extractRefMetadata = premissa falsa (maps 1× cada); reportSection ≥0. | AiContextPackBuilder | −5 | — | commit 7ccf2415d |
 | S-07 | Testes: data providers nos grupos shape-idênticos de Cognitive/Failure + delegação `data_get`/AiValueNormalizer SÓ nos byte-provados (finder estimou 125; conta honesta pós-C-16/C-17 ≈ metade) | tests + Memory classifiers | ~85 | médio | placar idêntico + byte-prova por site |
 | ~~S-08~~ | ~~Flexibilidade morta~~ **REFUTADA por verificação de intenção (06/07)**: flags `context_budget.*` e embedding keys são `env()`-driven (capacidade de rollout/override REAL — o finder não viu o `env()`); alias do Knowledge tem 6 consumidores + arquivo homônimo em Context/ (remoção custa mais que os ~2 LOC). | — | 0 | — | — |
 | S-09 | `contextRefAttribution()` (108 ln, 3 loops sobre o mesmo array → 1 passada) | AtlasRetrievalFeedbackLoopService:539 | ~45 | médio | hash da attribution byte-idêntico — **AGUARDA merge Obra #7** |
 | S-10 | Helper `relative(path)` duplicado em ~8 certification services | Aemor/LongHorizon | ~23 | baixo | certifies TEOS/Aemor verdes |
 
-## Governança de órfãos (potencial adicional ~230 LOC — NÃO é deleção livre)
+## Onda 2 — extensão de escopo (06/07, resposta ao desafio do operador "deixou coisa de fora")
 
-Descobertos SEM tag `@unwired-until` (violam a convenção da Obra #7): **SRL** (`SRLForethoughtCapture`, `SRLPerformanceObserver`, `SRLReflectionCapture` — 71 LOC, 0 callers, 0 testes), **Dreyfus** (`DreyfusEvidenceAggregator` — 80 LOC), **ProductiveFailure** (7 classes — ~71+ LOC). Ação da obra: para cada um, decidir wire (consumidor real) / tag (`@unwired-until` + missão) / retire (tripla prova). Isso é trabalho da esteira wire-or-retire, não desta spec — mas a spec REGISTRA a dívida de governança.
+O escopo da onda 1 (~58k) NÃO cobria: SelfImprovement (11,4k — ACOS L7), Compounding (4,2k), Memory/ (2,7k), RAG do Programming (~1,3k), runtime Python, e a mineração profunda dos ~36k de testes da pilha. 3 finders adicionais cobriram tudo. Resultado calibrado:
+
+| ID | Slice | Paths | LOC líq. | Risco | Prova |
+|---|---|---|---|---|---|
+| S-11 | Normalizadores de Memory/SelfImprovement → canônicos (stringValue/intValue ×3 arquivos Memory; stringOrNull/positiveIntOrNull do ProposalPacket → AiValueNormalizer; normalizeConfidence) | Memory/ + SelfImprovement/ | ~67 | baixo | testes unit de Memory + AiValueNormalizerTest |
+| S-12 | Trait de finding-builders do AtlasSelfImprovementRuntime (repair/kernelPipeline/domainOnboarding — 12 chaves canônicas, esqueleto idêntico ×3 de ~42 ln) | SelfImprovement/AtlasSelfImprovementRuntime.php | ~100 | baixo | ClosedLoopLevel7Test + scorecard hash |
+| S-13 | 11 métodos `normalized*Filters()` do Runtime (~200 LOC de normalização) → genérico com whitelist por dimensão — **exige casamento exato por dimensão; protótipo de 2 antes de fixar** | idem | ~168 teto | médio | testes SelfImprovement |
+| S-14 | Investigação: LocalAgentMemoryIngestionService (545 ln) reinventa I/O do AppendOnlyJsonlStore? Delegar se byte-equivalente (padrão S1-A..D da #8) | Memory/LocalAgentIngestion/ | a medir | médio | AppendOnlyJsonlStore tests |
+| S-15 | Testes: adoção do TestsWithLedgerEvents nos ~24 arquivos Api/Command com o mesmo trio (~190 líq. após custo de adoção) + traits de helpers privados duplicados ENTRE arquivos (censo do finder: 141 ocorrências/61 grupos, ~1.027 bruto — **sujeito a censo byte-a-byte na execução**) | tests/ | ~600-1.000 honesto | médio | placar por arquivo idêntico |
+| S-16 (onda 3) | Python: 5 main.py clones byte-idênticos (27 ln × 5) → entrypoint factory no atlas_runtime_contract | runtimes/python/*/main.py | ~100 | baixo | smoke dos 5 runtimes |
+
+**Refutados na onda 2 (com prova):** residual do mega-teste = ZERO grupos ≥4 no hash exato (o agrupamento frouxo do finder inflou 4,4k inexistentes); "assertion helpers" 338× assertSame(0,$exit) = troca 1:1 LOC-neutra; RuntimeBoundary contracts blockValidation (corpo ≤3 ln/site); ProgrammingRetrieval*/AiPromptBuilder/MandatoryRagGate = lógica distinta legítima (veredito Obra #6). ChainIntegrityAudit/VoiceRealtime data providers pertencem à C-05 da Obra #8 (constraints do scanner content-pin).
+
+**Teto honesto da obra completa (ondas 1+2):** ~1,7k–2,3k LOC líquidas + ~100 Python + governança de órfãos.
+
+## Governança de órfãos (potencial adicional ~657 LOC — NÃO é deleção livre)
+
+Descobertos SEM tag `@unwired-until` (violam a convenção da Obra #7): **SRL** (`SRLForethoughtCapture`, `SRLPerformanceObserver`, `SRLReflectionCapture` — 71 LOC, 0 callers, 0 testes), **Dreyfus** (`DreyfusEvidenceAggregator` — 80 LOC), **ProductiveFailure** (7 classes — ~71+ LOC), **SelfImprovement** (onda 2: `LearningPacketQualityScorer` 143, `LearningPacketConflictDetector` 129, `SelfImprovementGradeTrajectoryClassifier` 99, `RegressionRecurrenceDetector` 56 — 427 LOC). Ação da obra: para cada um, decidir wire (consumidor real) / tag (`@unwired-until` + missão) / retire (tripla prova). Isso é trabalho da esteira wire-or-retire, não desta spec — mas a spec REGISTRA a dívida de governança.
 
 ## NÃO-FAZER (refutados pelos próprios finders, com conta)
 
