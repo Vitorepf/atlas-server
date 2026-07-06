@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Federation;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -15,6 +16,10 @@ use RuntimeException;
  *
  * Local-first: transport is pluggable but defaults to file:// (publish to disk, subscribe from
  * disk). NO scores are sent — facts only.
+ *
+ * The outbox append delegates to {@see JsonlReceiptStore::append()} (fail-closed: throws on
+ * open/lock failure, matching the prior fopen policy). The seen-set is a plain text file
+ * (one `key\n` per line, no JSON) and keeps its own append/scan path — different substrate.
  */
 final class AtlasLoopFederationFactSyncProtocol
 {
@@ -140,16 +145,10 @@ final class AtlasLoopFederationFactSyncProtocol
      */
     private function appendLine(string $path, array $envelope): void
     {
-        $line = json_encode($envelope, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $handle = @fopen($path, 'a');
-        if ($handle === false) {
-            throw new RuntimeException('AtlasLoopFederationFactSyncProtocol: cannot open '.$path);
-        }
         try {
-            fwrite($handle, $line."\n");
-            fflush($handle);
-        } finally {
-            fclose($handle);
+            (new JsonlReceiptStore($path))->append($envelope);
+        } catch (RuntimeException $e) {
+            throw new RuntimeException('AtlasLoopFederationFactSyncProtocol: cannot open '.$path, 0, $e);
         }
     }
 
