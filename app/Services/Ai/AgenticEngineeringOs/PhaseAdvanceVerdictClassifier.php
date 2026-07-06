@@ -7,6 +7,9 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
+/**
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ */
 final class PhaseAdvanceVerdictClassifier
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.phase_advance_verdict.v1';

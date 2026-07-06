@@ -23,6 +23,7 @@ use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
  * is computed in numpy by runtimes/python/stats_engine and verified through
  * StatsEngineRuntimeClient. If the Python runtime is absent the client throws —
  * there is NO PHP fallback math.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class EwmaDetector
 {

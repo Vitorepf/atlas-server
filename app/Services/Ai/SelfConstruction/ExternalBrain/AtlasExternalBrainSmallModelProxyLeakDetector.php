@@ -31,6 +31,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *          template_signature, prior_signatures, recent_accepted_specs? } }
  *
  * PURE / DETERMINISTIC. No I/O.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class AtlasExternalBrainSmallModelProxyLeakDetector
 {

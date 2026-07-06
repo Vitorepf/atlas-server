@@ -10,6 +10,7 @@ use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
  * validates a tracking stack against the loop (auto-tagging → GCLID → Data Manager API → Enhanced
  * Conversions → postback macros → email auth), scores readiness 0-100, and emits the ordered setup
  * steps. It is a DATA-QUALITY metric, never a veto — Atlas reports, it does not refuse.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class ConversionPipelineValidator
 {

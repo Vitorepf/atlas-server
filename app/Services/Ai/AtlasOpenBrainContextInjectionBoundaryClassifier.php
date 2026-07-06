@@ -14,6 +14,7 @@ namespace App\Services\Ai;
  *   source ∈ {current_turn, task_contract, memory, excerpt, example, summary, unknown}
  *
  * Pure — no I/O, no provider calls.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class AtlasOpenBrainContextInjectionBoundaryClassifier
 {

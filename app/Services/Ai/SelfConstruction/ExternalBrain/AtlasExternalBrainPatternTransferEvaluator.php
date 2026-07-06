@@ -50,6 +50,7 @@ namespace App\Services\Ai\SelfConstruction\ExternalBrain;
  *     required_adaptations, proof_of_source_success
  *
  * PURE / DETERMINISTIC / NO I/O.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class AtlasExternalBrainPatternTransferEvaluator
 {

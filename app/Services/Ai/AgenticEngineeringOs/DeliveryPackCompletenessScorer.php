@@ -6,6 +6,9 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 use InvalidArgumentException;
 
+/**
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ */
 final class DeliveryPackCompletenessScorer
 {
     private const SCHEMA = 'atlas.aaeos.delivery_pack_completeness.v1';
