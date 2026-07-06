@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTerminalWorkerCommandFormatter;
 
 /**
@@ -37,6 +38,8 @@ use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTe
  */
 class AgentControlPlaneTerminalLoopGuidanceBuilder
 {
+    use HashesPayloadCanonically;
+
     public const PHP_BIN = '/opt/homebrew/bin/php';
 
     public function __construct(
@@ -472,17 +475,6 @@ class AgentControlPlaneTerminalLoopGuidanceBuilder
         }
 
         return 'claim_or_replenishment_blocked';
-    }
-
-    /**
-     * Local stableHash — kept private to this class to avoid cross-class coupling. Identical
-     * contract to the bootstrap service's original stableHash (SHA-256 over canonical JSON).
-     *
-     * @param  array<string, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function commandFormatter(): AgentControlPlaneTerminalWorkerCommandFormatter

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
@@ -19,6 +20,7 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
  */
 final class AgentControlPlaneCertificationStatusBatchService
 {
+    use HashesKsortedPayloadCanonically;
     use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_certification_status_batch.v1';
 
@@ -239,14 +241,4 @@ final class AgentControlPlaneCertificationStatusBatchService
         ];
     }
 
-
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

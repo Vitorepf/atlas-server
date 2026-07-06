@@ -2,9 +2,9 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 
 /**
  * Runs a battery of synthetic regression scenarios against the Agent
@@ -20,7 +20,7 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
  */
 final class AgentControlPlaneCertificationScenarioSimulator
 {
-    use RecursivelyKsortsArrays;
+    use HashesKsortedPayloadCanonically;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_certification_scenario_simulator.v1';
 
     public const MODE = 'read_only_agent_control_plane_certification_scenario_simulator';
@@ -684,14 +684,4 @@ final class AgentControlPlaneCertificationScenarioSimulator
         ], null);
     }
 
-
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

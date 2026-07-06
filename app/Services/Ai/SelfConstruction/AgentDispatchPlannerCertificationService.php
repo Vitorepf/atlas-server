@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use Carbon\CarbonImmutable;
 
 /**
@@ -15,6 +16,7 @@ use Carbon\CarbonImmutable;
  */
 final class AgentDispatchPlannerCertificationService
 {
+    use HashesPayloadCanonically;
     use RuntimeFlagsShared;
 
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_certification.v1';
@@ -356,11 +358,4 @@ final class AgentDispatchPlannerCertificationService
         ];
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

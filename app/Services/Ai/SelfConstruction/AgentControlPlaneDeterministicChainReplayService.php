@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
@@ -20,6 +21,7 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
  */
 final class AgentControlPlaneDeterministicChainReplayService
 {
+    use HashesKsortedPayloadCanonically;
     use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_deterministic_chain_replay.v1';
 
@@ -485,7 +487,6 @@ final class AgentControlPlaneDeterministicChainReplayService
         return $this->recursivelyKsort($clone);
     }
 
-
     /**
      * @return array<string, mixed>
      */
@@ -517,13 +518,4 @@ final class AgentControlPlaneDeterministicChainReplayService
         ];
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

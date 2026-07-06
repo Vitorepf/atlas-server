@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use Carbon\CarbonImmutable;
 
 /**
@@ -15,6 +16,8 @@ use Carbon\CarbonImmutable;
  */
 final class AgentRuntimeRegistryCertificationService
 {
+    use HashesPayloadCanonically;
+
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_runtime_registry_certification.v1';
 
     public const MODE = 'read_only_agent_runtime_registry_certification';
@@ -484,11 +487,4 @@ final class AgentRuntimeRegistryCertificationService
         ];
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

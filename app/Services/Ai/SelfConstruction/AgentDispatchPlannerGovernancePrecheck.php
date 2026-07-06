@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+
 /**
  * Governance precheck for the Agent Dispatch Planner. Validates that a
  * planned dispatch would not violate operator approval, budget gate or
@@ -13,6 +15,7 @@ namespace App\Services\Ai\SelfConstruction;
  */
 final class AgentDispatchPlannerGovernancePrecheck
 {
+    use HashesPayloadCanonically;
     use RuntimeFlagsShared;
 
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_dispatch_planner_governance_precheck.v1';
@@ -165,11 +168,4 @@ final class AgentDispatchPlannerGovernancePrecheck
         return array_values($keys);
     }
 
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }

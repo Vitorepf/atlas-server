@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction;
 
-
+use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
@@ -22,6 +22,7 @@ use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
  */
 class AgentControlPlaneReplayDiffService
 {
+    use HashesKsortedPayloadCanonically;
     use RecursivelyKsortsArrays;
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_replay_diff.v1';
 
@@ -664,17 +665,6 @@ class AgentControlPlaneReplayDiffService
         unset($clone['diff_hash'], $clone['diff_id'], $clone['generated_at']);
 
         return $this->recursivelyKsort($clone);
-    }
-
-
-    /**
-     * @param  array<mixed, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        $payload = $this->recursivelyKsort($payload);
-
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**

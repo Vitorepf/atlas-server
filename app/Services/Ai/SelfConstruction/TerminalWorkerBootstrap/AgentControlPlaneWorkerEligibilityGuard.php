@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 
 /**
  * ITEM8 — the cohesive worker-eligibility validation concern the terminal-worker bootstrap service
@@ -27,6 +28,8 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
  */
 class AgentControlPlaneWorkerEligibilityGuard
 {
+    use HashesPayloadCanonically;
+
     /**
      * The references that, when present in `continuation_context.auto_replenishment_reference`,
      * make a claimable task ineligible for direct worker execution (the operator must sign the
@@ -317,11 +320,4 @@ class AgentControlPlaneWorkerEligibilityGuard
         return $this->claimableRecords($queueTags, $limit);
     }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function stableHash(array $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-    }
 }
