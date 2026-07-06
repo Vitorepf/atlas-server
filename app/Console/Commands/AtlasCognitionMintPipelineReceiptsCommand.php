@@ -36,33 +36,77 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
         $before = (float) data_get($card, 'score.dimensions.pipeline.score_out_of_10', 0.0);
 
         $capabilities = $truth->capabilityTestRefs();
-
-        // L3-11: MIRA os subsistemas `partial` — cada receipt verde de um capability que
-        // OWNa um subsistema partial o flipa partial→ready (conversão ~100%). Sem isto o
-        // mint varria todas as capabilities e a maioria não era owner de subsistema partial
-        // (20 mints → +0.05). Constrói o conjunto de capability_ids que governam partials e
-        // ordena-os primeiro; fail-open: sem partials mapeados, mantém a ordem original.
-        $partialCapabilityIds = [];
-        foreach ((array) data_get($card, 'subsystems', []) as $sub) {
-            if (($sub['pipeline_status'] ?? '') !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
-                continue;
-            }
-            foreach ($resolver->ownerCapabilityIdsForFqn((string) ($sub['service_class'] ?? '')) as $cid) {
-                $partialCapabilityIds[$cid] = true;
-            }
+        $capabilityById = [];
+        foreach ($capabilities as $cap) {
+            $capabilityById[(string) $cap['capability_id']] = $cap;
         }
-        if ($partialCapabilityIds !== []) {
-            usort($capabilities, static function (array $a, array $b) use ($partialCapabilityIds): int {
-                $aw = isset($partialCapabilityIds[(string) ($a['capability_id'] ?? '')]) ? 0 : 1;
-                $bw = isset($partialCapabilityIds[(string) ($b['capability_id'] ?? '')]) ? 0 : 1;
 
-                return $aw <=> $bw;
-            });
-        }
         $minted = [];
         $green = 0;
         $processed = 0;
+        $mintedKeys = [];
 
+        // Obra #14 H1: MIRA os subsistemas `partial` PELO MESMO candidato que o resolver
+        // aceita. Um subsistema fica partial quando o símbolo <Short>Test existe no índice
+        // mas não há receipt verde keyed no owner doc — e o passe antigo só cunhava os
+        // `test:` DECLARADOS do doc, que nesses casos não existem/não resolvem: o minter
+        // nunca produzia o receipt que o resolver procura (35 greens → +0.05). Agora, para
+        // cada partial, cunha (owner capability_id, <Short>Test | test refs declarados) —
+        // exatamente os candidateTestRefs de resolvePipelineStatus.
+        foreach ((array) data_get($card, 'subsystems', []) as $sub) {
+            if ($processed >= $limit) {
+                break;
+            }
+            if (($sub['pipeline_status'] ?? '') !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
+                continue;
+            }
+            $fqn = (string) ($sub['service_class'] ?? '');
+            $short = class_basename($fqn);
+            foreach ($resolver->ownerCapabilityIdsForFqn($fqn) as $capabilityId) {
+                $cap = $capabilityById[$capabilityId] ?? null;
+                if ($cap === null || $processed >= $limit) {
+                    continue;
+                }
+                $candidateRefs = [$short.'Test'];
+                foreach ((array) ($cap['test_refs'] ?? []) as $testRef) {
+                    if (($testRef['index_resolved'] ?? false) === true) {
+                        $candidateRefs[] = (string) $testRef['ref'];
+                    }
+                }
+                foreach (array_values(array_unique($candidateRefs)) as $ref) {
+                    if (isset($mintedKeys[$capabilityId.'|'.$ref])) {
+                        continue 2; // já cunhado neste passe (docs multi-subsistema)
+                    }
+                    $hashes = $truth->freshnessHashes($cap['evidence_refs'], $ref);
+                    $receipt = $execution->runAndRecord(
+                        $capabilityId,
+                        $ref,
+                        null,
+                        $hashes['test_file_hash'] ?? null,
+                        $hashes['impl_files_hash'] ?? null,
+                    );
+                    $ran = (int) ($receipt['tests_run'] ?? 0);
+                    if ($ran === 0) {
+                        continue; // candidato não roda nada (símbolo stale) — tenta o próximo
+                    }
+                    $passed = (bool) ($receipt['passed'] ?? false);
+                    $green += $passed ? 1 : 0;
+                    $minted[] = [
+                        'subsystem' => (string) ($sub['acronym'] ?? ''),
+                        'capability_id' => $capabilityId,
+                        'test_ref' => $ref,
+                        'green' => $passed,
+                        'tests_run' => $ran,
+                    ];
+                    $mintedKeys[$capabilityId.'|'.$ref] = true;
+                    $processed++;
+                    break; // um receipt por (subsistema, owner) por passe (bounded)
+                }
+            }
+        }
+
+        // Sobra de orçamento: varredura das capabilities declaradas (comportamento
+        // original) — mantém o passe útil quando não há mais partials a mirar.
         foreach ($capabilities as $cap) {
             if ($processed >= $limit) {
                 break;
@@ -73,6 +117,9 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
                     continue; // ref que não resolve no índice nunca vira receipt verde — pula
                 }
                 $ref = (string) $testRef['ref'];
+                if (isset($mintedKeys[$capabilityId.'|'.$ref])) {
+                    break; // já cunhado no passe direcionado
+                }
                 $hashes = $truth->freshnessHashes($cap['evidence_refs'], $ref);
                 $receipt = $execution->runAndRecord(
                     $capabilityId,
@@ -89,6 +136,7 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
                     'green' => $passed,
                     'tests_run' => $receipt['tests_run'] ?? 0,
                 ];
+                $mintedKeys[$capabilityId.'|'.$ref] = true;
                 $processed++;
                 break; // um teste por capability por passe (bounded)
             }

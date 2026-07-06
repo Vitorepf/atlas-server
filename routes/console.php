@@ -160,7 +160,7 @@ Schedule::command('atlas:loop:coverage-gaps --hours=24 --feed --json')
 // L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
 // subsistemas `partial` (cada receipt verde flipa partial→ready) e sobe o scorecard com
 // evidência resolved (nunca self-declared). Bounded por passe; gated para o operador ligar.
-Schedule::command('atlas:cognition:mint-pipeline-receipts --limit=8 --json')
+Schedule::command('atlas:cognition:mint-pipeline-receipts --limit=30 --json')
     ->dailyAt('04:40')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.cognition.mint_pipeline_receipts_enabled', true));
@@ -510,3 +510,33 @@ Schedule::command('atlas:atlas-decide:live-feedback --action=activate-sweep --ac
     ->appendOutputTo(storage_path('logs/adml-activate-sweep.log'))
     ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
         && (bool) config('atlas.patamar4.adml_auto_activation_enabled', false));
+
+// ── Obra #14 H2.1 — órgãos da inteligência em cadência (o motor launchd foi religado
+// em 06/07; delta-series/mint/long-horizon JÁ estavam agendados acima — aqui entram só
+// os órgãos novos da Obra #13). Master switch: atlas.acos.cadence_enabled (default TRUE;
+// OFF ⇒ byte-idêntico). Ambos read-only/append-only; NUNCA promovem ou aplicam.
+
+// H2.1a — órgão Refactor Intelligence semanal sobre o maior módulo (read-only). O ACOS
+// passa a APONTAR refatoração por medição, sem humano pedir.
+Schedule::command('atlas:engineering:refactor-census app/Services/Ai --json')
+    ->weeklyOn(1, '05:30')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/acos-refactor-census.log'))
+    ->when(static fn (): bool => (bool) config('atlas.acos.cadence_enabled', true));
+
+// H2.1b — harvester de lições de obra: varre os docs de obra e colhe refutações/NÃO-FAZER
+// para a quarentena G0 (dedupe por claim hash ⇒ idempotente; NUNCA auto-promove — a
+// promoção é decisão explícita do ciclo H2.3).
+Schedule::call(static function (): void {
+    if (! (bool) config('atlas.acos.cadence_enabled', true)) {
+        return;
+    }
+    $harvester = app(\App\Services\Ai\Compounding\AtlasObraLessonHarvester::class);
+    foreach (glob(base_path('docs/obra*.md')) ?: [] as $doc) {
+        try {
+            $harvester->harvest($doc, dryRun: false);
+        } catch (\Throwable) {
+            // fail-open: um doc malformado não derruba a colheita dos demais
+        }
+    }
+})->dailyAt('06:40')->name('acos-harvest-obra-lessons')->withoutOverlapping();
