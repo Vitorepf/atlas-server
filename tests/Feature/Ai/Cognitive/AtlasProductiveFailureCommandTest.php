@@ -7,29 +7,20 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 
 class AtlasProductiveFailureCommandTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use TestsWithLedgerEvents;
 
-        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_07_120000_create_dreyfus_overlays_table.php'))->up();
-        (require database_path('migrations/2026_05_07_140000_create_worked_examples_table.php'))->up();
-        (require database_path('migrations/2026_05_07_180000_create_productive_failure_sessions_table.php'))->up();
-    }
+    private const LEDGER_COMPANION_MIGRATIONS = [
+        '2026_05_07_120000_create_dreyfus_overlays_table.php',
+        '2026_05_07_140000_create_worked_examples_table.php',
+        '2026_05_07_180000_create_productive_failure_sessions_table.php',
+    ];
 
-    protected function tearDown(): void
-    {
-        Schema::dropIfExists('productive_failure_sessions');
-        Schema::dropIfExists('worked_examples');
-        Schema::dropIfExists('dreyfus_overlays');
-        Schema::dropIfExists('atlas_ledger_events');
-
-        parent::tearDown();
-    }
+    private const LEDGER_COMPANION_TABLES = ['productive_failure_sessions', 'worked_examples', 'dreyfus_overlays'];
 
     public function test_command_runs_full_productive_failure_session_with_ledger_events(): void
     {

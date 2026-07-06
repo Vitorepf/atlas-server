@@ -7,31 +7,20 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 
 class AtlasWorkedExamplePersonalExtractionCommandTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use TestsWithLedgerEvents;
 
-        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_07_120000_create_dreyfus_overlays_table.php'))->up();
-        (require database_path('migrations/2026_05_07_140000_create_worked_examples_table.php'))->up();
-        (require database_path('migrations/2026_05_07_190000_create_worked_example_extractions_table.php'))->up();
-    }
+    private const LEDGER_COMPANION_MIGRATIONS = [
+        '2026_05_07_120000_create_dreyfus_overlays_table.php',
+        '2026_05_07_140000_create_worked_examples_table.php',
+        '2026_05_07_190000_create_worked_example_extractions_table.php',
+    ];
 
-    protected function tearDown(): void
-    {
-        Schema::dropIfExists('personal_extraction_jobs');
-        Schema::dropIfExists('worked_example_extractions');
-        Schema::dropIfExists('worked_examples');
-        Schema::dropIfExists('dreyfus_overlays');
-        Schema::dropIfExists('atlas_ledger_events');
-
-        parent::tearDown();
-    }
+    private const LEDGER_COMPANION_TABLES = ['personal_extraction_jobs', 'worked_example_extractions', 'worked_examples', 'dreyfus_overlays'];
 
     public function test_extracts_personal_programming_example_from_ledger_without_creating_parallel_flow(): void
     {

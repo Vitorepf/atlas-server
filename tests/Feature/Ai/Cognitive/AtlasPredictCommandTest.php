@@ -9,32 +9,27 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 
 class AtlasPredictCommandTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use TestsWithLedgerEvents;
 
-        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_07_120000_create_dreyfus_overlays_table.php'))->up();
-        (require database_path('migrations/2026_05_07_160000_create_failure_signatures_table.php'))->up();
-        (require database_path('migrations/2026_05_09_170000_create_predictive_failure_insertions_table.php'))->up();
-    }
+    private const LEDGER_COMPANION_MIGRATIONS = [
+        '2026_05_07_120000_create_dreyfus_overlays_table.php',
+        '2026_05_07_160000_create_failure_signatures_table.php',
+        '2026_05_09_170000_create_predictive_failure_insertions_table.php',
+    ];
 
-    protected function tearDown(): void
-    {
-        Schema::dropIfExists('predictive_failure_calibration_metrics');
-        Schema::dropIfExists('predictive_failure_insertions');
-        Schema::dropIfExists('failure_repetition_alerts');
-        Schema::dropIfExists('failure_diversity_metrics');
-        Schema::dropIfExists('failure_signatures');
-        Schema::dropIfExists('dreyfus_overlays');
-        Schema::dropIfExists('atlas_ledger_events');
-
-        parent::tearDown();
-    }
+    private const LEDGER_COMPANION_TABLES = [
+        'predictive_failure_calibration_metrics',
+        'predictive_failure_insertions',
+        'failure_repetition_alerts',
+        'failure_diversity_metrics',
+        'failure_signatures',
+        'dreyfus_overlays',
+    ];
 
     public function test_predict_failure_insert_resolve_and_metrics_flow(): void
     {

@@ -4,28 +4,19 @@ namespace Tests\Feature\Ai\Cognitive;
 
 use App\Services\Ai\Cognitive\WorkedExample\WorkedExampleRepository;
 use App\Services\Ai\Domain\AtlasLearningOrchestrator;
-use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 
 class LearningWorkedExampleFlowIntegrationTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use TestsWithLedgerEvents;
 
-        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_07_120000_create_dreyfus_overlays_table.php'))->up();
-        (require database_path('migrations/2026_05_07_140000_create_worked_examples_table.php'))->up();
-    }
+    private const LEDGER_COMPANION_MIGRATIONS = [
+        '2026_05_07_120000_create_dreyfus_overlays_table.php',
+        '2026_05_07_140000_create_worked_examples_table.php',
+    ];
 
-    protected function tearDown(): void
-    {
-        Schema::dropIfExists('worked_examples');
-        Schema::dropIfExists('dreyfus_overlays');
-        Schema::dropIfExists('atlas_ledger_events');
-
-        parent::tearDown();
-    }
+    private const LEDGER_COMPANION_TABLES = ['worked_examples', 'dreyfus_overlays'];
 
     public function test_learning_worked_example_flow_emits_packet_and_receipt(): void
     {

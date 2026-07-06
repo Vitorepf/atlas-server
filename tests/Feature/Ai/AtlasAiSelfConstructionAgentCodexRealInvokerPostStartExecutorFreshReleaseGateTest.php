@@ -4,16 +4,17 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartExecutorFreshReleaseGate;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesCodexRealInvokerPostStartFixtures;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartExecutorFreshReleaseGateTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesCodexRealInvokerPostStartFixtures;
 
     public function test_post_start_executor_fresh_release_records_without_enabling_executor(): void
     {
@@ -187,36 +188,6 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartExecutorFreshReleaseG
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function baseRun(string $runKey): array
-    {
-        return [
-            'run_key' => $runKey,
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
-            'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
-        ];
-    }
-
-    /**
      * @param  array<string,mixed>  $planOverrides
      * @return array<string,mixed>
      */
@@ -358,5 +329,4 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartExecutorFreshReleaseG
             'invoker_contract_hash' => str_repeat('9', 64),
         ];
     }
-
 }

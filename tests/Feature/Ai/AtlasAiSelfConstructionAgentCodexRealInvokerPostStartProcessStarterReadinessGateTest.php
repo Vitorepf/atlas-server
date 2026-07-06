@@ -4,16 +4,17 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartProcessStarterReadinessGate;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesCodexRealInvokerPostStartFixtures;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStarterReadinessGateTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesCodexRealInvokerPostStartFixtures;
 
     public function test_post_start_process_starter_readiness_prepares_without_starting_codex(): void
     {
@@ -173,36 +174,6 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStarterReadine
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function baseRun(string $runKey): array
-    {
-        return [
-            'run_key' => $runKey,
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
-            'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
-        ];
-    }
-
-    /**
      * @param  array<string,mixed>  $startExecutionOverrides
      * @return array<string,mixed>
      */
@@ -254,44 +225,6 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStarterReadine
             'provider_started' => false,
             'dispatch_allowed' => false,
         ]);
-    }
-
-    /**
-     * @return array<string,string>
-     */
-    private function baseChain(): array
-    {
-        return [
-            'codex_execution_id' => 'codex-execution-001',
-            'supervised_start_id' => 'codex-supervised-start-001',
-            'spawn_enablement_id' => 'codex-spawn-enable-001',
-            'spawn_executor_id' => 'codex-spawn-executor-001',
-            'runtime_driver_id' => 'codex-runtime-driver-001',
-            'invocation_authorization_id' => 'codex-invocation-auth-001',
-            'dry_run_id' => 'codex-invoker-dry-run-001',
-            'real_invoker_release_preflight_id' => 'codex-real-invoker-preflight-001',
-            'signed_real_invoker_release_id' => 'codex-signed-real-invoker-release-001',
-            'real_invoker_implementation_boundary_id' => 'codex-real-invoker-boundary-001',
-            'real_invoker_executor_plan_id' => 'codex-real-invoker-executor-plan-001',
-            'real_invoker_executor_fresh_release_id' => 'codex-real-invoker-fresh-release-001',
-            'process_start_release_id' => 'codex-start-release-001',
-            'operator_fresh_release_receipt_hash' => str_repeat('b', 64),
-            'plan_revalidation_report_hash' => str_repeat('0', 64),
-            'freshness_window_hash' => str_repeat('a', 64),
-            'final_human_signature_hash' => str_repeat('d', 64),
-            'real_invoker_contract_hash' => str_repeat('2', 64),
-            'release_policy_hash' => str_repeat('5', 64),
-            'implementation_plan_hash' => str_repeat('c', 64),
-            'executor_binary_contract_hash' => str_repeat('9', 64),
-            'executor_observability_contract_hash' => str_repeat('1', 64),
-            'process_command_hash' => str_repeat('6', 64),
-            'environment_contract_hash' => str_repeat('7', 64),
-            'termination_policy_hash' => str_repeat('8', 64),
-            'stdout_stderr_sink_hash' => str_repeat('e', 64),
-            'liveness_probe_hash' => str_repeat('f', 64),
-            'rollback_plan_hash' => str_repeat('3', 64),
-            'max_runtime_policy_hash' => str_repeat('4', 64),
-        ];
     }
 
     /**
@@ -467,5 +400,4 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartProcessStarterReadine
         $this->assertSame('active_lease', $result['missing_proof']);
         $this->assertSame('reclaim_or_renew_active_lease', $result['repair_hint']);
     }
-
 }
