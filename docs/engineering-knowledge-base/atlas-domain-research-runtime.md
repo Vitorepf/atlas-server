@@ -104,6 +104,7 @@ evidence:
   - tests/Feature/Ai/ResearchDomain
 evidence_refs:
   - symbol: ResearchRuntimeService
+  - test: ResearchDomainReadinessTest
   - command: atlas:ai:research-domain
 required_tests:
   - "php artisan test tests/Feature/Ai/ResearchDomain"

@@ -62,6 +62,7 @@ evidence:
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
 evidence_refs:
   - symbol: AtlasContextCompilerRuntimeService
+  - test: ContextCompilerRuntimeTest
   - command: atlas:context:compile
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

@@ -58,6 +58,7 @@ evidence:
   - tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php
 evidence_refs:
   - symbol: AtlasRetrievalFeedbackLoopService
+  - test: RetrievalFeedbackLoopTest
   - command: atlas:context:retrieval-feedback
 required_tests:
   - "php artisan test tests/Feature/Ai/Context/RetrievalFeedbackLoopTest.php"

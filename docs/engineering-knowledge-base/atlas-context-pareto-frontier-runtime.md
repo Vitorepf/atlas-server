@@ -53,6 +53,7 @@ evidence:
   - docs/engineering-knowledge-base/atlas-context-pareto-frontier-runtime.md
 evidence_refs:
   - symbol: AtlasContextParetoFrontierRuntimeService
+  - test: ContextParetoFrontierRuntimeTest
   - command: atlas:context:pareto-frontier
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"

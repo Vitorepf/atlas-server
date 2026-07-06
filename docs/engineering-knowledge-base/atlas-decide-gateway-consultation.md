@@ -55,6 +55,7 @@ evidence:
   - tests/Unit/Ai/AtlasDecide/AtlasDecideGatewayConsultationServiceTest.php
 evidence_refs:
   - symbol: AtlasDecideGatewayConsultationService
+  - test: AtlasDecideGatewayConsultationServiceTest
   - command: atlas:atlas-decide:gateway-consult
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasDecideGatewayConsultationServiceTest.php"

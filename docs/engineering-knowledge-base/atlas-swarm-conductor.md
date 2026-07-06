@@ -58,6 +58,7 @@ evidence:
   - tests/Unit/Ai/AtlasDecide/AtlasSwarmConductorServiceTest.php
 evidence_refs:
   - symbol: AtlasSwarmConductorService
+  - test: AtlasSwarmConductorServiceTest
   - command: atlas:swarm:execute
 required_tests:
   - "php artisan test tests/Unit/Ai/AtlasDecide/AtlasSwarmConductorServiceTest.php"

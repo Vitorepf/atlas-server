@@ -59,6 +59,7 @@ evidence:
   - tests/Unit/Ai/Reconciliation/AtlasAutonomousReconciliationRuntimeServiceTest.php
 evidence_refs:
   - symbol: AtlasAutonomousReconciliationRuntimeService
+  - test: AtlasAutonomousReconciliationRuntimeServiceTest
   - command: atlas:reconciliation
 required_tests:
   - "php artisan test tests/Unit/Ai/Reconciliation/AtlasAutonomousReconciliationRuntimeServiceTest.php"

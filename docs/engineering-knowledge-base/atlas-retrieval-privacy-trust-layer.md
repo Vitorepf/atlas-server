@@ -57,6 +57,7 @@ evidence:
   - docs/engineering-knowledge-base/atlas-retrieval-privacy-trust-layer.md
 evidence_refs:
   - symbol: AtlasRetrievalPrivacyTrustLayerService
+  - test: RetrievalPrivacyTrustLayerTest
   - command: atlas:context:privacy-trust
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
