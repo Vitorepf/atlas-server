@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskSwarmProofService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -157,7 +158,7 @@ class AtlasTaskSwarmProofCommand extends Command
         }
 
         if (! $this->option('keep')) {
-            $this->rmrf($swarmRoot);
+            File::deleteDirectory($swarmRoot);
         }
 
         if ($this->option('json')) {
@@ -370,19 +371,4 @@ class AtlasTaskSwarmProofCommand extends Command
         $this->line('');
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        $items = scandir($dir) ?: [];
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-            $path = $dir.'/'.$item;
-            is_dir($path) ? $this->rmrf($path) : @unlink($path);
-        }
-        @rmdir($dir);
-    }
 }

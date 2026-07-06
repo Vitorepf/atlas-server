@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutor;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
 final class AtlasDevSeniorLoopRunCommand extends Command
@@ -74,7 +75,7 @@ final class AtlasDevSeniorLoopRunCommand extends Command
             $payload['persisted_ref'] = 'receipts/'.$execution->runId.'/senior_engineer_loop_execution.json';
         } finally {
             if ($created && ! (bool) $this->option('keep-workspace')) {
-                $this->rmrf($workspace);
+                File::deleteDirectory($workspace);
             }
         }
 
@@ -230,23 +231,4 @@ PHP);
         ]);
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }

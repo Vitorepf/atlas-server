@@ -213,7 +213,7 @@ final class AtlasDevDesktopRealSmokeCommand extends Command
             ], self::FAILURE);
         } finally {
             if ($createdTempWorkspace && ! (bool) $this->option('keep-workspace')) {
-                $this->rmrf($workspace);
+                File::deleteDirectory($workspace);
             }
         }
     }
@@ -353,23 +353,4 @@ PHP);
         return is_string($safe) && $safe !== '' ? $safe : 'unknown';
     }
 
-    private function rmrf(string $dir): void
-    {
-        if (! is_dir($dir)) {
-            return;
-        }
-        foreach (scandir($dir) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-            $path = $dir.DIRECTORY_SEPARATOR.$entry;
-            if (is_dir($path)) {
-                $this->rmrf($path);
-            } else {
-                @chmod($path, 0o600);
-                @unlink($path);
-            }
-        }
-        @rmdir($dir);
-    }
 }
