@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\AutonomousEvolution;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -62,10 +63,10 @@ class AtlasAutonomyCommandsTest extends TestCase
             '--json' => true,
         ])->assertExitCode(0);
 
-        $this->artisan('atlas:autonomy:status', ['--json' => true])
-            ->expectsOutputToContain('"autonomy_tier_active": 1')
-            ->expectsOutputToContain('"operator_signed": true')
-            ->assertExitCode(0);
+        $this->assertSame(0, Artisan::call('atlas:autonomy:status', ['--json' => true]));
+        $output = Artisan::output();
+        $this->assertStringContainsString('"autonomy_tier_active": 1', $output);
+        $this->assertStringContainsString('"operator_signed": true', $output);
     }
 
     public function test_promote_without_receipt_blocks_honestly(): void
@@ -76,8 +77,7 @@ class AtlasAutonomyCommandsTest extends TestCase
         ])->expectsOutputToContain('operator_receipt_signature_missing')
             ->assertExitCode(1);
 
-        $this->artisan('atlas:autonomy:status', ['--json' => true])
-            ->expectsOutputToContain('"autonomy_tier_active": 0')
-            ->assertExitCode(0);
+        $this->assertSame(0, Artisan::call('atlas:autonomy:status', ['--json' => true]));
+        $this->assertStringContainsString('"autonomy_tier_active": 0', Artisan::output());
     }
 }
