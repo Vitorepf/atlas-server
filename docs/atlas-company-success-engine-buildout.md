@@ -88,7 +88,7 @@ IDEIA / EMPRESA-A-GERIR
 - **Reúso:** tabela e `recordMetric()` já existem. Zero migration.
 - **DoD:** `atlas:venture metric-record --venture=blackink --metric=mrr --value=... --currency=BRL` grava; `latestMetrics()` retorna. Teste: observação MRR persiste e lê.
 
-**Slice M2 — Avaliador de sucesso sustentado** ⭐ (o coração novo)
+**Slice M2 — Avaliador de sucesso sustentado** ⭐ (o coração novo) *(retired 2026-07-06, Obra #7 W2: superseded por VentureReconciledSuccessEvaluator)*
 - **O quê:** `VentureSuccessEvaluator` — uma venture é `succeeded` sse houver **≥3 observações mensais consecutivas de `mrr` ≥ threshold** (config `success_mrr_threshold_brl=1000`, `success_min_consecutive_months=3`). Estados: `insufficient_data` (< N obs), `not_yet`, `succeeded`, `failed` (caiu abaixo após ter atingido = churn definitivo, por política). Lê HISTÓRICO de observações (não `latestMetrics`).
 - **Onde:** `app/Services/Ai/VentureFoundry/Success/VentureSuccessEvaluator.php`. Config em `config/atlas_venture_foundry.php`.
 - **Reúso:** lê `ai_venture_metric_observations`. **Sem tabela nova** (estado é computado).

@@ -122,11 +122,4 @@ return [
             ],
         ],
     ],
-
-    // Dev weak-output escalation: when a model tier repeatedly emits weak output,
-    // climb the model ladder instead of burning repair attempts on the same tier.
-    'dev_weak_output_escalation' => [
-        'ladder' => ['small', 'medium', 'frontier'],
-        'attempts_per_tier' => 2,
-    ],
 ];

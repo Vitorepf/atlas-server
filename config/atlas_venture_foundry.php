@@ -38,8 +38,8 @@ return [
     // Company Success Engine (meta >=70%). Sucesso = receita recorrente
     // sustentada: MRR >= threshold mantido por >= N meses consecutivos.
     // Medido so contra observacoes persistidas (nunca auto-declarado).
-    'success_metric_key' => env('ATLAS_VENTURE_SUCCESS_METRIC', 'mrr'),
-    'success_mrr_threshold' => (float) env('ATLAS_VENTURE_SUCCESS_MRR_THRESHOLD', 1000.0),
+    // success_metric_key / success_mrr_threshold removidos (retired 2026-07-06,
+    // Obra #7 W2: so o VentureSuccessEvaluator lia; superseded por VentureReconciledSuccessEvaluator).
     'success_min_consecutive_months' => (int) env('ATLAS_VENTURE_SUCCESS_MIN_MONTHS', 3),
 
     // Gate de admissao: default-OFF. Quando ON, promote()/criacao so admite
