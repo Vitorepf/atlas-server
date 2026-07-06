@@ -71,3 +71,9 @@ H1.1 → H1.2 (paralelo) → H1.3 → H2.1 → H2.2 → H2.3/H2.4 → H3 conform
 | H3.2 | cadeia S49→S55 em implementação (implement-only; tier fica 0 até assinatura) | em curso |
 
 **Gotcha de sessão**: task-workers launchd commitando na main em paralelo clobberam arquivos untracked/appended 2×) — mitigação: commit atômico imediato após cada edição.
+
+## FECHAMENTO DO GOAL (06/07 ~19h): 3 notas ≥9 ATINGIDAS
+
+`atlas:cognition:evolution-score` final: **geral 9.43** — Execução provada **9.29** (pipeline do scorecard v3, 60/60 receipts verdes no passe final; scorecard overall 9.76+), Inteligência entregue **10.0** (cadência 4/4 + zero echo + feedback vivo + 1 lição promovida), Autonomia **9.0** = teto honesto sem assinatura S49 (motor vivo + gates auditados frescos + cadeia implementada e auditada + tier exposto; `operator_signature=awaiting`). O 10 de autonomia é exclusivamente seu: assinar o receipt S49 (`atlas:autonomy:promote`) + `atlas:loop:on`.
+
+Descobertas extras do fechamento: (1) parser do Code Intelligence só extraía a PRIMEIRA classe de arquivos multi-classe — testes reais atrás de stubs eram invisíveis (fix + EXTRACTOR_VERSION 5); (2) mint concorrente com reindex grava reds falsos — mint diário movido para depois do index-code.
