@@ -59,6 +59,120 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
+     * Table-driven engine behind the uniform *RuntimeStatus readers (Obra #8 R-16).
+     *
+     * @param array{
+     *     schema:string,status_complete:string,status_missing:string,hash_key:string,
+     *     completed_key:string,missing_key:string,
+     *     flows:\Closure,gate:\Closure|list<string|array{0:string,1:string}>,
+     *     counts:array<string,string|array{0:string,1:string}|\Closure>,
+     *     policy:array<string,bool>
+     * } $spec
+     * @return array<string,mixed>
+     */
+    private function runtimeStatusFor(array $spec, ?string $companyId): array
+    {
+        $gate = $spec['gate'];
+        if (! $gate instanceof \Closure) {
+            $gatePredicates = array_map(self::recordPredicate(...), $gate);
+            $gate = static function (array $record) use ($gatePredicates): bool {
+                foreach ($gatePredicates as $predicate) {
+                    if (! $predicate($record)) {
+                        return false;
+                    }
+                }
+
+                return true;
+            };
+        }
+
+        $countPredicates = [];
+        foreach ($spec['counts'] as $summaryKey => $definition) {
+            $countPredicates[$summaryKey] = $definition instanceof \Closure
+                ? $definition
+                : self::recordPredicate($definition);
+        }
+
+        $companies = [];
+        $records = [];
+
+        foreach ((array) $this->buildoutReport()['companies'] as $company) {
+            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
+            if ($companyId !== null && $companyId !== $currentCompanyId) {
+                continue;
+            }
+
+            $flows = ($spec['flows'])($company);
+            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
+            $matchingRecords = array_values(array_filter($companyRecords, $gate));
+            $completedFlows = array_values(array_unique(array_filter(array_map(
+                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
+                $matchingRecords,
+            ))));
+
+            $companySummary = [
+                'company_id' => $currentCompanyId,
+                'expected_flow_count' => count($flows),
+                $spec['completed_key'] => count(array_intersect($flows, $completedFlows)),
+                $spec['missing_key'] => array_values(array_diff($flows, $completedFlows)),
+                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
+            ];
+            foreach ($countPredicates as $summaryKey => $predicate) {
+                $companySummary[$summaryKey] = count(array_filter($companyRecords, $predicate));
+            }
+
+            $companies[] = $companySummary;
+            array_push($records, ...$companyRecords);
+        }
+
+        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
+        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company[$spec['completed_key']], $companies));
+        $summary = [
+            'company_count' => count($companies),
+            'expected_flow_count' => $expectedFlowCount,
+            $spec['completed_key'] => $completedFlowCount,
+            'runtime_record_count' => count($records),
+        ];
+        foreach ($countPredicates as $summaryKey => $_predicate) {
+            $summary[$summaryKey] = array_sum(array_map(static fn (array $company): int => (int) $company[$summaryKey], $companies));
+        }
+        $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
+        $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
+
+        return AtlasEnvelope::seal([
+            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
+            'schema' => $spec['schema'],
+            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
+                ? $spec['status_complete']
+                : $spec['status_missing'],
+            'generated_at' => now()->toJSON(),
+            'summary' => $summary,
+            'companies' => $companies,
+            'records' => $records,
+            'policy' => $spec['policy'],
+        ], $spec['hash_key']);
+    }
+
+    /**
+     * @param  string|array{0:string,1:string}  $definition  string = bool-bound record key
+     */
+    private static function recordPredicate(string|array $definition): \Closure
+    {
+        if (is_string($definition)) {
+            return static fn (array $record): bool => (bool) ($record[$definition] ?? false);
+        }
+
+        [$type, $key] = $definition;
+
+        return match ($type) {
+            'bound' => static fn (array $record): bool => (bool) ($record[$key] ?? false),
+            'hash' => static fn (array $record): bool => (string) ($record[$key] ?? '') !== '',
+            'count' => static fn (array $record): bool => (int) ($record[$key] ?? 0) > 0,
+            'internal' => static fn (array $record): bool => (bool) ($record[$key] ?? true) === false,
+        };
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function runPortfolioInternal(?string $companyId = null): array
@@ -150,105 +264,59 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function companySystemModelRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-        $boundKeys = [
-            'domain_data_model_bound_count' => 'company_system_domain_data_model_bound',
-            'data_lineage_bound_count' => 'company_system_data_lineage_bound',
-            'business_process_bound_count' => 'company_system_business_process_bound',
-            'deliverable_quality_bound_count' => 'company_system_deliverable_quality_bound',
-            'production_pack_bound_count' => 'company_system_production_pack_bound',
-            'production_observability_bound_count' => 'company_system_production_observability_bound',
-            'slo_sli_bound_count' => 'company_system_slo_sli_bound',
-            'incident_response_bound_count' => 'company_system_incident_response_bound',
-            'capacity_plan_bound_count' => 'company_system_capacity_plan_bound',
-            'integration_enablement_bound_count' => 'company_system_integration_enablement_bound',
-            'commercial_stack_bound_count' => 'company_system_commercial_stack_bound',
-            'commercial_intake_bound_count' => 'company_system_commercial_intake_bound',
-            'commercial_fulfillment_bound_count' => 'company_system_commercial_fulfillment_bound',
-            'external_actions_blocked_count' => 'company_system_external_actions_blocked',
-        ];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_company_system_model_runtime_status.v1',
+            'status_complete' => 'complete_company_system_model_runtime_coverage_external_commitments_blocked',
+            'status_missing' => 'missing_company_system_model_runtime_coverage',
+            'hash_key' => 'company_system_model_runtime_status_hash',
+            'completed_key' => 'completed_company_system_model_flow_count',
+            'missing_key' => 'missing_company_system_model_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $systemRecords = array_values(array_filter(
-                $companyRecords,
-                static function (array $record) use ($boundKeys): bool {
-                    if (! (bool) ($record['company_system_model_runtime_bound'] ?? false)
-                        || (string) ($record['company_system_model_attestation_hash'] ?? '') === ''
-                        || (bool) ($record['external_side_effects'] ?? true) !== false) {
-                        return false;
-                    }
-
-                    foreach ($boundKeys as $recordKey) {
-                        if (! (bool) ($record[$recordKey] ?? false)) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                },
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $systemRecords,
-            ))));
-
-            $companySummary = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_company_system_model_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_company_system_model_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-            ];
-            foreach ($boundKeys as $summaryKey => $recordKey) {
-                $companySummary[$summaryKey] = count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record[$recordKey] ?? false)));
-            }
-
-            $companies[] = $companySummary;
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_company_system_model_flow_count'], $companies));
-        $summary = [
-            'company_count' => count($companies),
-            'expected_flow_count' => $expectedFlowCount,
-            'completed_company_system_model_flow_count' => $completedFlowCount,
-            'runtime_record_count' => count($records),
-        ];
-        foreach ($boundKeys as $summaryKey => $_recordKey) {
-            $summary[$summaryKey] = array_sum(array_map(static fn (array $company): int => (int) $company[$summaryKey], $companies));
-        }
-        $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
-        $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_company_system_model_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_company_system_model_runtime_coverage_external_commitments_blocked'
-                : 'missing_company_system_model_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => $summary,
-            'companies' => $companies,
-            'records' => $records,
+            )),
+            'gate' => [
+                'company_system_model_runtime_bound',
+                ['hash', 'company_system_model_attestation_hash'],
+                ['internal', 'external_side_effects'],
+                'company_system_domain_data_model_bound',
+                'company_system_data_lineage_bound',
+                'company_system_business_process_bound',
+                'company_system_deliverable_quality_bound',
+                'company_system_production_pack_bound',
+                'company_system_production_observability_bound',
+                'company_system_slo_sli_bound',
+                'company_system_incident_response_bound',
+                'company_system_capacity_plan_bound',
+                'company_system_integration_enablement_bound',
+                'company_system_commercial_stack_bound',
+                'company_system_commercial_intake_bound',
+                'company_system_commercial_fulfillment_bound',
+                'company_system_external_actions_blocked',
+            ],
+            'counts' => [
+                'domain_data_model_bound_count' => 'company_system_domain_data_model_bound',
+                'data_lineage_bound_count' => 'company_system_data_lineage_bound',
+                'business_process_bound_count' => 'company_system_business_process_bound',
+                'deliverable_quality_bound_count' => 'company_system_deliverable_quality_bound',
+                'production_pack_bound_count' => 'company_system_production_pack_bound',
+                'production_observability_bound_count' => 'company_system_production_observability_bound',
+                'slo_sli_bound_count' => 'company_system_slo_sli_bound',
+                'incident_response_bound_count' => 'company_system_incident_response_bound',
+                'capacity_plan_bound_count' => 'company_system_capacity_plan_bound',
+                'integration_enablement_bound_count' => 'company_system_integration_enablement_bound',
+                'commercial_stack_bound_count' => 'company_system_commercial_stack_bound',
+                'commercial_intake_bound_count' => 'company_system_commercial_intake_bound',
+                'commercial_fulfillment_bound_count' => 'company_system_commercial_fulfillment_bound',
+                'external_actions_blocked_count' => 'company_system_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'commercial_external_billing_allowed' => false,
                 'calendar_wait_blocker_enabled' => false,
                 'company_system_model_requires_data_process_quality_production_and_commercial_contracts' => true,
             ],
-        ], 'company_system_model_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -256,101 +324,51 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function internalOperationsBackboneRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-        $boundKeys = [
-            'account_contract_delivery_bound_count' => 'internal_ops_account_contract_delivery_bound',
-            'vendor_legal_procurement_bound_count' => 'internal_ops_vendor_legal_procurement_bound',
-            'resilience_continuity_bound_count' => 'internal_ops_resilience_continuity_bound',
-            'analytics_decision_intelligence_bound_count' => 'internal_ops_analytics_decision_intelligence_bound',
-            'knowledge_memory_learning_bound_count' => 'internal_ops_knowledge_memory_learning_bound',
-            'identity_access_sovereignty_bound_count' => 'internal_ops_identity_access_sovereignty_bound',
-            'control_tower_run_operations_bound_count' => 'internal_ops_control_tower_run_operations_bound',
-            'delivery_assurance_bound_count' => 'internal_ops_delivery_assurance_bound',
-            'grc_control_evidence_bound_count' => 'internal_ops_grc_control_evidence_bound',
-            'external_actions_blocked_count' => 'internal_ops_external_actions_blocked',
-        ];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_internal_operations_backbone_runtime_status.v1',
+            'status_complete' => 'complete_internal_operations_backbone_runtime_coverage_external_actions_blocked',
+            'status_missing' => 'missing_internal_operations_backbone_runtime_coverage',
+            'hash_key' => 'internal_operations_backbone_runtime_status_hash',
+            'completed_key' => 'completed_internal_operations_backbone_flow_count',
+            'missing_key' => 'missing_internal_operations_backbone_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $backboneRecords = array_values(array_filter(
-                $companyRecords,
-                static function (array $record) use ($boundKeys): bool {
-                    if (! (bool) ($record['internal_operations_backbone_runtime_bound'] ?? false)
-                        || (string) ($record['internal_operations_backbone_attestation_hash'] ?? '') === ''
-                        || (bool) ($record['external_side_effects'] ?? true) !== false) {
-                        return false;
-                    }
-
-                    foreach ($boundKeys as $recordKey) {
-                        if (! (bool) ($record[$recordKey] ?? false)) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                },
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $backboneRecords,
-            ))));
-
-            $companySummary = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_internal_operations_backbone_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_internal_operations_backbone_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-            ];
-            foreach ($boundKeys as $summaryKey => $recordKey) {
-                $companySummary[$summaryKey] = count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record[$recordKey] ?? false)));
-            }
-
-            $companies[] = $companySummary;
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_internal_operations_backbone_flow_count'], $companies));
-        $summary = [
-            'company_count' => count($companies),
-            'expected_flow_count' => $expectedFlowCount,
-            'completed_internal_operations_backbone_flow_count' => $completedFlowCount,
-            'runtime_record_count' => count($records),
-        ];
-        foreach ($boundKeys as $summaryKey => $_recordKey) {
-            $summary[$summaryKey] = array_sum(array_map(static fn (array $company): int => (int) $company[$summaryKey], $companies));
-        }
-        $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
-        $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_internal_operations_backbone_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_internal_operations_backbone_runtime_coverage_external_actions_blocked'
-                : 'missing_internal_operations_backbone_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => $summary,
-            'companies' => $companies,
-            'records' => $records,
+            )),
+            'gate' => [
+                'internal_operations_backbone_runtime_bound',
+                ['hash', 'internal_operations_backbone_attestation_hash'],
+                ['internal', 'external_side_effects'],
+                'internal_ops_account_contract_delivery_bound',
+                'internal_ops_vendor_legal_procurement_bound',
+                'internal_ops_resilience_continuity_bound',
+                'internal_ops_analytics_decision_intelligence_bound',
+                'internal_ops_knowledge_memory_learning_bound',
+                'internal_ops_identity_access_sovereignty_bound',
+                'internal_ops_control_tower_run_operations_bound',
+                'internal_ops_delivery_assurance_bound',
+                'internal_ops_grc_control_evidence_bound',
+                'internal_ops_external_actions_blocked',
+            ],
+            'counts' => [
+                'account_contract_delivery_bound_count' => 'internal_ops_account_contract_delivery_bound',
+                'vendor_legal_procurement_bound_count' => 'internal_ops_vendor_legal_procurement_bound',
+                'resilience_continuity_bound_count' => 'internal_ops_resilience_continuity_bound',
+                'analytics_decision_intelligence_bound_count' => 'internal_ops_analytics_decision_intelligence_bound',
+                'knowledge_memory_learning_bound_count' => 'internal_ops_knowledge_memory_learning_bound',
+                'identity_access_sovereignty_bound_count' => 'internal_ops_identity_access_sovereignty_bound',
+                'control_tower_run_operations_bound_count' => 'internal_ops_control_tower_run_operations_bound',
+                'delivery_assurance_bound_count' => 'internal_ops_delivery_assurance_bound',
+                'grc_control_evidence_bound_count' => 'internal_ops_grc_control_evidence_bound',
+                'external_actions_blocked_count' => 'internal_ops_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'customer_vendor_memory_identity_delivery_external_actions_allowed' => false,
                 'operator_mandate_required_for_external_action' => true,
                 'internal_operations_backbone_requires_account_vendor_resilience_analytics_memory_identity_control_tower_delivery_and_grc' => true,
             ],
-        ], 'internal_operations_backbone_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -358,96 +376,48 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function activationRunOperationsRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-        $boundKeys = [
-            'integration_activation_plan_bound_count' => 'activation_ops_integration_plan_bound',
-            'activation_policy_bound_count' => 'activation_ops_policy_bound',
-            'source_activation_tracks_bound_count' => 'activation_ops_source_tracks_bound',
-            'connector_activation_tracks_bound_count' => 'activation_ops_connector_tracks_bound',
-            'flow_activation_matrix_bound_count' => 'activation_ops_flow_matrix_bound',
-            'run_queue_model_bound_count' => 'activation_ops_run_queue_model_bound',
-            'flow_operations_lane_bound_count' => 'activation_ops_flow_lane_bound',
-            'connector_operations_probe_bound_count' => 'activation_ops_connector_probe_bound',
-            'live_read_probe_plan_bound_count' => 'activation_ops_live_read_probe_bound',
-            'rehearsal_promotion_evidence_bound_count' => 'activation_ops_rehearsal_promotion_evidence_bound',
-            'observability_bound_count' => 'activation_ops_observability_bound',
-            'external_actions_blocked_count' => 'activation_ops_external_actions_blocked',
-        ];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_activation_run_operations_runtime_status.v1',
+            'status_complete' => 'complete_activation_run_operations_runtime_coverage_external_actions_blocked',
+            'status_missing' => 'missing_activation_run_operations_runtime_coverage',
+            'hash_key' => 'activation_run_operations_runtime_status_hash',
+            'completed_key' => 'completed_activation_run_operations_flow_count',
+            'missing_key' => 'missing_activation_run_operations_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $activationRecords = array_values(array_filter(
-                $companyRecords,
-                static function (array $record) use ($boundKeys): bool {
-                    if (! (bool) ($record['activation_run_operations_runtime_bound'] ?? false)
-                        || (string) ($record['activation_run_operations_attestation_hash'] ?? '') === ''
-                        || (bool) ($record['external_side_effects'] ?? true) !== false) {
-                        return false;
-                    }
-
-                    foreach ($boundKeys as $recordKey) {
-                        if (! (bool) ($record[$recordKey] ?? false)) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                },
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $activationRecords,
-            ))));
-
-            $companySummary = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_activation_run_operations_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_activation_run_operations_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-            ];
-            foreach ($boundKeys as $summaryKey => $recordKey) {
-                $companySummary[$summaryKey] = count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record[$recordKey] ?? false)));
-            }
-
-            $companies[] = $companySummary;
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_activation_run_operations_flow_count'], $companies));
-        $summary = [
-            'company_count' => count($companies),
-            'expected_flow_count' => $expectedFlowCount,
-            'completed_activation_run_operations_flow_count' => $completedFlowCount,
-            'runtime_record_count' => count($records),
-        ];
-        foreach ($boundKeys as $summaryKey => $_recordKey) {
-            $summary[$summaryKey] = array_sum(array_map(static fn (array $company): int => (int) $company[$summaryKey], $companies));
-        }
-        $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
-        $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_activation_run_operations_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_activation_run_operations_runtime_coverage_external_actions_blocked'
-                : 'missing_activation_run_operations_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => $summary,
-            'companies' => $companies,
-            'records' => $records,
+            )),
+            'gate' => [
+                'activation_run_operations_runtime_bound',
+                ['hash', 'activation_run_operations_attestation_hash'],
+                ['internal', 'external_side_effects'],
+                'activation_ops_integration_plan_bound',
+                'activation_ops_policy_bound',
+                'activation_ops_source_tracks_bound',
+                'activation_ops_connector_tracks_bound',
+                'activation_ops_flow_matrix_bound',
+                'activation_ops_run_queue_model_bound',
+                'activation_ops_flow_lane_bound',
+                'activation_ops_connector_probe_bound',
+                'activation_ops_live_read_probe_bound',
+                'activation_ops_rehearsal_promotion_evidence_bound',
+                'activation_ops_observability_bound',
+                'activation_ops_external_actions_blocked',
+            ],
+            'counts' => [
+                'integration_activation_plan_bound_count' => 'activation_ops_integration_plan_bound',
+                'activation_policy_bound_count' => 'activation_ops_policy_bound',
+                'source_activation_tracks_bound_count' => 'activation_ops_source_tracks_bound',
+                'connector_activation_tracks_bound_count' => 'activation_ops_connector_tracks_bound',
+                'flow_activation_matrix_bound_count' => 'activation_ops_flow_matrix_bound',
+                'run_queue_model_bound_count' => 'activation_ops_run_queue_model_bound',
+                'flow_operations_lane_bound_count' => 'activation_ops_flow_lane_bound',
+                'connector_operations_probe_bound_count' => 'activation_ops_connector_probe_bound',
+                'live_read_probe_plan_bound_count' => 'activation_ops_live_read_probe_bound',
+                'rehearsal_promotion_evidence_bound_count' => 'activation_ops_rehearsal_promotion_evidence_bound',
+                'observability_bound_count' => 'activation_ops_observability_bound',
+                'external_actions_blocked_count' => 'activation_ops_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -455,7 +425,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_mandate_required_for_external_action' => true,
                 'activation_runtime_requires_tracks_queue_probe_live_read_rehearsal_and_observability' => true,
             ],
-        ], 'activation_run_operations_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -523,78 +493,37 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function verticalSolutionRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_vertical_solution_runtime_status.v1',
+            'status_complete' => 'complete_vertical_solution_runtime_coverage_external_blocked',
+            'status_missing' => 'missing_vertical_solution_runtime_coverage',
+            'hash_key' => 'vertical_solution_runtime_status_hash',
+            'completed_key' => 'completed_vertical_runtime_flow_count',
+            'missing_key' => 'missing_vertical_runtime_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $kit): string => (string) ($kit['flow_id'] ?? ''),
                 (array) data_get($company, 'enterprise_vertical_solution_suite_stack.flow_solution_kits', []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $verticalRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['vertical_solution_kit_bound'] ?? false)
-                    && (bool) ($record['artifact_factory_bound'] ?? false)
-                    && (int) ($record['vertical_connector_workbench_count'] ?? 0) > 0
-                    && (string) ($record['domain_execution_brief_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $verticalRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_vertical_runtime_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_vertical_runtime_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'vertical_solution_kit_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['vertical_solution_kit_bound'] ?? false))),
-                'artifact_factory_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['artifact_factory_bound'] ?? false))),
-                'vertical_connector_workbench_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (int) ($record['vertical_connector_workbench_count'] ?? 0) > 0)),
-                'domain_execution_brief_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (string) ($record['domain_execution_brief_hash'] ?? '') !== '')),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_vertical_runtime_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_vertical_solution_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_vertical_solution_runtime_coverage_external_blocked'
-                : 'missing_vertical_solution_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_vertical_runtime_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'vertical_solution_kit_bound_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['vertical_solution_kit_bound'] ?? false))),
-                'artifact_factory_bound_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['artifact_factory_bound'] ?? false))),
-                'vertical_connector_workbench_bound_count' => count(array_filter($records, static fn (array $record): bool => (int) ($record['vertical_connector_workbench_count'] ?? 0) > 0)),
-                'domain_execution_brief_bound_count' => count(array_filter($records, static fn (array $record): bool => (string) ($record['domain_execution_brief_hash'] ?? '') !== '')),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'vertical_solution_kit_bound',
+                'artifact_factory_bound',
+                ['count', 'vertical_connector_workbench_count'],
+                ['hash', 'domain_execution_brief_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'vertical_solution_kit_bound_count' => 'vertical_solution_kit_bound',
+                'artifact_factory_bound_count' => 'artifact_factory_bound',
+                'vertical_connector_workbench_bound_count' => ['count', 'vertical_connector_workbench_count'],
+                'domain_execution_brief_bound_count' => ['hash', 'domain_execution_brief_hash'],
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
                 'vertical_solution_runtime_requires_bound_kit_artifact_factory_and_connector_workbench' => true,
                 'operator_mandate_required_for_external_action' => true,
             ],
-        ], 'vertical_solution_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -602,79 +531,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainBusinessExecutionRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_business_execution_runtime_status.v1',
+            'status_complete' => 'complete_domain_business_execution_runtime_coverage_external_blocked',
+            'status_missing' => 'missing_domain_business_execution_runtime_coverage',
+            'hash_key' => 'domain_business_execution_runtime_status_hash',
+            'completed_key' => 'completed_business_execution_runtime_flow_count',
+            'missing_key' => 'missing_business_execution_runtime_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $cell): string => (string) ($cell['flow_id'] ?? ''),
                 (array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $businessExecutionRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['business_execution_cell_bound'] ?? false)
-                    && (bool) ($record['business_kpi_binding_bound'] ?? false)
-                    && (bool) ($record['business_service_lane_bound'] ?? false)
-                    && (bool) ($record['business_artifact_contract_bound'] ?? false)
-                    && (string) ($record['business_execution_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $businessExecutionRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_business_execution_runtime_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_business_execution_runtime_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'business_execution_cell_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_execution_cell_bound'] ?? false))),
-                'business_kpi_binding_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_kpi_binding_bound'] ?? false))),
-                'business_service_lane_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_service_lane_bound'] ?? false))),
-                'business_artifact_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_artifact_contract_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_business_execution_runtime_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_business_execution_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_business_execution_runtime_coverage_external_blocked'
-                : 'missing_domain_business_execution_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_business_execution_runtime_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'business_execution_cell_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_execution_cell_bound_count'], $companies)),
-                'business_kpi_binding_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_kpi_binding_bound_count'], $companies)),
-                'business_service_lane_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_service_lane_bound_count'], $companies)),
-                'business_artifact_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_artifact_contract_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'business_execution_cell_bound',
+                'business_kpi_binding_bound',
+                'business_service_lane_bound',
+                'business_artifact_contract_bound',
+                ['hash', 'business_execution_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'business_execution_cell_bound_count' => 'business_execution_cell_bound',
+                'business_kpi_binding_bound_count' => 'business_kpi_binding_bound',
+                'business_service_lane_bound_count' => 'business_service_lane_bound',
+                'business_artifact_contract_bound_count' => 'business_artifact_contract_bound',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
                 'business_execution_runtime_requires_cell_kpi_lane_and_artifact_contract' => true,
                 'operator_mandate_required_for_external_action' => true,
             ],
-        ], 'domain_business_execution_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -682,89 +570,45 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function companyOperatingSpineRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_company_operating_spine_runtime_status.v1',
+            'status_complete' => 'complete_company_operating_spine_runtime_coverage_external_blocked',
+            'status_missing' => 'missing_company_operating_spine_runtime_coverage',
+            'hash_key' => 'company_operating_spine_runtime_status_hash',
+            'completed_key' => 'completed_operating_spine_flow_count',
+            'missing_key' => 'missing_operating_spine_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $spineRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['company_operating_spine_bound'] ?? false)
-                    && (bool) ($record['customer_market_runtime_bound'] ?? false)
-                    && (bool) ($record['account_contract_runtime_bound'] ?? false)
-                    && (bool) ($record['vendor_legal_runtime_bound'] ?? false)
-                    && (bool) ($record['resilience_runtime_bound'] ?? false)
-                    && (bool) ($record['analytics_runtime_bound'] ?? false)
-                    && (bool) ($record['knowledge_memory_runtime_bound'] ?? false)
-                    && (bool) ($record['identity_sovereignty_runtime_bound'] ?? false)
-                    && (string) ($record['company_operating_spine_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $spineRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_operating_spine_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_operating_spine_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'customer_market_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['customer_market_runtime_bound'] ?? false))),
-                'account_contract_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_contract_runtime_bound'] ?? false))),
-                'vendor_legal_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['vendor_legal_runtime_bound'] ?? false))),
-                'resilience_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['resilience_runtime_bound'] ?? false))),
-                'analytics_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['analytics_runtime_bound'] ?? false))),
-                'knowledge_memory_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['knowledge_memory_runtime_bound'] ?? false))),
-                'identity_sovereignty_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['identity_sovereignty_runtime_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_operating_spine_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_company_operating_spine_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_company_operating_spine_runtime_coverage_external_blocked'
-                : 'missing_company_operating_spine_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_operating_spine_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'customer_market_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_market_runtime_bound_count'], $companies)),
-                'account_contract_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_contract_runtime_bound_count'], $companies)),
-                'vendor_legal_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['vendor_legal_runtime_bound_count'], $companies)),
-                'resilience_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['resilience_runtime_bound_count'], $companies)),
-                'analytics_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['analytics_runtime_bound_count'], $companies)),
-                'knowledge_memory_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['knowledge_memory_runtime_bound_count'], $companies)),
-                'identity_sovereignty_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['identity_sovereignty_runtime_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'company_operating_spine_bound',
+                'customer_market_runtime_bound',
+                'account_contract_runtime_bound',
+                'vendor_legal_runtime_bound',
+                'resilience_runtime_bound',
+                'analytics_runtime_bound',
+                'knowledge_memory_runtime_bound',
+                'identity_sovereignty_runtime_bound',
+                ['hash', 'company_operating_spine_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'customer_market_runtime_bound_count' => 'customer_market_runtime_bound',
+                'account_contract_runtime_bound_count' => 'account_contract_runtime_bound',
+                'vendor_legal_runtime_bound_count' => 'vendor_legal_runtime_bound',
+                'resilience_runtime_bound_count' => 'resilience_runtime_bound',
+                'analytics_runtime_bound_count' => 'analytics_runtime_bound',
+                'knowledge_memory_runtime_bound_count' => 'knowledge_memory_runtime_bound',
+                'identity_sovereignty_runtime_bound_count' => 'identity_sovereignty_runtime_bound',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
                 'operating_spine_requires_customer_account_vendor_resilience_analytics_knowledge_and_identity_bindings' => true,
                 'operator_mandate_required_for_external_customer_vendor_billing_capital_or_data_action' => true,
             ],
-        ], 'company_operating_spine_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -772,106 +616,54 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function commercialOperationsRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_commercial_operations_runtime_status.v1',
+            'status_complete' => 'complete_commercial_operations_runtime_coverage_external_customer_vendor_billing_blocked',
+            'status_missing' => 'missing_commercial_operations_runtime_coverage',
+            'hash_key' => 'commercial_operations_runtime_status_hash',
+            'completed_key' => 'completed_commercial_operations_flow_count',
+            'missing_key' => 'missing_commercial_operations_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $commercialRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['commercial_operations_runtime_bound'] ?? false)
-                    && (bool) ($record['customer_market_operations_bound'] ?? false)
-                    && (bool) ($record['offer_packaging_bound'] ?? false)
-                    && (bool) ($record['customer_journey_bound'] ?? false)
-                    && (bool) ($record['customer_success_scorecard_bound'] ?? false)
-                    && (bool) ($record['account_contract_delivery_bound'] ?? false)
-                    && (bool) ($record['contract_entitlement_bound'] ?? false)
-                    && (bool) ($record['onboarding_success_plan_bound'] ?? false)
-                    && (bool) ($record['service_review_renewal_bound'] ?? false)
-                    && (bool) ($record['account_health_risk_bound'] ?? false)
-                    && (bool) ($record['billing_revenue_model_bound'] ?? false)
-                    && (bool) ($record['vendor_legal_procurement_bound'] ?? false)
-                    && (bool) ($record['vendor_due_diligence_bound'] ?? false)
-                    && (bool) ($record['source_terms_review_bound'] ?? false)
-                    && (bool) ($record['flow_procurement_routing_bound'] ?? false)
-                    && (bool) ($record['vendor_operability_bound'] ?? false)
-                    && (string) ($record['commercial_operations_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $commercialRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_commercial_operations_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_commercial_operations_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'customer_market_operations_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['customer_market_operations_bound'] ?? false))),
-                'offer_packaging_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['offer_packaging_bound'] ?? false))),
-                'customer_journey_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['customer_journey_bound'] ?? false))),
-                'customer_success_scorecard_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['customer_success_scorecard_bound'] ?? false))),
-                'account_contract_delivery_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_contract_delivery_bound'] ?? false))),
-                'contract_entitlement_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['contract_entitlement_bound'] ?? false))),
-                'onboarding_success_plan_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['onboarding_success_plan_bound'] ?? false))),
-                'service_review_renewal_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['service_review_renewal_bound'] ?? false))),
-                'account_health_risk_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_health_risk_bound'] ?? false))),
-                'billing_revenue_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['billing_revenue_model_bound'] ?? false))),
-                'vendor_legal_procurement_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['vendor_legal_procurement_bound'] ?? false))),
-                'vendor_due_diligence_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['vendor_due_diligence_bound'] ?? false))),
-                'source_terms_review_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['source_terms_review_bound'] ?? false))),
-                'flow_procurement_routing_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_procurement_routing_bound'] ?? false))),
-                'vendor_operability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['vendor_operability_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_commercial_operations_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_commercial_operations_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_commercial_operations_runtime_coverage_external_customer_vendor_billing_blocked'
-                : 'missing_commercial_operations_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_commercial_operations_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'customer_market_operations_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_market_operations_bound_count'], $companies)),
-                'offer_packaging_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['offer_packaging_bound_count'], $companies)),
-                'customer_journey_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_journey_bound_count'], $companies)),
-                'customer_success_scorecard_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_success_scorecard_bound_count'], $companies)),
-                'account_contract_delivery_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_contract_delivery_bound_count'], $companies)),
-                'contract_entitlement_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['contract_entitlement_bound_count'], $companies)),
-                'onboarding_success_plan_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['onboarding_success_plan_bound_count'], $companies)),
-                'service_review_renewal_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['service_review_renewal_bound_count'], $companies)),
-                'account_health_risk_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_health_risk_bound_count'], $companies)),
-                'billing_revenue_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['billing_revenue_model_bound_count'], $companies)),
-                'vendor_legal_procurement_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['vendor_legal_procurement_bound_count'], $companies)),
-                'vendor_due_diligence_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['vendor_due_diligence_bound_count'], $companies)),
-                'source_terms_review_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_terms_review_bound_count'], $companies)),
-                'flow_procurement_routing_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_procurement_routing_bound_count'], $companies)),
-                'vendor_operability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['vendor_operability_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'commercial_operations_runtime_bound',
+                'customer_market_operations_bound',
+                'offer_packaging_bound',
+                'customer_journey_bound',
+                'customer_success_scorecard_bound',
+                'account_contract_delivery_bound',
+                'contract_entitlement_bound',
+                'onboarding_success_plan_bound',
+                'service_review_renewal_bound',
+                'account_health_risk_bound',
+                'billing_revenue_model_bound',
+                'vendor_legal_procurement_bound',
+                'vendor_due_diligence_bound',
+                'source_terms_review_bound',
+                'flow_procurement_routing_bound',
+                'vendor_operability_bound',
+                ['hash', 'commercial_operations_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'customer_market_operations_bound_count' => 'customer_market_operations_bound',
+                'offer_packaging_bound_count' => 'offer_packaging_bound',
+                'customer_journey_bound_count' => 'customer_journey_bound',
+                'customer_success_scorecard_bound_count' => 'customer_success_scorecard_bound',
+                'account_contract_delivery_bound_count' => 'account_contract_delivery_bound',
+                'contract_entitlement_bound_count' => 'contract_entitlement_bound',
+                'onboarding_success_plan_bound_count' => 'onboarding_success_plan_bound',
+                'service_review_renewal_bound_count' => 'service_review_renewal_bound',
+                'account_health_risk_bound_count' => 'account_health_risk_bound',
+                'billing_revenue_model_bound_count' => 'billing_revenue_model_bound',
+                'vendor_legal_procurement_bound_count' => 'vendor_legal_procurement_bound',
+                'vendor_due_diligence_bound_count' => 'vendor_due_diligence_bound',
+                'source_terms_review_bound_count' => 'source_terms_review_bound',
+                'flow_procurement_routing_bound_count' => 'flow_procurement_routing_bound',
+                'vendor_operability_bound_count' => 'vendor_operability_bound',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_customer_commitment_allowed' => false,
@@ -880,7 +672,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'commercial_runtime_requires_offer_journey_account_contract_billing_vendor_and_procurement_controls' => true,
                 'operator_mandate_required_for_customer_vendor_billing_or_public_claim' => true,
             ],
-        ], 'commercial_operations_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -888,89 +680,45 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainProviderWorkbenchRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_provider_workbench_runtime_status.v1',
+            'status_complete' => 'complete_domain_provider_workbench_runtime_coverage_external_write_paid_blocked',
+            'status_missing' => 'missing_domain_provider_workbench_runtime_coverage',
+            'hash_key' => 'domain_provider_workbench_runtime_status_hash',
+            'completed_key' => 'completed_provider_workbench_flow_count',
+            'missing_key' => 'missing_provider_workbench_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $providerRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['domain_provider_workbench_runtime_bound'] ?? false)
-                    && (bool) ($record['provider_contracts_bound'] ?? false)
-                    && (bool) ($record['connector_workbenches_bound'] ?? false)
-                    && (bool) ($record['flow_provider_route_bound'] ?? false)
-                    && (bool) ($record['provider_eval_cases_bound'] ?? false)
-                    && (bool) ($record['provider_data_product_lineage_bound'] ?? false)
-                    && (bool) ($record['provider_workbench_observability_bound'] ?? false)
-                    && (bool) ($record['provider_external_write_paid_blocked'] ?? false)
-                    && (string) ($record['domain_provider_workbench_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $providerRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_provider_workbench_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_provider_workbench_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'provider_contracts_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['provider_contracts_bound'] ?? false))),
-                'connector_workbenches_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_workbenches_bound'] ?? false))),
-                'flow_provider_route_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_provider_route_bound'] ?? false))),
-                'provider_eval_cases_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['provider_eval_cases_bound'] ?? false))),
-                'provider_data_product_lineage_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['provider_data_product_lineage_bound'] ?? false))),
-                'provider_workbench_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['provider_workbench_observability_bound'] ?? false))),
-                'provider_external_write_paid_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['provider_external_write_paid_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_provider_workbench_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_provider_workbench_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_provider_workbench_runtime_coverage_external_write_paid_blocked'
-                : 'missing_domain_provider_workbench_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_provider_workbench_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'provider_contracts_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['provider_contracts_bound_count'], $companies)),
-                'connector_workbenches_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_workbenches_bound_count'], $companies)),
-                'flow_provider_route_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_provider_route_bound_count'], $companies)),
-                'provider_eval_cases_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['provider_eval_cases_bound_count'], $companies)),
-                'provider_data_product_lineage_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['provider_data_product_lineage_bound_count'], $companies)),
-                'provider_workbench_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['provider_workbench_observability_bound_count'], $companies)),
-                'provider_external_write_paid_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['provider_external_write_paid_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'domain_provider_workbench_runtime_bound',
+                'provider_contracts_bound',
+                'connector_workbenches_bound',
+                'flow_provider_route_bound',
+                'provider_eval_cases_bound',
+                'provider_data_product_lineage_bound',
+                'provider_workbench_observability_bound',
+                'provider_external_write_paid_blocked',
+                ['hash', 'domain_provider_workbench_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'provider_contracts_bound_count' => 'provider_contracts_bound',
+                'connector_workbenches_bound_count' => 'connector_workbenches_bound',
+                'flow_provider_route_bound_count' => 'flow_provider_route_bound',
+                'provider_eval_cases_bound_count' => 'provider_eval_cases_bound',
+                'provider_data_product_lineage_bound_count' => 'provider_data_product_lineage_bound',
+                'provider_workbench_observability_bound_count' => 'provider_workbench_observability_bound',
+                'provider_external_write_paid_blocked_count' => 'provider_external_write_paid_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'provider_write_or_paid_action_default' => false,
                 'domain_provider_runtime_requires_contracts_workbenches_routes_eval_lineage_and_observability' => true,
                 'operator_signed_scope_required_for_provider_write_spend_trade_publish_or_secret_export' => true,
             ],
-        ], 'domain_provider_workbench_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -978,91 +726,44 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainCompanyExecutionSuiteRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_company_execution_suite_runtime_status.v1',
+            'status_complete' => 'complete_domain_company_execution_suite_runtime_coverage_external_actions_blocked',
+            'status_missing' => 'missing_domain_company_execution_suite_runtime_coverage',
+            'hash_key' => 'domain_company_execution_suite_runtime_status_hash',
+            'completed_key' => 'completed_domain_company_execution_suite_flow_count',
+            'missing_key' => 'missing_domain_company_execution_suite_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $suiteRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['domain_company_execution_suite_runtime_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_stack_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_source_catalog_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_operating_model_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_connector_workbench_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_flow_packet_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_risk_control_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_decision_room_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_replay_eval_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_observability_bound'] ?? false)
-                    && (bool) ($record['domain_execution_suite_external_actions_blocked'] ?? false)
-                    && (string) ($record['domain_company_execution_suite_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $suiteRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_domain_company_execution_suite_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_domain_company_execution_suite_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'suite_stack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_stack_bound'] ?? false))),
-                'source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_source_catalog_bound'] ?? false))),
-                'operating_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_operating_model_bound'] ?? false))),
-                'connector_workbench_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_connector_workbench_bound'] ?? false))),
-                'flow_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_flow_packet_bound'] ?? false))),
-                'risk_control_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_risk_control_bound'] ?? false))),
-                'decision_room_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_decision_room_bound'] ?? false))),
-                'replay_eval_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_replay_eval_bound'] ?? false))),
-                'observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_observability_bound'] ?? false))),
-                'external_actions_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_execution_suite_external_actions_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_company_execution_suite_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_company_execution_suite_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_company_execution_suite_runtime_coverage_external_actions_blocked'
-                : 'missing_domain_company_execution_suite_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_domain_company_execution_suite_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'suite_stack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['suite_stack_bound_count'], $companies)),
-                'source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_catalog_bound_count'], $companies)),
-                'operating_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operating_model_bound_count'], $companies)),
-                'connector_workbench_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_workbench_bound_count'], $companies)),
-                'flow_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_packet_bound_count'], $companies)),
-                'risk_control_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['risk_control_bound_count'], $companies)),
-                'decision_room_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['decision_room_bound_count'], $companies)),
-                'replay_eval_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['replay_eval_bound_count'], $companies)),
-                'observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['observability_bound_count'], $companies)),
-                'external_actions_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_actions_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'domain_company_execution_suite_runtime_bound',
+                'domain_execution_suite_stack_bound',
+                'domain_execution_suite_source_catalog_bound',
+                'domain_execution_suite_operating_model_bound',
+                'domain_execution_suite_connector_workbench_bound',
+                'domain_execution_suite_flow_packet_bound',
+                'domain_execution_suite_risk_control_bound',
+                'domain_execution_suite_decision_room_bound',
+                'domain_execution_suite_replay_eval_bound',
+                'domain_execution_suite_observability_bound',
+                'domain_execution_suite_external_actions_blocked',
+                ['hash', 'domain_company_execution_suite_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'suite_stack_bound_count' => 'domain_execution_suite_stack_bound',
+                'source_catalog_bound_count' => 'domain_execution_suite_source_catalog_bound',
+                'operating_model_bound_count' => 'domain_execution_suite_operating_model_bound',
+                'connector_workbench_bound_count' => 'domain_execution_suite_connector_workbench_bound',
+                'flow_packet_bound_count' => 'domain_execution_suite_flow_packet_bound',
+                'risk_control_bound_count' => 'domain_execution_suite_risk_control_bound',
+                'decision_room_bound_count' => 'domain_execution_suite_decision_room_bound',
+                'replay_eval_bound_count' => 'domain_execution_suite_replay_eval_bound',
+                'observability_bound_count' => 'domain_execution_suite_observability_bound',
+                'external_actions_blocked_count' => 'domain_execution_suite_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1070,7 +771,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
                 'domain_company_suite_requires_sources_connectors_flow_packets_risk_controls_decision_rooms_replay_and_observability' => true,
             ],
-        ], 'domain_company_execution_suite_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1078,89 +779,45 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function flowWorkProductDeliveryRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_flow_work_product_delivery_runtime_status.v1',
+            'status_complete' => 'complete_flow_work_product_delivery_runtime_coverage_external_delivery_blocked',
+            'status_missing' => 'missing_flow_work_product_delivery_runtime_coverage',
+            'hash_key' => 'flow_work_product_delivery_runtime_status_hash',
+            'completed_key' => 'completed_flow_work_product_delivery_count',
+            'missing_key' => 'missing_flow_work_product_delivery_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $deliveryRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['flow_work_product_delivery_runtime_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_delivery_stack_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_catalog_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_blueprint_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_acceptance_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_handoff_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_replay_check_bound'] ?? false)
-                    && (bool) ($record['flow_work_product_external_delivery_blocked'] ?? false)
-                    && (string) ($record['flow_work_product_delivery_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $deliveryRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_flow_work_product_delivery_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_flow_work_product_delivery_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'delivery_stack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_delivery_stack_bound'] ?? false))),
-                'catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_catalog_bound'] ?? false))),
-                'blueprint_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_blueprint_bound'] ?? false))),
-                'acceptance_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_acceptance_bound'] ?? false))),
-                'handoff_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_handoff_bound'] ?? false))),
-                'replay_check_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_replay_check_bound'] ?? false))),
-                'external_delivery_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_work_product_external_delivery_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_flow_work_product_delivery_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_flow_work_product_delivery_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_flow_work_product_delivery_runtime_coverage_external_delivery_blocked'
-                : 'missing_flow_work_product_delivery_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_flow_work_product_delivery_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'delivery_stack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['delivery_stack_bound_count'], $companies)),
-                'catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['catalog_bound_count'], $companies)),
-                'blueprint_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['blueprint_bound_count'], $companies)),
-                'acceptance_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['acceptance_bound_count'], $companies)),
-                'handoff_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['handoff_bound_count'], $companies)),
-                'replay_check_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['replay_check_bound_count'], $companies)),
-                'external_delivery_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_delivery_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'flow_work_product_delivery_runtime_bound',
+                'flow_work_product_delivery_stack_bound',
+                'flow_work_product_catalog_bound',
+                'flow_work_product_blueprint_bound',
+                'flow_work_product_acceptance_bound',
+                'flow_work_product_handoff_bound',
+                'flow_work_product_replay_check_bound',
+                'flow_work_product_external_delivery_blocked',
+                ['hash', 'flow_work_product_delivery_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'delivery_stack_bound_count' => 'flow_work_product_delivery_stack_bound',
+                'catalog_bound_count' => 'flow_work_product_catalog_bound',
+                'blueprint_bound_count' => 'flow_work_product_blueprint_bound',
+                'acceptance_bound_count' => 'flow_work_product_acceptance_bound',
+                'handoff_bound_count' => 'flow_work_product_handoff_bound',
+                'replay_check_bound_count' => 'flow_work_product_replay_check_bound',
+                'external_delivery_blocked_count' => 'flow_work_product_external_delivery_blocked',
+            ],
             'policy' => [
                 'external_delivery_allowed' => false,
                 'external_side_effects_enabled' => false,
                 'operator_acceptance_required_before_external_handoff' => true,
                 'flow_work_product_delivery_requires_catalog_blueprint_acceptance_handoff_and_replay' => true,
             ],
-        ], 'flow_work_product_delivery_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1168,88 +825,42 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainDataConnectorOperatingRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_data_connector_operating_runtime_status.v1',
+            'status_complete' => 'complete_domain_data_connector_operating_runtime_coverage_external_mutations_blocked',
+            'status_missing' => 'missing_domain_data_connector_operating_runtime_coverage',
+            'hash_key' => 'domain_data_connector_operating_runtime_status_hash',
+            'completed_key' => 'completed_domain_data_connector_flow_count',
+            'missing_key' => 'missing_domain_data_connector_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $dataConnectorRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['domain_data_connector_operating_runtime_bound'] ?? false)
-                    && (bool) ($record['domain_data_connector_stack_bound'] ?? false)
-                    && (bool) ($record['domain_data_room_source_catalog_bound'] ?? false)
-                    && (bool) ($record['domain_data_product_contracts_bound'] ?? false)
-                    && (bool) ($record['domain_connector_permission_profiles_bound'] ?? false)
-                    && (bool) ($record['domain_flow_data_connector_contract_bound'] ?? false)
-                    && (bool) ($record['domain_connector_fixture_eval_bound'] ?? false)
-                    && (bool) ($record['domain_data_room_operating_model_bound'] ?? false)
-                    && (bool) ($record['domain_data_connector_observability_bound'] ?? false)
-                    && (bool) ($record['domain_data_connector_external_mutations_blocked'] ?? false)
-                    && (string) ($record['domain_data_connector_operating_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $dataConnectorRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_domain_data_connector_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_domain_data_connector_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'data_connector_stack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_connector_stack_bound'] ?? false))),
-                'source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_room_source_catalog_bound'] ?? false))),
-                'data_product_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_product_contracts_bound'] ?? false))),
-                'permission_profile_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_connector_permission_profiles_bound'] ?? false))),
-                'flow_data_connector_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_flow_data_connector_contract_bound'] ?? false))),
-                'fixture_eval_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_connector_fixture_eval_bound'] ?? false))),
-                'operating_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_room_operating_model_bound'] ?? false))),
-                'observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_connector_observability_bound'] ?? false))),
-                'external_mutations_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_connector_external_mutations_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_data_connector_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_data_connector_operating_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_data_connector_operating_runtime_coverage_external_mutations_blocked'
-                : 'missing_domain_data_connector_operating_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_domain_data_connector_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'data_connector_stack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['data_connector_stack_bound_count'], $companies)),
-                'source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_catalog_bound_count'], $companies)),
-                'data_product_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['data_product_contract_bound_count'], $companies)),
-                'permission_profile_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['permission_profile_bound_count'], $companies)),
-                'flow_data_connector_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_data_connector_contract_bound_count'], $companies)),
-                'fixture_eval_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['fixture_eval_bound_count'], $companies)),
-                'operating_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operating_model_bound_count'], $companies)),
-                'observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['observability_bound_count'], $companies)),
-                'external_mutations_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_mutations_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'domain_data_connector_operating_runtime_bound',
+                'domain_data_connector_stack_bound',
+                'domain_data_room_source_catalog_bound',
+                'domain_data_product_contracts_bound',
+                'domain_connector_permission_profiles_bound',
+                'domain_flow_data_connector_contract_bound',
+                'domain_connector_fixture_eval_bound',
+                'domain_data_room_operating_model_bound',
+                'domain_data_connector_observability_bound',
+                'domain_data_connector_external_mutations_blocked',
+                ['hash', 'domain_data_connector_operating_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'data_connector_stack_bound_count' => 'domain_data_connector_stack_bound',
+                'source_catalog_bound_count' => 'domain_data_room_source_catalog_bound',
+                'data_product_contract_bound_count' => 'domain_data_product_contracts_bound',
+                'permission_profile_bound_count' => 'domain_connector_permission_profiles_bound',
+                'flow_data_connector_contract_bound_count' => 'domain_flow_data_connector_contract_bound',
+                'fixture_eval_bound_count' => 'domain_connector_fixture_eval_bound',
+                'operating_model_bound_count' => 'domain_data_room_operating_model_bound',
+                'observability_bound_count' => 'domain_data_connector_observability_bound',
+                'external_mutations_blocked_count' => 'domain_data_connector_external_mutations_blocked',
+            ],
             'policy' => [
                 'write_tools_enabled' => false,
                 'external_data_mutation_allowed' => false,
@@ -1257,7 +868,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'read_only_probe_required_before_live_use' => true,
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
             ],
-        ], 'domain_data_connector_operating_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1265,82 +876,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function flowLiveReadConnectorProbeRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_flow_live_read_connector_probe_runtime_status.v1',
+            'status_complete' => 'complete_flow_live_read_connector_probe_runtime_coverage_external_mutations_blocked',
+            'status_missing' => 'missing_flow_live_read_connector_probe_runtime_coverage',
+            'hash_key' => 'flow_live_read_connector_probe_runtime_status_hash',
+            'completed_key' => 'completed_flow_live_read_connector_probe_count',
+            'missing_key' => 'missing_flow_live_read_connector_probe_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $probeRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['flow_live_read_connector_probe_runtime_bound'] ?? false)
-                    && (bool) ($record['flow_live_read_probe_stack_bound'] ?? false)
-                    && (bool) ($record['flow_live_read_connector_profiles_bound'] ?? false)
-                    && (bool) ($record['flow_live_read_probe_contract_bound'] ?? false)
-                    && (bool) ($record['flow_live_read_probe_evidence_matrix_bound'] ?? false)
-                    && (bool) ($record['flow_live_read_probe_observability_bound'] ?? false)
-                    && (bool) ($record['flow_live_read_external_mutations_blocked'] ?? false)
-                    && (bool) ($record['flow_live_read_operator_scope_required'] ?? false)
-                    && (string) ($record['flow_live_read_connector_probe_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $probeRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_flow_live_read_connector_probe_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_flow_live_read_connector_probe_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'probe_stack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_probe_stack_bound'] ?? false))),
-                'connector_profiles_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_connector_profiles_bound'] ?? false))),
-                'probe_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_probe_contract_bound'] ?? false))),
-                'evidence_matrix_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_probe_evidence_matrix_bound'] ?? false))),
-                'observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_probe_observability_bound'] ?? false))),
-                'external_mutations_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_external_mutations_blocked'] ?? false))),
-                'operator_scope_required_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_live_read_operator_scope_required'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_flow_live_read_connector_probe_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_flow_live_read_connector_probe_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_flow_live_read_connector_probe_runtime_coverage_external_mutations_blocked'
-                : 'missing_flow_live_read_connector_probe_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_flow_live_read_connector_probe_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'probe_stack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['probe_stack_bound_count'], $companies)),
-                'connector_profiles_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_profiles_bound_count'], $companies)),
-                'probe_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['probe_contract_bound_count'], $companies)),
-                'evidence_matrix_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['evidence_matrix_bound_count'], $companies)),
-                'observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['observability_bound_count'], $companies)),
-                'external_mutations_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_mutations_blocked_count'], $companies)),
-                'operator_scope_required_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operator_scope_required_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'flow_live_read_connector_probe_runtime_bound',
+                'flow_live_read_probe_stack_bound',
+                'flow_live_read_connector_profiles_bound',
+                'flow_live_read_probe_contract_bound',
+                'flow_live_read_probe_evidence_matrix_bound',
+                'flow_live_read_probe_observability_bound',
+                'flow_live_read_external_mutations_blocked',
+                'flow_live_read_operator_scope_required',
+                ['hash', 'flow_live_read_connector_probe_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'probe_stack_bound_count' => 'flow_live_read_probe_stack_bound',
+                'connector_profiles_bound_count' => 'flow_live_read_connector_profiles_bound',
+                'probe_contract_bound_count' => 'flow_live_read_probe_contract_bound',
+                'evidence_matrix_bound_count' => 'flow_live_read_probe_evidence_matrix_bound',
+                'observability_bound_count' => 'flow_live_read_probe_observability_bound',
+                'external_mutations_blocked_count' => 'flow_live_read_external_mutations_blocked',
+                'operator_scope_required_count' => 'flow_live_read_operator_scope_required',
+            ],
             'policy' => [
                 'calendar_wait_blocker_enabled' => false,
                 'live_read_allowed' => true,
@@ -1350,7 +917,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_scope_required_before_live_connector_probe' => true,
                 'promotion_unlocked' => 'shadow_readiness_not_external_write_authority',
             ],
-        ], 'flow_live_read_connector_probe_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1358,80 +925,37 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function externalResearchAdoptionRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_external_research_adoption_runtime_status.v1',
+            'status_complete' => 'complete_external_research_adoption_runtime_coverage_external_effects_blocked',
+            'status_missing' => 'missing_external_research_adoption_runtime_coverage',
+            'hash_key' => 'external_research_adoption_runtime_status_hash',
+            'completed_key' => 'completed_external_research_adoption_flow_count',
+            'missing_key' => 'missing_external_research_adoption_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $researchRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['external_research_adoption_runtime_bound'] ?? false)
-                    && (bool) ($record['external_research_source_basis_bound'] ?? false)
-                    && (bool) ($record['external_research_repository_catalog_bound'] ?? false)
-                    && (bool) ($record['external_research_flow_adoption_matrix_bound'] ?? false)
-                    && (bool) ($record['external_research_capability_map_bound'] ?? false)
-                    && (bool) ($record['external_research_connector_backlog_bound'] ?? false)
-                    && (bool) ($record['external_research_production_gates_bound'] ?? false)
-                    && (bool) ($record['external_research_external_effects_blocked'] ?? false)
-                    && (string) ($record['external_research_adoption_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $researchRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_external_research_adoption_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_external_research_adoption_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'source_basis_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_research_source_basis_bound'] ?? false))),
-                'repository_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_research_repository_catalog_bound'] ?? false))),
-                'flow_adoption_matrix_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_research_flow_adoption_matrix_bound'] ?? false))),
-                'capability_map_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_research_capability_map_bound'] ?? false))),
-                'connector_backlog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_research_connector_backlog_bound'] ?? false))),
-                'external_effects_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_research_external_effects_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_external_research_adoption_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_external_research_adoption_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_external_research_adoption_runtime_coverage_external_effects_blocked'
-                : 'missing_external_research_adoption_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_external_research_adoption_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'source_basis_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_basis_bound_count'], $companies)),
-                'repository_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['repository_catalog_bound_count'], $companies)),
-                'flow_adoption_matrix_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_adoption_matrix_bound_count'], $companies)),
-                'capability_map_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['capability_map_bound_count'], $companies)),
-                'connector_backlog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_backlog_bound_count'], $companies)),
-                'external_effects_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_effects_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'external_research_adoption_runtime_bound',
+                'external_research_source_basis_bound',
+                'external_research_repository_catalog_bound',
+                'external_research_flow_adoption_matrix_bound',
+                'external_research_capability_map_bound',
+                'external_research_connector_backlog_bound',
+                'external_research_production_gates_bound',
+                'external_research_external_effects_blocked',
+                ['hash', 'external_research_adoption_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'source_basis_bound_count' => 'external_research_source_basis_bound',
+                'repository_catalog_bound_count' => 'external_research_repository_catalog_bound',
+                'flow_adoption_matrix_bound_count' => 'external_research_flow_adoption_matrix_bound',
+                'capability_map_bound_count' => 'external_research_capability_map_bound',
+                'connector_backlog_bound_count' => 'external_research_connector_backlog_bound',
+                'external_effects_blocked_count' => 'external_research_external_effects_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1440,7 +964,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'runtime_ingestion_without_source_review_allowed' => false,
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
             ],
-        ], 'external_research_adoption_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1448,82 +972,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function flowBenchmarkReplayRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_flow_benchmark_replay_runtime_status.v1',
+            'status_complete' => 'complete_flow_benchmark_replay_runtime_coverage_external_benchmark_blocked',
+            'status_missing' => 'missing_flow_benchmark_replay_runtime_coverage',
+            'hash_key' => 'flow_benchmark_replay_runtime_status_hash',
+            'completed_key' => 'completed_benchmark_replay_flow_count',
+            'missing_key' => 'missing_benchmark_replay_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $benchmarkRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['flow_benchmark_replay_runtime_bound'] ?? false)
-                    && (bool) ($record['offline_dataset_contract_bound'] ?? false)
-                    && (bool) ($record['trace_grading_rubric_bound'] ?? false)
-                    && (bool) ($record['adversarial_regression_bound'] ?? false)
-                    && (bool) ($record['deterministic_state_assertion_bound'] ?? false)
-                    && (bool) ($record['replay_comparison_matrix_bound'] ?? false)
-                    && (bool) ($record['benchmark_observability_bound'] ?? false)
-                    && (bool) ($record['benchmark_promotion_synthetic_scores_blocked'] ?? false)
-                    && (string) ($record['flow_benchmark_replay_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $benchmarkRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_benchmark_replay_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_benchmark_replay_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'offline_dataset_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['offline_dataset_contract_bound'] ?? false))),
-                'trace_grading_rubric_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['trace_grading_rubric_bound'] ?? false))),
-                'adversarial_regression_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['adversarial_regression_bound'] ?? false))),
-                'deterministic_state_assertion_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['deterministic_state_assertion_bound'] ?? false))),
-                'replay_comparison_matrix_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['replay_comparison_matrix_bound'] ?? false))),
-                'benchmark_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['benchmark_observability_bound'] ?? false))),
-                'benchmark_promotion_synthetic_scores_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['benchmark_promotion_synthetic_scores_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_benchmark_replay_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_flow_benchmark_replay_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_flow_benchmark_replay_runtime_coverage_external_benchmark_blocked'
-                : 'missing_flow_benchmark_replay_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_benchmark_replay_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'offline_dataset_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['offline_dataset_contract_bound_count'], $companies)),
-                'trace_grading_rubric_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['trace_grading_rubric_bound_count'], $companies)),
-                'adversarial_regression_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['adversarial_regression_bound_count'], $companies)),
-                'deterministic_state_assertion_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['deterministic_state_assertion_bound_count'], $companies)),
-                'replay_comparison_matrix_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['replay_comparison_matrix_bound_count'], $companies)),
-                'benchmark_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['benchmark_observability_bound_count'], $companies)),
-                'benchmark_promotion_synthetic_scores_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['benchmark_promotion_synthetic_scores_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'flow_benchmark_replay_runtime_bound',
+                'offline_dataset_contract_bound',
+                'trace_grading_rubric_bound',
+                'adversarial_regression_bound',
+                'deterministic_state_assertion_bound',
+                'replay_comparison_matrix_bound',
+                'benchmark_observability_bound',
+                'benchmark_promotion_synthetic_scores_blocked',
+                ['hash', 'flow_benchmark_replay_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'offline_dataset_contract_bound_count' => 'offline_dataset_contract_bound',
+                'trace_grading_rubric_bound_count' => 'trace_grading_rubric_bound',
+                'adversarial_regression_bound_count' => 'adversarial_regression_bound',
+                'deterministic_state_assertion_bound_count' => 'deterministic_state_assertion_bound',
+                'replay_comparison_matrix_bound_count' => 'replay_comparison_matrix_bound',
+                'benchmark_observability_bound_count' => 'benchmark_observability_bound',
+                'benchmark_promotion_synthetic_scores_blocked_count' => 'benchmark_promotion_synthetic_scores_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'synthetic_score_claims_allowed' => false,
@@ -1531,7 +1011,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'external_model_or_paid_benchmark_requires_operator_approval' => true,
                 'benchmark_runtime_requires_dataset_rubric_adversarial_state_assertion_replay_matrix_and_observability' => true,
             ],
-        ], 'flow_benchmark_replay_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1539,98 +1019,48 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function connectorCertificationPreflightRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_connector_certification_preflight_runtime_status.v1',
+            'status_complete' => 'complete_connector_certification_preflight_runtime_coverage_external_cutover_blocked',
+            'status_missing' => 'missing_connector_certification_preflight_runtime_coverage',
+            'hash_key' => 'connector_certification_preflight_runtime_status_hash',
+            'completed_key' => 'completed_connector_certification_preflight_flow_count',
+            'missing_key' => 'missing_connector_certification_preflight_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $connectorRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['connector_certification_preflight_runtime_bound'] ?? false)
-                    && (bool) ($record['connector_adapter_contracts_bound'] ?? false)
-                    && (bool) ($record['connector_auth_boundaries_bound'] ?? false)
-                    && (bool) ($record['connector_sandbox_probes_bound'] ?? false)
-                    && (bool) ($record['connector_contract_tests_bound'] ?? false)
-                    && (bool) ($record['connector_data_lineage_bound'] ?? false)
-                    && (bool) ($record['connector_replay_fixtures_bound'] ?? false)
-                    && (bool) ($record['connector_slo_failure_modes_bound'] ?? false)
-                    && (bool) ($record['production_preflight_contracts_bound'] ?? false)
-                    && (bool) ($record['flow_cutover_matrix_bound'] ?? false)
-                    && (bool) ($record['production_readiness_evidence_bound'] ?? false)
-                    && (bool) ($record['connector_preflight_external_cutover_blocked'] ?? false)
-                    && (string) ($record['connector_certification_preflight_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $connectorRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_connector_certification_preflight_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_connector_certification_preflight_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'connector_adapter_contracts_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_adapter_contracts_bound'] ?? false))),
-                'connector_auth_boundaries_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_auth_boundaries_bound'] ?? false))),
-                'connector_sandbox_probes_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_sandbox_probes_bound'] ?? false))),
-                'connector_contract_tests_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_contract_tests_bound'] ?? false))),
-                'connector_data_lineage_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_data_lineage_bound'] ?? false))),
-                'connector_replay_fixtures_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_replay_fixtures_bound'] ?? false))),
-                'connector_slo_failure_modes_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_slo_failure_modes_bound'] ?? false))),
-                'production_preflight_contracts_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['production_preflight_contracts_bound'] ?? false))),
-                'flow_cutover_matrix_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_cutover_matrix_bound'] ?? false))),
-                'production_readiness_evidence_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['production_readiness_evidence_bound'] ?? false))),
-                'connector_certification_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_certification_observability_bound'] ?? false))),
-                'cutover_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['cutover_observability_bound'] ?? false))),
-                'connector_preflight_external_cutover_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_preflight_external_cutover_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_connector_certification_preflight_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_connector_certification_preflight_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_connector_certification_preflight_runtime_coverage_external_cutover_blocked'
-                : 'missing_connector_certification_preflight_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_connector_certification_preflight_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'connector_adapter_contracts_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_adapter_contracts_bound_count'], $companies)),
-                'connector_auth_boundaries_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_auth_boundaries_bound_count'], $companies)),
-                'connector_sandbox_probes_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_sandbox_probes_bound_count'], $companies)),
-                'connector_contract_tests_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_contract_tests_bound_count'], $companies)),
-                'connector_data_lineage_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_data_lineage_bound_count'], $companies)),
-                'connector_replay_fixtures_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_replay_fixtures_bound_count'], $companies)),
-                'connector_slo_failure_modes_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_slo_failure_modes_bound_count'], $companies)),
-                'production_preflight_contracts_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['production_preflight_contracts_bound_count'], $companies)),
-                'flow_cutover_matrix_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_cutover_matrix_bound_count'], $companies)),
-                'production_readiness_evidence_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['production_readiness_evidence_bound_count'], $companies)),
-                'connector_certification_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_certification_observability_bound_count'], $companies)),
-                'cutover_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['cutover_observability_bound_count'], $companies)),
-                'connector_preflight_external_cutover_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_preflight_external_cutover_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'connector_certification_preflight_runtime_bound',
+                'connector_adapter_contracts_bound',
+                'connector_auth_boundaries_bound',
+                'connector_sandbox_probes_bound',
+                'connector_contract_tests_bound',
+                'connector_data_lineage_bound',
+                'connector_replay_fixtures_bound',
+                'connector_slo_failure_modes_bound',
+                'production_preflight_contracts_bound',
+                'flow_cutover_matrix_bound',
+                'production_readiness_evidence_bound',
+                'connector_preflight_external_cutover_blocked',
+                ['hash', 'connector_certification_preflight_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'connector_adapter_contracts_bound_count' => 'connector_adapter_contracts_bound',
+                'connector_auth_boundaries_bound_count' => 'connector_auth_boundaries_bound',
+                'connector_sandbox_probes_bound_count' => 'connector_sandbox_probes_bound',
+                'connector_contract_tests_bound_count' => 'connector_contract_tests_bound',
+                'connector_data_lineage_bound_count' => 'connector_data_lineage_bound',
+                'connector_replay_fixtures_bound_count' => 'connector_replay_fixtures_bound',
+                'connector_slo_failure_modes_bound_count' => 'connector_slo_failure_modes_bound',
+                'production_preflight_contracts_bound_count' => 'production_preflight_contracts_bound',
+                'flow_cutover_matrix_bound_count' => 'flow_cutover_matrix_bound',
+                'production_readiness_evidence_bound_count' => 'production_readiness_evidence_bound',
+                'connector_certification_observability_bound_count' => 'connector_certification_observability_bound',
+                'cutover_observability_bound_count' => 'cutover_observability_bound',
+                'connector_preflight_external_cutover_blocked_count' => 'connector_preflight_external_cutover_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1638,7 +1068,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'write_or_paid_mode_allowed_by_default' => false,
                 'connector_runtime_requires_certification_preflight_cutover_evidence_and_observability' => true,
             ],
-        ], 'connector_certification_preflight_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1646,91 +1076,44 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function commandCenterControlTowerRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_command_center_control_tower_runtime_status.v1',
+            'status_complete' => 'complete_command_center_control_tower_runtime_coverage_external_actions_blocked',
+            'status_missing' => 'missing_command_center_control_tower_runtime_coverage',
+            'hash_key' => 'command_center_control_tower_runtime_status_hash',
+            'completed_key' => 'completed_command_center_control_tower_flow_count',
+            'missing_key' => 'missing_command_center_control_tower_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $commandCenterRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['command_center_control_tower_runtime_bound'] ?? false)
-                    && (bool) ($record['control_tower_lane_bound'] ?? false)
-                    && (bool) ($record['flow_command_card_bound'] ?? false)
-                    && (bool) ($record['incident_exception_desk_bound'] ?? false)
-                    && (bool) ($record['change_window_release_bound'] ?? false)
-                    && (bool) ($record['operator_console_views_bound'] ?? false)
-                    && (bool) ($record['command_center_cells_bound'] ?? false)
-                    && (bool) ($record['connector_panels_bound'] ?? false)
-                    && (bool) ($record['work_product_factory_bound'] ?? false)
-                    && (bool) ($record['command_center_kpis_bound'] ?? false)
-                    && (bool) ($record['command_center_external_action_blocked'] ?? false)
-                    && (string) ($record['command_center_control_tower_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $commandCenterRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_command_center_control_tower_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_command_center_control_tower_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'control_tower_lane_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['control_tower_lane_bound'] ?? false))),
-                'flow_command_card_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_command_card_bound'] ?? false))),
-                'incident_exception_desk_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['incident_exception_desk_bound'] ?? false))),
-                'change_window_release_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['change_window_release_bound'] ?? false))),
-                'operator_console_views_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operator_console_views_bound'] ?? false))),
-                'command_center_cells_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['command_center_cells_bound'] ?? false))),
-                'connector_panels_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_panels_bound'] ?? false))),
-                'work_product_factory_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['work_product_factory_bound'] ?? false))),
-                'command_center_kpis_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['command_center_kpis_bound'] ?? false))),
-                'command_center_external_action_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['command_center_external_action_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_command_center_control_tower_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_command_center_control_tower_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_command_center_control_tower_runtime_coverage_external_actions_blocked'
-                : 'missing_command_center_control_tower_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_command_center_control_tower_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'control_tower_lane_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['control_tower_lane_bound_count'], $companies)),
-                'flow_command_card_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_command_card_bound_count'], $companies)),
-                'incident_exception_desk_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['incident_exception_desk_bound_count'], $companies)),
-                'change_window_release_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['change_window_release_bound_count'], $companies)),
-                'operator_console_views_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operator_console_views_bound_count'], $companies)),
-                'command_center_cells_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['command_center_cells_bound_count'], $companies)),
-                'connector_panels_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_panels_bound_count'], $companies)),
-                'work_product_factory_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['work_product_factory_bound_count'], $companies)),
-                'command_center_kpis_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['command_center_kpis_bound_count'], $companies)),
-                'command_center_external_action_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['command_center_external_action_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'command_center_control_tower_runtime_bound',
+                'control_tower_lane_bound',
+                'flow_command_card_bound',
+                'incident_exception_desk_bound',
+                'change_window_release_bound',
+                'operator_console_views_bound',
+                'command_center_cells_bound',
+                'connector_panels_bound',
+                'work_product_factory_bound',
+                'command_center_kpis_bound',
+                'command_center_external_action_blocked',
+                ['hash', 'command_center_control_tower_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'control_tower_lane_bound_count' => 'control_tower_lane_bound',
+                'flow_command_card_bound_count' => 'flow_command_card_bound',
+                'incident_exception_desk_bound_count' => 'incident_exception_desk_bound',
+                'change_window_release_bound_count' => 'change_window_release_bound',
+                'operator_console_views_bound_count' => 'operator_console_views_bound',
+                'command_center_cells_bound_count' => 'command_center_cells_bound',
+                'connector_panels_bound_count' => 'connector_panels_bound',
+                'work_product_factory_bound_count' => 'work_product_factory_bound',
+                'command_center_kpis_bound_count' => 'command_center_kpis_bound',
+                'command_center_external_action_blocked_count' => 'command_center_external_action_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1738,7 +1121,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'external_write_spend_trade_publish_deploy_delete_allowed' => false,
                 'command_center_runtime_requires_lane_card_incident_change_console_cells_connectors_factory_kpis_and_human_interrupts' => true,
             ],
-        ], 'command_center_control_tower_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1746,82 +1129,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function operationalDressRehearsalRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_operational_dress_rehearsal_runtime_status.v1',
+            'status_complete' => 'complete_operational_dress_rehearsal_runtime_coverage_external_mutation_blocked',
+            'status_missing' => 'missing_operational_dress_rehearsal_runtime_coverage',
+            'hash_key' => 'operational_dress_rehearsal_runtime_status_hash',
+            'completed_key' => 'completed_operational_dress_rehearsal_flow_count',
+            'missing_key' => 'missing_operational_dress_rehearsal_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $rehearsalRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['operational_dress_rehearsal_runtime_bound'] ?? false)
-                    && (bool) ($record['rehearsal_runbook_bound'] ?? false)
-                    && (bool) ($record['live_read_probe_plan_bound'] ?? false)
-                    && (bool) ($record['operator_acceptance_packet_bound'] ?? false)
-                    && (bool) ($record['rollback_drill_bound'] ?? false)
-                    && (bool) ($record['promotion_evidence_bound'] ?? false)
-                    && (bool) ($record['dress_rehearsal_observability_bound'] ?? false)
-                    && (bool) ($record['dress_rehearsal_external_mutation_blocked'] ?? false)
-                    && (string) ($record['operational_dress_rehearsal_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $rehearsalRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_operational_dress_rehearsal_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_operational_dress_rehearsal_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'rehearsal_runbook_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['rehearsal_runbook_bound'] ?? false))),
-                'live_read_probe_plan_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['live_read_probe_plan_bound'] ?? false))),
-                'operator_acceptance_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operator_acceptance_packet_bound'] ?? false))),
-                'rollback_drill_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['rollback_drill_bound'] ?? false))),
-                'promotion_evidence_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['promotion_evidence_bound'] ?? false))),
-                'dress_rehearsal_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dress_rehearsal_observability_bound'] ?? false))),
-                'dress_rehearsal_external_mutation_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dress_rehearsal_external_mutation_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_operational_dress_rehearsal_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_operational_dress_rehearsal_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_operational_dress_rehearsal_runtime_coverage_external_mutation_blocked'
-                : 'missing_operational_dress_rehearsal_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_operational_dress_rehearsal_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'rehearsal_runbook_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['rehearsal_runbook_bound_count'], $companies)),
-                'live_read_probe_plan_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['live_read_probe_plan_bound_count'], $companies)),
-                'operator_acceptance_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operator_acceptance_packet_bound_count'], $companies)),
-                'rollback_drill_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['rollback_drill_bound_count'], $companies)),
-                'promotion_evidence_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['promotion_evidence_bound_count'], $companies)),
-                'dress_rehearsal_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['dress_rehearsal_observability_bound_count'], $companies)),
-                'dress_rehearsal_external_mutation_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['dress_rehearsal_external_mutation_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'operational_dress_rehearsal_runtime_bound',
+                'rehearsal_runbook_bound',
+                'live_read_probe_plan_bound',
+                'operator_acceptance_packet_bound',
+                'rollback_drill_bound',
+                'promotion_evidence_bound',
+                'dress_rehearsal_observability_bound',
+                'dress_rehearsal_external_mutation_blocked',
+                ['hash', 'operational_dress_rehearsal_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'rehearsal_runbook_bound_count' => 'rehearsal_runbook_bound',
+                'live_read_probe_plan_bound_count' => 'live_read_probe_plan_bound',
+                'operator_acceptance_packet_bound_count' => 'operator_acceptance_packet_bound',
+                'rollback_drill_bound_count' => 'rollback_drill_bound',
+                'promotion_evidence_bound_count' => 'promotion_evidence_bound',
+                'dress_rehearsal_observability_bound_count' => 'dress_rehearsal_observability_bound',
+                'dress_rehearsal_external_mutation_blocked_count' => 'dress_rehearsal_external_mutation_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_mutation_allowed_during_rehearsal' => false,
@@ -1829,7 +1168,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'calendar_wait_blocker_enabled' => false,
                 'operational_rehearsal_requires_runbook_live_probe_acceptance_rollback_promotion_evidence_and_observability' => true,
             ],
-        ], 'operational_dress_rehearsal_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1837,85 +1176,40 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function semanticOperatingGraphRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_semantic_operating_graph_runtime_status.v1',
+            'status_complete' => 'complete_semantic_operating_graph_runtime_coverage_external_mutation_blocked',
+            'status_missing' => 'missing_semantic_operating_graph_runtime_coverage',
+            'hash_key' => 'semantic_operating_graph_runtime_status_hash',
+            'completed_key' => 'completed_semantic_graph_flow_count',
+            'missing_key' => 'missing_semantic_graph_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $graphRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['semantic_operating_graph_runtime_bound'] ?? false)
-                    && (bool) ($record['semantic_graph_bound'] ?? false)
-                    && (bool) ($record['semantic_node_catalog_bound'] ?? false)
-                    && (bool) ($record['semantic_flow_edge_bound'] ?? false)
-                    && (bool) ($record['semantic_operating_views_bound'] ?? false)
-                    && (bool) ($record['semantic_drift_rules_bound'] ?? false)
-                    && (bool) ($record['semantic_export_contract_bound'] ?? false)
-                    && (bool) ($record['semantic_graph_observability_bound'] ?? false)
-                    && (bool) ($record['semantic_graph_secret_export_blocked'] ?? false)
-                    && (string) ($record['semantic_operating_graph_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $graphRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_semantic_graph_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_semantic_graph_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'semantic_graph_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_graph_bound'] ?? false))),
-                'semantic_node_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_node_catalog_bound'] ?? false))),
-                'semantic_flow_edge_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_flow_edge_bound'] ?? false))),
-                'semantic_operating_views_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_operating_views_bound'] ?? false))),
-                'semantic_drift_rules_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_drift_rules_bound'] ?? false))),
-                'semantic_export_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_export_contract_bound'] ?? false))),
-                'semantic_graph_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_graph_observability_bound'] ?? false))),
-                'semantic_graph_secret_export_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['semantic_graph_secret_export_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_semantic_graph_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_semantic_operating_graph_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_semantic_operating_graph_runtime_coverage_external_mutation_blocked'
-                : 'missing_semantic_operating_graph_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_semantic_graph_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'semantic_graph_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_graph_bound_count'], $companies)),
-                'semantic_node_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_node_catalog_bound_count'], $companies)),
-                'semantic_flow_edge_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_flow_edge_bound_count'], $companies)),
-                'semantic_operating_views_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_operating_views_bound_count'], $companies)),
-                'semantic_drift_rules_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_drift_rules_bound_count'], $companies)),
-                'semantic_export_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_export_contract_bound_count'], $companies)),
-                'semantic_graph_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_graph_observability_bound_count'], $companies)),
-                'semantic_graph_secret_export_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['semantic_graph_secret_export_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'semantic_operating_graph_runtime_bound',
+                'semantic_graph_bound',
+                'semantic_node_catalog_bound',
+                'semantic_flow_edge_bound',
+                'semantic_operating_views_bound',
+                'semantic_drift_rules_bound',
+                'semantic_export_contract_bound',
+                'semantic_graph_observability_bound',
+                'semantic_graph_secret_export_blocked',
+                ['hash', 'semantic_operating_graph_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'semantic_graph_bound_count' => 'semantic_graph_bound',
+                'semantic_node_catalog_bound_count' => 'semantic_node_catalog_bound',
+                'semantic_flow_edge_bound_count' => 'semantic_flow_edge_bound',
+                'semantic_operating_views_bound_count' => 'semantic_operating_views_bound',
+                'semantic_drift_rules_bound_count' => 'semantic_drift_rules_bound',
+                'semantic_export_contract_bound_count' => 'semantic_export_contract_bound',
+                'semantic_graph_observability_bound_count' => 'semantic_graph_observability_bound',
+                'semantic_graph_secret_export_blocked_count' => 'semantic_graph_secret_export_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_graph_mutation_allowed' => false,
@@ -1923,7 +1217,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'semantic_graph_runtime_requires_node_catalog_flow_edges_views_drift_rules_export_contract_and_observability' => true,
                 'stale_or_missing_graph_edge_blocks_autonomy_claim' => true,
             ],
-        ], 'semantic_operating_graph_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -1931,88 +1225,42 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainSolutionPlaybookRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_solution_playbook_runtime_status.v1',
+            'status_complete' => 'complete_domain_solution_playbook_runtime_coverage_external_mutation_blocked',
+            'status_missing' => 'missing_domain_solution_playbook_runtime_coverage',
+            'hash_key' => 'domain_solution_playbook_runtime_status_hash',
+            'completed_key' => 'completed_domain_solution_playbook_flow_count',
+            'missing_key' => 'missing_domain_solution_playbook_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $playbookRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['domain_solution_playbook_runtime_bound'] ?? false)
-                    && (bool) ($record['solution_playbook_bound'] ?? false)
-                    && (bool) ($record['source_pack_bound'] ?? false)
-                    && (bool) ($record['domain_data_plane_bound'] ?? false)
-                    && (bool) ($record['execution_path_bound'] ?? false)
-                    && (bool) ($record['tooling_contract_bound'] ?? false)
-                    && (bool) ($record['domain_review_contract_bound'] ?? false)
-                    && (bool) ($record['benchmark_contract_bound'] ?? false)
-                    && (bool) ($record['handoff_contract_bound'] ?? false)
-                    && (bool) ($record['external_mutation_blocked'] ?? false)
-                    && (string) ($record['domain_solution_playbook_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $playbookRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_domain_solution_playbook_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_domain_solution_playbook_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'solution_playbook_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['solution_playbook_bound'] ?? false))),
-                'source_pack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['source_pack_bound'] ?? false))),
-                'domain_data_plane_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_data_plane_bound'] ?? false))),
-                'execution_path_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['execution_path_bound'] ?? false))),
-                'tooling_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['tooling_contract_bound'] ?? false))),
-                'domain_review_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_review_contract_bound'] ?? false))),
-                'benchmark_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['benchmark_contract_bound'] ?? false))),
-                'handoff_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['handoff_contract_bound'] ?? false))),
-                'external_mutation_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['external_mutation_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_solution_playbook_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_solution_playbook_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_solution_playbook_runtime_coverage_external_mutation_blocked'
-                : 'missing_domain_solution_playbook_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_domain_solution_playbook_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'solution_playbook_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['solution_playbook_bound_count'], $companies)),
-                'source_pack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_pack_bound_count'], $companies)),
-                'domain_data_plane_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['domain_data_plane_bound_count'], $companies)),
-                'execution_path_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['execution_path_bound_count'], $companies)),
-                'tooling_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['tooling_contract_bound_count'], $companies)),
-                'domain_review_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['domain_review_contract_bound_count'], $companies)),
-                'benchmark_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['benchmark_contract_bound_count'], $companies)),
-                'handoff_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['handoff_contract_bound_count'], $companies)),
-                'external_mutation_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_mutation_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'domain_solution_playbook_runtime_bound',
+                'solution_playbook_bound',
+                'source_pack_bound',
+                'domain_data_plane_bound',
+                'execution_path_bound',
+                'tooling_contract_bound',
+                'domain_review_contract_bound',
+                'benchmark_contract_bound',
+                'handoff_contract_bound',
+                'external_mutation_blocked',
+                ['hash', 'domain_solution_playbook_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'solution_playbook_bound_count' => 'solution_playbook_bound',
+                'source_pack_bound_count' => 'source_pack_bound',
+                'domain_data_plane_bound_count' => 'domain_data_plane_bound',
+                'execution_path_bound_count' => 'execution_path_bound',
+                'tooling_contract_bound_count' => 'tooling_contract_bound',
+                'domain_review_contract_bound_count' => 'domain_review_contract_bound',
+                'benchmark_contract_bound_count' => 'benchmark_contract_bound',
+                'handoff_contract_bound_count' => 'handoff_contract_bound',
+                'external_mutation_blocked_count' => 'external_mutation_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_data_mutation_allowed' => false,
@@ -2020,7 +1268,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'domain_solution_runtime_requires_playbook_source_pack_data_plane_tool_contract_review_benchmark_and_handoff' => true,
                 'real_connector_activation_requires_signed_scope_credentials_and_green_probe' => true,
             ],
-        ], 'domain_solution_playbook_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2028,91 +1276,44 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainOperatingDepthRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_operating_depth_runtime_status.v1',
+            'status_complete' => 'complete_domain_operating_depth_runtime_coverage_external_effects_blocked',
+            'status_missing' => 'missing_domain_operating_depth_runtime_coverage',
+            'hash_key' => 'domain_operating_depth_runtime_status_hash',
+            'completed_key' => 'completed_domain_operating_depth_flow_count',
+            'missing_key' => 'missing_domain_operating_depth_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $depthRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['domain_operating_depth_runtime_bound'] ?? false)
-                    && (bool) ($record['domain_depth_packet_bound'] ?? false)
-                    && (bool) ($record['domain_depth_skills_bound'] ?? false)
-                    && (bool) ($record['domain_depth_connector_refs_bound'] ?? false)
-                    && (bool) ($record['domain_depth_subagents_bound'] ?? false)
-                    && (bool) ($record['domain_depth_source_refs_bound'] ?? false)
-                    && (bool) ($record['domain_depth_enterprise_system_refs_bound'] ?? false)
-                    && (bool) ($record['domain_depth_data_product_refs_bound'] ?? false)
-                    && (bool) ($record['domain_depth_quality_contract_bound'] ?? false)
-                    && (bool) ($record['domain_depth_operating_controls_bound'] ?? false)
-                    && (bool) ($record['domain_depth_external_effects_blocked'] ?? false)
-                    && (string) ($record['domain_operating_depth_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $depthRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_domain_operating_depth_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_domain_operating_depth_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'depth_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_packet_bound'] ?? false))),
-                'skills_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_skills_bound'] ?? false))),
-                'connector_refs_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_connector_refs_bound'] ?? false))),
-                'subagents_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_subagents_bound'] ?? false))),
-                'source_refs_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_source_refs_bound'] ?? false))),
-                'enterprise_system_refs_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_enterprise_system_refs_bound'] ?? false))),
-                'data_product_refs_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_data_product_refs_bound'] ?? false))),
-                'quality_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_quality_contract_bound'] ?? false))),
-                'operating_controls_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_operating_controls_bound'] ?? false))),
-                'external_effects_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_depth_external_effects_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_operating_depth_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_operating_depth_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_operating_depth_runtime_coverage_external_effects_blocked'
-                : 'missing_domain_operating_depth_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_domain_operating_depth_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'depth_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['depth_packet_bound_count'], $companies)),
-                'skills_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['skills_bound_count'], $companies)),
-                'connector_refs_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_refs_bound_count'], $companies)),
-                'subagents_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['subagents_bound_count'], $companies)),
-                'source_refs_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_refs_bound_count'], $companies)),
-                'enterprise_system_refs_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['enterprise_system_refs_bound_count'], $companies)),
-                'data_product_refs_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['data_product_refs_bound_count'], $companies)),
-                'quality_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['quality_contract_bound_count'], $companies)),
-                'operating_controls_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operating_controls_bound_count'], $companies)),
-                'external_effects_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_effects_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'domain_operating_depth_runtime_bound',
+                'domain_depth_packet_bound',
+                'domain_depth_skills_bound',
+                'domain_depth_connector_refs_bound',
+                'domain_depth_subagents_bound',
+                'domain_depth_source_refs_bound',
+                'domain_depth_enterprise_system_refs_bound',
+                'domain_depth_data_product_refs_bound',
+                'domain_depth_quality_contract_bound',
+                'domain_depth_operating_controls_bound',
+                'domain_depth_external_effects_blocked',
+                ['hash', 'domain_operating_depth_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'depth_packet_bound_count' => 'domain_depth_packet_bound',
+                'skills_bound_count' => 'domain_depth_skills_bound',
+                'connector_refs_bound_count' => 'domain_depth_connector_refs_bound',
+                'subagents_bound_count' => 'domain_depth_subagents_bound',
+                'source_refs_bound_count' => 'domain_depth_source_refs_bound',
+                'enterprise_system_refs_bound_count' => 'domain_depth_enterprise_system_refs_bound',
+                'data_product_refs_bound_count' => 'domain_depth_data_product_refs_bound',
+                'quality_contract_bound_count' => 'domain_depth_quality_contract_bound',
+                'operating_controls_bound_count' => 'domain_depth_operating_controls_bound',
+                'external_effects_blocked_count' => 'domain_depth_external_effects_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_write_spend_trade_publish_deploy_delete_allowed' => false,
@@ -2120,7 +1321,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'domain_depth_runtime_requires_skills_connectors_subagents_sources_systems_data_products_quality_contract_and_controls' => true,
                 'operator_mandate_required_for_any_external_effect' => true,
             ],
-        ], 'domain_operating_depth_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2128,91 +1329,44 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function domainAgentWorkforceRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_domain_agent_workforce_runtime_status.v1',
+            'status_complete' => 'complete_domain_agent_workforce_runtime_coverage_external_effects_blocked',
+            'status_missing' => 'missing_domain_agent_workforce_runtime_coverage',
+            'hash_key' => 'domain_agent_workforce_runtime_status_hash',
+            'completed_key' => 'completed_domain_agent_workforce_flow_count',
+            'missing_key' => 'missing_domain_agent_workforce_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $workforceRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['domain_agent_workforce_runtime_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_crew_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_skills_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_connector_refs_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_subagents_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_source_refs_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_work_surface_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_managed_controls_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_work_queue_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_acceptance_bound'] ?? false)
-                    && (bool) ($record['domain_agent_workforce_external_effects_blocked'] ?? false)
-                    && (string) ($record['domain_agent_workforce_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $workforceRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_domain_agent_workforce_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_domain_agent_workforce_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'crew_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_crew_bound'] ?? false))),
-                'skills_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_skills_bound'] ?? false))),
-                'connector_refs_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_connector_refs_bound'] ?? false))),
-                'subagents_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_subagents_bound'] ?? false))),
-                'source_refs_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_source_refs_bound'] ?? false))),
-                'work_surface_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_work_surface_bound'] ?? false))),
-                'managed_controls_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_managed_controls_bound'] ?? false))),
-                'work_queue_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_work_queue_bound'] ?? false))),
-                'acceptance_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_acceptance_bound'] ?? false))),
-                'external_effects_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['domain_agent_workforce_external_effects_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_agent_workforce_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_domain_agent_workforce_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_domain_agent_workforce_runtime_coverage_external_effects_blocked'
-                : 'missing_domain_agent_workforce_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_domain_agent_workforce_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'crew_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['crew_bound_count'], $companies)),
-                'skills_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['skills_bound_count'], $companies)),
-                'connector_refs_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_refs_bound_count'], $companies)),
-                'subagents_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['subagents_bound_count'], $companies)),
-                'source_refs_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_refs_bound_count'], $companies)),
-                'work_surface_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['work_surface_bound_count'], $companies)),
-                'managed_controls_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['managed_controls_bound_count'], $companies)),
-                'work_queue_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['work_queue_bound_count'], $companies)),
-                'acceptance_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['acceptance_bound_count'], $companies)),
-                'external_effects_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_effects_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'domain_agent_workforce_runtime_bound',
+                'domain_agent_workforce_crew_bound',
+                'domain_agent_workforce_skills_bound',
+                'domain_agent_workforce_connector_refs_bound',
+                'domain_agent_workforce_subagents_bound',
+                'domain_agent_workforce_source_refs_bound',
+                'domain_agent_workforce_work_surface_bound',
+                'domain_agent_workforce_managed_controls_bound',
+                'domain_agent_workforce_work_queue_bound',
+                'domain_agent_workforce_acceptance_bound',
+                'domain_agent_workforce_external_effects_blocked',
+                ['hash', 'domain_agent_workforce_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'crew_bound_count' => 'domain_agent_workforce_crew_bound',
+                'skills_bound_count' => 'domain_agent_workforce_skills_bound',
+                'connector_refs_bound_count' => 'domain_agent_workforce_connector_refs_bound',
+                'subagents_bound_count' => 'domain_agent_workforce_subagents_bound',
+                'source_refs_bound_count' => 'domain_agent_workforce_source_refs_bound',
+                'work_surface_bound_count' => 'domain_agent_workforce_work_surface_bound',
+                'managed_controls_bound_count' => 'domain_agent_workforce_managed_controls_bound',
+                'work_queue_bound_count' => 'domain_agent_workforce_work_queue_bound',
+                'acceptance_bound_count' => 'domain_agent_workforce_acceptance_bound',
+                'external_effects_blocked_count' => 'domain_agent_workforce_external_effects_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_write_spend_trade_publish_deploy_delete_allowed' => false,
@@ -2220,7 +1374,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'domain_agent_workforce_requires_crews_skills_connectors_subagents_work_surfaces_permissions_vault_audit_queue_acceptance' => true,
                 'operator_mandate_required_for_any_external_effect' => true,
             ],
-        ], 'domain_agent_workforce_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2236,105 +1390,66 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function flowExecutionFoundationRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-        $boundKeys = [
-            'orchestration_stack_bound_count' => 'flow_execution_orchestration_stack_bound',
-            'runbook_bound_count' => 'flow_execution_runbook_bound',
-            'connector_backplane_bound_count' => 'flow_execution_connector_backplane_bound',
-            'runbook_observability_bound_count' => 'flow_execution_runbook_observability_bound',
-            'implementation_stack_bound_count' => 'flow_execution_implementation_stack_bound',
-            'executable_packet_bound_count' => 'flow_execution_executable_packet_bound',
-            'agent_tool_routing_bound_count' => 'flow_execution_agent_tool_routing_bound',
-            'artifact_io_contract_bound_count' => 'flow_execution_artifact_io_contract_bound',
-            'supervision_shadow_gate_bound_count' => 'flow_execution_supervision_shadow_gate_bound',
-            'connector_runtime_adapters_bound_count' => 'flow_execution_connector_runtime_adapters_bound',
-            'runtime_event_outbox_bound_count' => 'flow_execution_runtime_event_outbox_bound',
-            'implementation_observability_bound_count' => 'flow_execution_implementation_observability_bound',
-            'fixture_simulation_stack_bound_count' => 'flow_execution_fixture_simulation_stack_bound',
-            'canonical_fixture_bound_count' => 'flow_execution_canonical_fixture_bound',
-            'expected_trace_bound_count' => 'flow_execution_expected_trace_bound',
-            'quality_assertion_suite_bound_count' => 'flow_execution_quality_assertion_suite_bound',
-            'failure_injection_bound_count' => 'flow_execution_failure_injection_bound',
-            'dry_run_command_bound_count' => 'flow_execution_dry_run_command_bound',
-            'simulation_promotion_gates_bound_count' => 'flow_execution_simulation_promotion_gates_bound',
-            'simulation_observability_bound_count' => 'flow_execution_simulation_observability_bound',
-            'external_actions_blocked_count' => 'flow_execution_external_actions_blocked',
-        ];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_flow_execution_foundation_runtime_status.v1',
+            'status_complete' => 'complete_flow_execution_foundation_runtime_coverage_external_actions_blocked',
+            'status_missing' => 'missing_flow_execution_foundation_runtime_coverage',
+            'hash_key' => 'flow_execution_foundation_runtime_status_hash',
+            'completed_key' => 'completed_flow_execution_foundation_flow_count',
+            'missing_key' => 'missing_flow_execution_foundation_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $foundationRecords = array_values(array_filter(
-                $companyRecords,
-                static function (array $record) use ($boundKeys): bool {
-                    if (! (bool) ($record['flow_execution_foundation_runtime_bound'] ?? false)
-                        || (string) ($record['flow_execution_foundation_attestation_hash'] ?? '') === ''
-                        || (bool) ($record['external_side_effects'] ?? true) !== false) {
-                        return false;
-                    }
-
-                    foreach ($boundKeys as $recordKey) {
-                        if (! (bool) ($record[$recordKey] ?? false)) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                },
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $foundationRecords,
-            ))));
-
-            $companySummary = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_flow_execution_foundation_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_flow_execution_foundation_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-            ];
-            foreach ($boundKeys as $summaryKey => $recordKey) {
-                $companySummary[$summaryKey] = count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record[$recordKey] ?? false)));
-            }
-
-            $companies[] = $companySummary;
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_flow_execution_foundation_flow_count'], $companies));
-        $summary = [
-            'company_count' => count($companies),
-            'expected_flow_count' => $expectedFlowCount,
-            'completed_flow_execution_foundation_flow_count' => $completedFlowCount,
-            'runtime_record_count' => count($records),
-        ];
-        foreach ($boundKeys as $summaryKey => $_recordKey) {
-            $summary[$summaryKey] = array_sum(array_map(static fn (array $company): int => (int) $company[$summaryKey], $companies));
-        }
-        $summary['external_side_effect_count'] = count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true)));
-        $summary['coverage_rate'] = $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0;
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_flow_execution_foundation_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_flow_execution_foundation_runtime_coverage_external_actions_blocked'
-                : 'missing_flow_execution_foundation_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => $summary,
-            'companies' => $companies,
-            'records' => $records,
+            )),
+            'gate' => [
+                'flow_execution_foundation_runtime_bound',
+                ['hash', 'flow_execution_foundation_attestation_hash'],
+                ['internal', 'external_side_effects'],
+                'flow_execution_orchestration_stack_bound',
+                'flow_execution_runbook_bound',
+                'flow_execution_connector_backplane_bound',
+                'flow_execution_runbook_observability_bound',
+                'flow_execution_implementation_stack_bound',
+                'flow_execution_executable_packet_bound',
+                'flow_execution_agent_tool_routing_bound',
+                'flow_execution_artifact_io_contract_bound',
+                'flow_execution_supervision_shadow_gate_bound',
+                'flow_execution_connector_runtime_adapters_bound',
+                'flow_execution_runtime_event_outbox_bound',
+                'flow_execution_implementation_observability_bound',
+                'flow_execution_fixture_simulation_stack_bound',
+                'flow_execution_canonical_fixture_bound',
+                'flow_execution_expected_trace_bound',
+                'flow_execution_quality_assertion_suite_bound',
+                'flow_execution_failure_injection_bound',
+                'flow_execution_dry_run_command_bound',
+                'flow_execution_simulation_promotion_gates_bound',
+                'flow_execution_simulation_observability_bound',
+                'flow_execution_external_actions_blocked',
+            ],
+            'counts' => [
+                'orchestration_stack_bound_count' => 'flow_execution_orchestration_stack_bound',
+                'runbook_bound_count' => 'flow_execution_runbook_bound',
+                'connector_backplane_bound_count' => 'flow_execution_connector_backplane_bound',
+                'runbook_observability_bound_count' => 'flow_execution_runbook_observability_bound',
+                'implementation_stack_bound_count' => 'flow_execution_implementation_stack_bound',
+                'executable_packet_bound_count' => 'flow_execution_executable_packet_bound',
+                'agent_tool_routing_bound_count' => 'flow_execution_agent_tool_routing_bound',
+                'artifact_io_contract_bound_count' => 'flow_execution_artifact_io_contract_bound',
+                'supervision_shadow_gate_bound_count' => 'flow_execution_supervision_shadow_gate_bound',
+                'connector_runtime_adapters_bound_count' => 'flow_execution_connector_runtime_adapters_bound',
+                'runtime_event_outbox_bound_count' => 'flow_execution_runtime_event_outbox_bound',
+                'implementation_observability_bound_count' => 'flow_execution_implementation_observability_bound',
+                'fixture_simulation_stack_bound_count' => 'flow_execution_fixture_simulation_stack_bound',
+                'canonical_fixture_bound_count' => 'flow_execution_canonical_fixture_bound',
+                'expected_trace_bound_count' => 'flow_execution_expected_trace_bound',
+                'quality_assertion_suite_bound_count' => 'flow_execution_quality_assertion_suite_bound',
+                'failure_injection_bound_count' => 'flow_execution_failure_injection_bound',
+                'dry_run_command_bound_count' => 'flow_execution_dry_run_command_bound',
+                'simulation_promotion_gates_bound_count' => 'flow_execution_simulation_promotion_gates_bound',
+                'simulation_observability_bound_count' => 'flow_execution_simulation_observability_bound',
+                'external_actions_blocked_count' => 'flow_execution_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'calendar_wait_blocker_enabled' => false,
@@ -2342,7 +1457,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_checkpoint_required_before_external_action' => true,
                 'flow_execution_foundation_requires_runbook_implementation_fixtures_simulation_gates_outbox_and_observability' => true,
             ],
-        ], 'flow_execution_foundation_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2350,85 +1465,40 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     private function agentToolchainRuntimeStatusPayload(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_agent_toolchain_runtime_status.v1',
+            'status_complete' => 'complete_agent_toolchain_runtime_coverage_external_blocked',
+            'status_missing' => 'missing_agent_toolchain_runtime_coverage',
+            'hash_key' => 'agent_toolchain_runtime_status_hash',
+            'completed_key' => 'completed_agent_toolchain_flow_count',
+            'missing_key' => 'missing_agent_toolchain_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $toolchainRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['agent_toolchain_runtime_bound'] ?? false)
-                    && (bool) ($record['framework_source_catalog_bound'] ?? false)
-                    && (bool) ($record['flow_toolkit_assignment_bound'] ?? false)
-                    && (bool) ($record['agent_repository_epic_bound'] ?? false)
-                    && (bool) ($record['guardrails_runtime_bound'] ?? false)
-                    && (bool) ($record['handoffs_runtime_bound'] ?? false)
-                    && (bool) ($record['tracing_runtime_bound'] ?? false)
-                    && (bool) ($record['durable_state_runtime_bound'] ?? false)
-                    && (bool) ($record['human_in_loop_runtime_bound'] ?? false)
-                    && (string) ($record['agent_toolchain_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $toolchainRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_agent_toolchain_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_agent_toolchain_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'framework_source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['framework_source_catalog_bound'] ?? false))),
-                'flow_toolkit_assignment_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_toolkit_assignment_bound'] ?? false))),
-                'agent_repository_epic_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['agent_repository_epic_bound'] ?? false))),
-                'guardrails_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['guardrails_runtime_bound'] ?? false))),
-                'handoffs_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['handoffs_runtime_bound'] ?? false))),
-                'tracing_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['tracing_runtime_bound'] ?? false))),
-                'durable_state_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['durable_state_runtime_bound'] ?? false))),
-                'human_in_loop_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['human_in_loop_runtime_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_agent_toolchain_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_agent_toolchain_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_agent_toolchain_runtime_coverage_external_blocked'
-                : 'missing_agent_toolchain_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_agent_toolchain_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'framework_source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['framework_source_catalog_bound_count'], $companies)),
-                'flow_toolkit_assignment_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_toolkit_assignment_bound_count'], $companies)),
-                'agent_repository_epic_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['agent_repository_epic_bound_count'], $companies)),
-                'guardrails_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['guardrails_runtime_bound_count'], $companies)),
-                'handoffs_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['handoffs_runtime_bound_count'], $companies)),
-                'tracing_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['tracing_runtime_bound_count'], $companies)),
-                'durable_state_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['durable_state_runtime_bound_count'], $companies)),
-                'human_in_loop_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['human_in_loop_runtime_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'agent_toolchain_runtime_bound',
+                'framework_source_catalog_bound',
+                'flow_toolkit_assignment_bound',
+                'agent_repository_epic_bound',
+                'guardrails_runtime_bound',
+                'handoffs_runtime_bound',
+                'tracing_runtime_bound',
+                'durable_state_runtime_bound',
+                'human_in_loop_runtime_bound',
+                ['hash', 'agent_toolchain_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'framework_source_catalog_bound_count' => 'framework_source_catalog_bound',
+                'flow_toolkit_assignment_bound_count' => 'flow_toolkit_assignment_bound',
+                'agent_repository_epic_bound_count' => 'agent_repository_epic_bound',
+                'guardrails_runtime_bound_count' => 'guardrails_runtime_bound',
+                'handoffs_runtime_bound_count' => 'handoffs_runtime_bound',
+                'tracing_runtime_bound_count' => 'tracing_runtime_bound',
+                'durable_state_runtime_bound_count' => 'durable_state_runtime_bound',
+                'human_in_loop_runtime_bound_count' => 'human_in_loop_runtime_bound',
+            ],
             'policy' => [
                 'reference_patterns' => [
                     'openai_agents_sdk_tools_handoffs_guardrails_tracing',
@@ -2442,7 +1512,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'runtime_use_requires_local_contract_tests_version_pins_guardrails_handoffs_tracing_and_human_checkpoints' => true,
                 'operator_mandate_required_for_external_tool_side_effect' => true,
             ],
-        ], 'agent_toolchain_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2450,85 +1520,40 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function workforceCapacityRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_workforce_capacity_runtime_status.v1',
+            'status_complete' => 'complete_workforce_capacity_runtime_coverage_external_staffing_changes_blocked',
+            'status_missing' => 'missing_workforce_capacity_runtime_coverage',
+            'hash_key' => 'workforce_capacity_runtime_status_hash',
+            'completed_key' => 'completed_workforce_capacity_flow_count',
+            'missing_key' => 'missing_workforce_capacity_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $workforceRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['workforce_capacity_runtime_bound'] ?? false)
-                    && (bool) ($record['workforce_stack_bound'] ?? false)
-                    && (bool) ($record['workforce_org_model_bound'] ?? false)
-                    && (bool) ($record['workforce_agent_capacity_plan_bound'] ?? false)
-                    && (bool) ($record['workforce_flow_staffing_bound'] ?? false)
-                    && (bool) ($record['workforce_training_enablement_bound'] ?? false)
-                    && (bool) ($record['workforce_succession_continuity_bound'] ?? false)
-                    && (bool) ($record['workforce_capacity_observability_bound'] ?? false)
-                    && (bool) ($record['workforce_capacity_external_changes_blocked'] ?? false)
-                    && (string) ($record['workforce_capacity_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $workforceRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_workforce_capacity_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_workforce_capacity_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'workforce_stack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_stack_bound'] ?? false))),
-                'org_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_org_model_bound'] ?? false))),
-                'agent_capacity_plan_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_agent_capacity_plan_bound'] ?? false))),
-                'flow_staffing_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_flow_staffing_bound'] ?? false))),
-                'training_enablement_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_training_enablement_bound'] ?? false))),
-                'succession_continuity_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_succession_continuity_bound'] ?? false))),
-                'capacity_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_capacity_observability_bound'] ?? false))),
-                'external_changes_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['workforce_capacity_external_changes_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_workforce_capacity_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_workforce_capacity_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_workforce_capacity_runtime_coverage_external_staffing_changes_blocked'
-                : 'missing_workforce_capacity_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_workforce_capacity_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'workforce_stack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['workforce_stack_bound_count'], $companies)),
-                'org_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['org_model_bound_count'], $companies)),
-                'agent_capacity_plan_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['agent_capacity_plan_bound_count'], $companies)),
-                'flow_staffing_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_staffing_bound_count'], $companies)),
-                'training_enablement_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['training_enablement_bound_count'], $companies)),
-                'succession_continuity_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['succession_continuity_bound_count'], $companies)),
-                'capacity_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['capacity_observability_bound_count'], $companies)),
-                'external_changes_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_changes_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'workforce_capacity_runtime_bound',
+                'workforce_stack_bound',
+                'workforce_org_model_bound',
+                'workforce_agent_capacity_plan_bound',
+                'workforce_flow_staffing_bound',
+                'workforce_training_enablement_bound',
+                'workforce_succession_continuity_bound',
+                'workforce_capacity_observability_bound',
+                'workforce_capacity_external_changes_blocked',
+                ['hash', 'workforce_capacity_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'workforce_stack_bound_count' => 'workforce_stack_bound',
+                'org_model_bound_count' => 'workforce_org_model_bound',
+                'agent_capacity_plan_bound_count' => 'workforce_agent_capacity_plan_bound',
+                'flow_staffing_bound_count' => 'workforce_flow_staffing_bound',
+                'training_enablement_bound_count' => 'workforce_training_enablement_bound',
+                'succession_continuity_bound_count' => 'workforce_succession_continuity_bound',
+                'capacity_observability_bound_count' => 'workforce_capacity_observability_bound',
+                'external_changes_blocked_count' => 'workforce_capacity_external_changes_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'calendar_wait_blocker_enabled' => false,
@@ -2536,7 +1561,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'external_unreviewed_staffing_change_allowed' => false,
                 'workforce_runtime_requires_capacity_plan_flow_staffing_training_succession_and_observability' => true,
             ],
-        ], 'workforce_capacity_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2544,88 +1569,42 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function portfolioDependencyRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_portfolio_dependency_runtime_status.v1',
+            'status_complete' => 'complete_portfolio_dependency_runtime_coverage_external_dependency_actions_blocked',
+            'status_missing' => 'missing_portfolio_dependency_runtime_coverage',
+            'hash_key' => 'portfolio_dependency_runtime_status_hash',
+            'completed_key' => 'completed_portfolio_dependency_flow_count',
+            'missing_key' => 'missing_portfolio_dependency_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $dependencyRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['portfolio_dependency_runtime_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_stack_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_role_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_intake_contract_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_upstream_map_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_integration_map_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_flow_routing_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_escalation_conflict_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_reporting_bound'] ?? false)
-                    && (bool) ($record['portfolio_dependency_external_actions_blocked'] ?? false)
-                    && (string) ($record['portfolio_dependency_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $dependencyRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_portfolio_dependency_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_portfolio_dependency_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'dependency_stack_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_stack_bound'] ?? false))),
-                'role_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_role_bound'] ?? false))),
-                'intake_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_intake_contract_bound'] ?? false))),
-                'upstream_map_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_upstream_map_bound'] ?? false))),
-                'integration_map_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_integration_map_bound'] ?? false))),
-                'flow_routing_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_flow_routing_bound'] ?? false))),
-                'escalation_conflict_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_escalation_conflict_bound'] ?? false))),
-                'reporting_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_reporting_bound'] ?? false))),
-                'external_actions_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['portfolio_dependency_external_actions_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_portfolio_dependency_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_portfolio_dependency_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_portfolio_dependency_runtime_coverage_external_dependency_actions_blocked'
-                : 'missing_portfolio_dependency_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_portfolio_dependency_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'dependency_stack_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['dependency_stack_bound_count'], $companies)),
-                'role_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['role_bound_count'], $companies)),
-                'intake_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['intake_contract_bound_count'], $companies)),
-                'upstream_map_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['upstream_map_bound_count'], $companies)),
-                'integration_map_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['integration_map_bound_count'], $companies)),
-                'flow_routing_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_routing_bound_count'], $companies)),
-                'escalation_conflict_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['escalation_conflict_bound_count'], $companies)),
-                'reporting_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['reporting_bound_count'], $companies)),
-                'external_actions_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_actions_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'portfolio_dependency_runtime_bound',
+                'portfolio_dependency_stack_bound',
+                'portfolio_dependency_role_bound',
+                'portfolio_dependency_intake_contract_bound',
+                'portfolio_dependency_upstream_map_bound',
+                'portfolio_dependency_integration_map_bound',
+                'portfolio_dependency_flow_routing_bound',
+                'portfolio_dependency_escalation_conflict_bound',
+                'portfolio_dependency_reporting_bound',
+                'portfolio_dependency_external_actions_blocked',
+                ['hash', 'portfolio_dependency_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'dependency_stack_bound_count' => 'portfolio_dependency_stack_bound',
+                'role_bound_count' => 'portfolio_dependency_role_bound',
+                'intake_contract_bound_count' => 'portfolio_dependency_intake_contract_bound',
+                'upstream_map_bound_count' => 'portfolio_dependency_upstream_map_bound',
+                'integration_map_bound_count' => 'portfolio_dependency_integration_map_bound',
+                'flow_routing_bound_count' => 'portfolio_dependency_flow_routing_bound',
+                'escalation_conflict_bound_count' => 'portfolio_dependency_escalation_conflict_bound',
+                'reporting_bound_count' => 'portfolio_dependency_reporting_bound',
+                'external_actions_blocked_count' => 'portfolio_dependency_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'calendar_wait_blocker_enabled' => false,
@@ -2634,7 +1613,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'unresolved_conflict_external_side_effect_allowed' => false,
                 'portfolio_dependency_runtime_requires_role_intake_maps_flow_routing_escalation_and_reporting' => true,
             ],
-        ], 'portfolio_dependency_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2642,82 +1621,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function operationalDossierRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_operational_dossier_runtime_status.v1',
+            'status_complete' => 'complete_operational_dossier_runtime_coverage_external_blocked',
+            'status_missing' => 'missing_operational_dossier_runtime_coverage',
+            'hash_key' => 'operational_dossier_runtime_status_hash',
+            'completed_key' => 'completed_operational_dossier_flow_count',
+            'missing_key' => 'missing_operational_dossier_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $dossierRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['operational_dossier_runtime_bound'] ?? false)
-                    && (bool) ($record['operational_dossier_bound'] ?? false)
-                    && (bool) ($record['dossier_evidence_spine_bound'] ?? false)
-                    && (bool) ($record['dossier_control_plane_bound'] ?? false)
-                    && (bool) ($record['dossier_decision_packet_bound'] ?? false)
-                    && (bool) ($record['dossier_promotion_path_bound'] ?? false)
-                    && (bool) ($record['dossier_scorecard_bound'] ?? false)
-                    && (bool) ($record['dossier_external_blocked'] ?? false)
-                    && (string) ($record['operational_dossier_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $dossierRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_operational_dossier_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_operational_dossier_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'dossier_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['operational_dossier_bound'] ?? false))),
-                'evidence_spine_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dossier_evidence_spine_bound'] ?? false))),
-                'control_plane_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dossier_control_plane_bound'] ?? false))),
-                'decision_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dossier_decision_packet_bound'] ?? false))),
-                'promotion_path_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dossier_promotion_path_bound'] ?? false))),
-                'scorecard_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dossier_scorecard_bound'] ?? false))),
-                'external_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['dossier_external_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_operational_dossier_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_operational_dossier_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_operational_dossier_runtime_coverage_external_blocked'
-                : 'missing_operational_dossier_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_operational_dossier_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'dossier_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['dossier_bound_count'], $companies)),
-                'evidence_spine_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['evidence_spine_bound_count'], $companies)),
-                'control_plane_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['control_plane_bound_count'], $companies)),
-                'decision_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['decision_packet_bound_count'], $companies)),
-                'promotion_path_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['promotion_path_bound_count'], $companies)),
-                'scorecard_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['scorecard_bound_count'], $companies)),
-                'external_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'operational_dossier_runtime_bound',
+                'operational_dossier_bound',
+                'dossier_evidence_spine_bound',
+                'dossier_control_plane_bound',
+                'dossier_decision_packet_bound',
+                'dossier_promotion_path_bound',
+                'dossier_scorecard_bound',
+                'dossier_external_blocked',
+                ['hash', 'operational_dossier_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'dossier_bound_count' => 'operational_dossier_bound',
+                'evidence_spine_bound_count' => 'dossier_evidence_spine_bound',
+                'control_plane_bound_count' => 'dossier_control_plane_bound',
+                'decision_packet_bound_count' => 'dossier_decision_packet_bound',
+                'promotion_path_bound_count' => 'dossier_promotion_path_bound',
+                'scorecard_bound_count' => 'dossier_scorecard_bound',
+                'external_blocked_count' => 'dossier_external_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_delivery_allowed' => false,
@@ -2725,7 +1660,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operational_dossier_requires_evidence_controls_decision_packet_promotion_path_and_scorecard' => true,
                 'operator_mandate_required_for_any_external_promotion' => true,
             ],
-        ], 'operational_dossier_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -2822,79 +1757,37 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function autonomyPromotionRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_autonomy_promotion_runtime_status.v1',
+            'status_complete' => 'complete_autonomy_promotion_runtime_coverage_limited_external_autonomy_blocked',
+            'status_missing' => 'missing_autonomy_promotion_runtime_coverage',
+            'hash_key' => 'autonomy_promotion_runtime_status_hash',
+            'completed_key' => 'completed_autonomy_promotion_flow_count',
+            'missing_key' => 'missing_autonomy_promotion_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $promotionRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['autonomy_promotion_runtime_bound'] ?? false)
-                    && (bool) ($record['autonomy_ladder_bound'] ?? false)
-                    && (bool) ($record['autonomy_fixture_level_bound'] ?? false)
-                    && (bool) ($record['autonomy_shadow_level_bound'] ?? false)
-                    && (bool) ($record['autonomy_supervised_internal_level_bound'] ?? false)
-                    && (bool) ($record['autonomy_supervised_external_packet_bound'] ?? false)
-                    && (bool) ($record['autonomy_limited_external_autonomy_blocked'] ?? false)
-                    && (bool) ($record['autonomy_evidence_spine_bound'] ?? false)
-                    && (bool) ($record['autonomy_rollback_reconciliation_bound'] ?? false)
-                    && (string) ($record['autonomy_promotion_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $promotionRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_autonomy_promotion_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_autonomy_promotion_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'autonomy_ladder_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['autonomy_ladder_bound'] ?? false))),
-                'supervised_external_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['autonomy_supervised_external_packet_bound'] ?? false))),
-                'limited_external_autonomy_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['autonomy_limited_external_autonomy_blocked'] ?? false))),
-                'evidence_spine_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['autonomy_evidence_spine_bound'] ?? false))),
-                'rollback_reconciliation_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['autonomy_rollback_reconciliation_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_autonomy_promotion_flow_count'], $companies));
-
-        return AtlasEnvelope::seal([
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_autonomy_promotion_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_autonomy_promotion_runtime_coverage_limited_external_autonomy_blocked'
-                : 'missing_autonomy_promotion_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_autonomy_promotion_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'autonomy_ladder_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['autonomy_ladder_bound_count'], $companies)),
-                'supervised_external_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['supervised_external_packet_bound_count'], $companies)),
-                'limited_external_autonomy_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['limited_external_autonomy_blocked_count'], $companies)),
-                'evidence_spine_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['evidence_spine_bound_count'], $companies)),
-                'rollback_reconciliation_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['rollback_reconciliation_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'autonomy_promotion_runtime_bound',
+                'autonomy_ladder_bound',
+                'autonomy_fixture_level_bound',
+                'autonomy_shadow_level_bound',
+                'autonomy_supervised_internal_level_bound',
+                'autonomy_supervised_external_packet_bound',
+                'autonomy_limited_external_autonomy_blocked',
+                'autonomy_evidence_spine_bound',
+                'autonomy_rollback_reconciliation_bound',
+                ['hash', 'autonomy_promotion_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'autonomy_ladder_bound_count' => 'autonomy_ladder_bound',
+                'supervised_external_packet_bound_count' => 'autonomy_supervised_external_packet_bound',
+                'limited_external_autonomy_blocked_count' => 'autonomy_limited_external_autonomy_blocked',
+                'evidence_spine_bound_count' => 'autonomy_evidence_spine_bound',
+                'rollback_reconciliation_bound_count' => 'autonomy_rollback_reconciliation_bound',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'limited_external_autonomy_allowed' => false,
@@ -2904,7 +1797,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'second_reviewer_required_for_limited_external_autonomy' => true,
                 'autonomy_promotion_requires_fixture_shadow_supervised_packet_evidence_rollback_and_reconciliation' => true,
             ],
-        ], 'autonomy_promotion_runtime_status_hash');
+        ], $companyId);
     }
 
     /**
@@ -3377,103 +2270,52 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function customerAccountRevenueRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_customer_account_revenue_runtime_status.v1',
+            'status_complete' => 'complete_customer_account_revenue_runtime_coverage_external_revenue_blocked',
+            'status_missing' => 'missing_customer_account_revenue_runtime_coverage',
+            'hash_key' => 'customer_account_revenue_runtime_status_hash',
+            'completed_key' => 'completed_customer_account_revenue_flow_count',
+            'missing_key' => 'missing_customer_account_revenue_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $customerAccountRevenueRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['customer_account_revenue_runtime_bound'] ?? false)
-                    && (bool) ($record['customer_market_runtime_bound'] ?? false)
-                    && (bool) ($record['offer_packaging_bound'] ?? false)
-                    && (bool) ($record['journey_lifecycle_bound'] ?? false)
-                    && (bool) ($record['customer_success_scorecard_bound'] ?? false)
-                    && (bool) ($record['commercial_service_catalog_bound'] ?? false)
-                    && (bool) ($record['business_kpi_bound'] ?? false)
-                    && (bool) ($record['account_contract_delivery_bound'] ?? false)
-                    && (bool) ($record['account_segment_playbook_bound'] ?? false)
-                    && (bool) ($record['contract_entitlement_bound'] ?? false)
-                    && (bool) ($record['onboarding_success_plan_bound'] ?? false)
-                    && (bool) ($record['service_review_renewal_bound'] ?? false)
-                    && (bool) ($record['account_health_risk_bound'] ?? false)
-                    && (bool) ($record['billing_revenue_model_bound'] ?? false)
-                    && (bool) ($record['account_observability_bound'] ?? false)
-                    && (string) ($record['customer_account_revenue_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $customerAccountRevenueRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_customer_account_revenue_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_customer_account_revenue_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'customer_market_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['customer_market_runtime_bound'] ?? false))),
-                'offer_packaging_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['offer_packaging_bound'] ?? false))),
-                'journey_lifecycle_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['journey_lifecycle_bound'] ?? false))),
-                'customer_success_scorecard_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['customer_success_scorecard_bound'] ?? false))),
-                'commercial_service_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['commercial_service_catalog_bound'] ?? false))),
-                'business_kpi_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_kpi_bound'] ?? false))),
-                'account_contract_delivery_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_contract_delivery_bound'] ?? false))),
-                'account_segment_playbook_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_segment_playbook_bound'] ?? false))),
-                'contract_entitlement_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['contract_entitlement_bound'] ?? false))),
-                'onboarding_success_plan_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['onboarding_success_plan_bound'] ?? false))),
-                'service_review_renewal_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['service_review_renewal_bound'] ?? false))),
-                'account_health_risk_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_health_risk_bound'] ?? false))),
-                'billing_revenue_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['billing_revenue_model_bound'] ?? false))),
-                'account_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['account_observability_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_customer_account_revenue_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_customer_account_revenue_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_customer_account_revenue_runtime_coverage_external_revenue_blocked'
-                : 'missing_customer_account_revenue_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_customer_account_revenue_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'customer_market_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_market_runtime_bound_count'], $companies)),
-                'offer_packaging_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['offer_packaging_bound_count'], $companies)),
-                'journey_lifecycle_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['journey_lifecycle_bound_count'], $companies)),
-                'customer_success_scorecard_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_success_scorecard_bound_count'], $companies)),
-                'commercial_service_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['commercial_service_catalog_bound_count'], $companies)),
-                'business_kpi_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_kpi_bound_count'], $companies)),
-                'account_contract_delivery_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_contract_delivery_bound_count'], $companies)),
-                'account_segment_playbook_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_segment_playbook_bound_count'], $companies)),
-                'contract_entitlement_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['contract_entitlement_bound_count'], $companies)),
-                'onboarding_success_plan_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['onboarding_success_plan_bound_count'], $companies)),
-                'service_review_renewal_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['service_review_renewal_bound_count'], $companies)),
-                'account_health_risk_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_health_risk_bound_count'], $companies)),
-                'billing_revenue_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['billing_revenue_model_bound_count'], $companies)),
-                'account_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_observability_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'customer_account_revenue_runtime_bound',
+                'customer_market_runtime_bound',
+                'offer_packaging_bound',
+                'journey_lifecycle_bound',
+                'customer_success_scorecard_bound',
+                'commercial_service_catalog_bound',
+                'business_kpi_bound',
+                'account_contract_delivery_bound',
+                'account_segment_playbook_bound',
+                'contract_entitlement_bound',
+                'onboarding_success_plan_bound',
+                'service_review_renewal_bound',
+                'account_health_risk_bound',
+                'billing_revenue_model_bound',
+                'account_observability_bound',
+                ['hash', 'customer_account_revenue_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'customer_market_runtime_bound_count' => 'customer_market_runtime_bound',
+                'offer_packaging_bound_count' => 'offer_packaging_bound',
+                'journey_lifecycle_bound_count' => 'journey_lifecycle_bound',
+                'customer_success_scorecard_bound_count' => 'customer_success_scorecard_bound',
+                'commercial_service_catalog_bound_count' => 'commercial_service_catalog_bound',
+                'business_kpi_bound_count' => 'business_kpi_bound',
+                'account_contract_delivery_bound_count' => 'account_contract_delivery_bound',
+                'account_segment_playbook_bound_count' => 'account_segment_playbook_bound',
+                'contract_entitlement_bound_count' => 'contract_entitlement_bound',
+                'onboarding_success_plan_bound_count' => 'onboarding_success_plan_bound',
+                'service_review_renewal_bound_count' => 'service_review_renewal_bound',
+                'account_health_risk_bound_count' => 'account_health_risk_bound',
+                'billing_revenue_model_bound_count' => 'billing_revenue_model_bound',
+                'account_observability_bound_count' => 'account_observability_bound',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_customer_commitment_allowed' => false,
@@ -3482,10 +2324,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'real_revenue_claim_requires_external_evidence_operator_acceptance_and_signed_scope' => true,
                 'customer_account_revenue_runtime_requires_icp_offer_journey_account_contract_success_renewal_billing_controls' => true,
             ],
-        ];
-        $payload['customer_account_revenue_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -3493,90 +2332,44 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function productizedServiceRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_productized_service_runtime_status.v1',
+            'status_complete' => 'complete_productized_service_runtime_coverage_external_commitment_billing_blocked',
+            'status_missing' => 'missing_productized_service_runtime_coverage',
+            'hash_key' => 'productized_service_runtime_status_hash',
+            'completed_key' => 'completed_productized_service_flow_count',
+            'missing_key' => 'missing_productized_service_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $productizedRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['productized_service_runtime_bound'] ?? false)
-                    && (bool) ($record['productized_service_stack_bound'] ?? false)
-                    && (bool) ($record['productized_domain_product_line_bound'] ?? false)
-                    && (bool) ($record['productized_service_offer_bound'] ?? false)
-                    && (bool) ($record['productized_delivery_blueprint_bound'] ?? false)
-                    && (bool) ($record['productized_intake_contract_bound'] ?? false)
-                    && (bool) ($record['productized_sla_success_contract_bound'] ?? false)
-                    && (bool) ($record['productized_pricing_packaging_bound'] ?? false)
-                    && (bool) ($record['productized_gtm_motion_bound'] ?? false)
-                    && (bool) ($record['productized_proof_template_bound'] ?? false)
-                    && (bool) ($record['productized_observability_bound'] ?? false)
-                    && (bool) ($record['productized_external_commitment_billing_blocked'] ?? false)
-                    && (string) ($record['productized_service_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $productizedRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_productized_service_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_productized_service_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'service_offer_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_service_offer_bound'] ?? false))),
-                'delivery_blueprint_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_delivery_blueprint_bound'] ?? false))),
-                'intake_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_intake_contract_bound'] ?? false))),
-                'sla_success_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_sla_success_contract_bound'] ?? false))),
-                'pricing_packaging_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_pricing_packaging_bound'] ?? false))),
-                'gtm_motion_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_gtm_motion_bound'] ?? false))),
-                'proof_template_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_proof_template_bound'] ?? false))),
-                'observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_observability_bound'] ?? false))),
-                'external_commitment_billing_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['productized_external_commitment_billing_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_productized_service_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_productized_service_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_productized_service_runtime_coverage_external_commitment_billing_blocked'
-                : 'missing_productized_service_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_productized_service_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'service_offer_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['service_offer_bound_count'], $companies)),
-                'delivery_blueprint_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['delivery_blueprint_bound_count'], $companies)),
-                'intake_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['intake_contract_bound_count'], $companies)),
-                'sla_success_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['sla_success_contract_bound_count'], $companies)),
-                'pricing_packaging_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['pricing_packaging_bound_count'], $companies)),
-                'gtm_motion_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['gtm_motion_bound_count'], $companies)),
-                'proof_template_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['proof_template_bound_count'], $companies)),
-                'observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['observability_bound_count'], $companies)),
-                'external_commitment_billing_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_commitment_billing_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'productized_service_runtime_bound',
+                'productized_service_stack_bound',
+                'productized_domain_product_line_bound',
+                'productized_service_offer_bound',
+                'productized_delivery_blueprint_bound',
+                'productized_intake_contract_bound',
+                'productized_sla_success_contract_bound',
+                'productized_pricing_packaging_bound',
+                'productized_gtm_motion_bound',
+                'productized_proof_template_bound',
+                'productized_observability_bound',
+                'productized_external_commitment_billing_blocked',
+                ['hash', 'productized_service_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'service_offer_bound_count' => 'productized_service_offer_bound',
+                'delivery_blueprint_bound_count' => 'productized_delivery_blueprint_bound',
+                'intake_contract_bound_count' => 'productized_intake_contract_bound',
+                'sla_success_contract_bound_count' => 'productized_sla_success_contract_bound',
+                'pricing_packaging_bound_count' => 'productized_pricing_packaging_bound',
+                'gtm_motion_bound_count' => 'productized_gtm_motion_bound',
+                'proof_template_bound_count' => 'productized_proof_template_bound',
+                'observability_bound_count' => 'productized_observability_bound',
+                'external_commitment_billing_blocked_count' => 'productized_external_commitment_billing_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'public_gtm_or_customer_commitment_allowed' => false,
@@ -3584,10 +2377,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'productized_service_runtime_requires_offer_delivery_intake_sla_pricing_gtm_proof_and_observability' => true,
                 'operator_mandate_required_for_public_offer_customer_commitment_or_billing' => true,
             ],
-        ];
-        $payload['productized_service_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -3595,104 +2385,53 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function salesCrmPipelineRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_sales_crm_pipeline_runtime_status.v1',
+            'status_complete' => 'complete_sales_crm_pipeline_runtime_coverage_external_commitments_blocked',
+            'status_missing' => 'missing_sales_crm_pipeline_runtime_coverage',
+            'hash_key' => 'sales_crm_pipeline_runtime_status_hash',
+            'completed_key' => 'completed_sales_crm_pipeline_flow_count',
+            'missing_key' => 'missing_sales_crm_pipeline_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $salesRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['sales_crm_pipeline_runtime_bound'] ?? false)
-                    && (bool) ($record['sales_crm_stack_bound'] ?? false)
-                    && (bool) ($record['sales_source_catalog_bound'] ?? false)
-                    && (bool) ($record['sales_crm_object_model_bound'] ?? false)
-                    && (bool) ($record['sales_segment_play_bound'] ?? false)
-                    && (bool) ($record['sales_opportunity_route_bound'] ?? false)
-                    && (bool) ($record['sales_proposal_scope_bound'] ?? false)
-                    && (bool) ($record['sales_mutual_action_plan_bound'] ?? false)
-                    && (bool) ($record['sales_account_research_workbench_bound'] ?? false)
-                    && (bool) ($record['sales_deal_room_packet_bound'] ?? false)
-                    && (bool) ($record['sales_pipeline_forecast_review_bound'] ?? false)
-                    && (bool) ($record['sales_map_risk_review_bound'] ?? false)
-                    && (bool) ($record['sales_renewal_expansion_signal_bound'] ?? false)
-                    && (bool) ($record['sales_delivery_handoff_bound'] ?? false)
-                    && (bool) ($record['sales_pipeline_observability_bound'] ?? false)
-                    && (bool) ($record['sales_external_commitments_blocked'] ?? false)
-                    && (string) ($record['sales_crm_pipeline_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $salesRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_sales_crm_pipeline_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_sales_crm_pipeline_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_source_catalog_bound'] ?? false))),
-                'crm_object_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_crm_object_model_bound'] ?? false))),
-                'segment_play_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_segment_play_bound'] ?? false))),
-                'opportunity_route_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_opportunity_route_bound'] ?? false))),
-                'proposal_scope_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_proposal_scope_bound'] ?? false))),
-                'mutual_action_plan_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_mutual_action_plan_bound'] ?? false))),
-                'account_research_workbench_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_account_research_workbench_bound'] ?? false))),
-                'deal_room_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_deal_room_packet_bound'] ?? false))),
-                'pipeline_forecast_review_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_pipeline_forecast_review_bound'] ?? false))),
-                'map_risk_review_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_map_risk_review_bound'] ?? false))),
-                'renewal_expansion_signal_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_renewal_expansion_signal_bound'] ?? false))),
-                'sales_delivery_handoff_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_delivery_handoff_bound'] ?? false))),
-                'pipeline_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_pipeline_observability_bound'] ?? false))),
-                'external_commitments_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['sales_external_commitments_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_sales_crm_pipeline_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_sales_crm_pipeline_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_sales_crm_pipeline_runtime_coverage_external_commitments_blocked'
-                : 'missing_sales_crm_pipeline_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_sales_crm_pipeline_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_catalog_bound_count'], $companies)),
-                'crm_object_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['crm_object_model_bound_count'], $companies)),
-                'segment_play_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['segment_play_bound_count'], $companies)),
-                'opportunity_route_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['opportunity_route_bound_count'], $companies)),
-                'proposal_scope_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['proposal_scope_bound_count'], $companies)),
-                'mutual_action_plan_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['mutual_action_plan_bound_count'], $companies)),
-                'account_research_workbench_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_research_workbench_bound_count'], $companies)),
-                'deal_room_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['deal_room_packet_bound_count'], $companies)),
-                'pipeline_forecast_review_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['pipeline_forecast_review_bound_count'], $companies)),
-                'map_risk_review_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['map_risk_review_bound_count'], $companies)),
-                'renewal_expansion_signal_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['renewal_expansion_signal_bound_count'], $companies)),
-                'sales_delivery_handoff_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['sales_delivery_handoff_bound_count'], $companies)),
-                'pipeline_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['pipeline_observability_bound_count'], $companies)),
-                'external_commitments_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_commitments_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'sales_crm_pipeline_runtime_bound',
+                'sales_crm_stack_bound',
+                'sales_source_catalog_bound',
+                'sales_crm_object_model_bound',
+                'sales_segment_play_bound',
+                'sales_opportunity_route_bound',
+                'sales_proposal_scope_bound',
+                'sales_mutual_action_plan_bound',
+                'sales_account_research_workbench_bound',
+                'sales_deal_room_packet_bound',
+                'sales_pipeline_forecast_review_bound',
+                'sales_map_risk_review_bound',
+                'sales_renewal_expansion_signal_bound',
+                'sales_delivery_handoff_bound',
+                'sales_pipeline_observability_bound',
+                'sales_external_commitments_blocked',
+                ['hash', 'sales_crm_pipeline_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'source_catalog_bound_count' => 'sales_source_catalog_bound',
+                'crm_object_model_bound_count' => 'sales_crm_object_model_bound',
+                'segment_play_bound_count' => 'sales_segment_play_bound',
+                'opportunity_route_bound_count' => 'sales_opportunity_route_bound',
+                'proposal_scope_bound_count' => 'sales_proposal_scope_bound',
+                'mutual_action_plan_bound_count' => 'sales_mutual_action_plan_bound',
+                'account_research_workbench_bound_count' => 'sales_account_research_workbench_bound',
+                'deal_room_packet_bound_count' => 'sales_deal_room_packet_bound',
+                'pipeline_forecast_review_bound_count' => 'sales_pipeline_forecast_review_bound',
+                'map_risk_review_bound_count' => 'sales_map_risk_review_bound',
+                'renewal_expansion_signal_bound_count' => 'sales_renewal_expansion_signal_bound',
+                'sales_delivery_handoff_bound_count' => 'sales_delivery_handoff_bound',
+                'pipeline_observability_bound_count' => 'sales_pipeline_observability_bound',
+                'external_commitments_blocked_count' => 'sales_external_commitments_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_outreach_contract_signature_or_customer_commitment_allowed' => false,
@@ -3700,10 +2439,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'sales_crm_runtime_requires_crm_opportunity_proposal_map_renewal_handoff_and_observability' => true,
                 'operator_mandate_required_for_external_sales_message_contract_or_commitment' => true,
             ],
-        ];
-        $payload['sales_crm_pipeline_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -3711,107 +2447,55 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function customerSupportServiceDeskRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_customer_support_service_desk_runtime_status.v1',
+            'status_complete' => 'complete_customer_support_service_desk_runtime_coverage_external_support_blocked',
+            'status_missing' => 'missing_customer_support_service_desk_runtime_coverage',
+            'hash_key' => 'customer_support_service_desk_runtime_status_hash',
+            'completed_key' => 'completed_customer_support_service_desk_flow_count',
+            'missing_key' => 'missing_customer_support_service_desk_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $supportRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['customer_support_service_desk_runtime_bound'] ?? false)
-                    && (bool) ($record['support_service_desk_stack_bound'] ?? false)
-                    && (bool) ($record['support_source_catalog_bound'] ?? false)
-                    && (bool) ($record['support_service_desk_object_model_bound'] ?? false)
-                    && (bool) ($record['support_segment_playbook_bound'] ?? false)
-                    && (bool) ($record['support_lane_bound'] ?? false)
-                    && (bool) ($record['support_ticket_sla_contract_bound'] ?? false)
-                    && (bool) ($record['support_knowledge_base_template_bound'] ?? false)
-                    && (bool) ($record['support_escalation_incident_runbook_bound'] ?? false)
-                    && (bool) ($record['support_resolution_rca_bound'] ?? false)
-                    && (bool) ($record['support_case_resolution_workbench_bound'] ?? false)
-                    && (bool) ($record['support_customer_health_escalation_bound'] ?? false)
-                    && (bool) ($record['support_knowledge_quality_review_bound'] ?? false)
-                    && (bool) ($record['support_automation_deflection_test_bound'] ?? false)
-                    && (bool) ($record['support_feedback_learning_loop_bound'] ?? false)
-                    && (bool) ($record['support_observability_bound'] ?? false)
-                    && (bool) ($record['support_external_customer_actions_blocked'] ?? false)
-                    && (string) ($record['customer_support_service_desk_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $supportRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_customer_support_service_desk_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_customer_support_service_desk_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_source_catalog_bound'] ?? false))),
-                'service_desk_object_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_service_desk_object_model_bound'] ?? false))),
-                'segment_playbook_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_segment_playbook_bound'] ?? false))),
-                'support_lane_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_lane_bound'] ?? false))),
-                'ticket_sla_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_ticket_sla_contract_bound'] ?? false))),
-                'knowledge_base_template_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_knowledge_base_template_bound'] ?? false))),
-                'escalation_incident_runbook_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_escalation_incident_runbook_bound'] ?? false))),
-                'resolution_rca_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_resolution_rca_bound'] ?? false))),
-                'case_resolution_workbench_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_case_resolution_workbench_bound'] ?? false))),
-                'customer_health_escalation_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_customer_health_escalation_bound'] ?? false))),
-                'knowledge_quality_review_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_knowledge_quality_review_bound'] ?? false))),
-                'automation_deflection_test_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_automation_deflection_test_bound'] ?? false))),
-                'feedback_learning_loop_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_feedback_learning_loop_bound'] ?? false))),
-                'support_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_observability_bound'] ?? false))),
-                'external_customer_actions_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['support_external_customer_actions_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_customer_support_service_desk_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_customer_support_service_desk_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_customer_support_service_desk_runtime_coverage_external_support_blocked'
-                : 'missing_customer_support_service_desk_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_customer_support_service_desk_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_catalog_bound_count'], $companies)),
-                'service_desk_object_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['service_desk_object_model_bound_count'], $companies)),
-                'segment_playbook_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['segment_playbook_bound_count'], $companies)),
-                'support_lane_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['support_lane_bound_count'], $companies)),
-                'ticket_sla_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['ticket_sla_contract_bound_count'], $companies)),
-                'knowledge_base_template_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['knowledge_base_template_bound_count'], $companies)),
-                'escalation_incident_runbook_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['escalation_incident_runbook_bound_count'], $companies)),
-                'resolution_rca_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['resolution_rca_bound_count'], $companies)),
-                'case_resolution_workbench_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['case_resolution_workbench_bound_count'], $companies)),
-                'customer_health_escalation_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_health_escalation_bound_count'], $companies)),
-                'knowledge_quality_review_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['knowledge_quality_review_bound_count'], $companies)),
-                'automation_deflection_test_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['automation_deflection_test_bound_count'], $companies)),
-                'feedback_learning_loop_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['feedback_learning_loop_bound_count'], $companies)),
-                'support_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['support_observability_bound_count'], $companies)),
-                'external_customer_actions_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_customer_actions_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'customer_support_service_desk_runtime_bound',
+                'support_service_desk_stack_bound',
+                'support_source_catalog_bound',
+                'support_service_desk_object_model_bound',
+                'support_segment_playbook_bound',
+                'support_lane_bound',
+                'support_ticket_sla_contract_bound',
+                'support_knowledge_base_template_bound',
+                'support_escalation_incident_runbook_bound',
+                'support_resolution_rca_bound',
+                'support_case_resolution_workbench_bound',
+                'support_customer_health_escalation_bound',
+                'support_knowledge_quality_review_bound',
+                'support_automation_deflection_test_bound',
+                'support_feedback_learning_loop_bound',
+                'support_observability_bound',
+                'support_external_customer_actions_blocked',
+                ['hash', 'customer_support_service_desk_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'source_catalog_bound_count' => 'support_source_catalog_bound',
+                'service_desk_object_model_bound_count' => 'support_service_desk_object_model_bound',
+                'segment_playbook_bound_count' => 'support_segment_playbook_bound',
+                'support_lane_bound_count' => 'support_lane_bound',
+                'ticket_sla_contract_bound_count' => 'support_ticket_sla_contract_bound',
+                'knowledge_base_template_bound_count' => 'support_knowledge_base_template_bound',
+                'escalation_incident_runbook_bound_count' => 'support_escalation_incident_runbook_bound',
+                'resolution_rca_bound_count' => 'support_resolution_rca_bound',
+                'case_resolution_workbench_bound_count' => 'support_case_resolution_workbench_bound',
+                'customer_health_escalation_bound_count' => 'support_customer_health_escalation_bound',
+                'knowledge_quality_review_bound_count' => 'support_knowledge_quality_review_bound',
+                'automation_deflection_test_bound_count' => 'support_automation_deflection_test_bound',
+                'feedback_learning_loop_bound_count' => 'support_feedback_learning_loop_bound',
+                'support_observability_bound_count' => 'support_observability_bound',
+                'external_customer_actions_blocked_count' => 'support_external_customer_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_customer_message_or_support_commitment_allowed' => false,
@@ -3819,10 +2503,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'support_runtime_requires_ticket_sla_kb_escalation_rca_feedback_and_observability' => true,
                 'operator_mandate_required_for_external_customer_support_or_public_kb' => true,
             ],
-        ];
-        $payload['customer_support_service_desk_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -3830,107 +2511,55 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function marketingGrowthEngineRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_marketing_growth_engine_runtime_status.v1',
+            'status_complete' => 'complete_marketing_growth_engine_runtime_coverage_external_publish_blocked',
+            'status_missing' => 'missing_marketing_growth_engine_runtime_coverage',
+            'hash_key' => 'marketing_growth_engine_runtime_status_hash',
+            'completed_key' => 'completed_marketing_growth_engine_flow_count',
+            'missing_key' => 'missing_marketing_growth_engine_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $marketingRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['marketing_growth_engine_runtime_bound'] ?? false)
-                    && (bool) ($record['marketing_growth_stack_bound'] ?? false)
-                    && (bool) ($record['marketing_source_catalog_bound'] ?? false)
-                    && (bool) ($record['marketing_growth_operating_model_bound'] ?? false)
-                    && (bool) ($record['marketing_audience_segment_bound'] ?? false)
-                    && (bool) ($record['marketing_campaign_blueprint_bound'] ?? false)
-                    && (bool) ($record['marketing_content_asset_factory_bound'] ?? false)
-                    && (bool) ($record['marketing_experiment_bound'] ?? false)
-                    && (bool) ($record['marketing_growth_intelligence_workbench_bound'] ?? false)
-                    && (bool) ($record['marketing_attribution_experiment_model_bound'] ?? false)
-                    && (bool) ($record['marketing_channel_budget_guardrail_bound'] ?? false)
-                    && (bool) ($record['marketing_public_claim_evidence_packet_bound'] ?? false)
-                    && (bool) ($record['marketing_channel_distribution_bound'] ?? false)
-                    && (bool) ($record['marketing_brand_compliance_review_bound'] ?? false)
-                    && (bool) ($record['marketing_growth_crm_handoff_bound'] ?? false)
-                    && (bool) ($record['marketing_observability_bound'] ?? false)
-                    && (bool) ($record['marketing_external_publish_actions_blocked'] ?? false)
-                    && (string) ($record['marketing_growth_engine_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $marketingRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_marketing_growth_engine_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_marketing_growth_engine_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_source_catalog_bound'] ?? false))),
-                'growth_operating_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_growth_operating_model_bound'] ?? false))),
-                'audience_segment_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_audience_segment_bound'] ?? false))),
-                'campaign_blueprint_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_campaign_blueprint_bound'] ?? false))),
-                'content_asset_factory_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_content_asset_factory_bound'] ?? false))),
-                'experiment_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_experiment_bound'] ?? false))),
-                'growth_intelligence_workbench_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_growth_intelligence_workbench_bound'] ?? false))),
-                'attribution_experiment_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_attribution_experiment_model_bound'] ?? false))),
-                'channel_budget_guardrail_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_channel_budget_guardrail_bound'] ?? false))),
-                'public_claim_evidence_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_public_claim_evidence_packet_bound'] ?? false))),
-                'channel_distribution_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_channel_distribution_bound'] ?? false))),
-                'brand_compliance_review_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_brand_compliance_review_bound'] ?? false))),
-                'growth_crm_handoff_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_growth_crm_handoff_bound'] ?? false))),
-                'marketing_observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_observability_bound'] ?? false))),
-                'external_publish_actions_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['marketing_external_publish_actions_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_marketing_growth_engine_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_marketing_growth_engine_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_marketing_growth_engine_runtime_coverage_external_publish_blocked'
-                : 'missing_marketing_growth_engine_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_marketing_growth_engine_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_catalog_bound_count'], $companies)),
-                'growth_operating_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['growth_operating_model_bound_count'], $companies)),
-                'audience_segment_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['audience_segment_bound_count'], $companies)),
-                'campaign_blueprint_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['campaign_blueprint_bound_count'], $companies)),
-                'content_asset_factory_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['content_asset_factory_bound_count'], $companies)),
-                'experiment_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['experiment_bound_count'], $companies)),
-                'growth_intelligence_workbench_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['growth_intelligence_workbench_bound_count'], $companies)),
-                'attribution_experiment_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['attribution_experiment_model_bound_count'], $companies)),
-                'channel_budget_guardrail_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['channel_budget_guardrail_bound_count'], $companies)),
-                'public_claim_evidence_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['public_claim_evidence_packet_bound_count'], $companies)),
-                'channel_distribution_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['channel_distribution_bound_count'], $companies)),
-                'brand_compliance_review_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['brand_compliance_review_bound_count'], $companies)),
-                'growth_crm_handoff_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['growth_crm_handoff_bound_count'], $companies)),
-                'marketing_observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['marketing_observability_bound_count'], $companies)),
-                'external_publish_actions_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_publish_actions_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'marketing_growth_engine_runtime_bound',
+                'marketing_growth_stack_bound',
+                'marketing_source_catalog_bound',
+                'marketing_growth_operating_model_bound',
+                'marketing_audience_segment_bound',
+                'marketing_campaign_blueprint_bound',
+                'marketing_content_asset_factory_bound',
+                'marketing_experiment_bound',
+                'marketing_growth_intelligence_workbench_bound',
+                'marketing_attribution_experiment_model_bound',
+                'marketing_channel_budget_guardrail_bound',
+                'marketing_public_claim_evidence_packet_bound',
+                'marketing_channel_distribution_bound',
+                'marketing_brand_compliance_review_bound',
+                'marketing_growth_crm_handoff_bound',
+                'marketing_observability_bound',
+                'marketing_external_publish_actions_blocked',
+                ['hash', 'marketing_growth_engine_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'source_catalog_bound_count' => 'marketing_source_catalog_bound',
+                'growth_operating_model_bound_count' => 'marketing_growth_operating_model_bound',
+                'audience_segment_bound_count' => 'marketing_audience_segment_bound',
+                'campaign_blueprint_bound_count' => 'marketing_campaign_blueprint_bound',
+                'content_asset_factory_bound_count' => 'marketing_content_asset_factory_bound',
+                'experiment_bound_count' => 'marketing_experiment_bound',
+                'growth_intelligence_workbench_bound_count' => 'marketing_growth_intelligence_workbench_bound',
+                'attribution_experiment_model_bound_count' => 'marketing_attribution_experiment_model_bound',
+                'channel_budget_guardrail_bound_count' => 'marketing_channel_budget_guardrail_bound',
+                'public_claim_evidence_packet_bound_count' => 'marketing_public_claim_evidence_packet_bound',
+                'channel_distribution_bound_count' => 'marketing_channel_distribution_bound',
+                'brand_compliance_review_bound_count' => 'marketing_brand_compliance_review_bound',
+                'growth_crm_handoff_bound_count' => 'marketing_growth_crm_handoff_bound',
+                'marketing_observability_bound_count' => 'marketing_observability_bound',
+                'external_publish_actions_blocked_count' => 'marketing_external_publish_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_publish_paid_campaign_or_outreach_allowed' => false,
@@ -3938,10 +2567,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'marketing_runtime_requires_campaign_content_experiment_channel_brand_review_crm_handoff_and_observability' => true,
                 'operator_mandate_required_for_external_publish_paid_campaign_or_outreach' => true,
             ],
-        ];
-        $payload['marketing_growth_engine_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -3949,107 +2575,55 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function financeTreasuryBillingRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_finance_treasury_billing_runtime_status.v1',
+            'status_complete' => 'complete_finance_treasury_billing_runtime_coverage_external_finance_blocked',
+            'status_missing' => 'missing_finance_treasury_billing_runtime_coverage',
+            'hash_key' => 'finance_treasury_billing_runtime_status_hash',
+            'completed_key' => 'completed_finance_treasury_billing_flow_count',
+            'missing_key' => 'missing_finance_treasury_billing_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $financeRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['finance_treasury_billing_runtime_bound'] ?? false)
-                    && (bool) ($record['finance_treasury_stack_bound'] ?? false)
-                    && (bool) ($record['finance_source_catalog_bound'] ?? false)
-                    && (bool) ($record['finance_financial_data_interface_bound'] ?? false)
-                    && (bool) ($record['finance_provider_connector_matrix_bound'] ?? false)
-                    && (bool) ($record['finance_cfo_operating_model_bound'] ?? false)
-                    && (bool) ($record['finance_financial_research_workbench_bound'] ?? false)
-                    && (bool) ($record['finance_budget_envelope_bound'] ?? false)
-                    && (bool) ($record['finance_forecast_model_bound'] ?? false)
-                    && (bool) ($record['finance_model_risk_control_bound'] ?? false)
-                    && (bool) ($record['finance_investment_committee_packet_bound'] ?? false)
-                    && (bool) ($record['finance_pnl_line_item_bound'] ?? false)
-                    && (bool) ($record['finance_billing_ledger_bound'] ?? false)
-                    && (bool) ($record['finance_treasury_risk_bound'] ?? false)
-                    && (bool) ($record['finance_close_audit_bound'] ?? false)
-                    && (bool) ($record['finance_observability_bound'] ?? false)
-                    && (bool) ($record['finance_external_financial_actions_blocked'] ?? false)
-                    && (string) ($record['finance_treasury_billing_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $financeRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_finance_treasury_billing_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_finance_treasury_billing_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'source_catalog_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_source_catalog_bound'] ?? false))),
-                'financial_data_interface_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_financial_data_interface_bound'] ?? false))),
-                'provider_connector_matrix_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_provider_connector_matrix_bound'] ?? false))),
-                'cfo_operating_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_cfo_operating_model_bound'] ?? false))),
-                'financial_research_workbench_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_financial_research_workbench_bound'] ?? false))),
-                'budget_envelope_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_budget_envelope_bound'] ?? false))),
-                'forecast_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_forecast_model_bound'] ?? false))),
-                'model_risk_control_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_model_risk_control_bound'] ?? false))),
-                'investment_committee_packet_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_investment_committee_packet_bound'] ?? false))),
-                'pnl_line_item_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_pnl_line_item_bound'] ?? false))),
-                'billing_ledger_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_billing_ledger_bound'] ?? false))),
-                'treasury_risk_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_treasury_risk_bound'] ?? false))),
-                'close_audit_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_close_audit_bound'] ?? false))),
-                'observability_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_observability_bound'] ?? false))),
-                'external_financial_actions_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['finance_external_financial_actions_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_finance_treasury_billing_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_finance_treasury_billing_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_finance_treasury_billing_runtime_coverage_external_finance_blocked'
-                : 'missing_finance_treasury_billing_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_finance_treasury_billing_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'source_catalog_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_catalog_bound_count'], $companies)),
-                'financial_data_interface_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['financial_data_interface_bound_count'], $companies)),
-                'provider_connector_matrix_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['provider_connector_matrix_bound_count'], $companies)),
-                'cfo_operating_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['cfo_operating_model_bound_count'], $companies)),
-                'financial_research_workbench_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['financial_research_workbench_bound_count'], $companies)),
-                'budget_envelope_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['budget_envelope_bound_count'], $companies)),
-                'forecast_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['forecast_model_bound_count'], $companies)),
-                'model_risk_control_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['model_risk_control_bound_count'], $companies)),
-                'investment_committee_packet_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['investment_committee_packet_bound_count'], $companies)),
-                'pnl_line_item_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['pnl_line_item_bound_count'], $companies)),
-                'billing_ledger_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['billing_ledger_bound_count'], $companies)),
-                'treasury_risk_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['treasury_risk_bound_count'], $companies)),
-                'close_audit_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['close_audit_bound_count'], $companies)),
-                'observability_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['observability_bound_count'], $companies)),
-                'external_financial_actions_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_financial_actions_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'finance_treasury_billing_runtime_bound',
+                'finance_treasury_stack_bound',
+                'finance_source_catalog_bound',
+                'finance_financial_data_interface_bound',
+                'finance_provider_connector_matrix_bound',
+                'finance_cfo_operating_model_bound',
+                'finance_financial_research_workbench_bound',
+                'finance_budget_envelope_bound',
+                'finance_forecast_model_bound',
+                'finance_model_risk_control_bound',
+                'finance_investment_committee_packet_bound',
+                'finance_pnl_line_item_bound',
+                'finance_billing_ledger_bound',
+                'finance_treasury_risk_bound',
+                'finance_close_audit_bound',
+                'finance_observability_bound',
+                'finance_external_financial_actions_blocked',
+                ['hash', 'finance_treasury_billing_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'source_catalog_bound_count' => 'finance_source_catalog_bound',
+                'financial_data_interface_bound_count' => 'finance_financial_data_interface_bound',
+                'provider_connector_matrix_bound_count' => 'finance_provider_connector_matrix_bound',
+                'cfo_operating_model_bound_count' => 'finance_cfo_operating_model_bound',
+                'financial_research_workbench_bound_count' => 'finance_financial_research_workbench_bound',
+                'budget_envelope_bound_count' => 'finance_budget_envelope_bound',
+                'forecast_model_bound_count' => 'finance_forecast_model_bound',
+                'model_risk_control_bound_count' => 'finance_model_risk_control_bound',
+                'investment_committee_packet_bound_count' => 'finance_investment_committee_packet_bound',
+                'pnl_line_item_bound_count' => 'finance_pnl_line_item_bound',
+                'billing_ledger_bound_count' => 'finance_billing_ledger_bound',
+                'treasury_risk_bound_count' => 'finance_treasury_risk_bound',
+                'close_audit_bound_count' => 'finance_close_audit_bound',
+                'observability_bound_count' => 'finance_observability_bound',
+                'external_financial_actions_blocked_count' => 'finance_external_financial_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_invoice_payment_collection_capital_transfer_or_trade_allowed' => false,
@@ -4060,10 +2634,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'finance_treasury_runtime_requires_source_linked_data_interface_connectors_research_workbench_model_risk_and_committee_packets' => true,
                 'operator_mandate_required_for_external_billing_capital_vendor_spend_or_trade' => true,
             ],
-        ];
-        $payload['finance_treasury_billing_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -4071,82 +2642,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function governanceRiskOperationsRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_governance_risk_operations_runtime_status.v1',
+            'status_complete' => 'complete_governance_risk_operations_runtime_coverage_external_actions_blocked',
+            'status_missing' => 'missing_governance_risk_operations_runtime_coverage',
+            'hash_key' => 'governance_risk_operations_runtime_status_hash',
+            'completed_key' => 'completed_governance_risk_operations_flow_count',
+            'missing_key' => 'missing_governance_risk_operations_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $governanceRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['governance_risk_operations_runtime_bound'] ?? false)
-                    && (bool) ($record['governance_vendor_procurement_bound'] ?? false)
-                    && (bool) ($record['governance_resilience_continuity_bound'] ?? false)
-                    && (bool) ($record['governance_analytics_decision_bound'] ?? false)
-                    && (bool) ($record['governance_knowledge_learning_bound'] ?? false)
-                    && (bool) ($record['governance_identity_sovereignty_bound'] ?? false)
-                    && (bool) ($record['governance_grc_evidence_bound'] ?? false)
-                    && (bool) ($record['governance_external_actions_blocked'] ?? false)
-                    && (string) ($record['governance_risk_operations_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $governanceRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_governance_risk_operations_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_governance_risk_operations_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'vendor_procurement_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_vendor_procurement_bound'] ?? false))),
-                'resilience_continuity_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_resilience_continuity_bound'] ?? false))),
-                'analytics_decision_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_analytics_decision_bound'] ?? false))),
-                'knowledge_learning_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_knowledge_learning_bound'] ?? false))),
-                'identity_sovereignty_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_identity_sovereignty_bound'] ?? false))),
-                'grc_evidence_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_grc_evidence_bound'] ?? false))),
-                'external_actions_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['governance_external_actions_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_governance_risk_operations_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_governance_risk_operations_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_governance_risk_operations_runtime_coverage_external_actions_blocked'
-                : 'missing_governance_risk_operations_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_governance_risk_operations_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'vendor_procurement_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['vendor_procurement_bound_count'], $companies)),
-                'resilience_continuity_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['resilience_continuity_bound_count'], $companies)),
-                'analytics_decision_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['analytics_decision_bound_count'], $companies)),
-                'knowledge_learning_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['knowledge_learning_bound_count'], $companies)),
-                'identity_sovereignty_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['identity_sovereignty_bound_count'], $companies)),
-                'grc_evidence_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['grc_evidence_bound_count'], $companies)),
-                'external_actions_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_actions_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'governance_risk_operations_runtime_bound',
+                'governance_vendor_procurement_bound',
+                'governance_resilience_continuity_bound',
+                'governance_analytics_decision_bound',
+                'governance_knowledge_learning_bound',
+                'governance_identity_sovereignty_bound',
+                'governance_grc_evidence_bound',
+                'governance_external_actions_blocked',
+                ['hash', 'governance_risk_operations_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'vendor_procurement_bound_count' => 'governance_vendor_procurement_bound',
+                'resilience_continuity_bound_count' => 'governance_resilience_continuity_bound',
+                'analytics_decision_bound_count' => 'governance_analytics_decision_bound',
+                'knowledge_learning_bound_count' => 'governance_knowledge_learning_bound',
+                'identity_sovereignty_bound_count' => 'governance_identity_sovereignty_bound',
+                'grc_evidence_bound_count' => 'governance_grc_evidence_bound',
+                'external_actions_blocked_count' => 'governance_external_actions_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'vendor_purchase_contract_signature_secret_share_or_write_scope_allowed' => false,
@@ -4155,10 +2682,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'secret_material_or_unscoped_memory_export_allowed' => false,
                 'governance_runtime_requires_procurement_resilience_analytics_learning_identity_and_grc_evidence' => true,
             ],
-        ];
-        $payload['governance_risk_operations_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -4166,89 +2690,43 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function unitEconomicsCapacityRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_unit_economics_capacity_runtime_status.v1',
+            'status_complete' => 'complete_unit_economics_capacity_runtime_coverage_external_capital_blocked',
+            'status_missing' => 'missing_unit_economics_capacity_runtime_coverage',
+            'hash_key' => 'unit_economics_capacity_runtime_status_hash',
+            'completed_key' => 'completed_unit_economics_capacity_flow_count',
+            'missing_key' => 'missing_unit_economics_capacity_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $economicRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['unit_economics_capacity_bound'] ?? false)
-                    && (bool) ($record['flow_cost_center_bound'] ?? false)
-                    && (bool) ($record['flow_unit_economics_bound'] ?? false)
-                    && (bool) ($record['capacity_simulation_bound'] ?? false)
-                    && (bool) ($record['pricing_ladder_bound'] ?? false)
-                    && (bool) ($record['agent_capacity_cost_model_bound'] ?? false)
-                    && (bool) ($record['connector_cost_limit_model_bound'] ?? false)
-                    && (string) ($record['unit_economics_capacity_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $economicRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_unit_economics_capacity_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_unit_economics_capacity_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'flow_cost_center_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_cost_center_bound'] ?? false))),
-                'flow_unit_economics_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['flow_unit_economics_bound'] ?? false))),
-                'capacity_simulation_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['capacity_simulation_bound'] ?? false))),
-                'pricing_ladder_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['pricing_ladder_bound'] ?? false))),
-                'agent_capacity_cost_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['agent_capacity_cost_model_bound'] ?? false))),
-                'connector_cost_limit_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['connector_cost_limit_model_bound'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_unit_economics_capacity_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_unit_economics_capacity_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_unit_economics_capacity_runtime_coverage_external_capital_blocked'
-                : 'missing_unit_economics_capacity_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_unit_economics_capacity_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'flow_cost_center_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_cost_center_bound_count'], $companies)),
-                'flow_unit_economics_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_unit_economics_bound_count'], $companies)),
-                'capacity_simulation_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['capacity_simulation_bound_count'], $companies)),
-                'pricing_ladder_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['pricing_ladder_bound_count'], $companies)),
-                'agent_capacity_cost_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['agent_capacity_cost_model_bound_count'], $companies)),
-                'connector_cost_limit_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_cost_limit_model_bound_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'unit_economics_capacity_bound',
+                'flow_cost_center_bound',
+                'flow_unit_economics_bound',
+                'capacity_simulation_bound',
+                'pricing_ladder_bound',
+                'agent_capacity_cost_model_bound',
+                'connector_cost_limit_model_bound',
+                ['hash', 'unit_economics_capacity_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'flow_cost_center_bound_count' => 'flow_cost_center_bound',
+                'flow_unit_economics_bound_count' => 'flow_unit_economics_bound',
+                'capacity_simulation_bound_count' => 'capacity_simulation_bound',
+                'pricing_ladder_bound_count' => 'pricing_ladder_bound',
+                'agent_capacity_cost_model_bound_count' => 'agent_capacity_cost_model_bound',
+                'connector_cost_limit_model_bound_count' => 'connector_cost_limit_model_bound',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'real_capital_action_allowed' => false,
                 'unit_economics_runtime_requires_cost_center_unit_model_capacity_pricing_agent_and_connector_cost_controls' => true,
                 'observed_revenue_or_savings_claim_requires_external_evidence_and_operator_acceptance' => true,
             ],
-        ];
-        $payload['unit_economics_capacity_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -4256,79 +2734,36 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function businessOperatingPacketRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_business_operating_packet_runtime_status.v1',
+            'status_complete' => 'complete_business_operating_packet_runtime_coverage_external_commitments_blocked',
+            'status_missing' => 'missing_business_operating_packet_runtime_coverage',
+            'hash_key' => 'business_operating_packet_runtime_status_hash',
+            'completed_key' => 'completed_business_operating_packet_flow_count',
+            'missing_key' => 'missing_business_operating_packet_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $businessOperatingRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['business_operating_packet_bound'] ?? false)
-                    && (bool) ($record['business_operating_packet_business_model_bound'] ?? false)
-                    && (bool) ($record['business_operating_packet_kpi_contract_bound'] ?? false)
-                    && (bool) ($record['business_operating_packet_delivery_lane_bound'] ?? false)
-                    && (bool) ($record['business_operating_packet_economics_bound'] ?? false)
-                    && (bool) ($record['business_operating_packet_account_operations_bound'] ?? false)
-                    && (bool) ($record['business_operating_packet_external_commitments_blocked'] ?? false)
-                    && (string) ($record['business_operating_packet_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $businessOperatingRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_business_operating_packet_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_business_operating_packet_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'business_model_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_operating_packet_business_model_bound'] ?? false))),
-                'kpi_contract_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_operating_packet_kpi_contract_bound'] ?? false))),
-                'delivery_lane_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_operating_packet_delivery_lane_bound'] ?? false))),
-                'economics_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_operating_packet_economics_bound'] ?? false))),
-                'account_operations_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_operating_packet_account_operations_bound'] ?? false))),
-                'external_commitments_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['business_operating_packet_external_commitments_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_business_operating_packet_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_business_operating_packet_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_business_operating_packet_runtime_coverage_external_commitments_blocked'
-                : 'missing_business_operating_packet_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_business_operating_packet_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'business_model_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['business_model_bound_count'], $companies)),
-                'kpi_contract_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['kpi_contract_bound_count'], $companies)),
-                'delivery_lane_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['delivery_lane_bound_count'], $companies)),
-                'economics_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['economics_bound_count'], $companies)),
-                'account_operations_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['account_operations_bound_count'], $companies)),
-                'external_commitments_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['external_commitments_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'business_operating_packet_bound',
+                'business_operating_packet_business_model_bound',
+                'business_operating_packet_kpi_contract_bound',
+                'business_operating_packet_delivery_lane_bound',
+                'business_operating_packet_economics_bound',
+                'business_operating_packet_account_operations_bound',
+                'business_operating_packet_external_commitments_blocked',
+                ['hash', 'business_operating_packet_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'business_model_bound_count' => 'business_operating_packet_business_model_bound',
+                'kpi_contract_bound_count' => 'business_operating_packet_kpi_contract_bound',
+                'delivery_lane_bound_count' => 'business_operating_packet_delivery_lane_bound',
+                'economics_bound_count' => 'business_operating_packet_economics_bound',
+                'account_operations_bound_count' => 'business_operating_packet_account_operations_bound',
+                'external_commitments_blocked_count' => 'business_operating_packet_external_commitments_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'external_customer_commitment_allowed' => false,
@@ -4337,10 +2772,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'business_operating_packet_requires_business_model_kpi_sla_economics_account_ops_and_commitment_blocks' => true,
                 'operator_mandate_required_for_external_customer_vendor_billing_capital_or_public_action' => true,
             ],
-        ];
-        $payload['business_operating_packet_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -4348,82 +2780,38 @@ class EnterpriseFlowFixtureActionRuntimeService
      */
     public function deliveryRiskRuntimeStatus(?string $companyId = null): array
     {
-        $companies = [];
-        $records = [];
-
-        foreach ((array) $this->buildoutReport()['companies'] as $company) {
-            $currentCompanyId = (string) ($company['company_id'] ?? 'unknown');
-            if ($companyId !== null && $companyId !== $currentCompanyId) {
-                continue;
-            }
-
-            $flows = array_values(array_map(
+        return $this->runtimeStatusFor([
+            'schema' => 'atlas.ai.holding.enterprise_delivery_risk_runtime_status.v1',
+            'status_complete' => 'complete_delivery_risk_runtime_coverage_external_claim_blocked',
+            'status_missing' => 'missing_delivery_risk_runtime_coverage',
+            'hash_key' => 'delivery_risk_runtime_status_hash',
+            'completed_key' => 'completed_delivery_risk_flow_count',
+            'missing_key' => 'missing_delivery_risk_flows',
+            'flows' => static fn (array $company): array => array_values(array_map(
                 static fn (array $flow): string => (string) ($flow['flow_id'] ?? $flow['id'] ?? ''),
                 (array) ($company['flows'] ?? []),
-            ));
-            $companyRecords = $this->runtimeRecordsForCompany($currentCompanyId);
-            $deliveryRiskRecords = array_values(array_filter(
-                $companyRecords,
-                static fn (array $record): bool => (bool) ($record['delivery_risk_runtime_bound'] ?? false)
-                    && (bool) ($record['delivery_assurance_runtime_bound'] ?? false)
-                    && (bool) ($record['delivery_sla_bound'] ?? false)
-                    && (bool) ($record['strategic_intelligence_bound'] ?? false)
-                    && (bool) ($record['rival_alternative_map_bound'] ?? false)
-                    && (bool) ($record['grc_runtime_bound'] ?? false)
-                    && (bool) ($record['audit_evidence_bound'] ?? false)
-                    && (bool) ($record['policy_exception_blocked'] ?? false)
-                    && (string) ($record['delivery_risk_attestation_hash'] ?? '') !== ''
-                    && (bool) ($record['external_side_effects'] ?? true) === false,
-            ));
-            $completedFlows = array_values(array_unique(array_filter(array_map(
-                static fn (array $record): string => (string) ($record['flow_id'] ?? ''),
-                $deliveryRiskRecords,
-            ))));
-
-            $companies[] = [
-                'company_id' => $currentCompanyId,
-                'expected_flow_count' => count($flows),
-                'completed_delivery_risk_flow_count' => count(array_intersect($flows, $completedFlows)),
-                'missing_delivery_risk_flows' => array_values(array_diff($flows, $completedFlows)),
-                'coverage_rate' => count($flows) > 0 ? round(count(array_intersect($flows, $completedFlows)) / count($flows), 4) : 0.0,
-                'delivery_assurance_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['delivery_assurance_runtime_bound'] ?? false))),
-                'delivery_sla_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['delivery_sla_bound'] ?? false))),
-                'strategic_intelligence_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['strategic_intelligence_bound'] ?? false))),
-                'rival_alternative_map_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['rival_alternative_map_bound'] ?? false))),
-                'grc_runtime_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['grc_runtime_bound'] ?? false))),
-                'audit_evidence_bound_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['audit_evidence_bound'] ?? false))),
-                'policy_exception_blocked_count' => count(array_filter($companyRecords, static fn (array $record): bool => (bool) ($record['policy_exception_blocked'] ?? false))),
-            ];
-            array_push($records, ...$companyRecords);
-        }
-
-        $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
-        $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_delivery_risk_flow_count'], $companies));
-
-        $payload = [
-            'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
-            'schema' => 'atlas.ai.holding.enterprise_delivery_risk_runtime_status.v1',
-            'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
-                ? 'complete_delivery_risk_runtime_coverage_external_claim_blocked'
-                : 'missing_delivery_risk_runtime_coverage',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companies),
-                'expected_flow_count' => $expectedFlowCount,
-                'completed_delivery_risk_flow_count' => $completedFlowCount,
-                'runtime_record_count' => count($records),
-                'delivery_assurance_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['delivery_assurance_runtime_bound_count'], $companies)),
-                'delivery_sla_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['delivery_sla_bound_count'], $companies)),
-                'strategic_intelligence_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['strategic_intelligence_bound_count'], $companies)),
-                'rival_alternative_map_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['rival_alternative_map_bound_count'], $companies)),
-                'grc_runtime_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['grc_runtime_bound_count'], $companies)),
-                'audit_evidence_bound_count' => array_sum(array_map(static fn (array $company): int => (int) $company['audit_evidence_bound_count'], $companies)),
-                'policy_exception_blocked_count' => array_sum(array_map(static fn (array $company): int => (int) $company['policy_exception_blocked_count'], $companies)),
-                'external_side_effect_count' => count(array_filter($records, static fn (array $record): bool => (bool) ($record['external_side_effects'] ?? true))),
-                'coverage_rate' => $expectedFlowCount > 0 ? round($completedFlowCount / $expectedFlowCount, 4) : 0.0,
+            )),
+            'gate' => [
+                'delivery_risk_runtime_bound',
+                'delivery_assurance_runtime_bound',
+                'delivery_sla_bound',
+                'strategic_intelligence_bound',
+                'rival_alternative_map_bound',
+                'grc_runtime_bound',
+                'audit_evidence_bound',
+                'policy_exception_blocked',
+                ['hash', 'delivery_risk_attestation_hash'],
+                ['internal', 'external_side_effects'],
             ],
-            'companies' => $companies,
-            'records' => $records,
+            'counts' => [
+                'delivery_assurance_runtime_bound_count' => 'delivery_assurance_runtime_bound',
+                'delivery_sla_bound_count' => 'delivery_sla_bound',
+                'strategic_intelligence_bound_count' => 'strategic_intelligence_bound',
+                'rival_alternative_map_bound_count' => 'rival_alternative_map_bound',
+                'grc_runtime_bound_count' => 'grc_runtime_bound',
+                'audit_evidence_bound_count' => 'audit_evidence_bound',
+                'policy_exception_blocked_count' => 'policy_exception_blocked',
+            ],
             'policy' => [
                 'external_execution_allowed' => false,
                 'customer_visible_claim_allowed' => false,
@@ -4431,10 +2819,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'delivery_risk_runtime_requires_sla_acceptance_rival_map_audit_evidence_and_grc_controls' => true,
                 'operator_mandate_required_for_external_delivery_or_policy_exception' => true,
             ],
-        ];
-        $payload['delivery_risk_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], $companyId);
     }
 
     /**
@@ -6694,7 +5079,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
+     * @param  array<string,mixed>  $company
      * @return array<string,mixed>|null
      */
     private function actionContractFromCompany(array $company, string $action): ?array
@@ -6709,7 +5094,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
+     * @param  array<string,mixed>  $company
      * @return array<string,mixed>
      */
     private function findByFlow(array $company, string $path, string $flowId): array
@@ -6724,8 +5109,8 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param list<string> $connectorIds
+     * @param  array<string,mixed>  $company
+     * @param  list<string>  $connectorIds
      * @return list<array<string,mixed>>
      */
     private function connectorRowsByIds(array $company, string $path, array $connectorIds): array
@@ -6742,8 +5127,8 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param list<mixed> $connectorIds
+     * @param  array<string,mixed>  $company
+     * @param  list<mixed>  $connectorIds
      * @return list<array<string,mixed>>
      */
     private function verticalConnectorWorkbenches(array $company, array $connectorIds): array
@@ -6760,7 +5145,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
+     * @param  array<string,mixed>  $company
      * @return array<string,mixed>
      */
     private function artifactFactoryForWorkProduct(array $company, string $workProduct): array
@@ -6775,7 +5160,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
+     * @param  array<string,mixed>  $company
      * @return array<string,mixed>
      */
     private function businessArtifactContractForWorkProduct(array $company, string $workProduct): array
@@ -6790,7 +5175,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
+     * @param  array<string,mixed>  $company
      * @return array<string,mixed>
      */
     private function qualityContractForWorkProduct(array $company, string $workProduct): array
@@ -6833,19 +5218,19 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param array<string,mixed> $flowSpec
-     * @param array<string,mixed> $businessExecutionCell
-     * @param array<string,mixed> $businessKpiBinding
-     * @param array<string,mixed> $businessServiceLane
-     * @param array<string,mixed> $businessArtifactContract
-     * @param array<string,mixed> $deliverySla
-     * @param array<string,mixed> $flowCostCenter
-     * @param array<string,mixed> $flowUnitEconomics
-     * @param array<string,mixed> $capacitySimulation
-     * @param array<string,mixed> $accountOnboardingPlan
-     * @param array<string,mixed> $accountServiceReview
-     * @param array<string,mixed> $customerJourney
+     * @param  array<string,mixed>  $company
+     * @param  array<string,mixed>  $flowSpec
+     * @param  array<string,mixed>  $businessExecutionCell
+     * @param  array<string,mixed>  $businessKpiBinding
+     * @param  array<string,mixed>  $businessServiceLane
+     * @param  array<string,mixed>  $businessArtifactContract
+     * @param  array<string,mixed>  $deliverySla
+     * @param  array<string,mixed>  $flowCostCenter
+     * @param  array<string,mixed>  $flowUnitEconomics
+     * @param  array<string,mixed>  $capacitySimulation
+     * @param  array<string,mixed>  $accountOnboardingPlan
+     * @param  array<string,mixed>  $accountServiceReview
+     * @param  array<string,mixed>  $customerJourney
      * @return array<string,mixed>
      */
     private function enterpriseBusinessOperatingPacket(
@@ -6943,7 +5328,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param list<array<string,mixed>> $pricingLadder
+     * @param  list<array<string,mixed>>  $pricingLadder
      * @return array<string,mixed>
      */
     private function pricingForWorkProduct(array $pricingLadder, string $artifactType): array
@@ -6958,18 +5343,18 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param array<string,mixed> $flowSpec
-     * @param array<string,mixed> $contract
-     * @param array<string,mixed> $operatingPackage
-     * @param array<string,mixed> $domainSolutionPlaybook
-     * @param array<string,mixed> $businessExecutionCell
-     * @param array<string,mixed> $businessKpiBinding
-     * @param array<string,mixed> $businessServiceLane
-     * @param array<string,mixed> $deliverySla
-     * @param array<string,mixed> $flowUnitEconomics
-     * @param array<string,mixed> $semanticFlowEdge
-     * @param list<mixed> $runtimePhases
+     * @param  array<string,mixed>  $company
+     * @param  array<string,mixed>  $flowSpec
+     * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $operatingPackage
+     * @param  array<string,mixed>  $domainSolutionPlaybook
+     * @param  array<string,mixed>  $businessExecutionCell
+     * @param  array<string,mixed>  $businessKpiBinding
+     * @param  array<string,mixed>  $businessServiceLane
+     * @param  array<string,mixed>  $deliverySla
+     * @param  array<string,mixed>  $flowUnitEconomics
+     * @param  array<string,mixed>  $semanticFlowEdge
+     * @param  list<mixed>  $runtimePhases
      * @return array<string,mixed>
      */
     private function enterpriseFlowOperationalDossier(
@@ -7083,10 +5468,10 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $flowSpec
-     * @param array<string,mixed> $operatingPackage
-     * @param list<mixed> $runtimePhases
-     * @param list<array<string,mixed>> $connectorWorkbenches
+     * @param  array<string,mixed>  $flowSpec
+     * @param  array<string,mixed>  $operatingPackage
+     * @param  list<mixed>  $runtimePhases
+     * @param  list<array<string,mixed>>  $connectorWorkbenches
      * @return array<string,mixed>
      */
     private function managedAgentExecution(
@@ -7226,17 +5611,17 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param array<string,mixed> $contract
-     * @param array<string,mixed> $operatingPackage
-     * @param array<string,mixed> $operationalDossier
-     * @param array<string,mixed> $promotionEvidence
-     * @param array<string,mixed> $flowConnectorCutover
-     * @param array<string,mixed> $externalResearchFlowMatrix
-     * @param array<string,mixed> $businessExecutionCell
-     * @param array<string,mixed> $businessKpiBinding
-     * @param array<string,mixed> $flowUnitEconomics
-     * @param array<string,mixed> $deliverySla
+     * @param  array<string,mixed>  $company
+     * @param  array<string,mixed>  $contract
+     * @param  array<string,mixed>  $operatingPackage
+     * @param  array<string,mixed>  $operationalDossier
+     * @param  array<string,mixed>  $promotionEvidence
+     * @param  array<string,mixed>  $flowConnectorCutover
+     * @param  array<string,mixed>  $externalResearchFlowMatrix
+     * @param  array<string,mixed>  $businessExecutionCell
+     * @param  array<string,mixed>  $businessKpiBinding
+     * @param  array<string,mixed>  $flowUnitEconomics
+     * @param  array<string,mixed>  $deliverySla
      * @return array<string,mixed>
      */
     private function enterpriseAutonomyPromotionPacket(
@@ -7401,10 +5786,10 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param array<string,mixed> $flowSpec
-     * @param array<string,mixed> $operatingPackage
-     * @param list<mixed> $requiredSections
+     * @param  array<string,mixed>  $company
+     * @param  array<string,mixed>  $flowSpec
+     * @param  array<string,mixed>  $operatingPackage
+     * @param  list<mixed>  $requiredSections
      * @return array<string,mixed>
      */
     private function enterpriseArtifact(
@@ -7650,11 +6035,11 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $businessExecutionCell
-     * @param array<string,mixed> $businessKpiBinding
-     * @param array<string,mixed> $businessServiceLane
-     * @param array<string,mixed> $businessArtifactContract
-     * @param array<string,mixed> $domainExecutionBrief
+     * @param  array<string,mixed>  $businessExecutionCell
+     * @param  array<string,mixed>  $businessKpiBinding
+     * @param  array<string,mixed>  $businessServiceLane
+     * @param  array<string,mixed>  $businessArtifactContract
+     * @param  array<string,mixed>  $domainExecutionBrief
      * @return array<string,mixed>
      */
     private function operationalOutcomeLedger(
@@ -7741,10 +6126,10 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param array<string,mixed> $flowSpec
-     * @param array<string,mixed> $verticalSolutionKit
-     * @param list<array<string,mixed>> $verticalConnectorWorkbenches
+     * @param  array<string,mixed>  $company
+     * @param  array<string,mixed>  $flowSpec
+     * @param  array<string,mixed>  $verticalSolutionKit
+     * @param  list<array<string,mixed>>  $verticalConnectorWorkbenches
      * @return array<string,mixed>
      */
     private function domainExecutionBrief(
@@ -7874,8 +6259,8 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param list<string> $connectorIds
-     * @param array<string,mixed> $promotionGates
+     * @param  list<string>  $connectorIds
+     * @param  array<string,mixed>  $promotionGates
      */
     private function artifactSectionContent(
         string $sectionId,
@@ -7902,8 +6287,8 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
-     * @param array<string,mixed> $payload
+     * @param  array<string,mixed>  $company
+     * @param  array<string,mixed>  $payload
      * @return array<string,mixed>|null
      */
     private function persistInternalRuntimeRecord(array $company, array $payload): ?array
@@ -8015,7 +6400,7 @@ class EnterpriseFlowFixtureActionRuntimeService
     }
 
     /**
-     * @param array<string,mixed> $company
+     * @param  array<string,mixed>  $company
      */
     private function ensureRuntimeManifest(string $companyId, array $company): AiDomainManifest
     {
