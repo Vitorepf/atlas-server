@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Support;
 
-use Symfony\Component\Process\Process;
-
 /**
  * ITEM8 — the cohesive stateless git helper the obra execution adapter needs to manage replay worktrees.
  *
@@ -25,8 +23,7 @@ class AtlasLoopObraGitWorktreeProbe
     /** @param  list<string>  $argv */
     public function git(string $repoRoot, array $argv): bool
     {
-        $p = new Process(array_merge(['git', '-C', $repoRoot], $argv), null, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run(null, array_merge(['-C', $repoRoot], $argv));
 
         return $p->isSuccessful();
     }
@@ -34,8 +31,7 @@ class AtlasLoopObraGitWorktreeProbe
     /** @param  list<string>  $argv */
     public function gitOutput(string $repoRoot, array $argv): ?string
     {
-        $p = new Process(array_merge(['git', '-C', $repoRoot], $argv), null, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run(null, array_merge(['-C', $repoRoot], $argv));
 
         return $p->isSuccessful() ? $p->getOutput() : null;
     }

@@ -12,6 +12,7 @@ use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Persistence\AtlasLoopStore;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
@@ -1592,8 +1593,7 @@ final class AtlasLoopAutoMergeService
      */
     private function git(string $cwd, array $argv): bool
     {
-        $p = new Process(array_merge(['git'], array_values($argv)), $cwd, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $argv);
 
         return $p->isSuccessful();
     }

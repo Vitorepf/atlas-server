@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Constitution;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Symfony\Component\Process\Process;
 
 /**
@@ -120,8 +121,7 @@ final class AtlasLoopBatteryRunner
      */
     private function git(string $cwd, array $args): bool
     {
-        $p = new Process(array_merge(['git'], $args), $cwd, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $args);
 
         return $p->isSuccessful();
     }

@@ -7,6 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -382,8 +383,7 @@ final class AtlasLoopObraAutoMergeService
      */
     private function git(string $cwd, array $argv): bool
     {
-        $p = new Process(array_merge(['git'], array_values($argv)), $cwd, null, null, 120.0);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $argv, 120.0);
 
         return $p->isSuccessful();
     }

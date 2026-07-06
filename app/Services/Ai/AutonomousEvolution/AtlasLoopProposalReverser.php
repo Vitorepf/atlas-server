@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
-use Symfony\Component\Process\Process;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Throwable;
 
 /**
@@ -140,8 +140,7 @@ final class AtlasLoopProposalReverser
      */
     private function git(string $cwd, array $argv): bool
     {
-        $p = new Process(array_merge(['git'], $argv), $cwd, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $argv);
 
         return $p->isSuccessful();
     }
@@ -151,8 +150,7 @@ final class AtlasLoopProposalReverser
      */
     private function gitOutput(string $cwd, array $argv): string
     {
-        $p = new Process(array_merge(['git'], $argv), $cwd, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run($cwd, $argv);
 
         return $p->isSuccessful() ? $p->getOutput() : '';
     }
