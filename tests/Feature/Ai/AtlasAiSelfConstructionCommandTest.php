@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionCommandTest extends TestCase
@@ -21,6 +22,547 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         File::deleteDirectory(storage_path('app/atlas/self-construction/reservations'));
 
         parent::tearDown();
+    }
+
+    #[DataProvider('humanOutputCommandProvider')]
+    public function test_command_human_output_lists_section(string $option, array $expectedStrings): void
+    {
+        $exit = Artisan::call('atlas:ai:self-construction', [
+            $option => true,
+        ]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+
+        foreach ($expectedStrings as $expectedString) {
+            $this->assertStringContainsString($expectedString, $output);
+        }
+    }
+
+    public static function humanOutputCommandProvider(): array
+    {
+        return [
+            'test_command_human_output_lists_promotion_gate' => [
+                '--promotion-gate',
+                [
+                    'Atlas Self-Construction OS',
+                    'Current phase',
+                    'Recommended next phase',
+                    'Blocking failures',
+                    'ready for human-reviewed Phase 5 candidate planning',
+                ],
+            ],
+            'test_command_human_output_lists_approval_packet' => [
+                '--approval-packet',
+                [
+                    'Atlas Self-Construction OS',
+                    'Approval',
+                    'Approved',
+                    'Approval hash',
+                    'Approval packet is ready for human review',
+                ],
+            ],
+            'test_command_human_output_lists_receipt_draft' => [
+                '--receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Receipt draft',
+                    'Signed',
+                    'Receipt hash',
+                    'Receipt draft is ready for human signature review',
+                ],
+            ],
+            'test_command_human_output_lists_signature_request' => [
+                '--signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Signature request',
+                    'Request hash',
+                    'Preflight',
+                    'Signature request is ready for human review',
+                ],
+            ],
+            'test_command_human_output_lists_execution_runbook' => [
+                '--execution-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Runbook',
+                    'Runbook hash',
+                    'Signature status',
+                    'Execution runbook is ready for post-signature review',
+                ],
+            ],
+            'test_command_human_output_lists_evidence_packet' => [
+                '--evidence-packet',
+                [
+                    'Atlas Self-Construction OS',
+                    'Evidence packet',
+                    'Evidence hash',
+                    'Runbook status',
+                    'Evidence packet is ready',
+                ],
+            ],
+            'test_command_human_output_lists_completion_readiness' => [
+                '--completion-readiness',
+                [
+                    'Atlas Self-Construction OS',
+                    'Completion allowed',
+                    'Blocking failures',
+                    'Evidence hash',
+                    'Completion readiness is blocked as expected',
+                ],
+            ],
+            'test_command_human_output_lists_phase_ledger' => [
+                '--phase-ledger',
+                [
+                    'Atlas Self-Construction OS',
+                    'Current phase',
+                    'Next action',
+                    'Blocked phases',
+                    'Phase ledger is ready',
+                ],
+            ],
+            'test_command_human_output_lists_cold_lane_certification' => [
+                '--cold-lane-certification',
+                [
+                    'Atlas Self-Construction OS',
+                    'Next action',
+                    'External blockers',
+                    'Certification hash',
+                    'Cold lane is certified read-only',
+                ],
+            ],
+            'test_command_human_output_lists_promotion_blockers' => [
+                '--promotion-blockers',
+                [
+                    'Atlas Self-Construction OS',
+                    'Promotion allowed',
+                    'Completion allowed',
+                    'Blocker hash',
+                    'Promotion blockers are consolidated read-only',
+                ],
+            ],
+            'test_command_human_output_lists_readiness_digest' => [
+                '--readiness-digest',
+                [
+                    'Atlas Self-Construction OS',
+                    'Current phase',
+                    'Next action',
+                    'Digest hash',
+                    'Readiness digest is ready',
+                ],
+            ],
+            'test_command_human_output_lists_governance_scorecard' => [
+                '--governance-scorecard',
+                [
+                    'Atlas Self-Construction OS',
+                    'Score',
+                    'Rating',
+                    'Scorecard hash',
+                    'Governance scorecard is ready',
+                ],
+            ],
+            'test_command_human_output_lists_ownership_boundary' => [
+                '--ownership-boundary',
+                [
+                    'Atlas Self-Construction OS',
+                    'Allowed files',
+                    'Forbidden scopes',
+                    'Boundary hash',
+                    'Ownership boundary is ready',
+                ],
+            ],
+            'test_command_human_output_lists_reservation_ledger_preview' => [
+                '--reservation-ledger-preview',
+                [
+                    'Atlas Self-Construction OS',
+                    'Ledger write allowed',
+                    'Selected packet',
+                    'Reservation hash',
+                    'Reservation ledger preview is ready',
+                ],
+            ],
+            'test_command_human_output_lists_ai_session_bootstrap' => [
+                '--ai-session-bootstrap',
+                [
+                    'Atlas Self-Construction OS',
+                    'Claim persisted',
+                    'Selected packet',
+                    'Bootstrap hash',
+                    'AI session bootstrap is ready',
+                ],
+            ],
+            'test_command_human_output_lists_reservation_status' => [
+                '--reservation-status',
+                [
+                    'Atlas Self-Construction OS',
+                    'Active reservations',
+                    'Completed reservations',
+                    'Ledger hash',
+                    'Durable local reservation ledger is available',
+                ],
+            ],
+            'test_command_human_output_lists_codex_execution_status' => [
+                '--codex-execution-status',
+                [
+                    'Atlas Self-Construction OS',
+                    'Active',
+                    'Completed',
+                    'Monitor hash',
+                    'Codex execution status is ready',
+                ],
+            ],
+            'test_command_human_output_lists_codex_integration_report' => [
+                '--codex-integration-report',
+                [
+                    'Atlas Self-Construction OS',
+                    'Integration status',
+                    'Ready to review',
+                    'Report hash',
+                    'Codex integration report is ready',
+                ],
+            ],
+            'test_command_human_output_lists_codex_merge_readiness' => [
+                '--codex-merge-readiness',
+                [
+                    'Atlas Self-Construction OS',
+                    'Merge review status',
+                    'Blocking count',
+                    'Readiness hash',
+                    'Codex merge readiness is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_final_review_packet' => [
+                '--codex-final-review-packet',
+                [
+                    'Atlas Self-Construction OS',
+                    'Review status',
+                    'Decision required',
+                    'Packet hash',
+                    'Codex final review packet is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_decision_template' => [
+                '--codex-review-decision-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Decision status',
+                    'Recording allowed',
+                    'Template hash',
+                    'Codex review decision template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_receipt_draft' => [
+                '--codex-review-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Receipt status',
+                    'Signature required',
+                    'Receipt hash',
+                    'Codex review receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_signature_request' => [
+                '--codex-review-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Signature status',
+                    'Signature present',
+                    'Signable hash',
+                    'Codex review signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_post_signature_runbook' => [
+                '--codex-review-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Runbook status',
+                    'Signature required',
+                    'Runbook hash',
+                    'Codex review post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_action_template' => [
+                '--codex-review-merge-action-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Merge action status',
+                    'Explicit action required',
+                    'Template hash',
+                    'Codex review merge action template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_preflight' => [
+                '--codex-review-merge-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Preflight status',
+                    'Blocking count',
+                    'Preflight hash',
+                    'Codex review merge preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_action_draft' => [
+                '--codex-review-merge-action-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Draft status',
+                    'Default decision',
+                    'Draft hash',
+                    'Codex review merge action draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_receipt_draft' => [
+                '--codex-review-merge-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Receipt status',
+                    'Signature required',
+                    'Receipt hash',
+                    'Codex review merge receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_signature_request' => [
+                '--codex-review-merge-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Signature status',
+                    'Signature present',
+                    'Request hash',
+                    'Codex review merge signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_post_signature_runbook' => [
+                '--codex-review-merge-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Runbook status',
+                    'Signature required',
+                    'Runbook hash',
+                    'Codex review merge post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_execution_checklist' => [
+                '--codex-review-merge-execution-checklist',
+                [
+                    'Atlas Self-Construction OS',
+                    'Checklist status',
+                    'External authorization required',
+                    'Checklist hash',
+                    'Codex review merge execution checklist is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_authorization_template' => [
+                '--codex-review-merge-authorization-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Template status',
+                    'Default decision',
+                    'Template hash',
+                    'Codex review merge authorization template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_authorization_receipt_draft' => [
+                '--codex-review-merge-authorization-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Receipt status',
+                    'Signature required',
+                    'Receipt hash',
+                    'Codex review merge authorization receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_authorization_signature_request' => [
+                '--codex-review-merge-authorization-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Signature status',
+                    'Signature present',
+                    'Request hash',
+                    'Codex review merge authorization signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_authorization_post_signature_runbook' => [
+                '--codex-review-merge-authorization-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Runbook status',
+                    'Signature required',
+                    'Runbook hash',
+                    'Codex review merge authorization post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_final_authorization_preflight' => [
+                '--codex-review-merge-final-authorization-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Preflight status',
+                    'Authorization ready',
+                    'Preflight hash',
+                    'Codex review merge final authorization preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_authorizing_action_template' => [
+                '--codex-review-merge-authorizing-action-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Template status',
+                    'Default decision',
+                    'Template hash',
+                    'Codex review merge authorizing action template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_final_receipt_draft' => [
+                '--codex-review-merge-final-receipt-draft',
+                [
+                    'Atlas Self-Construction OS',
+                    'Receipt status',
+                    'Default decision',
+                    'Receipt hash',
+                    'Codex review merge final receipt draft is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_final_signature_request' => [
+                '--codex-review-merge-final-signature-request',
+                [
+                    'Atlas Self-Construction OS',
+                    'Signature status',
+                    'Signature present',
+                    'Request hash',
+                    'Codex review merge final signature request is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_final_post_signature_runbook' => [
+                '--codex-review-merge-final-post-signature-runbook',
+                [
+                    'Atlas Self-Construction OS',
+                    'Runbook status',
+                    'Signature required',
+                    'Runbook hash',
+                    'Codex review merge final post-signature runbook is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_signed_final_receipt_template' => [
+                '--codex-review-merge-signed-final-receipt-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Template status',
+                    'Receipt signed',
+                    'Template hash',
+                    'Codex review merge signed final receipt template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_signed_final_receipt_preflight' => [
+                '--codex-review-merge-signed-final-receipt-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Preflight status',
+                    'Executor allowed',
+                    'Preflight hash',
+                    'Codex review merge signed final receipt preflight is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_codex_review_merge_signed_final_receipt_persistence_template' => [
+                '--codex-review-merge-signed-final-receipt-persistence-template',
+                [
+                    'Atlas Self-Construction OS',
+                    'Template status',
+                    'Receipt persisted',
+                    'Template hash',
+                    'Codex review merge signed final receipt persistence template is blocked',
+                ],
+            ],
+            'test_command_human_output_lists_agent_launch_plan' => [
+                '--agent-launch-plan',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Launchable agents',
+                    'Plan hash',
+                    'Agent launch plan is ready',
+                ],
+            ],
+            'test_command_human_output_lists_packet_queue' => [
+                '--packet-queue',
+                [
+                    'Atlas Self-Construction OS',
+                    'Claim persisted',
+                    'Queue entries',
+                    'Queue hash',
+                    'Packet queue is ready',
+                ],
+            ],
+            'test_command_human_output_lists_parallel_session_plan' => [
+                '--parallel-session-plan',
+                [
+                    'Atlas Self-Construction OS',
+                    'Dispatch allowed',
+                    'Session slots',
+                    'Plan hash',
+                    'Parallel session plan is ready',
+                ],
+            ],
+            'test_command_human_output_lists_collision_matrix' => [
+                '--collision-matrix',
+                [
+                    'Atlas Self-Construction OS',
+                    'Pair count',
+                    'Blocked pairs',
+                    'Matrix hash',
+                    'Collision matrix is ready',
+                ],
+            ],
+            'test_command_human_output_lists_dependency_unlock_plan' => [
+                '--dependency-unlock-plan',
+                [
+                    'Atlas Self-Construction OS',
+                    'Blocked packets',
+                    'Unlock edges',
+                    'Plan hash',
+                    'Dependency unlock plan is ready',
+                ],
+            ],
+            'test_command_human_output_lists_multi_session_readiness_gate' => [
+                '--multi-session-readiness-gate',
+                [
+                    'Atlas Self-Construction OS',
+                    'Decision',
+                    'Multi-session allowed',
+                    'Gate hash',
+                    'Multi-session readiness gate is ready',
+                ],
+            ],
+            'test_command_human_output_lists_forge_workspace_status' => [
+                '--forge-workspace-status',
+                [
+                    'Atlas Self-Construction OS',
+                    'Workspace',
+                    'Obras Shared Workspace',
+                    'Specialization',
+                    'Forge Workspace projection is ready',
+                ],
+            ],
+            'test_command_human_output_lists_agent_control_plane' => [
+                '--agent-control-plane',
+                [
+                    'Atlas Self-Construction OS',
+                    'Control plane',
+                    'Atlas Agent Control Plane',
+                    'Provider sessions',
+                    'Agent Control Plane projection is ready',
+                ],
+            ],
+            'test_command_human_output_lists_single_session_instruction_packet' => [
+                '--single-session-instruction-packet',
+                [
+                    'Atlas Self-Construction OS',
+                    'Selected packet',
+                    'Safe next',
+                    'Instruction hash',
+                    'Single-session instruction packet is ready',
+                ],
+            ],
+        ];
     }
 
     public function test_command_returns_self_construction_readiness_as_json(): void
@@ -201,20 +743,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'promotion_conditions.human_review_required'));
     }
 
-    public function test_command_human_output_lists_promotion_gate(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--promotion-gate' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Current phase', $output);
-        $this->assertStringContainsString('Recommended next phase', $output);
-        $this->assertStringContainsString('Blocking failures', $output);
-        $this->assertStringContainsString('ready for human-reviewed Phase 5 candidate planning', $output);
-    }
 
     public function test_command_returns_execution_candidate_as_json(): void
     {
@@ -284,20 +813,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(5, count(data_get($payload, 'approval.approval_checklist')));
     }
 
-    public function test_command_human_output_lists_approval_packet(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--approval-packet' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Approval', $output);
-        $this->assertStringContainsString('Approved', $output);
-        $this->assertStringContainsString('Approval hash', $output);
-        $this->assertStringContainsString('Approval packet is ready for human review', $output);
-    }
 
     public function test_command_returns_receipt_draft_as_json(): void
     {
@@ -326,20 +842,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:self-construction --receipt-draft --json', data_get($payload, 'receipt_draft.gates.required'));
     }
 
-    public function test_command_human_output_lists_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Receipt draft', $output);
-        $this->assertStringContainsString('Signed', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Receipt draft is ready for human signature review', $output);
-    }
 
     public function test_command_returns_execution_preflight_as_json(): void
     {
@@ -407,20 +910,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('signature_request_does_not_enable_execution', data_get($payload, 'signature_request.non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Signature request', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Preflight', $output);
-        $this->assertStringContainsString('Signature request is ready for human review', $output);
-    }
 
     public function test_command_returns_execution_runbook_as_json(): void
     {
@@ -449,20 +939,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertGreaterThanOrEqual(5, count(data_get($payload, 'runbook.ordered_steps')));
     }
 
-    public function test_command_human_output_lists_execution_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--execution-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Runbook', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Execution runbook is ready for post-signature review', $output);
-    }
 
     public function test_command_returns_evidence_packet_as_json(): void
     {
@@ -495,20 +972,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('gate_outputs', $requiredKeys);
     }
 
-    public function test_command_human_output_lists_evidence_packet(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--evidence-packet' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Evidence packet', $output);
-        $this->assertStringContainsString('Evidence hash', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Evidence packet is ready', $output);
-    }
 
     public function test_command_returns_completion_readiness_as_json(): void
     {
@@ -539,20 +1003,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('required_gate_outputs_present', $failedIds);
     }
 
-    public function test_command_human_output_lists_completion_readiness(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--completion-readiness' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Completion allowed', $output);
-        $this->assertStringContainsString('Blocking failures', $output);
-        $this->assertStringContainsString('Evidence hash', $output);
-        $this->assertStringContainsString('Completion readiness is blocked as expected', $output);
-    }
 
     public function test_command_returns_residual_risk_as_json(): void
     {
@@ -713,20 +1164,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('phase_6_restricted_runtime_patches', $phaseIds);
     }
 
-    public function test_command_human_output_lists_phase_ledger(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--phase-ledger' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Current phase', $output);
-        $this->assertStringContainsString('Next action', $output);
-        $this->assertStringContainsString('Blocked phases', $output);
-        $this->assertStringContainsString('Phase ledger is ready', $output);
-    }
 
     public function test_command_returns_surface_matrix_as_json(): void
     {
@@ -850,20 +1288,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('cold_lane_certification_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_cold_lane_certification(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--cold-lane-certification' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Next action', $output);
-        $this->assertStringContainsString('External blockers', $output);
-        $this->assertStringContainsString('Certification hash', $output);
-        $this->assertStringContainsString('Cold lane is certified read-only', $output);
-    }
 
     public function test_command_returns_operator_checklist_as_json(): void
     {
@@ -934,20 +1359,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('voice_realtime_runtime_delta_hot', $blockerIds);
     }
 
-    public function test_command_human_output_lists_promotion_blockers(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--promotion-blockers' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Promotion allowed', $output);
-        $this->assertStringContainsString('Completion allowed', $output);
-        $this->assertStringContainsString('Blocker hash', $output);
-        $this->assertStringContainsString('Promotion blockers are consolidated read-only', $output);
-    }
 
     public function test_command_returns_readiness_digest_as_json(): void
     {
@@ -974,20 +1386,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('git diff --check', data_get($payload, 'digest.required_next_commands'));
     }
 
-    public function test_command_human_output_lists_readiness_digest(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--readiness-digest' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Current phase', $output);
-        $this->assertStringContainsString('Next action', $output);
-        $this->assertStringContainsString('Digest hash', $output);
-        $this->assertStringContainsString('Readiness digest is ready', $output);
-    }
 
     public function test_command_returns_governance_scorecard_as_json(): void
     {
@@ -1018,20 +1417,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('cold_lane_certified', $criteriaIds);
     }
 
-    public function test_command_human_output_lists_governance_scorecard(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--governance-scorecard' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Score', $output);
-        $this->assertStringContainsString('Rating', $output);
-        $this->assertStringContainsString('Scorecard hash', $output);
-        $this->assertStringContainsString('Governance scorecard is ready', $output);
-    }
 
     public function test_command_returns_integrity_manifest_as_json(): void
     {
@@ -1147,20 +1533,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('report_hot_blockers_without_editing', data_get($payload, 'boundary.required_behavior'));
     }
 
-    public function test_command_human_output_lists_ownership_boundary(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--ownership-boundary' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Allowed files', $output);
-        $this->assertStringContainsString('Forbidden scopes', $output);
-        $this->assertStringContainsString('Boundary hash', $output);
-        $this->assertStringContainsString('Ownership boundary is ready', $output);
-    }
 
     public function test_command_returns_implementation_packet_as_json(): void
     {
@@ -1493,20 +1866,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('reservation_ledger_preview_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_reservation_ledger_preview(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--reservation-ledger-preview' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Ledger write allowed', $output);
-        $this->assertStringContainsString('Selected packet', $output);
-        $this->assertStringContainsString('Reservation hash', $output);
-        $this->assertStringContainsString('Reservation ledger preview is ready', $output);
-    }
 
     public function test_command_returns_ai_session_bootstrap_as_json(): void
     {
@@ -1539,20 +1899,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('ai_session_bootstrap_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_ai_session_bootstrap(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--ai-session-bootstrap' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Claim persisted', $output);
-        $this->assertStringContainsString('Selected packet', $output);
-        $this->assertStringContainsString('Bootstrap hash', $output);
-        $this->assertStringContainsString('AI session bootstrap is ready', $output);
-    }
 
     public function test_command_returns_reservation_status_as_json(): void
     {
@@ -1574,20 +1921,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'ledger_hash'));
     }
 
-    public function test_command_human_output_lists_reservation_status(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--reservation-status' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Active reservations', $output);
-        $this->assertStringContainsString('Completed reservations', $output);
-        $this->assertStringContainsString('Ledger hash', $output);
-        $this->assertStringContainsString('Durable local reservation ledger is available', $output);
-    }
 
     public function test_command_claims_packet_and_queue_marks_it_claimed(): void
     {
@@ -1780,20 +2114,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('wait_for_active_sessions_or_review_their_final_response_contracts', data_get($payload, 'monitor.recommended_next_action'));
     }
 
-    public function test_command_human_output_lists_codex_execution_status(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-execution-status' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Active', $output);
-        $this->assertStringContainsString('Completed', $output);
-        $this->assertStringContainsString('Monitor hash', $output);
-        $this->assertStringContainsString('Codex execution status is ready', $output);
-    }
 
     public function test_command_returns_codex_integration_report_as_json(): void
     {
@@ -1858,20 +2179,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('partial_completion_review_available', data_get($payload, 'report.integration_status'));
     }
 
-    public function test_command_human_output_lists_codex_integration_report(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-integration-report' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Integration status', $output);
-        $this->assertStringContainsString('Ready to review', $output);
-        $this->assertStringContainsString('Report hash', $output);
-        $this->assertStringContainsString('Codex integration report is ready', $output);
-    }
 
     public function test_command_returns_codex_merge_readiness_blocked_as_json(): void
     {
@@ -1948,20 +2256,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('perform_human_or_governed_receipt_review_before_merge', data_get($payload, 'readiness.recommended_next_action'));
     }
 
-    public function test_command_human_output_lists_codex_merge_readiness(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-merge-readiness' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Merge review status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Readiness hash', $output);
-        $this->assertStringContainsString('Codex merge readiness is blocked', $output);
-    }
 
     public function test_command_returns_codex_final_review_packet_blocked_as_json(): void
     {
@@ -2039,20 +2334,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'approval_granted'));
     }
 
-    public function test_command_human_output_lists_codex_final_review_packet(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-final-review-packet' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Review status', $output);
-        $this->assertStringContainsString('Decision required', $output);
-        $this->assertStringContainsString('Packet hash', $output);
-        $this->assertStringContainsString('Codex final review packet is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_decision_template_blocked_as_json(): void
     {
@@ -2131,20 +2413,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'approval_granted'));
     }
 
-    public function test_command_human_output_lists_codex_review_decision_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-decision-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Decision status', $output);
-        $this->assertStringContainsString('Recording allowed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Codex review decision template is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_receipt_draft_blocked_as_json(): void
     {
@@ -2223,20 +2492,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'approval_granted'));
     }
 
-    public function test_command_human_output_lists_codex_review_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Codex review receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_signature_request_blocked_as_json(): void
     {
@@ -2316,20 +2572,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'approval_granted'));
     }
 
-    public function test_command_human_output_lists_codex_review_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Signature present', $output);
-        $this->assertStringContainsString('Signable hash', $output);
-        $this->assertStringContainsString('Codex review signature request is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_post_signature_runbook_blocked_as_json(): void
     {
@@ -2407,20 +2650,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'approval_granted'));
     }
 
-    public function test_command_human_output_lists_codex_review_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Codex review post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_action_template_blocked_as_json(): void
     {
@@ -2502,20 +2732,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('abort', data_get($payload, 'template.allowed_merge_decisions'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_action_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-action-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Merge action status', $output);
-        $this->assertStringContainsString('Explicit action required', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Codex review merge action template is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_preflight_blocked_as_json(): void
     {
@@ -2592,20 +2809,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('merge_action_template_hash', data_get($payload, 'preflight.source_hashes'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Blocking count', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Codex review merge preflight is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_action_draft_blocked_as_json(): void
     {
@@ -2682,20 +2886,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('merge_action_template_hash', data_get($payload, 'draft.source_hashes'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_action_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-action-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Draft status', $output);
-        $this->assertStringContainsString('Default decision', $output);
-        $this->assertStringContainsString('Draft hash', $output);
-        $this->assertStringContainsString('Codex review merge action draft is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_receipt_draft_blocked_as_json(): void
     {
@@ -2775,20 +2966,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('merge_action_template_hash', data_get($payload, 'receipt.source_hashes'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Codex review merge receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_signature_request_blocked_as_json(): void
     {
@@ -2867,20 +3045,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('merge_action_template_hash', data_get($payload, 'signable_payload.source_hashes'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Signature present', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Codex review merge signature request is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_post_signature_runbook_blocked_as_json(): void
     {
@@ -2958,20 +3123,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('architecture_validate', data_get($payload, 'runbook.verification_commands'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Codex review merge post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_execution_checklist_blocked_as_json(): void
     {
@@ -3048,20 +3200,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('reservation_status', data_get($payload, 'checklist.verification_commands'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_execution_checklist(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-execution-checklist' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Checklist status', $output);
-        $this->assertStringContainsString('External authorization required', $output);
-        $this->assertStringContainsString('Checklist hash', $output);
-        $this->assertStringContainsString('Codex review merge execution checklist is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_authorization_template_blocked_as_json(): void
     {
@@ -3139,20 +3278,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('abort', data_get($payload, 'template.rejection_defaults.hash_mismatch'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_authorization_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-authorization-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Default decision', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Codex review merge authorization template is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_authorization_receipt_draft_blocked_as_json(): void
     {
@@ -3230,20 +3356,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('authorization_template_hash', data_get($payload, 'receipt.must_record'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_authorization_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-authorization-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Codex review merge authorization receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_authorization_signature_request_blocked_as_json(): void
     {
@@ -3322,20 +3435,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('authorization_template_hash', data_get($payload, 'signable_payload.must_record'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_authorization_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-authorization-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Signature present', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Codex review merge authorization signature request is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_authorization_post_signature_runbook_blocked_as_json(): void
     {
@@ -3413,20 +3513,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertArrayHasKey('architecture_validate', data_get($payload, 'runbook.verification_commands'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_authorization_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-authorization-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Codex review merge authorization post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_final_authorization_preflight_blocked_as_json(): void
     {
@@ -3505,20 +3592,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('must_persist_authorization_receipt_append_only', data_get($payload, 'preflight.future_authorizing_surface_requirements'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_final_authorization_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-final-authorization-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Authorization ready', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Codex review merge final authorization preflight is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_authorizing_action_template_blocked_as_json(): void
     {
@@ -3600,20 +3674,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('authorized_at', data_get($payload, 'template.receipt_fields_to_persist_in_future'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_authorizing_action_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-authorizing-action-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Default decision', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Codex review merge authorizing action template is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_final_receipt_draft_blocked_as_json(): void
     {
@@ -3696,20 +3757,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('human_confirmation_hash', data_get($payload, 'receipt.drafted_authorization_fields'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_final_receipt_draft(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-final-receipt-draft' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Receipt status', $output);
-        $this->assertStringContainsString('Default decision', $output);
-        $this->assertStringContainsString('Receipt hash', $output);
-        $this->assertStringContainsString('Codex review merge final receipt draft is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_final_signature_request_blocked_as_json(): void
     {
@@ -3793,20 +3841,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('merge_from_final_signature_request', data_get($payload, 'signable_payload.still_forbidden_after_signature_request'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_final_signature_request(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-final-signature-request' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Signature status', $output);
-        $this->assertStringContainsString('Signature present', $output);
-        $this->assertStringContainsString('Request hash', $output);
-        $this->assertStringContainsString('Codex review merge final signature request is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_final_post_signature_runbook_blocked_as_json(): void
     {
@@ -3887,20 +3922,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('must_persist_signed_final_merge_receipt_append_only', data_get($payload, 'runbook.future_signed_receipt_surface_requirements'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_final_post_signature_runbook(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-final-post-signature-runbook' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Runbook status', $output);
-        $this->assertStringContainsString('Signature required', $output);
-        $this->assertStringContainsString('Runbook hash', $output);
-        $this->assertStringContainsString('Codex review merge final post-signature runbook is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_signed_final_receipt_template_blocked_as_json(): void
     {
@@ -3981,20 +4003,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('signed_final_receipt_persisted_append_only', data_get($payload, 'template.future_executor_release_conditions'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_signed_final_receipt_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-signed-final-receipt-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt signed', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Codex review merge signed final receipt template is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_signed_final_receipt_preflight_blocked_as_json(): void
     {
@@ -4074,20 +4083,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('emit_executor_release_preflight_after_persistence', data_get($payload, 'preflight.future_persistence_requirements'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_signed_final_receipt_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-signed-final-receipt-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Preflight status', $output);
-        $this->assertStringContainsString('Executor allowed', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Codex review merge signed final receipt preflight is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_signed_final_receipt_persistence_template_blocked_as_json(): void
     {
@@ -4168,20 +4164,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('executor_release_preflight_ready', data_get($payload, 'template.future_executor_release_requirements'));
     }
 
-    public function test_command_human_output_lists_codex_review_merge_signed_final_receipt_persistence_template(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-review-merge-signed-final-receipt-persistence-template' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Template status', $output);
-        $this->assertStringContainsString('Receipt persisted', $output);
-        $this->assertStringContainsString('Template hash', $output);
-        $this->assertStringContainsString('Codex review merge signed final receipt persistence template is blocked', $output);
-    }
 
     public function test_command_returns_codex_review_merge_executor_release_preflight_blocked_as_json(): void
     {
@@ -16171,20 +16154,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'plan_hash'));
     }
 
-    public function test_command_human_output_lists_agent_launch_plan(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-launch-plan' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Launchable agents', $output);
-        $this->assertStringContainsString('Plan hash', $output);
-        $this->assertStringContainsString('Agent launch plan is ready', $output);
-    }
 
     public function test_command_returns_agent_execution_status_as_json(): void
     {
@@ -28688,20 +28658,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('packet_queue_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_packet_queue(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--packet-queue' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Claim persisted', $output);
-        $this->assertStringContainsString('Queue entries', $output);
-        $this->assertStringContainsString('Queue hash', $output);
-        $this->assertStringContainsString('Packet queue is ready', $output);
-    }
 
     public function test_command_returns_parallel_session_plan_as_json(): void
     {
@@ -28741,20 +28698,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('parallel_session_plan_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_parallel_session_plan(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--parallel-session-plan' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Dispatch allowed', $output);
-        $this->assertStringContainsString('Session slots', $output);
-        $this->assertStringContainsString('Plan hash', $output);
-        $this->assertStringContainsString('Parallel session plan is ready', $output);
-    }
 
     public function test_command_returns_collision_matrix_as_json(): void
     {
@@ -28792,20 +28736,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('collision_matrix_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_collision_matrix(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--collision-matrix' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Pair count', $output);
-        $this->assertStringContainsString('Blocked pairs', $output);
-        $this->assertStringContainsString('Matrix hash', $output);
-        $this->assertStringContainsString('Collision matrix is ready', $output);
-    }
 
     public function test_command_returns_dependency_unlock_plan_as_json(): void
     {
@@ -28843,20 +28774,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('dependency_unlock_plan_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_dependency_unlock_plan(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--dependency-unlock-plan' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Blocked packets', $output);
-        $this->assertStringContainsString('Unlock edges', $output);
-        $this->assertStringContainsString('Plan hash', $output);
-        $this->assertStringContainsString('Dependency unlock plan is ready', $output);
-    }
 
     public function test_command_returns_multi_session_readiness_gate_as_json(): void
     {
@@ -28892,20 +28810,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('multi_session_readiness_gate_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_multi_session_readiness_gate(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--multi-session-readiness-gate' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Decision', $output);
-        $this->assertStringContainsString('Multi-session allowed', $output);
-        $this->assertStringContainsString('Gate hash', $output);
-        $this->assertStringContainsString('Multi-session readiness gate is ready', $output);
-    }
 
     public function test_command_returns_forge_workspace_status_as_json(): void
     {
@@ -28937,20 +28842,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('forge_workspace_status_does_not_enable_self_programming', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_forge_workspace_status(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--forge-workspace-status' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Workspace', $output);
-        $this->assertStringContainsString('Obras Shared Workspace', $output);
-        $this->assertStringContainsString('Specialization', $output);
-        $this->assertStringContainsString('Forge Workspace projection is ready', $output);
-    }
 
     public function test_command_returns_agent_control_plane_as_json(): void
     {
@@ -29293,20 +29185,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('active_lease', data_get($payload, 'control_plane.provider_sessions.0.liveness'));
     }
 
-    public function test_command_human_output_lists_agent_control_plane(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-control-plane' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Control plane', $output);
-        $this->assertStringContainsString('Atlas Agent Control Plane', $output);
-        $this->assertStringContainsString('Provider sessions', $output);
-        $this->assertStringContainsString('Agent Control Plane projection is ready', $output);
-    }
 
     public function test_command_returns_agent_control_plane_runtime_schema_preflight_as_json(): void
     {
@@ -38783,20 +38662,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('single_session_instruction_packet_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_single_session_instruction_packet(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--single-session-instruction-packet' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Selected packet', $output);
-        $this->assertStringContainsString('Safe next', $output);
-        $this->assertStringContainsString('Instruction hash', $output);
-        $this->assertStringContainsString('Single-session instruction packet is ready', $output);
-    }
 
     public function test_command_returns_durable_reservation_ledger_plan_as_json(): void
     {
