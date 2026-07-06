@@ -54,7 +54,7 @@ Cada iteração de um modelo executor neste repo = planejar → editar → **pro
 
 ## Sequência
 
-`P1+P2 (dias, destravam tudo)` → `L1 (1 dia — o Fable entra na porta lockada)` → `P3+P4` → `S1+S2` → `L2+L3` → `P5+P6` → `S3+S4`. Paralelo permitido onde não compartilham arquivos; toda entrega via WO do Kit.
+`P1+P2 (dias, destravam tudo)` → `L1 (1 dia — a sessão do modelo entra na porta lockada)` → `P3+P4` → `S1+S2` → `L2+L3` → `P5+P6` → `S3+S4`. Paralelo permitido onde não compartilham arquivos; toda entrega via WO do Kit.
 
 ## Pétreas
 As da linha (#17 regras transversais + #18 §Pétreas). Novas desta obra: nunca segurar lock durante testes; ordem de aquisição task-commit→main-merge; recall do test:impacted provado ≥0,85 ANTES de substituir suite do módulo; paratest só entra depois do TEST_TOKEN nos paths compartilhados.
