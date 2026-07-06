@@ -6,10 +6,10 @@ namespace App\Services\Ai\AutonomousEvolution\Constitution;
 
 use App\Models\AtlasLoopProposal;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Rsi\RealRsiGitRevertPort;
 use App\Services\Ai\Rsi\RsiGitRevertPort;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -249,8 +249,7 @@ final class AtlasLoopMainHealthSentinel
      */
     private function git(string $repoRoot, array $args): array
     {
-        $p = new Process(array_merge(['git'], $args), $repoRoot, null, null, 60.0);
-        $p->run();
+        $p = GitSubprocess::run($repoRoot, $args);
 
         return [$p->isSuccessful(), $p->getOutput().$p->getErrorOutput()];
     }

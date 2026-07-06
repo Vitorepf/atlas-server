@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchMergeGovernorService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchReviewPacketService;
@@ -12,7 +13,6 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
 
 /**
  * AP-781 · First Live Branch Proof.
@@ -321,8 +321,7 @@ final class StewardshipFirstLiveBranchProofService
      */
     private function git(string $cwd, array $args, int $timeout = 30): array
     {
-        $process = new Process(array_merge(['git'], $args), $cwd, null, null, $timeout);
-        $process->run();
+        $process = GitSubprocess::run($cwd, $args, $timeout);
 
         return [
             'ok' => $process->isSuccessful(),

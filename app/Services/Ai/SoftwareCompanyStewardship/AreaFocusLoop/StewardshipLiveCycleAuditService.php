@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipDayStartService;
 use App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship\ContinuousStewardshipRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipFirstLiveBranchProofService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
-use Symfony\Component\Process\Process;
 
 /**
  * AP-784 · Stewardship Live Cycle Auditor.
@@ -740,8 +740,7 @@ final class StewardshipLiveCycleAuditService
      */
     private function git(string $repoRoot, array $args): array
     {
-        $process = new Process(array_merge(['git'], $args), $repoRoot, null, null, 30);
-        $process->run();
+        $process = GitSubprocess::run($repoRoot, $args, 30);
 
         return [
             'ok' => $process->isSuccessful(),
