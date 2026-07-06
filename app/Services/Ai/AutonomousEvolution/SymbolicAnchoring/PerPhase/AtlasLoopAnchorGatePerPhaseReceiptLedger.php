@@ -4,12 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\SymbolicAnchoring\PerPhase;
 
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+
 /**
  * Append-only JSONL ledger of per-phase anchor-gate enforcement verdicts.
  *
  * Storage: `<root>/YYYY-MM-DD.jsonl`. Each `recordVerdict()` call appends ONE line carrying
  * { loop_cycle_id, phase, decision, measured_density, required_density, missing_anchor_kinds,
  *   payload_sha256, ts_utc }. When `enabled=false`, recordVerdict() is a no-op (no file is created).
+ *
+ * Raw line IO delegates to {@see AppendOnlyJsonlStore::appendSilently()} (best-effort append:
+ * unopenable file is ignored and recordVerdict() returns null, matching the prior fopen policy);
+ * the day-partitioned path and domain payload shaping stay here.
  */
 final class AtlasLoopAnchorGatePerPhaseReceiptLedger
 {
@@ -52,17 +58,10 @@ final class AtlasLoopAnchorGatePerPhaseReceiptLedger
             'payload_sha256' => hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
             'ts_utc' => $tsUtc,
         ];
-        $line = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $handle = @fopen($path, 'a');
-        if ($handle === false) {
-            return null;
-        }
-        try {
-            fwrite($handle, $line."\n");
-            fflush($handle);
-        } finally {
-            fclose($handle);
-        }
+
+        // Best-effort append: an unopenable file yields null (prior fopen policy preserved),
+        // not a throw — verdicts are advisory telemetry, never fail the cycle over a log file.
+        AppendOnlyJsonlStore::appendSilently($path, $row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return $row;
     }
