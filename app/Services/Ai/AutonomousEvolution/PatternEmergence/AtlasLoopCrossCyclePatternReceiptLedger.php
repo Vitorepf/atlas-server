@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\PatternEmergence;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use RuntimeException;
 
 /**
@@ -17,7 +18,9 @@ use RuntimeException;
  *   - if miner/stability payloads disagree on the cycle-id set → throws
  *     {@see CrossCyclePatternIntegrityException}, NEVER writes.
  *
- * Append-only by construction: prior lines are never edited or removed.
+ * Append-only by construction: prior lines are never edited or removed. Raw line IO
+ * delegates to {@see JsonlReceiptStore} (the kernel's one append-only engine); domain
+ * payload shaping and integrity check stay here.
  */
 final class AtlasLoopCrossCyclePatternReceiptLedger
 {
@@ -56,19 +59,7 @@ final class AtlasLoopCrossCyclePatternReceiptLedger
             'cycle_ids' => $minerCycles,
         ];
 
-        $line = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $handle = @fopen($this->ndjsonPath, 'a');
-        if ($handle === false) {
-            throw new RuntimeException('AtlasLoopCrossCyclePatternReceiptLedger: cannot open '.$this->ndjsonPath.' for append');
-        }
-        try {
-            if (fwrite($handle, $line."\n") === false) {
-                throw new RuntimeException('AtlasLoopCrossCyclePatternReceiptLedger: write failed');
-            }
-            fflush($handle);
-        } finally {
-            fclose($handle);
-        }
+        (new JsonlReceiptStore($this->ndjsonPath))->append($receipt);
 
         return $receipt;
     }
@@ -78,27 +69,7 @@ final class AtlasLoopCrossCyclePatternReceiptLedger
      */
     public function readAll(): array
     {
-        if (! is_file($this->ndjsonPath)) {
-            return [];
-        }
-        $rows = [];
-        $handle = @fopen($this->ndjsonPath, 'r');
-        if ($handle === false) {
-            return [];
-        }
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-        fclose($handle);
-
-        return $rows;
+        return (new JsonlReceiptStore($this->ndjsonPath))->replay();
     }
 
     /**
