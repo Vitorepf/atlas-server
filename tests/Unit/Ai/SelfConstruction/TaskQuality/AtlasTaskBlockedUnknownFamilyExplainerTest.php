@@ -256,4 +256,50 @@ final class AtlasTaskBlockedUnknownFamilyExplainerTest extends TestCase
         $this->assertSame('medium', $r['confidence']);
         $this->assertFalse($r['quarantined_for_review']);
     }
+
+    // ── AC: prefix-aware forbidden target detection ──
+
+    public function test_forbidden_target_directory_prefix_detected(): void
+    {
+        $r = $this->explainer()->explain($this->packet([
+            'allowed_files' => ['app/Services/Ai/Voice/Command.php'],
+            'packet_quality' => [
+                'facts' => [
+                    'forbidden_self_targets' => ['app/Services/Ai/Voice/'],
+                ],
+            ],
+        ]));
+
+        $this->assertSame('forbidden_target', $r['likely_family']);
+        $this->assertContains('allowed_files_hit_forbidden_self_target', $r['missing_signals']);
+    }
+
+    public function test_property_gated_target_directory_prefix_detected(): void
+    {
+        $r = $this->explainer()->explain($this->packet([
+            'allowed_files' => ['app/Services/Ai/Programming/Foo.php'],
+            'packet_quality' => [
+                'facts' => [
+                    'property_gated_targets' => ['app/Services/Ai/Programming/'],
+                ],
+            ],
+        ]));
+
+        $this->assertSame('forbidden_target', $r['likely_family']);
+        $this->assertStringContainsString('property_gated', $r['missing_signals'][0]);
+    }
+
+    public function test_forbidden_target_exact_match_still_detected(): void
+    {
+        $r = $this->explainer()->explain($this->packet([
+            'allowed_files' => ['app/Services/Ai/Secret.php'],
+            'packet_quality' => [
+                'facts' => [
+                    'forbidden_self_targets' => ['app/Services/Ai/Secret.php'],
+                ],
+            ],
+        ]));
+
+        $this->assertSame('forbidden_target', $r['likely_family']);
+    }
 }
