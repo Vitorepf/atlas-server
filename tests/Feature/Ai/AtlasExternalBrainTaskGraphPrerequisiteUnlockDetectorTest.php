@@ -170,4 +170,62 @@ final class AtlasExternalBrainTaskGraphPrerequisiteUnlockDetectorTest extends Te
         $candidateA = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'A');
         $this->assertSame([], $candidateA['collision_risk']);
     }
+
+    // ── AC: prefix-aware collision detection (directory vs file) ──
+
+    public function test_collision_risk_detect_directory_vs_file_prefix(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'A', 'status' => 'queued', 'unlocks' => ['dep-a'], 'allowed_files' => ['app/Foo/']],
+                ['task_id' => 'dep-a', 'depends_on' => ['A'], 'status' => 'queued'],
+                ['task_id' => 'B', 'status' => 'queued', 'unlocks' => ['dep-b'], 'allowed_files' => ['app/Foo/Bar.php']],
+                ['task_id' => 'dep-b', 'depends_on' => ['B'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $candidateA = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'A');
+        $candidateB = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'B');
+
+        $this->assertNotNull($candidateA);
+        $this->assertNotNull($candidateB);
+
+        // Directory 'app/Foo/' should collide with file 'app/Foo/Bar.php' under it.
+        $this->assertContains('B', $candidateA['collision_risk'], 'directory should collide with file under it');
+        $this->assertContains('A', $candidateB['collision_risk'], 'file under directory should collide with directory root');
+    }
+
+    public function test_collision_risk_detect_parent_child_path(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'A', 'status' => 'queued', 'unlocks' => ['dep-a'], 'allowed_files' => ['app/Services/']],
+                ['task_id' => 'dep-a', 'depends_on' => ['A'], 'status' => 'queued'],
+                ['task_id' => 'B', 'status' => 'queued', 'unlocks' => ['dep-b'], 'allowed_files' => ['app/Services/Foo/Bar.php']],
+                ['task_id' => 'dep-b', 'depends_on' => ['B'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $candidateA = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'A');
+        $this->assertContains('B', $candidateA['collision_risk'], 'parent dir should collide with nested file');
+    }
+
+    public function test_collision_risk_unrelated_paths_still_no_collision(): void
+    {
+        $result = (new AtlasExternalBrainTaskGraphPrerequisiteUnlockDetector)->detect([
+            'tasks' => [
+                ['task_id' => 'A', 'status' => 'queued', 'unlocks' => ['dep-a'], 'allowed_files' => ['app/Services/']],
+                ['task_id' => 'dep-a', 'depends_on' => ['A'], 'status' => 'queued'],
+                ['task_id' => 'B', 'status' => 'queued', 'unlocks' => ['dep-b'], 'allowed_files' => ['tests/Unit/BTest.php']],
+                ['task_id' => 'dep-b', 'depends_on' => ['B'], 'status' => 'queued'],
+            ],
+        ]);
+
+        $candidateA = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'A');
+        $candidateB = collect($result['prerequisite_candidates'])->firstWhere('task_id', 'B');
+
+        // app/Services/ and tests/Unit/BTest.php are disjoint → no collision.
+        $this->assertNotContains('B', $candidateA['collision_risk']);
+        $this->assertNotContains('A', $candidateB['collision_risk']);
+    }
 }
