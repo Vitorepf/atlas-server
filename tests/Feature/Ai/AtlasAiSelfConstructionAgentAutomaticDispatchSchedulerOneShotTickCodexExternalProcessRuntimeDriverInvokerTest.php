@@ -4,14 +4,15 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker;
-use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvokerTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_invoker_prepares_external_process_runtime_driver_without_starting_codex(): void
     {
@@ -112,28 +113,9 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexExte
      */
     private function createSpawnExecutorPreparedRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex process spawn executor prepared; external process runtime remains disabled.',
             'metadata' => [
                 'codex_process_spawn_executor' => [
@@ -146,7 +128,6 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexExte
                     'runtime_supervision_plan_hash' => str_repeat('2', 64),
                     'stdout_stderr_sink_hash' => str_repeat('3', 64),
                     'liveness_probe_hash' => str_repeat('4', 64),
-                    'provider' => 'codex',
                     'adapter' => 'codex',
                     'status' => 'prepared_pending_external_process_runtime',
                     'process_spawn_executor_prepared' => true,

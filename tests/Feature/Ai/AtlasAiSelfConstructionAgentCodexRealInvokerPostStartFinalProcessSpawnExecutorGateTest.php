@@ -4,16 +4,17 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGate;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartFinalProcessSpawnExecutorGateTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_post_start_final_process_spawn_executor_prepares_executor_without_starting_codex(): void
     {
@@ -174,28 +175,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartFinalProcessSpawnExec
      */
     private function createObservedRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'observed:codex-real-invoker-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex real invoker post-start process spawn enablement recorded.',
             'metadata' => $this->observedMetadata(),
         ], $overrides));
@@ -206,28 +188,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartFinalProcessSpawnExec
      */
     private function createProviderStartRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex process spawn enablement recorded; final process spawn executor remains disabled.',
             'metadata' => [
                 'codex_process_spawn_enablement' => [
@@ -237,7 +200,6 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartFinalProcessSpawnExec
                     'codex_execution_id' => 'codex-execution-001',
                     'operator_spawn_receipt_hash' => str_repeat('e', 64),
                     'supervised_start_contract_hash' => str_repeat('c', 64),
-                    'provider' => 'codex',
                     'adapter' => 'codex',
                     'status' => 'enabled_pending_final_process_spawn_executor',
                     'process_spawn_enabled' => true,

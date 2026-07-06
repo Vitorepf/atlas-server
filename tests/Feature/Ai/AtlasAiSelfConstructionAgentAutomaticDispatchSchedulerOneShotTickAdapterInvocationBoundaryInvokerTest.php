@@ -8,11 +8,13 @@ use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickA
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvokerTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_invoker_prepares_adapter_invocation_boundary_without_calling_adapter(): void
     {
@@ -98,28 +100,9 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickAdapterIn
      */
     private function createPreStartRun(array $overrides = [], bool $skipHeartbeat = false): void
     {
-        $run = AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $run = $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'pre_start_guarded',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Provider start preflight registered; adapter invocation remains disabled.',
             'metadata' => [
                 'provider_start_attempt_id' => 'attempt-001',

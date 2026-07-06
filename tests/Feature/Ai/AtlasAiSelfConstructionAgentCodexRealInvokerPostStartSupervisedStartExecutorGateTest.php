@@ -4,16 +4,17 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartSupervisedStartExecutorGate;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSupervisedStartExecutorGateTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_post_start_supervised_start_prepares_executor_without_starting_codex(): void
     {
@@ -173,28 +174,9 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSupervisedStartExecut
      */
     private function createObservedRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'observed:codex-real-invoker-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex real invoker post-start process start release authorized.',
             'metadata' => $this->observedMetadata(),
         ], $overrides));
@@ -205,35 +187,15 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerPostStartSupervisedStartExecut
      */
     private function createProviderStartRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex process start release authorized; supervised start executor remains disabled.',
             'metadata' => [
                 'codex_process_start_release' => [
                     'process_start_release_id' => 'codex-start-release-001',
                     'codex_execution_id' => 'codex-execution-001',
                     'operator_release_receipt_hash' => str_repeat('a', 64),
-                    'provider' => 'codex',
                     'adapter' => 'codex',
                     'status' => 'authorized_pending_supervised_start_executor',
                     'process_start_release_authorized' => true,

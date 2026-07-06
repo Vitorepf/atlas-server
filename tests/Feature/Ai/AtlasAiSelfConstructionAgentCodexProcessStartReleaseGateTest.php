@@ -4,16 +4,17 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentCodexProcessStartReleaseGate;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentCodexProcessStartReleaseGateTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_gate_authorizes_process_start_release_without_starting_codex(): void
     {
@@ -123,35 +124,15 @@ class AtlasAiSelfConstructionAgentCodexProcessStartReleaseGateTest extends TestC
      */
     private function createCodexExecutionPreparedRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex provider execution envelope prepared; Codex process remains disabled.',
             'metadata' => [
                 'codex_provider_execution' => [
                     'codex_execution_id' => 'codex-execution-001',
                     'execution_guard_id' => 'execution-guard-001',
                     'adapter_invocation_id' => 'adapter-invocation-001',
-                    'provider' => 'codex',
                     'adapter' => 'codex',
                     'status' => 'prepared_pending_explicit_codex_process_release',
                     'provider_specific_contract_ready' => true,

@@ -4,14 +4,15 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker;
-use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvokerTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_invoker_records_codex_process_spawn_enablement_without_starting_codex(): void
     {
@@ -103,28 +104,9 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexProc
      */
     private function createSupervisedStartPreparedRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Codex supervised start executor prepared; process spawn remains disabled.',
             'metadata' => [
                 'codex_supervised_start' => [
@@ -135,7 +117,6 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexProc
                     'stdout_stderr_sanitizer_hash' => str_repeat('b', 64),
                     'ready_probe_plan_hash' => str_repeat('c', 64),
                     'rollback_plan_hash' => str_repeat('d', 64),
-                    'provider' => 'codex',
                     'adapter' => 'codex',
                     'status' => 'prepared_pending_process_spawn_enablement_contract',
                     'supervised_start_prepared' => true,

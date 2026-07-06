@@ -5,14 +5,15 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker;
 use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
-use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvokerTest extends TestCase
 {
     use CreatesSelfConstructionControlPlaneTables;
+    use MakesSelfConstructionAgentRuns;
 
     public function test_invoker_blocks_provider_adapter_execution_without_calling_adapter(): void
     {
@@ -101,28 +102,9 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickProviderA
      */
     private function createAdapterPreparedRun(array $overrides = []): void
     {
-        AtlasSelfConstructionAgentRun::query()->create(array_merge([
+        $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
-            'packet_id' => 'AP-001',
-            'reservation_id' => null,
-            'actor' => 'codex-a',
-            'provider' => 'codex',
-            'provider_role' => 'implementation',
-            'session_id' => 'session-a',
-            'workspace_id' => 'atlas-self-construction-forge-workspace',
-            'obra_id' => 'atlas-self-construction-os',
             'status' => 'adapter_invocation_prepared',
-            'liveness' => 'alive',
-            'packet_hash' => null,
-            'allowed_files_hash' => str_repeat('d', 64),
-            'lease_expires_at' => CarbonImmutable::now()->addMinutes(30),
-            'last_heartbeat_at' => CarbonImmutable::now(),
-            'started_at' => null,
-            'finished_at' => null,
-            'input_tokens' => 0,
-            'output_tokens' => 0,
-            'cost_usd' => 0,
-            'completion_evidence_hash' => null,
             'summary' => 'Adapter invocation boundary prepared; provider adapter execution guard not recorded yet.',
             'metadata' => $this->runMetadata(),
         ], $overrides));
