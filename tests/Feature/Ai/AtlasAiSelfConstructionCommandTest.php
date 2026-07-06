@@ -562,6 +562,159 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     'Single-session instruction packet is ready',
                 ],
             ],
+            'test_command_human_output_lists_meta_sdd_candidate' => [
+                '--meta-sdd',
+                [
+                    'Atlas Self-Construction OS',
+                    'Execution allowed',
+                    'Target capability',
+                    'Candidate Meta-SDD packet',
+                ],
+            ],
+            'test_command_human_output_lists_receipt_preview' => [
+                '--receipt-preview',
+                [
+                    'Atlas Self-Construction OS',
+                    'Receipt',
+                    'Execution allowed',
+                    'Receipt preview is ready',
+                ],
+            ],
+            'test_command_human_output_lists_traceability_audit' => [
+                '--traceability',
+                [
+                    'Atlas Self-Construction OS',
+                    'Required docs',
+                    'Violations',
+                    'Traceability audit is read-only',
+                ],
+            ],
+            'test_command_human_output_lists_execution_candidate' => [
+                '--execution-candidate',
+                [
+                    'Atlas Self-Construction OS',
+                    'Execution allowed',
+                    'Candidate hash',
+                    'Phase 5 execution candidate is ready for human review only',
+                ],
+            ],
+            'test_command_human_output_lists_execution_preflight' => [
+                '--execution-preflight',
+                [
+                    'Atlas Self-Construction OS',
+                    'Blocking failures',
+                    'Next required action',
+                    'blocked as expected',
+                ],
+            ],
+            'test_command_human_output_lists_residual_risk' => [
+                '--residual-risk',
+                [
+                    'Atlas Self-Construction OS',
+                    'Highest severity',
+                    'Blocking risks',
+                    'Residual risk remains open by design',
+                ],
+            ],
+            'test_command_human_output_lists_handoff_packet' => [
+                '--handoff-packet',
+                [
+                    'Atlas Self-Construction OS',
+                    'Handoff',
+                    'Handoff hash',
+                    'Handoff packet is ready',
+                ],
+            ],
+            'test_command_human_output_lists_next_action' => [
+                '--next-action',
+                [
+                    'Atlas Self-Construction OS',
+                    'Selected action',
+                    'Handoff hash',
+                    'Next action is human signature review',
+                ],
+            ],
+            'test_command_human_output_lists_external_blockers' => [
+                '--external-blockers',
+                [
+                    'Atlas Self-Construction OS',
+                    'Blockers',
+                    'Surface status',
+                    'External blockers are reported',
+                ],
+            ],
+            'test_command_human_output_lists_operator_checklist' => [
+                '--operator-checklist',
+                [
+                    'Atlas Self-Construction OS',
+                    'Checklist items',
+                    'Checklist hash',
+                    'Operator checklist is ready',
+                ],
+            ],
+            'test_command_human_output_lists_integrity_manifest' => [
+                '--integrity-manifest',
+                [
+                    'Atlas Self-Construction OS',
+                    'Manifest entries',
+                    'Manifest hash',
+                    'Integrity manifest is ready',
+                ],
+            ],
+            'test_command_human_output_lists_continuation_token' => [
+                '--continuation-token',
+                [
+                    'Atlas Self-Construction OS',
+                    'Token id',
+                    'Token hash',
+                    'Continuation token is ready',
+                ],
+            ],
+            'test_command_human_output_lists_assignment_preview' => [
+                '--assignment-preview',
+                [
+                    'Atlas Self-Construction OS',
+                    'Selected packet',
+                    'Assignment hash',
+                    'Assignment preview selected one safe packet',
+                ],
+            ],
+            'test_command_human_output_lists_packet_evidence_report' => [
+                '--packet-evidence-report',
+                [
+                    'Atlas Self-Construction OS',
+                    'Report status',
+                    'Report hash',
+                    'Packet evidence report',
+                ],
+            ],
+            'test_command_human_output_lists_packet_completion_gate' => [
+                '--packet-completion-gate',
+                [
+                    'Atlas Self-Construction OS',
+                    'Decision',
+                    'Gate hash',
+                    'Packet completion gate',
+                ],
+            ],
+            'test_command_human_output_lists_codex_launch_plan' => [
+                '--codex-launch-plan',
+                [
+                    'Atlas Self-Construction OS',
+                    'Launchable sessions',
+                    'Plan hash',
+                    'Codex launch plan is ready',
+                ],
+            ],
+            'test_command_human_output_lists_agent_control_plane_runtime_schema_preflight' => [
+                '--agent-control-plane-runtime-schema-preflight',
+                [
+                    'Schema status',
+                    'Tables ready',
+                    'Preflight hash',
+                    'Agent Control Plane runtime schema preflight is ready',
+                ],
+            ],
         ];
     }
 
@@ -626,19 +779,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'safety_contract.self_programming_allowed'));
     }
 
-    public function test_command_human_output_lists_meta_sdd_candidate(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--meta-sdd' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Target capability', $output);
-        $this->assertStringContainsString('Candidate Meta-SDD packet', $output);
-    }
 
     public function test_command_returns_receipt_preview_as_json(): void
     {
@@ -664,19 +805,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'receipt_preview.evidence.append_only'));
     }
 
-    public function test_command_human_output_lists_receipt_preview(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--receipt-preview' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Receipt', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Receipt preview is ready', $output);
-    }
 
     public function test_command_returns_traceability_audit_as_json(): void
     {
@@ -705,19 +834,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertTrue(data_get($root, 'listed_by_root_doc'));
     }
 
-    public function test_command_human_output_lists_traceability_audit(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--traceability' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Required docs', $output);
-        $this->assertStringContainsString('Violations', $output);
-        $this->assertStringContainsString('Traceability audit is read-only', $output);
-    }
 
     public function test_command_returns_promotion_gate_as_json(): void
     {
@@ -771,19 +888,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('php artisan atlas:ai:self-construction --promotion-gate --json', data_get($payload, 'candidate.required_preflight_gates'));
     }
 
-    public function test_command_human_output_lists_execution_candidate(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--execution-candidate' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Execution allowed', $output);
-        $this->assertStringContainsString('Candidate hash', $output);
-        $this->assertStringContainsString('Phase 5 execution candidate is ready for human review only', $output);
-    }
 
     public function test_command_returns_approval_packet_as_json(): void
     {
@@ -872,19 +977,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('draft_execution_flag_enabled', $failedIds);
     }
 
-    public function test_command_human_output_lists_execution_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--execution-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Blocking failures', $output);
-        $this->assertStringContainsString('Next required action', $output);
-        $this->assertStringContainsString('blocked as expected', $output);
-    }
 
     public function test_command_returns_signature_request_as_json(): void
     {
@@ -1034,19 +1127,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('hot_runtime_scope', $riskIds);
     }
 
-    public function test_command_human_output_lists_residual_risk(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--residual-risk' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Highest severity', $output);
-        $this->assertStringContainsString('Blocking risks', $output);
-        $this->assertStringContainsString('Residual risk remains open by design', $output);
-    }
 
     public function test_command_returns_handoff_packet_as_json(): void
     {
@@ -1075,19 +1156,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('blocking', data_get($payload, 'handoff_packet.handoff_integrity.highest_risk'));
     }
 
-    public function test_command_human_output_lists_handoff_packet(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--handoff-packet' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Handoff', $output);
-        $this->assertStringContainsString('Handoff hash', $output);
-        $this->assertStringContainsString('Handoff packet is ready', $output);
-    }
 
     public function test_command_returns_next_action_as_json(): void
     {
@@ -1117,19 +1186,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($blockedAction, 'allowed'));
     }
 
-    public function test_command_human_output_lists_next_action(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--next-action' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Selected action', $output);
-        $this->assertStringContainsString('Handoff hash', $output);
-        $this->assertStringContainsString('Next action is human signature review', $output);
-    }
 
     public function test_command_returns_phase_ledger_as_json(): void
     {
@@ -1249,19 +1306,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('kernel_scanner_delta_hot', $blockerIds);
     }
 
-    public function test_command_human_output_lists_external_blockers(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--external-blockers' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Blockers', $output);
-        $this->assertStringContainsString('Surface status', $output);
-        $this->assertStringContainsString('External blockers are reported', $output);
-    }
 
     public function test_command_returns_cold_lane_certification_as_json(): void
     {
@@ -1317,19 +1362,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('run_global_governance_gates', $checklistIds);
     }
 
-    public function test_command_human_output_lists_operator_checklist(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--operator-checklist' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Checklist items', $output);
-        $this->assertStringContainsString('Checklist hash', $output);
-        $this->assertStringContainsString('Operator checklist is ready', $output);
-    }
 
     public function test_command_returns_promotion_blockers_as_json(): void
     {
@@ -1450,19 +1483,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         }
     }
 
-    public function test_command_human_output_lists_integrity_manifest(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--integrity-manifest' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Manifest entries', $output);
-        $this->assertStringContainsString('Manifest hash', $output);
-        $this->assertStringContainsString('Integrity manifest is ready', $output);
-    }
 
     public function test_command_returns_continuation_token_as_json(): void
     {
@@ -1490,19 +1511,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('continuation_token_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_continuation_token(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--continuation-token' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Token id', $output);
-        $this->assertStringContainsString('Token hash', $output);
-        $this->assertStringContainsString('Continuation token is ready', $output);
-    }
 
     public function test_command_returns_ownership_boundary_as_json(): void
     {
@@ -1696,19 +1705,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('assignment_preview_does_not_enable_execution', data_get($payload, 'non_execution_guarantees'));
     }
 
-    public function test_command_human_output_lists_assignment_preview(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--assignment-preview' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Selected packet', $output);
-        $this->assertStringContainsString('Assignment hash', $output);
-        $this->assertStringContainsString('Assignment preview selected one safe packet', $output);
-    }
 
     public function test_command_returns_packet_runbook_as_json(): void
     {
@@ -1782,19 +1779,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertIsArray(data_get($payload, 'report.blocking_reasons'));
     }
 
-    public function test_command_human_output_lists_packet_evidence_report(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--packet-evidence-report' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Report status', $output);
-        $this->assertStringContainsString('Report hash', $output);
-        $this->assertStringContainsString('Packet evidence report', $output);
-    }
 
     public function test_command_returns_packet_completion_gate_as_json(): void
     {
@@ -1821,19 +1806,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertContains('evidence_results', data_get($payload, 'gate.inspected_fields'));
     }
 
-    public function test_command_human_output_lists_packet_completion_gate(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--packet-completion-gate' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Decision', $output);
-        $this->assertStringContainsString('Gate hash', $output);
-        $this->assertStringContainsString('Packet completion gate', $output);
-    }
 
     public function test_command_returns_reservation_ledger_preview_as_json(): void
     {
@@ -2027,19 +2000,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'plan_hash'));
     }
 
-    public function test_command_human_output_lists_codex_launch_plan(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--codex-launch-plan' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Atlas Self-Construction OS', $output);
-        $this->assertStringContainsString('Launchable sessions', $output);
-        $this->assertStringContainsString('Plan hash', $output);
-        $this->assertStringContainsString('Codex launch plan is ready', $output);
-    }
 
     public function test_command_codex_launch_plan_does_not_claim_packets(): void
     {
@@ -29253,19 +29214,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'runtime_schema_preflight_hash'));
     }
 
-    public function test_command_human_output_lists_agent_control_plane_runtime_schema_preflight(): void
-    {
-        $exit = Artisan::call('atlas:ai:self-construction', [
-            '--agent-control-plane-runtime-schema-preflight' => true,
-        ]);
-        $output = Artisan::output();
 
-        $this->assertSame(0, $exit);
-        $this->assertStringContainsString('Schema status', $output);
-        $this->assertStringContainsString('Tables ready', $output);
-        $this->assertStringContainsString('Preflight hash', $output);
-        $this->assertStringContainsString('Agent Control Plane runtime schema preflight is ready', $output);
-    }
 
     public function test_command_returns_agent_run_sync_blocked_without_runtime_schema(): void
     {
