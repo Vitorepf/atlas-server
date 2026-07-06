@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Retention;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use RuntimeException;
+
 /**
  * Append-only audit ledger for {@see AtlasLoopSnapshotRetentionGc} advisory output.
  *
  * Each `record()` call appends ONE Decision Receipt v2-shaped JSON line to the canonical
  * per-day file `<root>/YYYY-MM-DD.jsonl`. The class exposes NO public update/delete/truncate/
  * clear methods by design — append-only by construction.
+ *
+ * Raw line IO delegates to {@see JsonlReceiptStore::append()} (fail-closed: throws on open/lock
+ * failure, matching the prior fopen policy) and {@see AppendOnlyJsonlStore::read()}; the day
+ * partitioning and receipt payload shaping stay here.
  */
 final class AtlasLoopSnapshotRetentionReceiptLedger
 {
@@ -47,17 +55,14 @@ final class AtlasLoopSnapshotRetentionReceiptLedger
             'advisory_only' => true,
         ];
 
-        $line = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         $file = $this->fileForDay($day);
-        // O_APPEND open via fopen('a') is atomic per line on local FS.
-        $handle = @fopen($file, 'a');
-        if ($handle === false) {
-            throw new \RuntimeException('snapshot retention ledger: cannot open '.$file.' for append');
-        }
+
+        // Fail-closed append: throws RuntimeException on open/lock failure (prior fopen policy),
+        // so an unwritable ledger aborts the record() call instead of silently dropping evidence.
         try {
-            fwrite($handle, $line."\n");
-        } finally {
-            fclose($handle);
+            (new JsonlReceiptStore($file))->append($receipt);
+        } catch (RuntimeException $e) {
+            throw new RuntimeException('snapshot retention ledger: cannot open '.$file.' for append', 0, $e);
         }
 
         return $receipt;
@@ -70,7 +75,7 @@ final class AtlasLoopSnapshotRetentionReceiptLedger
     {
         $rows = [];
         foreach (glob($this->rootPath.'/*.jsonl') ?: [] as $file) {
-            foreach ($this->readJsonl($file) as $row) {
+            foreach (AppendOnlyJsonlStore::read($file) as $row) {
                 $rows[] = $row;
             }
         }
@@ -88,7 +93,7 @@ final class AtlasLoopSnapshotRetentionReceiptLedger
             return [];
         }
 
-        return $this->readJsonl($file);
+        return AppendOnlyJsonlStore::read($file);
     }
 
     public function fingerprint(): string
@@ -130,30 +135,5 @@ final class AtlasLoopSnapshotRetentionReceiptLedger
     private function fileForDay(string $day): string
     {
         return $this->rootPath.'/'.$day.'.jsonl';
-    }
-
-    /**
-     * @return list<array<string,mixed>>
-     */
-    private function readJsonl(string $file): array
-    {
-        $rows = [];
-        $handle = @fopen($file, 'r');
-        if ($handle === false) {
-            return [];
-        }
-        while (($line = fgets($handle)) !== false) {
-            $line = trim($line);
-            if ($line === '') {
-                continue;
-            }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-        fclose($handle);
-
-        return $rows;
     }
 }
