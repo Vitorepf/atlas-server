@@ -4,28 +4,16 @@ namespace Tests\Unit\Ai\Cognitive\Failure;
 
 use App\Services\Ai\Cognitive\Failure\BayesianFailureTracker;
 use App\Services\Ai\Cognitive\Failure\FailureSignatureRepository;
-use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 
 class BayesianFailureTrackerTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use TestsWithLedgerEvents;
 
-        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_07_160000_create_failure_signatures_table.php'))->up();
-    }
+    private const LEDGER_COMPANION_MIGRATIONS = ['2026_05_07_160000_create_failure_signatures_table.php'];
 
-    protected function tearDown(): void
-    {
-        Schema::dropIfExists('failure_repetition_alerts');
-        Schema::dropIfExists('failure_diversity_metrics');
-        Schema::dropIfExists('failure_signatures');
-        Schema::dropIfExists('atlas_ledger_events');
-
-        parent::tearDown();
-    }
+    private const LEDGER_COMPANION_TABLES = ['failure_repetition_alerts', 'failure_diversity_metrics', 'failure_signatures'];
 
     public function test_tracker_computes_failure_diversity_index(): void
     {

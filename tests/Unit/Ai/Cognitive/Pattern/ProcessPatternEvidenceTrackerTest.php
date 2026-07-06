@@ -6,27 +6,16 @@ use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Cognitive\Pattern\ProcessPatternEvidenceTracker;
 use App\Services\Ai\Cognitive\Pattern\ProcessPatternRepository;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
-use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\TestsWithLedgerEvents;
 use Tests\TestCase;
 
 class ProcessPatternEvidenceTrackerTest extends TestCase
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
+    use TestsWithLedgerEvents;
 
-        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
-        (require database_path('migrations/2026_05_07_150000_create_process_patterns_table.php'))->up();
-    }
+    private const LEDGER_COMPANION_MIGRATIONS = ['2026_05_07_150000_create_process_patterns_table.php'];
 
-    protected function tearDown(): void
-    {
-        Schema::dropIfExists('process_pattern_applications');
-        Schema::dropIfExists('process_patterns');
-        Schema::dropIfExists('atlas_ledger_events');
-
-        parent::tearDown();
-    }
+    private const LEDGER_COMPANION_TABLES = ['process_pattern_applications', 'process_patterns'];
 
     public function test_tracker_records_application_updates_counters_and_ledger(): void
     {
