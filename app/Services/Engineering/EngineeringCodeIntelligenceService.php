@@ -2783,22 +2783,32 @@ class EngineeringCodeIntelligenceService
         // same keywords appearing as prose inside docblocks ("This class turns them...",
         // "mixing interface with..."), extracting a phantom symbol ("turns", "with") and
         // dropping the true class — which made evidence symbol refs silently unresolvable.
-        if (preg_match('/^\s*(?:(?:final|abstract|readonly)\s+)*(class|interface|trait|enum)\s+([A-Za-z_][A-Za-z0-9_]*)/m', $content, $classMatch, PREG_OFFSET_CAPTURE)) {
-            $className = $namespace ? $namespace.'\\'.$classMatch[2][0] : $classMatch[2][0];
-            $symbols[] = $this->symbol([
-                'module_slug' => $moduleSlug,
-                'symbol_type' => $classMatch[1][0],
-                'symbol_name' => $className,
-                'file_path' => $relativePath,
-                'line_start' => $this->lineForOffset($content, $classMatch[0][1]),
-                'language' => 'php',
-                'signature' => trim($classMatch[0][0]),
-                'namespace' => $namespace,
-                'metadata' => [
-                    'short_name' => $classMatch[2][0],
-                    'classification' => $this->classClassification($relativePath, $classMatch[2][0]),
-                ],
-            ]);
+        // ALL declarations are extracted (preg_match_all): a multi-class file (test + stub
+        // helper above it) used to index only the FIRST class, leaving the real test class
+        // invisible to evidence/test resolvers (ex.: AtlasSwarmConductorServiceTest atrás do
+        // StubAdmlForSwarm) — pipeline ficava building com o teste existindo.
+        $classSpans = [];
+        if (preg_match_all('/^\s*(?:(?:final|abstract|readonly)\s+)*(class|interface|trait|enum)\s+([A-Za-z_][A-Za-z0-9_]*)/m', $content, $classMatches, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
+            foreach ($classMatches as $classMatch) {
+                $fqn = $namespace ? $namespace.'\\'.$classMatch[2][0] : $classMatch[2][0];
+                $line = $this->lineForOffset($content, $classMatch[0][1]);
+                $className ??= $fqn;
+                $classSpans[] = ['line' => $line, 'fqn' => $fqn];
+                $symbols[] = $this->symbol([
+                    'module_slug' => $moduleSlug,
+                    'symbol_type' => $classMatch[1][0],
+                    'symbol_name' => $fqn,
+                    'file_path' => $relativePath,
+                    'line_start' => $line,
+                    'language' => 'php',
+                    'signature' => trim($classMatch[0][0]),
+                    'namespace' => $namespace,
+                    'metadata' => [
+                        'short_name' => $classMatch[2][0],
+                        'classification' => $this->classClassification($relativePath, $classMatch[2][0]),
+                    ],
+                ]);
+            }
         }
 
         if (preg_match('/protected\s+\$signature\s*=\s*([\'"])(.*?)\1/s', $content, $signatureMatch, PREG_OFFSET_CAPTURE)) {
@@ -2820,7 +2830,15 @@ class EngineeringCodeIntelligenceService
         }
 
         foreach ($this->lineMatches($content, '/\b(public|protected|private)\s+function\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*)$/') as $match) {
-            $methodName = $className ? $className.'::'.$match['matches'][2] : $match['matches'][2];
+            // Attribute the method to the nearest class declared ABOVE it (multi-class
+            // files: a method after the second declaration belongs to that class).
+            $owner = $className;
+            foreach ($classSpans as $span) {
+                if ($span['line'] <= $match['line']) {
+                    $owner = $span['fqn'];
+                }
+            }
+            $methodName = $owner ? $owner.'::'.$match['matches'][2] : $match['matches'][2];
             $symbols[] = $this->symbol([
                 'module_slug' => $moduleSlug,
                 'symbol_type' => str_starts_with($relativePath, 'tests/') && str_starts_with($match['matches'][2], 'test_') ? 'test_method' : 'method',

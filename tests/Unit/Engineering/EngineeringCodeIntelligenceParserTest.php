@@ -148,4 +148,44 @@ final class EngineeringCodeIntelligenceParserTest extends TestCase
             );
         }
     }
+
+    public function test_multi_class_file_extracts_every_class_and_attributes_methods_to_the_right_one(): void
+    {
+        $content = <<<'PHP'
+<?php
+
+namespace Tests\Unit\Ai\AtlasDecide;
+
+final class StubHelperForConductor
+{
+    public function stubSignal(): string
+    {
+        return 'ok';
+    }
+}
+
+final class AtlasSwarmConductorServiceTest
+{
+    public function test_conductor_dispatches(): void
+    {
+    }
+}
+PHP;
+
+        $symbols = $this->parse('tests/Unit/Ai/AtlasDecide/AtlasSwarmConductorServiceTest.php', $content);
+
+        // ANTES deste fix só a PRIMEIRA classe era extraída — o teste real atrás de um
+        // stub ficava invisível para os resolvers de evidência (pipeline building falso).
+        $this->assertSame([
+            'Tests\Unit\Ai\AtlasDecide\StubHelperForConductor',
+            'Tests\Unit\Ai\AtlasDecide\AtlasSwarmConductorServiceTest',
+        ], $this->namesOfType($symbols, 'class'));
+
+        $methods = array_column(
+            array_filter($symbols, static fn (array $s): bool => in_array($s['symbol_type'], ['method', 'test_method'], true)),
+            'symbol_name',
+        );
+        $this->assertContains('Tests\Unit\Ai\AtlasDecide\StubHelperForConductor::stubSignal', $methods);
+        $this->assertContains('Tests\Unit\Ai\AtlasDecide\AtlasSwarmConductorServiceTest::test_conductor_dispatches', $methods);
+    }
 }
