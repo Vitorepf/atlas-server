@@ -540,3 +540,18 @@ Schedule::call(static function (): void {
         }
     }
 })->dailyAt('06:40')->name('acos-harvest-obra-lessons')->withoutOverlapping();
+
+// H2.5b — anti-stale dos read models: KB e Code Intelligence re-sincronizados de madrugada
+// (docs/código commitados de dia viram índice fresco antes da primeira sessão da manhã).
+// Read models, nunca authoring; --prune remove entradas de arquivos que já não existem —
+// a fonte "índice diz X, main diz Y" seca na origem.
+Schedule::command('atlas:engineering:knowledge sync --prune')
+    ->dailyAt('05:50')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/acos-knowledge-sync.log'))
+    ->when(static fn (): bool => (bool) config('atlas.acos.cadence_enabled', true));
+Schedule::command('atlas:engineering:knowledge index-code --prune --workspace='.base_path())
+    ->dailyAt('06:05')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/acos-index-code.log'))
+    ->when(static fn (): bool => (bool) config('atlas.acos.cadence_enabled', true));
