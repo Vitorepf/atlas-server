@@ -52,3 +52,22 @@ Byte-prova na execução (finders superestimam 3-10×); líquido ≤0 → refuta
 
 ## Ordem recomendada
 H1.1 → H1.2 (paralelo) → H1.3 → H2.1 → H2.2 → H2.3/H2.4 → H3 conforme suas aprovações. A Obra #11 (green-run) fica ABSORVIDA por H1.2 (de one-shot para contínuo).
+
+## RESULTADOS DA EXECUÇÃO (06/07, sessão /goal "3 notas ≥9")
+
+**Instrumento**: `php artisan atlas:cognition:evolution-score` (novo) — as 3 notas resolvidas de evidência runtime (padrão scorecard v3; probes degrade-safe). Baseline medido na criação: geral 6.51 (execução 7.78 / inteligência 8.75 / autonomia 3.0). Teto honesto de autonomia sem assinatura S49: 9.0.
+
+| Slice | Status | Prova |
+|---|---|---|
+| H1.1 (parcial) | red do AssistedExecutionQuality morto (drift era intenção nova do gate: visual login = warning) | commit c1a1884a66, 8/8 verdes |
+| H1.2 | **causa-raiz achada: launchd `com.atlas.scheduler` estava DISABLED desde ~28/06** — toda a cadência (delta-series, mint, long-horizon) já agendada e gated ON estava morta por falta de motor. Reabilitado + bootstrap; heartbeat pulsando. Série de deltas retomada (ponto 06/07 gravado). Loop continua OFF (master switch próprio) | launchctl + heartbeat fresco |
+| H1.3 | doc dimension 8.37 → **10.0** (17 subsistemas com ownership FQN-bound honesto; 3 testes novos onde não havia; zero vocabulário proibido) | commit 4050b65ca2 |
+| H1 mint | minter re-mirado: cunha (owner capability, `<Short>Test`) — exatamente o candidato que o resolver aceita; antes 35 greens davam +0.05. 9 owner docs declararam `test:` real (testes sem prefixo Atlas*Service) | commits 2f9628191d, 90909ee558 |
+| H2.1 | census semanal + harvester diário agendados; mint diário 8→30 | commit 2f9628191d |
+| H2.2 | **REFUTADO como gap por verificação**: enforcement AUCRI já é vivo no Dev pipeline — `AtlasAucriRuntimeEnforcementService::enforce()` roda os 18 blocos (ACFQ incluso), o artifact é persistido (`AUCRI_RUNTIME_ENFORCEMENT`) e `status=blocked` BLOQUEIA o run (`blockedDueToAucri`). Nada a construir | PipelineRunExecutor:3595-3620 |
+| H2.3 | `atlas:compounding:review-lessons` fecha o ciclo: digest→promote/reject explícito→memória `refutation_memory` no registry canônico→recall provado (1 lição promovida de verdade: Number::clamp/N-05) | commit c65135e977, recall verde |
+| H2.5a | echo de sessão morto por PROVENIÊNCIA: `meta.origin` no write-back + filtro nos 2 surfaces + backfill dos 104 nodes; prova viva: file-context do ScoreCardService trocou "vc esta mentindo..." por path real | commit 20ae71ab19 |
+| H2.5b | KB sync --prune + index-code --prune na cadência noturna (anti-stale na origem) | commit 73fba2b10e |
+| H3.2 | cadeia S49→S55 em implementação (implement-only; tier fica 0 até assinatura) | em curso |
+
+**Gotcha de sessão**: task-workers launchd commitando na main em paralelo clobberam arquivos untracked/appended 2×) — mitigação: commit atômico imediato após cada edição.
