@@ -3427,6 +3427,23 @@ final class BlogEditorialContextService
     }
 
     /**
+     * Closure orWhere(coluna like %termo%) por termo×coluna — clone único dos 5 readers.
+     *
+     * @param  array<int,string>  $terms
+     * @param  array<int,string>  $columns
+     */
+    private function termsMatcher(array $terms, array $columns): \Closure
+    {
+        return function (Builder $query) use ($terms, $columns): void {
+            foreach ($terms as $term) {
+                foreach ($columns as $column) {
+                    $query->orWhere($column, 'like', "%{$term}%");
+                }
+            }
+        };
+    }
+
+    /**
      * @param  array<int,string>  $terms
      * @return array<int,array<string,mixed>>
      */
@@ -3438,15 +3455,7 @@ final class BlogEditorialContextService
 
         return AtlasEngineeringKnowledgeItem::query()
             ->active()
-            ->where(function (Builder $query) use ($terms): void {
-                foreach ($terms as $term) {
-                    $query->orWhere('slug', 'like', "%{$term}%")
-                        ->orWhere('title', 'like', "%{$term}%")
-                        ->orWhere('summary', 'like', "%{$term}%")
-                        ->orWhere('canonical_path', 'like', "%{$term}%")
-                        ->orWhere('body_excerpt', 'like', "%{$term}%");
-                }
-            })
+            ->where($this->termsMatcher($terms, ['slug', 'title', 'summary', 'canonical_path', 'body_excerpt']))
             ->orderByDesc('priority')
             ->latest('indexed_at')
             ->limit($limit)
@@ -3495,14 +3504,7 @@ final class BlogEditorialContextService
 
         return AtlasEngineeringCodeModule::query()
             ->active()
-            ->where(function (Builder $query) use ($terms): void {
-                foreach ($terms as $term) {
-                    $query->orWhere('slug', 'like', "%{$term}%")
-                        ->orWhere('name', 'like', "%{$term}%")
-                        ->orWhere('root_path', 'like', "%{$term}%")
-                        ->orWhere('description', 'like', "%{$term}%");
-                }
-            })
+            ->where($this->termsMatcher($terms, ['slug', 'name', 'root_path', 'description']))
             ->orderByDesc('symbol_count')
             ->orderBy('slug')
             ->limit($limit)
@@ -3534,13 +3536,7 @@ final class BlogEditorialContextService
         return AtlasEngineeringCodeSymbol::query()
             ->with('module')
             ->active()
-            ->where(function (Builder $query) use ($terms): void {
-                foreach ($terms as $term) {
-                    $query->orWhere('symbol_name', 'like', "%{$term}%")
-                        ->orWhere('file_path', 'like', "%{$term}%")
-                        ->orWhere('signature', 'like', "%{$term}%");
-                }
-            })
+            ->where($this->termsMatcher($terms, ['symbol_name', 'file_path', 'signature']))
             ->orderBy('file_path')
             ->orderBy('line_start')
             ->limit($limit)
@@ -3815,14 +3811,7 @@ final class BlogEditorialContextService
 
         return AtlasEngineeringKnowledgeItem::query()
             ->active()
-            ->where(function (Builder $query) use ($terms): void {
-                foreach ($terms as $term) {
-                    $query->orWhere('slug', 'like', "%{$term}%")
-                        ->orWhere('title', 'like', "%{$term}%")
-                        ->orWhere('summary', 'like', "%{$term}%")
-                        ->orWhere('canonical_path', 'like', "%{$term}%");
-                }
-            })
+            ->where($this->termsMatcher($terms, ['slug', 'title', 'summary', 'canonical_path']))
             ->orderByDesc('priority')
             ->latest('indexed_at')
             ->limit($limit)
@@ -3843,14 +3832,7 @@ final class BlogEditorialContextService
 
         return AtlasEngineeringCodeModule::query()
             ->active()
-            ->where(function (Builder $query) use ($terms): void {
-                foreach ($terms as $term) {
-                    $query->orWhere('slug', 'like', "%{$term}%")
-                        ->orWhere('name', 'like', "%{$term}%")
-                        ->orWhere('root_path', 'like', "%{$term}%")
-                        ->orWhere('description', 'like', "%{$term}%");
-                }
-            })
+            ->where($this->termsMatcher($terms, ['slug', 'name', 'root_path', 'description']))
             ->orderByDesc('symbol_count')
             ->orderBy('slug')
             ->limit($limit)
