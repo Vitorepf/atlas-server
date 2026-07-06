@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Composer\Autoload\ClassLoader;
 use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
-use Symfony\Component\Process\Process;
 
 final class AtlasCortexOrphanAgeReporter
 {
@@ -164,8 +164,7 @@ final class AtlasCortexOrphanAgeReporter
 
     private function gitOutput(array $args): ?string
     {
-        $process = new Process(array_merge(['git'], $args), $this->repoRoot());
-        $process->run();
+        $process = GitSubprocess::run($this->repoRoot(), $args);
 
         if (! $process->isSuccessful()) {
             return null;

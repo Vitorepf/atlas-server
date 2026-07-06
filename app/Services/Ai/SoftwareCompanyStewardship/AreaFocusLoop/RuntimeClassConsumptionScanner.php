@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use Symfony\Component\Process\Process;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 
 /**
  * Computes, for a loop cycle's committed product files, which NEW product
@@ -169,9 +169,7 @@ final class RuntimeClassConsumptionScanner
      */
     public function runGit(string $cwd, array $args): array
     {
-        $process = new Process(array_merge(['git'], $args), $cwd);
-        $process->setTimeout(60);
-        $process->run();
+        $process = GitSubprocess::run($cwd, $args);
 
         return [
             'ok' => $process->isSuccessful(),

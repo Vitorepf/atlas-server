@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Aael\Execution\TraceReplay;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 use RuntimeException;
-use Symfony\Component\Process\Process;
 
 final class AtlasAaelExecutionTraceRecorder
 {
@@ -220,8 +220,7 @@ final class AtlasAaelExecutionTraceRecorder
 
     private function gitOutput(array $args): ?string
     {
-        $process = new Process(array_merge(['git'], $args), base_path());
-        $process->run();
+        $process = GitSubprocess::run(base_path(), $args);
 
         if (! $process->isSuccessful()) {
             return null;
