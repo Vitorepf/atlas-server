@@ -11,17 +11,20 @@ use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 
 /**
- * Engineering Kernel adapter: promotes the REAL Autonomos loop per-delivery evidence bundle
- * into an AcceptanceBundle and routes it through the sovereign honesty floor, so autonomous
- * deliveries pass the same sovereign correctness bar as Dev (bar(dev)=bar(forge)=bar(autonomos)).
+ * Engineering Kernel adapter: promotes a per-delivery evidence bundle into an
+ * AcceptanceBundle and routes it through the sovereign honesty floor, so deliveries
+ * pass the same sovereign correctness bar (bar(dev)=bar(forge)=bar(autonomos)).
  *
- * Strangler adapter mirroring AtlasDevGateAdapter and AtlasForgeGateAdapter: the surface stops
- * owning the accept decision; the sovereign gate does.
+ * Parametrised by TrustLevel — the ONLY thing that varies per trust level is the
+ * witness-set; the invariants and honesty floor are identical for all three levels.
+ *
+ * Strangler adapter: the surface stops owning the accept decision; the sovereign gate does.
  */
-final class AtlasAutonomosGateAdapter implements AcceptanceGate
+class AtlasAutonomosGateAdapter implements AcceptanceGate
 {
     public function __construct(
         private readonly SovereignHonestyFloor $floor = new SovereignHonestyFloor,
+        private readonly TrustLevel $trust = TrustLevel::Autonomos,
     ) {}
 
     public function certify(AcceptanceBundle $bundle, TrustLevel $trust): CertVerdict
@@ -32,15 +35,15 @@ final class AtlasAutonomosGateAdapter implements AcceptanceGate
     /**
      * @param  array<string,mixed>  $evidence
      */
-    public function certifyAutonomosDelivery(array $evidence): CertVerdict
+    public function certifyDelivery(array $evidence): CertVerdict
     {
-        return $this->certify($this->bundleFromAutonomosEvidence($evidence), TrustLevel::Autonomos);
+        return $this->certify($this->bundleFromEvidence($evidence), $this->trust);
     }
 
     /**
      * @param  array<string,mixed>  $evidence
      */
-    public function bundleFromAutonomosEvidence(array $evidence): AcceptanceBundle
+    public function bundleFromEvidence(array $evidence): AcceptanceBundle
     {
         return AcceptanceBundle::fromArray([
             'criteria_hash' => $evidence['criteria_hash'] ?? '',
@@ -68,5 +71,21 @@ final class AtlasAutonomosGateAdapter implements AcceptanceGate
                 : [],
             'repair' => (array) ($evidence['repair'] ?? []),
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     */
+    public function certifyAutonomosDelivery(array $evidence): CertVerdict
+    {
+        return $this->certify($this->bundleFromEvidence($evidence), TrustLevel::Autonomos);
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     */
+    public function bundleFromAutonomosEvidence(array $evidence): AcceptanceBundle
+    {
+        return $this->bundleFromEvidence($evidence);
     }
 }
