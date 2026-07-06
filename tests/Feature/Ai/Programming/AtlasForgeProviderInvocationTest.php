@@ -13,10 +13,23 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Tests\Concerns\CreatesAiMessagesTable;
+use Tests\Concerns\CreatesAiTracesTable;
+use Tests\Concerns\CreatesAtlasEngineeringEvidenceTable;
+use Tests\Concerns\CreatesAtlasEngineeringRunsTable;
+use Tests\Concerns\CreatesAtlasProjectsTable;
+use Tests\Concerns\CreatesAtlasToolRunsTable;
 use Tests\TestCase;
 
 class AtlasForgeProviderInvocationTest extends TestCase
 {
+    use CreatesAiMessagesTable;
+    use CreatesAiTracesTable;
+    use CreatesAtlasEngineeringEvidenceTable;
+    use CreatesAtlasEngineeringRunsTable;
+    use CreatesAtlasProjectsTable;
+    use CreatesAtlasToolRunsTable;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -513,37 +526,7 @@ class AtlasForgeProviderInvocationTest extends TestCase
 
     private function ensureSchema(): void
     {
-        if (! Schema::hasTable('atlas_projects')) {
-            Schema::create('atlas_projects', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->string('title')->nullable();
-                $t->text('description')->nullable();
-                $t->string('status')->default('active');
-                $t->string('domain')->default('atlas');
-                $t->uuid('source_capture_id')->nullable();
-                $t->text('goal')->nullable();
-                $t->text('next_action')->nullable();
-                $t->string('project_type')->nullable();
-                $t->text('desired_outcome')->nullable();
-                $t->text('minimum_viable_outcome')->nullable();
-                $t->text('definition_of_done')->nullable();
-                $t->text('why_now')->nullable();
-                $t->timestamp('deadline_at')->nullable();
-                $t->string('deadline_kind')->nullable();
-                $t->string('priority')->default('normal');
-                $t->string('energy_profile')->nullable();
-                $t->text('avoidance_reason')->nullable();
-                $t->uuid('active_next_task_id')->nullable();
-                $t->uuid('current_step_id')->nullable();
-                $t->timestamp('last_touched_at')->nullable();
-                $t->timestamp('next_review_at')->nullable();
-                $t->timestamp('completed_at')->nullable();
-                $t->timestamp('paused_until')->nullable();
-                $t->json('metadata')->nullable();
-                $t->timestamps();
-                $t->softDeletes();
-            });
-        }
+        $this->createAtlasProjectsTable();
 
         if (! Schema::hasTable('ai_threads')) {
             Schema::create('ai_threads', function (Blueprint $t) {
@@ -561,77 +544,15 @@ class AtlasForgeProviderInvocationTest extends TestCase
             });
         }
 
-        if (! Schema::hasTable('ai_messages')) {
-            Schema::create('ai_messages', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('thread_id');
-                $t->uuid('trace_id')->nullable();
-                $t->integer('position')->default(1);
-                $t->string('role');
-                $t->string('status')->default('completed');
-                $t->text('content')->nullable();
-                $t->timestamp('occurred_at')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAiMessagesTable();
 
-        if (! Schema::hasTable('ai_traces')) {
-            Schema::create('ai_traces', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('thread_id')->nullable();
-                $t->string('source_type')->default('app');
-                $t->uuid('source_id')->nullable();
-                $t->string('status')->default('completed');
-                $t->text('operator_input')->nullable();
-                $t->text('response_text')->nullable();
-                $t->json('metadata')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAiTracesTable();
 
-        if (! Schema::hasTable('atlas_engineering_runs')) {
-            Schema::create('atlas_engineering_runs', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('project_id')->nullable();
-                $t->string('status')->nullable();
-                $t->string('decision')->nullable();
-                $t->timestamp('finished_at')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAtlasEngineeringRunsTable();
 
-        if (! Schema::hasTable('atlas_engineering_evidence')) {
-            Schema::create('atlas_engineering_evidence', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('project_id')->nullable();
-                $t->uuid('task_id')->nullable();
-                $t->string('evidence_type')->nullable();
-                $t->string('target_id')->nullable();
-                $t->string('status')->nullable();
-                $t->float('confidence')->nullable();
-                $t->text('summary')->nullable();
-                $t->text('command')->nullable();
-                $t->text('output_excerpt')->nullable();
-                $t->json('files')->nullable();
-                $t->json('metadata')->nullable();
-                $t->string('source')->nullable();
-                $t->timestamp('recorded_at')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAtlasEngineeringEvidenceTable();
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
-            Schema::create('atlas_tool_runs', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->string('tool_slug')->nullable();
-                $t->text('workspace')->nullable();
-                $t->string('run_context_type')->nullable();
-                $t->string('run_context_id')->nullable();
-                $t->string('status')->nullable();
-                $t->json('summary_json')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAtlasToolRunsTable();
 
         if (! Schema::hasTable('atlas_ledger_events')) {
             Schema::create('atlas_ledger_events', function (Blueprint $t) {

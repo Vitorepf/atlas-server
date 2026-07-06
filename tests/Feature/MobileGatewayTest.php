@@ -47,10 +47,13 @@ use Illuminate\Support\Str;
 use Mockery\MockInterface;
 use RuntimeException;
 use Symfony\Component\Process\Process;
+use Tests\Concerns\CreatesAiThreadsTable;
 use Tests\TestCase;
 
 class MobileGatewayTest extends TestCase
 {
+    use CreatesAiThreadsTable;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -4642,22 +4645,7 @@ PHP);
 
         (require database_path('migrations/2026_05_01_011000_create_ai_performance_recommendations.php'))->up();
 
-        Schema::create('ai_threads', function (Blueprint $table): void {
-            $table->uuid('id')->primary();
-            $table->text('title');
-            $table->text('summary')->nullable();
-            $table->string('status')->default('active');
-            $table->string('surface')->default('app');
-            $table->string('workspace')->nullable();
-            $table->string('source_type')->nullable();
-            $table->uuid('source_id')->nullable();
-            $table->uuid('last_trace_id')->nullable();
-            $table->string('last_provider')->nullable();
-            $table->integer('message_count')->default(0);
-            $table->timestamp('last_message_at')->nullable();
-            $table->json('metadata')->nullable();
-            $table->timestamps();
-        });
+        $this->createAiThreadsTable();
 
         Schema::create('ai_messages', function (Blueprint $table): void {
             $table->uuid('id')->primary();

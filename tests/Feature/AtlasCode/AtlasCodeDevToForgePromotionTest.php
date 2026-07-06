@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Tests\Concerns\CreatesAiMessagesTable;
+use Tests\Concerns\CreatesAiTracesTable;
 use Tests\TestCase;
 
 /**
@@ -27,6 +29,9 @@ use Tests\TestCase;
  */
 class AtlasCodeDevToForgePromotionTest extends TestCase
 {
+    use CreatesAiMessagesTable;
+    use CreatesAiTracesTable;
+
     private function headers(): array
     {
         return [
@@ -87,32 +92,8 @@ class AtlasCodeDevToForgePromotionTest extends TestCase
                 $t->timestamps();
             });
         }
-        if (! Schema::hasTable('ai_messages')) {
-            Schema::create('ai_messages', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('thread_id');
-                $t->uuid('trace_id')->nullable();
-                $t->integer('position')->default(1);
-                $t->string('role');
-                $t->string('status')->default('completed');
-                $t->text('content')->nullable();
-                $t->timestamp('occurred_at')->nullable();
-                $t->timestamps();
-            });
-        }
-        if (! Schema::hasTable('ai_traces')) {
-            Schema::create('ai_traces', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('thread_id')->nullable();
-                $t->string('source_type')->default('app');
-                $t->uuid('source_id')->nullable();
-                $t->string('status')->default('completed');
-                $t->text('operator_input')->nullable();
-                $t->text('response_text')->nullable();
-                $t->json('metadata')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAiMessagesTable();
+        $this->createAiTracesTable();
 
         // Wipe storage between tests so candidate filesystem doesn't bleed.
         $dir = storage_path('app/atlas-code/promotion-candidates');

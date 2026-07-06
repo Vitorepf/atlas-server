@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Mockery\MockInterface;
+use Tests\Concerns\CreatesAiMessagesTable;
+use Tests\Concerns\CreatesAiTracesTable;
+use Tests\Concerns\CreatesAtlasEngineeringRunsTable;
+use Tests\Concerns\CreatesAtlasToolRunsTable;
 use Tests\TestCase;
 
 /**
@@ -28,6 +32,11 @@ use Tests\TestCase;
  */
 class AtlasCodeContractTest extends TestCase
 {
+    use CreatesAiMessagesTable;
+    use CreatesAiTracesTable;
+    use CreatesAtlasEngineeringRunsTable;
+    use CreatesAtlasToolRunsTable;
+
     private function headers(): array
     {
         return [
@@ -88,33 +97,9 @@ class AtlasCodeContractTest extends TestCase
             });
         }
 
-        if (! Schema::hasTable('ai_messages')) {
-            Schema::create('ai_messages', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('thread_id');
-                $t->uuid('trace_id')->nullable();
-                $t->integer('position')->default(1);
-                $t->string('role');
-                $t->string('status')->default('completed');
-                $t->text('content')->nullable();
-                $t->timestamp('occurred_at')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAiMessagesTable();
 
-        if (! Schema::hasTable('ai_traces')) {
-            Schema::create('ai_traces', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('thread_id')->nullable();
-                $t->string('source_type')->default('app');
-                $t->uuid('source_id')->nullable();
-                $t->string('status')->default('completed');
-                $t->text('operator_input')->nullable();
-                $t->text('response_text')->nullable();
-                $t->json('metadata')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAiTracesTable();
 
         if (! Schema::hasTable('ai_stream_events')) {
             Schema::create('ai_stream_events', function (Blueprint $t) {
@@ -167,16 +152,7 @@ class AtlasCodeContractTest extends TestCase
             });
         }
 
-        if (! Schema::hasTable('atlas_engineering_runs')) {
-            Schema::create('atlas_engineering_runs', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->uuid('project_id')->nullable();
-                $t->string('status')->nullable();
-                $t->string('decision')->nullable();
-                $t->timestamp('finished_at')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAtlasEngineeringRunsTable();
 
         if (! Schema::hasTable('atlas_engineering_evidence')) {
             Schema::create('atlas_engineering_evidence', function (Blueprint $t) {
@@ -201,18 +177,7 @@ class AtlasCodeContractTest extends TestCase
             });
         }
 
-        if (! Schema::hasTable('atlas_tool_runs')) {
-            Schema::create('atlas_tool_runs', function (Blueprint $t) {
-                $t->uuid('id')->primary();
-                $t->string('tool_slug')->nullable();
-                $t->text('workspace')->nullable();
-                $t->string('run_context_type')->nullable();
-                $t->string('run_context_id')->nullable();
-                $t->string('status')->nullable();
-                $t->json('summary_json')->nullable();
-                $t->timestamps();
-            });
-        }
+        $this->createAtlasToolRunsTable();
 
         if (! Schema::hasTable('atlas_ledger_events')) {
             Schema::create('atlas_ledger_events', function (Blueprint $t) {
