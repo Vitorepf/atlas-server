@@ -21,6 +21,7 @@ use Throwable;
  *  - a comprehension critic that scores each field and re-runs the weak passes
  *
  * Uses an UNSAVED AiJob so it does not depend on the ai_jobs runtime table.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class VslIntelligenceExtractorService
 {

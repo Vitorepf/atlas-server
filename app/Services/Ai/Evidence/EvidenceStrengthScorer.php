@@ -10,6 +10,7 @@ namespace App\Services\Ai\Evidence;
  * Upgrades the legacy count-only heuristic (4 cheap doc links == 'strong') into a
  * weighted total where a single green gate_run or test_result outweighs several
  * doc links. Pure: every returned field is computed from the supplied refs.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class EvidenceStrengthScorer
 {

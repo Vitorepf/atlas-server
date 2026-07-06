@@ -12,6 +12,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog
  * provider. Real execution is allowed only behind the six confirm-gates plus an
  * explicit provider authorization; the fixture lane is reserved for explicit
  * smoke work and never requires provider authorization.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class ProductiveExecutionModeGateEvaluator
 {

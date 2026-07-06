@@ -32,6 +32,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
  *        - stalled_run         when valid_merge_count === 0;
  *        - valid_but_empty_run when valid_merge_count > 0 AND leap_count === 0;
  *        - compounding_run     when leap_count > 0.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class LoopRunLeapAggregator
 {

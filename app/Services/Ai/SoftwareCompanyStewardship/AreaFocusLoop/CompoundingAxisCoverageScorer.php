@@ -18,6 +18,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
  *
  * No I/O, no provider, no clock, no randomness. Every returned field is computed
  * purely from the method input.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class CompoundingAxisCoverageScorer
 {

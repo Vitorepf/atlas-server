@@ -6,6 +6,9 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopPayloadNormalizer;
 
+/**
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ */
 final class RealCycleEvidenceCompletenessEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.loop.real_cycle_evidence_completeness.v1';

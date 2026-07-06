@@ -30,6 +30,7 @@ use RuntimeException;
  * The intelligence lives here (prompt + grounding + deterministic validation); the words are written
  * by the governed provider (hermes_cli, never a pinned model). Output is validated fail-closed by the
  * deterministic BridgePagePolicyGuard + scored by MessageMatchScorer/PageAuditScorer.
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class BridgePageComposerService
 {

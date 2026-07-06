@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+/**
+ * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ */
 final class SliceOneShotFeasibilityScorer
 {
     public const SCHEMA_VERSION = 'atlas.software_company_stewardship.slice_one_shot_feasibility.v1';
