@@ -14,6 +14,7 @@ use App\Models\AiOperatorApproval;
 use App\Models\AtlasToolRun;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Support\AtlasEnvelope;
 
 class ExternalActionMandateRegistryService
 {
@@ -608,7 +609,7 @@ class ExternalActionMandateRegistryService
             $allApprovals = array_merge($allApprovals, (array) ($row['approvals'] ?? []));
         }
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => (bool) ($suite['ok'] ?? false),
             'schema' => self::CONTROL_TOWER_SCHEMA,
             'status' => 'external_execution_blocked_control_tower_ready',
@@ -636,10 +637,7 @@ class ExternalActionMandateRegistryService
                 'automation_boundary' => 'internal_supervised_runtime_and_operator_packet_generation_only',
             ],
             'companies' => $companyRows,
-        ];
-        $payload['control_tower_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'control_tower_hash');
     }
 
     /**
@@ -702,7 +700,7 @@ class ExternalActionMandateRegistryService
             static fn (array $flow): bool => (bool) ($flow['manual_handoff_ready'] ?? false),
         ));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => (bool) ($tower['ok'] ?? false),
             'schema' => self::ACTIVATION_COCKPIT_SCHEMA,
             'status' => 'enterprise_activation_backlog_ready_external_execution_blocked',
@@ -758,10 +756,7 @@ class ExternalActionMandateRegistryService
                 'blocked_operations' => ['write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'offensive_security', 'admin'],
             ],
             'companies' => $companyRows,
-        ];
-        $payload['activation_cockpit_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'activation_cockpit_hash');
     }
 
     /**
@@ -784,7 +779,7 @@ class ExternalActionMandateRegistryService
             $companyRows,
         );
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => (bool) ($suite['ok'] ?? false) && $companyRows !== [] && $readyCompanies === count($companyRows),
             'schema' => self::PREMIUM_ACTIVATION_STATUS_SCHEMA,
             'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
@@ -811,10 +806,7 @@ class ExternalActionMandateRegistryService
                 'blocked_without_operator_mandate' => ['external_write', 'paid_spend', 'live_trade', 'public_publish', 'offensive_operation', 'secret_export'],
             ],
             'companies' => $companyRows,
-        ];
-        $payload['premium_activation_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'premium_activation_status_hash');
     }
 
     /**
