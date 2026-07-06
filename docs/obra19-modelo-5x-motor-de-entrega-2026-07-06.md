@@ -1,18 +1,18 @@
-# Obra #19 — Fable 5×: o motor de entrega (prova 10× · colisão zero · sessão blindada)
+# Obra #19 — Modelo 5×: o motor de entrega de engenharia (prova 10× · colisão zero · sessão blindada)
 
 Data: 2026-07-06 · Método: 3 investigadores (Etnógrafo do desperdício / Engenheiro de prova rápida / Arquiteto da sessão) com medições reais de transcripts, suite e código · Status: aprovável
-Papel na linha: **#17 = o que entra · #18 = matéria/canos/delegação · #19 = o motor do próprio Fable.** Todo slice implementável por modelo barato via ordem de trabalho (Kit da #18).
+Papel na linha: **#17 = o que entra · #18 = matéria/canos/delegação · #19 = o motor de entrega de QUALQUER modelo executor (sessão frontier, Codex nas ordens de trabalho, task-workers).** Todo slice implementável por modelo barato via ordem de trabalho (Kit da #18).
 
-## A conta do 5× (etnografia quantificada de 7 sessões reais, 33.538 eventos, ~2.900 tool calls)
+## A conta do 5× (etnografia quantificada de 7 sessões reais (as sessões do modelo frontier serviram de corpo de prova), 33.538 eventos, ~2.900 tool calls)
 
-Cada iteração do Fable = planejar → editar → **provar** → **aterrissar**. Onde ela sangra hoje:
+Cada iteração de um modelo executor neste repo = planejar → editar → **provar** → **aterrissar**. Onde ela sangra hoje:
 
 | Ralo | Medição real | Coberto por |
 |---|---|---|
 | 1. Refutação tardia (spec mente 3-10×) | 10 refutações só-na-execução na #8; 2 implementações completas descartadas; 56 agentes de verificação por spec | **#17 T2 (crítica de spec) + #18 K (teste pré-escrito)** — executar, não re-planejar |
 | 2. Re-derivação de contexto | 28-52% dos Reads são re-leituras; 18.320 recalls com feedback nulo | **#17 T0/T1 + #18 C/D** — idem |
 | 3. Prova cara | 13-40% dos comandos Bash = test runs; suite = **329 min serial**; baseline F0.2 = meio dia | **#19 Frente P** |
-| 4. Colisão multi-writer | **58 `index.lock` numa sessão**; 2 clobbers na #14; 2 slices da #8 bloqueadas; o Fable commita SEM lock enquanto workers usam committer lockado | **#19 Frente L** |
+| 4. Colisão multi-writer | **58 `index.lock` numa sessão**; 2 clobbers na #14; 2 slices da #8 bloqueadas; a sessão do modelo commita SEM lock enquanto workers usam committer lockado | **#19 Frente L** |
 | 5. Fricção silenciosa + compactação | scheduler morto 8 dias sem alarme; rg-noop; **10 compactações em 5h**; 4 agentes travados em stall num dia | **#19 Frente S** |
 
 **A matemática:** ralos 1-2 (≈50% do esforço) já têm spec — a #19 os assume como pré-requisito em execução. O 5× da #19 vem do empilhamento: prova mediana de minutos→segundos (×3-10 em iterações/hora) × zero retrabalho por clobber × sessão que não re-deriva após compactação × fan-out sem stall.
@@ -28,12 +28,12 @@ Cada iteração do Fable = planejar → editar → **provar** → **aterrissar**
 | **P5 `atlas:golden:freeze/check <alvo>`** | o padrão golden-hash ad-hoc das obras #8/#12 vira órgão: executa alvo sob `setTestNow`, canonicaliza (ordenação PROFUNDA declarada — gotcha do `ReadinessHash::stable` que só ksorta top-level), grava manifest+casos, `check` diffa POR CASO | idiom vivo em 49 testes; `MissionCanonicalHash::sha256` (479 call sites) | harness golden por obra: horas de código ad-hoc → 1 comando + fixture |
 | **P6 Proof-sandbox sem vetor wiper** | trocar symlink de `vendor` por **`cp -Rc` (clonefile APFS, ~1-3s, custo ~zero)** nos 2 provisioners; `.env` hermético gerado, nunca symlinkado | `GovernedBranchMaterializationService::linkRuntimeDeps` (:648-660) e `EngineeringWorkspaceService` (:634-650) — **o padrão do incidente wiper continua vivo aí** | N provas paralelas seguras; `composer dump-autoload` em worktree nunca mais reescreve o autoload vivo |
 
-## Frente L — LANDING: colisão zero (o Fable entra nas portas que já existem)
+## Frente L — LANDING: colisão zero (o modelo entra nas portas que já existem)
 
 | Slice | Entrega | Substrato (verificado) | Gate |
 |---|---|---|---|
-| **L1 `atlas:land <paths...> -m "msg"`** | o Fable deixa de commitar git cru: comando fino expõe o `AtlasTaskScopedCommitter` (fail-closed sob `.git/atlas-task-commit.lock`, commit por pathspec — `git add -A` impossível por construção). Regra de sessão: editar; aterrissar em janela de lock curta (nunca segurar lock durante testes). Ordem de aquisição fixa: task-commit → main-merge, nunca o inverso | committer pronto (`AtlasTaskScopedCommitter.php:27,129`); padrão provado pelo agente AUTO-1 (landing de 9 arquivos em 1 commit sob os flocks) | 100% dos commits do Fable pela porta lockada; `index.lock` por sessão: 58 → ~0; clobbers/semana: 0 |
-| **L2 Claims do Fable visíveis ao serving** | (a) PreToolUse registra claim `atlas_claim_task` por arquivo editado (TTL renovado); (b) o serving consulta o blackboard no claim de lease — path com claim ativo de outro engine ⇒ packet adiado (fail-open: blackboard indisponível = comportamento atual) | `AtlasAobgBlackboardService` + MCP (:1167/:3606) existem; **hoje NENHUM worker consulta** — advisory sem efeito; seam no `AtlasTaskServingService` | simulação worker×claim ⇒ lease adiada; 0 arquivos untracked perdidos |
+| **L1 `atlas:land <paths...> -m "msg"`** | a sessão do modelo deixa de commitar git cru: comando fino expõe o `AtlasTaskScopedCommitter` (fail-closed sob `.git/atlas-task-commit.lock`, commit por pathspec — `git add -A` impossível por construção). Regra de sessão: editar; aterrissar em janela de lock curta (nunca segurar lock durante testes). Ordem de aquisição fixa: task-commit → main-merge, nunca o inverso | committer pronto (`AtlasTaskScopedCommitter.php:27,129`); padrão provado pelo agente AUTO-1 (landing de 9 arquivos em 1 commit sob os flocks) | 100% dos commits de sessão pela porta lockada; `index.lock` por sessão: 58 → ~0; clobbers/semana: 0 |
+| **L2 Claims da sessão visíveis ao serving** | (a) PreToolUse registra claim `atlas_claim_task` por arquivo editado (TTL renovado); (b) o serving consulta o blackboard no claim de lease — path com claim ativo de outro engine ⇒ packet adiado (fail-open: blackboard indisponível = comportamento atual) | `AtlasAobgBlackboardService` + MCP (:1167/:3606) existem; **hoje NENHUM worker consulta** — advisory sem efeito; seam no `AtlasTaskServingService` | simulação worker×claim ⇒ lease adiada; 0 arquivos untracked perdidos |
 | **L3 Guard do reset do soak** | o hazard documentado no próprio repo (auto-merge do soak faz `git reset/checkout` na árvore viva — `.claude/workflows/loop-heavywork-design.js` FACTS) ganha guarda: recusa se `git status --porcelain` acusa edits fora do escopo dele | hazard já escrito; falta o if | reset nunca varre WIP alheio (teste adversarial) |
 
 ## Frente S — SESSÃO blindada
