@@ -133,4 +133,22 @@ final class AgentControlPlaneTaskLeaseRecoveryServiceTest extends TestCase
         $this->assertSame(1, $result['recovered_count']);
         $this->assertSame('claimable', $queue->get('task-released-ok')['status']);
     }
+
+    // ── AC: claimed task with missing/zero expires_at_unix is recoverable (not immortal) ──
+
+    public function test_claimed_lease_with_missing_expiry_is_recoverable_not_active(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $this->enqueue($queue, 'task-missing-expiry', 'claimable');
+        $queue->updateStatus('task-missing-expiry', 'claimed', ['lease_id' => 'lease-no-expiry', 'agent_id' => 'agent-x']);
+
+        $service = new AgentControlPlaneTaskLeaseRecoveryService;
+        $result = $service->inspectRecoverability();
+
+        $summary = $result['root_cause_summary'];
+        // A claimed task whose lease has no expires_at_unix must be counted as
+        // stale (recoverable), not as active_lease (immortal).
+        $this->assertGreaterThanOrEqual(1, $summary['stale_claimed_leases']['count'],
+            'missing-expiry lease must be classified as stale, not active');
+    }
 }
