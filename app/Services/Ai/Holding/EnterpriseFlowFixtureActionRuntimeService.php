@@ -567,7 +567,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_vertical_runtime_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_vertical_solution_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -594,10 +594,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'vertical_solution_runtime_requires_bound_kit_artifact_factory_and_connector_workbench' => true,
                 'operator_mandate_required_for_external_action' => true,
             ],
-        ];
-        $payload['vertical_solution_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'vertical_solution_runtime_status_hash');
     }
 
     /**
@@ -650,7 +647,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_business_execution_runtime_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_domain_business_execution_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -677,10 +674,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'business_execution_runtime_requires_cell_kpi_lane_and_artifact_contract' => true,
                 'operator_mandate_required_for_external_action' => true,
             ],
-        ];
-        $payload['domain_business_execution_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'domain_business_execution_runtime_status_hash');
     }
 
     /**
@@ -740,7 +734,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_operating_spine_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_company_operating_spine_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -770,10 +764,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operating_spine_requires_customer_account_vendor_resilience_analytics_knowledge_and_identity_bindings' => true,
                 'operator_mandate_required_for_external_customer_vendor_billing_capital_or_data_action' => true,
             ],
-        ];
-        $payload['company_operating_spine_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'company_operating_spine_runtime_status_hash');
     }
 
     /**
@@ -849,7 +840,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_commercial_operations_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_commercial_operations_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -889,10 +880,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'commercial_runtime_requires_offer_journey_account_contract_billing_vendor_and_procurement_controls' => true,
                 'operator_mandate_required_for_customer_vendor_billing_or_public_claim' => true,
             ],
-        ];
-        $payload['commercial_operations_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'commercial_operations_runtime_status_hash');
     }
 
     /**
@@ -952,7 +940,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_provider_workbench_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_domain_provider_workbench_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -982,10 +970,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'domain_provider_runtime_requires_contracts_workbenches_routes_eval_lineage_and_observability' => true,
                 'operator_signed_scope_required_for_provider_write_spend_trade_publish_or_secret_export' => true,
             ],
-        ];
-        $payload['domain_provider_workbench_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'domain_provider_workbench_runtime_status_hash');
     }
 
     /**
