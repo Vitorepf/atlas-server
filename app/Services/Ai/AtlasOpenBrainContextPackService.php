@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
+use App\Services\Ai\Context\SemanticContextRetrievalService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\AtlasCode\WorkspaceFolderIntelligenceService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -65,7 +68,7 @@ class AtlasOpenBrainContextPackService
 
     public const RUNTIME_SCHEMA = 'atlas.aobg.context_pack.runtime.v1';
 
-    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v3';
+    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v4';
 
     /**
      * Provider-visible flags that let external MCP clients detect whether the
@@ -75,9 +78,17 @@ class AtlasOpenBrainContextPackService
         'code_graph_fill_gaps',
         'context_delivery_policy',
         'context_feedback_request',
+        'context_hygiene_summary',
+        'feedback_demotes_initial_context_refs',
         'initial_auxiliary_code_symbol_deferral',
+        'initial_code_file_symbol_deferral',
+        'initial_code_path_noise_filter',
+        'initial_code_symbol_noise_filter',
+        'initial_surface_symbol_deferral',
         'initial_reality_cross_layer_only',
+        'memory_relevance_floor',
         'provider_bound_mission_seed_filter',
+        'reality_doc_mission_filter',
         'same_layer_path_omission_provenance',
         'separator_term_expansion',
         'test_symbol_on_demand_expansion',
@@ -92,6 +103,22 @@ class AtlasOpenBrainContextPackService
     private const AUXILIARY_CODE_SOURCE_TYPES = [
         'test_method' => 'test_symbols',
         'doc_heading' => 'canonical_doc',
+        'file' => 'code_files',
+        'cli_command' => 'runtime_surfaces',
+        'route' => 'runtime_surfaces',
+    ];
+
+    /**
+     * Glue terms that should not make a global memory look task-relevant.
+     *
+     * @var array<string,true>
+     */
+    private const RELEVANCE_STOP_TERMS = [
+        'aobg' => true, 'atlas' => true, 'context' => true, 'contexto' => true,
+        'quality' => true, 'qualidade' => true, 'melhorar' => true, 'arrumar' => true,
+        'implementar' => true, 'debug' => true, 'loop' => true, 'service' => true,
+        'para' => true, 'com' => true, 'sem' => true, 'que' => true, 'uma' => true,
+        'the' => true, 'and' => true, 'for' => true, 'with' => true,
     ];
 
     /**
@@ -105,7 +132,7 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasRealityGraphQueryService $realityGraph,
         private readonly AtlasHybridMemoryRetrievalService $memory,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
-        private readonly \App\Services\Ai\Context\SemanticContextRetrievalService $semanticContext,
+        private readonly SemanticContextRetrievalService $semanticContext,
     ) {}
 
     /**
@@ -113,13 +140,13 @@ class AtlasOpenBrainContextPackService
      *
      * @param  string  $task  the free-text task / question driving recall.
      * @param  array<string,mixed>  $opts  optional:
-     *   - workspace: explicit workspace path OR id (wins over cwd).
-     *   - cwd: caller's working directory, resolved to a workspace id.
-     *   - budget: total char budget for the pack (default config aobg.budget_chars).
-     *   - code_budget / memory_budget: per-source sub-budgets (default config).
-     *   - changed_files: array<string> of paths the task touches (biases code recall).
+     *                                     - workspace: explicit workspace path OR id (wins over cwd).
+     *                                     - cwd: caller's working directory, resolved to a workspace id.
+     *                                     - budget: total char budget for the pack (default config aobg.budget_chars).
+     *                                     - code_budget / memory_budget: per-source sub-budgets (default config).
+     *                                     - changed_files: array<string> of paths the task touches (biases code recall).
      * @return array<string,mixed> the structured pack (see SCHEMA) including a
-     *   rendered markdown string under `markdown`.
+     *                             rendered markdown string under `markdown`.
      */
     public function packFor(string $task, array $opts = []): array
     {
@@ -132,6 +159,7 @@ class AtlasOpenBrainContextPackService
         $memoryBudget = $this->intOpt($opts, 'memory_budget', (int) config('atlas.aobg.memory_budget_chars', 2000));
         $changedFiles = $this->stringList($opts['changed_files'] ?? []);
         $contextDeliveryPolicy = $this->contextDeliveryPolicy($opts);
+        $opts['_demote_context_refs'] = $this->stringList($contextDeliveryPolicy['demote_context_refs'] ?? []);
         $budgetMultiplier = (float) ($contextDeliveryPolicy['initial_context_budget_multiplier'] ?? 1.0);
         if ((bool) ($contextDeliveryPolicy['applied_to_initial_budget'] ?? false) && $budgetMultiplier > 0 && $budgetMultiplier < 1.0) {
             $totalBudget = $this->scaledBudget($totalBudget, $budgetMultiplier);
@@ -161,7 +189,7 @@ class AtlasOpenBrainContextPackService
         // empty never blocks the others (honest empty, never fabricated).
         $code = $this->codeSection($task, $workspaceId, $codeBudget, $changedFiles, $opts);
         $reality = $this->realitySection($task);
-        $memorySection = $this->memorySection($task, $workspaceId, $memoryBudget);
+        $memorySection = $this->memorySection($task, $workspaceId, $memoryBudget, $opts);
         $reality = $this->applyRealitySourceSelection($reality, $sourceSelectionPolicy);
         $contextDeliveryPolicy = $this->mergeInitialCodeGraphDeliveryPolicy(
             $contextDeliveryPolicy,
@@ -218,6 +246,7 @@ class AtlasOpenBrainContextPackService
                 'reality_graph_paths' => count($reality['paths']),
                 'memory' => count($memorySection['items']),
             ],
+            'context_hygiene' => $this->contextHygieneSummary($code, $reality, $memorySection),
         ];
 
         $pack['context_pack_hash'] = $this->contextPackHash($pack);
@@ -226,6 +255,35 @@ class AtlasOpenBrainContextPackService
         $pack['markdown'] = $this->renderMarkdown($pack);
 
         return $pack;
+    }
+
+    /**
+     * @param  array<string,mixed>  $code
+     * @param  array<string,mixed>  $reality
+     * @param  array<string,mixed>  $memory
+     * @return array<string,mixed>
+     */
+    private function contextHygieneSummary(array $code, array $reality, array $memory): array
+    {
+        $pathFiltered = (int) data_get($code, 'provenance.path_filtered_count', 0);
+        $feedbackDemoted = (int) data_get($code, 'provenance.feedback_demoted_count', 0)
+            + (int) data_get($memory, 'provenance.feedback_demoted_count', 0);
+        $memoryFiltered = (int) data_get($memory, 'provenance.relevance_filtered_count', 0);
+        $sessionEchoFiltered = (int) data_get($reality, 'provenance.session_echo_paths_omitted', 0);
+        $docMissionFiltered = (int) data_get($reality, 'provenance.doc_mission_paths_omitted', 0);
+        $totalCeilingTrimmed = (int) data_get($code, 'provenance.total_ceiling_trimmed_count', 0)
+            + (int) data_get($reality, 'provenance.total_ceiling_trimmed_count', 0)
+            + (int) data_get($memory, 'provenance.total_ceiling_trimmed_count', 0);
+
+        return [
+            'path_filtered' => $pathFiltered,
+            'feedback_demoted' => $feedbackDemoted,
+            'memory_relevance_filtered' => $memoryFiltered,
+            'session_echo_filtered' => $sessionEchoFiltered,
+            'doc_mission_filtered' => $docMissionFiltered,
+            'total_ceiling_trimmed' => $totalCeilingTrimmed,
+            'total_filtered' => $pathFiltered + $feedbackDemoted + $memoryFiltered + $sessionEchoFiltered + $docMissionFiltered + $totalCeilingTrimmed,
+        ];
     }
 
     /**
@@ -292,6 +350,7 @@ class AtlasOpenBrainContextPackService
             return [$code, $reality, $memory];
         }
 
+        $trimmed = ['code' => 0, 'reality' => 0, 'memory' => 0];
         while (((int) $code['chars'] + (int) $reality['chars'] + (int) $memory['chars']) > $totalBudget) {
             $candidates = [];
             if (count($code['items']) > 1) {
@@ -311,18 +370,23 @@ class AtlasOpenBrainContextPackService
             $section = (string) array_key_first($candidates);
             if ($section === 'code') {
                 array_pop($code['items']);
+                $trimmed['code']++;
                 $code['items'] = array_values($code['items']);
                 $code['chars'] = $this->codeItemsChars($code['items']);
+
                 continue;
             }
             if ($section === 'reality') {
                 array_pop($reality['paths']);
+                $trimmed['reality']++;
                 $reality['paths'] = array_values($reality['paths']);
                 $reality['chars'] = $this->realityPathsChars($reality['paths']);
+
                 continue;
             }
 
             array_pop($memory['items']);
+            $trimmed['memory']++;
             $memory['items'] = array_values($memory['items']);
             $memory['chars'] = $this->memoryItemsChars($memory['items']);
         }
@@ -330,6 +394,15 @@ class AtlasOpenBrainContextPackService
         $code['present'] = $code['items'] !== [];
         $reality['present'] = $reality['paths'] !== [];
         $memory['present'] = $memory['items'] !== [];
+        if ($trimmed['code'] > 0) {
+            $code['provenance']['total_ceiling_trimmed_count'] = $trimmed['code'];
+        }
+        if ($trimmed['reality'] > 0) {
+            $reality['provenance']['total_ceiling_trimmed_count'] = $trimmed['reality'];
+        }
+        if ($trimmed['memory'] > 0) {
+            $memory['provenance']['total_ceiling_trimmed_count'] = $trimmed['memory'];
+        }
 
         return [$code, $reality, $memory];
     }
@@ -411,7 +484,7 @@ class AtlasOpenBrainContextPackService
                 $query->where('flow_id', $flowId);
             }
 
-            /** @var \Illuminate\Support\Collection<int,AiRagFeedbackEvent> $events */
+            /** @var Collection<int,AiRagFeedbackEvent> $events */
             $events = $query->get();
         } catch (Throwable) {
             return $base + [
@@ -714,9 +787,9 @@ class AtlasOpenBrainContextPackService
         }
 
         return match ($value) {
-            'code', 'symbol', 'route', 'migration', 'test' => 'code',
-            'graph', 'reality_graph', 'aurg' => 'graph',
-            'memory', 'semantic', 'decision', 'technical_context' => 'memory',
+            'code', 'code_intelligence', 'context_ref', 'symbol', 'route', 'migration', 'test' => 'code',
+            'graph', 'graph_retrieval', 'reality_graph', 'aurg' => 'graph',
+            'memory', 'memory_signals', 'semantic', 'semantic_candidate', 'vector_retrieval', 'decision', 'technical_context' => 'memory',
             default => null,
         };
     }
@@ -962,6 +1035,8 @@ class AtlasOpenBrainContextPackService
             $chars += strlen($item['id'].$item['file_path'].$signature);
             $items[] = $item;
         }
+        [$items, $pathFilteredCount] = $this->filterInitialCodePathNoise($task, $items, $opts);
+        [$items, $demotedCount] = $this->filterDemotedCodeItems($items, $this->stringList($opts['_demote_context_refs'] ?? []));
         $delivery = $this->initialCodeGraphDeliveryPolicy($task, $items, $opts);
         $items = $delivery['items'];
         $chars = $this->codeItemsChars($items);
@@ -982,9 +1057,134 @@ class AtlasOpenBrainContextPackService
                 'estimated_tokens' => (int) ($pack['estimated_tokens'] ?? 0),
                 'truncated' => (bool) ($pack['truncated'] ?? false),
                 'assembly_fill_gaps' => true,
+                'path_filtered_count' => $pathFilteredCount,
+                'feedback_demoted_count' => $demotedCount,
                 'note' => self::HONESTY_LABEL,
             ], $delivery['provenance']),
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @param  array<string,mixed>  $opts
+     * @return array{0:array<int,array<string,mixed>>,1:int}
+     */
+    private function filterInitialCodePathNoise(string $task, array $items, array $opts): array
+    {
+        if ($items === [] || $this->boolOpt($opts, 'include_noisy_code_context', false)) {
+            return [$items, 0];
+        }
+
+        $changedFiles = $this->stringList($opts['changed_files'] ?? []);
+        $filtered = [];
+        $removed = 0;
+        foreach ($items as $item) {
+            $path = (string) ($item['file_path'] ?? '');
+            $noiseType = $this->initialCodeNoiseType($path, $item);
+            if (
+                $noiseType !== null
+                && ! $this->taskAllowsNoisyCodePath($task, $noiseType)
+                && ! in_array($path, $changedFiles, true)
+            ) {
+                $removed++;
+
+                continue;
+            }
+            $filtered[] = $item;
+        }
+
+        return [$filtered, $removed];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function initialCodeNoiseType(string $path, array $item): ?string
+    {
+        $path = strtolower(trim($path));
+        $path = ltrim($path, './');
+        if ($path === '') {
+            return null;
+        }
+        if (str_starts_with($path, 'tools/rivals/benchmarks/') || str_contains($path, '/tools/rivals/benchmarks/')) {
+            return 'benchmark_fixture';
+        }
+        if (str_starts_with($path, 'vendor/') || str_contains($path, '/vendor/') || str_starts_with($path, 'node_modules/') || str_contains($path, '/node_modules/')) {
+            return 'vendor_dependency';
+        }
+        if (str_starts_with($path, 'database/migrations/') || str_contains($path, '/database/migrations/')) {
+            return 'migration';
+        }
+        if (str_contains($path, '/generated/') || str_contains($path, 'aaeos/generated/')) {
+            return 'generated';
+        }
+
+        $symbolName = ltrim((string) ($item['symbol_name'] ?? ''), '\\');
+        $id = ltrim((string) ($item['id'] ?? ''), '\\');
+        if (str_starts_with($symbolName, 'phpDocumentor\\') || str_starts_with($id, 'sym:phpDocumentor\\')) {
+            return 'vendor_namespace_stub';
+        }
+
+        return null;
+    }
+
+    private function taskAllowsNoisyCodePath(string $task, string $noiseType): bool
+    {
+        $text = $this->normalizedIntentText($task);
+
+        return match ($noiseType) {
+            'benchmark_fixture' => $this->containsAny($text, ['benchmark', 'rivals', 'swe-bench', 'inspect evals', 'tau2', 'eval fixture', 'evaluation fixture']),
+            'vendor_dependency' => $this->containsAny($text, ['vendor', 'composer', 'dependency', 'dependencia', 'package', 'node_modules']),
+            'migration' => $this->containsAny($text, ['migration', 'migrations', 'database', 'schema', 'tabela', 'table', 'column', 'coluna']),
+            'generated' => $this->containsAny($text, ['generated', 'gerado', 'gerada', 'aaeos/generated']),
+            'vendor_namespace_stub' => $this->containsAny($text, ['phpdocumentor', 'docblock', 'doc block', 'selfmod', 'invariant', 'invariante']),
+            default => false,
+        };
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @param  array<int,string>  $demoteRefs
+     * @return array{0:array<int,array<string,mixed>>,1:int}
+     */
+    private function filterDemotedCodeItems(array $items, array $demoteRefs): array
+    {
+        if ($items === [] || $demoteRefs === []) {
+            return [$items, 0];
+        }
+
+        $filtered = [];
+        $demoted = 0;
+        foreach ($items as $item) {
+            if ($this->matchesDemotedRef($this->codeItemRefs($item), $demoteRefs)) {
+                $demoted++;
+
+                continue;
+            }
+            $filtered[] = $item;
+        }
+
+        return [$filtered, $demoted];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<int,string>
+     */
+    private function codeItemRefs(array $item): array
+    {
+        $id = trim((string) ($item['id'] ?? ''));
+        $filePath = trim((string) ($item['file_path'] ?? ''));
+        $symbol = $id;
+        if (str_contains($symbol, ':')) {
+            $symbol = (string) str($symbol)->afterLast(':');
+        }
+
+        return $this->uniqueStrings([
+            $id,
+            $filePath,
+            $filePath !== '' && $symbol !== '' ? $filePath.'::'.$symbol : '',
+        ]);
     }
 
     /**
@@ -1016,8 +1216,8 @@ class AtlasOpenBrainContextPackService
             return ['items' => [], 'provenance' => ['initial_delivery_policy' => array_merge($base, ['mode' => 'empty'])]];
         }
 
-        $explicitAuxiliaryIntent = $this->shouldIncludeAuxiliaryCodeSymbolsInitially($task, $opts);
-        if ($explicitAuxiliaryIntent) {
+        $initialAuxiliarySourceTypes = $this->initialAuxiliarySourceTypes($task, $opts);
+        if (in_array('*', $initialAuxiliarySourceTypes, true)) {
             return [
                 'items' => $items,
                 'provenance' => [
@@ -1032,7 +1232,8 @@ class AtlasOpenBrainContextPackService
         $retained = [];
         $deferred = [];
         foreach ($items as $item) {
-            if ($this->auxiliaryCodeSourceType($item) !== null) {
+            $sourceType = $this->auxiliaryCodeSourceType($item);
+            if ($sourceType !== null && ! in_array($sourceType, $initialAuxiliarySourceTypes, true)) {
                 $deferred[] = $item;
 
                 continue;
@@ -1041,7 +1242,16 @@ class AtlasOpenBrainContextPackService
         }
 
         if ($deferred === []) {
-            return ['items' => $items, 'provenance' => ['initial_delivery_policy' => $base]];
+            return [
+                'items' => $items,
+                'provenance' => [
+                    'initial_delivery_policy' => array_merge($base, $initialAuxiliarySourceTypes === [] ? [] : [
+                        'mode' => 'auxiliary_symbols_included_by_intent',
+                        'explicit_auxiliary_intent' => true,
+                        'included_auxiliary_source_types' => $initialAuxiliarySourceTypes,
+                    ]),
+                ],
+            ];
         }
 
         $keptAuxiliaryTopItem = null;
@@ -1077,6 +1287,8 @@ class AtlasOpenBrainContextPackService
                     'deferred_symbol_counts' => $counts,
                     'deferred_source_types' => $this->uniqueStrings($sourceTypes),
                     'deferred_on_demand_handles' => $this->uniqueStrings($handles),
+                    'explicit_auxiliary_intent' => $initialAuxiliarySourceTypes !== [],
+                    'included_auxiliary_source_types' => $initialAuxiliarySourceTypes,
                     'kept_auxiliary_top_item_type' => is_array($keptAuxiliaryTopItem)
                         ? (string) ($keptAuxiliaryTopItem['symbol_type'] ?? '')
                         : null,
@@ -1104,6 +1316,13 @@ class AtlasOpenBrainContextPackService
         }
         if (str_starts_with($filePath, 'docs/') || str_contains($filePath, '/docs/')) {
             return 'canonical_doc';
+        }
+        if (
+            str_starts_with($filePath, 'app/console/commands/')
+            || str_starts_with($filePath, 'app/http/controllers/')
+            || str_starts_with($filePath, 'app/http/requests/')
+        ) {
+            return 'runtime_surfaces';
         }
 
         return null;
@@ -1189,25 +1408,27 @@ class AtlasOpenBrainContextPackService
 
     /**
      * @param  array<string,mixed>  $opts
+     * @return array<int,string>
      */
-    private function shouldIncludeAuxiliaryCodeSymbolsInitially(string $task, array $opts): bool
+    private function initialAuxiliarySourceTypes(string $task, array $opts): array
     {
         if ($this->boolOpt($opts, 'include_auxiliary_code_symbols', false)) {
-            return true;
+            return ['*'];
         }
 
+        $sourceTypes = [];
         $taskType = strtolower((string) ($this->stringOpt($opts, 'task_type') ?? ''));
         if (in_array($taskType, ['test', 'tests', 'qa', 'coverage'], true)) {
-            return true;
+            $sourceTypes[] = 'test_symbols';
         }
 
         foreach ($this->stringList($opts['changed_files'] ?? []) as $path) {
             $path = strtolower($path);
             if (str_starts_with($path, 'tests/') || str_contains($path, '/tests/')) {
-                return true;
+                $sourceTypes[] = 'test_symbols';
             }
             if (str_starts_with($path, 'docs/') || str_contains($path, '/docs/')) {
-                return true;
+                $sourceTypes[] = 'canonical_doc';
             }
         }
 
@@ -1225,21 +1446,32 @@ class AtlasOpenBrainContextPackService
             'sem docs no inicial',
         ] as $deferTerm) {
             if (str_contains($text, $deferTerm)) {
-                return false;
+                return [];
             }
         }
 
-        foreach ([
-            '/\b(find|list|listar|quais|which|mapear|impact|impacto|rodar|run|corrigir|fix|failing|falhando)\b.*\b(test|tests|teste|testes|spec|coverage|cobertura)\b/',
-            '/\b(test|tests|teste|testes|coverage|cobertura)\b.*\b(impact|impacto|falhando|failing|rodar|run|corrigir|fix|listar|list)\b/',
-            '/\b(find|list|listar|ler|read|quais|which|auditar|review|revisar|mapear)\b.*\b(doc|docs|documentacao|canonical doc)\b/',
-        ] as $pattern) {
-            if (preg_match($pattern, $text) === 1) {
-                return true;
+        $patternsBySourceType = [
+            'test_symbols' => [
+                '/\b(find|list|listar|quais|which|mapear|impact|impacto|rodar|run|corrigir|fix|failing|falhando)\b.*\b(test|tests|teste|testes|spec|coverage|cobertura)\b/',
+                '/\b(test|tests|teste|testes|coverage|cobertura)\b.*\b(impact|impacto|falhando|failing|rodar|run|corrigir|fix|listar|list)\b/',
+            ],
+            'canonical_doc' => [
+                '/\b(find|list|listar|ler|read|quais|which|auditar|review|revisar|mapear)\b.*\b(doc|docs|documentacao|canonical doc)\b/',
+            ],
+            'runtime_surfaces' => [
+                '/\b(cli|artisan|command|commands|comando|comandos|route|routes|rota|rotas|api|endpoint|endpoints)\b/',
+            ],
+        ];
+        foreach ($patternsBySourceType as $sourceType => $patterns) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $text) === 1) {
+                    $sourceTypes[] = $sourceType;
+                    break;
+                }
             }
         }
 
-        return false;
+        return $this->uniqueStrings($sourceTypes);
     }
 
     private function normalizedIntentText(string $value): string
@@ -1303,6 +1535,7 @@ class AtlasOpenBrainContextPackService
         $rawPathCount = 0;
         $sameLayerPathCount = 0;
         $sessionEchoPathCount = 0;
+        $docMissionPathCount = 0;
         foreach ((array) ($result['paths'] ?? []) as $path) {
             if (! is_array($path)) {
                 continue;
@@ -1315,14 +1548,10 @@ class AtlasOpenBrainContextPackService
             }
             $nodeIds = array_map('strval', (array) ($path['nodes'] ?? []));
             $chain = [];
-            $sessionEcho = false;
             foreach ($nodeIds as $nodeId) {
                 // Graph labels are UNTRUSTED display text — a node label can be a past operator
                 // prompt. Neutralize before it ever reaches the model context.
                 $label = self::sanitizeGraphLabel((string) ($labelById[$nodeId]['label'] ?? ''));
-                if (self::isSessionArtifactLabel($label)) {
-                    $sessionEcho = true;
-                }
                 $chain[] = [
                     'id' => $nodeId,
                     'label' => $label,
@@ -1332,8 +1561,13 @@ class AtlasOpenBrainContextPackService
             // A path that runs into a session-capture artifact (a raw past-prompt / interrupted
             // marker) is session ECHO, not an architectural cross-layer path. Dropping it stops the
             // brain from replaying old operator prompts — some instruction-shaped — back into context.
-            if ($sessionEcho) {
+            if (self::isSessionArtifactPath($path, $chain)) {
                 $sessionEchoPathCount++;
+
+                continue;
+            }
+            if (self::isDocumentationMissionPath($task, $path, $chain)) {
+                $docMissionPathCount++;
 
                 continue;
             }
@@ -1361,6 +1595,7 @@ class AtlasOpenBrainContextPackService
                 'raw_paths' => $rawPathCount,
                 'same_layer_paths_omitted' => $sameLayerPathCount,
                 'session_echo_paths_omitted' => $sessionEchoPathCount,
+                'doc_mission_paths_omitted' => $docMissionPathCount,
                 'cross_layer_paths' => (int) data_get($result, 'counts.cross_layer_paths', 0),
                 'note' => self::HONESTY_LABEL,
             ],
@@ -1384,15 +1619,80 @@ class AtlasOpenBrainContextPackService
     }
 
     /**
-     * A pure session-capture ECHO label — a session mission node with no architectural value: the
-     * fallback "session capture" label or an interrupted-request marker. These are never real
-     * code/decision/domain labels, so dropping a cross-layer path that runs into one is safe and
-     * stops the brain replaying old session prompts back into context. An EMPTY label is NOT an echo
-     * — a legitimate code/mission node can carry no label (it then renders by node id).
+     * Session ECHO labels are old operator prompts or control markers that have no architectural
+     * value as cross-layer graph paths. Empty labels are not echo: real nodes may render by id.
      */
     public static function isSessionArtifactLabel(string $label): bool
     {
-        return in_array(mb_strtolower(trim($label)), ['session capture', '[request interrupted by user]'], true);
+        $label = mb_strtolower(trim($label));
+        if ($label === '') {
+            return false;
+        }
+        if (in_array($label, ['session capture', '[request interrupted by user]', '[request interrupted by user for tool use]', 'continue from where you left off.'], true)) {
+            return true;
+        }
+
+        foreach ([
+            'você é um', 'voce e um', 'vc é um', 'vc e um',
+            'que merda', 'xingando',
+            'você não', 'voce nao', 'vc não', 'vc nao', 'não entendeu', 'nao entendeu',
+            'me confirma', 'me fala mais', 'faça uma', 'faca uma', 'precisamos fazer',
+            'vc pode', 'você pode', 'voce pode', 'preciso que',
+            'o que eu quero', 'tem um codex rodando',
+            'pelo o que entendi', 'basicamente pegar uma area', 'evoluir ela',
+            'my request for codex', 'continue from where you left off',
+        ] as $marker) {
+            if (str_contains($label, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $path
+     * @param  array<int,array<string,mixed>>  $chain
+     */
+    public static function isSessionArtifactPath(array $path, array $chain): bool
+    {
+        foreach (['target', 'seed'] as $field) {
+            if (self::isSessionArtifactLabel((string) ($path[$field] ?? ''))) {
+                return true;
+            }
+        }
+
+        foreach ($chain as $node) {
+            if (self::isSessionArtifactLabel((string) ($node['label'] ?? ''))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $path
+     * @param  array<int,array<string,mixed>>  $chain
+     */
+    public static function isDocumentationMissionPath(string $task, array $path, array $chain): bool
+    {
+        if (preg_match('/\b(doc|docs|document|documentation|backlog|kb|knowledge|canonical|canonica|canônica)\b/iu', $task) === 1) {
+            return false;
+        }
+
+        foreach ($chain as $node) {
+            if (($node['source_kind'] ?? null) !== 'mission') {
+                continue;
+            }
+
+            $text = mb_strtolower((string) ($node['label'] ?? '').' '.(string) ($path['target'] ?? ''));
+            if (preg_match('/\b(doc|docs|document|documentation|backlog|knowledge|canonical|canonica|canônica)\b/iu', $text) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1403,7 +1703,7 @@ class AtlasOpenBrainContextPackService
      *
      * @return array{present:bool, items:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}
      */
-    private function memorySection(string $task, string $workspaceId, int $budgetChars): array
+    private function memorySection(string $task, string $workspaceId, int $budgetChars, array $opts = []): array
     {
         $empty = [
             'present' => false,
@@ -1447,9 +1747,11 @@ class AtlasOpenBrainContextPackService
                 'privacy_class' => (string) ($row['privacy_class'] ?? ''),
                 // ids/hashes only — provenance the consumer can audit, no raw content.
                 'source_type' => (string) ($row['source_type'] ?? ''),
-                'content_hash' => (string) ($row['content_hash'] ?? ''),
+                'content_hash' => (string) ($row['content_hash'] ?? data_get($row, 'lineage.content_hash', data_get($row, 'audit_trail.content_hash', ''))),
             ];
         }
+        [$candidates, $demotedCount] = $this->filterDemotedMemoryItems($candidates, $this->stringList($opts['_demote_context_refs'] ?? []));
+        [$candidates, $relevanceFilteredCount] = $this->filterLowRelevanceMemoryItems($task, $candidates);
 
         // L3-6: optional semantic re-rank over the recalled items (symbols+docs) via
         // the REAL local embedding engine. Flag-gated (atlas.aobg.semantic_retrieval,
@@ -1476,9 +1778,178 @@ class AtlasOpenBrainContextPackService
                 'recall_count' => (int) data_get($recall, 'summary.recall_count', count($items)),
                 'redacted_ref_count' => (int) data_get($recall, 'summary.redacted_ref_count', 0),
                 'retrieval_mode' => $memoryMode,
+                'feedback_demoted_count' => $demotedCount,
+                'relevance_filtered_count' => $relevanceFilteredCount,
                 'note' => self::HONESTY_LABEL,
             ],
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @return array{0:array<int,array<string,mixed>>,1:int}
+     */
+    private function filterLowRelevanceMemoryItems(string $task, array $items): array
+    {
+        if ($items === []) {
+            return [$items, 0];
+        }
+
+        $taskTokens = $this->relevanceTokens($task);
+        if ($taskTokens === []) {
+            return [$items, 0];
+        }
+
+        $filtered = [];
+        $removed = 0;
+        foreach ($items as $item) {
+            if ($this->memoryItemRelevantToTask($task, $taskTokens, $item)) {
+                $filtered[] = $item;
+
+                continue;
+            }
+            $removed++;
+        }
+
+        return [$filtered, $removed];
+    }
+
+    /**
+     * @param  array<string,true>  $taskTokens
+     * @param  array<string,mixed>  $item
+     */
+    private function memoryItemRelevantToTask(string $task, array $taskTokens, array $item): bool
+    {
+        $title = (string) ($item['title'] ?? '');
+        $summary = (string) ($item['summary'] ?? '');
+        $body = (string) ($item['body'] ?? '');
+        $text = $title.' '.$summary.' '.$body;
+
+        if ($this->looksLikeWiperIncidentMemory($text)) {
+            return $this->taskAllowsWiperMemory($task);
+        }
+
+        $memoryTokens = $this->relevanceTokens($text);
+        if ($memoryTokens === []) {
+            return false;
+        }
+
+        $overlap = 0;
+        foreach ($taskTokens as $token => $_) {
+            if (isset($memoryTokens[$token])) {
+                $overlap++;
+            }
+        }
+
+        return $overlap >= 2;
+    }
+
+    private function looksLikeWiperIncidentMemory(string $text): bool
+    {
+        $text = $this->normalizedIntentText($text);
+
+        return $this->containsAny($text, ['wiper', 'drop table', 'refreshdatabase', 'vendor symlink', 'pgsql de producao']);
+    }
+
+    private function taskAllowsWiperMemory(string $task): bool
+    {
+        $text = $this->normalizedIntentText($task);
+
+        return $this->containsAny($text, ['wiper', 'drop table', 'refreshdatabase', 'vendor symlink', 'pgsql', 'postgres', 'test safety', 'suite frankenstein']);
+    }
+
+    /**
+     * @return array<string,true>
+     */
+    private function relevanceTokens(string $text): array
+    {
+        $text = $this->normalizedIntentText($text);
+        preg_match_all('/[a-z0-9][a-z0-9._-]{2,}/', $text, $matches);
+
+        $tokens = [];
+        foreach ($matches[0] ?? [] as $token) {
+            $token = trim((string) $token, '._-');
+            if ($token === '' || isset(self::RELEVANCE_STOP_TERMS[$token])) {
+                continue;
+            }
+            $tokens[$token] = true;
+        }
+
+        return $tokens;
+    }
+
+    private function containsAny(string $text, array $needles): bool
+    {
+        foreach ($needles as $needle) {
+            if ($needle !== '' && str_contains($text, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $items
+     * @param  array<int,string>  $demoteRefs
+     * @return array{0:array<int,array<string,mixed>>,1:int}
+     */
+    private function filterDemotedMemoryItems(array $items, array $demoteRefs): array
+    {
+        if ($items === [] || $demoteRefs === []) {
+            return [$items, 0];
+        }
+
+        $filtered = [];
+        $demoted = 0;
+        foreach ($items as $item) {
+            if ($this->matchesDemotedRef($this->memoryItemRefs($item), $demoteRefs)) {
+                $demoted++;
+
+                continue;
+            }
+            $filtered[] = $item;
+        }
+
+        return [$filtered, $demoted];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<int,string>
+     */
+    private function memoryItemRefs(array $item): array
+    {
+        $hash = trim((string) ($item['content_hash'] ?? ''));
+        $sourceType = trim((string) ($item['source_type'] ?? ''));
+
+        return $this->uniqueStrings([
+            $hash,
+            $hash !== '' ? 'memory:'.substr(hash('sha256', $hash), 0, 32) : '',
+            $sourceType !== '' && $hash !== '' ? $sourceType.':'.$hash : '',
+            $this->hashedContextRef('memory', [
+                'type' => (string) ($item['type'] ?? ''),
+                'title' => (string) ($item['title'] ?? ''),
+            ]),
+            (string) ($item['title'] ?? ''),
+        ]);
+    }
+
+    /**
+     * @param  array<int,string>  $candidateRefs
+     * @param  array<int,string>  $demoteRefs
+     */
+    private function matchesDemotedRef(array $candidateRefs, array $demoteRefs): bool
+    {
+        foreach ($candidateRefs as $candidateRef) {
+            foreach ($demoteRefs as $demoteRef) {
+                if ($candidateRef !== '' && hash_equals($candidateRef, $demoteRef)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -1513,7 +1984,7 @@ class AtlasOpenBrainContextPackService
 
         try {
             $ranked = $this->semanticContext->rank($task, $items, count($items));
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [$candidates, 'lexical'];
         }
 
@@ -1754,6 +2225,23 @@ class AtlasOpenBrainContextPackService
         if ($handles !== []) {
             $lines[] = '- expand_on_demand: '.implode(', ', array_slice($handles, 0, 8));
         }
+        $pathFiltered = (int) data_get($pack, 'context_hygiene.path_filtered', 0);
+        $feedbackDemoted = (int) data_get($pack, 'context_hygiene.feedback_demoted', 0);
+        $memoryFiltered = (int) data_get($pack, 'context_hygiene.memory_relevance_filtered', 0);
+        $sessionEchoFiltered = (int) data_get($pack, 'context_hygiene.session_echo_filtered', 0);
+        $docMissionFiltered = (int) data_get($pack, 'context_hygiene.doc_mission_filtered', 0);
+        $totalCeilingTrimmed = (int) data_get($pack, 'context_hygiene.total_ceiling_trimmed', 0);
+        if ($pathFiltered > 0 || $feedbackDemoted > 0 || $memoryFiltered > 0 || $sessionEchoFiltered > 0 || $docMissionFiltered > 0 || $totalCeilingTrimmed > 0) {
+            $lines[] = sprintf(
+                '- context_hygiene: path_filtered=%d feedback_demoted=%d memory_relevance_filtered=%d session_echo_filtered=%d doc_mission_filtered=%d total_ceiling_trimmed=%d',
+                $pathFiltered,
+                $feedbackDemoted,
+                $memoryFiltered,
+                $sessionEchoFiltered,
+                $docMissionFiltered,
+                $totalCeilingTrimmed,
+            );
+        }
         $sourceSelection = (array) ($policy['source_selection_policy'] ?? []);
         if ((bool) ($sourceSelection['applied_to_initial_pack'] ?? false)) {
             $multipliers = (array) ($sourceSelection['budget_multipliers'] ?? []);
@@ -1868,7 +2356,7 @@ class AtlasOpenBrainContextPackService
         }
 
         try {
-            return app(\App\Services\AtlasCode\WorkspaceFolderIntelligenceService::class)
+            return app(WorkspaceFolderIntelligenceService::class)
                 ->contextScopeIds($workspaceId);
         } catch (Throwable) {
             return [$workspaceId];
@@ -1908,7 +2396,6 @@ class AtlasOpenBrainContextPackService
     }
 
     /**
-     * @param  mixed  $hops
      * @return array<int,array<string,mixed>>
      */
     private function normalizeHops(mixed $hops): array

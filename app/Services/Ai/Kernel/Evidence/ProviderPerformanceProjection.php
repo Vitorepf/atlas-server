@@ -208,7 +208,11 @@ class ProviderPerformanceProjection
      */
     private function groupSummary(string $key, Collection $events): array
     {
-        [$provider, $domain, $specialistProfile, $taskType] = array_pad(explode('|', $key, 4), 4, 'unknown');
+        $parts = json_decode($key, true);
+        if (! is_array($parts)) {
+            $parts = explode('|', $key, 4);
+        }
+        [$provider, $domain, $specialistProfile, $taskType] = array_pad($parts, 4, 'unknown');
         $returned = $events->where('event_type', LedgerEventType::ProviderReturned->value);
         $succeeded = $returned->where('exit_status', 'succeeded');
         $fallbacks = $events->where('event_type', LedgerEventType::ProviderFallback->value);

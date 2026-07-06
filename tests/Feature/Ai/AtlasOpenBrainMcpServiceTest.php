@@ -12,6 +12,7 @@ use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Models\AtlasTask;
 use App\Models\AtlasTaskEvent;
+use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\AtlasProviderProjectionService;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
@@ -321,9 +322,19 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame(AtlasOpenBrainMcpService::SERVER_VERSION, data_get($baseline, 'runtime.server_version'));
         $this->assertContains('context_feedback_metrics', data_get($baseline, 'runtime.feature_flags'));
         $this->assertContains('context_delivery_policy', data_get($baseline, 'runtime.feature_flags'));
+        $this->assertContains('context_hygiene_summary', data_get($baseline, 'runtime.feature_flags'));
         $this->assertContains('context_pack_runtime_fingerprint', data_get($baseline, 'runtime.feature_flags'));
         $this->assertContains('mcp_runtime_self_check', data_get($baseline, 'runtime.feature_flags'));
+        $this->assertContains('initial_code_file_symbol_deferral', data_get($baseline, 'runtime.feature_flags'));
+        $this->assertContains('initial_code_symbol_noise_filter', data_get($baseline, 'runtime.feature_flags'));
+        $this->assertContains('initial_surface_symbol_deferral', data_get($baseline, 'runtime.feature_flags'));
+        $this->assertContains('reality_doc_mission_filter', data_get($baseline, 'runtime.feature_flags'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($baseline, 'runtime.runtime_fingerprint'));
+        $this->assertSame('current', data_get($baseline, 'runtime.source_probe.components.context_pack.status'));
+        $this->assertSame(
+            AtlasOpenBrainContextPackService::RUNTIME_VERSION,
+            data_get($baseline, 'runtime.source_probe.components.context_pack.loaded_runtime_version'),
+        );
         $this->assertFalse(data_get($baseline, 'runtime.raw_prompt_exposed'));
         $this->assertFalse(data_get($baseline, 'runtime.raw_conversation_exposed'));
 
@@ -395,6 +406,90 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertStringNotContainsString('raw stack trace should not persist', json_encode($feedback, JSON_THROW_ON_ERROR));
     }
 
+    public function test_context_feedback_record_demotes_noise_ref_in_next_context_pack(): void
+    {
+        $this->createRagFeedbackTables();
+        $module = AtlasEngineeringCodeModule::create([
+            'slug' => 'aobg-feedback-context',
+            'name' => 'AOBG Feedback Context',
+            'layer' => 'service',
+            'primary_language' => 'php',
+            'root_path' => 'app/Services/Ai',
+            'source_hash' => sha1('aobg-feedback-context'),
+        ]);
+        foreach ([
+            ['ContextRequirements', 'app/Services/Ai/Noisy/ContextRequirements.php'],
+            ['ContextPackRequirementsService', 'app/Services/Ai/ContextPackRequirementsService.php'],
+        ] as [$name, $path]) {
+            AtlasEngineeringCodeSymbol::create([
+                'module_id' => $module->id,
+                'symbol_name' => $name,
+                'symbol_type' => 'class',
+                'language' => 'php',
+                'file_path' => $path,
+                'signature' => 'class '.$name,
+                'source_hash' => sha1($path.$name),
+            ]);
+        }
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $feedback = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 7021,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_context_feedback',
+                'arguments' => [
+                    'objective' => 'context requirements',
+                    'flow_id' => 'aobg.mcp_feedback',
+                    'outcome_status' => 'partial',
+                    'delivered_context_refs' => [
+                        'app/Services/Ai/Noisy/ContextRequirements.php::ContextRequirements',
+                        'app/Services/Ai/ContextPackRequirementsService.php::ContextPackRequirementsService',
+                    ],
+                    'used_context_refs' => [
+                        'app/Services/Ai/ContextPackRequirementsService.php::ContextPackRequirementsService',
+                    ],
+                    'noise_context_refs' => [
+                        'app/Services/Ai/Noisy/ContextRequirements.php::ContextRequirements',
+                    ],
+                    'post_execution_utility' => 35,
+                    'record' => true,
+                ],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue(data_get($feedback, 'context_feedback.persistence.persisted'));
+        $this->assertContains(
+            'app/Services/Ai/Noisy/ContextRequirements.php::ContextRequirements',
+            data_get($feedback, 'context_feedback.next_context_policy.demote_context_refs'),
+        );
+        $this->assertContains(
+            'explicit_noise_context_ref',
+            array_column(data_get($feedback, 'context_feedback.noise_ref_candidates'), 'reason'),
+        );
+
+        $pack = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 7022,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_context_pack',
+                'arguments' => [
+                    'task' => 'context requirements',
+                    'flow_id' => 'aobg.mcp_feedback',
+                    'budget' => 3000,
+                    'code_budget' => 2000,
+                ],
+            ],
+        ])['result']['structuredContent']['pack'];
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertNotContains('sym:ContextRequirements', $ids);
+        $this->assertContains('sym:ContextPackRequirementsService', $ids);
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.feedback_demoted_count'));
+    }
+
     public function test_context_pack_accepts_flow_options_for_feedback_aware_delivery_policy(): void
     {
         $this->createRagFeedbackTables();
@@ -425,6 +520,9 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
 
         $this->assertTrue($structured['ok']);
         $this->assertSame('atlas_context_pack', $structured['tool']);
+        $this->assertSame('atlas.open_brain.mcp.runtime.v1', data_get($structured, 'mcp_runtime.schema_version'));
+        $this->assertTrue(data_get($structured, 'mcp_runtime.provider_safe'));
+        $this->assertTrue(data_get($structured, 'mcp_runtime.restart_policy.restart_required_when_fingerprint_differs_from_fresh_cli'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($structured, 'pack.context_pack_hash'));
         $this->assertSame('developer.debug', $policy['flow_id']);
         $this->assertSame('atlas_context_feedback', $feedbackRequest['tool']);
@@ -784,6 +882,29 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('compact', data_get($metrics, 'latest.mode'));
     }
 
+    public function test_memory_maintenance_status_names_prompt_metric_collection_command_when_empty(): void
+    {
+        $this->createOpenBrainAuditTable();
+
+        $structured = $this->app->make(AtlasOpenBrainMcpService::class)->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 778,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_maintenance_status',
+                'arguments' => ['workspace' => base_path()],
+            ],
+        ])['result']['structuredContent'];
+
+        $metrics = $structured['open_brain_prompt_metrics'];
+        $this->assertSame('no_data', $metrics['status']);
+        $this->assertSame('collect_include_prompt_exports_before_prompt_metric_review', data_get($metrics, 'review_signal.recommended_action'));
+        $this->assertSame(
+            './bin/atlas open-brain context "AOBG prompt metric calibration" --include-prompt --prompt-mode=compact --json',
+            data_get($metrics, 'review_signal.recommended_command')
+        );
+    }
+
     public function test_memory_maintenance_status_flags_raw_prompt_metric_violation(): void
     {
         $this->createOpenBrainAuditTable();
@@ -894,6 +1015,97 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('developer.debug', data_get($metrics, 'latest.flow_id'));
         $this->assertArrayNotHasKey('id', data_get($metrics, 'latest', []));
         $this->assertStringNotContainsString('raw provider output must not persist', json_encode($metrics, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_memory_maintenance_status_recommends_shrinking_context_for_waste_only_feedback(): void
+    {
+        $this->createRagFeedbackTables();
+
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $feedback = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 774,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_context_feedback',
+                'arguments' => [
+                    'objective' => 'aobg context waste calibration',
+                    'task_type' => 'debug',
+                    'domain' => 'developer',
+                    'outcome_status' => 'passed',
+                    'delivered_context_refs' => [
+                        'doc:owner-context',
+                        'doc:memory-policy',
+                        'code:context-pack-service',
+                        'code:registry-service',
+                        'test:maintenance-status',
+                    ],
+                    'used_context_refs' => [
+                        'doc:owner-context',
+                        'code:context-pack-service',
+                        'test:maintenance-status',
+                    ],
+                    'post_execution_utility' => 95,
+                    'record' => true,
+                ],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue(data_get($feedback, 'context_feedback.persistence.persisted'));
+        $this->assertContains('shrink_initial_context', data_get($feedback, 'context_feedback.next_context_policy.actions'));
+
+        $structured = $service->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 775,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_maintenance_status',
+                'arguments' => ['workspace' => base_path()],
+            ],
+        ])['result']['structuredContent'];
+
+        $metrics = $structured['context_feedback_metrics'];
+        $this->assertSame('warning', $metrics['status']);
+        $this->assertSame(1, $metrics['observed_count']);
+        $this->assertSame(1, $metrics['waste_count']);
+        $this->assertSame(0, $metrics['low_roi_count']);
+        $this->assertSame(0, $metrics['noise_count']);
+        $this->assertSame(0, $metrics['missed_required_source_feedback_count']);
+        $this->assertSame(['context_waste_observed'], data_get($metrics, 'review_signal.reasons'));
+        $this->assertSame('shrink_initial_context', data_get($metrics, 'review_signal.recommended_action'));
+        $this->assertSame(2, data_get($metrics, 'review_signal.auto_apply_threshold'));
+        $this->assertFalse(data_get($metrics, 'review_signal.auto_apply_ready'));
+        $this->assertSame(1, data_get($metrics, 'review_signal.remaining_feedback_events_before_auto_apply'));
+        $this->assertSame('shrink_initial_context', data_get($metrics, 'latest.policy_actions.0'));
+        $this->assertContains('Collect one more AOBG context feedback for flow developer.debug before auto-shrinking initial context budget.', $structured['next_actions']);
+    }
+
+    public function test_memory_maintenance_status_names_context_feedback_migration_when_missing(): void
+    {
+        Schema::dropIfExists('ai_rag_feedback_events');
+
+        $structured = $this->app->make(AtlasOpenBrainMcpService::class)->handleJsonRpc([
+            'jsonrpc' => '2.0',
+            'id' => 773,
+            'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_memory_maintenance_status',
+                'arguments' => ['workspace' => base_path()],
+            ],
+        ])['result']['structuredContent'];
+
+        $metrics = $structured['context_feedback_metrics'];
+        $this->assertSame('not_migrated', $metrics['status']);
+        $this->assertSame('run_ai_rag_feedback_events_migration_before_context_feedback_review', data_get($metrics, 'review_signal.recommended_action'));
+        $this->assertSame(
+            'php artisan migrate --path=database/migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php && php artisan migrate --path=database/migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php',
+            data_get($metrics, 'review_signal.recommended_command')
+        );
+        $this->assertSame([
+            'php artisan migrate --path=database/migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php',
+            'php artisan migrate --path=database/migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php',
+        ], data_get($metrics, 'review_signal.schema_repair_commands'));
+        $this->assertStringContainsString('migration ledger', data_get($metrics, 'review_signal.drift_hint'));
     }
 
     public function test_memory_maintenance_status_marks_readiness_feedback_non_actionable_without_roi(): void

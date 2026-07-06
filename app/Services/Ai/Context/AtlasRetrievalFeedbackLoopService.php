@@ -47,7 +47,12 @@ final class AtlasRetrievalFeedbackLoopService
         $selected = (array) data_get($gate, 'freshness_report.items', []);
         $coverage = (array) data_get($gate, 'context_quality_gate.required_source_coverage', []);
         $missed = $this->missedRefCandidates($coverage, (array) ($input['missed_required_sources'] ?? []));
-        $noise = $this->noiseRefCandidates($selected, (array) ($input['noise_ref_hashes'] ?? []), $outcomeStatus);
+        $noise = $this->noiseRefCandidates(
+            $selected,
+            (array) ($input['noise_ref_hashes'] ?? []),
+            (array) ($input['noise_context_refs'] ?? []),
+            $outcomeStatus,
+        );
         $contextRefAttribution = $this->contextRefAttribution($selected, $missed, $noise, $outcomeStatus, $input);
         $usedCount = (int) $contextRefAttribution['used_count'];
         $noiseCount = max(count($noise), (int) $contextRefAttribution['noise_count']);
@@ -149,9 +154,10 @@ final class AtlasRetrievalFeedbackLoopService
     /**
      * @param  array<int,array<string,mixed>>  $selected
      * @param  array<int,mixed>  $explicitNoiseHashes
+     * @param  array<int,mixed>  $explicitNoiseRefs
      * @return array<int,array<string,mixed>>
      */
-    private function noiseRefCandidates(array $selected, array $explicitNoiseHashes, string $outcomeStatus): array
+    private function noiseRefCandidates(array $selected, array $explicitNoiseHashes, array $explicitNoiseRefs, string $outcomeStatus): array
     {
         $explicit = array_values(array_filter(array_map(
             static fn (mixed $hash): string => is_scalar($hash) ? trim((string) $hash) : '',
@@ -176,6 +182,17 @@ final class AtlasRetrievalFeedbackLoopService
                 'source_type' => (string) ($item['source_type'] ?? 'unknown'),
                 'reason' => $explicitlyNoisy ? 'explicit_noise_signal' : ($stale ? 'stale_context' : 'low_score_in_failed_outcome'),
                 'confidence' => $explicitlyNoisy ? 0.90 : 0.68,
+            ];
+        }
+
+        foreach ($this->inputContextRefEntries($explicitNoiseRefs, 'explicit_noise') as $entry) {
+            $noise[] = [
+                'schema_version' => self::NOISE_REF_SCHEMA,
+                'source_ref_hash' => (string) ($entry['ref_hash'] ?? ''),
+                'candidate_hash' => (string) ($entry['ref_hash'] ?? ''),
+                'source_type' => (string) ($entry['source_type'] ?? 'unknown'),
+                'reason' => 'explicit_noise_context_ref',
+                'confidence' => 0.90,
             ];
         }
 

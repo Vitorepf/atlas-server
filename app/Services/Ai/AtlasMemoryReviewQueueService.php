@@ -15,7 +15,10 @@ use Illuminate\Support\Str;
 
 class AtlasMemoryReviewQueueService
 {
-    public function __construct(private readonly MemoryQueryInput $input) {}
+    public function __construct(
+        private readonly MemoryQueryInput $input,
+        private readonly AtlasMemoryRegistryService $registry,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $filters
@@ -42,6 +45,9 @@ class AtlasMemoryReviewQueueService
         if (in_array('memory_delta', $areas, true)) {
             $items = $items->merge($this->memoryDeltaItems($filters, $limit));
         }
+        if (in_array('memory_quality', $areas, true)) {
+            $items = $items->merge($this->memoryQualityItems($filters, $limit));
+        }
 
         $ordered = $items
             ->sortByDesc(fn (array $item): string => sprintf('%03d|%s', (int) ($item['priority'] ?? 0), (string) ($item['updated_at'] ?? '')))
@@ -58,6 +64,7 @@ class AtlasMemoryReviewQueueService
                 'relation' => 0,
                 'semantic_curation' => 0,
                 'memory_delta' => 0,
+                'memory_quality' => 0,
             ], $ordered->countBy('kind')->all()),
             'items' => $ordered->all(),
         ];
@@ -336,6 +343,24 @@ class AtlasMemoryReviewQueueService
             ->map(fn (AiMemoryDelta $delta): array => $this->memoryDeltaItem($delta));
     }
 
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return Collection<int,array<string,mixed>>
+     */
+    private function memoryQualityItems(array $filters, int $limit): Collection
+    {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+            return collect();
+        }
+
+        return $this->registry->search(array_merge($filters, [
+            'never_recalled' => true,
+            'thin' => true,
+            'status' => 'active',
+        ]), $limit)
+            ->map(fn (AtlasMemoryEntry $entry): array => $this->memoryQualityItem($entry));
+    }
+
     private function semanticCurationItem(SemanticCurationProposal $proposal): array
     {
         $pending = $proposal->status === 'pending';
@@ -410,6 +435,36 @@ class AtlasMemoryReviewQueueService
         ];
     }
 
+    private function memoryQualityItem(AtlasMemoryEntry $entry): array
+    {
+        return [
+            'id' => 'memory_quality:'.$entry->id,
+            'kind' => 'memory_quality',
+            'review_type' => 'thin_never_recalled_summary',
+            'priority' => 58,
+            'severity' => $this->severity(58),
+            'reason' => 'summary_repeats_title_and_memory_has_never_been_recalled',
+            'action_hint' => 'php artisan atlas:memory:curate '.$entry->id.' --summary="..." --json OR --archive',
+            'memory_entry_id' => $entry->id,
+            'title' => $entry->title,
+            'summary' => $entry->summary,
+            'body_excerpt' => Str::limit((string) ($entry->body ?? ''), 220),
+            'scope' => $this->scopeLabel($entry->scope_type, $entry->scope_id),
+            'project_id' => $entry->project_id,
+            'task_id' => $entry->task_id,
+            'engineering_run_id' => $entry->engineering_run_id,
+            'source_type' => $entry->source_type,
+            'source_id' => $entry->source_id,
+            'status' => $entry->status,
+            'safety' => $this->memorySafety($entry) + [
+                'raw_body_exposed' => false,
+                'operator_review_required' => true,
+            ],
+            'created_at' => $entry->created_at?->toJSON(),
+            'updated_at' => $entry->updated_at?->toJSON(),
+        ];
+    }
+
     private function memoryPrivacyColumnsExist(): bool
     {
         return DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'privacy_class')
@@ -434,7 +489,7 @@ class AtlasMemoryReviewQueueService
         ));
 
         if ($areas === []) {
-            return ['memory_privacy', 'verbatim_privacy', 'relation', 'semantic_curation', 'memory_delta'];
+            return ['memory_privacy', 'verbatim_privacy', 'relation', 'semantic_curation', 'memory_delta', 'memory_quality'];
         }
 
         $aliases = [
@@ -453,11 +508,14 @@ class AtlasMemoryReviewQueueService
             'deltas' => 'memory_delta',
             'memory_delta' => 'memory_delta',
             'memory_deltas' => 'memory_delta',
+            'quality' => 'memory_quality',
+            'memory_quality' => 'memory_quality',
+            'thin' => 'memory_quality',
         ];
 
         return collect($areas)
             ->map(fn (string $area): string => $aliases[$area] ?? $area)
-            ->filter(fn (string $area): bool => in_array($area, ['memory_privacy', 'verbatim_privacy', 'relation', 'semantic_curation', 'memory_delta'], true))
+            ->filter(fn (string $area): bool => in_array($area, ['memory_privacy', 'verbatim_privacy', 'relation', 'semantic_curation', 'memory_delta', 'memory_quality'], true))
             ->unique()
             ->values()
             ->all();

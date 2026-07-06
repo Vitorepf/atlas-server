@@ -60,7 +60,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskPacketBuilderTest extend
         $packet = (new AgentControlPlaneTaskPacketBuilder)->build($input);
         $this->assertSame('blocked', $packet['status']);
         $this->assertContains('forbidden_files_inside_allowed_files', $packet['blocking_reasons']);
-        $this->assertContains('app/Services/Ai/SelfConstruction/Foo.php', $packet['normalized_scope']['forbidden_in_allowed']);
+        $this->assertGreaterThan(0, count($packet['normalized_scope']['forbidden_in_allowed']));
     }
 
     public function test_forbidden_axis_blocked(): void

@@ -18,11 +18,11 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     private function passingEntry(array $overrides = []): array
     {
         return array_merge([
-            'provenance'                  => 'github:owner/repo#pr-123',
-            'comparison_summary'          => 'This technique differs from the naive approach by using bounded evidence gates that prevent runaway inference.',
+            'provenance' => 'github:owner/repo#pr-123',
+            'comparison_summary' => 'This technique differs from the naive approach by using bounded evidence gates that prevent runaway inference.',
             'atlas_adaptation_hypothesis' => 'Wrap the OSS pattern in AtlasEvidenceGateService to enforce local-first constraints before each iteration.',
-            'allowed_files_hint'          => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasSomething.php'],
-            'idea'                        => 'bounded evidence gate',
+            'allowed_files_hint' => ['app/Services/Ai/SelfConstruction/ExternalBrain/AtlasSomething.php'],
+            'idea' => 'bounded evidence gate',
         ], $overrides);
     }
 
@@ -32,14 +32,14 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     {
         $r = $this->svc()->plan('adaptive threshold');
 
-        $this->assertArrayHasKey('schema',                 $r);
-        $this->assertArrayHasKey('idea',                   $r);
-        $this->assertArrayHasKey('source_categories',      $r);
-        $this->assertArrayHasKey('comparison_questions',   $r);
+        $this->assertArrayHasKey('schema', $r);
+        $this->assertArrayHasKey('idea', $r);
+        $this->assertArrayHasKey('source_categories', $r);
+        $this->assertArrayHasKey('comparison_questions', $r);
         $this->assertArrayHasKey('freshness_requirements', $r);
-        $this->assertArrayHasKey('adoption_risks',         $r);
-        $this->assertArrayHasKey('provenance_required',    $r);
-        $this->assertArrayHasKey('accepted',               $r);
+        $this->assertArrayHasKey('adoption_risks', $r);
+        $this->assertArrayHasKey('provenance_required', $r);
+        $this->assertArrayHasKey('accepted', $r);
     }
 
     // ── AC2: empty idea rejected; valid idea produces required fields ─────────
@@ -110,7 +110,7 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
 
     public function test_ac2_focus_areas_add_extra_comparison_questions(): void
     {
-        $base   = $this->svc()->plan('idea');
+        $base = $this->svc()->plan('idea');
         $withFocus = $this->svc()->plan('idea', ['focus_areas' => ['latency', 'throughput']]);
 
         $this->assertGreaterThan(
@@ -125,7 +125,7 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_ac3_missing_provenance_is_rejected(): void
     {
         $r = $this->svc()->toTaskOpportunity([
-            'comparison_summary'          => 'Some comparison',
+            'comparison_summary' => 'Some comparison',
             'atlas_adaptation_hypothesis' => 'Some valid hypothesis long enough to be accepted here',
         ]);
 
@@ -137,8 +137,8 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_ac3_empty_provenance_is_rejected(): void
     {
         $r = $this->svc()->toTaskOpportunity([
-            'provenance'                  => '',
-            'comparison_summary'          => 'Some comparison',
+            'provenance' => '',
+            'comparison_summary' => 'Some comparison',
             'atlas_adaptation_hypothesis' => 'Some valid hypothesis long enough to be accepted here',
         ]);
 
@@ -149,7 +149,7 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_ac3_missing_comparison_summary_is_rejected(): void
     {
         $r = $this->svc()->toTaskOpportunity([
-            'provenance'                  => 'github:repo#1',
+            'provenance' => 'github:repo#1',
             'atlas_adaptation_hypothesis' => 'Some valid hypothesis long enough to be accepted here',
         ]);
 
@@ -160,7 +160,7 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_ac3_missing_atlas_adaptation_hypothesis_is_rejected(): void
     {
         $r = $this->svc()->toTaskOpportunity([
-            'provenance'         => 'github:repo#1',
+            'provenance' => 'github:repo#1',
             'comparison_summary' => 'Some comparison text here',
         ]);
 
@@ -181,8 +181,8 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     {
         // Entry with all required fields but hype wording + vague hypothesis + no allowed_files_hint
         $r = $this->svc()->toTaskOpportunity([
-            'provenance'                  => 'github:owner/repo#1',
-            'comparison_summary'          => 'This is revolutionary and completely transforms the pipeline',
+            'provenance' => 'github:owner/repo#1',
+            'comparison_summary' => 'This is revolutionary and completely transforms the pipeline',
             'atlas_adaptation_hypothesis' => 'game changer',  // vague + hype
         ]);
 
@@ -195,13 +195,13 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_ac4_below_floor_returns_score_explanation_not_draft(): void
     {
         // Deliberately triggers multiple penalties to sink below 0.50:
-        // stale provenance (no prefix): -0.20
-        // vague hypothesis (<30 chars):  -0.25
-        // missing allowed_files_hint:    -0.15
-        // total: -0.60 → score 0.40
+        // hype wording:             -0.15
+        // vague hypothesis (<30):   -0.25
+        // missing allowed_files:    -0.15
+        // total: -0.55 → score 0.45
         $r = $this->svc()->toTaskOpportunity([
-            'provenance'                  => 'some internal note',   // no trusted prefix
-            'comparison_summary'          => 'Some comparison here',
+            'provenance' => 'atlas:pattern-note',     // trusted prefix → passes check
+            'comparison_summary' => 'completely transforms and revolutionary',  // hype → penalty
             'atlas_adaptation_hypothesis' => 'short',               // < 30 chars
         ]);
 
@@ -216,9 +216,9 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_ac4_score_explanation_contains_penalty_keys(): void
     {
         $r = $this->svc()->toTaskOpportunity([
-            'provenance'                  => 'some internal note',   // no trusted prefix → penalty
-            'comparison_summary'          => 'Comparison text',
-            'atlas_adaptation_hypothesis' => 'short',               // < 30 chars → penalty
+            'provenance' => 'atlas:pattern-note',   // trusted prefix → passes provenance check
+            'comparison_summary' => 'completely transforms and revolutionary',   // hype → penalty
+            'atlas_adaptation_hypothesis' => 'short',               // < 30 chars → penalty → below min score
         ]);
 
         $this->assertSame('below_minimum_adoption_score', $r['rejection_reason']);
@@ -240,11 +240,11 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
         $this->assertTrue($r['accepted']);
         $this->assertNull($r['rejection_reason']);
         $this->assertNotNull($r['draft']);
-        $this->assertArrayHasKey('source_provenance',     $r['draft']);
+        $this->assertArrayHasKey('source_provenance', $r['draft']);
         $this->assertArrayHasKey('adaptation_hypothesis', $r['draft']);
-        $this->assertArrayHasKey('anti_hype_risks',       $r['draft']);
-        $this->assertArrayHasKey('adoption_score',        $r['draft']);
-        $this->assertArrayHasKey('score_explanation',     $r['draft']);
+        $this->assertArrayHasKey('anti_hype_risks', $r['draft']);
+        $this->assertArrayHasKey('adoption_score', $r['draft']);
+        $this->assertArrayHasKey('score_explanation', $r['draft']);
     }
 
     public function test_ac4_passing_entry_includes_runnable_acceptance_hint(): void
@@ -269,7 +269,7 @@ final class AtlasExternalBrainResearchPatternPlanTest extends TestCase
     public function test_deterministic_to_task_opportunity(): void
     {
         $entry = $this->passingEntry();
-        $svc   = $this->svc();
+        $svc = $this->svc();
         $this->assertSame(
             json_encode($svc->toTaskOpportunity($entry), JSON_UNESCAPED_SLASHES),
             json_encode($svc->toTaskOpportunity($entry), JSON_UNESCAPED_SLASHES),

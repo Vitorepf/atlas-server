@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Models\HermesCapabilityCandidate;
 use App\Models\HermesSkillCandidate;
+use App\Services\Ai\Concerns\HasAttachmentPath;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Hermes\Acp\AtlasHermesAcpRuntime;
 use App\Services\Ai\Hermes\Acp\HermesAcpChannel;
@@ -27,11 +28,11 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 class HermesCliProvider implements AiProvider
 {
+    use HasAttachmentPath;
     use RunsCliProcesses;
 
     public function __construct(
@@ -46,10 +47,10 @@ class HermesCliProvider implements AiProvider
         private readonly HermesDelegationAdapter $delegationAdapter,
         private readonly HermesHookBridge $hookBridge,
         private readonly HermesResultPacketFactory $resultPackets,
-        private readonly AtlasHermesAcpRuntime $acpRuntime = new AtlasHermesAcpRuntime(),
-        private readonly HermesAcpSessionPool $acpPool = new HermesAcpSessionPool(),
-        private readonly HermesSkillProvisioner $skillProvisioner = new HermesSkillProvisioner(new Filesystem(), new HermesSkillProvisionGate()),
-        private readonly ManagedHermesHome $managedHome = new ManagedHermesHome(new Filesystem()),
+        private readonly AtlasHermesAcpRuntime $acpRuntime = new AtlasHermesAcpRuntime,
+        private readonly HermesAcpSessionPool $acpPool = new HermesAcpSessionPool,
+        private readonly HermesSkillProvisioner $skillProvisioner = new HermesSkillProvisioner(new Filesystem, new HermesSkillProvisionGate),
+        private readonly ManagedHermesHome $managedHome = new ManagedHermesHome(new Filesystem),
     ) {}
 
     /**
@@ -1240,36 +1241,6 @@ class HermesCliProvider implements AiProvider
     private function csvCapabilityIds(mixed $value): array
     {
         return AiStringListNormalizer::csvOrArray($value);
-    }
-
-    private function attachmentPath(mixed $path): ?string
-    {
-        if (! is_string($path) || trim($path) === '') {
-            return null;
-        }
-
-        $path = trim($path);
-        if (File::isFile($path)) {
-            return realpath($path) ?: $path;
-        }
-
-        $storagePrefix = '/app/storage/';
-        if (str_starts_with($path, $storagePrefix)) {
-            $candidate = storage_path(substr($path, strlen($storagePrefix)));
-            if (File::isFile($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        $appPrefix = '/app/';
-        if (str_starts_with($path, $appPrefix)) {
-            $candidate = base_path(substr($path, strlen($appPrefix)));
-            if (File::isFile($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        return null;
     }
 
     private function safeAttachmentLabel(string $value): string

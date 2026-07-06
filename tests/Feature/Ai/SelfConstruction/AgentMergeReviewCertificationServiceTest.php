@@ -374,4 +374,45 @@ final class AgentMergeReviewCertificationServiceTest extends TestCase
         $this->assertFalse($result['certified']);
         $this->assertNotEmpty($result['missing_evidence']);
     }
+
+    // ── AC2: certifySuccessClaim fails when evidence is vague, stale or lacks concrete command ──
+
+    public function test_vague_evidence_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['runnable_proof_present' => false]));
+
+        $this->assertFalse($result['certified']);
+    }
+
+    public function test_evidence_lacking_concrete_command_is_rejected(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['runnable_proof_present' => false]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertNotEmpty($result['missing_evidence']);
+    }
+
+    // ── AC3: certification fails when scope verification is not clean ────────
+
+    public function test_scope_verification_not_clean_fails_even_with_green_tests(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim(['scope_clean' => false]));
+
+        $this->assertFalse($result['certified']);
+        $this->assertNotEmpty($result['missing_evidence']);
+    }
+
+    // ── AC4: certification passes only with fresh executable evidence, clean scope and artifact provenance ──
+
+    public function test_certification_passes_with_fresh_evidence_clean_scope_and_provenance(): void
+    {
+        $svc = new AgentMergeReviewCertificationService;
+        $result = $svc->certifySuccessClaim($this->cleanClaim());
+
+        $this->assertTrue($result['certified']);
+        $this->assertEmpty($result['missing_evidence']);
+    }
 }

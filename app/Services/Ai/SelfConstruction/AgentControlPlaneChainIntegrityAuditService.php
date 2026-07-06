@@ -3,7 +3,6 @@
 namespace App\Services\Ai\SelfConstruction;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Console\Kernel as ConsoleKernelContract;
 
 /**
  * Read-only structural certification of the Atlas Agent Control Plane chain.
@@ -998,7 +997,7 @@ final class AgentControlPlaneChainIntegrityAuditService
 
     private function surfaceAuditor(): AgentControlPlaneChainIntegritySurfaceAuditor
     {
-        return $this->surfaceAuditor ??= new AgentControlPlaneChainIntegritySurfaceAuditor($this);
+        return $this->surfaceAuditorInstance ??= $this->surfaceAuditor ?? new AgentControlPlaneChainIntegritySurfaceAuditor($this);
     }
 
     private function chainBuilder(): AgentControlPlaneChainIntegrityChainBuilder

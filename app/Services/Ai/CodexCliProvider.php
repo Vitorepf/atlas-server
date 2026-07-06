@@ -3,12 +3,15 @@
 namespace App\Services\Ai;
 
 use App\Models\AiJob;
+use App\Services\Ai\Concerns\HasAttachmentPath;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\Streaming\CodexJsonlEventParser;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 
 class CodexCliProvider implements AiProvider
 {
+    use HasAttachmentPath;
     use RunsCliProcesses;
 
     public function __construct(
@@ -69,7 +72,7 @@ class CodexCliProvider implements AiProvider
         $args[] = $tmp;
         $args[] = '-';
 
-        $parser = new \App\Services\Ai\Streaming\CodexJsonlEventParser;
+        $parser = new CodexJsonlEventParser;
         $onEvent = $this->wrapOnEventWithJsonlParser($onEvent, $parser);
 
         $result = $this->runProcessStreaming(
@@ -133,7 +136,7 @@ class CodexCliProvider implements AiProvider
      * Eventos não-stdout (stderr, lifecycle do runner) passam direto — e
      * forçam o flush do resto de linha para preservar a ordem.
      */
-    private function wrapOnEventWithJsonlParser(?callable $onEvent, \App\Services\Ai\Streaming\CodexJsonlEventParser $parser): ?callable
+    private function wrapOnEventWithJsonlParser(?callable $onEvent, CodexJsonlEventParser $parser): ?callable
     {
         if ($onEvent === null) {
             return null;
@@ -349,36 +352,6 @@ class CodexCliProvider implements AiProvider
         }
 
         return rtrim($prompt).implode("\n", $lines);
-    }
-
-    private function attachmentPath(mixed $path): ?string
-    {
-        if (! is_string($path) || trim($path) === '') {
-            return null;
-        }
-
-        $path = trim($path);
-        if (File::isFile($path)) {
-            return realpath($path) ?: $path;
-        }
-
-        $storagePrefix = '/app/storage/';
-        if (str_starts_with($path, $storagePrefix)) {
-            $candidate = storage_path(substr($path, strlen($storagePrefix)));
-            if (File::isFile($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        $appPrefix = '/app/';
-        if (str_starts_with($path, $appPrefix)) {
-            $candidate = base_path(substr($path, strlen($appPrefix)));
-            if (File::isFile($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        return null;
     }
 
     private function safeAttachmentLabel(string $value): string

@@ -127,9 +127,47 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->assertNotNull($learning);
         $this->assertSame($task->id, $taskEntry->task->id);
+        $this->assertSame(0.5, $taskEntry->confidence);
         $this->assertSame('decision', $entries->first()->memory_type);
         $this->assertContains('harness_learning', $entries->pluck('memory_type')->all());
         $this->assertContains('technical_context', $entries->pluck('memory_type')->all());
+    }
+
+    public function test_memory_registry_relevant_context_uses_stable_id_tiebreaker(): void
+    {
+        $this->migrateMemoryTable();
+        $recordedAt = now();
+
+        foreach ([
+            '00000000-0000-4000-8000-000000000003',
+            '00000000-0000-4000-8000-000000000001',
+            '00000000-0000-4000-8000-000000000002',
+        ] as $id) {
+            \Illuminate\Support\Facades\DB::table('atlas_memory_entries')->insert([
+                'id' => $id,
+                'memory_type' => 'technical_context',
+                'scope_type' => 'global',
+                'title' => 'Stable projection memory '.$id,
+                'body' => 'Stable projection memory body '.$id,
+                'importance' => 4,
+                'priority' => 50,
+                'source_type' => 'manual',
+                'recorded_at' => $recordedAt,
+                'created_at' => $recordedAt,
+                'updated_at' => $recordedAt,
+            ]);
+        }
+
+        $ids = app(AtlasMemoryRegistryService::class)
+            ->relevantForContext([], [], 3)
+            ->pluck('id')
+            ->all();
+
+        $this->assertSame([
+            '00000000-0000-4000-8000-000000000001',
+            '00000000-0000-4000-8000-000000000002',
+            '00000000-0000-4000-8000-000000000003',
+        ], $ids);
     }
 
     public function test_memory_api_creates_lists_scoped_entries_and_archives(): void
@@ -208,6 +246,126 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame('CLI memory entry for task scoped recall.', data_get($listPayload, 'memories.0.body'));
         $this->assertSame('atlas.memory_entry.safety.v1', data_get($listPayload, 'memories.0.safety.schema_version'));
         $this->assertFalse(data_get($listPayload, 'memories.0.safety.provider_export_allowed'));
+        $this->assertNull(data_get($listPayload, 'memories.0.last_used_at'));
+
+        $neverRecalledExit = Artisan::call('atlas:memory:list', [
+            '--task-id' => $task->id,
+            '--never-recalled' => true,
+            '--compact' => true,
+            '--json' => true,
+        ]);
+        $neverRecalledPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $neverRecalledExit);
+        $this->assertSame(1, data_get($neverRecalledPayload, 'summary.count'));
+        $this->assertTrue(data_get($neverRecalledPayload, 'summary.filters.never_recalled'));
+        $this->assertFalse(data_get($neverRecalledPayload, 'summary.filters.thin'));
+        $this->assertSame('technical_context', data_get($neverRecalledPayload, 'memories.0.memory_type'));
+        $this->assertArrayNotHasKey('body', data_get($neverRecalledPayload, 'memories.0'));
+
+        $thinExit = Artisan::call('atlas:memory:list', [
+            '--task-id' => $task->id,
+            '--never-recalled' => true,
+            '--thin' => true,
+            '--compact' => true,
+            '--limit' => 1,
+            '--json' => true,
+        ]);
+        $thinPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $thinExit);
+        $this->assertSame([], data_get($thinPayload, 'memories'));
+
+        $thin = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'task',
+            'scope_id' => $task->id,
+            'task_id' => $task->id,
+            'body' => 'Thin task memory repeats its title in the summary.',
+            'priority' => 40,
+            'importance' => 2,
+            'confidence' => 0.5,
+            'source_type' => 'manual',
+            'status' => 'active',
+            'metadata' => [],
+        ]);
+        \Illuminate\Support\Facades\DB::table('atlas_memory_entries')->where('id', $thin->id)->update([
+            'title' => 'Thin task memory',
+            'summary' => 'Thin task memory',
+        ]);
+
+        $thinExit = Artisan::call('atlas:memory:list', [
+            '--task-id' => $task->id,
+            '--never-recalled' => true,
+            '--thin' => true,
+            '--compact' => true,
+            '--json' => true,
+        ]);
+        $thinPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $thinExit);
+        $this->assertSame(1, data_get($thinPayload, 'summary.count'));
+        $this->assertSame(50, data_get($thinPayload, 'summary.limit'));
+        $this->assertFalse(data_get($thinPayload, 'summary.possibly_truncated'));
+        $this->assertTrue(data_get($thinPayload, 'summary.filters.never_recalled'));
+        $this->assertTrue(data_get($thinPayload, 'summary.filters.thin'));
+        $this->assertTrue(data_get($thinPayload, 'summary.filters.compact'));
+        $this->assertSame($thin->id, data_get($thinPayload, 'memories.0.id'));
+        $this->assertArrayNotHasKey('body', data_get($thinPayload, 'memories.0'));
+        $this->assertSame('Thin task memory repeats its title in the summary.', data_get($thinPayload, 'memories.0.body_excerpt'));
+        $this->assertCount(1, data_get($thinPayload, 'memories'));
+
+        $limitedExit = Artisan::call('atlas:memory:list', [
+            '--task-id' => $task->id,
+            '--never-recalled' => true,
+            '--thin' => true,
+            '--compact' => true,
+            '--limit' => 1,
+            '--json' => true,
+        ]);
+        $limitedPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $limitedExit);
+        $this->assertTrue(data_get($limitedPayload, 'summary.possibly_truncated'));
+
+        $curateExit = Artisan::call('atlas:memory:curate', [
+            'id' => $thin->id,
+            '--summary' => 'Reviewed useful summary for the thin task memory.',
+            '--note' => 'Feature test summary curation.',
+            '--json' => true,
+        ]);
+        $curatePayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $curateExit);
+        $this->assertSame('Reviewed useful summary for the thin task memory.', data_get($curatePayload, 'memory.summary'));
+        $this->assertSame('summary_update', data_get($curatePayload, 'memory.metadata.curation_history.0.action'));
+        $this->assertSame('Reviewed useful summary for the thin task memory.', $thin->refresh()->summary);
+
+        $curatedThinExit = Artisan::call('atlas:memory:list', [
+            '--task-id' => $task->id,
+            '--never-recalled' => true,
+            '--thin' => true,
+            '--compact' => true,
+            '--json' => true,
+        ]);
+        $curatedThinPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $curatedThinExit);
+        $this->assertSame([], data_get($curatedThinPayload, 'memories'));
+
+        $archiveExit = Artisan::call('atlas:memory:curate', [
+            'id' => $thin->id,
+            '--archive' => true,
+            '--note' => 'Feature test archive curation.',
+            '--json' => true,
+        ]);
+        $archivePayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $archiveExit);
+        $this->assertSame('archived', data_get($archivePayload, 'memory.status'));
+        $this->assertNotNull(data_get($archivePayload, 'memory.archived_at'));
+        $this->assertSame('archive', data_get($archivePayload, 'memory.metadata.curation_history.1.action'));
+        $this->assertSame('archived', $thin->refresh()->status);
     }
 
     public function test_ai_context_pack_includes_registry_memory_refs_and_prompt_section(): void
@@ -731,6 +889,43 @@ class AtlasMemoryRegistryTest extends TestCase
             'source_type' => 'manual',
             'metadata' => [],
         ]);
+        AtlasMemoryEntry::query()->create([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'global',
+            'title' => 'Quality unscored memory',
+            'body' => 'This active memory has not been recalled and has no confidence yet.',
+            'summary' => 'Unscored memory quality.',
+            'priority' => 40,
+            'importance' => 2,
+            'confidence' => null,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        AtlasMemoryEntry::query()->create([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'global',
+            'title' => 'Thin never recalled memory',
+            'body' => 'This active memory has not been recalled and its summary repeats the title.',
+            'summary' => 'Thin never recalled memory',
+            'priority' => 40,
+            'importance' => 2,
+            'confidence' => 0.5,
+            'source_type' => 'manual',
+            'metadata' => [],
+        ]);
+        AtlasMemoryEntry::query()->create([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'global',
+            'title' => 'Stale never recalled memory',
+            'body' => 'This active memory has not been recalled long enough to deserve review.',
+            'summary' => 'Old unrecalled memory quality.',
+            'priority' => 40,
+            'importance' => 2,
+            'confidence' => 0.5,
+            'source_type' => 'manual',
+            'metadata' => [],
+            'recorded_at' => now()->subDays(60),
+        ]);
         app(AtlasMemoryGovernanceService::class)->scan(['scope_type' => 'global'], dryRun: false);
         $usage = $this->usage($safe);
         $usage->forceFill([
@@ -755,6 +950,17 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertArrayHasKey('retrieval_eval', $scorecard['components']);
         $this->assertContains('accepted_learning_not_promoted', collect($scorecard['issues'])->pluck('code')->all());
         $this->assertContains('retrieval_eval_negative_feedback', collect($scorecard['issues'])->pluck('code')->all());
+        $this->assertContains('retrieval_eval_stale_never_recalled_entries', collect($scorecard['issues'])->pluck('code')->all());
+        $this->assertContains('thin_never_recalled_memory_entries', collect($scorecard['issues'])->pluck('code')->all());
+        $this->assertGreaterThan(0, data_get($scorecard, 'counts.missing_confidence_active'));
+        $this->assertGreaterThan(0, data_get($scorecard, 'counts.retrieval_eval.active_entries_never_recalled'));
+        $this->assertSame(1, data_get($scorecard, 'counts.retrieval_eval.stale_never_recalled_active'));
+        $this->assertSame(1, data_get($scorecard, 'counts.retrieval_eval.thin_never_recalled_active'));
+        $this->assertContains('./bin/atlas memory maintain --json', $scorecard['recommendations']);
+        $this->assertContains('./bin/atlas memory maintain --dry-run --no-sync --no-index-code --no-promote-learnings --no-quality-snapshot --json', $scorecard['recommendations']);
+        $this->assertContains('./bin/atlas memory list --status=active --never-recalled --compact --limit=50 --json', $scorecard['recommendations']);
+        $this->assertContains('./bin/atlas memory list --status=active --never-recalled --thin --compact --limit=50 --json', $scorecard['recommendations']);
+        $this->assertContains('Review thin never-recalled memory entries: enrich summaries or archive low-value entries.', $scorecard['recommendations']);
 
         $this->getJson('/ai/memory/quality', $this->headers)
             ->assertOk()
@@ -1252,6 +1458,33 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertFalse(data_get($payload, 'memory.safety.raw_content_exposed'));
         $this->assertSame([], data_get($this->contextPackForTask($project, $task)->toArray(), 'memory.registry'));
 
+        $applyAllowExit = Artisan::call('atlas:memory:privacy', [
+            'action' => 'apply',
+            '--id' => $memoryId,
+            '--allow-external-ai' => true,
+            '--note' => 'Apply by id should behave like a single reviewed memory change.',
+            '--json' => true,
+        ]);
+        $applyAllowPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $applyAllowExit);
+        $this->assertTrue(data_get($applyAllowPayload, 'memory.external_ai_allowed'));
+        $this->assertSame($memoryId, data_get($this->contextPackForTask($project, $task)->toArray(), 'memory.registry.0.id'));
+
+        $applyBlockExit = Artisan::call('atlas:memory:privacy', [
+            'action' => 'apply',
+            '--id' => $memoryId,
+            '--block-external-ai' => true,
+            '--note' => 'Apply by id should block this memory from provider context.',
+            '--json' => true,
+        ]);
+        $applyBlockPayload = json_decode(Artisan::output(), true);
+
+        $this->assertSame(0, $applyBlockExit);
+        $this->assertFalse(data_get($applyBlockPayload, 'memory.external_ai_allowed'));
+        $this->assertFalse(AtlasMemoryEntry::query()->findOrFail($memoryId)->external_ai_allowed);
+        $this->assertSame([], data_get($this->contextPackForTask($project, $task)->toArray(), 'memory.registry'));
+
         $scanExit = Artisan::call('atlas:memory:privacy', [
             'action' => 'scan',
             '--task-id' => $task->id,
@@ -1288,6 +1521,16 @@ class AtlasMemoryRegistryTest extends TestCase
             'task_id' => $task->id,
             'title' => 'Normal queue memory',
             'body' => 'This clean memory should not enter the default review queue.',
+            'privacy_class' => 'normal',
+        ]);
+        $thinEntry = $registry->record([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'task',
+            'project_id' => $project->id,
+            'task_id' => $task->id,
+            'title' => 'Thin review queue memory',
+            'summary' => 'Thin review queue memory',
+            'body' => 'This useful memory body needs a better summary before it belongs in compact context.',
             'privacy_class' => 'normal',
         ]);
         $verbatim = app(AtlasVerbatimMemoryService::class)->record([
@@ -1329,22 +1572,26 @@ class AtlasMemoryRegistryTest extends TestCase
 
         $this->getJson("/ai/memory/review-queue?task_id={$task->id}", $this->headers)
             ->assertOk()
-            ->assertJsonPath('review_queue.total', 3)
+            ->assertJsonPath('review_queue.total', 4)
             ->assertJsonPath('review_queue.counts.memory_privacy', 1)
             ->assertJsonPath('review_queue.counts.verbatim_privacy', 1)
-            ->assertJsonPath('review_queue.counts.relation', 1);
+            ->assertJsonPath('review_queue.counts.relation', 1)
+            ->assertJsonPath('review_queue.counts.memory_quality', 1);
 
         $payload = $this->getJson("/ai/memory/review-queue?task_id={$task->id}", $this->headers)->json();
         $items = collect(data_get($payload, 'review_queue.items', []));
         $this->assertContains('memory_privacy', $items->pluck('kind')->all());
         $this->assertContains('verbatim_privacy', $items->pluck('kind')->all());
         $this->assertContains('relation', $items->pluck('kind')->all());
+        $this->assertContains('memory_quality', $items->pluck('kind')->all());
         $this->assertContains('memory_privacy:'.$sensitiveEntry->id, $items->pluck('id')->all());
         $this->assertContains('verbatim_privacy:'.$verbatim->id, $items->pluck('id')->all());
         $this->assertContains('relation:'.$relation->id, $items->pluck('id')->all());
+        $this->assertContains('memory_quality:'.$thinEntry->id, $items->pluck('id')->all());
         $memoryItem = $items->firstWhere('id', 'memory_privacy:'.$sensitiveEntry->id);
         $verbatimItem = $items->firstWhere('id', 'verbatim_privacy:'.$verbatim->id);
         $relationItem = $items->firstWhere('id', 'relation:'.$relation->id);
+        $qualityItem = $items->firstWhere('id', 'memory_quality:'.$thinEntry->id);
         $this->assertSame('atlas.memory_entry.safety.v1', data_get($memoryItem, 'safety.schema_version'));
         $this->assertFalse(data_get($memoryItem, 'safety.provider_export_allowed'));
         $this->assertFalse(data_get($memoryItem, 'safety.raw_content_exposed'));
@@ -1352,6 +1599,10 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertFalse(data_get($verbatimItem, 'safety.provider_export_allowed'));
         $this->assertFalse(data_get($verbatimItem, 'safety.verbatim_text_exposed'));
         $this->assertSame('atlas.memory_entry.safety.v1', data_get($relationItem, 'source_memory.safety.schema_version'));
+        $this->assertSame('thin_never_recalled_summary', data_get($qualityItem, 'review_type'));
+        $this->assertFalse(data_get($qualityItem, 'safety.raw_body_exposed'));
+        $this->assertStringContainsString('needs a better summary', data_get($qualityItem, 'body_excerpt'));
+        $this->assertArrayNotHasKey('body', $qualityItem);
 
         $exitCode = Artisan::call('atlas:memory:review-queue', [
             '--task-id' => $task->id,
@@ -1360,10 +1611,11 @@ class AtlasMemoryRegistryTest extends TestCase
         $cliPayload = json_decode(Artisan::output(), true);
 
         $this->assertSame(0, $exitCode);
-        $this->assertSame(3, data_get($cliPayload, 'review_queue.total'));
+        $this->assertSame(4, data_get($cliPayload, 'review_queue.total'));
         $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.memory_privacy'));
         $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.verbatim_privacy'));
         $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.relation'));
+        $this->assertSame(1, data_get($cliPayload, 'review_queue.counts.memory_quality'));
         $this->assertSame('atlas.memory_entry.safety.v1', data_get($cliPayload, 'review_queue.items.0.safety.schema_version'));
     }
 
@@ -2319,6 +2571,9 @@ class AtlasMemoryRegistryTest extends TestCase
         $this->assertSame(1, $exit);
         $this->assertFalse($payload['ok']);
         $this->assertSame('needs_memory', data_get($payload, 'stages.mcp_health.overall_status'));
+        $this->assertSame('current', data_get($payload, 'stages.mcp_health.mcp_runtime_source_probe.status'));
+        $this->assertSame('current', data_get($payload, 'stages.mcp_health.mcp_runtime_source_probe.components.context_pack.status'));
+        $this->assertSame([], data_get($payload, 'stages.mcp_health.mcp_runtime_source_probe.missing_loaded_feature_flags'));
         $this->assertSame('skipped', data_get($payload, 'stages.knowledge_sync.status'));
         $this->assertSame('skipped', data_get($payload, 'stages.code_index.status'));
         $this->assertContains('/opt/homebrew/bin/php artisan atlas:memory:seed-core', data_get($payload, 'stages.mcp_health.next_actions', []));
@@ -2339,6 +2594,8 @@ class AtlasMemoryRegistryTest extends TestCase
             ->assertStatus(409)
             ->assertJsonPath('memory_maintenance.ok', false)
             ->assertJsonPath('memory_maintenance.status', 'needs_memory')
+            ->assertJsonPath('memory_maintenance.stages.mcp_health.mcp_runtime_source_probe.status', 'current')
+            ->assertJsonPath('memory_maintenance.stages.mcp_health.mcp_runtime_source_probe.components.context_pack.status', 'current')
             ->assertJsonPath('memory_maintenance.stages.knowledge_sync.status', 'skipped')
             ->assertJsonPath('memory_maintenance.stages.code_index.status', 'skipped')
             ->json('memory_maintenance');

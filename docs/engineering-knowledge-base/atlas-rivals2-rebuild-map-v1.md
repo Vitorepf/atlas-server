@@ -24,6 +24,7 @@ maintenance:
   - Atualizar este doc a cada slice do rebuild concluido.
   - Este doc e a fonte de verdade da classificacao A/B/C/D do 1.0.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/Rivals/
   - app/Console/Commands/AtlasRivals2Command.php
   - config/atlas_rivals.php

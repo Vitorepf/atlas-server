@@ -53,7 +53,7 @@ class AtlasMemoryQualityService
         $counts = $this->counts($entries, $active, $providerSafe);
         $relations = $this->relationCounts($activeEntryIds);
         $feedback = $this->feedbackCounts($activeEntryIds);
-        $retrievalEval = $this->retrievalEvalCounts($activeEntryIds);
+        $retrievalEval = $this->retrievalEvalCounts($activeEntryIds, $active);
         $deltas = $this->deltaCounts($filters);
         $sourceIntegrity = $this->sourceIntegrity($active);
         $ratios = $this->ratios($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval);
@@ -370,9 +370,10 @@ class AtlasMemoryQualityService
 
     /**
      * @param  array<int,string>  $activeEntryIds
+     * @param  Collection<int,AtlasMemoryEntry>  $active
      * @return array<string,int>
      */
-    private function retrievalEvalCounts(array $activeEntryIds): array
+    private function retrievalEvalCounts(array $activeEntryIds, Collection $active): array
     {
         if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [
@@ -380,6 +381,8 @@ class AtlasMemoryQualityService
                 'recall_usage_total' => 0,
                 'entries_recalled' => 0,
                 'active_entries_never_recalled' => count($activeEntryIds),
+                'stale_never_recalled_active' => $this->staleNeverRecalledCount($active, collect()),
+                'thin_never_recalled_active' => $this->thinNeverRecalledCount($active, collect()),
                 'recall_feedback_total' => 0,
                 'recall_negative_feedback' => 0,
                 'recall_stale_feedback' => 0,
@@ -393,6 +396,8 @@ class AtlasMemoryQualityService
                 'recall_usage_total' => 0,
                 'entries_recalled' => 0,
                 'active_entries_never_recalled' => 0,
+                'stale_never_recalled_active' => 0,
+                'thin_never_recalled_active' => 0,
                 'recall_feedback_total' => 0,
                 'recall_negative_feedback' => 0,
                 'recall_stale_feedback' => 0,
@@ -416,11 +421,61 @@ class AtlasMemoryQualityService
             'recall_usage_total' => (clone $query)->count(),
             'entries_recalled' => $recalledIds->count(),
             'active_entries_never_recalled' => max(0, count($activeEntryIds) - $recalledIds->count()),
+            'stale_never_recalled_active' => $this->staleNeverRecalledCount($active, $recalledIds),
+            'thin_never_recalled_active' => $this->thinNeverRecalledCount($active, $recalledIds),
             'recall_feedback_total' => (clone $feedback)->count(),
             'recall_negative_feedback' => (clone $feedback)->whereIn('feedback_action', $negative)->count(),
             'recall_stale_feedback' => (clone $feedback)->where('feedback_action', 'stale')->count(),
             'recall_wrong_context_feedback' => (clone $feedback)->where('feedback_action', 'wrong_context')->count(),
         ];
+    }
+
+    /**
+     * @param  Collection<int,AtlasMemoryEntry>  $active
+     * @param  Collection<int,string>  $recalledIds
+     */
+    private function thinNeverRecalledCount(Collection $active, Collection $recalledIds): int
+    {
+        $recalled = $recalledIds->flip();
+
+        return $active->filter(function (AtlasMemoryEntry $entry) use ($recalled): bool {
+            $id = (string) $entry->id;
+            if ($id === '' || $recalled->has($id)) {
+                return false;
+            }
+
+            if (! is_string($entry->summary) || ! is_string($entry->title)) {
+                return false;
+            }
+
+            $summary = $this->memoryTextKey($entry->summary);
+            $title = $this->memoryTextKey($entry->title);
+
+            return $summary !== '' && $summary === $title;
+        })->count();
+    }
+
+    /**
+     * @param  Collection<int,AtlasMemoryEntry>  $active
+     * @param  Collection<int,string>  $recalledIds
+     */
+    private function staleNeverRecalledCount(Collection $active, Collection $recalledIds): int
+    {
+        $staleBefore = now()->subDays(45);
+        $recalled = $recalledIds->flip();
+
+        return $active->filter(function (AtlasMemoryEntry $entry) use ($recalled, $staleBefore): bool {
+            $id = (string) $entry->id;
+
+            return $id !== ''
+                && ! $recalled->has($id)
+                && ($entry->recorded_at === null || $entry->recorded_at->lessThan($staleBefore));
+        })->count();
+    }
+
+    private function memoryTextKey(string $value): string
+    {
+        return preg_replace('/\s+/', ' ', mb_strtolower(trim($value))) ?? '';
     }
 
     /**
@@ -518,7 +573,7 @@ class AtlasMemoryQualityService
             'stale_unused_ratio' => $this->ratio((int) $counts['stale_unused_active'], $active),
             'privacy_review_needed_ratio' => $this->ratio((int) $counts['privacy_review_needed'], $active),
             'negative_feedback_ratio' => $this->ratio((int) $feedback['negative'], $feedbackTotal),
-            'retrieval_recall_coverage_ratio' => $this->ratio((int) $retrievalEval['entries_recalled'], $active),
+            'retrieval_recall_coverage_ratio' => $this->ratio((int) $retrievalEval['entries_recalled'], max(1, (int) $retrievalEval['entries_recalled'] + (int) ($retrievalEval['stale_never_recalled_active'] ?? 0))),
             'retrieval_negative_feedback_ratio' => $this->ratio((int) $retrievalEval['recall_negative_feedback'], $recallFeedbackTotal),
             'open_relation_ratio' => $this->ratio((int) $relations['open'], $active),
             'source_orphan_ratio' => $this->ratio((int) $sourceIntegrity['orphaned'], $checked),
@@ -596,6 +651,12 @@ class AtlasMemoryQualityService
         if ($counts['active'] > 0 && $retrievalEval['recall_usage_total'] < 1) {
             $issues[] = ['code' => 'retrieval_eval_missing_usage', 'severity' => 'info'];
         }
+        if ((int) ($retrievalEval['stale_never_recalled_active'] ?? 0) > 0) {
+            $issues[] = ['code' => 'retrieval_eval_stale_never_recalled_entries', 'severity' => 'info', 'count' => $retrievalEval['stale_never_recalled_active']];
+        }
+        if ((int) ($retrievalEval['thin_never_recalled_active'] ?? 0) > 0) {
+            $issues[] = ['code' => 'thin_never_recalled_memory_entries', 'severity' => 'info', 'count' => $retrievalEval['thin_never_recalled_active']];
+        }
         if ($retrievalEval['recall_wrong_context_feedback'] > 0 || $retrievalEval['recall_stale_feedback'] > 0) {
             $issues[] = ['code' => 'retrieval_eval_negative_feedback', 'severity' => 'warning', 'count' => $retrievalEval['recall_negative_feedback']];
         }
@@ -633,8 +694,15 @@ class AtlasMemoryQualityService
         if ($relations['open'] > 0) {
             $actions[] = './bin/atlas memory relations --status=open --json';
         }
-        if ((int) ($retrievalEval['recall_usage_total'] ?? 0) < 1) {
-            $actions[] = './bin/atlas memory recall "contexto critico" --json';
+        if ((int) ($retrievalEval['stale_never_recalled_active'] ?? 0) > 0) {
+            $actions[] = './bin/atlas memory list --status=active --never-recalled --compact --limit=50 --json';
+        }
+        if ((int) ($retrievalEval['thin_never_recalled_active'] ?? 0) > 0) {
+            $actions[] = './bin/atlas memory list --status=active --never-recalled --thin --compact --limit=50 --json';
+            $actions[] = 'Review thin never-recalled memory entries: enrich summaries or archive low-value entries.';
+        }
+        if ((int) ($counts['missing_confidence_active'] ?? 0) > 0) {
+            $actions[] = './bin/atlas memory maintain'.$workspaceArg.' --dry-run --no-sync --no-index-code --no-promote-learnings --no-quality-snapshot --json';
         }
         if ($counts['privacy_review_needed'] > 0 || $counts['provider_blocked_active'] > 0) {
             $actions[] = './bin/atlas memory review-queue --json';

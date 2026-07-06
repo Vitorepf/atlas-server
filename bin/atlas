@@ -617,6 +617,10 @@ case "$cmd" in
     shift || true
     subcmd="${1:-review}"
     case "$subcmd" in
+      list)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:memory:list "$@"
+        ;;
       seed-core|seed)
         shift || true
         exec "$PHP_BIN" artisan atlas:memory:seed-core "$@"
@@ -632,6 +636,10 @@ case "$cmd" in
       review-queue|queue)
         shift || true
         exec "$PHP_BIN" artisan atlas:memory:review-queue "$@"
+        ;;
+      curate|curation)
+        shift || true
+        exec "$PHP_BIN" artisan atlas:memory:curate "$@"
         ;;
       relation|relations)
         shift || true

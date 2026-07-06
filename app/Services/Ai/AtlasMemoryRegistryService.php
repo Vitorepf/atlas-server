@@ -10,6 +10,7 @@ use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\MemoryScopeHelpers;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -18,7 +19,7 @@ use Throwable;
 
 class AtlasMemoryRegistryService
 {
-    use \App\Services\Ai\Support\MemoryScopeHelpers;
+    use MemoryScopeHelpers;
 
     private AtlasMemoryPrivacyService $privacy;
 
@@ -72,6 +73,37 @@ class AtlasMemoryRegistryService
         $this->accrueRealityGraph($entry);
 
         return $entry;
+    }
+
+    /**
+     * @param  array<string,mixed>  $attributes
+     */
+    public function curate(AtlasMemoryEntry|string $entry, array $attributes): AtlasMemoryEntry
+    {
+        $entry = $entry instanceof AtlasMemoryEntry
+            ? $entry
+            : AtlasMemoryEntry::query()->findOrFail($entry);
+
+        $metadata = $entry->metadata ?? [];
+        $history = array_values((array) data_get($metadata, 'curation_history', []));
+        $history[] = array_filter([
+            'action' => ($attributes['status'] ?? null) === 'archived' ? 'archive' : 'summary_update',
+            'note' => isset($attributes['curation_note']) ? trim((string) $attributes['curation_note']) : null,
+            'at' => now()->toJSON(),
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
+        data_set($metadata, 'curation_history', $history);
+
+        $current = array_intersect_key($entry->getAttributes(), array_flip($entry->getFillable()));
+        $payload = $this->normalize(array_merge($current, [
+            'tags' => $entry->tags ?? [],
+            'metadata' => $metadata,
+        ], $attributes));
+
+        $entry->fill($payload)->save();
+        $this->semanticIndexer->indexEntry($entry);
+        $this->accrueRealityGraph($entry);
+
+        return $entry->refresh();
     }
 
     /**
@@ -443,6 +475,19 @@ class AtlasMemoryRegistryService
             $query->where('source_type', $filters['source_type']);
         }
 
+        if ((bool) ($filters['never_recalled'] ?? false) && DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
+            $query->whereDoesntHave('usages', fn (Builder $usage): Builder => $usage->where('source_type', 'memory_recall'));
+        }
+
+        if ((bool) ($filters['thin'] ?? false)) {
+            $query
+                ->whereNotNull('title')
+                ->whereNotNull('summary')
+                ->whereRaw("trim(title) <> ''")
+                ->whereRaw("trim(summary) <> ''")
+                ->whereRaw('lower(trim(summary)) = lower(trim(title))');
+        }
+
         if (is_string($filters['privacy_class'] ?? null) && $filters['privacy_class'] !== '' && DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'privacy_class')) {
             $query->where('privacy_class', $filters['privacy_class']);
         }
@@ -454,7 +499,8 @@ class AtlasMemoryRegistryService
         return $query
             ->orderByDesc('priority')
             ->orderByDesc('importance')
-            ->latest('recorded_at');
+            ->latest('recorded_at')
+            ->orderBy('id');
     }
 
     private function memoryType(mixed $type): string
@@ -467,7 +513,7 @@ class AtlasMemoryRegistryService
     private function confidence(mixed $confidence): ?float
     {
         if ($confidence === null || $confidence === '') {
-            return null;
+            return 0.5;
         }
 
         return max(0, min(1, (float) $confidence));

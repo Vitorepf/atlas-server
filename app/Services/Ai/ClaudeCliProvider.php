@@ -3,12 +3,13 @@
 namespace App\Services\Ai;
 
 use App\Models\AiJob;
+use App\Services\Ai\Concerns\HasAttachmentPath;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Support\AiStringListNormalizer;
-use Illuminate\Support\Facades\File;
 
 class ClaudeCliProvider implements AiProvider
 {
+    use HasAttachmentPath;
     use RunsCliProcesses;
 
     private string $streamJsonBuffer = '';
@@ -454,36 +455,6 @@ class ClaudeCliProvider implements AiProvider
         }
 
         return array_values($paths);
-    }
-
-    private function attachmentPath(mixed $path): ?string
-    {
-        if (! is_string($path) || trim($path) === '') {
-            return null;
-        }
-
-        $path = trim($path);
-        if (File::isFile($path)) {
-            return realpath($path) ?: $path;
-        }
-
-        $storagePrefix = '/app/storage/';
-        if (str_starts_with($path, $storagePrefix)) {
-            $candidate = storage_path(substr($path, strlen($storagePrefix)));
-            if (File::isFile($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        $appPrefix = '/app/';
-        if (str_starts_with($path, $appPrefix)) {
-            $candidate = base_path(substr($path, strlen($appPrefix)));
-            if (File::isFile($candidate)) {
-                return realpath($candidate) ?: $candidate;
-            }
-        }
-
-        return null;
     }
 
     private function withImageAttachmentInstructions(string $prompt, AiJob $job): string

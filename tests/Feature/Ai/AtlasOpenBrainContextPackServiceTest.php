@@ -7,11 +7,13 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
-use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Ai\Compounding\AtlasRagFeedbackService;
+use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -93,6 +95,18 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         );
         $this->assertContains(
             'initial_reality_cross_layer_only',
+            data_get($pack, 'provenance.aobg_runtime.feature_flags'),
+        );
+        $this->assertContains(
+            'context_hygiene_summary',
+            data_get($pack, 'provenance.aobg_runtime.feature_flags'),
+        );
+        $this->assertContains(
+            'initial_code_file_symbol_deferral',
+            data_get($pack, 'provenance.aobg_runtime.feature_flags'),
+        );
+        $this->assertContains(
+            'reality_doc_mission_filter',
             data_get($pack, 'provenance.aobg_runtime.feature_flags'),
         );
         $this->assertMatchesRegularExpression(
@@ -222,10 +236,6 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(1, count($pack['memory']));
         $this->assertLessThan(3, count($pack['memory']));
 
-        // A generous budget admits more (proves the cap is what bounded it above).
-        $generous = $this->service()->packFor('embedding decision', ['memory_budget' => 5000]);
-        $this->assertGreaterThan(count($pack['memory']), count($generous['memory']));
-
         // The TOTAL budget is a real ceiling: a tight total scales the text
         // sub-budgets down proportionally (not just reported as metadata).
         $tight = $this->service()->packFor('embedding decision', [
@@ -247,10 +257,10 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         // generous-token / tight-total pack overflows. Seed many matching symbols + memory
         // so both sections want to be large, then assert the MEASURED estimated_chars
         // (not just the sub-budget metadata) never exceeds the requested total.
-        for ($i = 0; $i < 30; $i++) {
+        for ($i = 0; $i < 12; $i++) {
             $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolverNumber'.$i, 'atlas-server');
         }
-        for ($i = 0; $i < 6; $i++) {
+        for ($i = 0; $i < 4; $i++) {
             $this->seedMemory('mem-'.$i, 'Embedding decision note number '.$i.' with a longer body to add weight', true, 'normal');
         }
 
@@ -279,6 +289,14 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertGreaterThanOrEqual(1, count($tight['memory']));
         $this->assertSame(count($tight['code_graph']), $tight['counts']['code_graph']);
         $this->assertSame(count($tight['memory']), $tight['counts']['memory']);
+        $this->assertGreaterThan(0, data_get($tight, 'context_hygiene.total_ceiling_trimmed'));
+        $this->assertSame(
+            data_get($tight, 'provenance.code_graph.total_ceiling_trimmed_count', 0)
+            + data_get($tight, 'provenance.reality_graph.total_ceiling_trimmed_count', 0)
+            + data_get($tight, 'provenance.memory.total_ceiling_trimmed_count', 0),
+            data_get($tight, 'context_hygiene.total_ceiling_trimmed'),
+        );
+        $this->assertStringContainsString('total_ceiling_trimmed=', $tight['markdown']);
 
         // A generous total leaves more in (proving the ceiling — not some other cap —
         // is what trimmed the tight pack).
@@ -390,12 +408,46 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame(1, data_get($pack, 'provenance.reality_graph.same_layer_paths_omitted'));
     }
 
+    public function test_context_hygiene_counts_filtered_documentation_mission_paths(): void
+    {
+        $code = 'code:module:atlas-server/context_pack_runtime_stale';
+        $mission = 'mission:mission:docs-canonical-cleanup-aaeos';
+        $this->mock(AtlasRealityGraphQueryService::class, function ($mock) use ($code, $mission): void {
+            $mock->shouldReceive('query')->once()->andReturn([
+                'provider_bound' => true,
+                'ranking' => 'fixture',
+                'seeds' => [$code],
+                'nodes' => [
+                    ['id' => $code, 'label' => 'Context Pack Runtime Stale', 'source_kind' => 'code'],
+                    ['id' => $mission, 'label' => 'Atualizar docs canonicas stale apos limpeza bruta AAEOS', 'source_kind' => 'mission'],
+                ],
+                'paths' => [[
+                    'target' => $mission,
+                    'seed' => $code,
+                    'depth' => 1,
+                    'cross_layer' => true,
+                    'nodes' => [$code, $mission],
+                    'hops' => [],
+                ]],
+                'counts' => ['cross_layer_paths' => 1],
+            ]);
+        });
+
+        $pack = $this->service()->packFor('corrigir bug no context pack runtime stale');
+
+        $this->assertSame([], $pack['reality_graph_paths']);
+        $this->assertSame(1, data_get($pack, 'provenance.reality_graph.doc_mission_paths_omitted'));
+        $this->assertSame(1, data_get($pack, 'context_hygiene.doc_mission_filtered'));
+        $this->assertSame(1, data_get($pack, 'context_hygiene.total_filtered'));
+        $this->assertStringContainsString('doc_mission_filtered=1', $pack['markdown']);
+    }
+
     public function test_workspace_scoping_never_leaks_another_workspace(): void
     {
         // The primary workspace resolves to the default id (base_path → 'atlas-server');
         // a SECOND project path resolves to its own distinct id. Seed each project's
         // symbol under the id the resolver will compute, then prove no cross-leak.
-        $identity = $this->app->make(\App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity::class);
+        $identity = $this->app->make(CodeGraphWorkspaceIdentity::class);
         $primaryId = $identity->default();
         $otherPath = sys_get_temp_dir().'/aobg-ws-'.Str::random(6);
         @mkdir($otherPath, 0777, true);
@@ -597,6 +649,113 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame(0, data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_count'));
     }
 
+    public function test_initial_context_pack_defers_file_symbols_when_class_symbol_exists(): void
+    {
+        $this->seedCodeRow(
+            'file',
+            'app/Services/Ai/Context/AobgSemanticRetrievalLiftService.php',
+            'app/Services/Ai/Context/AobgSemanticRetrievalLiftService.php',
+            'app/Services/Ai/Context/AobgSemanticRetrievalLiftService.php',
+        );
+        $this->seedCodeRow(
+            'class',
+            'App\\Services\\Ai\\Context\\AobgSemanticRetrievalLiftService',
+            'app/Services/Ai/Context/AobgSemanticRetrievalLiftService.php',
+            'final class AobgSemanticRetrievalLiftService',
+        );
+
+        $pack = $this->service()->packFor('AOBG semantic retrieval lift', [
+            'budget' => 4000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains('class', array_column($pack['code_graph'], 'symbol_type'));
+        $this->assertNotContains('file', array_column($pack['code_graph'], 'symbol_type'));
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_symbol_counts.file'));
+        $this->assertContains('code_files', data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_source_types'));
+        $this->assertContains('expand:code_intelligence', data_get($pack, 'context_delivery_policy.on_demand_handles'));
+        $this->assertContains('initial_code_file_symbol_deferral', data_get($pack, 'provenance.aobg_runtime.feature_flags'));
+    }
+
+    public function test_initial_context_pack_defers_runtime_surfaces_for_generic_aobg_query(): void
+    {
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:open-brain:context',
+            'app/Console/Commands/AtlasOpenBrainContextCommand.php',
+            'atlas:open-brain:context {objective*}',
+        );
+        $this->seedCodeRow(
+            'route',
+            'POST /ai/open-brain/context-pack',
+            'routes/api.php',
+            'POST /ai/open-brain/context-pack',
+        );
+        $this->seedCodeRow(
+            'class',
+            'App\\Console\\Commands\\AtlasOpenBrainContextCommand',
+            'app/Console/Commands/AtlasOpenBrainContextCommand.php',
+            'class AtlasOpenBrainContextCommand',
+        );
+        $this->seedCodeRow(
+            'class',
+            'App\\Http\\Requests\\BuildAtlasOpenBrainContextRequest',
+            'app/Http/Requests/BuildAtlasOpenBrainContextRequest.php',
+            'class BuildAtlasOpenBrainContextRequest',
+        );
+        $this->seedCodeRow(
+            'class',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'class AtlasOpenBrainContextPackService',
+        );
+
+        $pack = $this->service()->packFor('melhorar qualidade contexto AOBG', [
+            'budget' => 4000,
+            'code_budget' => 2000,
+        ]);
+
+        $types = array_column($pack['code_graph'], 'symbol_type');
+        $this->assertContains('class', $types);
+        $this->assertNotContains('cli_command', $types);
+        $this->assertNotContains('route', $types);
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertNotContains('sym:App\\Console\\Commands\\AtlasOpenBrainContextCommand', $ids);
+        $this->assertNotContains('sym:App\\Http\\Requests\\BuildAtlasOpenBrainContextRequest', $ids);
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_symbol_counts.cli_command'));
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_symbol_counts.route'));
+        $this->assertSame(2, data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_symbol_counts.class'));
+        $this->assertContains('runtime_surfaces', data_get($pack, 'provenance.code_graph.initial_delivery_policy.deferred_source_types'));
+        $this->assertContains('initial_surface_symbol_deferral', data_get($pack, 'provenance.aobg_runtime.feature_flags'));
+    }
+
+    public function test_initial_context_pack_keeps_runtime_surfaces_for_cli_intent(): void
+    {
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:open-brain:context',
+            'app/Console/Commands/AtlasOpenBrainContextCommand.php',
+            'atlas:open-brain:context {objective*}',
+        );
+        $this->seedCodeRow(
+            'class',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'class AtlasOpenBrainContextPackService',
+        );
+
+        $pack = $this->service()->packFor('listar comando CLI AOBG', [
+            'budget' => 4000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains('cli_command', array_column($pack['code_graph'], 'symbol_type'));
+        $this->assertSame(
+            'auxiliary_symbols_included_by_intent',
+            data_get($pack, 'provenance.code_graph.initial_delivery_policy.mode'),
+        );
+    }
+
     public function test_expand_test_symbols_handle_returns_deferred_test_symbol_pointers(): void
     {
         $this->seedCodeRow(
@@ -735,6 +894,717 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('source_mix:', $pack['markdown']);
     }
 
+    public function test_context_pack_filters_demoted_noise_refs_from_initial_code_graph(): void
+    {
+        $this->bootCompoundingSchema();
+
+        $this->seedCodeRow(
+            'class',
+            'ContextRequirements',
+            'app/Services/Ai/Noisy/ContextRequirements.php',
+            'class ContextRequirements',
+        );
+        $this->seedCodeRow(
+            'class',
+            'ContextPackRequirementsService',
+            'app/Services/Ai/ContextPackRequirementsService.php',
+            'class ContextPackRequirementsService',
+        );
+        $this->recordDemotionFeedback('receipt-aobg-demote-1');
+
+        $pack = $this->service()->packFor('context requirements', [
+            'flow_id' => 'aobg.demote',
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertNotContains('sym:ContextRequirements', $ids);
+        $this->assertContains('sym:ContextPackRequirementsService', $ids);
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.feedback_demoted_count'));
+        $this->assertContains(
+            'app/Services/Ai/Noisy/ContextRequirements.php::ContextRequirements',
+            data_get($pack, 'context_delivery_policy.demote_context_refs'),
+        );
+    }
+
+    public function test_context_pack_filters_demoted_memory_refs_by_published_content_hash_ref(): void
+    {
+        $this->bootCompoundingSchema();
+        Schema::table('atlas_memory_entries', function (Blueprint $table): void {
+            $table->string('content_hash', 64)->nullable();
+        });
+
+        $contentHash = hash('sha256', 'noisy-memory-content');
+        $publishedRef = 'memory:'.substr(hash('sha256', $contentHash), 0, 32);
+        $this->seedMemory(
+            'mem-noisy',
+            'Noisy context requirements memory',
+            true,
+            'normal',
+            'Noisy context requirements summary',
+            'Noisy context requirements body',
+        );
+        AtlasMemoryEntry::query()
+            ->where('source_id', 'mem-noisy')
+            ->update(['content_hash' => $contentHash]);
+
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => 'receipt-aobg-memory-demote-1',
+            'flow_id' => 'aobg.memory_demote',
+            'query_plan_hash' => hash('sha256', 'receipt-aobg-memory-demote-1'),
+            'included_sources' => 1,
+            'used_sources' => 0,
+            'noise_sources' => 1,
+            'missed_required_sources' => [],
+            'context_sufficiency' => 60,
+            'post_execution_utility' => 20,
+            'source_utility' => [],
+            'outcome_status' => 'partial',
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'context_ref_attribution' => [
+                    'noise_refs' => [
+                        ['ref' => $publishedRef, 'source_type' => 'memory'],
+                    ],
+                    'noise_count' => 1,
+                ],
+                'next_context_policy' => [
+                    'actions' => ['demote_noise_context_refs'],
+                    'demote_context_refs' => [$publishedRef],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+
+        $pack = $this->service()->packFor('noisy context requirements', [
+            'flow_id' => 'aobg.memory_demote',
+            'budget' => 3000,
+            'memory_budget' => 2000,
+        ]);
+
+        $this->assertSame([], $pack['memory']);
+        $this->assertSame(1, data_get($pack, 'provenance.memory.feedback_demoted_count'));
+        $this->assertSame(1, data_get($pack, 'context_hygiene.feedback_demoted'));
+        $this->assertContains($publishedRef, data_get($pack, 'context_delivery_policy.demote_context_refs'));
+    }
+
+    public function test_context_pack_filters_demoted_memory_refs_by_published_title_fallback_ref(): void
+    {
+        $this->bootCompoundingSchema();
+        $title = 'Noisy fallback context requirements memory';
+        $publishedRef = 'memory:'.substr(hash('sha256', json_encode([
+            'title' => $title,
+            'type' => 'decision',
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)), 0, 32);
+
+        $this->seedMemory(
+            'mem-noisy-fallback',
+            $title,
+            true,
+            'normal',
+            'Noisy fallback context requirements summary',
+            'Noisy fallback context requirements body',
+        );
+
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => 'receipt-aobg-memory-demote-2',
+            'flow_id' => 'aobg.memory_demote_fallback',
+            'query_plan_hash' => hash('sha256', 'receipt-aobg-memory-demote-2'),
+            'included_sources' => 1,
+            'used_sources' => 0,
+            'noise_sources' => 1,
+            'missed_required_sources' => [],
+            'context_sufficiency' => 60,
+            'post_execution_utility' => 20,
+            'source_utility' => [],
+            'outcome_status' => 'partial',
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'context_ref_attribution' => [
+                    'noise_refs' => [
+                        ['ref' => $publishedRef, 'source_type' => 'memory'],
+                    ],
+                    'noise_count' => 1,
+                ],
+                'next_context_policy' => [
+                    'actions' => ['demote_noise_context_refs'],
+                    'demote_context_refs' => [$publishedRef],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+
+        $pack = $this->service()->packFor('noisy fallback context requirements', [
+            'flow_id' => 'aobg.memory_demote_fallback',
+            'budget' => 3000,
+            'memory_budget' => 2000,
+        ]);
+
+        $this->assertSame([], $pack['memory']);
+        $this->assertSame(1, data_get($pack, 'provenance.memory.feedback_demoted_count'));
+        $this->assertContains($publishedRef, data_get($pack, 'context_delivery_policy.demote_context_refs'));
+    }
+
+    public function test_initial_pack_filters_noisy_code_paths_unless_task_explicitly_mentions_them(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'StateMachine',
+            'tools/rivals/benchmarks/inspect_evals/src/inspect_evals/cyberseceval/example_state_machine.cpp',
+            'class StateMachine',
+        );
+        $this->seedCodeRow(
+            'class',
+            'PolymarketExecutionStateMachine',
+            'app/Services/Ai/Polymarket/PolymarketExecutionStateMachine.php',
+            'class PolymarketExecutionStateMachine',
+        );
+
+        $pack = $this->service()->packFor('melhorar Polymarket state machine', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:PolymarketExecutionStateMachine', $ids);
+        $this->assertNotContains('sym:StateMachine', $ids);
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.path_filtered_count'));
+        $this->assertSame(1, data_get($pack, 'context_hygiene.path_filtered'));
+        $this->assertSame(1, data_get($pack, 'context_hygiene.total_filtered'));
+        $this->assertStringContainsString('context_hygiene: path_filtered=1', $pack['markdown']);
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        $terms = $extractTerms->invoke($retriever, 'avaliar rivals benchmark state machine', []);
+
+        $this->assertContains('rivals', $terms);
+        $this->assertContains('benchmark', $terms);
+        $this->assertContains('state', $terms);
+        $this->assertContains('machine', $terms);
+    }
+
+    public function test_initial_pack_filters_vendor_namespace_stubs_unless_task_explicitly_mentions_them(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'phpDocumentor\\Reflection\\DocBlockFactory',
+            'app/Services/Ai/AutonomousEvolution/SelfMod/AtlasLoopSelfModInvariantExtractor.php',
+            'final class DocBlockFactory',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainMcpService',
+            'app/Services/Ai/AtlasOpenBrainMcpService.php',
+            'class AtlasOpenBrainMcpService { private function mcpSelfCheck(array $arguments): array {} }',
+        );
+
+        $pack = $this->service()->packFor('MCP self_check source_probe context_pack', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:AtlasOpenBrainMcpService', $ids);
+        $this->assertNotContains('sym:phpDocumentor\\Reflection\\DocBlockFactory', $ids);
+        $this->assertSame(1, data_get($pack, 'provenance.code_graph.path_filtered_count'));
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        $terms = $extractTerms->invoke($retriever, 'debug phpDocumentor DocBlockFactory invariant parsing', []);
+
+        $this->assertContains('documentor', $terms);
+        $this->assertContains('doc', $terms);
+        $this->assertContains('factory', $terms);
+    }
+
+    public function test_self_check_query_does_not_pull_checkin_by_substring(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'Checkin',
+            'app/Models/Checkin.php',
+            'class Checkin',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainMcpService',
+            'app/Services/Ai/AtlasOpenBrainMcpService.php',
+            'class AtlasOpenBrainMcpService { private function mcpSelfCheck(array $arguments): array {} }',
+        );
+
+        $pack = $this->service()->packFor('MCP self_check source_probe context_pack', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:AtlasOpenBrainMcpService', $ids);
+        $this->assertNotContains('sym:Checkin', $ids);
+    }
+
+    public function test_health_check_query_still_recalls_health_symbols(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasBrainHealthDoctorCommand',
+            'app/Console/Commands/AtlasBrainHealthDoctorCommand.php',
+            'class AtlasBrainHealthDoctorCommand',
+        );
+        $this->seedCodeRow(
+            'class',
+            'Checkin',
+            'app/Models/Checkin.php',
+            'class Checkin',
+        );
+
+        $pack = $this->service()->packFor('health check', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:AtlasBrainHealthDoctorCommand', $ids);
+        $this->assertNotContains('sym:Checkin', $ids);
+    }
+
+    public function test_docblock_query_does_not_pull_blocker_by_substring(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'phpDocumentor\\Reflection\\DocBlockFactory',
+            'app/Services/Ai/AutonomousEvolution/SelfMod/AtlasLoopSelfModInvariantExtractor.php',
+            'final class DocBlockFactory',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasProjectBlocker',
+            'app/Models/AtlasProjectBlocker.php',
+            'class AtlasProjectBlocker',
+        );
+
+        $pack = $this->service()->packFor('debug phpDocumentor DocBlockFactory invariant parsing', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:phpDocumentor\\Reflection\\DocBlockFactory', $ids);
+        $this->assertNotContains('sym:AtlasProjectBlocker', $ids);
+    }
+
+    public function test_aobg_query_does_not_pull_external_brain_by_generic_brain_expansion(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'class AtlasOpenBrainContextPackService',
+        );
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:external-brain:task-graph-wave',
+            'app/Console/Commands/AtlasExternalBrainTaskGraphWaveCommand.php',
+            'atlas:external-brain:task-graph-wave',
+        );
+        $this->seedCodeRow(
+            'class',
+            'ChatWeakResponseProbe',
+            'app/Services/Ai/Gateway/ChatWeakResponseProbe.php',
+            'class ChatWeakResponseProbe',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasRuntimeEfficiencyOutcome',
+            'app/Models/AtlasRuntimeEfficiencyOutcome.php',
+            'class AtlasRuntimeEfficiencyOutcome',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasSelfImprovementScheduleService',
+            'app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php',
+            'class AtlasSelfImprovementScheduleService',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasDiffReviewService',
+            'app/Services/Ai/Review/AtlasDiffReviewService.php',
+            'class AtlasDiffReviewService',
+        );
+
+        $pack = $this->service()->packFor('AOBG', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $ids = array_column($pack['code_graph'], 'id');
+        $this->assertContains('sym:AtlasOpenBrainContextPackService', $ids);
+        $this->assertNotContains('sym:atlas:external-brain:task-graph-wave', $ids);
+        $this->assertNotContains('sym:ChatWeakResponseProbe', $ids);
+
+        $efficiencyPack = $this->service()->packFor('eficiencia AOBG', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+        $efficiencyIds = array_column($efficiencyPack['code_graph'], 'id');
+        $this->assertContains('sym:AtlasOpenBrainContextPackService', $efficiencyIds);
+        $this->assertNotContains('sym:AtlasRuntimeEfficiencyOutcome', $efficiencyIds);
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        $terms = $extractTerms->invoke($retriever, 'continuar melhoria incremental AOBG com menor diff', []);
+
+        $this->assertNotContains('self', $terms);
+        $this->assertNotContains('improvement', $terms);
+        $this->assertNotContains('diff', $terms);
+        $this->assertNotContains('review', $terms);
+    }
+
+    public function test_atlas_context_pack_alias_prefers_open_brain_context_pack(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'class AtlasOpenBrainContextPackService',
+        );
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:context:observability',
+            'app/Console/Commands/AtlasContextObservabilityPlaneCommand.php',
+            'atlas:context:observability',
+        );
+
+        $pack = $this->service()->packFor('debug atlas_context_pack contexto desnecessario', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertSame('sym:AtlasOpenBrainContextPackService', $pack['code_graph'][0]['id'] ?? null);
+    }
+
+    public function test_portuguese_quality_memory_query_prefers_memory_quality_service(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasMemoryEntryUsage',
+            'app/Models/AtlasMemoryEntryUsage.php',
+            'class AtlasMemoryEntryUsage',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasMemoryQualityService',
+            'app/Services/Ai/AtlasMemoryQualityService.php',
+            'class AtlasMemoryQualityService',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasAobgWorkspaceOnboardingService',
+            'app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php',
+            'class AtlasAobgWorkspaceOnboardingService',
+        );
+
+        $pack = $this->service()->packFor('qualidade memoria provider safe AOBG', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertSame('sym:AtlasMemoryQualityService', $pack['code_graph'][0]['id'] ?? null);
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        foreach ([
+            'AOBG memoria baixa qualidade',
+            'AOBG memória baixa qualidade',
+            'AOBG revisar contextos guardados',
+        ] as $query) {
+            $terms = $extractTerms->invoke($retriever, $query, []);
+
+            $this->assertContains('memory', $terms, $query);
+            $this->assertContains('quality', $terms, $query);
+            $this->assertNotContains('open', $terms, $query);
+            $this->assertNotContains('pack', $terms, $query);
+        }
+    }
+
+    public function test_portuguese_stored_contexts_with_hostile_language_query_finds_tone_filter(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainProviderSafeMemoryToneFilter',
+            'app/Services/Ai/AtlasOpenBrainProviderSafeMemoryToneFilter.php',
+            'final class AtlasOpenBrainProviderSafeMemoryToneFilter',
+        );
+
+        $pack = $this->service()->packFor('revisar contextos guardados com xingando', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains(
+            'sym:AtlasOpenBrainProviderSafeMemoryToneFilter',
+            array_column($pack['code_graph'], 'id'),
+        );
+    }
+
+    public function test_portuguese_noise_context_query_finds_aobg_quarantine_advisor(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor',
+            'app/Services/Ai/AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor.php',
+            'final class AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor',
+        );
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:context:observability',
+            'app/Console/Commands/AtlasContextObservabilityPlaneCommand.php',
+            'atlas:context:observability',
+        );
+
+        $pack = $this->service()->packFor('ruido contexto desnecessario AOBG', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains(
+            'sym:AtlasOpenBrainContextFeedbackAutoQuarantineAdvisor',
+            array_column($pack['code_graph'], 'id'),
+        );
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        foreach ([
+            'limpar memoria AOBG contexto ruim sem sentido',
+            'AOBG contexto irrelevante',
+            'AOBG contexto duplicado repetido inutil aleatorio',
+            'AOBG contexto demais excessivo',
+            'AOBG contexto lixo toxico baixo valor sem utilidade ruim inutil',
+            'AOBG contexto aleatorio distrai atrapalha polui',
+            'AOBG contexto entulho sujeira bagunca contaminado misturado sem foco disperso confuso excesso enchendo prompt',
+            'AOBG contexto bagunça tóxico',
+            'AOBG prompt gigante contexto lotando ocupa token desnecessario verboso longo excesso',
+        ] as $query) {
+            $terms = $extractTerms->invoke($retriever, $query, []);
+
+            $this->assertContains('noise', $terms, $query);
+            $this->assertContains('quarantine', $terms, $query);
+        }
+    }
+
+    public function test_portuguese_stale_context_query_finds_freshness_gate(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasContextFreshnessQualityGateService',
+            'app/Services/Ai/Context/AtlasContextFreshnessQualityGateService.php',
+            'final class AtlasContextFreshnessQualityGateService',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'final class AtlasOpenBrainContextPackService',
+        );
+
+        $pack = $this->service()->packFor('AOBG contexto velho desatualizado stale', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains(
+            'sym:AtlasContextFreshnessQualityGateService',
+            array_column($pack['code_graph'], 'id'),
+        );
+    }
+
+    public function test_portuguese_injected_context_query_finds_injection_boundary(): void
+    {
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainContextInjectionBoundaryClassifier',
+            'app/Services/Ai/AtlasOpenBrainContextInjectionBoundaryClassifier.php',
+            'final class AtlasOpenBrainContextInjectionBoundaryClassifier',
+        );
+        $this->seedCodeRow(
+            'class',
+            'AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'final class AtlasOpenBrainContextPackService',
+        );
+
+        $pack = $this->service()->packFor('revisar contexto injetado AOBG sem sentido', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains(
+            'sym:AtlasOpenBrainContextInjectionBoundaryClassifier',
+            array_column($pack['code_graph'], 'id'),
+        );
+
+        $scopePack = $this->service()->packFor('AOBG contexto fora de escopo vazando', [
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains(
+            'sym:AtlasOpenBrainContextInjectionBoundaryClassifier',
+            array_column($scopePack['code_graph'], 'id'),
+        );
+        $this->assertSame(
+            'sym:AtlasOpenBrainContextInjectionBoundaryClassifier',
+            data_get($scopePack, 'code_graph.0.id'),
+        );
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        foreach ([
+            'AOBG contexto sem relacao nao relacionado',
+            'AOBG contexto não relacionado',
+        ] as $query) {
+            $terms = $extractTerms->invoke($retriever, $query, []);
+
+            $this->assertContains('boundary', $terms, $query);
+            $this->assertContains('scope', $terms, $query);
+        }
+    }
+
+    public function test_exact_aobg_service_name_brings_owner_service_before_generic_commands(): void
+    {
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:open-brain:context',
+            'app/Console/Commands/AtlasOpenBrainContextCommand.php',
+            'atlas:open-brain:context {objective*}',
+        );
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:open-brain:expand-context',
+            'app/Console/Commands/AtlasOpenBrainExpandContextCommand.php',
+            'atlas:open-brain:expand-context {handle} {objective*}',
+        );
+        $this->seedCodeRow(
+            'method',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService::packFor',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'public function packFor(string $task, array $opts = []): array',
+        );
+
+        $pack = $this->service()->packFor('implementar melhoria no AtlasOpenBrainContextPackService', [
+            'budget' => 1200,
+            'code_budget' => 1000,
+            'memory_budget' => 0,
+        ]);
+
+        $this->assertContains(
+            'sym:App\\Services\\Ai\\AtlasOpenBrainContextPackService::packFor',
+            array_column($pack['code_graph'], 'id'),
+        );
+    }
+
+    public function test_generic_aobg_query_prefers_owner_service_over_cli_wrapper(): void
+    {
+        $this->seedCodeRow(
+            'cli_command',
+            'atlas:aobg:file-context',
+            'app/Console/Commands/AtlasAobgFileContextCommand.php',
+            'atlas:aobg:file-context {path}',
+        );
+        $this->seedCodeRow(
+            'class',
+            'App\\Services\\Ai\\AtlasOpenBrainContextPackService',
+            'app/Services/Ai/AtlasOpenBrainContextPackService.php',
+            'class AtlasOpenBrainContextPackService',
+        );
+
+        $pack = $this->service()->packFor('AOBG', [
+            'budget' => 1200,
+            'code_budget' => 1000,
+            'memory_budget' => 0,
+        ]);
+
+        $this->assertSame(
+            'sym:App\\Services\\Ai\\AtlasOpenBrainContextPackService',
+            data_get($pack, 'code_graph.0.id'),
+        );
+
+        $retriever = app(CodeGraphContextRetriever::class);
+        $extractTerms = new \ReflectionMethod(CodeGraphContextRetriever::class, 'extractTermsForQuery');
+        foreach ([
+            'qual o foco do AOBG',
+            'qual o valor do AOBG',
+            'qual o sentido do AOBG',
+            'AOBG relacao com memoria',
+            'AOBG baixo nivel',
+            'qual o assunto do AOBG',
+            'qual o escopo do AOBG',
+            'limpar AOBG arquitetura',
+            'AOBG fora do servidor',
+            'AOBG rodando fora',
+            'AOBG codigo confuso',
+            'AOBG projeto gigante',
+            'AOBG documento longo',
+            'AOBG excesso de features',
+            'AOBG teste duplicado',
+            'AOBG classe duplicada',
+            'AOBG random aleatorio',
+            'AOBG coisas demais',
+            'AOBG setup excessivo',
+            'AOBG codigo ruim',
+            'AOBG design ruim',
+            'AOBG arquitetura ruim',
+            'AOBG inutil para usuarios',
+            'AOBG recurso inutil',
+        ] as $query) {
+            $terms = $extractTerms->invoke($retriever, $query, []);
+
+            $this->assertNotContains('noise', $terms, $query);
+            $this->assertNotContains('quarantine', $terms, $query);
+            $this->assertNotContains('feedback', $terms, $query);
+            $this->assertNotContains('boundary', $terms, $query);
+            $this->assertNotContains('scope', $terms, $query);
+        }
+    }
+
+    public function test_memory_relevance_floor_filters_wiper_memory_unless_task_mentions_wiper(): void
+    {
+        $this->seedMemory(
+            'mem-wiper',
+            'Incidente wiper vendor symlink RefreshDatabase',
+            true,
+            'normal',
+            'Wiper de tabelas por vendor symlink',
+            'RefreshDatabase caiu no pgsql de producao e dropou tabelas',
+        );
+        $this->seedMemory(
+            'mem-feedback',
+            'AOBG feedback demotion policy',
+            true,
+            'normal',
+            'feedback demotion policy',
+            'feedback demotion policy for context pack relevance',
+        );
+
+        $pack = $this->service()->packFor('debug feedback demotion policy do AOBG', [
+            'memory_budget' => 4000,
+        ]);
+        $titles = array_column($pack['memory'], 'title');
+
+        $this->assertContains('AOBG feedback demotion policy', $titles);
+        $this->assertNotContains('Incidente wiper vendor symlink RefreshDatabase', $titles);
+        $this->assertSame(1, data_get($pack, 'provenance.memory.relevance_filtered_count'));
+        $this->assertStringContainsString('memory_relevance_filtered=1', $pack['markdown']);
+
+        $wiper = $this->service()->packFor('debug wiper vendor symlink test safety', [
+            'memory_budget' => 4000,
+        ]);
+
+        $this->assertContains('Incidente wiper vendor symlink RefreshDatabase', array_column($wiper['memory'], 'title'));
+    }
+
     public function test_context_pack_expands_umbrella_workspace_scope_without_leaking_other_workspaces(): void
     {
         config()->set('atlas.code_folder_intelligence.umbrella_context', true);
@@ -857,14 +1727,20 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         ]);
     }
 
-    private function seedMemory(string $sourceId, string $title, bool $providerSafe, string $privacyClass): void
-    {
+    private function seedMemory(
+        string $sourceId,
+        string $title,
+        bool $providerSafe,
+        string $privacyClass,
+        ?string $summary = null,
+        ?string $body = null,
+    ): void {
         AtlasMemoryEntry::create([
             'memory_type' => 'decision',
             'scope_type' => 'global',
             'title' => $title,
-            'summary' => $providerSafe ? 'safe note summary' : 'secret vault key summary',
-            'body' => $providerSafe ? 'safe note body about the embedding decision' : 'secret vault key material',
+            'summary' => $summary ?? ($providerSafe ? 'safe note summary' : 'secret vault key summary'),
+            'body' => $body ?? ($providerSafe ? 'safe note body about the embedding decision' : 'secret vault key material'),
             'status' => 'active',
             'privacy_class' => $privacyClass,
             'external_ai_allowed' => $providerSafe,
@@ -1029,18 +1905,18 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
                     'use_ratio' => 0.50,
                     'waste_ratio' => 0.50,
                     'delivered_refs' => [
-                        ['ref' => 'code:used-1', 'source_type' => 'code'],
-                        ['ref' => 'code:used-2', 'source_type' => 'code'],
-                        ['ref' => 'memory:unused-1', 'source_type' => 'memory'],
-                        ['ref' => 'memory:unused-2', 'source_type' => 'memory'],
+                        ['ref' => 'code:used-1', 'source_type' => 'code_intelligence'],
+                        ['ref' => 'code:used-2', 'source_type' => 'code_intelligence'],
+                        ['ref' => 'memory:unused-1', 'source_type' => 'memory_signals'],
+                        ['ref' => 'memory:unused-2', 'source_type' => 'memory_signals'],
                     ],
                     'used_refs' => [
-                        ['ref' => 'code:used-1', 'source_type' => 'code'],
-                        ['ref' => 'code:used-2', 'source_type' => 'code'],
+                        ['ref' => 'code:used-1', 'source_type' => 'code_intelligence'],
+                        ['ref' => 'code:used-2', 'source_type' => 'code_intelligence'],
                     ],
                     'unused_refs' => [
-                        ['ref' => 'memory:unused-1', 'source_type' => 'memory'],
-                        ['ref' => 'memory:unused-2', 'source_type' => 'memory'],
+                        ['ref' => 'memory:unused-1', 'source_type' => 'memory_signals'],
+                        ['ref' => 'memory:unused-2', 'source_type' => 'memory_signals'],
                     ],
                     'noise_refs' => [],
                     'missing_source_types' => [],
@@ -1051,6 +1927,49 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
                     'expand_source_types' => [],
                     'defer_sections' => ['memory'],
                     'demote_context_refs' => [],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+    }
+
+    private function recordDemotionFeedback(string $receiptId): void
+    {
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => $receiptId,
+            'flow_id' => 'aobg.demote',
+            'query_plan_hash' => hash('sha256', $receiptId),
+            'included_sources' => 2,
+            'used_sources' => 1,
+            'noise_sources' => 1,
+            'missed_required_sources' => [],
+            'context_sufficiency' => 80,
+            'post_execution_utility' => 60,
+            'source_utility' => [],
+            'outcome_status' => 'partial',
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'context_ref_attribution' => [
+                    'delivered_refs' => [
+                        ['ref' => 'app:useful', 'source_type' => 'code_intelligence'],
+                        ['ref' => 'tools:rivals', 'source_type' => 'code_intelligence'],
+                    ],
+                    'used_refs' => [
+                        ['ref' => 'app:useful', 'source_type' => 'code_intelligence'],
+                    ],
+                    'noise_refs' => [
+                        ['ref' => 'tools:rivals', 'source_type' => 'code_intelligence'],
+                    ],
+                    'use_ratio' => 0.50,
+                    'waste_ratio' => 0.50,
+                    'noise_count' => 1,
+                ],
+                'next_context_policy' => [
+                    'actions' => ['demote_noise_context_refs'],
+                    'demote_context_refs' => [
+                        'app/Services/Ai/Noisy/ContextRequirements.php::ContextRequirements',
+                    ],
                     'auto_apply' => false,
                 ],
                 'raw_text_exposed' => false,

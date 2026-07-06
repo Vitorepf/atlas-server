@@ -127,6 +127,7 @@ use App\Console\Commands\AtlasLoopPromoteCommand;
 use App\Console\Commands\AtlasLoopReviewFeedbackCommand;
 use App\Console\Commands\AtlasLoopTaxa2DialsCommand;
 use App\Console\Commands\AtlasLoopVerifyProposalsCommand;
+use App\Console\Commands\AtlasMemoryCurateCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
@@ -311,6 +312,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasUnifiedLoopInstallLaunchdCommand::class,
         AtlasUnifiedLoopSupervisorCommand::class,
         AtlasLoopVerifyProposalsCommand::class,
+        AtlasMemoryCurateCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,

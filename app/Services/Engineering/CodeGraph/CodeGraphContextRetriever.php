@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
+use App\Console\Commands\AtlasCodeGraphContextCommand;
+use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +16,7 @@ use Throwable;
  *
  * This is the one implementation of "free-text query (+ optional changed files) ->
  * workspace-scoped, BM25-ranked, budgeted E-3 context pack". It was EXTRACTED verbatim
- * from {@see \App\Console\Commands\AtlasCodeGraphContextCommand} (the proven `atlas:ctx`
+ * from {@see AtlasCodeGraphContextCommand} (the proven `atlas:ctx`
  * pipeline) so that the CLI command and every programmatic consumer (Dev/Forge/the loop
  * via {@see CodeGraphAutoContextProvider}) share ONE retrieval path instead of drifting
  * copies. The command now delegates to {@see packFor()}; the heavy logic lives here.
@@ -76,12 +78,17 @@ class CodeGraphContextRetriever
      */
     private const STOP_TERMS = [
         'a' => true, 'as' => true, 'o' => true, 'os' => true,
+        'atlas' => true, 'debug' => true, 'corrigir' => true, 'atualizar' => true,
+        'continuar' => true, 'melhoria' => true, 'incremental' => true,
+        'procurar' => true, 'proximo' => true, 'menor' => true, 'diff' => true,
+        'revisar' => true, 'nao' => true, 'faz' => true,
         'de' => true, 'da' => true, 'das' => true, 'do' => true, 'dos' => true,
         'e' => true, 'ou' => true, 'em' => true, 'no' => true, 'na' => true,
         'nos' => true, 'nas' => true, 'por' => true, 'para' => true, 'com' => true,
         'sem' => true, 'que' => true, 'se' => true, 'ao' => true, 'aos' => true,
         'the' => true, 'and' => true, 'or' => true, 'of' => true, 'to' => true,
         'for' => true, 'with' => true, 'without' => true, 'before' => true, 'after' => true,
+        'check' => true, 'block' => true, 'php' => true,
     ];
 
     /**
@@ -91,9 +98,47 @@ class CodeGraphContextRetriever
      * @var array<string,array<int,string>>
      */
     private const TERM_EXPANSIONS = [
-        'aobg' => ['open', 'brain', 'context', 'pack', 'gateway'],
+        'aobg' => ['openbrain', 'open', 'context', 'pack'],
+        'atlas_context_pack' => ['open', 'brain', 'context', 'pack'],
+        'context_pack' => ['open', 'brain', 'context', 'pack'],
         'memoria' => ['memory'],
         'memorias' => ['memory'],
+        'baixa' => ['quality', 'status', 'score'],
+        'qualidade' => ['quality'],
+        'contextos' => ['memory', 'quality'],
+        'guardados' => ['memory', 'quality'],
+        'xingando' => ['tonefilter', 'tone', 'provider', 'safe'],
+        'ruido' => ['noise', 'quarantine', 'feedback'],
+        'desnecessario' => ['noise', 'quarantine', 'feedback'],
+        'relacionado' => ['scope', 'boundary'],
+        'vazando' => ['leak', 'boundary', 'injection'],
+        'vazar' => ['leak', 'boundary', 'injection'],
+        'irrelevante' => ['quality', 'noise', 'quarantine'],
+        'lixo' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'toxico' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'utilidade' => ['quality', 'utility', 'feedback', 'quarantine'],
+        'entulho' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'sujeira' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'bagunca' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'contaminado' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'misturado' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'desfocado' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'disperso' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'enchendo' => ['noise', 'quarantine', 'feedback'],
+        'lotando' => ['noise', 'quarantine', 'feedback'],
+        'ocupa' => ['noise', 'quarantine', 'feedback'],
+        'ocupando' => ['noise', 'quarantine', 'feedback'],
+        'verboso' => ['noise', 'quarantine', 'feedback'],
+        'distrai' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'atrapalha' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'polui' => ['quality', 'noise', 'quarantine', 'feedback'],
+        'antigo' => ['freshness', 'stale', 'quality', 'feedback', 'quarantine'],
+        'velho' => ['freshness', 'stale', 'quality', 'feedback', 'quarantine'],
+        'desatualizado' => ['freshness', 'stale', 'quality', 'feedback', 'quarantine'],
+        'stale' => ['freshness', 'quality', 'feedback', 'quarantine'],
+        'injetado' => ['injection', 'boundary'],
+        'injetar' => ['injection', 'boundary'],
+        'injecao' => ['injection', 'boundary'],
         'governanca' => ['governance'],
         'alteracao' => ['change'],
         'alteracoes' => ['change'],
@@ -134,17 +179,17 @@ class CodeGraphContextRetriever
      * Build the budgeted E-3 context pack for a free-text query in a workspace.
      *
      * @param  string  $query  free-text task description; matched as keywords against
-     *   indexed symbol names.
+     *                         indexed symbol names.
      * @param  string  $workspaceId  the ALREADY-RESOLVED workspace id (callers resolve a
-     *   path/id via {@see CodeGraphWorkspaceIdentity}); rows are scoped to it when the
-     *   read-model is W-1-keyed.
+     *                               path/id via {@see CodeGraphWorkspaceIdentity}); rows are scoped to it when the
+     *                               read-model is W-1-keyed.
      * @param  int  $budget  token budget for the pack (default {@see DEFAULT_BUDGET};
-     *   clamped >= 0; a 0 budget admits nothing). Garbage is the caller's concern — this
-     *   takes an int and clamps the negative tail only.
+     *                       clamped >= 0; a 0 budget admits nothing). Garbage is the caller's concern — this
+     *                       takes an int and clamps the negative tail only.
      * @param  array<int,string>  $changedFiles  optional file paths the task touches;
-     *   tokenised into additional keyword terms to bias retrieval toward those files.
+     *                                           tokenised into additional keyword terms to bias retrieval toward those files.
      * @param  array<string,mixed>  $assemblyOptions  optional packer controls passed to
-     *   {@see CodeGraphContextPackAssembler::assemble()}.
+     *                                                {@see CodeGraphContextPackAssembler::assemble()}.
      * @return array{
      *   included: array<int,mixed>,
      *   excluded: array<int,mixed>,
@@ -170,7 +215,7 @@ class CodeGraphContextRetriever
      * umbrella packs stay auditable per member.
      *
      * @param  array<int,string>  $workspaceIds  already-resolved workspace ids;
-     *   blank entries are dropped; an empty effective list yields an empty pack.
+     *                                           blank entries are dropped; an empty effective list yields an empty pack.
      * @param  array<int,string>  $changedFiles
      * @param  array<string,mixed>  $assemblyOptions
      * @return array{included: array<int,mixed>, excluded: array<int,mixed>, estimated_tokens: int, budget: int, truncated: bool, count: int}
@@ -223,7 +268,7 @@ class CodeGraphContextRetriever
      * of any term shorter than {@see MIN_TERM_LENGTH}.
      *
      * @return array<int,string> deduped lower-case terms (empty when the query is blank
-     *   or contains only too-short tokens)
+     *                           or contains only too-short tokens)
      */
     private function extractTerms(string $query): array
     {
@@ -267,7 +312,12 @@ class CodeGraphContextRetriever
     private function expandTerms(array $terms): array
     {
         $expanded = [];
+        $suppressAobgExpansion = $this->hasMemoryQualityIntent($terms);
+        $set = array_fill_keys($terms, true);
         foreach ($terms as $term) {
+            if ($term === 'aobg' && $suppressAobgExpansion) {
+                continue;
+            }
             $expanded[$term] = true;
             foreach (self::TERM_EXPANSIONS[$term] ?? [] as $extra) {
                 if (! isset(self::STOP_TERMS[$extra])) {
@@ -275,8 +325,62 @@ class CodeGraphContextRetriever
                 }
             }
         }
+        if (isset($set['fora']) && (isset($set['escopo']) || isset($set['assunto']))) {
+            $this->addExpandedTerms($expanded, ['scope', 'boundary']);
+        }
+        if (isset($set['contexto'], $set['confuso'])) {
+            $this->addExpandedTerms($expanded, ['quality', 'noise', 'quarantine', 'feedback']);
+        }
+        if ($this->hasAnyTerm($set, ['contexto', 'prompt']) && $this->hasAnyTerm($set, ['gigante', 'longo', 'excesso'])) {
+            $this->addExpandedTerms($expanded, ['noise', 'quarantine', 'feedback']);
+        }
+        if ($this->hasAnyTerm($set, ['contexto', 'prompt']) && $this->hasAnyTerm($set, ['demais', 'excessivo', 'duplicado', 'duplicada', 'repetido', 'repetida', 'aleatorio'])) {
+            $this->addExpandedTerms($expanded, ['quality', 'noise', 'quarantine', 'feedback']);
+        }
+        if ($this->hasAnyTerm($set, ['contexto', 'prompt']) && $this->hasAnyTerm($set, ['ruim', 'inutil'])) {
+            $this->addExpandedTerms($expanded, ['quality', 'noise', 'quarantine', 'feedback']);
+        }
 
         return array_keys($expanded);
+    }
+
+    /**
+     * @param  array<string,true>  $set
+     * @param  array<int,string>  $terms
+     */
+    private function hasAnyTerm(array $set, array $terms): bool
+    {
+        foreach ($terms as $term) {
+            if (isset($set[$term])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,true>  $expanded
+     * @param  array<int,string>  $terms
+     */
+    private function addExpandedTerms(array &$expanded, array $terms): void
+    {
+        foreach ($terms as $term) {
+            $expanded[$term] = true;
+        }
+    }
+
+    /**
+     * @param  array<int,string>  $terms
+     */
+    private function hasMemoryQualityIntent(array $terms): bool
+    {
+        $set = array_fill_keys($terms, true);
+        $hasMemory = isset($set['memoria']) || isset($set['memorias']) || isset($set['memory']);
+        $hasQuality = isset($set['qualidade']) || isset($set['quality']) || isset($set['baixa']);
+        $hasStoredContexts = isset($set['contextos'], $set['guardados']);
+
+        return $hasStoredContexts || ($hasMemory && $hasQuality);
     }
 
     /**
@@ -297,7 +401,7 @@ class CodeGraphContextRetriever
      */
     /**
      * @param  array<int,string>  $workspaceIds  AP-818 F2.2 — one id = the proven
-     *   single-workspace path; N ids = umbrella scope (whereIn, never unscoped).
+     *                                           single-workspace path; N ids = umbrella scope (whereIn, never unscoped).
      */
     private function rankedCandidates(array $workspaceIds, array $terms, array $changedFiles = []): array
     {
@@ -321,9 +425,9 @@ class CodeGraphContextRetriever
                     ->where('symbol_type', '!=', 'doc_heading')
                     ->where('file_path', 'not like', 'docs/%')
                     ->where(function ($q) use ($like): void {
-                        $q->where('symbol_name', 'like', $like)
-                            ->orWhere('file_path', 'like', $like)
-                            ->orWhere('signature', 'like', $like);
+                        $q->whereRaw('lower(symbol_name) like ?', [$like])
+                            ->orWhereRaw('lower(file_path) like ?', [$like])
+                            ->orWhereRaw('lower(signature) like ?', [$like]);
                     });
                 if ($scopedFiles !== []) {
                     $query->whereIn('file_path', $scopedFiles);
@@ -420,7 +524,7 @@ class CodeGraphContextRetriever
         // degrade, never fabricated vectors).
         $semantic = $this->semanticRerank($terms, $candidates);
         if ($semantic !== null) {
-            $candidates = $semantic;
+            $candidates = in_array('aobg', $terms, true) ? $this->sortByFallbackScore($semantic) : $semantic;
         }
 
         foreach ($candidates as &$candidate) {
@@ -435,7 +539,7 @@ class CodeGraphContextRetriever
     /**
      * AP-818 F2.4 — re-order the candidate pool by real-embedding similarity to
      * the query, via the governed python_ai_data boundary
-     * ({@see \App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime}: receipt
+     * ({@see SemanticRetrievalRuntime}: receipt
      * guard, anti-fake, no PHP fallback). Returns null — meaning "keep the
      * existing order" — whenever the flag is off, the runtime is unavailable,
      * or anything fails. Candidates the runtime does not score keep their
@@ -455,7 +559,7 @@ class CodeGraphContextRetriever
         }
 
         try {
-            $runtime = app(\App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime::class);
+            $runtime = app(SemanticRetrievalRuntime::class);
             if (! $runtime->available()) {
                 return null;
             }
@@ -468,7 +572,8 @@ class CodeGraphContextRetriever
                 ];
             }
 
-            $result = $runtime->retrieve($documents, implode(' ', $terms), k: count($documents));
+            $semanticTerms = array_values(array_filter($terms, static fn (string $term): bool => $term !== 'aobg'));
+            $result = $runtime->retrieve($documents, implode(' ', $semanticTerms !== [] ? $semanticTerms : $terms), k: count($documents));
 
             $scores = [];
             foreach ((array) ($result['matches'] ?? []) as $match) {
@@ -636,6 +741,13 @@ class CodeGraphContextRetriever
             if ($termTokens === []) {
                 continue;
             }
+            if ($term === 'aobg' && isset($tokenCounts['open'], $tokenCounts['brain'])) {
+                $covered++;
+                $score += $this->termWeight('aobg') * 2;
+                $score += min(6, (int) $tokenCounts['open'] + (int) $tokenCounts['brain']);
+
+                continue;
+            }
 
             $allPresent = true;
             $repetitions = 0;
@@ -651,6 +763,7 @@ class CodeGraphContextRetriever
                 $covered++;
                 $score += $this->termWeight(implode(' ', $termTokens)) * count($termTokens);
                 $score += min(6, $repetitions);
+
                 continue;
             }
 
@@ -666,7 +779,7 @@ class CodeGraphContextRetriever
         }
 
         $score += $covered * 12;
-        $score += $this->symbolTypeScore($symbolType);
+        $score += $this->symbolTypeScore($symbolType, $terms);
         $score += $this->filePathScore($filePath);
         $score -= min(60, intdiv(strlen($text), 500) * 8);
 
@@ -708,11 +821,14 @@ class CodeGraphContextRetriever
         return false;
     }
 
-    private function symbolTypeScore(string $symbolType): int
+    /**
+     * @param  array<int,string>  $terms
+     */
+    private function symbolTypeScore(string $symbolType, array $terms): int
     {
         return match ($symbolType) {
             'class', 'interface', 'trait', 'enum' => 10,
-            'cli_command' => 8,
+            'cli_command' => $this->hasCommandIntent($terms) ? 8 : -4,
             'file' => 8,
             'route' => 6,
             'method', 'function' => 2,
@@ -720,6 +836,22 @@ class CodeGraphContextRetriever
             'doc_heading' => -4,
             default => 0,
         };
+    }
+
+    /**
+     * @param  array<int,string>  $terms
+     */
+    private function hasCommandIntent(array $terms): bool
+    {
+        foreach ($terms as $term) {
+            foreach ($this->tokensFor($this->tokenizeIdentifier($term)) as $token) {
+                if (in_array($token, ['artisan', 'cli', 'command', 'commands', 'comando', 'comandos'], true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function termWeight(string $term): int
@@ -732,6 +864,8 @@ class CodeGraphContextRetriever
             'gateway' => 24,
             'memory', 'memoria' => 22,
             'context', 'pack' => 20,
+            'boundary', 'scope', 'injection', 'leak' => 38,
+            'noise', 'quarantine', 'feedback', 'freshness', 'stale', 'quality' => 34,
             'bootstrap', 'session' => 16,
             'impact', 'impacto', 'change' => 16,
             'code', 'intelligence' => 10,
@@ -751,6 +885,8 @@ class CodeGraphContextRetriever
         };
 
         $score += match (true) {
+            str_starts_with($path, 'app/services/ai/atlasopenbrain') => 30,
+            str_contains($compact, 'atlasopenbraincontextpackservice') => 30,
             str_starts_with($filePath, 'app/Services/') => 8,
             str_starts_with($filePath, 'app/Console/Commands/') => 6,
             str_starts_with($filePath, 'app/') => 4,

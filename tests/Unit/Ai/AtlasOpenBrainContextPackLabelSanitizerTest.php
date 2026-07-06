@@ -58,11 +58,58 @@ final class AtlasOpenBrainContextPackLabelSanitizerTest extends TestCase
         }
     }
 
-    public function test_a_raw_prompt_label_is_sanitized_but_NOT_classified_as_a_dropped_artifact(): void
+    public function test_raw_session_prompt_labels_are_dropped_as_low_quality_context(): void
     {
-        // honest boundary: a raw past prompt (not a fallback marker) is collapsed+capped so it can't
-        // inject multiline text, but it is NOT auto-dropped — categorically excluding those needs a
-        // write-back source-marker + a one-time graph prune (the operator-approved follow-up).
-        self::assertFalse(AtlasOpenBrainContextPackService::isSessionArtifactLabel('vc esta mentindo para mim'));
+        foreach ([
+            'Que merda é que você tá fazendo?',
+            'tem um codex rodando , e aparentemente funcionando',
+            'precisamos fazer uma limpa mantendo so os de qualidade',
+            'Você não entendeu qual é a função do que você tá fazendo.',
+            'My request for Codex: faca uma analise disso',
+            'Continue from where you left off.',
+            'me fala mais , teoricamente Loop / ACDE ja era para fazer isso , pelo o que entendi e basicamente pegar uma area e evoluir ela',
+            'vc pode usar o hermes com o verboo qwen. preciso que me entregue o rivals',
+        ] as $noise) {
+            self::assertTrue(AtlasOpenBrainContextPackService::isSessionArtifactLabel($noise), "should drop: '{$noise}'");
+        }
+    }
+
+    public function test_session_echo_path_is_dropped_when_target_or_chain_contains_prompt_echo(): void
+    {
+        self::assertTrue(AtlasOpenBrainContextPackService::isSessionArtifactPath(
+            ['target' => 'Continue from where you left off.', 'seed' => 'code:module:app'],
+            [['label' => 'Application Services']]
+        ));
+
+        self::assertTrue(AtlasOpenBrainContextPackService::isSessionArtifactPath(
+            ['target' => 'mission:uuid', 'seed' => 'code:module:app'],
+            [['label' => 'Que merda é que você tá fazendo?']]
+        ));
+
+        self::assertFalse(AtlasOpenBrainContextPackService::isSessionArtifactPath(
+            ['target' => 'domain:engineering', 'seed' => 'code:module:app'],
+            [['label' => 'Application Services'], ['label' => 'Software Engineering']]
+        ));
+    }
+
+    public function test_documentation_mission_paths_are_dropped_for_non_documentation_tasks(): void
+    {
+        $path = ['target' => 'mission:mission:docs-canonical-cleanup-aaeos-2026-07-05'];
+        $chain = [
+            ['label' => 'Engineering Knowledge Docs', 'source_kind' => 'code'],
+            ['label' => 'Atualizar docs canonicas stale apos limpeza bruta AAEOS', 'source_kind' => 'mission'],
+        ];
+
+        self::assertTrue(AtlasOpenBrainContextPackService::isDocumentationMissionPath(
+            'corrigir bug no context pack de Open Brain MCP runtime stale',
+            $path,
+            $chain
+        ));
+
+        self::assertFalse(AtlasOpenBrainContextPackService::isDocumentationMissionPath(
+            'atualizar docs canonicas do AOBG',
+            $path,
+            $chain
+        ));
     }
 }
