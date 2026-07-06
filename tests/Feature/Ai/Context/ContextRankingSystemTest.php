@@ -157,6 +157,103 @@ final class ContextRankingSystemTest extends TestCase
         }
     }
 
+    public function test_global_feedback_hints_aggregate_recurring_persisted_events_without_flow_id(): void
+    {
+        $this->bootCompoundingSchema();
+
+        try {
+            $noiseHash = MissionCanonicalHash::sha256('source://evidence_replay');
+            foreach ([1, 2] as $index) {
+                app(AtlasRagFeedbackService::class)->record([
+                    'retrieval_receipt_id' => 'receipt-global-hints-'.$index,
+                    'flow_id' => 'claude.session.auto',
+                    'outcome_status' => 'partial',
+                    'source_utility' => [$noiseHash => 'noise'],
+                    'next_retrieval_hint' => [
+                        'schema_version' => 'atlas.aucri.next_retrieval_hint.v1',
+                        'should_repromote_sources' => ['vector_retrieval'],
+                        'auto_apply' => false,
+                        'advisory' => true,
+                    ],
+                    'context_ref_attribution' => [
+                        'noise_refs' => [
+                            ['source_type' => 'evidence_replay', 'ref_hash' => $noiseHash],
+                        ],
+                    ],
+                ]);
+            }
+            // Single-occurrence signal: must NOT act globally (threshold >=2).
+            app(AtlasRagFeedbackService::class)->record([
+                'retrieval_receipt_id' => 'receipt-global-hints-3',
+                'flow_id' => 'claude.session.auto',
+                'outcome_status' => 'partial',
+                'context_ref_attribution' => [
+                    'noise_refs' => [
+                        ['source_type' => 'memory_signals', 'ref_hash' => MissionCanonicalHash::sha256('source://memory_signals')],
+                    ],
+                ],
+            ]);
+
+            $payload = app(AtlasContextRankingSystemService::class)->rank([
+                'objective' => 'corrigir bug no repo com teste falhando e evidence replay',
+                'task_type' => 'debug',
+                'domain' => 'developer',
+                'risk_level' => 'low',
+                'max_refs' => 8,
+            ]);
+
+            $hint = data_get($payload, 'source_ranking_inputs.feedback_hint');
+            $this->assertSame('active', $hint['status']);
+            $this->assertSame('global_feedback', $hint['source']);
+            $this->assertSame('global', $hint['feedback_scope']);
+            $this->assertContains('vector_retrieval', $hint['repromote_source_types']);
+            $this->assertSame(1, $hint['demote_source_type_count']);
+            $this->assertSame(1, $hint['demote_hash_count']);
+
+            $selected = collect(data_get($payload, 'rerank_result.selected_refs'))->keyBy('source_type');
+            $this->assertLessThan(0, data_get($selected->get('evidence_replay'), 'score_components.feedback_hint_delta'));
+            $this->assertGreaterThan(0, data_get($selected->get('vector_retrieval'), 'score_components.feedback_hint_delta'));
+            $this->assertContains('feedback_demote_source_type', data_get($selected->get('evidence_replay'), 'reasons'));
+            $this->assertSame(0.0, (float) data_get($selected->get('memory_signals'), 'score_components.feedback_hint_delta'));
+        } finally {
+            $this->dropCompoundingSchema();
+        }
+    }
+
+    public function test_global_feedback_hints_flag_off_preserves_old_behavior(): void
+    {
+        $this->bootCompoundingSchema();
+        config()->set('atlas.context.feedback_global_hints', false);
+
+        try {
+            foreach ([1, 2] as $index) {
+                app(AtlasRagFeedbackService::class)->record([
+                    'retrieval_receipt_id' => 'receipt-global-off-'.$index,
+                    'flow_id' => 'claude.session.auto',
+                    'outcome_status' => 'partial',
+                    'source_utility' => [MissionCanonicalHash::sha256('source://evidence_replay') => 'noise'],
+                ]);
+            }
+
+            $payload = app(AtlasContextRankingSystemService::class)->rank([
+                'objective' => 'corrigir bug no repo com teste falhando e evidence replay',
+                'task_type' => 'debug',
+                'domain' => 'developer',
+                'risk_level' => 'low',
+                'max_refs' => 8,
+            ]);
+
+            $hint = data_get($payload, 'source_ranking_inputs.feedback_hint');
+            $this->assertSame('inactive', $hint['status']);
+            $this->assertSame('none', $hint['source']);
+            $this->assertArrayNotHasKey('feedback_scope', $hint);
+            $this->assertSame('inactive', data_get($payload, 'rerank_result.feedback_impact_report.status'));
+        } finally {
+            config()->set('atlas.context.feedback_global_hints', true);
+            $this->dropCompoundingSchema();
+        }
+    }
+
     public function test_high_risk_graph_gap_propagates_blocked_status_from_aarf(): void
     {
         $payload = app(AtlasContextRankingSystemService::class)->rank([

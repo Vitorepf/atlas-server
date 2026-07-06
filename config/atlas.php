@@ -297,6 +297,23 @@ return [
         'retrieval_fanout_gate_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_RETRIEVAL_FANOUT_GATE_ENABLED', false),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Context ranking feedback (ARFL -> ACRS closed loop)
+    |--------------------------------------------------------------------------
+    | feedback_global_hints (Obra #13 item 4): when a rank() call has NO
+    | flow_id, ACRS (AtlasContextRankingSystemService::feedbackHint) aggregates
+    | the persisted ai_rag_feedback_events of the last 7 days (cap 50) into
+    | GLOBAL demote/repromote hints; a source type / ref hash only acts when it
+    | repeats across >=2 events. The flow_id-scoped path is untouched. The rank
+    | report gains source_ranking_inputs.feedback_hint.feedback_scope
+    | (flow|global|none). OFF => byte-identical pre-loop output (no global
+    | hints, no feedback_scope field).
+    */
+    'context' => [
+        'feedback_global_hints' => (bool) env('ATLAS_CONTEXT_FEEDBACK_GLOBAL_HINTS', true),
+    ],
+
     'semantic_memory' => [
         'vault_path' => env('ATLAS_VAULT_PATH', dirname(base_path()).'/AtlasVault'),
         'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 384),

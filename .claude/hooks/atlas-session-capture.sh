@@ -116,5 +116,9 @@ else
     php "${CAPTURE_ARGS[@]}" >/dev/null 2>&1 || true
 fi
 
+# ARFL->ACRS closed loop (Obra #13 item 4): distil the injected context_pack_hash
+# markers from the SAME transcript into one persisted retrieval-feedback event. Fail-open.
+php artisan atlas:context:feedback-auto "--transcript=$TRANSCRIPT" --json >/dev/null 2>&1 || true
+
 # Always succeed — a capture fault must never stall or fail session end.
 exit 0

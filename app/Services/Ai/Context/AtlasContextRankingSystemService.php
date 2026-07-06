@@ -704,6 +704,12 @@ final class AtlasContextRankingSystemService
             $explicit['demote_context_refs'] ?? [],
         ) !== [];
         $flowRequested = is_scalar($input['flow_id'] ?? null) && trim((string) $input['flow_id']) !== '';
+        $global = $flowRequested ? null : $this->globalFeedbackHints();
+        $globalActive = $global !== null && (
+            $global['repromote_source_types'] !== []
+            || $global['demote_source_types'] !== []
+            || $global['demote_source_hashes'] !== []
+        );
         $event = $flowRequested && DatabaseTableAvailability::has('ai_rag_feedback_events')
             ? AiRagFeedbackEvent::query()
                 ->where('flow_id', $flow)
@@ -723,16 +729,19 @@ final class AtlasContextRankingSystemService
             $explicit['repromote_source_types'] ?? [],
             $nextHint['should_repromote_sources'] ?? [],
             data_get($eventPayload, 'payload.next_context_policy.expand_source_types', []),
+            $global['repromote_source_types'] ?? [],
         );
         $demoteSourceTypes = $this->hintStrings(
             $explicit['demote_source_types'] ?? [],
             data_get($eventPayload, 'payload.context_ref_attribution.noise_refs.*.source_type', []),
+            $global['demote_source_types'] ?? [],
         );
         $demoteSourceHashes = $this->hintStrings(
             $explicit['demote_source_hashes'] ?? [],
             $explicit['demote_ref_hashes'] ?? [],
             $noiseHashes,
             data_get($eventPayload, 'payload.context_ref_attribution.noise_refs.*.ref_hash', []),
+            $global['demote_source_hashes'] ?? [],
         );
         $demoteContextRefs = $this->hintStrings(
             $explicit['demote_context_refs'] ?? [],
@@ -748,8 +757,15 @@ final class AtlasContextRankingSystemService
             'active' => $active,
             'source' => match (true) {
                 $explicitProvided && $event instanceof AiRagFeedbackEvent => 'input_and_latest_flow_feedback',
+                $explicitProvided && $globalActive => 'input_and_global_feedback',
                 $explicitProvided => 'input_feedback_hint',
                 $event instanceof AiRagFeedbackEvent => 'latest_flow_feedback',
+                $globalActive => 'global_feedback',
+                default => 'none',
+            },
+            'feedback_scope' => match (true) {
+                $flowRequested => 'flow',
+                $globalActive => 'global',
                 default => 'none',
             },
             'flow_id' => $flowRequested ? $flow : null,
@@ -764,6 +780,84 @@ final class AtlasContextRankingSystemService
     }
 
     /**
+     * ARFL->ACRS closed loop, global half: when NO flow_id scopes the ranking,
+     * aggregate the persisted retrieval-feedback events of the last 7 days
+     * (cap 50) into GLOBAL hints. A source type / ref hash only acts when it
+     * repeats across >=2 events — one bad session never demotes globally.
+     * Flag-gated (atlas.context.feedback_global_hints) and fail-open: any
+     * fault, missing table or empty window => null (pre-loop behavior).
+     *
+     * @return array{repromote_source_types:array<int,string>,demote_source_types:array<int,string>,demote_source_hashes:array<int,string>}|null
+     */
+    private function globalFeedbackHints(): ?array
+    {
+        if (! (bool) config('atlas.context.feedback_global_hints', true)) {
+            return null;
+        }
+        if (! DatabaseTableAvailability::has('ai_rag_feedback_events')) {
+            return null;
+        }
+
+        try {
+            $events = AiRagFeedbackEvent::query()
+                ->where('created_at', '>=', Carbon::now()->subDays(7))
+                ->latest('created_at')
+                ->limit(50)
+                ->get();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if ($events->isEmpty()) {
+            return null;
+        }
+
+        $repromote = [];
+        $demoteTypes = [];
+        $demoteHashes = [];
+        foreach ($events as $event) {
+            $payload = (array) $event->payload;
+            $noiseHashes = [];
+            foreach ((array) $event->source_utility as $ref => $utility) {
+                if ((string) $utility === 'noise') {
+                    $noiseHashes[] = (string) $ref;
+                }
+            }
+            // hintStrings dedupes WITHIN the event, so each event votes at most once per signal.
+            foreach ($this->hintStrings(
+                data_get((array) $event->next_retrieval_hint, 'should_repromote_sources', []),
+                data_get($payload, 'next_context_policy.expand_source_types', []),
+                data_get($payload, 'payload.next_context_policy.expand_source_types', []),
+            ) as $type) {
+                $repromote[$type] = ($repromote[$type] ?? 0) + 1;
+            }
+            foreach ($this->hintStrings(
+                data_get($payload, 'context_ref_attribution.noise_refs.*.source_type', []),
+                data_get($payload, 'payload.context_ref_attribution.noise_refs.*.source_type', []),
+            ) as $type) {
+                $demoteTypes[$type] = ($demoteTypes[$type] ?? 0) + 1;
+            }
+            foreach ($this->hintStrings(
+                $noiseHashes,
+                data_get($payload, 'context_ref_attribution.noise_refs.*.ref_hash', []),
+                data_get($payload, 'payload.context_ref_attribution.noise_refs.*.ref_hash', []),
+            ) as $hash) {
+                $demoteHashes[$hash] = ($demoteHashes[$hash] ?? 0) + 1;
+            }
+        }
+
+        $recurring = static fn (array $counts): array => array_values(array_keys(
+            array_filter($counts, static fn (int $count): bool => $count >= 2),
+        ));
+
+        return [
+            'repromote_source_types' => $recurring($repromote),
+            'demote_source_types' => $recurring($demoteTypes),
+            'demote_source_hashes' => $recurring($demoteHashes),
+        ];
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function inactiveFeedbackHint(): array
@@ -771,6 +865,7 @@ final class AtlasContextRankingSystemService
         return [
             'active' => false,
             'source' => 'none',
+            'feedback_scope' => 'none',
             'flow_id' => null,
             'repromote_source_types' => [],
             'demote_source_types' => [],
@@ -788,9 +883,16 @@ final class AtlasContextRankingSystemService
      */
     private function feedbackHintSummary(array $feedbackHint): array
     {
+        // feedback_scope only surfaces when the global-hints loop is enabled so
+        // flag-OFF output stays byte-identical to the pre-loop report.
+        $scope = (bool) config('atlas.context.feedback_global_hints', true)
+            ? ['feedback_scope' => (string) ($feedbackHint['feedback_scope'] ?? 'none')]
+            : [];
+
         return [
             'status' => (bool) ($feedbackHint['active'] ?? false) ? 'active' : 'inactive',
             'source' => (string) ($feedbackHint['source'] ?? 'none'),
+        ] + $scope + [
             'flow_id' => $feedbackHint['flow_id'] ?? null,
             'repromote_source_types' => (array) ($feedbackHint['repromote_source_types'] ?? []),
             'demote_source_type_count' => count((array) ($feedbackHint['demote_source_types'] ?? [])),
