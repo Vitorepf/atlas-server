@@ -293,7 +293,7 @@ class ExternalActionMandateRegistryService
                 || (bool) ($record['external_side_effects_enabled'] ?? true),
         ));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => (bool) ($suite['ok'] ?? false) && $records !== [] && $blocked === 0,
             'schema' => self::REGISTRY_SCHEMA,
             'status' => $records !== [] && $blocked === 0 ? 'queued_for_operator_review' : 'attention',
@@ -315,10 +315,7 @@ class ExternalActionMandateRegistryService
                 'blocked_next_actions' => ['auto_execute', 'external_write_without_signature', 'spend_without_budget_cap', 'trade_without_signed_mandate'],
                 'external_execution_enabled_by_registry' => false,
             ],
-        ];
-        $payload['registry_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'registry_hash');
     }
 
     /**
@@ -352,7 +349,7 @@ class ExternalActionMandateRegistryService
             'preflighted_at' => now(),
         ])->save();
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $failed === [],
             'schema' => self::PREFLIGHT_SCHEMA,
             'status' => $failed === [] ? 'preflight_green_awaiting_signatures' : 'preflight_blocked',
@@ -365,10 +362,7 @@ class ExternalActionMandateRegistryService
             'checks' => $checks,
             'failed_checks' => $failed,
             'record' => $this->recordPayload($record->refresh()),
-        ];
-        $payload['preflight_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'preflight_hash');
     }
 
     /**
@@ -402,7 +396,7 @@ class ExternalActionMandateRegistryService
         ];
         $record->forceFill(['status' => 'awaiting_operator_and_reviewer_signatures'])->save();
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => true,
             'schema' => self::APPROVAL_REQUEST_SCHEMA,
             'status' => 'awaiting_operator_and_reviewer_signatures',
@@ -414,10 +408,7 @@ class ExternalActionMandateRegistryService
             'approval_count' => count($approvals),
             'approvals' => $approvals,
             'required_roles' => ['operator_signature', 'second_reviewer_signature'],
-        ];
-        $payload['approval_request_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'approval_request_hash');
     }
 
     /**
@@ -465,7 +456,7 @@ class ExternalActionMandateRegistryService
         $status = $this->approvalStatus($record->mandate_packet_hash);
         $record->forceFill(['status' => (string) ($status['mandate_status'] ?? $record->status)])->save();
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => true,
             'schema' => self::APPROVAL_DECISION_SCHEMA,
             'status' => $normalizedDecision,
@@ -477,10 +468,7 @@ class ExternalActionMandateRegistryService
             'mandate_status' => (string) ($status['mandate_status'] ?? $record->status),
             'external_execution_allowed' => false,
             'approval_status' => $status,
-        ];
-        $payload['approval_decision_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'approval_decision_hash');
     }
 
     /**
@@ -507,7 +495,7 @@ class ExternalActionMandateRegistryService
                 ? 'signed_mandate_ready_manual_execution_only'
                 : ($approvals === [] ? (string) $record->status : 'awaiting_operator_and_reviewer_signatures'));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => true,
             'schema' => self::APPROVAL_STATUS_SCHEMA,
             'status' => $mandateStatus,
@@ -524,10 +512,7 @@ class ExternalActionMandateRegistryService
             'external_execution_blocker' => 'manual_execution_only_even_after_signatures',
             'approvals' => array_map(fn (AiOperatorApproval $approval): array => $this->approvalPayload($approval), $approvals),
             'record' => $this->recordPayload($record),
-        ];
-        $payload['approval_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'approval_status_hash');
     }
 
     /**
