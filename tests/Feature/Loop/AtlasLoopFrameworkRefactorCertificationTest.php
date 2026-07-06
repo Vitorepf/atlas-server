@@ -7,6 +7,7 @@ namespace Tests\Feature\Loop;
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use Symfony\Component\Process\Process;
+use Tests\Feature\Loop\Concerns\RunsProcesses;
 use Tests\TestCase;
 
 /**
@@ -22,6 +23,8 @@ use Tests\TestCase;
  */
 final class AtlasLoopFrameworkRefactorCertificationTest extends TestCase
 {
+    use RunsProcesses;
+
     private string $workspace;
 
     protected function tearDown(): void
@@ -469,12 +472,12 @@ $foo = new Foo();
 if ($foo->value() !== 'good') { fwrite(STDERR, 'expected good'); exit(1); }
 echo 'green';
 PHP);
-        $this->runGit(['git', 'init', '-q'], $dir);
-        $this->runGit(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
-        $this->runGit(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
-        $this->runGit(['git', 'config', 'commit.gpgsign', 'false'], $dir);
-        $this->runGit(['git', 'add', '-A'], $dir);
-        $this->runGit(['git', 'commit', '-q', '-m', 'baseline'], $dir);
+        $this->runProcess(['git', 'init', '-q'], $dir);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
+        $this->runProcess(['git', 'config', 'commit.gpgsign', 'false'], $dir);
+        $this->runProcess(['git', 'add', '-A'], $dir);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
         file_put_contents($dir.'/src/Foo.php', $candidate);
 
         return $dir;
@@ -539,12 +542,12 @@ foreach ($cases as $in => $want) {
 }
 echo 'green';
 PHP);
-        $this->runGit(['git', 'init', '-q'], $dir);
-        $this->runGit(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
-        $this->runGit(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
-        $this->runGit(['git', 'config', 'commit.gpgsign', 'false'], $dir);
-        $this->runGit(['git', 'add', '-A'], $dir);
-        $this->runGit(['git', 'commit', '-q', '-m', 'baseline'], $dir);
+        $this->runProcess(['git', 'init', '-q'], $dir);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
+        $this->runProcess(['git', 'config', 'commit.gpgsign', 'false'], $dir);
+        $this->runProcess(['git', 'add', '-A'], $dir);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
         // Candidate refactor goes LIVE in the working tree (the gate workspace state).
         file_put_contents($dir.'/src/Classifier.php', $candidate);
 
@@ -552,10 +555,4 @@ PHP);
     }
 
     /** @param list<string> $argv */
-    private function runGit(array $argv, string $cwd): void
-    {
-        $p = new Process($argv, $cwd, null, null, 30.0);
-        $p->run();
-        $this->assertTrue($p->isSuccessful(), $p->getErrorOutput() ?: $p->getOutput());
-    }
 }

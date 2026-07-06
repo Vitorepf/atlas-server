@@ -79,15 +79,8 @@ final class AtlasLoopOperatorIntentReceiptLedger
             return [];
         }
         $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            try {
-                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                continue;
-            }
-            if (! is_array($decoded)) {
-                continue;
-            }
+        // replay() skips corrupt/empty/non-array lines — identical to the prior inline loop.
+        foreach ((new JsonlReceiptStore($path))->replay() as $decoded) {
             if ($factId !== null && (string) ($decoded['fact_id'] ?? '') !== $factId) {
                 continue;
             }

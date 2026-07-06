@@ -5,15 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use RuntimeException;
 
 /**
  * Thrown when a caller attempts to mutate or delete an already-persisted receipt. Append-only invariant —
  * the only legal operation on a closed receipt is to read it.
  */
-final class TrinityReceiptImmutabilityException extends RuntimeException
-{
-}
+final class TrinityReceiptImmutabilityException extends RuntimeException {}
 
 /**
  * APPEND-ONLY, byte-deterministic, daily-rotated NDJSON ledger of every Trinity contract auditor verdict
@@ -111,12 +110,8 @@ final class AtlasLoopTrinityContractReceiptLedger
         sort($files);
         $out = [];
         foreach ($files as $f) {
-            foreach (file($f, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-                $decoded = json_decode((string) $line, true);
-                if (is_array($decoded)) {
-                    $out[] = $decoded;
-                }
-            }
+            // read() skips corrupt/empty/non-array lines — identical to the prior inline loop.
+            $out = array_merge($out, AppendOnlyJsonlStore::read($f));
         }
         usort($out, static fn (array $x, array $y): int => (int) ($x['seq'] ?? 0) <=> (int) ($y['seq'] ?? 0));
 

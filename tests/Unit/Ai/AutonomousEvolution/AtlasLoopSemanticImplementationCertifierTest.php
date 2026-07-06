@@ -6,10 +6,13 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopSemanticImplementationCertifier;
 use Symfony\Component\Process\Process;
+use Tests\Feature\Loop\Concerns\RunsProcesses;
 use Tests\TestCase;
 
 final class AtlasLoopSemanticImplementationCertifierTest extends TestCase
 {
+    use RunsProcesses;
+
     private string $workspace;
 
     protected function tearDown(): void
@@ -327,10 +330,4 @@ CMD;
     /**
      * @param  list<string>  $argv
      */
-    private function runProcess(array $argv, string $cwd): void
-    {
-        $process = new Process($argv, $cwd, null, null, 30.0);
-        $process->run();
-        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
-    }
 }

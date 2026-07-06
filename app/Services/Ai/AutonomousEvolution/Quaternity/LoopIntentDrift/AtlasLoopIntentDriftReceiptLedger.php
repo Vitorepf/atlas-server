@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift;
 
-
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Closure;
@@ -97,16 +96,16 @@ final class AtlasLoopIntentDriftReceiptLedger
      */
     public function all(): array
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return [];
-        }
         $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $row = $this->decodeOrNull($line);
-            if ($row !== null) {
-                $rows[] = $row;
-            }
+        // replay() skips corrupt/empty/non-array lines — identical to the prior decodeOrNull loop.
+        foreach ((new JsonlReceiptStore($this->path()))->replay() as $decoded) {
+            $rows[] = new AtlasLoopIntentDriftReceipt(
+                (string) ($decoded['receipt_id'] ?? ''),
+                (string) ($decoded['recorded_at'] ?? ''),
+                (array) ($decoded['detector_fact'] ?? []),
+                (array) ($decoded['recalibration'] ?? []),
+                (string) ($decoded['content_hash'] ?? ''),
+            );
         }
 
         return $rows;
@@ -180,26 +179,6 @@ final class AtlasLoopIntentDriftReceiptLedger
         return null;
     }
 
-    private function decodeOrNull(string $line): ?AtlasLoopIntentDriftReceipt
-    {
-        try {
-            $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return null;
-        }
-        if (! is_array($decoded)) {
-            return null;
-        }
-
-        return new AtlasLoopIntentDriftReceipt(
-            (string) ($decoded['receipt_id'] ?? ''),
-            (string) ($decoded['recorded_at'] ?? ''),
-            (array) ($decoded['detector_fact'] ?? []),
-            (array) ($decoded['recalibration'] ?? []),
-            (string) ($decoded['content_hash'] ?? ''),
-        );
-    }
-
     private function now(): string
     {
         if ($this->clock === null) {
@@ -216,5 +195,4 @@ final class AtlasLoopIntentDriftReceiptLedger
     {
         return (string) json_encode($this->canonicalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
-
 }

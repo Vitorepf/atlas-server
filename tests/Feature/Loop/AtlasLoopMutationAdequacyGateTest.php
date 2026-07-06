@@ -7,10 +7,13 @@ namespace Tests\Feature\Loop;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMutationAdequacyGateService;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Process\Process;
+use Tests\Feature\Loop\Concerns\RunsProcesses;
 use Tests\TestCase;
 
 final class AtlasLoopMutationAdequacyGateTest extends TestCase
 {
+    use RunsProcesses;
+
     private ?string $workspace = null;
 
     protected function tearDown(): void
@@ -1363,10 +1366,4 @@ PHP);
     /**
      * @param  list<string>  $argv
      */
-    private function runProcess(array $argv, string $cwd): void
-    {
-        $process = new Process($argv, $cwd, null, null, 30.0);
-        $process->run();
-        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
-    }
 }

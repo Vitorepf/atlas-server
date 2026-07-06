@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Quaternity\CortexIntentMeaning;
 
-
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\CanonicalizesNestedValues;
 use Carbon\CarbonImmutable;
@@ -84,17 +83,8 @@ final class AtlasCortexIntentMeaningReceiptLedger
             return [];
         }
 
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            try {
-                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                continue; // resilience: a corrupted line never crashes the loop
-            }
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
+        // replay() skips corrupt/empty/non-array lines — a bad line never crashes the loop.
+        $rows = (new JsonlReceiptStore($path))->replay();
 
         return $limit > 0 ? array_slice($rows, -$limit) : $rows;
     }
@@ -118,5 +108,4 @@ final class AtlasCortexIntentMeaningReceiptLedger
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         );
     }
-
 }

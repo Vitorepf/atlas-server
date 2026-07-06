@@ -129,18 +129,10 @@ final class AtlasCortexMemoryReceiptLedger
      */
     private function readAll(): array
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return [];
-        }
-
         $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (! is_array($decoded)) {
-                continue;
-            }
-
+        // replay() skips corrupt/empty/non-array lines and handles a missing file — identical
+        // to the prior inline loop; the row normalization stays here.
+        foreach ((new JsonlReceiptStore($this->path()))->replay() as $decoded) {
             $rows[] = [
                 'timestamp' => (string) ($decoded['timestamp'] ?? ''),
                 'action' => (string) ($decoded['action'] ?? ''),

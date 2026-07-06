@@ -10,10 +10,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
+use Tests\Feature\Loop\Concerns\RunsProcesses;
 use Tests\TestCase;
 
 final class AtlasLoopCrossFileConsumerGateTest extends TestCase
 {
+    use RunsProcesses;
+
     private ?string $workspace = null;
 
     protected function setUp(): void
@@ -407,13 +410,6 @@ PHP;
     /**
      * @param  list<string>  $argv
      */
-    private function runProcess(array $argv, string $cwd): void
-    {
-        $process = new Process($argv, $cwd, null, null, 30.0);
-        $process->run();
-        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
-    }
-
     private function dropCodeGraphTables(): void
     {
         foreach ([

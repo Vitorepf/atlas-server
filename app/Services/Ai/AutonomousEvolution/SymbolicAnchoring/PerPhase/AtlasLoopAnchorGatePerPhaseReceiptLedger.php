@@ -100,12 +100,8 @@ final class AtlasLoopAnchorGatePerPhaseReceiptLedger
         sort($files, SORT_STRING);
         $rows = [];
         foreach ($files as $file) {
-            foreach ((array) file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-                $decoded = json_decode((string) $line, true);
-                if (is_array($decoded)) {
-                    $rows[] = $decoded;
-                }
-            }
+            // read() skips corrupt/empty/non-array lines — identical to the prior inline loop.
+            $rows = array_merge($rows, AppendOnlyJsonlStore::read($file));
         }
 
         return $rows;

@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopCrossFileConsumerGateService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopCompletenessCriteriaResolver;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Symfony\Component\Process\Process;
+use Tests\Feature\Loop\Concerns\RunsProcesses;
 use Tests\TestCase;
 
 /**
@@ -17,6 +18,8 @@ use Tests\TestCase;
  */
 final class AtlasLoopCompletenessCriteriaResolverTest extends TestCase
 {
+    use RunsProcesses;
+
     private string $workspace;
 
     protected function tearDown(): void
@@ -238,22 +241,16 @@ PHP;
         $dir = sys_get_temp_dir().'/atlas-completeness-resolver-'.bin2hex(random_bytes(5));
         mkdir($dir.'/src', 0o755, true);
         file_put_contents($dir.'/src/Classifier.php', $baseline);
-        $this->runGit(['git', 'init', '-q'], $dir);
-        $this->runGit(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
-        $this->runGit(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
-        $this->runGit(['git', 'config', 'commit.gpgsign', 'false'], $dir);
-        $this->runGit(['git', 'add', '-A'], $dir);
-        $this->runGit(['git', 'commit', '-q', '-m', 'baseline'], $dir);
+        $this->runProcess(['git', 'init', '-q'], $dir);
+        $this->runProcess(['git', 'config', 'user.email', 'atlas-loop@local'], $dir);
+        $this->runProcess(['git', 'config', 'user.name', 'Atlas Loop'], $dir);
+        $this->runProcess(['git', 'config', 'commit.gpgsign', 'false'], $dir);
+        $this->runProcess(['git', 'add', '-A'], $dir);
+        $this->runProcess(['git', 'commit', '-q', '-m', 'baseline'], $dir);
         file_put_contents($dir.'/src/Classifier.php', $candidate);
 
         return $dir;
     }
 
     /** @param list<string> $argv */
-    private function runGit(array $argv, string $cwd): void
-    {
-        $p = new Process($argv, $cwd, null, null, 30.0);
-        $p->run();
-        $this->assertTrue($p->isSuccessful(), $p->getErrorOutput() ?: $p->getOutput());
-    }
 }

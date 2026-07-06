@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use Symfony\Component\Process\Process;
+use Tests\Feature\Loop\Concerns\RunsProcesses;
 use Tests\TestCase;
 
 final class AtlasLoopCertifyImplementationCommandTest extends TestCase
 {
+    use RunsProcesses;
+
     private string $workspace;
 
     protected function tearDown(): void
@@ -82,10 +85,4 @@ CMD;
     /**
      * @param  list<string>  $argv
      */
-    private function runProcess(array $argv, string $cwd): void
-    {
-        $process = new Process($argv, $cwd, null, null, 30.0);
-        $process->run();
-        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
-    }
 }

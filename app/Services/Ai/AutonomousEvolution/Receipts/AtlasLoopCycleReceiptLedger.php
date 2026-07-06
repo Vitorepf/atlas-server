@@ -7,12 +7,9 @@ namespace App\Services\Ai\AutonomousEvolution\Receipts;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Generator;
 use RuntimeException;
-use Throwable;
 
 /** Raised when an append is offered a signed receipt that fails the signer's verify(). */
-final class CycleReceiptChainRejection extends RuntimeException
-{
-}
+final class CycleReceiptChainRejection extends RuntimeException {}
 
 /**
  * Append-only, tamper-evident CHAIN of signed loop-cycle receipts ({@see AtlasLoopCycleReceiptSigner}). Each
@@ -92,20 +89,8 @@ final class AtlasLoopCycleReceiptLedger
      */
     public function all(): Generator
     {
-        $path = $this->path();
-        if (! is_file($path)) {
-            return;
-        }
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            try {
-                $decoded = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
-            } catch (Throwable) {
-                continue;
-            }
-            if (is_array($decoded)) {
-                yield $decoded;
-            }
-        }
+        // Corrupt/empty/non-array lines are skipped by replay() — same policy the inline loop had.
+        yield from (new JsonlReceiptStore($this->path()))->replay();
     }
 
     /**
@@ -147,5 +132,4 @@ final class AtlasLoopCycleReceiptLedger
 
         return hash('sha256', $prev.$bodySha.$signature);
     }
-
 }
