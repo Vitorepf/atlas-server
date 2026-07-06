@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AtlasOpenBrainContextPackService;
+use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -89,6 +90,28 @@ final class AtlasOpenBrainContextPackLabelSanitizerTest extends TestCase
         self::assertFalse(AtlasOpenBrainContextPackService::isSessionArtifactPath(
             ['target' => 'domain:engineering', 'seed' => 'code:module:app'],
             [['label' => 'Application Services'], ['label' => 'Software Engineering']]
+        ));
+    }
+
+    public function test_session_capture_origin_drops_the_path_by_provenance_even_with_innocuous_label(): void
+    {
+        // A raw prompt that no text heuristic recognizes ("vc esta mentindo..." leaked
+        // on 06/07) must still be dropped: provenance beats heuristics.
+        self::assertTrue(AtlasOpenBrainContextPackService::isSessionArtifactPath(
+            ['target' => 'mission:uuid', 'seed' => 'code:module:app'],
+            [['label' => 'vc esta mentindo para mim e nao esta rodando ciclo a ciclo', 'origin' => AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE]]
+        ));
+
+        // The same origin on a clean-looking label is still session echo.
+        self::assertTrue(AtlasOpenBrainContextPackService::isSessionArtifactPath(
+            ['target' => 'mission:uuid', 'seed' => 'code:module:app'],
+            [['label' => 'Application Services', 'origin' => AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE]]
+        ));
+
+        // A node without the origin marker keeps the existing behavior.
+        self::assertFalse(AtlasOpenBrainContextPackService::isSessionArtifactPath(
+            ['target' => 'domain:engineering', 'seed' => 'code:module:app'],
+            [['label' => 'Application Services', 'origin' => '']]
         ));
     }
 

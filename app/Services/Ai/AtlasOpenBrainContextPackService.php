@@ -1526,6 +1526,7 @@ class AtlasOpenBrainContextPackService
                 $labelById[(string) $node['id']] = [
                     'label' => (string) ($node['label'] ?? ''),
                     'source_kind' => (string) ($node['source_kind'] ?? ''),
+                    'origin' => (string) data_get($node, 'meta.origin', ''),
                 ];
             }
         }
@@ -1556,6 +1557,7 @@ class AtlasOpenBrainContextPackService
                     'id' => $nodeId,
                     'label' => $label,
                     'source_kind' => $labelById[$nodeId]['source_kind'] ?? '',
+                    'origin' => $labelById[$nodeId]['origin'] ?? '',
                 ];
             }
             // A path that runs into a session-capture artifact (a raw past-prompt / interrupted
@@ -1663,6 +1665,12 @@ class AtlasOpenBrainContextPackService
         }
 
         foreach ($chain as $node) {
+            // PROVENANCE beats heuristics: a mission minted by the AOBG write-back
+            // (session capture) carries meta.origin — its label is raw session text,
+            // never an operator decision, regardless of what the text looks like.
+            if (($node['origin'] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
+                return true;
+            }
             if (self::isSessionArtifactLabel((string) ($node['label'] ?? ''))) {
                 return true;
             }

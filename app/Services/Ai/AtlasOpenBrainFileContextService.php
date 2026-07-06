@@ -305,6 +305,7 @@ class AtlasOpenBrainFileContextService
                     'label' => (string) ($node['label'] ?? ''),
                     'source_kind' => (string) ($node['source_kind'] ?? ''),
                     'kind' => (string) ($node['kind'] ?? ''),
+                    'origin' => (string) data_get($node, 'meta.origin', ''),
                 ];
             }
         }
@@ -322,7 +323,10 @@ class AtlasOpenBrainFileContextService
                 // Same untrusted-label hygiene as the context pack: neutralize a node label (it can
                 // be a raw past prompt) and drop paths that run into a session-capture echo artifact.
                 $label = AtlasOpenBrainContextPackService::sanitizeGraphLabel((string) ($labelById[$nodeId]['label'] ?? ''));
-                if (AtlasOpenBrainContextPackService::isSessionArtifactLabel($label)) {
+                // Provenance beats heuristics: an AOBG session-capture mission's label is
+                // raw session text — never render it as a decision touching this file.
+                if (($labelById[$nodeId]['origin'] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE
+                    || AtlasOpenBrainContextPackService::isSessionArtifactLabel($label)) {
                     $sessionEcho = true;
                 }
                 $chain[] = [

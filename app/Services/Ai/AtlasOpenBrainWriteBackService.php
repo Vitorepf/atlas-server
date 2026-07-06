@@ -57,6 +57,13 @@ class AtlasOpenBrainWriteBackService
 
     public const ACTION_RECORD_OUTCOME = 'record_outcome';
 
+    /**
+     * Provenance origin stamped on every mission node minted through this gateway
+     * (session captures + CLI record-outcome): its label is raw external-session
+     * text, so render surfaces must never present it as an operator decision.
+     */
+    public const MISSION_ORIGIN_SESSION_CAPTURE = 'aobg_session_capture';
+
     public const ACTION_PROPOSE_LEARNING = 'propose_learning';
 
     /** Rejection reasons surfaced to the (untrusted) caller — stable, auditable. */
@@ -135,6 +142,12 @@ class AtlasOpenBrainWriteBackService
             // — untrusted input must not carry secrets into a label even by accident).
             $recorded = $this->ingestion->recordMissionOutcome([
                 'id' => $id,
+                // Every mission recorded through THIS gateway is an external-session
+                // record: its label is raw session text (often a past operator prompt),
+                // never an operator decision. The origin marker lets render surfaces
+                // (context pack / file context) drop it as session echo by PROVENANCE
+                // instead of by text heuristic.
+                'origin' => self::MISSION_ORIGIN_SESSION_CAPTURE,
                 'request' => AtlasSecurity::redactString($request),
                 'branch' => $this->string($input['branch'] ?? null) ?? '',
                 'delivered' => (bool) ($input['delivered'] ?? false),
