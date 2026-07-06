@@ -7,7 +7,10 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-from atlas_runtime_contract import run_json_manifest_entrypoint
+from atlas_runtime_contract import (
+    run_json_manifest_entrypoint,
+    run_package_manifest_entrypoint,
+)
 
 
 class RuntimeEntrypointContractTest(unittest.TestCase):
@@ -67,6 +70,31 @@ class RuntimeEntrypointContractTest(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertEqual({"ok": False, "error": "bad_manifest"}, payload)
+
+    def test_package_entrypoint_resolves_run_manifest_and_delegates(self) -> None:
+        import sys
+        import types
+
+        fake = types.ModuleType("atlas_fake_runtime")
+        fake.run_manifest = lambda request: {"echo": request["operation"]}
+        sys.modules["atlas_fake_runtime"] = fake
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                manifest = Path(tmp) / "manifest.json"
+                manifest.write_text(json.dumps({"operation": "probe"}), encoding="utf-8")
+
+                stream = StringIO()
+                with redirect_stdout(stream):
+                    code = run_package_manifest_entrypoint(
+                        ["main.py", str(manifest)], "atlas_fake_runtime"
+                    )
+        finally:
+            del sys.modules["atlas_fake_runtime"]
+
+        self.assertEqual(0, code)
+        self.assertEqual(
+            {"ok": True, "result": {"echo": "probe"}}, json.loads(stream.getvalue())
+        )
 
 
 if __name__ == "__main__":
