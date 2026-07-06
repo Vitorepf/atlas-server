@@ -29,25 +29,22 @@ namespace App\Services\Ai\RuntimeBoundary;
  */
 final class StatsEngineRuntimeClient
 {
+    use PythonManifestRuntimeMechanics;
+
     private const RUNTIME_ROOT = 'runtimes/python/stats_engine';
 
-    private readonly PythonManifestRuntimeClient $runtime;
+    private const MANIFEST_PREFIX = 'atlas-stats-engine';
 
-    public function __construct(?PythonManifestRuntimeClient $runtime = null)
-    {
-        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
-            self::RUNTIME_ROOT,
-            'atlas-stats-engine',
-            'stats_engine Python runtime is not set up — run scripts/setup-stats-engine-runtime.sh. '
-                .'The canon forbids a PHP statistics fallback; this is an explicit failure, not a silent hand-rolled stand-in.',
-            'stats_engine',
-        );
-    }
+    private const SETUP_MESSAGE = 'stats_engine Python runtime is not set up — run scripts/setup-stats-engine-runtime.sh. '
+        .'The canon forbids a PHP statistics fallback; this is an explicit failure, not a silent hand-rolled stand-in.';
 
-    public function available(): bool
-    {
-        return $this->runtime->available();
-    }
+    private const RUNTIME_LABEL = 'stats_engine';
+
+    private const BOUNDARY_REQUIRED_TRUE = ['stats_engine_in_python', 'real_stats'];
+
+    private const BOUNDARY_REQUIRED_FALSE = ['fabricated'];
+
+    private const BOUNDARY_REFUSAL = 'stats_engine returned a non-real-stats boundary receipt — refusing (anti-fake guard).';
 
     /**
      * Two-sample Kolmogorov-Smirnov (with Mann-Whitney fallback for small n).
@@ -199,20 +196,5 @@ final class StatsEngineRuntimeClient
 
         /** @var array<string,array<string,mixed>> $results */
         return $results;
-    }
-
-    /**
-     * @param  array<string,mixed>  $manifest
-     * @return array<string,mixed>
-     */
-    private function run(array $manifest): array
-    {
-        return PythonBoundaryReceiptGuard::runReal(
-            $this->runtime,
-            $manifest,
-            ['stats_engine_in_python', 'real_stats'],
-            ['fabricated'],
-            'stats_engine returned a non-real-stats boundary receipt — refusing (anti-fake guard).',
-        );
     }
 }

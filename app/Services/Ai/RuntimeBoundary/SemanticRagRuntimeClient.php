@@ -20,25 +20,22 @@ namespace App\Services\Ai\RuntimeBoundary;
  */
 final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
 {
+    use PythonManifestRuntimeMechanics;
+
     private const RUNTIME_ROOT = 'runtimes/python/semantic_rag';
 
-    private readonly PythonManifestRuntimeClient $runtime;
+    private const MANIFEST_PREFIX = 'atlas-semantic-rag';
 
-    public function __construct(?PythonManifestRuntimeClient $runtime = null)
-    {
-        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
-            self::RUNTIME_ROOT,
-            'atlas-semantic-rag',
-            'semantic_rag Python runtime is not set up — run scripts/setup-semantic-rag-runtime.sh. '
-                .'The canon forbids a PHP embedding/RAG fallback; this is an explicit failure, not a silent stand-in.',
-            'semantic_rag',
-        );
-    }
+    private const SETUP_MESSAGE = 'semantic_rag Python runtime is not set up — run scripts/setup-semantic-rag-runtime.sh. '
+        .'The canon forbids a PHP embedding/RAG fallback; this is an explicit failure, not a silent stand-in.';
 
-    public function available(): bool
-    {
-        return $this->runtime->available();
-    }
+    private const RUNTIME_LABEL = 'semantic_rag';
+
+    private const BOUNDARY_REQUIRED_TRUE = ['real_embeddings', 'embeddings_engine_in_python'];
+
+    private const BOUNDARY_REQUIRED_FALSE = ['fabricated_vectors'];
+
+    private const BOUNDARY_REFUSAL = 'semantic_rag returned a non-real-embedding boundary receipt — refusing (anti-fake guard).';
 
     /**
      * Embed texts with the real Python model (for pgvector storage, etc.).
@@ -87,20 +84,5 @@ final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
             'documents' => array_values($documents),
             'graph_threshold' => $graphThreshold,
         ]);
-    }
-
-    /**
-     * @param  array<string,mixed>  $manifest
-     * @return array<string,mixed>
-     */
-    private function run(array $manifest): array
-    {
-        return PythonBoundaryReceiptGuard::runReal(
-            $this->runtime,
-            $manifest,
-            ['real_embeddings', 'embeddings_engine_in_python'],
-            ['fabricated_vectors'],
-            'semantic_rag returned a non-real-embedding boundary receipt — refusing (anti-fake guard).',
-        );
     }
 }

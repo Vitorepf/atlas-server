@@ -11,6 +11,7 @@ use App\Models\AiSessionState;
 use App\Models\AiThread;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -356,7 +357,7 @@ class AiCompactionService
         $evidenceRefs = array_values((array) ($input['evidence_refs'] ?? []));
         $staleRisks = array_values((array) ($input['stale_risks'] ?? []));
         $detectedContradictions = array_values((array) ($input['detected_contradictions'] ?? []));
-        $callerRecoveryQueries = $this->normaliseStringList((array) ($input['recovery_queries'] ?? []));
+        $callerRecoveryQueries = AiStringListNormalizer::nonBlankStrings((array) ($input['recovery_queries'] ?? []));
         $actorAlias = isset($input['actor_alias']) && is_string($input['actor_alias']) && trim($input['actor_alias']) !== ''
             ? trim($input['actor_alias'])
             : 'ai_compaction_service';
@@ -517,22 +518,6 @@ class AiCompactionService
                 $reason = AtlasLongHorizonCanon::DISCARDED_REASON_LOW_SIGNAL;
             }
             $out[] = ['id' => $id, 'reason' => $reason];
-        }
-
-        return $out;
-    }
-
-    /**
-     * @param  array<int,mixed>  $list
-     * @return list<string>
-     */
-    private function normaliseStringList(array $list): array
-    {
-        $out = [];
-        foreach ($list as $v) {
-            if (is_string($v) && trim($v) !== '') {
-                $out[] = $v;
-            }
         }
 
         return $out;

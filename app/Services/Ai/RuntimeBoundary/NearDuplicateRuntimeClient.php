@@ -28,25 +28,22 @@ namespace App\Services\Ai\RuntimeBoundary;
  */
 final class NearDuplicateRuntimeClient
 {
+    use PythonManifestRuntimeMechanics;
+
     private const RUNTIME_ROOT = 'runtimes/python/near_duplicate';
 
-    private readonly PythonManifestRuntimeClient $runtime;
+    private const MANIFEST_PREFIX = 'atlas-near-duplicate';
 
-    public function __construct(?PythonManifestRuntimeClient $runtime = null)
-    {
-        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
-            self::RUNTIME_ROOT,
-            'atlas-near-duplicate',
-            'near_duplicate Python runtime is not set up — run scripts/setup-near-duplicate-runtime.sh. '
-                .'The canon forbids a PHP near-duplicate fallback; this is an explicit failure, not a silent hand-rolled stand-in.',
-            'near_duplicate',
-        );
-    }
+    private const SETUP_MESSAGE = 'near_duplicate Python runtime is not set up — run scripts/setup-near-duplicate-runtime.sh. '
+        .'The canon forbids a PHP near-duplicate fallback; this is an explicit failure, not a silent hand-rolled stand-in.';
 
-    public function available(): bool
-    {
-        return $this->runtime->available();
-    }
+    private const RUNTIME_LABEL = 'near_duplicate';
+
+    private const BOUNDARY_REQUIRED_TRUE = ['near_duplicate_in_python', 'real_jaccard'];
+
+    private const BOUNDARY_REQUIRED_FALSE = ['fabricated'];
+
+    private const BOUNDARY_REFUSAL = 'near_duplicate returned a non-real-engine boundary receipt — refusing (anti-fake guard).';
 
     /**
      * Detect near-duplicate memory rows via vectorised token-shingle Jaccard,
@@ -75,20 +72,5 @@ final class NearDuplicateRuntimeClient
         unset($result['boundary']);
 
         return $result;
-    }
-
-    /**
-     * @param  array<string,mixed>  $manifest
-     * @return array<string,mixed>
-     */
-    private function run(array $manifest): array
-    {
-        return PythonBoundaryReceiptGuard::runReal(
-            $this->runtime,
-            $manifest,
-            ['near_duplicate_in_python', 'real_jaccard'],
-            ['fabricated'],
-            'near_duplicate returned a non-real-engine boundary receipt — refusing (anti-fake guard).',
-        );
     }
 }

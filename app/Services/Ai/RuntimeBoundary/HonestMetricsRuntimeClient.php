@@ -38,25 +38,22 @@ namespace App\Services\Ai\RuntimeBoundary;
  */
 final class HonestMetricsRuntimeClient
 {
+    use PythonManifestRuntimeMechanics;
+
     private const RUNTIME_ROOT = 'runtimes/python/honest_metrics';
 
-    private readonly PythonManifestRuntimeClient $runtime;
+    private const MANIFEST_PREFIX = 'atlas-honest-metrics';
 
-    public function __construct(?PythonManifestRuntimeClient $runtime = null)
-    {
-        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
-            self::RUNTIME_ROOT,
-            'atlas-honest-metrics',
-            'honest_metrics Python runtime is not set up — run scripts/setup-honest-metrics-runtime.sh. '
-                .'The canon forbids a PHP finance-metrics fallback; this is an explicit failure, not a silent hand-rolled stand-in.',
-            'honest_metrics',
-        );
-    }
+    private const SETUP_MESSAGE = 'honest_metrics Python runtime is not set up — run scripts/setup-honest-metrics-runtime.sh. '
+        .'The canon forbids a PHP finance-metrics fallback; this is an explicit failure, not a silent hand-rolled stand-in.';
 
-    public function available(): bool
-    {
-        return $this->runtime->available();
-    }
+    private const RUNTIME_LABEL = 'honest_metrics';
+
+    private const BOUNDARY_REQUIRED_TRUE = ['honest_metrics_in_python', 'real_metrics'];
+
+    private const BOUNDARY_REQUIRED_FALSE = ['fabricated'];
+
+    private const BOUNDARY_REFUSAL = 'honest_metrics returned a non-real-metrics boundary receipt — refusing (anti-fake guard).';
 
     /**
      * The complete post-selection honesty computation in one subprocess: the
@@ -156,20 +153,5 @@ final class HonestMetricsRuntimeClient
             'operation' => 'moments',
             'x' => array_values($x),
         ])['result'] ?? [];
-    }
-
-    /**
-     * @param  array<string,mixed>  $manifest
-     * @return array<string,mixed>
-     */
-    private function run(array $manifest): array
-    {
-        return PythonBoundaryReceiptGuard::runReal(
-            $this->runtime,
-            $manifest,
-            ['honest_metrics_in_python', 'real_metrics'],
-            ['fabricated'],
-            'honest_metrics returned a non-real-metrics boundary receipt — refusing (anti-fake guard).',
-        );
     }
 }

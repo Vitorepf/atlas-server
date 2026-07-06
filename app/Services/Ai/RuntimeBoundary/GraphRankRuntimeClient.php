@@ -30,25 +30,22 @@ namespace App\Services\Ai\RuntimeBoundary;
  */
 final class GraphRankRuntimeClient
 {
+    use PythonManifestRuntimeMechanics;
+
     private const RUNTIME_ROOT = 'runtimes/python/graph_rank';
 
-    private readonly PythonManifestRuntimeClient $runtime;
+    private const MANIFEST_PREFIX = 'atlas-graph-rank';
 
-    public function __construct(?PythonManifestRuntimeClient $runtime = null)
-    {
-        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
-            self::RUNTIME_ROOT,
-            'atlas-graph-rank',
-            'graph_rank Python runtime is not set up — run scripts/setup-graph-rank-runtime.sh. '
-                .'The canon forbids a PHP graph-ranking fallback; this is an explicit failure, not a silent hand-rolled stand-in.',
-            'graph_rank',
-        );
-    }
+    private const SETUP_MESSAGE = 'graph_rank Python runtime is not set up — run scripts/setup-graph-rank-runtime.sh. '
+        .'The canon forbids a PHP graph-ranking fallback; this is an explicit failure, not a silent hand-rolled stand-in.';
 
-    public function available(): bool
-    {
-        return $this->runtime->available();
-    }
+    private const RUNTIME_LABEL = 'graph_rank';
+
+    private const BOUNDARY_REQUIRED_TRUE = ['graph_rank_in_python', 'real_graph_math'];
+
+    private const BOUNDARY_REQUIRED_FALSE = ['fabricated'];
+
+    private const BOUNDARY_REFUSAL = 'graph_rank returned a non-real-engine boundary receipt — refusing (anti-fake guard).';
 
     /**
      * Rank world-model nodes by combining textual match with graph evidence
@@ -82,20 +79,5 @@ final class GraphRankRuntimeClient
         unset($result['boundary']);
 
         return $result;
-    }
-
-    /**
-     * @param  array<string,mixed>  $manifest
-     * @return array<string,mixed>
-     */
-    private function run(array $manifest): array
-    {
-        return PythonBoundaryReceiptGuard::runReal(
-            $this->runtime,
-            $manifest,
-            ['graph_rank_in_python', 'real_graph_math'],
-            ['fabricated'],
-            'graph_rank returned a non-real-engine boundary receipt — refusing (anti-fake guard).',
-        );
     }
 }

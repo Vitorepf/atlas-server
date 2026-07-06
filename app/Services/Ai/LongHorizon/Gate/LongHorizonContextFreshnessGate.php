@@ -7,6 +7,7 @@ namespace App\Services\Ai\LongHorizon\Gate;
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Programming\AtlasDev\Gate\MandatoryRagGate;
+use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -192,7 +193,7 @@ final class LongHorizonContextFreshnessGate
         }
 
         // Required evidence kinds (caller-declared) absent from pack.evidence_refs.
-        $requiredEvidenceKinds = $this->normaliseStringList(
+        $requiredEvidenceKinds = AiStringListNormalizer::uniqueTrimmedStrings(
             (array) ($input['required_evidence_kinds'] ?? []),
         );
         $presentEvidenceKinds = $this->collectEvidenceKinds((array) ($pack['evidence_refs'] ?? []));
@@ -471,22 +472,6 @@ final class LongHorizonContextFreshnessGate
         }
 
         return array_values(array_unique($kinds));
-    }
-
-    /**
-     * @param  array<int,mixed>  $list
-     * @return list<string>
-     */
-    private function normaliseStringList(array $list): array
-    {
-        $out = [];
-        foreach ($list as $v) {
-            if (is_string($v) && trim($v) !== '') {
-                $out[] = trim($v);
-            }
-        }
-
-        return array_values(array_unique($out));
     }
 
     private function stringOrNull(mixed $value): ?string
