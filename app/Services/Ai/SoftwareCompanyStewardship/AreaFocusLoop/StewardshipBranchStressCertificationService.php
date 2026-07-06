@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -633,8 +635,7 @@ final class StewardshipBranchStressCertificationService
      */
     private function gitOk(string $repo, array $args): bool
     {
-        $process = new Process(array_merge(['git'], $args), $repo);
-        $process->run();
+        $process = GitSubprocess::run($repo, $args);
 
         return $process->isSuccessful();
     }
@@ -743,9 +744,7 @@ final class StewardshipBranchStressCertificationService
      */
     private function runGit(string $repo, array $args): void
     {
-        $process = new Process(array_merge(['git'], $args), $repo);
-        $process->setTimeout(60);
-        $process->run();
+        $process = GitSubprocess::run($repo, $args);
 
         if (! $process->isSuccessful()) {
             throw new \RuntimeException('git '.implode(' ', $args).' failed: '.$process->getErrorOutput().$process->getOutput());
@@ -757,9 +756,10 @@ final class StewardshipBranchStressCertificationService
      */
     private function gitOut(string $repo, array $args): string
     {
-        $process = new Process(array_merge(['git'], $args), $repo);
-        $process->setTimeout(60);
-        $process->mustRun();
+        $process = GitSubprocess::run($repo, $args);
+        if (! $process->isSuccessful()) {
+            throw new ProcessFailedException($process);
+        }
 
         return trim($process->getOutput());
     }
