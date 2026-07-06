@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
-use App\Services\Ai\AutonomousEvolution\AtlasLoopFrozenTestContentBuilder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopFrozenTestSourceRenderer;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopIntentVerifierFactory;
 use Tests\TestCase;
 
 final class AtlasLoopFrozenTestSourceRendererTest extends TestCase
 {
-    public function test_renderer_is_byte_identical_to_legacy_builder_across_atom_types(): void
+    /**
+     * Golden capturado do output byte-idêntico ao legacy AtlasLoopFrozenTestContentBuilder
+     * (aposentado na Obra #8; equivalência provada antes da remoção).
+     */
+    private const GOLDEN_ALL_ATOMS_SHA256 = 'a005a77489599f36465388c4b1b02cf0514764a51518bfd4ff865769128e2c29';
+
+    public function test_renderer_output_is_frozen_across_atom_types(): void
     {
-        $legacy = new AtlasLoopFrozenTestContentBuilder;
         $renderer = new AtlasLoopFrozenTestSourceRenderer;
 
         $testPath = 'tests/Feature/Loop/IntentVerifier/frozen-renderer-smoke.php';
@@ -68,28 +72,27 @@ final class AtlasLoopFrozenTestSourceRendererTest extends TestCase
             ],
         ];
 
-        $this->assertSame(
-            $legacy->frozenTestContent($testPath, $target, $class, $atoms),
-            $renderer->frozenTestContent($testPath, $target, $class, $atoms),
-        );
+        $content = $renderer->frozenTestContent($testPath, $target, $class, $atoms);
+
+        $this->assertSame(self::GOLDEN_ALL_ATOMS_SHA256, hash('sha256', $content));
     }
 
     public function test_renderer_preserves_count_operator_byte_identically(): void
     {
+        // label => [input operator, normalized operator, golden sha256 do source renderizado]
         $cases = [
-            'equals' => ['=', '='],
-            'greater-or-equal' => ['>=', '>='],
-            'less-or-equal' => ['<=', '<='],
-            'greater-than' => ['>', '>'],
-            'less-than' => ['<', '<'],
-            'fallback' => ['bogus', '>='],
+            'equals' => ['=', '=', 'dc2173138470cea59c32d679f078650eb790aa35a599e0d146243d2a1ce025a8'],
+            'greater-or-equal' => ['>=', '>=', '508d868b2bacf502988f6a0b45199951765058d53a0b70beae982fd7101ae353'],
+            'less-or-equal' => ['<=', '<=', '02ea3dab6985df645dcd0255fa43405a8df7cddd2b9f7bc1fa657ea948a4d705'],
+            'greater-than' => ['>', '>', 'a6615bab8bc08fe7b42da893e7a02a1d0d8cde41f1c9f41cff76a743d5cd802b'],
+            'less-than' => ['<', '<', 'b4882dd97a8fbedad1703cff61b245ac227f413ae319674a5395545b6dfcda52'],
+            'fallback' => ['bogus', '>=', '508d868b2bacf502988f6a0b45199951765058d53a0b70beae982fd7101ae353'],
         ];
 
-        $legacy = new AtlasLoopFrozenTestContentBuilder;
         $renderer = new AtlasLoopFrozenTestSourceRenderer;
 
-        foreach ($cases as [$input, $normalized]) {
-            $contentLegacy = $legacy->frozenTestContent(
+        foreach ($cases as $label => [$input, $normalized, $golden]) {
+            $content = $renderer->frozenTestContent(
                 'tests/Feature/Loop/IntentVerifier/frozen-renderer-count.php',
                 'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
                 'App\\Services\\Ai\\AutonomousEvolution\\AtlasLoopWorkspaceMaterializer',
@@ -107,26 +110,8 @@ final class AtlasLoopFrozenTestSourceRendererTest extends TestCase
                 ]],
             );
 
-            $contentRenderer = $renderer->frozenTestContent(
-                'tests/Feature/Loop/IntentVerifier/frozen-renderer-count.php',
-                'app/Services/Ai/AutonomousEvolution/AtlasLoopWorkspaceMaterializer.php',
-                'App\\Services\\Ai\\AutonomousEvolution\\AtlasLoopWorkspaceMaterializer',
-                [[
-                    'type' => 'db_state',
-                    'table' => 'intent_verifier_records',
-                    'setup_sql' => ['CREATE TABLE intent_verifier_records (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)'],
-                    'where' => ['marker' => 'ok'],
-                    'expected_count' => 1,
-                    'count_operator' => $input,
-                    'trigger' => [
-                        'type' => 'method_call',
-                        'method' => 'recordIntentVerifierDbProbe',
-                    ],
-                ]],
-            );
-
-            $this->assertSame($contentLegacy, $contentRenderer);
-            $this->assertStringContainsString("\$dbCountOperator0 = '".$normalized."';", $contentRenderer);
+            $this->assertSame($golden, hash('sha256', $content), "case [{$label}]");
+            $this->assertStringContainsString("\$dbCountOperator0 = '".$normalized."';", $content, "case [{$label}]");
         }
     }
 

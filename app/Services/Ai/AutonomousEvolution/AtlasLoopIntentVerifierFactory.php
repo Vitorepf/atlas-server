@@ -29,9 +29,6 @@ final class AtlasLoopIntentVerifierFactory
 
     public function __construct(
         private readonly AtlasLoopFrameworkMaterializer $frameworkMaterializer,
-        // Legacy optional collaborator kept ONLY to preserve the public constructor signature.
-        // The active source-emitter is AtlasLoopFrozenTestSourceRenderer, lazily self-resolved.
-        private readonly ?AtlasLoopFrozenTestContentBuilder $frozenTestContentBuilderCollaborator = null,
         // VERIFICATION-ATOM NORMALIZER concern (extracted). Nullable + self-resolve fallback
         // preserves the public constructor signature and lets tests inject a stub.
         private readonly ?AtlasLoopVerificationAtomNormalizer $atomNormalizerCollaborator = null,
