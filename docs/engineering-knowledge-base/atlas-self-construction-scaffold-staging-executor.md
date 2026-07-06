@@ -55,7 +55,9 @@ evidence:
   - tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorServiceTest.php
 evidence_refs:
   - symbol: AtlasSelfConstructionScaffoldStagingExecutorService
+  - symbol: AtlasSelfConstructionPromotionPlanService
   - command: atlas:scaffold:stage
+  - test: AtlasSelfConstructionPromotionPlanServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -102,6 +104,25 @@ Nao escrever em `app/`, `docs/` ou `tests/` por este runtime. Nao pular approval
 ## Escopo de Implementacao
 
 Service, comando e teste unitario existem; promocao source-tree e manual/fora de escopo.
+
+### Promotion Plan (workflow de promocao do operador)
+
+`AtlasSelfConstructionPromotionPlanService` (`app/Services/Ai/SelfConstruction/`)
+estende o workflow de promocao com um plano honesto de dry-run
+(`atlas.self_construction.promotion_plan.v1`): ele le os arquivos staged sob
+`storage/atlas/self_construction/staged/` e produz um envelope com os comandos
+de copia que o OPERADOR executa manualmente, mais um receipt de auditoria do
+evento de planejamento.
+
+Invariantes petreos:
+
+- PRODUZ PLANOS APENAS — o service nunca escreve em `app/`, `docs/` ou `tests/`;
+- Constitutional Kernel precisa permitir antes de emitir o plano;
+- target path que ja existe no source tree e marcado como `conflict` no plano
+  (nunca sobrescrito);
+- cada arquivo e hasheado para o operador verificar integridade pos-copia.
+
+Teste de contrato: `tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionPromotionPlanServiceTest.php`.
 
 ## Dependencias
 

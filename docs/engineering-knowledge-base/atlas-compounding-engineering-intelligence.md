@@ -94,8 +94,12 @@ evidence:
   - docs/engineering-knowledge-base/atlas-compounding-engineering-intelligence.md
 evidence_refs:
   - symbol: AtlasCompoundingEngineeringIntelligenceService
+  - symbol: AtlasLearningDistiller
+  - symbol: AtlasCompoundingRuntimeService
   - command: atlas:ai:compounding
   - test: AtlasCompoundingEngineeringIntelligenceTest
+  - test: AtlasLearningDistillerQualityGateTest
+  - test: AtlasCompoundingRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test tests/Unit/Ai/Compounding"

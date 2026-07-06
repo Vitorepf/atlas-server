@@ -60,8 +60,10 @@ evidence:
   - docs/engineering-knowledge-base/spec-operating-system/plan-task-and-receipt-contract.md
 evidence_refs:
   - symbol: AtlasDecisionReceiptGuardService
+  - symbol: AiDecisionReceiptRefreshService
   - command: atlas:aaeos:decision-receipt-guard
   - test: AtlasDecisionReceiptGuardTest
+  - test: AiDecisionReceiptRefreshServiceHardeningTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true
@@ -117,6 +119,19 @@ IA deve tratar receipt como fronteira de execucao. Se o arquivo alvo nao esta pe
 ## Escopo de Implementacao
 
 Permitido: schema, assinatura, exibicao, verificacao e ledger. Proibido: aplicar diff sem receipt em fluxo governado.
+
+## Refresh de receipt expirado (antes do provider call)
+
+`AiDecisionReceiptRefreshService` (`app/Services/Ai/AiDecisionReceiptRefreshService.php`) e o guardiao G5 que impede um job de rodar com contrato vencido: quando um `AiJob` chega ao momento do provider call com receipt v2 expirado, o service re-emite o receipt via `AtlasDecideService::receiptForTrace` e substitui o contrato ANTES da execucao.
+
+Regras de elegibilidade (`canRefreshExpiredBeforeProviderCall`), todas fail-closed:
+
+- so refresca job que TEM receipt v2 com `receipt_hash` nao vazio;
+- receipt `dry_run` nunca e refrescado;
+- se o provider ja foi chamado, refresh e proibido (contrato pos-fato seria teatro);
+- job velho demais nao refresca (janela limitada; decisao antiga exige re-decisao, nao renovacao silenciosa).
+
+O refresh roda em transacao com `lockForUpdate` e re-checa a elegibilidade dentro do lock, preservando o receipt antigo no historico com `reason` + `refreshed_at`. Teste de contrato: `tests/Unit/Ai/Brain2/AiDecisionReceiptRefreshServiceHardeningTest.php`.
 
 ## Dependencias
 

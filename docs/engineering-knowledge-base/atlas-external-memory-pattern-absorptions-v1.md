@@ -75,7 +75,9 @@ evidence:
   - dissecar/mem0/13-ideias-portaveis-atlas.md
 evidence_refs:
   - symbol: AtlasMemoryRegistryService
+  - symbol: AtlasMemoryConflictResolutionService
   - command: atlas:memory:add
+  - test: AtlasMemoryConflictResolutionServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 requires_evidence: true

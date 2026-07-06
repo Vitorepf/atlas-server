@@ -24,6 +24,17 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-ai-canonical-architecture-index.md
   - docs/engineering-knowledge-base/atlas-agentic-software-engineering-authority-map.md
   - tests/Feature/Patamar4/AtlasPatamar4CrossSystemStressTest.php
+evidence_refs:
+  - symbol: AtlasCognitiveFunctionSwarmRouterService
+  - symbol: AtlasSwarmAutoFailoverService
+  - symbol: AtlasRuntimeDegradationSignalService
+  - symbol: AtlasSelfDivergenceModelService
+  - symbol: AtlasEmbodimentIntegrationService
+  - test: AtlasCognitiveFunctionSwarmRouterServiceTest
+  - test: AtlasSwarmAutoFailoverServiceTest
+  - test: AtlasRuntimeDegradationSignalServiceTest
+  - test: AtlasSelfDivergenceModelServiceTest
+  - test: AtlasEmbodimentIntegrationServiceTest
 ---
 
 # Atlas Patamar 4 · Fase 4.7 — Hardening + Cross-System Stress (canon)
@@ -85,6 +96,19 @@ A cadeia que os testes provam compor sem cross-talk:
                             ↓
    atlas:cognition:scorecard --strict (overall 10/10)
 ```
+
+## 3.1 Swarm Auto-Failover (A4)
+
+`AtlasSwarmAutoFailoverService` (`app/Services/Ai/AtlasDecide/`) e o elo
+"or Swarm Auto-Failover when flags ON" da cadeia acima: com a flag
+`atlas.patamar4.swarm_auto_failover_enabled` ligada e o resolver de producao F2
+ativo, um job do AiWorker cujo provider primario retorna `ok=false` dispara um
+swarm dispatch K=2 (recomendado + runner-up) via `AtlasSwarmConductorService`,
+executado por `AtlasSwarmExecutorService`. O outcome do arm vencedor e traduzido
+de volta em `AiProviderResult`, que o caller substitui pela falha original —
+fechando o loop ponta-a-ponta. Todo envelope de failover e registrado pelo JSONL
+existente do executor; claims sao provider-safe. Teste de contrato:
+`tests/Unit/Ai/AtlasDecide/AtlasSwarmAutoFailoverServiceTest.php`.
 
 ## 4. Flags canon
 

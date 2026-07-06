@@ -57,8 +57,10 @@ evidence:
   - docs/engineering-knowledge-base/atlas-knowledge-ingestion-fabric.md
 evidence_refs:
   - symbol: AtlasKnowledgeIngestionFabricService
+  - symbol: AtlasKnowledgeSourcePacketRegistryService
   - command: atlas:context:knowledge-ingestion
   - test: AtlasKnowledgeIngestionFabricServiceTest
+  - test: AtlasKnowledgeSourcePacketRegistryServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:knowledge-ingestion --json"
@@ -120,6 +122,28 @@ Campos minimos: `source_type`, `origin_uri`, `source_hash`, `version_hash`,
 Implementado em `AtlasKnowledgeIngestionFabricService` como runtime read-only:
 adapters canonicos para text, PDF, image/OCR, YouTube/transcript, repo file,
 spreadsheet e URL; source packet, lineage refs, receipt, privacy gate e command.
+
+### Source Packet Registry (persistencia canonica)
+
+`AtlasKnowledgeSourcePacketRegistryService` (`app/Services/Ai/Knowledge/`) e o
+registro persistente Phase 1 dos source packets (`atlas.knowledge.source_packet.v1`,
+tabela `atlas_knowledge_source_packets`):
+
+- `register()` valida `source_type` (enum de 9 tipos canon), `origin_uri` e
+  `source_hash` (sha256 hex), e cria o packet com lineage minimo
+  (source_type, origin_uri, ingested_at, ingester), `version_hash` e
+  `receipt_hash` sha256 deterministicos.
+- Quarentena imune por default: todo packet nasce com `ingestion_status=received`;
+  promocao para `ready` so via `ready()` apos validacao explicita; `block()` marca
+  packet bloqueado com razao auditavel.
+- Dedup canonico: `source_hash` ja registrado retorna o packet existente
+  (`already_registered`, idempotente); `findBySourceHash()` e o lookup de dedup.
+- Privacy determinista: `privacy_status=secret` forca `provider_safe=false`;
+  `listProviderSafe()` so expoe packets ready + provider_safe para consumers
+  downstream (ASEF/AHRI/AURG).
+- Degrade-safe: tabela ausente retorna envelope `table_missing` em vez de crash.
+
+Sem extracao OCR/transcricao e sem queue jobs nesta fase (phase 2).
 
 ## Dependencias
 

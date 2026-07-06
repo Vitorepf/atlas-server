@@ -94,7 +94,9 @@ evidence:
   - tests/Feature/Ai/SelfImprovement/AtlasSelfImprovementClosedLoopLevel7Test.php
 evidence_refs:
   - symbol: AtlasSelfImprovementProposalBacklogService
+  - symbol: AtlasSelfImprovementResultLedgerService
   - command: atlas:self-improvement:measure-result
+  - test: AtlasSelfImprovementResultLedgerObserveFieldsTest
 allowed_changes:
   - Adicionar source novo ao Proposal Backlog enum (postmortem hook, rivals trigger, etc) com test de regressão.
   - Estender Result Ledger schema com campos opcionais sob backward-compat.

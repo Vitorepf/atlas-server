@@ -67,8 +67,10 @@ evidence:
 evidence_refs:
   - symbol: AtlasTokenEconomyRuntimeService
   - symbol: LocalPrereasoningPolicy
+  - symbol: AtlasTokenEconomyBudgetPolicyService
   - command: atlas:context:token-economy
   - test: AtlasTokenEconomyRuntimeServiceTest
+  - test: AtlasTokenEconomyBudgetPolicyServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:token-economy --json"
@@ -159,6 +161,26 @@ Sub-blocos cobertos pelo runtime read-only:
 - ACDP: Atlas Context Delivery Policy, que transforma impacto before/after do
   ACRS em budget inicial, reserva de expansao, fontes iniciais/diferidas e
   triggers provider-safe.
+
+### Budget Policy (ATOG Phase 1)
+
+`AtlasTokenEconomyBudgetPolicyService` (`app/Services/Ai/Tokens/`) e a
+implementacao Phase 1 do token budget por flow/risk (schemas
+`atlas.token_economy.{budget|consumption|reuse_credit|variant}.v1`):
+
+- `budget(flow, risk)` retorna limites canonicos de input/output tokens e
+  cost units por flow (`atlas_dev`, `atlas_research`, `atlas_forge`, `default`)
+  x risk (`low|medium|high|irreversible`); flow/risk desconhecidos degradam
+  para `default`/`low` em vez de falhar.
+- `evaluateVariants()` avalia variantes de contexto (compactado vs expandido)
+  contra o budget; variante com `must_keep_coverage < 1.0` NUNCA e elegivel
+  (invariante imune: must_keep nao se remove para caber em budget); selecao
+  entre elegiveis e por maior quality_score, depois menor custo; se nada cabe,
+  retorna `blocked_reason=no_variant_fits_budget_with_must_keep_intact`.
+- `reuseCredit()` credita reuso por hash de contexto (cache hit = tokens salvos).
+- `estimateCost()` e deterministico: `(input + output*4) / 100k` cost units.
+- In-memory nesta fase; persistencia em `atlas_token_economy_receipts` e wiring
+  com ACPFR/ARCLG ficam para phase 2.
 
 `LocalPrereasoningPolicy` e o unico dono das regras de ALPR. O runtime ATER usa
 essa politica para montar o receipt `atlas.token_economy.local_prereasoning.v1`.

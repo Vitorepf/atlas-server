@@ -87,7 +87,9 @@ evidence:
 
 evidence_refs:
   - symbol: AtlasMemoryEntry
+  - symbol: AiMemoryDeltaProposer
   - test: AtlasMemoryRegistryTest
+  - test: AiMemoryDeltaProposerTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
 

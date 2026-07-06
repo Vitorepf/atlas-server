@@ -57,7 +57,9 @@ evidence:
   - tests/Unit/Ai/Teos/AtlasTeosI4CounterfactualTreeServiceTest.php
 evidence_refs:
   - symbol: AtlasTeosI4CounterfactualTreeService
+  - symbol: AtlasDecideTeosI4LookaheadService
   - command: atlas:teos-i4
+  - test: AtlasDecideTeosI4LookaheadServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Teos/AtlasTeosI4CounterfactualTreeServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"
@@ -115,6 +117,19 @@ TEOS-I3, Constitutional Kernel e Autonomy Admission.
 ## Evidencias
 
 Service `AtlasTeosI4CounterfactualTreeService` e teste `AtlasTeosI4CounterfactualTreeServiceTest`.
+
+## Consumidor Atlas Decide (lookahead de roteamento)
+
+`AtlasDecideTeosI4LookaheadService` (`app/Services/Ai/AtlasDecide/`) e o bolt-on
+que liga a arvore I4 ao Atlas Decide: antes de adotar uma recomendacao de
+roteamento ADML com acao `activate`, o operador (ou o loop autonomo) pode pedir
+uma projecao de lookahead que explora a recomendacao + 2-3 alternativas e
+retorna o melhor caminho com improvement esperado
+(`atlas.atlas_decide.teos_i4_lookahead.v1`).
+
+Contrato: read-only sobre o estado ADML + o service TEOS-I4; nunca declara
+vencedor — apenas ordena alternativas pelo outcome projetado pela propria
+arvore contrafactual. Teste: `tests/Unit/Ai/AtlasDecide/AtlasDecideTeosI4LookaheadServiceTest.php`.
 
 ## Riscos
 
