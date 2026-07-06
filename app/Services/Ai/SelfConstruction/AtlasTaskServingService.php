@@ -997,6 +997,13 @@ final class AtlasTaskServingService
             // produce. Read the real path (fallback to the projection shape).
             'required_evidence' => array_values((array) data_get($packet, 'evidence_requirements.required', data_get($packet, 'required_evidence', []))),
             'continuation_context' => (array) data_get($packet, 'continuation_context', []),
+            // ADMISSION RULES (Obra #7 W1) — o contrato que o admission gate v2 vai cobrar em enforce.
+            // Viaja no envelope para o worker PODER cumprir (auditoria 05/07: 112/174 entregas de
+            // classe-nova chegavam 0-ref; sem a regra visível, enforce viraria jam de fila).
+            'delivery_rules' => [
+                'no_duplicate_logic' => 'Do not copy 30+ identical lines from an existing app/ file; reuse or extract instead (blocker: duplicate_logic_blocked).',
+                'wired_or_tagged' => 'A new class must have a real caller in this delivery (app/routes/config/database), or carry a docblock tag "@unwired-until YYYY-MM-DD" declaring when it will be wired (blockers: unwired_class / unwired_expired).',
+            ],
             'risk_level' => (string) data_get($packet, 'risk_classification.risk_level', data_get($packet, 'risk_level', 'unspecified')),
             // The brain's seam decision (when present) travels to the worker: the
             // stage contract of a heavy-refactor chain, not an advisory hint.

@@ -56,10 +56,14 @@ return [
     // Obra #6 V0 — admission gate v2: off|observe|enforce. Gate os DOIS produtores de entropia que o
     // dedup_reuse_mode (nome de classe) não cobre: lógica quase-duplicada (AtlasTaskDuplicateReuseGate
     // ::evaluateLogicReuse, >= 30 linhas idênticas em outro arquivo de app/) e classe 0-ref sem tag
-    // @unwired-until (AtlasTaskWiringAdmissionGate). observe (default) grava o veredito no receipt sem
-    // bloquear — colhe uma janela de dados; enforce recusa o commit mantendo a lease. Flip para enforce
-    // é decisão do operador (espelha a postura observe-first do gate soberano das Obras #4/#5).
-    'admission_v2_mode' => 'observe',
+    // @unwired-until (AtlasTaskWiringAdmissionGate). observe grava o veredito no receipt sem bloquear;
+    // enforce recusa o commit mantendo a lease (worker reusa/liga/tagueia e re-reporta).
+    // ENFORCE desde 05/07/2026 (Obra #7 W1, autorizado pelo goal do operador) com prova publicada:
+    // auditoria da janela observe = 174 receipts, 114 blockers (2 logic + 112 wiring) TODOS
+    // re-confirmados true-positive pelo gate pós-fix e8f3a0e999 + spot-check por rg — ZERO falso-
+    // positivo. A regra viaja ao worker no envelope do next ('delivery_rules'), então cumprir é
+    // possível: reusar/extrair em vez de copiar, e wire real ou @unwired-until datado.
+    'admission_v2_mode' => 'enforce',
 
     // When true, the packet builder BLOCKS a heavy refactor (refactor-shaped objective over
     // 3+ allowed_files) that arrives without a complete refactor_design_spec (problem, real
