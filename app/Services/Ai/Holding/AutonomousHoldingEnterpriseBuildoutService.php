@@ -9593,816 +9593,468 @@ class AutonomousHoldingEnterpriseBuildoutService
     }
 
     /**
+     * readiness() rule table: [output_key|null, kind, path, default, op, ref].
+     * kind: cp=count(data_get(path, [])), cf=count($company[field]), b=(bool) data_get, i=(int) data_get, s=raw data_get.
+     * op: gte(ref=int), ref(ref=company field count), refp(ref=data_get path count), false(===false), true, eq(===ref); op=null rows are report-only.
+     * key=null rows are gate-only (checked, not exposed). The key ORDER below is the JSON output contract — do not reorder.
+     */
+    private const READINESS_RULES = [
+        ['function_count', 'cf', 'functions', null, 'gte', 4],
+        ['agent_count', 'cf', 'agent_roles', null, 'gte', 5],
+        ['flow_count', 'cf', 'flows', null, 'gte', 4],
+        ['flow_execution_contract_count', 'cf', 'flow_execution_contracts', null, 'ref', 'flows'],
+        ['flow_playbook_count', 'cf', 'flow_playbooks', null, 'ref', 'flows'],
+        ['flow_runtime_blueprint_count', 'cf', 'flow_runtime_blueprints', null, 'ref', 'flows'],
+        ['enterprise_flow_runbook_count', 'cp', 'enterprise_flow_orchestration_runbook_stack.flow_runbooks', null, 'ref', 'flows'],
+        ['enterprise_flow_connector_backplane_count', 'cp', 'enterprise_flow_orchestration_runbook_stack.shared_connector_backplane', null, 'ref', 'connectors'],
+        ['enterprise_flow_runbook_metric_count', 'cp', 'enterprise_flow_orchestration_runbook_stack.runbook_observability.required_metrics', null, 'gte', 5],
+        ['flow_runtime_implementation_source_count', 'cp', 'enterprise_flow_runtime_implementation_stack.source_catalog', null, 'gte', 5],
+        ['executable_flow_packet_count', 'cp', 'enterprise_flow_runtime_implementation_stack.executable_flow_packets', null, 'ref', 'flows'],
+        ['agent_tool_routing_count', 'cp', 'enterprise_flow_runtime_implementation_stack.agent_tool_routing_matrix', null, 'ref', 'flows'],
+        ['flow_artifact_io_contract_count', 'cp', 'enterprise_flow_runtime_implementation_stack.flow_artifact_io_contracts', null, 'ref', 'flows'],
+        ['supervision_shadow_gate_count', 'cp', 'enterprise_flow_runtime_implementation_stack.supervision_and_shadow_runtime_gates', null, 'ref', 'flows'],
+        ['connector_runtime_adapter_count', 'cp', 'enterprise_flow_runtime_implementation_stack.connector_runtime_adapters', null, 'ref', 'connectors'],
+        ['runtime_implementation_metric_count', 'cp', 'enterprise_flow_runtime_implementation_stack.implementation_observability.required_metrics', null, 'gte', 6],
+        ['flow_fixture_count', 'cp', 'enterprise_flow_fixture_simulation_stack.canonical_flow_fixtures', null, 'ref', 'flows'],
+        ['connector_stub_count', 'cp', 'enterprise_flow_fixture_simulation_stack.connector_stub_catalog', null, 'ref', 'connectors'],
+        ['expected_trace_trajectory_count', 'cp', 'enterprise_flow_fixture_simulation_stack.expected_trace_trajectories', null, 'ref', 'flows'],
+        ['quality_assertion_suite_count', 'cp', 'enterprise_flow_fixture_simulation_stack.quality_assertion_suites', null, 'ref', 'flows'],
+        ['failure_injection_case_count', 'cp', 'enterprise_flow_fixture_simulation_stack.failure_injection_cases', null, 'ref', 'flows'],
+        ['dry_run_command_count', 'cp', 'enterprise_flow_fixture_simulation_stack.dry_run_command_plan', null, 'ref', 'flows'],
+        ['flow_fixture_simulation_metric_count', 'cp', 'enterprise_flow_fixture_simulation_stack.simulation_observability.required_metrics', null, 'gte', 6],
+        ['runtime_action_count', 'cp', 'enterprise_flow_action_runtime_stack.runtime_action_catalog', null, 'ref', 'flows'],
+        ['command_adapter_matrix_count', 'cp', 'enterprise_flow_action_runtime_stack.command_adapter_matrix', null, 'ref', 'flows'],
+        ['handler_state_schema_count', 'cp', 'enterprise_flow_action_runtime_stack.handler_state_schemas', null, 'ref', 'flows'],
+        ['runtime_event_emission_plan_count', 'cp', 'enterprise_flow_action_runtime_stack.runtime_event_emission_plan', null, 'ref', 'flows'],
+        ['operator_checkpoint_contract_count', 'cp', 'enterprise_flow_action_runtime_stack.operator_checkpoint_contracts', null, 'ref', 'flows'],
+        ['action_runtime_metric_count', 'cp', 'enterprise_flow_action_runtime_stack.action_runtime_observability.required_metrics', null, 'gte', 6],
+        ['enterprise_agent_registry_count', 'cf', 'enterprise_agent_registry', null, 'ref', 'agent_roles'],
+        ['agent_toolkit_framework_source_count', 'cp', 'enterprise_domain_agent_toolkit_stack.framework_source_catalog', null, 'gte', 9],
+        ['agent_toolkit_profile_count', 'cp', 'enterprise_domain_agent_toolkit_stack.agent_toolkit_profiles', null, 'ref', 'agent_roles'],
+        ['flow_toolkit_assignment_count', 'cp', 'enterprise_domain_agent_toolkit_stack.flow_toolkit_assignments', null, 'ref', 'flows'],
+        ['agent_repository_watch_count', 'cp', 'enterprise_domain_agent_toolkit_stack.repository_and_agent_watchlist.global_agent_frameworks', null, 'gte', 8],
+        ['agent_toolkit_certification_count', 'cp', 'enterprise_domain_agent_toolkit_stack.toolkit_certification_matrix', null, 'ref', 'agent_roles'],
+        ['agent_toolkit_metric_count', 'cp', 'enterprise_domain_agent_toolkit_stack.toolkit_observability.required_metrics', null, 'gte', 6],
+        ['company_operating_blueprint_archetype_count', 'cp', 'enterprise_company_operating_blueprint_stack.workload_archetype_catalog', null, 'gte', 5],
+        ['company_operating_blueprint_data_provider_contract_count', 'cp', 'enterprise_company_operating_blueprint_stack.data_provider_contracts', null, 'ref', 'connectors'],
+        ['company_operating_blueprint_connector_permission_count', 'cp', 'enterprise_company_operating_blueprint_stack.connector_permission_profiles', null, 'ref', 'connectors'],
+        ['company_operating_blueprint_flow_count', 'cp', 'enterprise_company_operating_blueprint_stack.flow_operating_blueprints', null, 'ref', 'flows'],
+        ['company_operating_blueprint_artifact_assembly_count', 'cp', 'enterprise_company_operating_blueprint_stack.artifact_assembly_lines', null, 'ref', 'flows'],
+        ['company_operating_blueprint_handoff_count', 'cp', 'enterprise_company_operating_blueprint_stack.control_room_handoffs', null, 'ref', 'flows'],
+        ['company_operating_blueprint_metric_count', 'cp', 'enterprise_company_operating_blueprint_stack.operating_blueprint_observability.required_metrics', null, 'gte', 10],
+        ['company_operating_blueprint_wait_blocker_enabled', 'b', 'enterprise_company_operating_blueprint_stack.blueprint_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['company_operating_blueprint_external_execution_enabled', 'b', 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_execution_allowed', true, 'false', null],
+        ['company_operating_blueprint_external_side_effects_enabled', 'b', 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_side_effects_enabled', true, 'false', null],
+        ['external_research_source_count', 'cp', 'enterprise_external_research_adoption_stack.source_basis', null, 'gte', 12],
+        ['external_research_framework_repo_count', 'cp', 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', null, 'gte', 8],
+        ['external_research_domain_repo_count', 'cp', 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', null, 'gte', 3],
+        ['external_research_flow_adoption_count', 'cp', 'enterprise_external_research_adoption_stack.per_flow_adoption_matrix', null, 'ref', 'flows'],
+        ['external_research_capability_map_count', 'cp', 'enterprise_external_research_adoption_stack.source_to_company_capability_map', null, 'gte', 12],
+        ['external_research_connector_backlog_count', 'cp', 'enterprise_external_research_adoption_stack.connector_and_data_provider_backlog', null, 'ref', 'connectors'],
+        ['external_research_wait_blocker_enabled', 'b', 'enterprise_external_research_adoption_stack.research_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['agent_repository_intake_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.repository_intake_queue', null, 'gte', 11],
+        ['agent_repository_framework_scorecard_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.framework_adoption_scorecards', null, 'gte', 8],
+        ['agent_repository_flow_adoption_matrix_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_repository_adoption_matrix', null, 'ref', 'flows'],
+        ['agent_repository_flow_epic_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', null, 'ref', 'flows'],
+        ['agent_repository_tool_permission_manifest_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_tool_permission_manifests', null, 'ref', 'flows'],
+        ['agent_repository_eval_replay_recipe_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.flow_eval_replay_recipes', null, 'ref', 'flows'],
+        ['agent_repository_version_pin_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', null, 'gte', 11],
+        ['agent_repository_metric_count', 'cp', 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', null, 'gte', 8],
+        ['agent_repository_external_side_effects_enabled', 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true, 'false', null],
+        ['agent_repository_operating_source_count', 'cp', 'enterprise_agent_repository_operating_catalog.source_basis', null, 'gte', 4],
+        ['agent_repository_operating_framework_profile_count', 'cp', 'enterprise_agent_repository_operating_catalog.framework_operating_profiles', null, 'gte', 8],
+        ['agent_repository_operating_mcp_security_profile_count', 'cp', 'enterprise_agent_repository_operating_catalog.mcp_connector_security_profiles', null, 'ref', 'connectors'],
+        ['agent_repository_operating_flow_map_count', 'cp', 'enterprise_agent_repository_operating_catalog.flow_runtime_adoption_map', null, 'ref', 'flows'],
+        ['agent_repository_operating_supply_chain_artifact_count', 'cp', 'enterprise_agent_repository_operating_catalog.supply_chain_and_eval_controls.required_artifacts', null, 'gte', 8],
+        ['agent_repository_operating_metric_count', 'cp', 'enterprise_agent_repository_operating_catalog.operating_catalog_observability.required_metrics', null, 'gte', 7],
+        ['agent_repository_operating_wait_blocker_enabled', 'b', 'enterprise_agent_repository_operating_catalog.catalog_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['agent_repository_operating_mcp_hardening_required', 'b', 'enterprise_agent_repository_operating_catalog.catalog_policy.mcp_reference_servers_require_security_hardening_before_live_use', false, 'true', null],
+        ['agent_repository_operating_external_write_enabled', 'b', 'enterprise_agent_repository_operating_catalog.catalog_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['workforce_agent_capacity_count', 'cp', 'enterprise_workforce_capacity_stack.agent_capacity_plan', null, 'gte', 4],
+        ['workforce_flow_staffing_count', 'cp', 'enterprise_workforce_capacity_stack.flow_staffing_matrix', null, 'ref', 'flows'],
+        ['workforce_training_count', 'cp', 'enterprise_workforce_capacity_stack.training_and_enablement', null, 'gte', 4],
+        ['portfolio_dependency_handoff_count', 'cp', 'enterprise_portfolio_dependency_stack.upstream_dependency_map', null, null, null],
+        ['portfolio_integration_dependency_count', 'cp', 'enterprise_portfolio_dependency_stack.integration_dependency_map', null, null, null],
+        ['portfolio_flow_dependency_routing_count', 'cp', 'enterprise_portfolio_dependency_stack.flow_dependency_routing', null, 'ref', 'flows'],
+        ['portfolio_reporting_metric_count', 'cp', 'enterprise_portfolio_dependency_stack.portfolio_reporting_contract.required_metrics', null, 'gte', 4],
+        ['domain_data_entity_count', 'cp', 'domain_data_model.entities', null, 'gte', 4],
+        ['business_process_count', 'cf', 'business_process_map', null, 'ref', 'flows'],
+        ['deliverable_quality_contract_count', 'cf', 'deliverable_quality_contracts', null, 'gte', 5],
+        ['production_slo_count', 'cp', 'go_to_production_pack.slo_sli_catalog', null, 'ref', 'flows'],
+        ['production_integration_enablement_count', 'cp', 'go_to_production_pack.integration_enablement_plan', null, 'ref', 'connectors'],
+        ['service_catalog_count', 'cp', 'commercial_operating_stack.service_catalog', null, 'gte', 5],
+        ['business_kpi_count', 'cp', 'commercial_operating_stack.business_kpis', null, 'gte', 4],
+        ['customer_offer_count', 'cp', 'enterprise_customer_market_operations_stack.offer_and_packaging_catalog', null, 'gte', 5],
+        ['customer_journey_count', 'cp', 'enterprise_customer_market_operations_stack.journey_and_lifecycle_map', null, 'ref', 'flows'],
+        ['customer_success_metric_count', 'cp', 'enterprise_customer_market_operations_stack.customer_success_scorecard', null, 'gte', 4],
+        ['account_playbook_count', 'cp', 'enterprise_account_contract_delivery_stack.account_segment_playbooks', null, 'gte', 4],
+        ['account_entitlement_count', 'cp', 'enterprise_account_contract_delivery_stack.contract_and_entitlement_catalog', null, 'gte', 5],
+        ['account_onboarding_success_plan_count', 'cp', 'enterprise_account_contract_delivery_stack.onboarding_success_plans', null, 'ref', 'flows'],
+        ['account_service_review_count', 'cp', 'enterprise_account_contract_delivery_stack.service_review_and_renewal_calendar', null, 'ref', 'flows'],
+        ['account_health_risk_count', 'cp', 'enterprise_account_contract_delivery_stack.account_health_and_risk_register', null, 'ref', 'metrics'],
+        ['account_contract_metric_count', 'cp', 'enterprise_account_contract_delivery_stack.account_contract_observability.required_metrics', null, 'gte', 5],
+        ['productized_service_product_line_count', 'cp', 'enterprise_productized_service_stack.domain_product_lines', null, 'gte', 5],
+        ['productized_service_offer_count', 'cp', 'enterprise_productized_service_stack.flow_service_offers', null, 'ref', 'flows'],
+        ['productized_service_delivery_blueprint_count', 'cp', 'enterprise_productized_service_stack.service_delivery_blueprints', null, 'ref', 'flows'],
+        ['productized_service_intake_contract_count', 'cp', 'enterprise_productized_service_stack.intake_and_qualification_contracts', null, 'ref', 'flows'],
+        ['productized_service_sla_contract_count', 'cp', 'enterprise_productized_service_stack.sla_success_contracts', null, 'ref', 'flows'],
+        ['productized_service_pricing_package_count', 'cp', 'enterprise_productized_service_stack.pricing_packaging_model', null, 'gte', 5],
+        ['productized_service_gtm_motion_count', 'cp', 'enterprise_productized_service_stack.go_to_market_motion_catalog', null, 'gte', 5],
+        ['productized_service_proof_template_count', 'cp', 'enterprise_productized_service_stack.proof_and_case_study_templates', null, 'ref', 'flows'],
+        ['productized_service_metric_count', 'cp', 'enterprise_productized_service_stack.product_observability.required_metrics', null, 'gte', 10],
+        ['productized_service_external_commitment_enabled', 'b', 'enterprise_productized_service_stack.product_policy.public_gtm_or_customer_commitment_allowed', true, 'false', null],
+        ['productized_service_external_billing_enabled', 'b', 'enterprise_productized_service_stack.product_policy.external_billing_allowed', true, 'false', null],
+        ['sales_crm_source_count', 'cp', 'enterprise_sales_crm_pipeline_stack.source_catalog', null, 'gte', 5],
+        ['sales_crm_object_count', 'cp', 'enterprise_sales_crm_pipeline_stack.crm_object_model.objects', null, 'gte', 8],
+        ['sales_crm_segment_play_count', 'cp', 'enterprise_sales_crm_pipeline_stack.segment_sales_plays', null, 'gte', 4],
+        ['sales_crm_opportunity_route_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_opportunity_routes', null, 'ref', 'flows'],
+        ['sales_crm_proposal_packet_count', 'cp', 'enterprise_sales_crm_pipeline_stack.proposal_and_scope_packets', null, 'ref', 'flows'],
+        ['sales_crm_mutual_action_plan_count', 'cp', 'enterprise_sales_crm_pipeline_stack.mutual_action_plans', null, 'ref', 'flows'],
+        ['sales_crm_account_research_workbench_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_account_research_workbenches', null, 'ref', 'flows'],
+        ['sales_crm_deal_room_packet_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_deal_room_packets', null, 'ref', 'flows'],
+        ['sales_crm_pipeline_forecast_review_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_pipeline_forecast_reviews', null, 'ref', 'flows'],
+        ['sales_crm_map_risk_review_count', 'cp', 'enterprise_sales_crm_pipeline_stack.flow_mutual_action_plan_risk_reviews', null, 'ref', 'flows'],
+        ['sales_crm_renewal_expansion_signal_count', 'cp', 'enterprise_sales_crm_pipeline_stack.renewal_and_expansion_signals', null, 'ref', 'metrics'],
+        ['sales_crm_handoff_contract_count', 'cp', 'enterprise_sales_crm_pipeline_stack.sales_to_delivery_handoff_contracts', null, 'ref', 'flows'],
+        ['sales_crm_metric_count', 'cp', 'enterprise_sales_crm_pipeline_stack.pipeline_observability.required_metrics', null, 'gte', 13],
+        ['sales_crm_wait_blocker_enabled', 'b', 'enterprise_sales_crm_pipeline_stack.sales_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['sales_crm_external_commitment_enabled', 'b', 'enterprise_sales_crm_pipeline_stack.sales_policy.external_outreach_contract_signature_or_customer_commitment_allowed', true, 'false', null],
+        ['sales_crm_public_claim_paid_campaign_enabled', 'b', 'enterprise_sales_crm_pipeline_stack.sales_policy.public_claim_or_paid_campaign_allowed', true, 'false', null],
+        ['support_service_desk_source_count', 'cp', 'enterprise_customer_support_service_desk_stack.source_catalog', null, 'gte', 5],
+        ['support_service_desk_object_count', 'cp', 'enterprise_customer_support_service_desk_stack.service_desk_object_model.objects', null, 'gte', 9],
+        ['support_segment_playbook_count', 'cp', 'enterprise_customer_support_service_desk_stack.support_segment_playbooks', null, 'gte', 4],
+        ['support_flow_lane_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_support_lanes', null, 'ref', 'flows'],
+        ['support_ticket_sla_contract_count', 'cp', 'enterprise_customer_support_service_desk_stack.ticket_triage_and_sla_contracts', null, 'ref', 'flows'],
+        ['support_kb_template_count', 'cp', 'enterprise_customer_support_service_desk_stack.knowledge_base_article_templates', null, 'ref', 'flows'],
+        ['support_escalation_runbook_count', 'cp', 'enterprise_customer_support_service_desk_stack.escalation_and_incident_runbooks', null, 'ref', 'flows'],
+        ['support_resolution_rca_count', 'cp', 'enterprise_customer_support_service_desk_stack.resolution_quality_and_rca_contracts', null, 'ref', 'flows'],
+        ['support_case_resolution_workbench_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_case_resolution_workbenches', null, 'ref', 'flows'],
+        ['support_customer_health_escalation_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_customer_health_escalation_playbooks', null, 'ref', 'flows'],
+        ['support_knowledge_quality_review_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_knowledge_quality_reviews', null, 'ref', 'flows'],
+        ['support_automation_deflection_test_count', 'cp', 'enterprise_customer_support_service_desk_stack.flow_support_automation_deflection_tests', null, 'ref', 'flows'],
+        ['support_feedback_learning_loop_count', 'cp', 'enterprise_customer_support_service_desk_stack.feedback_to_product_learning_loops', null, 'ref', 'metrics'],
+        ['support_service_desk_metric_count', 'cp', 'enterprise_customer_support_service_desk_stack.support_observability.required_metrics', null, 'gte', 13],
+        ['support_service_desk_wait_blocker_enabled', 'b', 'enterprise_customer_support_service_desk_stack.support_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['support_service_desk_external_message_enabled', 'b', 'enterprise_customer_support_service_desk_stack.support_policy.external_customer_message_or_support_commitment_allowed', true, 'false', null],
+        ['support_service_desk_unreviewed_regulated_advice_enabled', 'b', 'enterprise_customer_support_service_desk_stack.support_policy.regulated_support_advice_allowed_without_review', true, 'false', null],
+        ['marketing_growth_source_count', 'cp', 'enterprise_marketing_growth_engine_stack.source_catalog', null, 'gte', 5],
+        ['marketing_growth_role_count', 'cp', 'enterprise_marketing_growth_engine_stack.growth_operating_model.operating_roles', null, 'gte', 6],
+        ['marketing_audience_segment_count', 'cp', 'enterprise_marketing_growth_engine_stack.audience_segment_map', null, 'gte', 4],
+        ['marketing_campaign_blueprint_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_campaign_blueprints', null, 'ref', 'flows'],
+        ['marketing_content_factory_count', 'cp', 'enterprise_marketing_growth_engine_stack.content_asset_factories', null, 'ref', 'flows'],
+        ['marketing_experiment_count', 'cp', 'enterprise_marketing_growth_engine_stack.experiment_backlog', null, 'ref', 'flows'],
+        ['marketing_growth_intelligence_workbench_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_growth_intelligence_workbenches', null, 'ref', 'flows'],
+        ['marketing_attribution_experiment_model_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_attribution_experiment_models', null, 'ref', 'flows'],
+        ['marketing_channel_budget_guardrail_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_channel_budget_guardrails', null, 'ref', 'flows'],
+        ['marketing_public_claim_evidence_packet_count', 'cp', 'enterprise_marketing_growth_engine_stack.flow_public_claim_evidence_packets', null, 'ref', 'flows'],
+        ['marketing_channel_distribution_count', 'cp', 'enterprise_marketing_growth_engine_stack.channel_and_distribution_plan', null, 'ref', 'flows'],
+        ['marketing_brand_review_count', 'cp', 'enterprise_marketing_growth_engine_stack.brand_compliance_review_packets', null, 'ref', 'flows'],
+        ['marketing_crm_handoff_count', 'cp', 'enterprise_marketing_growth_engine_stack.growth_to_crm_handoff_contracts', null, 'ref', 'flows'],
+        ['marketing_growth_metric_count', 'cp', 'enterprise_marketing_growth_engine_stack.marketing_observability.required_metrics', null, 'gte', 14],
+        ['marketing_growth_wait_blocker_enabled', 'b', 'enterprise_marketing_growth_engine_stack.marketing_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['marketing_growth_external_publish_enabled', 'b', 'enterprise_marketing_growth_engine_stack.marketing_policy.external_publish_paid_campaign_or_outreach_allowed', true, 'false', null],
+        ['marketing_growth_unreviewed_public_claim_enabled', 'b', 'enterprise_marketing_growth_engine_stack.marketing_policy.public_claim_allowed_without_source_and_operator_review', true, 'false', null],
+        ['finance_treasury_source_count', 'cp', 'enterprise_finance_treasury_billing_stack.source_catalog', null, 'gte', 5],
+        ['finance_treasury_data_interface_connector_class_count', 'cp', 'enterprise_finance_treasury_billing_stack.financial_data_interface.provider_connector_classes', null, 'gte', 7],
+        ['finance_treasury_provider_connector_count', 'cp', 'enterprise_finance_treasury_billing_stack.provider_connector_matrix', null, 'refp', 'enterprise_finance_treasury_billing_stack.source_catalog'],
+        ['finance_treasury_cfo_role_count', 'cp', 'enterprise_finance_treasury_billing_stack.cfo_operating_model.operating_roles', null, 'gte', 9],
+        ['finance_treasury_research_workbench_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_financial_research_workbenches', null, 'ref', 'flows'],
+        ['finance_treasury_budget_envelope_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_budget_envelopes', null, 'ref', 'flows'],
+        ['finance_treasury_forecast_model_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_forecast_models', null, 'ref', 'flows'],
+        ['finance_treasury_model_risk_control_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_model_risk_controls', null, 'ref', 'flows'],
+        ['finance_treasury_investment_committee_packet_count', 'cp', 'enterprise_finance_treasury_billing_stack.flow_investment_committee_packets', null, 'ref', 'flows'],
+        ['finance_treasury_pnl_line_item_count', 'cp', 'enterprise_finance_treasury_billing_stack.pnl_line_item_model', null, 'gte', 5],
+        ['finance_treasury_billing_ledger_count', 'cp', 'enterprise_finance_treasury_billing_stack.billing_ledger_controls', null, 'ref', 'flows'],
+        ['finance_treasury_blocked_capital_action_count', 'cp', 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.capital_actions_blocked', null, 'gte', 6],
+        ['finance_treasury_close_section_count', 'cp', 'enterprise_finance_treasury_billing_stack.finance_close_and_audit_pack.close_packet_sections', null, 'gte', 9],
+        ['finance_treasury_metric_count', 'cp', 'enterprise_finance_treasury_billing_stack.finance_observability.required_metrics', null, 'gte', 14],
+        ['finance_treasury_wait_blocker_enabled', 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['finance_treasury_external_financial_action_enabled', 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.external_invoice_payment_collection_capital_transfer_or_trade_allowed', true, 'false', null],
+        ['finance_treasury_real_money_movement_enabled', 'b', 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.real_money_movement_allowed', true, 'false', null],
+        ['vendor_due_diligence_count', 'cp', 'enterprise_vendor_legal_procurement_stack.vendor_due_diligence_register', null, 'ref', 'connectors'],
+        ['source_terms_review_count', 'cp', 'enterprise_vendor_legal_procurement_stack.source_terms_review_register', null, 'gte', 5],
+        ['flow_procurement_routing_count', 'cp', 'enterprise_vendor_legal_procurement_stack.flow_procurement_routing', null, 'ref', 'flows'],
+        ['vendor_operability_scorecard_count', 'cp', 'enterprise_vendor_legal_procurement_stack.vendor_operability_scorecard', null, 'ref', 'connectors'],
+        ['flow_failure_mode_analysis_count', 'cp', 'enterprise_resilience_continuity_stack.flow_failure_mode_analysis', null, 'ref', 'flows'],
+        ['connector_resilience_plan_count', 'cp', 'enterprise_resilience_continuity_stack.connector_resilience_plan', null, 'ref', 'connectors'],
+        ['incident_exercise_count', 'cp', 'enterprise_resilience_continuity_stack.incident_exercise_program', null, 'ref', 'flows'],
+        ['resilience_metric_count', 'cp', 'enterprise_resilience_continuity_stack.resilience_observability.required_metrics', null, 'gte', 5],
+        ['analytics_metric_lineage_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.metric_lineage_catalog', null, 'ref', 'metrics'],
+        ['executive_dashboard_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.executive_dashboard_catalog', null, 'gte', 3],
+        ['flow_decision_register_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.flow_decision_register', null, 'ref', 'flows'],
+        ['scenario_forecast_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.scenario_and_forecast_model', null, 'ref', 'flows'],
+        ['work_product_analytics_count', 'cp', 'enterprise_analytics_decision_intelligence_stack.work_product_analytics_map', null, 'gte', 5],
+        ['knowledge_source_registry_count', 'cp', 'enterprise_knowledge_memory_learning_stack.knowledge_source_registry', null, 'gte', 5],
+        ['flow_learning_loop_count', 'cp', 'enterprise_knowledge_memory_learning_stack.flow_learning_loops', null, 'ref', 'flows'],
+        ['postmortem_program_count', 'cp', 'enterprise_knowledge_memory_learning_stack.postmortem_and_retrospective_program', null, 'ref', 'flows'],
+        ['playbook_change_control_count', 'cp', 'enterprise_knowledge_memory_learning_stack.playbook_change_control', null, 'ref', 'flows'],
+        ['work_product_feedback_memory_count', 'cp', 'enterprise_knowledge_memory_learning_stack.work_product_feedback_memory', null, 'gte', 5],
+        ['connector_knowledge_sync_count', 'cp', 'enterprise_knowledge_memory_learning_stack.connector_knowledge_sync_plan', null, 'ref', 'connectors'],
+        ['agent_access_matrix_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.agent_access_matrix', null, 'gte', 4],
+        ['flow_data_boundary_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.flow_data_boundary_matrix', null, 'ref', 'flows'],
+        ['connector_secret_binding_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.connector_secret_binding_plan', null, 'ref', 'connectors'],
+        ['sensitive_data_handling_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.sensitive_data_handling_catalog', null, 'gte', 5],
+        ['purpose_consent_count', 'cp', 'enterprise_identity_access_data_sovereignty_stack.purpose_consent_registry', null, 'ref', 'flows'],
+        ['control_tower_lane_count', 'cp', 'enterprise_control_tower_run_operations_stack.control_tower_lanes', null, 'ref', 'flows'],
+        ['control_tower_cadence_count', 'cp', 'enterprise_control_tower_run_operations_stack.cadence_scheduler', null, 'ref', 'cadences'],
+        ['exception_desk_count', 'cp', 'enterprise_control_tower_run_operations_stack.incident_and_exception_desk', null, 'ref', 'flows'],
+        ['change_window_count', 'cp', 'enterprise_control_tower_run_operations_stack.change_window_and_release_calendar', null, 'ref', 'flows'],
+        ['connector_probe_plan_count', 'cp', 'enterprise_control_tower_run_operations_stack.connector_operations_probe_plan', null, 'ref', 'connectors'],
+        ['dashboard_operations_map_count', 'cp', 'enterprise_control_tower_run_operations_stack.dashboard_operations_map', null, 'gte', 3],
+        ['command_center_operating_cell_count', 'cp', 'enterprise_company_command_center_stack.operating_cells', null, 'gte', 6],
+        ['command_center_flow_card_count', 'cp', 'enterprise_company_command_center_stack.flow_command_cards', null, 'ref', 'flows'],
+        ['command_center_connector_panel_count', 'cp', 'enterprise_company_command_center_stack.connector_workbench_panels', null, 'ref', 'connectors'],
+        ['command_center_console_view_count', 'cp', 'enterprise_company_command_center_stack.operator_console_views', null, 'gte', 4],
+        ['command_center_work_product_factory_count', 'cp', 'enterprise_company_command_center_stack.work_product_factory_map', null, 'gte', 5],
+        ['command_center_kpi_count', 'cp', 'enterprise_company_command_center_stack.command_center_kpis', null, 'ref', 'metrics'],
+        ['command_center_wait_blocker_enabled', 'b', 'enterprise_company_command_center_stack.command_center_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['command_center_external_execution_enabled', 'b', 'enterprise_company_command_center_stack.command_center_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['semantic_graph_node_count', 'cp', 'enterprise_semantic_operating_graph_stack.node_catalog', null, null, null],
+        ['semantic_graph_edge_count', 'cp', 'enterprise_semantic_operating_graph_stack.flow_relationship_edges', null, 'ref', 'flows'],
+        ['semantic_graph_view_count', 'cp', 'enterprise_semantic_operating_graph_stack.operating_views', null, 'gte', 4],
+        ['semantic_graph_drift_rule_count', 'cp', 'enterprise_semantic_operating_graph_stack.drift_detection_rules', null, 'gte', 5],
+        ['delivery_contract_count', 'cp', 'enterprise_delivery_assurance_stack.work_product_delivery_contracts', null, 'gte', 5],
+        ['delivery_sla_count', 'cp', 'enterprise_delivery_assurance_stack.flow_delivery_sla', null, 'ref', 'flows'],
+        ['finance_cost_center_count', 'cp', 'portfolio_finance_stack.flow_cost_centers', null, 'ref', 'flows'],
+        ['flow_unit_economics_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.flow_unit_economics', null, 'ref', 'flows'],
+        ['capacity_simulation_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', null, 'ref', 'flows'],
+        ['work_product_pricing_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.work_product_pricing_ladder', null, 'gte', 5],
+        ['agent_capacity_cost_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.agent_capacity_cost_model', null, 'gte', 4],
+        ['connector_cost_limit_count', 'cp', 'enterprise_unit_economics_capacity_simulation_stack.connector_cost_and_limit_model', null, 'ref', 'connectors'],
+        ['intelligence_rival_map_count', 'cp', 'strategic_intelligence_stack.rival_and_alternative_map', null, 'ref', 'flows'],
+        ['intelligence_kpi_count', 'cp', 'strategic_intelligence_stack.intelligence_kpis', null, 'gte', 4],
+        ['grc_vendor_risk_count', 'cp', 'enterprise_grc_stack.vendor_and_tool_risk', null, 'ref', 'connectors'],
+        ['grc_audit_evidence_count', 'cp', 'enterprise_grc_stack.audit_evidence_requirements', null, 'ref', 'flows'],
+        ['capability_matrix_count', 'cf', 'enterprise_capability_matrix', null, 'ref', 'flows'],
+        ['external_integration_contract_count', 'cf', 'external_integration_catalog', null, 'ref', 'connectors'],
+        ['connector_adapter_contract_count', 'cp', 'enterprise_connector_certification_stack.adapter_contract_catalog', null, 'ref', 'connectors'],
+        ['connector_auth_boundary_count', 'cp', 'enterprise_connector_certification_stack.auth_and_secret_boundary', null, 'ref', 'connectors'],
+        ['connector_sandbox_probe_count', 'cp', 'enterprise_connector_certification_stack.sandbox_probe_matrix', null, 'ref', 'connectors'],
+        ['connector_contract_test_count', 'cp', 'enterprise_connector_certification_stack.consumer_provider_contract_tests', null, 'ref', 'connectors'],
+        ['connector_data_mapping_count', 'cp', 'enterprise_connector_certification_stack.connector_data_mapping_and_lineage', null, 'ref', 'connectors'],
+        ['flow_connector_usage_count', 'cp', 'enterprise_connector_certification_stack.flow_connector_usage_matrix', null, 'ref', 'flows'],
+        ['connector_replay_fixture_count', 'cp', 'enterprise_connector_certification_stack.replay_fixture_and_mock_server_plan', null, 'ref', 'connectors'],
+        ['connector_slo_failure_count', 'cp', 'enterprise_connector_certification_stack.connector_slo_and_failure_mode_catalog', null, 'ref', 'connectors'],
+        ['connector_certification_metric_count', 'cp', 'enterprise_connector_certification_stack.connector_certification_observability.required_metrics', null, 'gte', 5],
+        ['production_connector_preflight_contract_count', 'cp', 'enterprise_production_connector_preflight_stack.connector_preflight_contracts', null, 'ref', 'connectors'],
+        ['production_connector_cutover_flow_count', 'cp', 'enterprise_production_connector_preflight_stack.flow_connector_cutover_matrix', null, 'ref', 'flows'],
+        ['production_connector_evidence_register_count', 'cp', 'enterprise_production_connector_preflight_stack.production_readiness_evidence_register', null, 'ref', 'connectors'],
+        ['production_connector_cutover_metric_count', 'cp', 'enterprise_production_connector_preflight_stack.cutover_observability.required_metrics', null, 'gte', 6],
+        ['production_connector_wait_blocker_enabled', 'b', 'enterprise_production_connector_preflight_stack.preflight_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['evaluation_suite_count', 'cp', 'evaluation_harness.suite_per_flow', null, 'ref', 'flows'],
+        ['benchmark_offline_dataset_count', 'cp', 'enterprise_flow_benchmark_replay_stack.offline_dataset_contracts', null, 'ref', 'flows'],
+        ['benchmark_trace_rubric_count', 'cp', 'enterprise_flow_benchmark_replay_stack.trace_grading_rubrics', null, 'ref', 'flows'],
+        ['benchmark_adversarial_case_count', 'cp', 'enterprise_flow_benchmark_replay_stack.adversarial_regression_cases', null, 'ref', 'flows'],
+        ['benchmark_state_assertion_count', 'cp', 'enterprise_flow_benchmark_replay_stack.deterministic_state_assertions', null, 'ref', 'flows'],
+        ['benchmark_replay_matrix_count', 'cp', 'enterprise_flow_benchmark_replay_stack.replay_and_comparison_matrix', null, 'ref', 'flows'],
+        ['benchmark_observability_metric_count', 'cp', 'enterprise_flow_benchmark_replay_stack.benchmark_observability.required_metrics', null, 'gte', 5],
+        ['tooling_source_count', 'cp', 'enterprise_tooling_research_stack.source_catalog', null, 'gte', 9],
+        ['tooling_benchmark_count', 'cp', 'enterprise_tooling_research_stack.per_flow_tooling_benchmark', null, 'ref', 'flows'],
+        ['tooling_integration_backlog_count', 'cp', 'enterprise_tooling_research_stack.connector_integration_backlog', null, 'ref', 'connectors'],
+        ['domain_operating_value_chain_count', 'cp', 'enterprise_domain_operating_depth_stack.domain_value_chain', null, 'gte', 6],
+        ['domain_operating_data_product_count', 'cp', 'enterprise_domain_operating_depth_stack.domain_data_product_spine', null, 'gte', 5],
+        ['domain_operating_system_count', 'cp', 'enterprise_domain_operating_depth_stack.enterprise_system_map', null, 'gte', 5],
+        ['domain_operating_flow_depth_packet_count', 'cp', 'enterprise_domain_operating_depth_stack.flow_depth_packets', null, 'ref', 'flows'],
+        ['domain_operating_connector_backlog_count', 'cp', 'enterprise_domain_operating_depth_stack.mcp_api_connector_backlog', null, 'ref', 'connectors'],
+        ['domain_operating_delivery_offer_count', 'cp', 'enterprise_domain_operating_depth_stack.delivery_offer_model', null, 'gte', 5],
+        ['domain_operating_depth_metric_count', 'cp', 'enterprise_domain_operating_depth_stack.depth_observability.required_metrics', null, 'gte', 8],
+        ['domain_operating_wait_blocker_enabled', 'b', 'enterprise_domain_operating_depth_stack.depth_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['domain_operating_external_execution_enabled', 'b', 'enterprise_domain_operating_depth_stack.depth_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['domain_agent_workforce_managed_agent_count', 'cp', 'enterprise_domain_agent_workforce_stack.managed_agent_catalog', null, 'gte', 4],
+        ['domain_agent_workforce_crew_count', 'cp', 'enterprise_domain_agent_workforce_stack.flow_agent_crews', null, 'ref', 'flows'],
+        ['domain_agent_workforce_metric_count', 'cp', 'enterprise_domain_agent_workforce_stack.workforce_observability.required_metrics', null, 'gte', 10],
+        ['domain_agent_workforce_wait_blocker_enabled', 'b', 'enterprise_domain_agent_workforce_stack.workforce_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['domain_agent_workforce_external_execution_enabled', 'b', 'enterprise_domain_agent_workforce_stack.workforce_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['domain_agent_workforce_external_worker_enabled', 'b', 'enterprise_domain_agent_workforce_stack.workforce_control_plane.external_effect_worker_enabled', true, 'false', null],
+        ['domain_solution_source_count', 'cp', 'enterprise_domain_solution_stack.domain_source_catalog', null, 'gte', 5],
+        ['domain_solution_module_count', 'cp', 'enterprise_domain_solution_stack.solution_modules', null, 'ref', 'flows'],
+        ['domain_solution_agent_template_count', 'cp', 'enterprise_domain_solution_stack.managed_agent_templates', null, 'gte', 4],
+        ['domain_solution_data_product_count', 'cp', 'enterprise_domain_solution_stack.data_product_catalog', null, 'gte', 5],
+        ['domain_solution_playbook_count', 'cp', 'enterprise_domain_solution_stack.enterprise_solution_playbooks', null, 'ref', 'flows'],
+        ['domain_solution_data_plane_source_count', 'cp', 'enterprise_domain_solution_stack.domain_data_plane.source_refs', null, null, null],
+        ['domain_solution_review_mode_count', 'cp', 'enterprise_domain_solution_stack.domain_expert_review_board.review_modes', null, 'gte', 5],
+        ['vertical_solution_suite_count', 'cp', 'enterprise_vertical_solution_suite_stack.solution_suites', null, 'gte', 6],
+        ['vertical_solution_flow_kit_count', 'cp', 'enterprise_vertical_solution_suite_stack.flow_solution_kits', null, 'ref', 'flows'],
+        ['vertical_solution_connector_workbench_count', 'cp', 'enterprise_vertical_solution_suite_stack.connector_solution_workbenches', null, 'ref', 'connectors'],
+        ['vertical_solution_artifact_factory_count', 'cp', 'enterprise_vertical_solution_suite_stack.artifact_factory_catalog', null, 'gte', 5],
+        ['vertical_solution_evaluation_recipe_count', 'cp', 'enterprise_vertical_solution_suite_stack.suite_evaluation_recipes', null, 'ref', 'flows'],
+        ['vertical_solution_metric_count', 'cp', 'enterprise_vertical_solution_suite_stack.suite_observability.required_metrics', null, 'gte', 8],
+        ['vertical_solution_wait_blocker_enabled', 'b', 'enterprise_vertical_solution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['vertical_solution_external_execution_enabled', 'b', 'enterprise_vertical_solution_suite_stack.suite_policy.external_execution_allowed_by_suite', true, 'false', null],
+        ['business_execution_mode_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.execution_mode_catalog', null, 'gte', 4],
+        ['business_execution_cell_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', null, 'ref', 'flows'],
+        ['business_execution_kpi_binding_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.flow_tool_kpi_matrix', null, 'ref', 'flows'],
+        ['business_execution_service_lane_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.domain_service_lanes', null, 'ref', 'flows'],
+        ['business_execution_artifact_contract_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.business_artifact_delivery_contracts', null, 'gte', 5],
+        ['business_execution_metric_count', 'cp', 'enterprise_domain_business_execution_mesh_stack.execution_observability.required_metrics', null, 'gte', 8],
+        ['business_execution_wait_blocker_enabled', 'b', 'enterprise_domain_business_execution_mesh_stack.execution_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['business_execution_external_execution_enabled', 'b', 'enterprise_domain_business_execution_mesh_stack.execution_policy.autonomous_external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['domain_provider_contract_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_contracts', null, 'gte', 5],
+        ['domain_provider_connector_workbench_count', 'cp', 'enterprise_domain_provider_workbench_stack.connector_workbenches', null, 'ref', 'connectors'],
+        ['domain_provider_flow_route_count', 'cp', 'enterprise_domain_provider_workbench_stack.flow_provider_routes', null, 'ref', 'flows'],
+        ['domain_provider_eval_case_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_evaluation_cases', null, 'ref', 'flows'],
+        ['domain_provider_lineage_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_data_product_lineage', null, 'gte', 5],
+        ['domain_provider_metric_count', 'cp', 'enterprise_domain_provider_workbench_stack.provider_workbench_observability.required_metrics', null, 'gte', 8],
+        ['domain_provider_wait_blocker_enabled', 'b', 'enterprise_domain_provider_workbench_stack.workbench_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['industry_solution_provider_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.ecosystem_provider_catalog', null, 'gte', 5],
+        ['industry_solution_partner_track_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.implementation_partner_tracks', null, 'gte', 7],
+        ['industry_solution_workload_pack_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.flow_solution_workload_packs', null, 'ref', 'flows'],
+        ['industry_solution_metric_count', 'cp', 'enterprise_industry_solution_ecosystem_stack.ecosystem_observability.required_metrics', null, 'gte', 8],
+        ['industry_solution_external_side_effects_enabled', 'b', 'enterprise_industry_solution_ecosystem_stack.ecosystem_policy.external_side_effects_enabled', true, 'false', null],
+        ['domain_execution_suite_source_count', 'cp', 'enterprise_domain_company_execution_suite_stack.source_catalog', null, 'gte', 7],
+        ['domain_execution_suite_role_count', 'cp', 'enterprise_domain_company_execution_suite_stack.domain_operating_model.operating_roles', null, 'gte', 6],
+        ['domain_execution_suite_connector_workbench_count', 'cp', 'enterprise_domain_company_execution_suite_stack.connector_execution_workbenches', null, 'ref', 'connectors'],
+        ['domain_execution_suite_flow_packet_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_execution_packets', null, 'ref', 'flows'],
+        ['domain_execution_suite_risk_control_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_risk_control_packets', null, 'ref', 'flows'],
+        ['domain_execution_suite_decision_room_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_decision_room_packets', null, 'ref', 'flows'],
+        ['domain_execution_suite_replay_eval_count', 'cp', 'enterprise_domain_company_execution_suite_stack.flow_domain_replay_and_eval_packs', null, 'ref', 'flows'],
+        ['domain_execution_suite_metric_count', 'cp', 'enterprise_domain_company_execution_suite_stack.domain_execution_observability.required_metrics', null, null, null],
+        ['domain_execution_suite_wait_blocker_enabled', 'b', 'enterprise_domain_company_execution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['domain_execution_suite_external_side_effects_enabled', 'b', 'enterprise_domain_company_execution_suite_stack.suite_policy.external_side_effects_enabled', true, 'false', null],
+        ['flow_work_product_catalog_count', 'cp', 'enterprise_flow_work_product_delivery_stack.work_product_catalog', null, 'ref', 'work_products'],
+        ['flow_work_product_delivery_blueprint_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_delivery_blueprints', null, 'ref', 'flows'],
+        ['flow_work_product_acceptance_contract_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_acceptance_contracts', null, 'ref', 'flows'],
+        ['flow_work_product_handoff_packet_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_handoff_packets', null, 'ref', 'flows'],
+        ['flow_work_product_replay_check_count', 'cp', 'enterprise_flow_work_product_delivery_stack.flow_replay_artifact_checks', null, 'ref', 'flows'],
+        ['flow_work_product_metric_count', 'cp', 'enterprise_flow_work_product_delivery_stack.delivery_observability.required_metrics', null, null, null],
+        ['flow_work_product_wait_blocker_enabled', 'b', 'enterprise_flow_work_product_delivery_stack.delivery_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['flow_work_product_external_delivery_enabled', 'b', 'enterprise_flow_work_product_delivery_stack.delivery_policy.external_delivery_allowed', true, 'false', null],
+        ['domain_data_room_source_count', 'cp', 'enterprise_domain_data_connector_operating_stack.source_data_room_catalog', null, 'gte', 7],
+        ['domain_data_product_contract_count', 'cp', 'enterprise_domain_data_connector_operating_stack.domain_data_products', null, 'ref', 'work_products'],
+        ['domain_connector_permission_profile_count', 'cp', 'enterprise_domain_data_connector_operating_stack.connector_permission_profiles', null, 'ref', 'connectors'],
+        ['domain_flow_data_connector_contract_count', 'cp', 'enterprise_domain_data_connector_operating_stack.flow_data_connector_contracts', null, 'ref', 'flows'],
+        ['domain_connector_fixture_eval_suite_count', 'cp', 'enterprise_domain_data_connector_operating_stack.connector_fixture_eval_suites', null, 'ref', 'flows'],
+        ['domain_data_room_required_control_count', 'cp', 'enterprise_domain_data_connector_operating_stack.domain_data_room_operating_model.required_controls', null, 'gte', 7],
+        ['domain_data_connector_metric_count', 'cp', 'enterprise_domain_data_connector_operating_stack.data_connector_observability.required_metrics', null, null, null],
+        ['domain_data_connector_wait_blocker_enabled', 'b', 'enterprise_domain_data_connector_operating_stack.data_connector_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['domain_data_connector_write_tools_enabled', 'b', 'enterprise_domain_data_connector_operating_stack.data_connector_policy.write_tools_enabled', true, 'false', null],
+        ['domain_data_connector_external_mutation_enabled', 'b', 'enterprise_domain_data_connector_operating_stack.data_connector_policy.external_data_mutation_allowed', true, 'false', null],
+        ['flow_live_read_connector_profile_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.connector_probe_profiles', null, 'ref', 'connectors'],
+        ['flow_live_read_probe_contract_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.flow_live_read_probe_contracts', null, 'ref', 'flows'],
+        ['flow_live_read_probe_evidence_matrix_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.flow_probe_evidence_matrix', null, 'ref', 'flows'],
+        ['flow_live_read_probe_metric_count', 'cp', 'enterprise_flow_live_read_connector_probe_stack.probe_observability.required_metrics', null, null, null],
+        ['flow_live_read_probe_wait_blocker_enabled', 'b', 'enterprise_flow_live_read_connector_probe_stack.probe_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['flow_live_read_probe_write_tools_enabled', 'b', 'enterprise_flow_live_read_connector_probe_stack.probe_policy.write_tools_enabled', true, 'false', null],
+        ['flow_live_read_probe_external_mutation_enabled', 'b', 'enterprise_flow_live_read_connector_probe_stack.probe_policy.external_mutation_allowed', true, 'false', null],
+        ['domain_data_fabric_source_count', 'cp', 'enterprise_domain_data_fabric_stack.domain_data_source_catalog', null, 'gte', 5],
+        ['domain_data_fabric_provider_count', 'cp', 'enterprise_domain_data_fabric_stack.connector_data_provider_matrix', null, 'ref', 'connectors'],
+        ['domain_data_fabric_product_count', 'cp', 'enterprise_domain_data_fabric_stack.domain_data_products', null, 'ref', 'work_products'],
+        ['domain_data_fabric_workbench_count', 'cp', 'enterprise_domain_data_fabric_stack.flow_data_workbenches', null, 'ref', 'flows'],
+        ['domain_data_fabric_decision_packet_factory_count', 'cp', 'enterprise_domain_data_fabric_stack.flow_decision_packet_factories', null, 'ref', 'flows'],
+        ['domain_data_fabric_enablement_track_count', 'cp', 'enterprise_domain_data_fabric_stack.implementation_enablement_tracks', null, 'gte', 8],
+        ['domain_data_fabric_metric_count', 'cp', 'enterprise_domain_data_fabric_stack.fabric_observability.required_metrics', null, 'gte', 7],
+        ['domain_data_fabric_wait_blocker_enabled', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['domain_data_fabric_direct_source_link_required', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.direct_source_link_required_for_every_claim', false, 'true', null],
+        ['domain_data_fabric_cross_source_verification_required', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.cross_source_verification_required', false, 'true', null],
+        ['domain_data_fabric_external_write_enabled', 'b', 'enterprise_domain_data_fabric_stack.fabric_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['revenue_delivery_operating_system_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.operating_systems', null, 'gte', 8],
+        ['revenue_delivery_flow_thread_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.flow_commercial_operating_threads', null, 'ref', 'flows'],
+        ['revenue_delivery_connector_map_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.connector_to_commercial_system_map', null, 'ref', 'connectors'],
+        ['revenue_delivery_scorecard_metric_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.company_board_value_scorecard.required_metrics', null, 'gte', 8],
+        ['revenue_delivery_observability_metric_count', 'cp', 'enterprise_company_revenue_delivery_operating_mesh.mesh_observability.required_metrics', null, 'gte', 8],
+        ['revenue_delivery_wait_blocker_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['revenue_delivery_customer_commitment_without_operator_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.customer_commitment_allowed_without_operator', true, 'false', null],
+        ['revenue_delivery_billing_without_operator_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.invoice_payment_or_capital_action_allowed_without_operator', true, 'false', null],
+        ['revenue_delivery_external_write_enabled', 'b', 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.external_write_spend_trade_publish_deploy_delete_allowed', true, 'false', null],
+        ['premium_reference_source_count', 'cp', 'premium_enterprise_agent_reference_model.reference_source_basis', null, 'gte', 5],
+        ['premium_agentic_runtime_pattern_count', 'cp', 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.agent_runtime_patterns', null, 'gte', 6],
+        ['premium_required_runtime_property_count', 'cp', 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.required_runtime_properties', null, 'gte', 9],
+        ['premium_managed_agent_template_count', 'cp', 'premium_enterprise_agent_reference_model.managed_agent_templates', null, 'gte', 10],
+        ['premium_template_runtime_contract_count', 'cp', 'premium_enterprise_agent_reference_model.template_runtime_contracts', null, 'refp', 'premium_enterprise_agent_reference_model.managed_agent_templates'],
+        ['premium_flow_template_map_count', 'cp', 'premium_enterprise_agent_reference_model.flow_template_map', null, 'ref', 'flows'],
+        ['premium_flow_managed_agent_workflow_count', 'cp', 'premium_enterprise_agent_reference_model.flow_managed_agent_workflows', null, 'ref', 'flows'],
+        ['premium_workbench_count', 'cp', 'premium_enterprise_agent_reference_model.data_and_tool_workbenches', null, 'ref', 'connectors'],
+        ['premium_connector_mcp_server_plan_count', 'cp', 'premium_enterprise_agent_reference_model.connector_mcp_server_plan', null, 'ref', 'connectors'],
+        ['premium_domain_source_alignment_count', 'cp', 'premium_enterprise_agent_reference_model.domain_source_alignment', null, 'gte', 5],
+        ['premium_replay_benchmark_count', 'cp', 'premium_enterprise_agent_reference_model.replay_and_audit_harness.benchmarks_per_flow', null, 'ref', 'flows'],
+        ['premium_buildout_wait_days_required', 'i', 'premium_enterprise_agent_reference_model.accelerated_activation_contract.buildout_wait_days_required', 30, 'eq', 0],
+        ['enterprise_flow_operating_package_source_count', 'cp', 'enterprise_flow_operating_packages.source_basis', null, 'gte', 10],
+        ['enterprise_flow_operating_package_count', 'cp', 'enterprise_flow_operating_packages.flow_packages', null, 'ref', 'flows'],
+        ['enterprise_flow_operating_package_metric_count', 'cp', 'enterprise_flow_operating_packages.package_observability.required_metrics', null, 'gte', 6],
+        ['enterprise_flow_operating_package_wait_blocker_enabled', 'b', 'enterprise_flow_operating_packages.operating_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['activation_source_track_count', 'cp', 'enterprise_integration_activation_plan.source_activation_tracks', null, 'gte', 5],
+        ['activation_connector_track_count', 'cp', 'enterprise_integration_activation_plan.connector_activation_tracks', null, 'ref', 'connectors'],
+        ['activation_flow_matrix_count', 'cp', 'enterprise_integration_activation_plan.flow_activation_matrix', null, 'ref', 'flows'],
+        ['operational_dress_rehearsal_flow_runbook_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.flow_rehearsal_runbooks', null, 'ref', 'flows'],
+        ['operational_dress_rehearsal_live_probe_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.live_read_probe_plan', null, 'ref', 'connectors'],
+        ['operational_dress_rehearsal_acceptance_packet_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.operator_acceptance_packets', null, 'ref', 'flows'],
+        ['operational_dress_rehearsal_rollback_drill_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.rollback_drill_matrix', null, 'ref', 'flows'],
+        ['operational_dress_rehearsal_promotion_evidence_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.promotion_evidence_matrix', null, 'ref', 'flows'],
+        ['operational_dress_rehearsal_metric_count', 'cp', 'enterprise_operational_dress_rehearsal_stack.dress_rehearsal_observability.required_metrics', null, 'gte', 7],
+        ['operational_dress_rehearsal_wait_blocker_enabled', 'b', 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        ['autonomy_promotion_stage_count', 'cf', 'autonomy_promotion_ladder', null, 'gte', 4],
+        ['connector_count', 'cf', 'connectors', null, 'gte', 3],
+        ['toolchain_count', 'cf', 'toolchain', null, 'ref', 'connectors'],
+        ['okr_count', 'cp', 'enterprise_operating_system.okr_scorecard', null, 'gte', 4],
+        ['risk_count', 'cp', 'enterprise_operating_system.risk_register', null, 'gte', 4],
+        ['runbook_count', 'cp', 'enterprise_operating_system.runbooks', null, 'ref', 'flows'],
+        ['work_product_count', 'cf', 'work_products', null, 'gte', 5],
+        ['metric_count', 'cf', 'metrics', null, 'gte', 4],
+        ['cadence_count', 'cf', 'cadences', null, 'gte', 3],
+        [null, 's', 'enterprise_company_operating_blueprint_stack.schema', null, 'eq', 'atlas.ai.company.enterprise_company_operating_blueprint_stack.v1'],
+        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_repository_adoption_matrix_required', false, 'true', null],
+        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_tool_permission_manifest_required', false, 'true', null],
+        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_eval_replay_recipe_required', false, 'true', null],
+        [null, 'b', 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.runtime_use_before_local_contract_tests_allowed', true, 'false', null],
+        [null, 'b', 'enterprise_productized_service_stack.product_policy.calendar_wait_blocker_enabled', true, 'false', null],
+        [null, 'b', 'enterprise_finance_treasury_billing_stack.financial_data_interface.source_verification_contract.direct_source_link_required', false, 'true', null],
+        [null, 'b', 'enterprise_finance_treasury_billing_stack.financial_data_interface.source_verification_contract.claim_without_source_link_allowed', true, 'false', null],
+        [null, 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.source_linked_financial_claim_required', false, 'true', null],
+        [null, 'b', 'enterprise_finance_treasury_billing_stack.finance_policy.model_risk_review_required_for_investment_or_capital_recommendation', false, 'true', null],
+        [null, 'b', 'enterprise_production_connector_preflight_stack.preflight_policy.production_cutover_without_operator_signed_scope_allowed', true, 'false', null],
+        [null, 'b', 'enterprise_domain_solution_stack.domain_data_plane.direct_source_hyperlinks_required', false, 'true', null],
+        [null, 'b', 'enterprise_domain_solution_stack.domain_data_plane.cross_source_verification_required', false, 'true', null],
+        [null, 'b', 'enterprise_domain_solution_stack.domain_data_plane.external_data_mutation_allowed', true, 'false', null],
+        [null, 'b', 'enterprise_domain_provider_workbench_stack.workbench_policy.provider_write_or_paid_action_default', true, 'false', null],
+        [null, 'b', 'enterprise_industry_solution_ecosystem_stack.enterprise_adoption_program.external_contracting_allowed_by_stack', true, 'false', null],
+        [null, 'b', 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.external_mutation_allowed_during_rehearsal', true, 'false', null],
+    ];
+
+    /**
      * @param array<string,mixed> $company
      * @return array<string,mixed>
      */
     private function readiness(array $company): array
     {
-        return [
-            'ok' => count((array) $company['functions']) >= 4
-                && count((array) $company['agent_roles']) >= 5
-                && count((array) $company['flows']) >= 4
-                && count((array) $company['flow_execution_contracts']) >= count((array) $company['flows'])
-                && count((array) $company['flow_playbooks']) >= count((array) $company['flows'])
-                && count((array) $company['flow_runtime_blueprints']) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_orchestration_runbook_stack.flow_runbooks', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_orchestration_runbook_stack.shared_connector_backplane', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_flow_orchestration_runbook_stack.runbook_observability.required_metrics', [])) >= 5
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.executable_flow_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.agent_tool_routing_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.flow_artifact_io_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.supervision_and_shadow_runtime_gates', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.connector_runtime_adapters', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.implementation_observability.required_metrics', [])) >= 6
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.canonical_flow_fixtures', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.connector_stub_catalog', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.expected_trace_trajectories', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.quality_assertion_suites', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.failure_injection_cases', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.dry_run_command_plan', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.simulation_observability.required_metrics', [])) >= 6
-                && count((array) data_get($company, 'enterprise_flow_action_runtime_stack.runtime_action_catalog', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_action_runtime_stack.command_adapter_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_action_runtime_stack.handler_state_schemas', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_action_runtime_stack.runtime_event_emission_plan', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_action_runtime_stack.operator_checkpoint_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_action_runtime_stack.action_runtime_observability.required_metrics', [])) >= 6
-                && count((array) $company['enterprise_agent_registry']) >= count((array) $company['agent_roles'])
-                && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.framework_source_catalog', [])) >= 9
-                && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.agent_toolkit_profiles', [])) >= count((array) $company['agent_roles'])
-                && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.flow_toolkit_assignments', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.repository_and_agent_watchlist.global_agent_frameworks', [])) >= 8
-                && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_certification_matrix', [])) >= count((array) $company['agent_roles'])
-                && count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_observability.required_metrics', [])) >= 6
-                && data_get($company, 'enterprise_company_operating_blueprint_stack.schema') === 'atlas.ai.company.enterprise_company_operating_blueprint_stack.v1'
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.workload_archetype_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.data_provider_contracts', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.connector_permission_profiles', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.flow_operating_blueprints', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.artifact_assembly_lines', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.control_room_handoffs', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.operating_blueprint_observability.required_metrics', [])) >= 10
-                && (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_execution_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_side_effects_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_external_research_adoption_stack.source_basis', [])) >= 12
-                && count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', [])) >= 8
-                && count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', [])) >= 3
-                && count((array) data_get($company, 'enterprise_external_research_adoption_stack.per_flow_adoption_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_external_research_adoption_stack.source_to_company_capability_map', [])) >= 12
-                && count((array) data_get($company, 'enterprise_external_research_adoption_stack.connector_and_data_provider_backlog', [])) >= count((array) $company['connectors'])
-                && (bool) data_get($company, 'enterprise_external_research_adoption_stack.research_policy.calendar_wait_blocker_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.repository_intake_queue', [])) >= 11
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.framework_adoption_scorecards', [])) >= 8
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_adoption_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_tool_permission_manifests', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_eval_replay_recipes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', [])) >= 11
-                && count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_repository_adoption_matrix_required', false)
-                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_tool_permission_manifest_required', false)
-                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.per_flow_eval_replay_recipe_required', false)
-                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.runtime_use_before_local_contract_tests_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.source_basis', [])) >= 4
-                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.framework_operating_profiles', [])) >= 8
-                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.mcp_connector_security_profiles', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.flow_runtime_adoption_map', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.supply_chain_and_eval_controls.required_artifacts', [])) >= 8
-                && count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.operating_catalog_observability.required_metrics', [])) >= 7
-                && (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.mcp_reference_servers_require_security_hardening_before_live_use', false)
-                && (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_workforce_capacity_stack.agent_capacity_plan', [])) >= 4
-                && count((array) data_get($company, 'enterprise_workforce_capacity_stack.flow_staffing_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_workforce_capacity_stack.training_and_enablement', [])) >= 4
-                && count((array) data_get($company, 'enterprise_portfolio_dependency_stack.flow_dependency_routing', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_portfolio_dependency_stack.portfolio_reporting_contract.required_metrics', [])) >= 4
-                && count((array) data_get($company, 'domain_data_model.entities', [])) >= 4
-                && count((array) $company['business_process_map']) >= count((array) $company['flows'])
-                && count((array) $company['deliverable_quality_contracts']) >= 5
-                && count((array) data_get($company, 'go_to_production_pack.slo_sli_catalog', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'go_to_production_pack.integration_enablement_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'commercial_operating_stack.service_catalog', [])) >= 5
-                && count((array) data_get($company, 'commercial_operating_stack.business_kpis', [])) >= 4
-                && count((array) data_get($company, 'enterprise_customer_market_operations_stack.offer_and_packaging_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_customer_market_operations_stack.journey_and_lifecycle_map', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_market_operations_stack.customer_success_scorecard', [])) >= 4
-                && count((array) data_get($company, 'enterprise_account_contract_delivery_stack.account_segment_playbooks', [])) >= 4
-                && count((array) data_get($company, 'enterprise_account_contract_delivery_stack.contract_and_entitlement_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_account_contract_delivery_stack.onboarding_success_plans', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_account_contract_delivery_stack.service_review_and_renewal_calendar', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_account_contract_delivery_stack.account_health_and_risk_register', [])) >= count((array) $company['metrics'])
-                && count((array) data_get($company, 'enterprise_account_contract_delivery_stack.account_contract_observability.required_metrics', [])) >= 5
-                && count((array) data_get($company, 'enterprise_productized_service_stack.domain_product_lines', [])) >= 5
-                && count((array) data_get($company, 'enterprise_productized_service_stack.flow_service_offers', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_productized_service_stack.service_delivery_blueprints', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_productized_service_stack.intake_and_qualification_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_productized_service_stack.sla_success_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_productized_service_stack.pricing_packaging_model', [])) >= 5
-                && count((array) data_get($company, 'enterprise_productized_service_stack.go_to_market_motion_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_productized_service_stack.proof_and_case_study_templates', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_productized_service_stack.product_observability.required_metrics', [])) >= 10
-                && (bool) data_get($company, 'enterprise_productized_service_stack.product_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_productized_service_stack.product_policy.public_gtm_or_customer_commitment_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_productized_service_stack.product_policy.external_billing_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.crm_object_model.objects', [])) >= 8
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.segment_sales_plays', [])) >= 4
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_opportunity_routes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.proposal_and_scope_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.mutual_action_plans', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_account_research_workbenches', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_deal_room_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_pipeline_forecast_reviews', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_mutual_action_plan_risk_reviews', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.renewal_and_expansion_signals', [])) >= count((array) $company['metrics'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_to_delivery_handoff_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.pipeline_observability.required_metrics', [])) >= 13
-                && (bool) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_policy.external_outreach_contract_signature_or_customer_commitment_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_policy.public_claim_or_paid_campaign_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.service_desk_object_model.objects', [])) >= 9
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.support_segment_playbooks', [])) >= 4
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_support_lanes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.ticket_triage_and_sla_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.knowledge_base_article_templates', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.escalation_and_incident_runbooks', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.resolution_quality_and_rca_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_case_resolution_workbenches', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_customer_health_escalation_playbooks', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_knowledge_quality_reviews', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_support_automation_deflection_tests', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.feedback_to_product_learning_loops', [])) >= count((array) $company['metrics'])
-                && count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.support_observability.required_metrics', [])) >= 13
-                && (bool) data_get($company, 'enterprise_customer_support_service_desk_stack.support_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_customer_support_service_desk_stack.support_policy.external_customer_message_or_support_commitment_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_customer_support_service_desk_stack.support_policy.regulated_support_advice_allowed_without_review', true) === false
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.growth_operating_model.operating_roles', [])) >= 6
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.audience_segment_map', [])) >= 4
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_campaign_blueprints', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.content_asset_factories', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.experiment_backlog', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_growth_intelligence_workbenches', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_attribution_experiment_models', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_channel_budget_guardrails', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_public_claim_evidence_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.channel_and_distribution_plan', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.brand_compliance_review_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.growth_to_crm_handoff_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_observability.required_metrics', [])) >= 14
-                && (bool) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_policy.external_publish_paid_campaign_or_outreach_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_policy.public_claim_allowed_without_source_and_operator_review', true) === false
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.financial_data_interface.provider_connector_classes', [])) >= 7
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.financial_data_interface.source_verification_contract.direct_source_link_required', false)
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.financial_data_interface.source_verification_contract.claim_without_source_link_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.provider_connector_matrix', [])) >= count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.source_catalog', []))
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.cfo_operating_model.operating_roles', [])) >= 9
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_budget_envelopes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_financial_research_workbenches', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_forecast_models', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_model_risk_controls', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_investment_committee_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.pnl_line_item_model', [])) >= 5
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.billing_ledger_controls', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.capital_actions_blocked', [])) >= 6
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_close_and_audit_pack.close_packet_sections', [])) >= 9
-                && count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_observability.required_metrics', [])) >= 14
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_policy.source_linked_financial_claim_required', false)
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_policy.model_risk_review_required_for_investment_or_capital_recommendation', false)
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_policy.external_invoice_payment_collection_capital_transfer_or_trade_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.real_money_movement_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.vendor_due_diligence_register', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.source_terms_review_register', [])) >= 5
-                && count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.flow_procurement_routing', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.vendor_operability_scorecard', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_resilience_continuity_stack.flow_failure_mode_analysis', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_resilience_continuity_stack.connector_resilience_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_resilience_continuity_stack.incident_exercise_program', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_resilience_continuity_stack.resilience_observability.required_metrics', [])) >= 5
-                && count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.metric_lineage_catalog', [])) >= count((array) $company['metrics'])
-                && count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.executive_dashboard_catalog', [])) >= 3
-                && count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.flow_decision_register', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.scenario_and_forecast_model', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.work_product_analytics_map', [])) >= 5
-                && count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.knowledge_source_registry', [])) >= 5
-                && count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.flow_learning_loops', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.postmortem_and_retrospective_program', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.playbook_change_control', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.work_product_feedback_memory', [])) >= 5
-                && count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.connector_knowledge_sync_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.agent_access_matrix', [])) >= 4
-                && count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.flow_data_boundary_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.connector_secret_binding_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.sensitive_data_handling_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.purpose_consent_registry', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.control_tower_lanes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.cadence_scheduler', [])) >= count((array) $company['cadences'])
-                && count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.incident_and_exception_desk', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.change_window_and_release_calendar', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.connector_operations_probe_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.dashboard_operations_map', [])) >= 3
-                && count((array) data_get($company, 'enterprise_company_command_center_stack.operating_cells', [])) >= 6
-                && count((array) data_get($company, 'enterprise_company_command_center_stack.flow_command_cards', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_company_command_center_stack.connector_workbench_panels', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_company_command_center_stack.operator_console_views', [])) >= 4
-                && count((array) data_get($company, 'enterprise_company_command_center_stack.work_product_factory_map', [])) >= 5
-                && count((array) data_get($company, 'enterprise_company_command_center_stack.command_center_kpis', [])) >= count((array) $company['metrics'])
-                && (bool) data_get($company, 'enterprise_company_command_center_stack.command_center_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_company_command_center_stack.command_center_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.node_catalog', [])) >= (
-                    count((array) $company['functions'])
-                    + count((array) $company['agent_roles'])
-                    + count((array) $company['flows'])
-                    + count((array) $company['connectors'])
-                    + count((array) $company['metrics'])
+        $ok = true;
+        $readiness = ['ok' => false];
+
+        foreach (self::READINESS_RULES as [$key, $kind, $path, $default, $op, $ref]) {
+            $value = match ($kind) {
+                'cp' => count((array) data_get($company, $path, [])),
+                'cf' => count((array) $company[$path]),
+                'b' => (bool) data_get($company, $path, $default),
+                'i' => (int) data_get($company, $path, $default),
+                default => data_get($company, $path),
+            };
+            $ok = $ok && match ($op) {
+                'gte' => $value >= $ref,
+                'ref' => $value >= count((array) $company[$ref]),
+                'refp' => $value >= count((array) data_get($company, $ref, [])),
+                'false' => $value === false,
+                'true' => $value === true,
+                'eq' => $value === $ref,
+                default => true,
+            };
+            if ($key !== null) {
+                $readiness[$key] = $value;
+            }
+        }
+
+        // ponytail: composite arithmetic thresholds stay verbatim (no DSL); pure AND terms, order-free.
+        $readiness['ok'] = $ok
+            && count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.node_catalog', [])) >= (
+                count((array) $company['functions'])
+                + count((array) $company['agent_roles'])
+                + count((array) $company['flows'])
+                + count((array) $company['connectors'])
+                + count((array) $company['metrics'])
                 )
-                && count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.flow_relationship_edges', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.operating_views', [])) >= 4
-                && count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.drift_detection_rules', [])) >= 5
-                && count((array) data_get($company, 'enterprise_delivery_assurance_stack.work_product_delivery_contracts', [])) >= 5
-                && count((array) data_get($company, 'enterprise_delivery_assurance_stack.flow_delivery_sla', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'portfolio_finance_stack.flow_cost_centers', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.flow_unit_economics', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.work_product_pricing_ladder', [])) >= 5
-                && count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.agent_capacity_cost_model', [])) >= 4
-                && count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.connector_cost_and_limit_model', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'strategic_intelligence_stack.rival_and_alternative_map', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'strategic_intelligence_stack.intelligence_kpis', [])) >= 4
-                && count((array) data_get($company, 'enterprise_grc_stack.vendor_and_tool_risk', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_grc_stack.audit_evidence_requirements', [])) >= count((array) $company['flows'])
-                && count((array) $company['enterprise_capability_matrix']) >= count((array) $company['flows'])
-                && count((array) $company['external_integration_catalog']) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.adapter_contract_catalog', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.auth_and_secret_boundary', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.sandbox_probe_matrix', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.consumer_provider_contract_tests', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.connector_data_mapping_and_lineage', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.flow_connector_usage_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.replay_fixture_and_mock_server_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.connector_slo_and_failure_mode_catalog', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_connector_certification_stack.connector_certification_observability.required_metrics', [])) >= 5
-                && count((array) data_get($company, 'enterprise_production_connector_preflight_stack.connector_preflight_contracts', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_production_connector_preflight_stack.flow_connector_cutover_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_production_connector_preflight_stack.production_readiness_evidence_register', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_production_connector_preflight_stack.cutover_observability.required_metrics', [])) >= 6
-                && (bool) data_get($company, 'enterprise_production_connector_preflight_stack.preflight_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_production_connector_preflight_stack.preflight_policy.production_cutover_without_operator_signed_scope_allowed', true) === false
-                && count((array) data_get($company, 'evaluation_harness.suite_per_flow', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.offline_dataset_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.trace_grading_rubrics', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.adversarial_regression_cases', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.deterministic_state_assertions', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.replay_and_comparison_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.benchmark_observability.required_metrics', [])) >= 5
-                && count((array) data_get($company, 'enterprise_tooling_research_stack.source_catalog', [])) >= 9
-                && count((array) data_get($company, 'enterprise_tooling_research_stack.per_flow_tooling_benchmark', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_tooling_research_stack.connector_integration_backlog', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.domain_value_chain', [])) >= 6
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.domain_data_product_spine', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.enterprise_system_map', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.flow_depth_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.mcp_api_connector_backlog', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.delivery_offer_model', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_operating_depth_stack.depth_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_domain_operating_depth_stack.depth_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_operating_depth_stack.depth_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.managed_agent_catalog', [])) >= 4
-                && count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_observability.required_metrics', [])) >= 10
-                && (bool) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_control_plane.external_effect_worker_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_domain_solution_stack.domain_source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_solution_stack.solution_modules', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_solution_stack.managed_agent_templates', [])) >= 4
-                && count((array) data_get($company, 'enterprise_domain_solution_stack.data_product_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_solution_stack.enterprise_solution_playbooks', [])) >= count((array) $company['flows'])
-                && (bool) data_get($company, 'enterprise_domain_solution_stack.domain_data_plane.direct_source_hyperlinks_required', false)
-                && (bool) data_get($company, 'enterprise_domain_solution_stack.domain_data_plane.cross_source_verification_required', false)
-                && (bool) data_get($company, 'enterprise_domain_solution_stack.domain_data_plane.external_data_mutation_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_domain_solution_stack.domain_expert_review_board.review_modes', [])) >= 5
-                && count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.solution_suites', [])) >= 6
-                && count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.flow_solution_kits', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.connector_solution_workbenches', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.artifact_factory_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_evaluation_recipes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_policy.external_execution_allowed_by_suite', true) === false
-                && count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_mode_catalog', [])) >= 4
-                && count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_tool_kpi_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.domain_service_lanes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.business_artifact_delivery_contracts', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_policy.autonomous_external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_contracts', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.connector_workbenches', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.flow_provider_routes', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_evaluation_cases', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_data_product_lineage', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_workbench_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_domain_provider_workbench_stack.workbench_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_provider_workbench_stack.workbench_policy.provider_write_or_paid_action_default', true) === false
-                && count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.ecosystem_provider_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.implementation_partner_tracks', [])) >= 7
-                && count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.flow_solution_workload_packs', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.ecosystem_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_industry_solution_ecosystem_stack.ecosystem_policy.external_side_effects_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_industry_solution_ecosystem_stack.enterprise_adoption_program.external_contracting_allowed_by_stack', true) === false
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.source_catalog', [])) >= 7
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.domain_operating_model.operating_roles', [])) >= 6
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.connector_execution_workbenches', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_execution_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_risk_control_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_decision_room_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_replay_and_eval_packs', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.domain_execution_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 6)
-                && (bool) data_get($company, 'enterprise_domain_company_execution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_company_execution_suite_stack.suite_policy.external_side_effects_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.work_product_catalog', [])) >= count((array) $company['work_products'])
-                && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_delivery_blueprints', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_acceptance_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_handoff_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_replay_artifact_checks', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 6)
-                && (bool) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_policy.external_delivery_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.source_data_room_catalog', [])) >= 7
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.domain_data_products', [])) >= count((array) $company['work_products'])
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.connector_permission_profiles', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.flow_data_connector_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.connector_fixture_eval_suites', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.domain_data_room_operating_model.required_controls', [])) >= 7
-                && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 7)
-                && (bool) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_policy.external_data_mutation_allowed', true) === false
-                && (bool) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_policy.write_tools_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.connector_probe_profiles', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.flow_live_read_probe_contracts', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.flow_probe_evidence_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 7)
-                && (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.write_tools_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.external_mutation_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_source_catalog', [])) >= 5
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.connector_data_provider_matrix', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_products', [])) >= count((array) $company['work_products'])
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_data_workbenches', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_decision_packet_factories', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.implementation_enablement_tracks', [])) >= 8
-                && count((array) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_observability.required_metrics', [])) >= 7
-                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.direct_source_link_required_for_every_claim', false)
-                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.cross_source_verification_required', false)
-                && (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.operating_systems', [])) >= 8
-                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.flow_commercial_operating_threads', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.connector_to_commercial_system_map', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.company_board_value_scorecard.required_metrics', [])) >= 8
-                && count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_observability.required_metrics', [])) >= 8
-                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.customer_commitment_allowed_without_operator', true) === false
-                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.invoice_payment_or_capital_action_allowed_without_operator', true) === false
-                && (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.external_write_spend_trade_publish_deploy_delete_allowed', true) === false
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.reference_source_basis', [])) >= 5
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.agent_runtime_patterns', [])) >= 6
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.required_runtime_properties', [])) >= 9
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.managed_agent_templates', [])) >= 10
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.template_runtime_contracts', [])) >= count((array) data_get($company, 'premium_enterprise_agent_reference_model.managed_agent_templates', []))
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.flow_template_map', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.flow_managed_agent_workflows', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.data_and_tool_workbenches', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.connector_mcp_server_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.domain_source_alignment', [])) >= 5
-                && count((array) data_get($company, 'premium_enterprise_agent_reference_model.replay_and_audit_harness.benchmarks_per_flow', [])) >= count((array) $company['flows'])
-                && (int) data_get($company, 'premium_enterprise_agent_reference_model.accelerated_activation_contract.buildout_wait_days_required', 30) === 0
-                && count((array) data_get($company, 'enterprise_flow_operating_packages.source_basis', [])) >= 10
-                && count((array) data_get($company, 'enterprise_flow_operating_packages.flow_packages', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_flow_operating_packages.package_observability.required_metrics', [])) >= 6
-                && (bool) data_get($company, 'enterprise_flow_operating_packages.operating_policy.calendar_wait_blocker_enabled', true) === false
-                && count((array) data_get($company, 'enterprise_integration_activation_plan.source_activation_tracks', [])) >= 5
-                && count((array) data_get($company, 'enterprise_integration_activation_plan.connector_activation_tracks', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_integration_activation_plan.flow_activation_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.flow_rehearsal_runbooks', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.live_read_probe_plan', [])) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.operator_acceptance_packets', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.rollback_drill_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.promotion_evidence_matrix', [])) >= count((array) $company['flows'])
-                && count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.dress_rehearsal_observability.required_metrics', [])) >= 7
-                && (bool) data_get($company, 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.calendar_wait_blocker_enabled', true) === false
-                && (bool) data_get($company, 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.external_mutation_allowed_during_rehearsal', true) === false
-                && count((array) $company['autonomy_promotion_ladder']) >= 4
-                && count((array) $company['connectors']) >= 3
-                && count((array) $company['toolchain']) >= count((array) $company['connectors'])
-                && count((array) data_get($company, 'enterprise_operating_system.okr_scorecard', [])) >= 4
-                && count((array) data_get($company, 'enterprise_operating_system.risk_register', [])) >= 4
-                && count((array) data_get($company, 'enterprise_operating_system.runbooks', [])) >= count((array) $company['flows'])
-                && count((array) $company['work_products']) >= 5
-                && count((array) $company['metrics']) >= 4
-                && count((array) $company['cadences']) >= 3,
-            'function_count' => count((array) $company['functions']),
-            'agent_count' => count((array) $company['agent_roles']),
-            'flow_count' => count((array) $company['flows']),
-            'flow_execution_contract_count' => count((array) $company['flow_execution_contracts']),
-            'flow_playbook_count' => count((array) $company['flow_playbooks']),
-            'flow_runtime_blueprint_count' => count((array) $company['flow_runtime_blueprints']),
-            'enterprise_flow_runbook_count' => count((array) data_get($company, 'enterprise_flow_orchestration_runbook_stack.flow_runbooks', [])),
-            'enterprise_flow_connector_backplane_count' => count((array) data_get($company, 'enterprise_flow_orchestration_runbook_stack.shared_connector_backplane', [])),
-            'enterprise_flow_runbook_metric_count' => count((array) data_get($company, 'enterprise_flow_orchestration_runbook_stack.runbook_observability.required_metrics', [])),
-            'flow_runtime_implementation_source_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.source_catalog', [])),
-            'executable_flow_packet_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.executable_flow_packets', [])),
-            'agent_tool_routing_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.agent_tool_routing_matrix', [])),
-            'flow_artifact_io_contract_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.flow_artifact_io_contracts', [])),
-            'supervision_shadow_gate_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.supervision_and_shadow_runtime_gates', [])),
-            'connector_runtime_adapter_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.connector_runtime_adapters', [])),
-            'runtime_implementation_metric_count' => count((array) data_get($company, 'enterprise_flow_runtime_implementation_stack.implementation_observability.required_metrics', [])),
-            'flow_fixture_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.canonical_flow_fixtures', [])),
-            'connector_stub_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.connector_stub_catalog', [])),
-            'expected_trace_trajectory_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.expected_trace_trajectories', [])),
-            'quality_assertion_suite_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.quality_assertion_suites', [])),
-            'failure_injection_case_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.failure_injection_cases', [])),
-            'dry_run_command_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.dry_run_command_plan', [])),
-            'flow_fixture_simulation_metric_count' => count((array) data_get($company, 'enterprise_flow_fixture_simulation_stack.simulation_observability.required_metrics', [])),
-            'runtime_action_count' => count((array) data_get($company, 'enterprise_flow_action_runtime_stack.runtime_action_catalog', [])),
-            'command_adapter_matrix_count' => count((array) data_get($company, 'enterprise_flow_action_runtime_stack.command_adapter_matrix', [])),
-            'handler_state_schema_count' => count((array) data_get($company, 'enterprise_flow_action_runtime_stack.handler_state_schemas', [])),
-            'runtime_event_emission_plan_count' => count((array) data_get($company, 'enterprise_flow_action_runtime_stack.runtime_event_emission_plan', [])),
-            'operator_checkpoint_contract_count' => count((array) data_get($company, 'enterprise_flow_action_runtime_stack.operator_checkpoint_contracts', [])),
-            'action_runtime_metric_count' => count((array) data_get($company, 'enterprise_flow_action_runtime_stack.action_runtime_observability.required_metrics', [])),
-            'enterprise_agent_registry_count' => count((array) $company['enterprise_agent_registry']),
-            'agent_toolkit_framework_source_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.framework_source_catalog', [])),
-            'agent_toolkit_profile_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.agent_toolkit_profiles', [])),
-            'flow_toolkit_assignment_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.flow_toolkit_assignments', [])),
-            'agent_repository_watch_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.repository_and_agent_watchlist.global_agent_frameworks', [])),
-            'agent_toolkit_certification_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_certification_matrix', [])),
-            'agent_toolkit_metric_count' => count((array) data_get($company, 'enterprise_domain_agent_toolkit_stack.toolkit_observability.required_metrics', [])),
-            'company_operating_blueprint_archetype_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.workload_archetype_catalog', [])),
-            'company_operating_blueprint_data_provider_contract_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.data_provider_contracts', [])),
-            'company_operating_blueprint_connector_permission_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.connector_permission_profiles', [])),
-            'company_operating_blueprint_flow_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.flow_operating_blueprints', [])),
-            'company_operating_blueprint_artifact_assembly_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.artifact_assembly_lines', [])),
-            'company_operating_blueprint_handoff_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.control_room_handoffs', [])),
-            'company_operating_blueprint_metric_count' => count((array) data_get($company, 'enterprise_company_operating_blueprint_stack.operating_blueprint_observability.required_metrics', [])),
-            'company_operating_blueprint_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.calendar_wait_blocker_enabled', true),
-            'company_operating_blueprint_external_execution_enabled' => (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_execution_allowed', true),
-            'company_operating_blueprint_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_company_operating_blueprint_stack.blueprint_policy.external_side_effects_enabled', true),
-            'external_research_source_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.source_basis', [])),
-            'external_research_framework_repo_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.official_framework_repositories', [])),
-            'external_research_domain_repo_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.repository_and_framework_catalog.domain_repository_candidates', [])),
-            'external_research_flow_adoption_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.per_flow_adoption_matrix', [])),
-            'external_research_capability_map_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.source_to_company_capability_map', [])),
-            'external_research_connector_backlog_count' => count((array) data_get($company, 'enterprise_external_research_adoption_stack.connector_and_data_provider_backlog', [])),
-            'external_research_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_external_research_adoption_stack.research_policy.calendar_wait_blocker_enabled', true),
-            'agent_repository_intake_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.repository_intake_queue', [])),
-            'agent_repository_framework_scorecard_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.framework_adoption_scorecards', [])),
-            'agent_repository_flow_adoption_matrix_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_adoption_matrix', [])),
-            'agent_repository_flow_epic_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_repository_implementation_epics', [])),
-            'agent_repository_tool_permission_manifest_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_tool_permission_manifests', [])),
-            'agent_repository_eval_replay_recipe_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.flow_eval_replay_recipes', [])),
-            'agent_repository_version_pin_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.version_pin_and_supply_chain_plan', [])),
-            'agent_repository_metric_count' => count((array) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_observability.required_metrics', [])),
-            'agent_repository_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_agent_repository_adoption_pipeline.pipeline_policy.external_side_effects_enabled', true),
-            'agent_repository_operating_source_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.source_basis', [])),
-            'agent_repository_operating_framework_profile_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.framework_operating_profiles', [])),
-            'agent_repository_operating_mcp_security_profile_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.mcp_connector_security_profiles', [])),
-            'agent_repository_operating_flow_map_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.flow_runtime_adoption_map', [])),
-            'agent_repository_operating_supply_chain_artifact_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.supply_chain_and_eval_controls.required_artifacts', [])),
-            'agent_repository_operating_metric_count' => count((array) data_get($company, 'enterprise_agent_repository_operating_catalog.operating_catalog_observability.required_metrics', [])),
-            'agent_repository_operating_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.calendar_wait_blocker_enabled', true),
-            'agent_repository_operating_mcp_hardening_required' => (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.mcp_reference_servers_require_security_hardening_before_live_use', false),
-            'agent_repository_operating_external_write_enabled' => (bool) data_get($company, 'enterprise_agent_repository_operating_catalog.catalog_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'workforce_agent_capacity_count' => count((array) data_get($company, 'enterprise_workforce_capacity_stack.agent_capacity_plan', [])),
-            'workforce_flow_staffing_count' => count((array) data_get($company, 'enterprise_workforce_capacity_stack.flow_staffing_matrix', [])),
-            'workforce_training_count' => count((array) data_get($company, 'enterprise_workforce_capacity_stack.training_and_enablement', [])),
-            'portfolio_dependency_handoff_count' => count((array) data_get($company, 'enterprise_portfolio_dependency_stack.upstream_dependency_map', [])),
-            'portfolio_integration_dependency_count' => count((array) data_get($company, 'enterprise_portfolio_dependency_stack.integration_dependency_map', [])),
-            'portfolio_flow_dependency_routing_count' => count((array) data_get($company, 'enterprise_portfolio_dependency_stack.flow_dependency_routing', [])),
-            'portfolio_reporting_metric_count' => count((array) data_get($company, 'enterprise_portfolio_dependency_stack.portfolio_reporting_contract.required_metrics', [])),
-            'domain_data_entity_count' => count((array) data_get($company, 'domain_data_model.entities', [])),
-            'business_process_count' => count((array) $company['business_process_map']),
-            'deliverable_quality_contract_count' => count((array) $company['deliverable_quality_contracts']),
-            'production_slo_count' => count((array) data_get($company, 'go_to_production_pack.slo_sli_catalog', [])),
-            'production_integration_enablement_count' => count((array) data_get($company, 'go_to_production_pack.integration_enablement_plan', [])),
-            'service_catalog_count' => count((array) data_get($company, 'commercial_operating_stack.service_catalog', [])),
-            'business_kpi_count' => count((array) data_get($company, 'commercial_operating_stack.business_kpis', [])),
-            'customer_offer_count' => count((array) data_get($company, 'enterprise_customer_market_operations_stack.offer_and_packaging_catalog', [])),
-            'customer_journey_count' => count((array) data_get($company, 'enterprise_customer_market_operations_stack.journey_and_lifecycle_map', [])),
-            'customer_success_metric_count' => count((array) data_get($company, 'enterprise_customer_market_operations_stack.customer_success_scorecard', [])),
-            'account_playbook_count' => count((array) data_get($company, 'enterprise_account_contract_delivery_stack.account_segment_playbooks', [])),
-            'account_entitlement_count' => count((array) data_get($company, 'enterprise_account_contract_delivery_stack.contract_and_entitlement_catalog', [])),
-            'account_onboarding_success_plan_count' => count((array) data_get($company, 'enterprise_account_contract_delivery_stack.onboarding_success_plans', [])),
-            'account_service_review_count' => count((array) data_get($company, 'enterprise_account_contract_delivery_stack.service_review_and_renewal_calendar', [])),
-            'account_health_risk_count' => count((array) data_get($company, 'enterprise_account_contract_delivery_stack.account_health_and_risk_register', [])),
-            'account_contract_metric_count' => count((array) data_get($company, 'enterprise_account_contract_delivery_stack.account_contract_observability.required_metrics', [])),
-            'productized_service_product_line_count' => count((array) data_get($company, 'enterprise_productized_service_stack.domain_product_lines', [])),
-            'productized_service_offer_count' => count((array) data_get($company, 'enterprise_productized_service_stack.flow_service_offers', [])),
-            'productized_service_delivery_blueprint_count' => count((array) data_get($company, 'enterprise_productized_service_stack.service_delivery_blueprints', [])),
-            'productized_service_intake_contract_count' => count((array) data_get($company, 'enterprise_productized_service_stack.intake_and_qualification_contracts', [])),
-            'productized_service_sla_contract_count' => count((array) data_get($company, 'enterprise_productized_service_stack.sla_success_contracts', [])),
-            'productized_service_pricing_package_count' => count((array) data_get($company, 'enterprise_productized_service_stack.pricing_packaging_model', [])),
-            'productized_service_gtm_motion_count' => count((array) data_get($company, 'enterprise_productized_service_stack.go_to_market_motion_catalog', [])),
-            'productized_service_proof_template_count' => count((array) data_get($company, 'enterprise_productized_service_stack.proof_and_case_study_templates', [])),
-            'productized_service_metric_count' => count((array) data_get($company, 'enterprise_productized_service_stack.product_observability.required_metrics', [])),
-            'productized_service_external_commitment_enabled' => (bool) data_get($company, 'enterprise_productized_service_stack.product_policy.public_gtm_or_customer_commitment_allowed', true),
-            'productized_service_external_billing_enabled' => (bool) data_get($company, 'enterprise_productized_service_stack.product_policy.external_billing_allowed', true),
-            'sales_crm_source_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.source_catalog', [])),
-            'sales_crm_object_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.crm_object_model.objects', [])),
-            'sales_crm_segment_play_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.segment_sales_plays', [])),
-            'sales_crm_opportunity_route_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_opportunity_routes', [])),
-            'sales_crm_proposal_packet_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.proposal_and_scope_packets', [])),
-            'sales_crm_mutual_action_plan_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.mutual_action_plans', [])),
-            'sales_crm_account_research_workbench_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_account_research_workbenches', [])),
-            'sales_crm_deal_room_packet_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_deal_room_packets', [])),
-            'sales_crm_pipeline_forecast_review_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_pipeline_forecast_reviews', [])),
-            'sales_crm_map_risk_review_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.flow_mutual_action_plan_risk_reviews', [])),
-            'sales_crm_renewal_expansion_signal_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.renewal_and_expansion_signals', [])),
-            'sales_crm_handoff_contract_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_to_delivery_handoff_contracts', [])),
-            'sales_crm_metric_count' => count((array) data_get($company, 'enterprise_sales_crm_pipeline_stack.pipeline_observability.required_metrics', [])),
-            'sales_crm_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_policy.calendar_wait_blocker_enabled', true),
-            'sales_crm_external_commitment_enabled' => (bool) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_policy.external_outreach_contract_signature_or_customer_commitment_allowed', true),
-            'sales_crm_public_claim_paid_campaign_enabled' => (bool) data_get($company, 'enterprise_sales_crm_pipeline_stack.sales_policy.public_claim_or_paid_campaign_allowed', true),
-            'support_service_desk_source_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.source_catalog', [])),
-            'support_service_desk_object_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.service_desk_object_model.objects', [])),
-            'support_segment_playbook_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.support_segment_playbooks', [])),
-            'support_flow_lane_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_support_lanes', [])),
-            'support_ticket_sla_contract_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.ticket_triage_and_sla_contracts', [])),
-            'support_kb_template_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.knowledge_base_article_templates', [])),
-            'support_escalation_runbook_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.escalation_and_incident_runbooks', [])),
-            'support_resolution_rca_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.resolution_quality_and_rca_contracts', [])),
-            'support_case_resolution_workbench_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_case_resolution_workbenches', [])),
-            'support_customer_health_escalation_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_customer_health_escalation_playbooks', [])),
-            'support_knowledge_quality_review_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_knowledge_quality_reviews', [])),
-            'support_automation_deflection_test_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.flow_support_automation_deflection_tests', [])),
-            'support_feedback_learning_loop_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.feedback_to_product_learning_loops', [])),
-            'support_service_desk_metric_count' => count((array) data_get($company, 'enterprise_customer_support_service_desk_stack.support_observability.required_metrics', [])),
-            'support_service_desk_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_customer_support_service_desk_stack.support_policy.calendar_wait_blocker_enabled', true),
-            'support_service_desk_external_message_enabled' => (bool) data_get($company, 'enterprise_customer_support_service_desk_stack.support_policy.external_customer_message_or_support_commitment_allowed', true),
-            'support_service_desk_unreviewed_regulated_advice_enabled' => (bool) data_get($company, 'enterprise_customer_support_service_desk_stack.support_policy.regulated_support_advice_allowed_without_review', true),
-            'marketing_growth_source_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.source_catalog', [])),
-            'marketing_growth_role_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.growth_operating_model.operating_roles', [])),
-            'marketing_audience_segment_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.audience_segment_map', [])),
-            'marketing_campaign_blueprint_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_campaign_blueprints', [])),
-            'marketing_content_factory_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.content_asset_factories', [])),
-            'marketing_experiment_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.experiment_backlog', [])),
-            'marketing_growth_intelligence_workbench_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_growth_intelligence_workbenches', [])),
-            'marketing_attribution_experiment_model_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_attribution_experiment_models', [])),
-            'marketing_channel_budget_guardrail_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_channel_budget_guardrails', [])),
-            'marketing_public_claim_evidence_packet_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.flow_public_claim_evidence_packets', [])),
-            'marketing_channel_distribution_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.channel_and_distribution_plan', [])),
-            'marketing_brand_review_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.brand_compliance_review_packets', [])),
-            'marketing_crm_handoff_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.growth_to_crm_handoff_contracts', [])),
-            'marketing_growth_metric_count' => count((array) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_observability.required_metrics', [])),
-            'marketing_growth_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_policy.calendar_wait_blocker_enabled', true),
-            'marketing_growth_external_publish_enabled' => (bool) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_policy.external_publish_paid_campaign_or_outreach_allowed', true),
-            'marketing_growth_unreviewed_public_claim_enabled' => (bool) data_get($company, 'enterprise_marketing_growth_engine_stack.marketing_policy.public_claim_allowed_without_source_and_operator_review', true),
-            'finance_treasury_source_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.source_catalog', [])),
-            'finance_treasury_data_interface_connector_class_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.financial_data_interface.provider_connector_classes', [])),
-            'finance_treasury_provider_connector_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.provider_connector_matrix', [])),
-            'finance_treasury_cfo_role_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.cfo_operating_model.operating_roles', [])),
-            'finance_treasury_research_workbench_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_financial_research_workbenches', [])),
-            'finance_treasury_budget_envelope_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_budget_envelopes', [])),
-            'finance_treasury_forecast_model_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_forecast_models', [])),
-            'finance_treasury_model_risk_control_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_model_risk_controls', [])),
-            'finance_treasury_investment_committee_packet_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.flow_investment_committee_packets', [])),
-            'finance_treasury_pnl_line_item_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.pnl_line_item_model', [])),
-            'finance_treasury_billing_ledger_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.billing_ledger_controls', [])),
-            'finance_treasury_blocked_capital_action_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.capital_actions_blocked', [])),
-            'finance_treasury_close_section_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_close_and_audit_pack.close_packet_sections', [])),
-            'finance_treasury_metric_count' => count((array) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_observability.required_metrics', [])),
-            'finance_treasury_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_policy.calendar_wait_blocker_enabled', true),
-            'finance_treasury_external_financial_action_enabled' => (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.finance_policy.external_invoice_payment_collection_capital_transfer_or_trade_allowed', true),
-            'finance_treasury_real_money_movement_enabled' => (bool) data_get($company, 'enterprise_finance_treasury_billing_stack.treasury_risk_controls.real_money_movement_allowed', true),
-            'vendor_due_diligence_count' => count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.vendor_due_diligence_register', [])),
-            'source_terms_review_count' => count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.source_terms_review_register', [])),
-            'flow_procurement_routing_count' => count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.flow_procurement_routing', [])),
-            'vendor_operability_scorecard_count' => count((array) data_get($company, 'enterprise_vendor_legal_procurement_stack.vendor_operability_scorecard', [])),
-            'flow_failure_mode_analysis_count' => count((array) data_get($company, 'enterprise_resilience_continuity_stack.flow_failure_mode_analysis', [])),
-            'connector_resilience_plan_count' => count((array) data_get($company, 'enterprise_resilience_continuity_stack.connector_resilience_plan', [])),
-            'incident_exercise_count' => count((array) data_get($company, 'enterprise_resilience_continuity_stack.incident_exercise_program', [])),
-            'resilience_metric_count' => count((array) data_get($company, 'enterprise_resilience_continuity_stack.resilience_observability.required_metrics', [])),
-            'analytics_metric_lineage_count' => count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.metric_lineage_catalog', [])),
-            'executive_dashboard_count' => count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.executive_dashboard_catalog', [])),
-            'flow_decision_register_count' => count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.flow_decision_register', [])),
-            'scenario_forecast_count' => count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.scenario_and_forecast_model', [])),
-            'work_product_analytics_count' => count((array) data_get($company, 'enterprise_analytics_decision_intelligence_stack.work_product_analytics_map', [])),
-            'knowledge_source_registry_count' => count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.knowledge_source_registry', [])),
-            'flow_learning_loop_count' => count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.flow_learning_loops', [])),
-            'postmortem_program_count' => count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.postmortem_and_retrospective_program', [])),
-            'playbook_change_control_count' => count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.playbook_change_control', [])),
-            'work_product_feedback_memory_count' => count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.work_product_feedback_memory', [])),
-            'connector_knowledge_sync_count' => count((array) data_get($company, 'enterprise_knowledge_memory_learning_stack.connector_knowledge_sync_plan', [])),
-            'agent_access_matrix_count' => count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.agent_access_matrix', [])),
-            'flow_data_boundary_count' => count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.flow_data_boundary_matrix', [])),
-            'connector_secret_binding_count' => count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.connector_secret_binding_plan', [])),
-            'sensitive_data_handling_count' => count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.sensitive_data_handling_catalog', [])),
-            'purpose_consent_count' => count((array) data_get($company, 'enterprise_identity_access_data_sovereignty_stack.purpose_consent_registry', [])),
-            'control_tower_lane_count' => count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.control_tower_lanes', [])),
-            'control_tower_cadence_count' => count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.cadence_scheduler', [])),
-            'exception_desk_count' => count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.incident_and_exception_desk', [])),
-            'change_window_count' => count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.change_window_and_release_calendar', [])),
-            'connector_probe_plan_count' => count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.connector_operations_probe_plan', [])),
-            'dashboard_operations_map_count' => count((array) data_get($company, 'enterprise_control_tower_run_operations_stack.dashboard_operations_map', [])),
-            'command_center_operating_cell_count' => count((array) data_get($company, 'enterprise_company_command_center_stack.operating_cells', [])),
-            'command_center_flow_card_count' => count((array) data_get($company, 'enterprise_company_command_center_stack.flow_command_cards', [])),
-            'command_center_connector_panel_count' => count((array) data_get($company, 'enterprise_company_command_center_stack.connector_workbench_panels', [])),
-            'command_center_console_view_count' => count((array) data_get($company, 'enterprise_company_command_center_stack.operator_console_views', [])),
-            'command_center_work_product_factory_count' => count((array) data_get($company, 'enterprise_company_command_center_stack.work_product_factory_map', [])),
-            'command_center_kpi_count' => count((array) data_get($company, 'enterprise_company_command_center_stack.command_center_kpis', [])),
-            'command_center_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_company_command_center_stack.command_center_policy.calendar_wait_blocker_enabled', true),
-            'command_center_external_execution_enabled' => (bool) data_get($company, 'enterprise_company_command_center_stack.command_center_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'semantic_graph_node_count' => count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.node_catalog', [])),
-            'semantic_graph_edge_count' => count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.flow_relationship_edges', [])),
-            'semantic_graph_view_count' => count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.operating_views', [])),
-            'semantic_graph_drift_rule_count' => count((array) data_get($company, 'enterprise_semantic_operating_graph_stack.drift_detection_rules', [])),
-            'delivery_contract_count' => count((array) data_get($company, 'enterprise_delivery_assurance_stack.work_product_delivery_contracts', [])),
-            'delivery_sla_count' => count((array) data_get($company, 'enterprise_delivery_assurance_stack.flow_delivery_sla', [])),
-            'finance_cost_center_count' => count((array) data_get($company, 'portfolio_finance_stack.flow_cost_centers', [])),
-            'flow_unit_economics_count' => count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.flow_unit_economics', [])),
-            'capacity_simulation_count' => count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.capacity_simulation_model', [])),
-            'work_product_pricing_count' => count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.work_product_pricing_ladder', [])),
-            'agent_capacity_cost_count' => count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.agent_capacity_cost_model', [])),
-            'connector_cost_limit_count' => count((array) data_get($company, 'enterprise_unit_economics_capacity_simulation_stack.connector_cost_and_limit_model', [])),
-            'intelligence_rival_map_count' => count((array) data_get($company, 'strategic_intelligence_stack.rival_and_alternative_map', [])),
-            'intelligence_kpi_count' => count((array) data_get($company, 'strategic_intelligence_stack.intelligence_kpis', [])),
-            'grc_vendor_risk_count' => count((array) data_get($company, 'enterprise_grc_stack.vendor_and_tool_risk', [])),
-            'grc_audit_evidence_count' => count((array) data_get($company, 'enterprise_grc_stack.audit_evidence_requirements', [])),
-            'capability_matrix_count' => count((array) $company['enterprise_capability_matrix']),
-            'external_integration_contract_count' => count((array) $company['external_integration_catalog']),
-            'connector_adapter_contract_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.adapter_contract_catalog', [])),
-            'connector_auth_boundary_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.auth_and_secret_boundary', [])),
-            'connector_sandbox_probe_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.sandbox_probe_matrix', [])),
-            'connector_contract_test_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.consumer_provider_contract_tests', [])),
-            'connector_data_mapping_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.connector_data_mapping_and_lineage', [])),
-            'flow_connector_usage_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.flow_connector_usage_matrix', [])),
-            'connector_replay_fixture_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.replay_fixture_and_mock_server_plan', [])),
-            'connector_slo_failure_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.connector_slo_and_failure_mode_catalog', [])),
-            'connector_certification_metric_count' => count((array) data_get($company, 'enterprise_connector_certification_stack.connector_certification_observability.required_metrics', [])),
-            'production_connector_preflight_contract_count' => count((array) data_get($company, 'enterprise_production_connector_preflight_stack.connector_preflight_contracts', [])),
-            'production_connector_cutover_flow_count' => count((array) data_get($company, 'enterprise_production_connector_preflight_stack.flow_connector_cutover_matrix', [])),
-            'production_connector_evidence_register_count' => count((array) data_get($company, 'enterprise_production_connector_preflight_stack.production_readiness_evidence_register', [])),
-            'production_connector_cutover_metric_count' => count((array) data_get($company, 'enterprise_production_connector_preflight_stack.cutover_observability.required_metrics', [])),
-            'production_connector_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_production_connector_preflight_stack.preflight_policy.calendar_wait_blocker_enabled', true),
-            'evaluation_suite_count' => count((array) data_get($company, 'evaluation_harness.suite_per_flow', [])),
-            'benchmark_offline_dataset_count' => count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.offline_dataset_contracts', [])),
-            'benchmark_trace_rubric_count' => count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.trace_grading_rubrics', [])),
-            'benchmark_adversarial_case_count' => count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.adversarial_regression_cases', [])),
-            'benchmark_state_assertion_count' => count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.deterministic_state_assertions', [])),
-            'benchmark_replay_matrix_count' => count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.replay_and_comparison_matrix', [])),
-            'benchmark_observability_metric_count' => count((array) data_get($company, 'enterprise_flow_benchmark_replay_stack.benchmark_observability.required_metrics', [])),
-            'tooling_source_count' => count((array) data_get($company, 'enterprise_tooling_research_stack.source_catalog', [])),
-            'tooling_benchmark_count' => count((array) data_get($company, 'enterprise_tooling_research_stack.per_flow_tooling_benchmark', [])),
-            'tooling_integration_backlog_count' => count((array) data_get($company, 'enterprise_tooling_research_stack.connector_integration_backlog', [])),
-            'domain_operating_value_chain_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.domain_value_chain', [])),
-            'domain_operating_data_product_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.domain_data_product_spine', [])),
-            'domain_operating_system_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.enterprise_system_map', [])),
-            'domain_operating_flow_depth_packet_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.flow_depth_packets', [])),
-            'domain_operating_connector_backlog_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.mcp_api_connector_backlog', [])),
-            'domain_operating_delivery_offer_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.delivery_offer_model', [])),
-            'domain_operating_depth_metric_count' => count((array) data_get($company, 'enterprise_domain_operating_depth_stack.depth_observability.required_metrics', [])),
-            'domain_operating_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_operating_depth_stack.depth_policy.calendar_wait_blocker_enabled', true),
-            'domain_operating_external_execution_enabled' => (bool) data_get($company, 'enterprise_domain_operating_depth_stack.depth_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'domain_agent_workforce_managed_agent_count' => count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.managed_agent_catalog', [])),
-            'domain_agent_workforce_crew_count' => count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.flow_agent_crews', [])),
-            'domain_agent_workforce_metric_count' => count((array) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_observability.required_metrics', [])),
-            'domain_agent_workforce_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_policy.calendar_wait_blocker_enabled', true),
-            'domain_agent_workforce_external_execution_enabled' => (bool) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'domain_agent_workforce_external_worker_enabled' => (bool) data_get($company, 'enterprise_domain_agent_workforce_stack.workforce_control_plane.external_effect_worker_enabled', true),
-            'domain_solution_source_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.domain_source_catalog', [])),
-            'domain_solution_module_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.solution_modules', [])),
-            'domain_solution_agent_template_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.managed_agent_templates', [])),
-            'domain_solution_data_product_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.data_product_catalog', [])),
-            'domain_solution_playbook_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.enterprise_solution_playbooks', [])),
-            'domain_solution_data_plane_source_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.domain_data_plane.source_refs', [])),
-            'domain_solution_review_mode_count' => count((array) data_get($company, 'enterprise_domain_solution_stack.domain_expert_review_board.review_modes', [])),
-            'vertical_solution_suite_count' => count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.solution_suites', [])),
-            'vertical_solution_flow_kit_count' => count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.flow_solution_kits', [])),
-            'vertical_solution_connector_workbench_count' => count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.connector_solution_workbenches', [])),
-            'vertical_solution_artifact_factory_count' => count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.artifact_factory_catalog', [])),
-            'vertical_solution_evaluation_recipe_count' => count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_evaluation_recipes', [])),
-            'vertical_solution_metric_count' => count((array) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_observability.required_metrics', [])),
-            'vertical_solution_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true),
-            'vertical_solution_external_execution_enabled' => (bool) data_get($company, 'enterprise_vertical_solution_suite_stack.suite_policy.external_execution_allowed_by_suite', true),
-            'business_execution_mode_count' => count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_mode_catalog', [])),
-            'business_execution_cell_count' => count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_execution_cells', [])),
-            'business_execution_kpi_binding_count' => count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.flow_tool_kpi_matrix', [])),
-            'business_execution_service_lane_count' => count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.domain_service_lanes', [])),
-            'business_execution_artifact_contract_count' => count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.business_artifact_delivery_contracts', [])),
-            'business_execution_metric_count' => count((array) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_observability.required_metrics', [])),
-            'business_execution_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_policy.calendar_wait_blocker_enabled', true),
-            'business_execution_external_execution_enabled' => (bool) data_get($company, 'enterprise_domain_business_execution_mesh_stack.execution_policy.autonomous_external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'domain_provider_contract_count' => count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_contracts', [])),
-            'domain_provider_connector_workbench_count' => count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.connector_workbenches', [])),
-            'domain_provider_flow_route_count' => count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.flow_provider_routes', [])),
-            'domain_provider_eval_case_count' => count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_evaluation_cases', [])),
-            'domain_provider_lineage_count' => count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_data_product_lineage', [])),
-            'domain_provider_metric_count' => count((array) data_get($company, 'enterprise_domain_provider_workbench_stack.provider_workbench_observability.required_metrics', [])),
-            'domain_provider_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_provider_workbench_stack.workbench_policy.calendar_wait_blocker_enabled', true),
-            'industry_solution_provider_count' => count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.ecosystem_provider_catalog', [])),
-            'industry_solution_partner_track_count' => count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.implementation_partner_tracks', [])),
-            'industry_solution_workload_pack_count' => count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.flow_solution_workload_packs', [])),
-            'industry_solution_metric_count' => count((array) data_get($company, 'enterprise_industry_solution_ecosystem_stack.ecosystem_observability.required_metrics', [])),
-            'industry_solution_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_industry_solution_ecosystem_stack.ecosystem_policy.external_side_effects_enabled', true),
-            'domain_execution_suite_source_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.source_catalog', [])),
-            'domain_execution_suite_role_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.domain_operating_model.operating_roles', [])),
-            'domain_execution_suite_connector_workbench_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.connector_execution_workbenches', [])),
-            'domain_execution_suite_flow_packet_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_execution_packets', [])),
-            'domain_execution_suite_risk_control_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_risk_control_packets', [])),
-            'domain_execution_suite_decision_room_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_decision_room_packets', [])),
-            'domain_execution_suite_replay_eval_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.flow_domain_replay_and_eval_packs', [])),
-            'domain_execution_suite_metric_count' => count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.domain_execution_observability.required_metrics', [])),
-            'domain_execution_suite_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_company_execution_suite_stack.suite_policy.calendar_wait_blocker_enabled', true),
-            'domain_execution_suite_external_side_effects_enabled' => (bool) data_get($company, 'enterprise_domain_company_execution_suite_stack.suite_policy.external_side_effects_enabled', true),
-            'flow_work_product_catalog_count' => count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.work_product_catalog', [])),
-            'flow_work_product_delivery_blueprint_count' => count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_delivery_blueprints', [])),
-            'flow_work_product_acceptance_contract_count' => count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_acceptance_contracts', [])),
-            'flow_work_product_handoff_packet_count' => count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_handoff_packets', [])),
-            'flow_work_product_replay_check_count' => count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.flow_replay_artifact_checks', [])),
-            'flow_work_product_metric_count' => count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_observability.required_metrics', [])),
-            'flow_work_product_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_policy.calendar_wait_blocker_enabled', true),
-            'flow_work_product_external_delivery_enabled' => (bool) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_policy.external_delivery_allowed', true),
-            'domain_data_room_source_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.source_data_room_catalog', [])),
-            'domain_data_product_contract_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.domain_data_products', [])),
-            'domain_connector_permission_profile_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.connector_permission_profiles', [])),
-            'domain_flow_data_connector_contract_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.flow_data_connector_contracts', [])),
-            'domain_connector_fixture_eval_suite_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.connector_fixture_eval_suites', [])),
-            'domain_data_room_required_control_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.domain_data_room_operating_model.required_controls', [])),
-            'domain_data_connector_metric_count' => count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_observability.required_metrics', [])),
-            'domain_data_connector_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_policy.calendar_wait_blocker_enabled', true),
-            'domain_data_connector_write_tools_enabled' => (bool) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_policy.write_tools_enabled', true),
-            'domain_data_connector_external_mutation_enabled' => (bool) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_policy.external_data_mutation_allowed', true),
-            'flow_live_read_connector_profile_count' => count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.connector_probe_profiles', [])),
-            'flow_live_read_probe_contract_count' => count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.flow_live_read_probe_contracts', [])),
-            'flow_live_read_probe_evidence_matrix_count' => count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.flow_probe_evidence_matrix', [])),
-            'flow_live_read_probe_metric_count' => count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_observability.required_metrics', [])),
-            'flow_live_read_probe_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.calendar_wait_blocker_enabled', true),
-            'flow_live_read_probe_write_tools_enabled' => (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.write_tools_enabled', true),
-            'flow_live_read_probe_external_mutation_enabled' => (bool) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_policy.external_mutation_allowed', true),
-            'domain_data_fabric_source_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_source_catalog', [])),
-            'domain_data_fabric_provider_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.connector_data_provider_matrix', [])),
-            'domain_data_fabric_product_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.domain_data_products', [])),
-            'domain_data_fabric_workbench_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_data_workbenches', [])),
-            'domain_data_fabric_decision_packet_factory_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.flow_decision_packet_factories', [])),
-            'domain_data_fabric_enablement_track_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.implementation_enablement_tracks', [])),
-            'domain_data_fabric_metric_count' => count((array) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_observability.required_metrics', [])),
-            'domain_data_fabric_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.calendar_wait_blocker_enabled', true),
-            'domain_data_fabric_direct_source_link_required' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.direct_source_link_required_for_every_claim', false),
-            'domain_data_fabric_cross_source_verification_required' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.cross_source_verification_required', false),
-            'domain_data_fabric_external_write_enabled' => (bool) data_get($company, 'enterprise_domain_data_fabric_stack.fabric_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'revenue_delivery_operating_system_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.operating_systems', [])),
-            'revenue_delivery_flow_thread_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.flow_commercial_operating_threads', [])),
-            'revenue_delivery_connector_map_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.connector_to_commercial_system_map', [])),
-            'revenue_delivery_scorecard_metric_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.company_board_value_scorecard.required_metrics', [])),
-            'revenue_delivery_observability_metric_count' => count((array) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_observability.required_metrics', [])),
-            'revenue_delivery_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.calendar_wait_blocker_enabled', true),
-            'revenue_delivery_customer_commitment_without_operator_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.customer_commitment_allowed_without_operator', true),
-            'revenue_delivery_billing_without_operator_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.invoice_payment_or_capital_action_allowed_without_operator', true),
-            'revenue_delivery_external_write_enabled' => (bool) data_get($company, 'enterprise_company_revenue_delivery_operating_mesh.mesh_policy.external_write_spend_trade_publish_deploy_delete_allowed', true),
-            'premium_reference_source_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.reference_source_basis', [])),
-            'premium_agentic_runtime_pattern_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.agent_runtime_patterns', [])),
-            'premium_required_runtime_property_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.enterprise_agentic_architecture_basis.required_runtime_properties', [])),
-            'premium_managed_agent_template_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.managed_agent_templates', [])),
-            'premium_template_runtime_contract_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.template_runtime_contracts', [])),
-            'premium_flow_template_map_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.flow_template_map', [])),
-            'premium_flow_managed_agent_workflow_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.flow_managed_agent_workflows', [])),
-            'premium_workbench_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.data_and_tool_workbenches', [])),
-            'premium_connector_mcp_server_plan_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.connector_mcp_server_plan', [])),
-            'premium_domain_source_alignment_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.domain_source_alignment', [])),
-            'premium_replay_benchmark_count' => count((array) data_get($company, 'premium_enterprise_agent_reference_model.replay_and_audit_harness.benchmarks_per_flow', [])),
-            'premium_buildout_wait_days_required' => (int) data_get($company, 'premium_enterprise_agent_reference_model.accelerated_activation_contract.buildout_wait_days_required', 30),
-            'enterprise_flow_operating_package_source_count' => count((array) data_get($company, 'enterprise_flow_operating_packages.source_basis', [])),
-            'enterprise_flow_operating_package_count' => count((array) data_get($company, 'enterprise_flow_operating_packages.flow_packages', [])),
-            'enterprise_flow_operating_package_metric_count' => count((array) data_get($company, 'enterprise_flow_operating_packages.package_observability.required_metrics', [])),
-            'enterprise_flow_operating_package_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_flow_operating_packages.operating_policy.calendar_wait_blocker_enabled', true),
-            'activation_source_track_count' => count((array) data_get($company, 'enterprise_integration_activation_plan.source_activation_tracks', [])),
-            'activation_connector_track_count' => count((array) data_get($company, 'enterprise_integration_activation_plan.connector_activation_tracks', [])),
-            'activation_flow_matrix_count' => count((array) data_get($company, 'enterprise_integration_activation_plan.flow_activation_matrix', [])),
-            'operational_dress_rehearsal_flow_runbook_count' => count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.flow_rehearsal_runbooks', [])),
-            'operational_dress_rehearsal_live_probe_count' => count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.live_read_probe_plan', [])),
-            'operational_dress_rehearsal_acceptance_packet_count' => count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.operator_acceptance_packets', [])),
-            'operational_dress_rehearsal_rollback_drill_count' => count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.rollback_drill_matrix', [])),
-            'operational_dress_rehearsal_promotion_evidence_count' => count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.promotion_evidence_matrix', [])),
-            'operational_dress_rehearsal_metric_count' => count((array) data_get($company, 'enterprise_operational_dress_rehearsal_stack.dress_rehearsal_observability.required_metrics', [])),
-            'operational_dress_rehearsal_wait_blocker_enabled' => (bool) data_get($company, 'enterprise_operational_dress_rehearsal_stack.rehearsal_policy.calendar_wait_blocker_enabled', true),
-            'autonomy_promotion_stage_count' => count((array) $company['autonomy_promotion_ladder']),
-            'connector_count' => count((array) $company['connectors']),
-            'toolchain_count' => count((array) $company['toolchain']),
-            'okr_count' => count((array) data_get($company, 'enterprise_operating_system.okr_scorecard', [])),
-            'risk_count' => count((array) data_get($company, 'enterprise_operating_system.risk_register', [])),
-            'runbook_count' => count((array) data_get($company, 'enterprise_operating_system.runbooks', [])),
-            'work_product_count' => count((array) $company['work_products']),
-            'metric_count' => count((array) $company['metrics']),
-            'cadence_count' => count((array) $company['cadences']),
-        ];
+            && count((array) data_get($company, 'enterprise_domain_company_execution_suite_stack.domain_execution_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 6)
+            && count((array) data_get($company, 'enterprise_flow_work_product_delivery_stack.delivery_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 6)
+            && count((array) data_get($company, 'enterprise_domain_data_connector_operating_stack.data_connector_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 7)
+            && count((array) data_get($company, 'enterprise_flow_live_read_connector_probe_stack.probe_observability.required_metrics', [])) >= (count((array) $company['metrics']) + 7);
+
+        return $readiness;
     }
 }
