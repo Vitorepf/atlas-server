@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfImprovement;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -56,12 +57,12 @@ class AtlasSelfImprovementProposalPacketService
      */
     public function build(array $payload): array
     {
-        $title = $this->stringOrNull($payload['title'] ?? null);
-        $problemStatement = $this->stringOrNull($payload['problem_statement'] ?? null);
-        $businessRule = $this->stringOrNull($payload['business_rule'] ?? null);
-        $targetCapability = $this->stringOrNull($payload['target_capability'] ?? null);
-        $whyNow = $this->stringOrNull($payload['why_now'] ?? null);
-        $expectedPowerGain = $this->stringOrNull($payload['expected_power_gain'] ?? null);
+        $title = AiValueNormalizer::trimmedStringOrNull($payload['title'] ?? null);
+        $problemStatement = AiValueNormalizer::trimmedStringOrNull($payload['problem_statement'] ?? null);
+        $businessRule = AiValueNormalizer::trimmedStringOrNull($payload['business_rule'] ?? null);
+        $targetCapability = AiValueNormalizer::trimmedStringOrNull($payload['target_capability'] ?? null);
+        $whyNow = AiValueNormalizer::trimmedStringOrNull($payload['why_now'] ?? null);
+        $expectedPowerGain = AiValueNormalizer::trimmedStringOrNull($payload['expected_power_gain'] ?? null);
         $canonicalDocs = $this->normalizeStringList($payload['canonical_docs'] ?? []);
         $allowedPaths = $this->normalizeStringList($payload['allowed_paths'] ?? []);
         $forbiddenPaths = $this->normalizeStringList($payload['forbidden_paths'] ?? []);
@@ -72,7 +73,7 @@ class AtlasSelfImprovementProposalPacketService
         $humanReviewRequired = (bool) ($payload['human_review_required'] ?? true);
         $maxFilesChanged = $this->positiveIntOrNull($payload['max_files_changed'] ?? null);
 
-        $proposalId = $this->stringOrNull($payload['proposal_id'] ?? null) ?? 'prop_'.(string) Str::ulid();
+        $proposalId = AiValueNormalizer::trimmedStringOrNull($payload['proposal_id'] ?? null) ?? 'prop_'.(string) Str::ulid();
 
         $autopromotionAllowed = $this->resolveAutopromotionAllowed(
             $autopromotionRequested,
@@ -464,7 +465,7 @@ class AtlasSelfImprovementProposalPacketService
 
     private function normalizeRiskLevel(mixed $value): string
     {
-        $str = $this->stringOrNull($value);
+        $str = AiValueNormalizer::trimmedStringOrNull($value);
         if ($str === null) {
             return 'medium';
         }
@@ -484,23 +485,13 @@ class AtlasSelfImprovementProposalPacketService
 
         $result = [];
         foreach ($value as $item) {
-            $str = $this->stringOrNull($item);
+            $str = AiValueNormalizer::trimmedStringOrNull($item);
             if ($str !== null) {
                 $result[] = $str;
             }
         }
 
         return array_values(array_unique($result));
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : $value;
     }
 
     private function positiveIntOrNull(mixed $value): ?int
