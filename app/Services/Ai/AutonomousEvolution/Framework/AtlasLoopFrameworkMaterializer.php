@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Framework;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -402,8 +403,7 @@ final class AtlasLoopFrameworkMaterializer
     private function git(array $argv, string $stage): void
     {
         $argv = array_values(array_filter($argv, static fn ($a): bool => $a !== ''));
-        $p = new Process(array_merge(['git'], $argv), null, null, null, 180.0);
-        $p->run();
+        $p = GitSubprocess::run(null, $argv, 180.0);
         if (! $p->isSuccessful()) {
             throw new RuntimeException('framework materialize: git '.$stage.' failed: '.mb_substr($p->getErrorOutput() ?: $p->getOutput(), -200));
         }

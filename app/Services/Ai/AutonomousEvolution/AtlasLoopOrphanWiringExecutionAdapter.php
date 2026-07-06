@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredAcceptanceProducer;
-use Symfony\Component\Process\Process;
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 
 /**
  * §5.6 · ORPHAN-WIRING · the end-to-end executor that turns a comprehension-originated dead capability into a
@@ -92,6 +92,6 @@ class AtlasLoopOrphanWiringExecutionAdapter
 
     private function git(string $cwd, array $argv): void
     {
-        (new Process(array_merge(['git'], $argv), $cwd))->run();
+        GitSubprocess::run($cwd, $argv);
     }
 }

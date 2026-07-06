@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Constitution;
 
+use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use Symfony\Component\Process\Process;
 
 /**
@@ -36,7 +37,7 @@ final class AtlasLoopRobustnessProbe
         @mkdir($repo, 0o755, true);
         try {
             foreach ([['init', '-q'], ['config', 'user.email', 'r@r'], ['config', 'user.name', 'r']] as $argv) {
-                (new Process(array_merge(['git'], $argv), $repo))->run();
+                GitSubprocess::run($repo, $argv);
             }
             file_put_contents($repo.'/seed.txt', "seed\n");
             (new Process(['git', 'add', '-A'], $repo))->run();
