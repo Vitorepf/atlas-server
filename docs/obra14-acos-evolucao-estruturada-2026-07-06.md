@@ -33,7 +33,9 @@ Data: 2026-07-06 · Base: medições reais do dia (Obras #8/#12/#13) · Status: 
 | H2.3 | **Ciclo de promoção das lições**: revisão semanal dos learning candidates G0 (comando de digest já há padrão) → promovidos viram memória que o AOBG entrega | ≥1 lição promovida consumida num pack (medível via feedback_scope) |
 | H2.4 | **Relevância dos packs**: com 30+ dias de eventos ARFL, medir precision@k real via AREBA e ajustar pesos do ACRS | precision@k do golden set sobe vs baseline de hoje |
 
-**Gate do H2: o ACOS aponta ≥1 refatoração/melhoria POR SEMANA sem humano pedir (census agendado + candidates G0), e os packs melhoram com feedback medido.**
+| H2.5 | **Anti-lixo do pack (as 4 fontes medidas em 06/07)**: (a) **prune do echo de sessão** no reality graph — mensagens brutas antigas do operador aparecem como "decisões" em cross-layer paths (gotcha do fix 6fe3da7b7c: falta marker no write-back + prune do DB) → higienizar o DB existente + marker definitivo; (b) entradas STALE do índice (ex.: "não foi para main" para código que está na main) → recheck contra git no momento da entrega ou TTL; (c) relevância de símbolos (coberto por H2.4); (d) recall de memória (coberto por H2.3) | pack de 10 turnos-teste SEM nenhuma linha de echo/stale (auditoria manual + teste automatizado do filtro) |
+
+**Gate do H2: o ACOS aponta ≥1 refatoração/melhoria POR SEMANA sem humano pedir (census agendado + candidates G0), os packs melhoram com feedback medido, e ZERO echo/stale nos packs.**
 
 ## Horizonte 3 — AUTONOMIA GOVERNADA (4-8 semanas, decisões suas)
 
