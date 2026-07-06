@@ -1305,18 +1305,12 @@ class ExternalActionMandateRegistryService
             ),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::DOMAIN_AGENT_TOOLCHAIN_CERTIFICATION_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'domain_agent_toolchains_certified_external_execution_blocked'
-                : 'domain_agent_toolchains_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::DOMAIN_AGENT_TOOLCHAIN_CERTIFICATION_STATUS_SCHEMA,
+            'domain_agent_toolchains_certified_external_execution_blocked',
+            'domain_agent_toolchains_attention_required',
+            [
                 'agent_toolkit_profile_count' => array_sum(array_map(static fn (array $company): int => (int) $company['agent_toolkit_profile_count'], $companyRows)),
                 'toolkit_certification_count' => array_sum(array_map(static fn (array $company): int => (int) $company['toolkit_certification_count'], $companyRows)),
                 'flow_toolkit_assignment_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_toolkit_assignment_count'], $companyRows)),
@@ -1333,11 +1327,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'source_hashes' => [
-                'provider_workbench_status_hash' => $provider['provider_workbench_status_hash'] ?? null,
-                'agent_repository_adoption_status_hash' => $repository['agent_repository_adoption_status_hash'] ?? null,
-            ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1355,11 +1345,12 @@ class ExternalActionMandateRegistryService
                 ],
                 'blocked_operations' => ['runtime_use_without_certification', 'unreviewed_mcp_server_install', 'stdio_shell_without_allowlist', 'auto_upgrade', 'auto_procurement', 'write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['domain_agent_toolchain_certification_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'domain_agent_toolchain_certification_status_hash',
+            [
+                'provider_workbench_status_hash' => $provider['provider_workbench_status_hash'] ?? null,
+                'agent_repository_adoption_status_hash' => $repository['agent_repository_adoption_status_hash'] ?? null,
+            ],
+        );
     }
 
     /**
@@ -1371,18 +1362,12 @@ class ExternalActionMandateRegistryService
             fn (array $company): array => $this->industrySolutionEcosystemCompany((array) $company),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::INDUSTRY_SOLUTION_ECOSYSTEM_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'industry_solution_ecosystem_ready_external_execution_blocked'
-                : 'industry_solution_ecosystem_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::INDUSTRY_SOLUTION_ECOSYSTEM_STATUS_SCHEMA,
+            'industry_solution_ecosystem_ready_external_execution_blocked',
+            'industry_solution_ecosystem_attention_required',
+            [
                 'ecosystem_provider_count' => array_sum(array_map(static fn (array $company): int => (int) $company['ecosystem_provider_count'], $companyRows)),
                 'implementation_partner_track_count' => array_sum(array_map(static fn (array $company): int => (int) $company['implementation_partner_track_count'], $companyRows)),
                 'flow_workload_pack_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_workload_pack_count'], $companyRows)),
@@ -1394,7 +1379,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1405,11 +1390,8 @@ class ExternalActionMandateRegistryService
                 'operator_mandate_required_for_external_write_or_procurement' => true,
                 'blocked_operations' => ['external_write', 'auto_procurement', 'paid_spend', 'live_trade', 'public_publish', 'deploy', 'delete', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['industry_solution_ecosystem_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'industry_solution_ecosystem_status_hash',
+        );
     }
 
     /**
@@ -1421,18 +1403,12 @@ class ExternalActionMandateRegistryService
             fn (array $company): array => $this->businessOperatingBackboneCompany((array) $company),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::BUSINESS_OPERATING_BACKBONE_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'business_operating_backbone_ready_external_execution_blocked'
-                : 'business_operating_backbone_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::BUSINESS_OPERATING_BACKBONE_STATUS_SCHEMA,
+            'business_operating_backbone_ready_external_execution_blocked',
+            'business_operating_backbone_attention_required',
+            [
                 'ready_component_count' => array_sum(array_map(static fn (array $company): int => (int) $company['ready_component_count'], $companyRows)),
                 'required_component_count' => array_sum(array_map(static fn (array $company): int => (int) $company['required_component_count'], $companyRows)),
                 'customer_offer_count' => array_sum(array_map(static fn (array $company): int => (int) $company['customer_offer_count'], $companyRows)),
@@ -1445,7 +1421,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1466,11 +1442,8 @@ class ExternalActionMandateRegistryService
                 'operator_mandate_required_for_external_customer_vendor_billing_or_capital_action' => true,
                 'blocked_operations' => ['external_publish', 'customer_commitment', 'billing', 'procurement', 'sign_contract', 'paid_spend', 'capital_commitment', 'write', 'deploy', 'delete', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['business_operating_backbone_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'business_operating_backbone_status_hash',
+        );
     }
 
     /**
@@ -1482,18 +1455,12 @@ class ExternalActionMandateRegistryService
             fn (array $company): array => $this->productionConnectorPreflightCompany((array) $company),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::PRODUCTION_CONNECTOR_PREFLIGHT_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'production_connector_preflight_ready_external_execution_blocked'
-                : 'production_connector_preflight_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::PRODUCTION_CONNECTOR_PREFLIGHT_STATUS_SCHEMA,
+            'production_connector_preflight_ready_external_execution_blocked',
+            'production_connector_preflight_attention_required',
+            [
                 'connector_preflight_contract_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_preflight_contract_count'], $companyRows)),
                 'flow_cutover_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_cutover_count'], $companyRows)),
                 'production_evidence_register_count' => array_sum(array_map(static fn (array $company): int => (int) $company['production_evidence_register_count'], $companyRows)),
@@ -1501,7 +1468,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1510,11 +1477,8 @@ class ExternalActionMandateRegistryService
                 'manual_execution_handoff_only_after_signed_mandate' => true,
                 'blocked_operations' => ['auto_cutover', 'external_write', 'publish', 'spend', 'trade', 'deploy', 'delete', 'admin', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['production_connector_preflight_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'production_connector_preflight_status_hash',
+        );
     }
 
     /**
@@ -1526,18 +1490,12 @@ class ExternalActionMandateRegistryService
             fn (array $company): array => $this->flowQualityResearchCompany((array) $company),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::FLOW_QUALITY_RESEARCH_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'flow_quality_research_ready_external_execution_blocked'
-                : 'flow_quality_research_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::FLOW_QUALITY_RESEARCH_STATUS_SCHEMA,
+            'flow_quality_research_ready_external_execution_blocked',
+            'flow_quality_research_attention_required',
+            [
                 'offline_dataset_count' => array_sum(array_map(static fn (array $company): int => (int) $company['offline_dataset_count'], $companyRows)),
                 'trace_rubric_count' => array_sum(array_map(static fn (array $company): int => (int) $company['trace_rubric_count'], $companyRows)),
                 'adversarial_case_count' => array_sum(array_map(static fn (array $company): int => (int) $company['adversarial_case_count'], $companyRows)),
@@ -1549,7 +1507,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1559,11 +1517,8 @@ class ExternalActionMandateRegistryService
                 'external_model_or_paid_benchmark_requires_operator_approval' => true,
                 'blocked_operations' => ['synthetic_score_claim', 'promotion_without_replay', 'external_model_benchmark_without_approval', 'repository_adoption_without_review', 'paid_benchmark', 'write', 'publish', 'deploy', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['flow_quality_research_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'flow_quality_research_status_hash',
+        );
     }
 
     /**
@@ -1575,18 +1530,12 @@ class ExternalActionMandateRegistryService
             fn (array $company): array => $this->companyCommandCenterCompany((array) $company),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::COMPANY_COMMAND_CENTER_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'company_command_center_ready_external_execution_blocked'
-                : 'company_command_center_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::COMPANY_COMMAND_CENTER_STATUS_SCHEMA,
+            'company_command_center_ready_external_execution_blocked',
+            'company_command_center_attention_required',
+            [
                 'operating_cell_count' => array_sum(array_map(static fn (array $company): int => (int) $company['operating_cell_count'], $companyRows)),
                 'flow_command_card_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_command_card_count'], $companyRows)),
                 'connector_workbench_panel_count' => array_sum(array_map(static fn (array $company): int => (int) $company['connector_workbench_panel_count'], $companyRows)),
@@ -1596,7 +1545,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1605,11 +1554,8 @@ class ExternalActionMandateRegistryService
                 'secret_material_in_packet_allowed' => false,
                 'blocked_operations' => ['external_write', 'public_publish', 'real_spend', 'live_trade', 'deploy', 'delete', 'admin', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['company_command_center_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'company_command_center_status_hash',
+        );
     }
 
     /**
@@ -1621,18 +1567,12 @@ class ExternalActionMandateRegistryService
             fn (array $company): array => $this->flowOperatingPackageCompany((array) $company),
             $this->buildoutCompanies($companyId),
         ));
-        $readyCompanies = count(array_filter($companyRows, static fn (array $company): bool => (bool) $company['ready']));
-
-        $payload = [
-            'ok' => $companyRows !== [] && $readyCompanies === count($companyRows),
-            'schema' => self::FLOW_OPERATING_PACKAGE_STATUS_SCHEMA,
-            'status' => $companyRows !== [] && $readyCompanies === count($companyRows)
-                ? 'flow_operating_package_ready_external_execution_blocked'
-                : 'flow_operating_package_attention_required',
-            'generated_at' => now()->toJSON(),
-            'summary' => [
-                'company_count' => count($companyRows),
-                'ready_company_count' => $readyCompanies,
+        return $this->companyReadinessStatusPayload(
+            $companyRows,
+            self::FLOW_OPERATING_PACKAGE_STATUS_SCHEMA,
+            'flow_operating_package_ready_external_execution_blocked',
+            'flow_operating_package_attention_required',
+            [
                 'source_count' => array_sum(array_map(static fn (array $company): int => (int) $company['source_count'], $companyRows)),
                 'flow_package_count' => array_sum(array_map(static fn (array $company): int => (int) $company['flow_package_count'], $companyRows)),
                 'package_hash_count' => array_sum(array_map(static fn (array $company): int => (int) $company['package_hash_count'], $companyRows)),
@@ -1642,7 +1582,7 @@ class ExternalActionMandateRegistryService
                 'external_execution_allowed_count' => 0,
                 'external_side_effects_enabled_count' => 0,
             ],
-            'policy' => [
+            [
                 'calendar_wait_blocker_enabled' => false,
                 'external_execution_allowed' => false,
                 'external_side_effects_enabled' => false,
@@ -1652,11 +1592,8 @@ class ExternalActionMandateRegistryService
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
                 'blocked_operations' => ['external_write', 'public_publish', 'real_spend', 'live_trade', 'deploy', 'delete', 'offensive_security', 'admin', 'secret_export'],
             ],
-            'companies' => $companyRows,
-        ];
-        $payload['flow_operating_package_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+            'flow_operating_package_status_hash',
+        );
     }
 
     /**
