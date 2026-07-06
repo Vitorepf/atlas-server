@@ -29,6 +29,10 @@ class AtlasMemoryEntry extends Model
         'harness_learning',
         'anti_memory',
         'strategic_insight',
+        // Obra #14 H2.3 — lições de obra promovidas explicitamente pelo operador
+        // via atlas:compounding:review-lessons; sem esta entrada o registry
+        // coagiria para technical_context e recall --type não filtraria.
+        'refutation_memory',
     ];
 
     public const SCOPES = [
