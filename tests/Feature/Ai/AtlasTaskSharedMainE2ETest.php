@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskSharedMainE2ETest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $repo = '';
 
     private string $envFile = '';
@@ -110,18 +112,6 @@ final class AtlasTaskSharedMainE2ETest extends TestCase
         $this->assertSame('commit_failed', $res['status']);
         $this->assertFalse($res['lease_closed'], 'a failed commit keeps the lease — no work is lost');
         $this->assertSame('nothing_to_commit_in_scope', $res['commit']['reason']);
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /** @return array<string, mixed> */

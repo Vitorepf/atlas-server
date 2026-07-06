@@ -14,6 +14,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     protected function setUp(): void
@@ -283,18 +285,6 @@ final class AtlasTaskServingAuthorNotJudgeTest extends TestCase
         // Enqueued as claimable, never pre-claimed by the authoring path itself.
         $record = (new AgentControlPlaneTaskPacketQueueRepository)->get($taskPacketId);
         self::assertSame('claimable', (string) ($record['status'] ?? ''));
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /** @param array<string, mixed> $input */

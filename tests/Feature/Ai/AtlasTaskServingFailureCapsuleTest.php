@@ -17,6 +17,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -27,6 +28,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskServingFailureCapsuleTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     private object $migration;
@@ -174,18 +176,6 @@ final class AtlasTaskServingFailureCapsuleTest extends TestCase
         $this->assertNull(
             \App\Models\AtlasDevFailureCapsule::query()->where('task_id', 'cap-bare-1')->first(),
             'no evidence => no fabricated lesson',
-        );
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
         );
     }
 

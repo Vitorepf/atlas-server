@@ -16,6 +16,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -27,6 +28,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskScopeExpansionTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     protected function setUp(): void
@@ -140,17 +142,5 @@ final class AtlasTaskScopeExpansionTest extends TestCase
         $record = (new AgentControlPlaneTaskPacketQueueRepository)->get($t['task_packet_id']);
         $this->assertSame('claimed', (string) $record['status']);
         $this->assertNotContains('forge/Anything.php', (array) data_get($record, 'task_packet.normalized_scope.allowed_files'));
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 }

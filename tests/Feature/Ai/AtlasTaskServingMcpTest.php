@@ -14,6 +14,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -22,6 +23,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskServingMcpTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     protected function setUp(): void
@@ -66,18 +68,6 @@ final class AtlasTaskServingMcpTest extends TestCase
         $this->assertSame('served', $envelope['status'] ?? null);
         $this->assertSame('mcp-client', $envelope['client_id'] ?? null);
         $this->assertSame('mcp-1', data_get($envelope, 'task.task_packet_id'));
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /** @return array<string, mixed> */

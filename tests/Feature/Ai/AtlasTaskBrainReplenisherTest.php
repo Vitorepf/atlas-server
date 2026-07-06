@@ -15,6 +15,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -23,6 +24,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskBrainReplenisherTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     protected function setUp(): void
     {
         parent::setUp();
@@ -246,18 +248,6 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
                 'an append-only audit of every served packet',
             ],
             snapshotId: 'test-snap',
-        );
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
         );
     }
 }

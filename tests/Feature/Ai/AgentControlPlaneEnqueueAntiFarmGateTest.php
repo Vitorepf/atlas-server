@@ -12,6 +12,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -22,22 +23,11 @@ use Tests\TestCase;
  */
 final class AgentControlPlaneEnqueueAntiFarmGateTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     private function taskInput(array $overrides = []): array

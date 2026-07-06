@@ -16,10 +16,12 @@ use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSentinel;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 final class AtlasTaskCoordinationHealthServiceDrainFallbackTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     protected function setUp(): void
@@ -87,18 +89,6 @@ final class AtlasTaskCoordinationHealthServiceDrainFallbackTest extends TestCase
         $this->assertNull($snap['worker_drain_forecast']['fallback_source']);
         $this->assertFalse($snap['health_flags']['lease_leak_detected']);
         $this->assertTrue($snap['healthy']);
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /** @return array<string, mixed> */

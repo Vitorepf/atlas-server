@@ -15,6 +15,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -22,6 +23,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskCoordinationHealthTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     protected function setUp(): void
@@ -308,18 +310,6 @@ final class AtlasTaskCoordinationHealthTest extends TestCase
         $this->assertTrue($snap['healthy'], 'recoverable expired-lease strand must not degrade coordination health');
         $this->assertFalse($snap['health_flags']['lease_leak_detected'], 'lease_leak_detected must be false when strand is recoverable');
         $this->assertTrue($snap['health_flags']['recoverable_backlog'], 'recoverable_backlog flag must be set');
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /** @param array<string, mixed> $input */

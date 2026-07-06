@@ -9,10 +9,12 @@ use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 
 final class ContextRankingSystemTest extends TestCase
 {
+    use BootsCompoundingSchema;
     public function test_programming_debug_ranking_is_explainable_and_covers_required_sources(): void
     {
         $payload = app(AtlasContextRankingSystemService::class)->rank([
@@ -206,28 +208,5 @@ final class ContextRankingSystemTest extends TestCase
         $this->assertTrue(collect(data_get($payload, 'rerank_result.feedback_impact_report.newly_selected_refs'))->contains('source_type', 'vector_retrieval'));
         $this->assertContains('vector_retrieval', data_get($payload, 'rerank_result.feedback_impact_report.coverage_delta.gained_required_sources'));
         $this->assertContains('evidence_replay', data_get($payload, 'rerank_result.feedback_impact_report.coverage_delta.lost_required_sources'));
-    }
-
-    private function bootCompoundingSchema(): void
-    {
-        $this->dropCompoundingSchema();
-        (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
-        (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
-    }
-
-    private function dropCompoundingSchema(): void
-    {
-        foreach ([
-            'ai_learning_proposals',
-            'ai_temporal_certifications',
-            'ai_benchmark_cases',
-            'ai_rag_feedback_events',
-            'ai_heuristic_updates',
-            'ai_compounding_memories',
-            'ai_learning_candidates',
-            'ai_run_outcomes',
-        ] as $table) {
-            Schema::dropIfExists($table);
-        }
     }
 }

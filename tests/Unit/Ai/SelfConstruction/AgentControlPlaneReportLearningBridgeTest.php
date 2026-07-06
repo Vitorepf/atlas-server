@@ -15,6 +15,7 @@ use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearn
 use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferObservationStore;
 use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -27,6 +28,7 @@ use Tests\TestCase;
  */
 final class AgentControlPlaneReportLearningBridgeTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     protected function setUp(): void
     {
         parent::setUp();
@@ -38,18 +40,6 @@ final class AgentControlPlaneReportLearningBridgeTest extends TestCase
         @unlink(AtlasSelfConstructionLearningTransferAdmissionLedger::defaultPath());
         @unlink(AtlasSelfConstructionLearningTransferObservationStore::defaultPath());
         @unlink(AtlasMaestroWorkerBehaviorLedger::defaultPath());
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     private function input(string $id): array

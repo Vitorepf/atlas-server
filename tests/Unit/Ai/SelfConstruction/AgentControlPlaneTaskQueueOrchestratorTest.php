@@ -12,10 +12,12 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     protected function setUp(): void
     {
         parent::setUp();
@@ -667,18 +669,6 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
         $this->assertSame('prepared_and_enqueued', $a['event']);
         $this->assertSame('prepared_and_enqueued', $b['event']);
         $this->assertTrue((bool) data_get($b, 'queue_entry.idempotent'));
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /**

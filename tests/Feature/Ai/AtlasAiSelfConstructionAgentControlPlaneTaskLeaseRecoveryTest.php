@@ -13,10 +13,12 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     protected function setUp(): void
     {
         parent::setUp();
@@ -698,18 +700,6 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskLeaseRecoveryTest extend
     private function recoveryService(): AgentControlPlaneTaskLeaseRecoveryService
     {
         return new AgentControlPlaneTaskLeaseRecoveryService;
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /**

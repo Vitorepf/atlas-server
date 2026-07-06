@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -32,6 +33,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     private string $repo = '';
@@ -279,18 +281,6 @@ final class AtlasTaskServingEvidenceContractBindingTest extends TestCase
         $this->assertSame(AtlasVerificationCourtEvidenceContract::SCHEMA, $result['evidence_contract']['schema']);
         $this->assertFalse($result['evidence_contract']['accepted']);
         $this->assertContains('missing:receipt_chain', $result['evidence_contract']['blockers']);
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 
     /** @return array{code:int,out:string,err:string} */

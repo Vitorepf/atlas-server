@@ -16,10 +16,12 @@ use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Compounding\AtlasTemporalCertificationService;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 
 class AtlasCompoundingRuntimeServiceTest extends TestCase
 {
+    use BootsCompoundingSchema;
     protected function setUp(): void
     {
         parent::setUp();
@@ -496,28 +498,5 @@ class AtlasCompoundingRuntimeServiceTest extends TestCase
                 'apply' => true,
             ],
         ];
-    }
-
-    private function bootCompoundingSchema(): void
-    {
-        $this->dropCompoundingSchema();
-        (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
-        (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
-    }
-
-    private function dropCompoundingSchema(): void
-    {
-        foreach ([
-            'ai_learning_proposals',
-            'ai_temporal_certifications',
-            'ai_benchmark_cases',
-            'ai_rag_feedback_events',
-            'ai_heuristic_updates',
-            'ai_compounding_memories',
-            'ai_learning_candidates',
-            'ai_run_outcomes',
-        ] as $table) {
-            Schema::dropIfExists($table);
-        }
     }
 }

@@ -13,6 +13,7 @@ use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Illuminate\Support\Facades\Storage;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskServingScopeBlockedRepairTest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $envFile = '';
 
     protected function setUp(): void
@@ -153,17 +155,5 @@ final class AtlasTaskServingScopeBlockedRepairTest extends TestCase
         $repo = new AgentControlPlaneTaskPacketQueueRepository;
         $repo->enqueue($packet);
         $repo->updateStatus($id, 'blocked', array_merge(['reason' => 'fixture_quarantine', 'agent_id' => 'fixture'], $metadata));
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
-        );
     }
 }

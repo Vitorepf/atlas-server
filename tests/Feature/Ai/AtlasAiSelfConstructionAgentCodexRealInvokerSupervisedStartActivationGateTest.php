@@ -8,11 +8,13 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
+use Tests\Concerns\MakesCodexRealInvokerPostStartFixtures;
 use Tests\Concerns\MakesSelfConstructionAgentRuns;
 use Tests\TestCase;
 
 class AtlasAiSelfConstructionAgentCodexRealInvokerSupervisedStartActivationGateTest extends TestCase
 {
+    use MakesCodexRealInvokerPostStartFixtures;
     use CreatesSelfConstructionControlPlaneTables;
     use MakesSelfConstructionAgentRuns;
 
@@ -146,7 +148,7 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerSupervisedStartActivationGateT
     private function metadataWithExecutorEnablement(array $enablementOverrides = []): array
     {
         return [
-            'codex_real_invoker_executor_enablement' => array_merge($this->baseChain(), [
+            'codex_real_invoker_executor_enablement' => array_merge($this->baseChainProcessStartFirst(), [
                 'real_invoker_executor_enablement_id' => 'codex-real-invoker-executor-enable-001',
                 'operator_enablement_receipt_hash' => str_repeat('4', 64),
                 'enablement_policy_hash' => str_repeat('6', 64),
@@ -168,47 +170,13 @@ class AtlasAiSelfConstructionAgentCodexRealInvokerSupervisedStartActivationGateT
     /**
      * @return array<string,string>
      */
-    private function baseChain(): array
-    {
-        return [
-            'codex_execution_id' => 'codex-execution-001',
-            'process_start_release_id' => 'codex-start-release-001',
-            'supervised_start_id' => 'codex-supervised-start-001',
-            'spawn_enablement_id' => 'codex-spawn-enable-001',
-            'spawn_executor_id' => 'codex-spawn-executor-001',
-            'runtime_driver_id' => 'codex-runtime-driver-001',
-            'invocation_authorization_id' => 'codex-invocation-auth-001',
-            'dry_run_id' => 'codex-invoker-dry-run-001',
-            'real_invoker_release_preflight_id' => 'codex-real-invoker-preflight-001',
-            'signed_real_invoker_release_id' => 'codex-signed-real-invoker-release-001',
-            'real_invoker_implementation_boundary_id' => 'codex-real-invoker-boundary-001',
-            'real_invoker_executor_plan_id' => 'codex-real-invoker-executor-plan-001',
-            'real_invoker_executor_fresh_release_id' => 'codex-real-invoker-fresh-release-001',
-            'operator_fresh_release_receipt_hash' => str_repeat('b', 64),
-            'plan_revalidation_report_hash' => str_repeat('0', 64),
-            'freshness_window_hash' => str_repeat('a', 64),
-            'final_human_signature_hash' => str_repeat('d', 64),
-            'real_invoker_contract_hash' => str_repeat('2', 64),
-            'release_policy_hash' => str_repeat('5', 64),
-            'implementation_plan_hash' => str_repeat('c', 64),
-            'executor_binary_contract_hash' => str_repeat('9', 64),
-            'executor_observability_contract_hash' => str_repeat('1', 64),
-            'process_command_hash' => str_repeat('6', 64),
-            'environment_contract_hash' => str_repeat('7', 64),
-            'termination_policy_hash' => str_repeat('8', 64),
-            'stdout_stderr_sink_hash' => str_repeat('e', 64),
-            'liveness_probe_hash' => str_repeat('f', 64),
-            'rollback_plan_hash' => str_repeat('3', 64),
-            'max_runtime_policy_hash' => str_repeat('4', 64),
-        ];
-    }
 
     /**
      * @return array<string,mixed>
      */
     private function validInput(): array
     {
-        return array_merge($this->baseChain(), [
+        return array_merge($this->baseChainProcessStartFirst(), [
             'run_key' => 'provider-start:attempt-001',
             'real_invoker_executor_enablement_id' => 'codex-real-invoker-executor-enable-001',
             'real_invoker_supervised_start_activation_id' => 'codex-real-invoker-supervised-start-activation-001',

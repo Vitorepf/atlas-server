@@ -20,6 +20,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
+use Tests\Concerns\MakesAgentControlPlaneTaskQueueOrchestrator;
 use Tests\TestCase;
 
 /**
@@ -30,6 +31,7 @@ use Tests\TestCase;
  */
 final class AtlasTaskServingResolveLoopE2ETest extends TestCase
 {
+    use MakesAgentControlPlaneTaskQueueOrchestrator;
     private string $repo = '';
 
     private string $envFile = '';
@@ -158,18 +160,6 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
                 'an append only audit of every served packet',
             ],
             snapshotId: 'resolve-e2e',
-        );
-    }
-
-    private function orchestrator(): AgentControlPlaneTaskQueueOrchestrator
-    {
-        return new AgentControlPlaneTaskQueueOrchestrator(
-            new AgentControlPlaneTaskPacketBuilder,
-            new AgentControlPlaneScopeLockRuntimeValidator,
-            new AgentControlPlaneTaskPacketQueueRepository,
-            new AgentControlPlaneClaimLeaseRepository,
-            new AgentControlPlaneEvidenceLedgerDryRun,
-            new AgentControlPlaneContinuationSummaryBuilder,
         );
     }
 

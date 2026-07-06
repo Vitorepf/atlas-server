@@ -15,10 +15,12 @@ use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryReco
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 
 class ProgrammingRuntimeControlPlaneTest extends TestCase
 {
+    use BootsCompoundingSchema;
     protected function setUp(): void
     {
         parent::setUp();
@@ -364,13 +366,6 @@ class ProgrammingRuntimeControlPlaneTest extends TestCase
         ]);
     }
 
-    private function bootCompoundingSchema(): void
-    {
-        $this->dropCompoundingSchema();
-        (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
-        (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
-    }
-
     private function bootTelemetrySchema(): void
     {
         Schema::dropIfExists('ai_programming_runtime_telemetry_events');
@@ -393,22 +388,6 @@ class ProgrammingRuntimeControlPlaneTest extends TestCase
     {
         $this->dropForgeIntakeSchema();
         (require database_path('migrations/2026_05_18_060000_create_ai_forge_intake_tables.php'))->up();
-    }
-
-    private function dropCompoundingSchema(): void
-    {
-        foreach ([
-            'ai_learning_proposals',
-            'ai_temporal_certifications',
-            'ai_benchmark_cases',
-            'ai_rag_feedback_events',
-            'ai_heuristic_updates',
-            'ai_compounding_memories',
-            'ai_learning_candidates',
-            'ai_run_outcomes',
-        ] as $table) {
-            Schema::dropIfExists($table);
-        }
     }
 
     private function dropMissionFoundationSchema(): void

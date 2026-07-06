@@ -14,6 +14,8 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -128,6 +130,22 @@ trait AtlasDevProviderFixtures
         return MiniProgrammingSpec::fromArray(
             $this->loadJsonFixture('mini_spec/valid_repair_r2.json', $overrides),
         );
+    }
+
+    // Obra #12 cauda da S-15: seedRun byte-idêntico consolidado (16 arquivos).
+    private function seedRun(ReceiptStorage $storage, string $runId, string $taskKind, string $riskLevel): void
+    {
+        $compactSdd = $this->compactSddFixture(['task_kind' => $taskKind, 'risk_level' => $riskLevel]);
+        $compactPayload = $compactSdd->toCanonicalArray();
+        $compactPayload['compact_sdd_hash'] = $compactSdd->hash();
+        $storage->writeAtomic($runId, ArtifactNames::COMPACT_SDD, $compactPayload);
+
+        $miniSpec = $this->miniSpecFixture(['compact_sdd_hash' => $compactPayload['compact_sdd_hash']]);
+        $storage->writeAtomic($runId, ArtifactNames::MINI_PROGRAMMING_SPEC, $miniSpec->toCanonicalArray());
+
+        $storage->writeAtomic($runId, ArtifactNames::OPEN_BRAIN_PROJECTION, [
+            'context_pack_hash' => 'atlas-dev:context_pack:'.bin2hex(random_bytes(4)),
+        ]);
     }
 
     private function taskContractFixture(array $overrides = []): LightTaskContract

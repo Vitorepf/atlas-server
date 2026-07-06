@@ -9,10 +9,12 @@ use App\Services\Ai\Router\AtlasAiSpecialistFlowExecutionService;
 use App\Services\Ai\Router\AtlasAiSpecialistFlowRuntimeService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 
 class AtlasCompoundingEngineeringIntelligenceTest extends TestCase
 {
+    use BootsCompoundingSchema;
     protected function setUp(): void
     {
         parent::setUp();
@@ -153,29 +155,6 @@ class AtlasCompoundingEngineeringIntelligenceTest extends TestCase
                 'post_execution_utility' => 78,
             ],
         ];
-    }
-
-    private function bootCompoundingSchema(): void
-    {
-        $this->dropCompoundingSchema();
-        (require database_path('migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php'))->up();
-        (require database_path('migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php'))->up();
-    }
-
-    private function dropCompoundingSchema(): void
-    {
-        foreach ([
-            'ai_learning_proposals',
-            'ai_temporal_certifications',
-            'ai_benchmark_cases',
-            'ai_rag_feedback_events',
-            'ai_heuristic_updates',
-            'ai_compounding_memories',
-            'ai_learning_candidates',
-            'ai_run_outcomes',
-        ] as $table) {
-            Schema::dropIfExists($table);
-        }
     }
 
     private function dropBenchmarkSchema(): void
