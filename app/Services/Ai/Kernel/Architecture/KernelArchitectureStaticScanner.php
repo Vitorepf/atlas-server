@@ -181,1055 +181,253 @@ class KernelArchitectureStaticScanner
      */
     public function complianceReport(): array
     {
-        $surfaceProviderBypass = $this->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
-            'App\\Services\\Ai\\Kernel\\Provider\\ProviderDriver',
-            'App\\Services\\Ai\\Provider\\Drivers\\',
-            'App\\Services\\Ai\\ClaudeCliProvider',
-            'App\\Services\\Ai\\CodexCliProvider',
-            'App\\Services\\Ai\\GeminiCliProvider',
-            'App\\Services\\Ai\\AiGatewayService',
-            'App\\Services\\Ai\\AiWorker',
-            'ProviderDriverRegistry',
-            'ClaudeCliProvider',
-            'CodexCliProvider',
-            'GeminiCliProvider',
-            'provider->execute(',
-            'prepareRequest(',
-        ]);
+        $violations = [];
+        foreach ($this->architectureScanChecks() as $key => $scan) {
+            $violations[$key] = $scan();
+        }
 
-        $surfaceContextBypass = $this->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
-            'App\\Services\\Ai\\AiContextPackBuilder',
-            'App\\Services\\Ai\\AtlasOpenBrainContextInjectionService',
-            'App\\Services\\Ai\\AtlasMemoryRegistryService',
-            'App\\Services\\Ai\\EngineeringContextPackService',
-            'App\\Services\\Engineering\\EngineeringContextPackService',
-            'ContextPackBuilder',
-            'OpenBrainContextInjection',
-            'AtlasMemoryRegistry',
-            'EngineeringContextPack',
-            'new ContextPack',
-            'context_pack',
-            'contextPack',
-            'context_refs',
-            'contextRefs',
-            'memory_refs',
-            'memoryRefs',
-        ]);
+        $report = [
+            'ok' => ! in_array(false, array_map(static fn (array $items): bool => $items === [], $violations), true),
+        ];
+        foreach ($violations as $key => $items) {
+            $report[$key] = $this->architectureScanResult($items);
+        }
 
-        $providerDriverBypass = $this->scanPhpFilesForForbiddenTokens(
-            app_path('Services/Ai/Provider/Drivers'),
-            [
-                'new ClaudeCliProvider',
-                'new CodexCliProvider',
-                'new GeminiCliProvider',
-                'app(ClaudeCliProvider',
-                'app(CodexCliProvider',
-                'app(GeminiCliProvider',
-                'provider_real_execution_allowed\' => true',
-                'provider_real_execution_allowed" => true',
-            ],
-            [
-                app_path('Services/Ai/Provider/Drivers/ProviderDriverRegistry.php'),
-            ],
-        );
-        $decisionReceiptPropagation = $this->scanGatewayDecisionReceiptPropagation();
-        $decisionReceiptRuntimeGuard = $this->scanWorkerDecisionReceiptRuntimeGuard();
-        $decisionReceiptHashRuntimeGuard = $this->scanDecisionReceiptHashRuntimeGuard();
-        $decisionReceiptDeterminismTest = $this->scanDecisionReceiptDeterminismTest();
-        $decisionReceiptChainReplay = $this->scanDecisionReceiptChainReplay();
-        $decisionReceiptReplaySurfaces = $this->scanDecisionReceiptReplaySurfaces();
-        $decisionReceiptReplayCuratorReview = $this->scanDecisionReceiptReplayCuratorReview();
-        $decisionReceiptReplayInboxEmission = $this->scanDecisionReceiptReplayInboxEmission();
-        $ledgerReplayCommandSurface = $this->scanLedgerReplayCommandSurface();
-        $ledgerProjectionRegistryContract = $this->scanLedgerProjectionRegistryContract();
-        $ledgerProjectionInboxAction = $this->scanLedgerProjectionInboxAction();
-        $ledgerProjectionCuratorActionEmission = $this->scanLedgerProjectionCuratorActionEmission();
-        $documentationHealthCuratorReview = $this->scanDocumentationHealthCuratorReview();
-        $providerCostRateInboxReplay = $this->scanProviderCostRateInboxReplay();
-        $agentBehaviorIdentityFragment = $this->scanAgentBehaviorIdentityFragment();
-        $agentBehaviorExecutionPlan = $this->scanAgentBehaviorExecutionPlan();
-        $agentBehaviorQualityGate = $this->scanAgentBehaviorQualityGate();
-        $agentBehaviorReviewActionSurface = $this->scanAgentBehaviorReviewActionSurface();
-        $programmingPlanAgentBehaviorContract = $this->scanProgrammingPlanAgentBehaviorContract();
-        $programmingHarnessAgentBehaviorContract = $this->scanProgrammingHarnessAgentBehaviorContract();
-        $agentBehaviorEvidenceLedger = $this->scanAgentBehaviorEvidenceLedger();
-        $agentBehaviorReplayReadModel = $this->scanAgentBehaviorReplayReadModel();
-        $agentBehaviorMcpReport = $this->scanAgentBehaviorMcpReport();
-        $agentBehaviorSelfImprovementReview = $this->scanAgentBehaviorSelfImprovementReview();
-        $agentBehaviorDirectSurfaces = $this->scanAgentBehaviorDirectSurfaces();
-        $agentBehaviorDedicatedCuratorFlow = $this->scanAgentBehaviorDedicatedCuratorFlow();
-        $agentBehaviorCuratorFilterSurface = $this->scanAgentBehaviorCuratorFilterSurface();
-        $agentBehaviorRecurringSchedule = $this->scanAgentBehaviorRecurringSchedule();
-        $agentBehaviorProposalGovernance = $this->scanAgentBehaviorProposalGovernance();
-        $toolTierHotPath = $this->scanToolTierHotPathPolicy();
-        $providerMemoryPrivacy = $this->scanProviderMemoryPrivacy();
-        $sloObservability = $this->scanSloObservability();
-        $kernelPipelineContract = $this->scanKernelPipelineContract();
-        $repairLoopContract = $this->scanRepairLoopContract();
-        $mcpDomainCatalogParity = $this->scanMcpDomainCatalogParity();
-        $cliFixDevRepairAlias = $this->scanCliFixDevRepairAlias();
-        $cliContinueDevResumeAlias = $this->scanCliContinueDevResumeAlias();
-        $cliForgeProgrammingHarnessContract = $this->scanCliForgeProgrammingHarnessContract();
-        $chatDevProgrammingContract = $this->scanChatDevProgrammingContract();
-        $surfaceAliasCanonicalization = $this->scanSurfaceAliasCanonicalization();
-        $decideModelSelectionContract = $this->scanDecideModelSelectionContract();
-        $cliDevModelSelectionContract = $this->scanCliDevModelSelectionContract();
-        $chatModelSelectionContract = $this->scanChatModelSelectionContract();
-        $kernelModelSelectionContractFactory = $this->scanKernelModelSelectionContractFactory();
-        $programmingSurfaceContractFactory = $this->scanProgrammingSurfaceContractFactory();
-        $chatProgrammingContractFactory = $this->scanChatProgrammingContractFactory();
-        $continueResumeContractFactory = $this->scanContinueResumeContractFactory();
-        $fixContractFactory = $this->scanFixContractFactory();
-        $kernelPipelineHealthReadModel = $this->scanKernelPipelineHealthReadModel();
-        $architectureValidationSurface = $this->scanArchitectureValidationSurface();
-        $architectureValidationObservability = $this->scanArchitectureValidationObservability();
-        $architectureValidationContractParity = $this->scanArchitectureValidationContractParity();
-        $architectureValidationMcpTool = $this->scanArchitectureValidationMcpTool();
-        $selfImprovementArchitectureValidationReview = $this->scanSelfImprovementArchitectureValidationReview();
-        $selfImprovementArchitectureAuditSchedule = $this->scanSelfImprovementArchitectureAuditSchedule();
-        $selfImprovementFlowCadenceContract = $this->scanSelfImprovementFlowCadenceContract();
-        $selfImprovementCommandNextRunContract = $this->scanSelfImprovementCommandNextRunContract();
-        $selfImprovementScheduleMcpTool = $this->scanSelfImprovementScheduleMcpTool();
-        $selfImprovementScheduleHealthReview = $this->scanSelfImprovementScheduleHealthReview();
-        $selfImprovementScheduleHealthLedgerEvent = $this->scanSelfImprovementScheduleHealthLedgerEvent();
-        $selfImprovementScheduleReplayReadModel = $this->scanSelfImprovementScheduleReplayReadModel();
-        $selfImprovementScheduleReplaySurfaces = $this->scanSelfImprovementScheduleReplaySurfaces();
-        $selfImprovementScheduleReplayMcpTool = $this->scanSelfImprovementScheduleReplayMcpTool();
-        $selfImprovementScheduleReplayReview = $this->scanSelfImprovementScheduleReplayReview();
-        $selfImprovementScheduleReplayReviewSignal = $this->scanSelfImprovementScheduleReplayReviewSignal();
-        $selfImprovementScheduleReplayReviewSignalSurfaces = $this->scanSelfImprovementScheduleReplayReviewSignalSurfaces();
-        $kernelPipelineReviewSignal = $this->scanKernelPipelineReviewSignal();
-        $repairLoopReviewSignal = $this->scanRepairLoopReviewSignal();
-        $sloReviewSignal = $this->scanSloReviewSignal();
-        $sloMcpTool = $this->scanSloMcpTool();
-        $kernelPipelineMcpTool = $this->scanKernelPipelineMcpTool();
-        $repairLoopMcpTool = $this->scanRepairLoopMcpTool();
-        $repairLoopUnavailableReviewSignal = $this->scanRepairLoopUnavailableReviewSignal();
-        $sloUnavailableReviewSignal = $this->scanSloUnavailableReviewSignal();
-        $mcpReplayUnavailableReviewSignal = $this->scanMcpReplayUnavailableReviewSignal();
-        $scheduleReplayUnavailableShapeParity = $this->scanScheduleReplayUnavailableShapeParity();
-        $mcpReplayWindowContract = $this->scanMcpReplayWindowContract();
-        $mcpReplayFilterContract = $this->scanMcpReplayFilterContract();
-        $replayReportInputContract = $this->scanReplayReportInputContract();
-        $observabilityReplayInputContract = $this->scanObservabilityReplayInputContract();
-        $replayReportValidationLimitContract = $this->scanReplayReportValidationLimitContract();
-        $selfImprovementRuntimeWindowContract = $this->scanSelfImprovementRuntimeWindowContract();
-        $selfImprovementScheduleWindowContract = $this->scanSelfImprovementScheduleWindowContract();
-        $selfImprovementOrchestratorWindowContract = $this->scanSelfImprovementOrchestratorWindowContract();
-        $telemetryWindowInputContract = $this->scanTelemetryWindowInputContract();
-        $runtimeBudgetWindowContract = $this->scanRuntimeBudgetWindowContract();
-        $ledgerEnvelopeInputContract = $this->scanLedgerEnvelopeInputContract();
-        $ledgerEnvelopeReportContract = $this->scanLedgerEnvelopeReportContract();
-        $telemetryListLimitContract = $this->scanTelemetryListLimitContract();
-        $programmingIterationPolicyContract = $this->scanProgrammingIterationPolicyContract();
-        $openBrainMcpInputContract = $this->scanOpenBrainMcpInputContract();
-        $memoryQueryInputContract = $this->scanMemoryQueryInputContract();
-        $providerProjectionAuditInputContract = $this->scanProviderProjectionAuditInputContract();
-        $conversationContextInputContract = $this->scanConversationContextInputContract();
-        $retrievalRankInputContract = $this->scanRetrievalRankInputContract();
-        $atlasVaultCommandInputContract = $this->scanAtlasVaultCommandInputContract();
-        $memoryRecallInputContract = $this->scanMemoryRecallInputContract();
-        $contextPackMemoryInputContract = $this->scanContextPackMemoryInputContract();
-        $semanticContextInputContract = $this->scanSemanticContextInputContract();
-        $providerProjectionInputContract = $this->scanProviderProjectionInputContract();
-        $testCommandInputContract = $this->scanTestCommandInputContract();
-        $engineeringHarnessRunnerInputContract = $this->scanEngineeringHarnessRunnerInputContract();
-        $engineeringHarnessabilityInputContract = $this->scanEngineeringHarnessabilityInputContract();
-        $engineeringDockerHarnessInputContract = $this->scanEngineeringDockerHarnessInputContract();
-        $engineeringTestMatrixInputContract = $this->scanEngineeringTestMatrixInputContract();
-        $engineeringClaudeCodeBaselineInputContract = $this->scanEngineeringClaudeCodeBaselineInputContract();
-        $engineeringBenchmarkInputContract = $this->scanEngineeringBenchmarkInputContract();
-        $engineeringContextIntelligenceInputContract = $this->scanEngineeringContextIntelligenceInputContract();
-        $cliLimitInputContract = $this->scanCliLimitInputContract();
-        $schedulerInputContract = $this->scanSchedulerInputContract();
-        $selfImprovementInputContract = $this->scanSelfImprovementInputContract();
-        $providerUsagePerformanceContract = $this->scanProviderUsagePerformanceContract();
-        $contextPackManifestReflectionContract = $this->scanContextPackManifestReflectionContract();
-        $contextRetrievalRouterContract = $this->scanContextRetrievalRouterContract();
-        $openBrainRetrievalPlanSummaryContract = $this->scanOpenBrainRetrievalPlanSummaryContract();
-        $retrievalRequiredSourceAvailabilityContract = $this->scanRetrievalRequiredSourceAvailabilityContract();
-        $retrievalReviewSignalNextActionContract = $this->scanRetrievalReviewSignalNextActionContract();
-        $openBrainRetrievalSelfImprovementContract = $this->scanOpenBrainRetrievalSelfImprovementContract();
-        $learningProposedReviewSignalProjectionContract = $this->scanLearningProposedReviewSignalProjectionContract();
-        $proposalInboxReviewSignalContract = $this->scanProposalInboxReviewSignalContract();
-        $learningProposedInboxLinkContract = $this->scanLearningProposedInboxLinkContract();
-        $operationCompletedInboxRefsContract = $this->scanOperationCompletedInboxRefsContract();
-        $scheduleReplayInboxRefsContract = $this->scanScheduleReplayInboxRefsContract();
-        $scheduleReplayInboxRefsSurfaceParity = $this->scanScheduleReplayInboxRefsSurfaceParity();
-        $scheduleReplayInboxItemHydration = $this->scanScheduleReplayInboxItemHydration();
-        $scheduleReplayInboxItemHydrationSurfaceParity = $this->scanScheduleReplayInboxItemHydrationSurfaceParity();
-        $scheduleReplayInboxHydrationGapSignal = $this->scanScheduleReplayInboxHydrationGapSignal();
-        $selfImprovementScheduleReplayInboxGapFinding = $this->scanSelfImprovementScheduleReplayInboxGapFinding();
-        $selfImprovementScheduleReplayInboxGapEmission = $this->scanSelfImprovementScheduleReplayInboxGapEmission();
-        $proposalInboxReviewSignalSeverity = $this->scanProposalInboxReviewSignalSeverity();
-        $proposalReviewActionContract = $this->scanProposalReviewActionContract();
-        $cliInboxReviewActionResultParity = $this->scanCliInboxReviewActionResultParity();
-        $inboxActionEvidenceLedgerContract = $this->scanInboxActionEvidenceLedgerContract();
-        $inboxActionReplayReadModel = $this->scanInboxActionReplayReadModel();
-        $inboxActionMcpReport = $this->scanInboxActionMcpReport();
-        $selfImprovementInboxActionReplayReview = $this->scanSelfImprovementInboxActionReplayReview();
-        $observabilityInboxActionReplay = $this->scanObservabilityInboxActionReplay();
-        $inboxActionReportSurfaces = $this->scanInboxActionReportSurfaces();
-        $architectureValidatePostAp98HumanOutput = $this->scanArchitectureValidatePostAp98HumanOutput();
-        $cliHelpArchitectureOperationsDiscovery = $this->scanCliHelpArchitectureOperationsDiscovery();
-        $architectureOperationsSharedCatalog = $this->scanArchitectureOperationsSharedCatalog();
-        $architectureOperationsMcpTool = $this->scanArchitectureOperationsMcpTool();
-        $architectureOperationsDirectSurfaces = $this->scanArchitectureOperationsDirectSurfaces();
-        $selfImprovementArchitectureOperationsReview = $this->scanSelfImprovementArchitectureOperationsReview();
-        $architectureOperationsMetadataContract = $this->scanArchitectureOperationsMetadataContract();
-        $architectureOperationsFilterContract = $this->scanArchitectureOperationsFilterContract();
-        $sessionBootstrapDocsSplitPlanContract = $this->scanSessionBootstrapDocsSplitPlanContract();
-        $sessionBootstrapArchitectureOperationsContract = $this->scanSessionBootstrapArchitectureOperationsContract();
-        $featurePlacementArchitectureOperationsContract = $this->scanFeaturePlacementArchitectureOperationsContract();
-        $architectureReadinessSnapshot = $this->scanArchitectureReadinessSnapshot();
-        $architectureReadinessMcpTool = $this->scanArchitectureReadinessMcpTool();
-        $providerReleaseAntiWrapperContract = $this->scanProviderReleaseAntiWrapperContract();
-        $voiceRealtimeActivationGovernance = $this->scanVoiceRealtimeActivationGovernance();
-        $voiceRealtimeRuntimeCertificationContract = $this->scanVoiceRealtimeRuntimeCertificationContract();
-        $voiceRealtimePythonRuntimeBoundaryContract = $this->scanVoiceRealtimePythonRuntimeBoundaryContract();
-        $voiceRealtimeProductionPromotionGate = $this->scanVoiceRealtimeProductionPromotionGate();
-        $localRagGraphPromotionReview = $this->scanLocalRagGraphPromotionReview();
-        $externalGraphHarnessContract = $this->scanExternalGraphHarnessContract();
-        $constelacaoLens1UsageReviewContract = $this->scanConstelacaoLens1UsageReviewContract();
-        $productiveFailureGovernanceContract = $this->scanProductiveFailureGovernanceContract();
-        $personalWorkedExamplePrivacyContract = $this->scanPersonalWorkedExamplePrivacyContract();
-        $predictiveFailureGovernanceContract = $this->scanPredictiveFailureGovernanceContract();
-        $runtimeLanguageBoundaryContract = $this->scanRuntimeLanguageBoundaryContract();
+        return $report;
+    }
 
+    /**
+     * @return array<string,callable():array<int,string>>
+     */
+    private function architectureScanChecks(): array
+    {
         return [
-            'ok' => $surfaceProviderBypass === []
-                && $surfaceContextBypass === []
-                && $decisionReceiptPropagation === []
-                && $decisionReceiptRuntimeGuard === []
-                && $decisionReceiptHashRuntimeGuard === []
-                && $decisionReceiptDeterminismTest === []
-                && $decisionReceiptChainReplay === []
-                && $decisionReceiptReplaySurfaces === []
-                && $decisionReceiptReplayCuratorReview === []
-                && $decisionReceiptReplayInboxEmission === []
-                && $ledgerReplayCommandSurface === []
-                && $ledgerProjectionRegistryContract === []
-                && $ledgerProjectionInboxAction === []
-                && $ledgerProjectionCuratorActionEmission === []
-                && $documentationHealthCuratorReview === []
-                && $providerCostRateInboxReplay === []
-                && $agentBehaviorIdentityFragment === []
-                && $agentBehaviorExecutionPlan === []
-                && $agentBehaviorQualityGate === []
-                && $agentBehaviorReviewActionSurface === []
-                && $programmingPlanAgentBehaviorContract === []
-                && $programmingHarnessAgentBehaviorContract === []
-                && $agentBehaviorEvidenceLedger === []
-                && $agentBehaviorReplayReadModel === []
-                && $agentBehaviorMcpReport === []
-                && $agentBehaviorSelfImprovementReview === []
-                && $agentBehaviorDirectSurfaces === []
-                && $agentBehaviorDedicatedCuratorFlow === []
-                && $agentBehaviorCuratorFilterSurface === []
-                && $agentBehaviorRecurringSchedule === []
-                && $agentBehaviorProposalGovernance === []
-                && $providerDriverBypass === []
-                && $toolTierHotPath === []
-                && $providerMemoryPrivacy === []
-                && $sloObservability === []
-                && $kernelPipelineContract === []
-                && $repairLoopContract === []
-                && $mcpDomainCatalogParity === []
-                && $cliFixDevRepairAlias === []
-                && $cliContinueDevResumeAlias === []
-                && $cliForgeProgrammingHarnessContract === []
-                && $chatDevProgrammingContract === []
-                && $surfaceAliasCanonicalization === []
-                && $decideModelSelectionContract === []
-                && $cliDevModelSelectionContract === []
-                && $chatModelSelectionContract === []
-                && $kernelModelSelectionContractFactory === []
-                && $programmingSurfaceContractFactory === []
-                && $chatProgrammingContractFactory === []
-                && $continueResumeContractFactory === []
-                && $fixContractFactory === []
-                && $kernelPipelineHealthReadModel === []
-                && $architectureValidationSurface === []
-                && $architectureValidationObservability === []
-                && $architectureValidationContractParity === []
-                && $architectureValidationMcpTool === []
-                && $selfImprovementArchitectureValidationReview === []
-                && $selfImprovementArchitectureAuditSchedule === []
-                && $selfImprovementFlowCadenceContract === []
-                && $selfImprovementCommandNextRunContract === []
-                && $selfImprovementScheduleMcpTool === []
-                && $selfImprovementScheduleHealthReview === []
-                && $selfImprovementScheduleHealthLedgerEvent === []
-                && $selfImprovementScheduleReplayReadModel === []
-                && $selfImprovementScheduleReplaySurfaces === []
-                && $selfImprovementScheduleReplayMcpTool === []
-                && $selfImprovementScheduleReplayReview === []
-                && $selfImprovementScheduleReplayReviewSignal === []
-                && $selfImprovementScheduleReplayReviewSignalSurfaces === []
-                && $kernelPipelineReviewSignal === []
-                && $repairLoopReviewSignal === []
-                && $sloReviewSignal === []
-                && $sloMcpTool === []
-                && $kernelPipelineMcpTool === []
-                && $repairLoopMcpTool === []
-                && $repairLoopUnavailableReviewSignal === []
-                && $sloUnavailableReviewSignal === []
-                && $mcpReplayUnavailableReviewSignal === []
-                && $scheduleReplayUnavailableShapeParity === []
-                && $mcpReplayWindowContract === []
-                && $mcpReplayFilterContract === []
-                && $replayReportInputContract === []
-                && $observabilityReplayInputContract === []
-                && $replayReportValidationLimitContract === []
-                && $selfImprovementRuntimeWindowContract === []
-                && $selfImprovementScheduleWindowContract === []
-                && $selfImprovementOrchestratorWindowContract === []
-                && $telemetryWindowInputContract === []
-                && $runtimeBudgetWindowContract === []
-                && $ledgerEnvelopeInputContract === []
-                && $ledgerEnvelopeReportContract === []
-                && $telemetryListLimitContract === []
-                && $programmingIterationPolicyContract === []
-                && $openBrainMcpInputContract === []
-                && $memoryQueryInputContract === []
-                && $providerProjectionAuditInputContract === []
-                && $conversationContextInputContract === []
-                && $retrievalRankInputContract === []
-                && $atlasVaultCommandInputContract === []
-                && $memoryRecallInputContract === []
-                && $contextPackMemoryInputContract === []
-                && $semanticContextInputContract === []
-                && $providerProjectionInputContract === []
-                && $testCommandInputContract === []
-                && $engineeringHarnessRunnerInputContract === []
-                && $engineeringHarnessabilityInputContract === []
-                && $engineeringDockerHarnessInputContract === []
-                && $engineeringTestMatrixInputContract === []
-                && $engineeringClaudeCodeBaselineInputContract === []
-                && $engineeringBenchmarkInputContract === []
-                && $engineeringContextIntelligenceInputContract === []
-                && $cliLimitInputContract === []
-                && $schedulerInputContract === []
-                && $selfImprovementInputContract === []
-                && $providerUsagePerformanceContract === []
-                && $contextPackManifestReflectionContract === []
-                && $contextRetrievalRouterContract === []
-                && $openBrainRetrievalPlanSummaryContract === []
-                && $retrievalRequiredSourceAvailabilityContract === []
-                && $retrievalReviewSignalNextActionContract === []
-                && $openBrainRetrievalSelfImprovementContract === []
-                && $learningProposedReviewSignalProjectionContract === []
-                && $proposalInboxReviewSignalContract === []
-                && $learningProposedInboxLinkContract === []
-                && $operationCompletedInboxRefsContract === []
-                && $scheduleReplayInboxRefsContract === []
-                && $scheduleReplayInboxRefsSurfaceParity === []
-                && $scheduleReplayInboxItemHydration === []
-                && $scheduleReplayInboxItemHydrationSurfaceParity === []
-                && $scheduleReplayInboxHydrationGapSignal === []
-                && $selfImprovementScheduleReplayInboxGapFinding === []
-                && $selfImprovementScheduleReplayInboxGapEmission === []
-                && $proposalInboxReviewSignalSeverity === []
-                && $proposalReviewActionContract === []
-                && $cliInboxReviewActionResultParity === []
-                && $inboxActionEvidenceLedgerContract === []
-                && $inboxActionReplayReadModel === []
-                && $inboxActionMcpReport === []
-                && $selfImprovementInboxActionReplayReview === []
-                && $observabilityInboxActionReplay === []
-                && $inboxActionReportSurfaces === []
-                && $architectureValidatePostAp98HumanOutput === []
-                && $cliHelpArchitectureOperationsDiscovery === []
-                && $architectureOperationsSharedCatalog === []
-                && $architectureOperationsMcpTool === []
-                && $architectureOperationsDirectSurfaces === []
-                && $selfImprovementArchitectureOperationsReview === []
-                && $architectureOperationsMetadataContract === []
-                && $architectureOperationsFilterContract === []
-                && $sessionBootstrapDocsSplitPlanContract === []
-                && $sessionBootstrapArchitectureOperationsContract === []
-                && $featurePlacementArchitectureOperationsContract === []
-                && $architectureReadinessSnapshot === []
-                && $architectureReadinessMcpTool === []
-                && $providerReleaseAntiWrapperContract === []
-                && $voiceRealtimeActivationGovernance === []
-                && $voiceRealtimeRuntimeCertificationContract === []
-                && $voiceRealtimePythonRuntimeBoundaryContract === []
-                && $voiceRealtimeProductionPromotionGate === []
-                && $localRagGraphPromotionReview === []
-                && $externalGraphHarnessContract === []
-                && $constelacaoLens1UsageReviewContract === []
-                && $productiveFailureGovernanceContract === []
-                && $personalWorkedExamplePrivacyContract === []
-                && $predictiveFailureGovernanceContract === []
-                && $runtimeLanguageBoundaryContract === [],
-            'ap1_surface_provider_bypass' => [
-                'valid' => $surfaceProviderBypass === [],
-                'violations' => $surfaceProviderBypass,
-            ],
-            'ap2_surface_context_bypass' => [
-                'valid' => $surfaceContextBypass === [],
-                'violations' => $surfaceContextBypass,
-            ],
-            'ap6_decision_receipt_propagation' => [
-                'valid' => $decisionReceiptPropagation === [],
-                'violations' => $decisionReceiptPropagation,
-            ],
-            'ap13_decision_receipt_runtime_guard' => [
-                'valid' => $decisionReceiptRuntimeGuard === [],
-                'violations' => $decisionReceiptRuntimeGuard,
-            ],
-            'ap134_decision_receipt_hash_runtime_guard' => [
-                'valid' => $decisionReceiptHashRuntimeGuard === [],
-                'violations' => $decisionReceiptHashRuntimeGuard,
-            ],
-            'ap135_decision_receipt_determinism_test' => [
-                'valid' => $decisionReceiptDeterminismTest === [],
-                'violations' => $decisionReceiptDeterminismTest,
-            ],
-            'ap136_decision_receipt_chain_replay' => [
-                'valid' => $decisionReceiptChainReplay === [],
-                'violations' => $decisionReceiptChainReplay,
-            ],
-            'ap137_decision_receipt_replay_surfaces' => [
-                'valid' => $decisionReceiptReplaySurfaces === [],
-                'violations' => $decisionReceiptReplaySurfaces,
-            ],
-            'ap138_decision_receipt_replay_curator_review' => [
-                'valid' => $decisionReceiptReplayCuratorReview === [],
-                'violations' => $decisionReceiptReplayCuratorReview,
-            ],
-            'ap139_decision_receipt_replay_inbox_emission' => [
-                'valid' => $decisionReceiptReplayInboxEmission === [],
-                'violations' => $decisionReceiptReplayInboxEmission,
-            ],
-            'ap140_ledger_replay_command_surface' => [
-                'valid' => $ledgerReplayCommandSurface === [],
-                'violations' => $ledgerReplayCommandSurface,
-            ],
-            'ap141_ledger_projection_registry_contract' => [
-                'valid' => $ledgerProjectionRegistryContract === [],
-                'violations' => $ledgerProjectionRegistryContract,
-            ],
-            'ap142_ledger_projection_inbox_action' => [
-                'valid' => $ledgerProjectionInboxAction === [],
-                'violations' => $ledgerProjectionInboxAction,
-            ],
-            'ap143_ledger_projection_curator_action_emission' => [
-                'valid' => $ledgerProjectionCuratorActionEmission === [],
-                'violations' => $ledgerProjectionCuratorActionEmission,
-            ],
-            'ap145_documentation_health_curator_review' => [
-                'valid' => $documentationHealthCuratorReview === [],
-                'violations' => $documentationHealthCuratorReview,
-            ],
-            'ap146_provider_cost_rate_inbox_replay' => [
-                'valid' => $providerCostRateInboxReplay === [],
-                'violations' => $providerCostRateInboxReplay,
-            ],
-            'ap148_agent_behavior_identity_fragment' => [
-                'valid' => $agentBehaviorIdentityFragment === [],
-                'violations' => $agentBehaviorIdentityFragment,
-            ],
-            'ap149_agent_behavior_execution_plan' => [
-                'valid' => $agentBehaviorExecutionPlan === [],
-                'violations' => $agentBehaviorExecutionPlan,
-            ],
-            'ap150_agent_behavior_quality_gate' => [
-                'valid' => $agentBehaviorQualityGate === [],
-                'violations' => $agentBehaviorQualityGate,
-            ],
-            'ap151_agent_behavior_review_action_surface' => [
-                'valid' => $agentBehaviorReviewActionSurface === [],
-                'violations' => $agentBehaviorReviewActionSurface,
-            ],
-            'ap152_programming_plan_agent_behavior_contract' => [
-                'valid' => $programmingPlanAgentBehaviorContract === [],
-                'violations' => $programmingPlanAgentBehaviorContract,
-            ],
-            'ap153_programming_harness_agent_behavior_contract' => [
-                'valid' => $programmingHarnessAgentBehaviorContract === [],
-                'violations' => $programmingHarnessAgentBehaviorContract,
-            ],
-            'ap154_agent_behavior_evidence_ledger' => [
-                'valid' => $agentBehaviorEvidenceLedger === [],
-                'violations' => $agentBehaviorEvidenceLedger,
-            ],
-            'ap155_agent_behavior_replay_read_model' => [
-                'valid' => $agentBehaviorReplayReadModel === [],
-                'violations' => $agentBehaviorReplayReadModel,
-            ],
-            'ap156_agent_behavior_mcp_report' => [
-                'valid' => $agentBehaviorMcpReport === [],
-                'violations' => $agentBehaviorMcpReport,
-            ],
-            'ap157_agent_behavior_self_improvement_review' => [
-                'valid' => $agentBehaviorSelfImprovementReview === [],
-                'violations' => $agentBehaviorSelfImprovementReview,
-            ],
-            'ap158_agent_behavior_direct_surfaces' => [
-                'valid' => $agentBehaviorDirectSurfaces === [],
-                'violations' => $agentBehaviorDirectSurfaces,
-            ],
-            'ap159_agent_behavior_dedicated_curator_flow' => [
-                'valid' => $agentBehaviorDedicatedCuratorFlow === [],
-                'violations' => $agentBehaviorDedicatedCuratorFlow,
-            ],
-            'ap160_agent_behavior_curator_filter_surface' => [
-                'valid' => $agentBehaviorCuratorFilterSurface === [],
-                'violations' => $agentBehaviorCuratorFilterSurface,
-            ],
-            'ap161_agent_behavior_recurring_schedule' => [
-                'valid' => $agentBehaviorRecurringSchedule === [],
-                'violations' => $agentBehaviorRecurringSchedule,
-            ],
-            'ap162_agent_behavior_proposal_governance' => [
-                'valid' => $agentBehaviorProposalGovernance === [],
-                'violations' => $agentBehaviorProposalGovernance,
-            ],
-            'ap12_provider_driver_identity_bypass' => [
-                'valid' => $providerDriverBypass === [],
-                'violations' => $providerDriverBypass,
-            ],
-            'ap14_tool_tier_hot_path' => [
-                'valid' => $toolTierHotPath === [],
-                'violations' => $toolTierHotPath,
-            ],
-            'ap15_provider_memory_privacy' => [
-                'valid' => $providerMemoryPrivacy === [],
-                'violations' => $providerMemoryPrivacy,
-            ],
-            'ap16_slo_observability' => [
-                'valid' => $sloObservability === [],
-                'violations' => $sloObservability,
-            ],
-            'ap17_kernel_pipeline_contract' => [
-                'valid' => $kernelPipelineContract === [],
-                'violations' => $kernelPipelineContract,
-            ],
-            'ap18_repair_loop_contract' => [
-                'valid' => $repairLoopContract === [],
-                'violations' => $repairLoopContract,
-            ],
-            'ap19_mcp_domain_catalog_parity' => [
-                'valid' => $mcpDomainCatalogParity === [],
-                'violations' => $mcpDomainCatalogParity,
-            ],
-            'ap20_cli_fix_dev_repair_alias' => [
-                'valid' => $cliFixDevRepairAlias === [],
-                'violations' => $cliFixDevRepairAlias,
-            ],
-            'ap21_cli_continue_dev_resume_alias' => [
-                'valid' => $cliContinueDevResumeAlias === [],
-                'violations' => $cliContinueDevResumeAlias,
-            ],
-            'ap22_cli_forge_programming_harness_contract' => [
-                'valid' => $cliForgeProgrammingHarnessContract === [],
-                'violations' => $cliForgeProgrammingHarnessContract,
-            ],
-            'ap23_chat_dev_programming_contract' => [
-                'valid' => $chatDevProgrammingContract === [],
-                'violations' => $chatDevProgrammingContract,
-            ],
-            'ap24_surface_alias_canonicalization' => [
-                'valid' => $surfaceAliasCanonicalization === [],
-                'violations' => $surfaceAliasCanonicalization,
-            ],
-            'ap25_decide_model_selection_contract' => [
-                'valid' => $decideModelSelectionContract === [],
-                'violations' => $decideModelSelectionContract,
-            ],
-            'ap26_cli_dev_model_selection_contract' => [
-                'valid' => $cliDevModelSelectionContract === [],
-                'violations' => $cliDevModelSelectionContract,
-            ],
-            'ap27_chat_model_selection_contract' => [
-                'valid' => $chatModelSelectionContract === [],
-                'violations' => $chatModelSelectionContract,
-            ],
-            'ap28_kernel_model_selection_contract_factory' => [
-                'valid' => $kernelModelSelectionContractFactory === [],
-                'violations' => $kernelModelSelectionContractFactory,
-            ],
-            'ap29_programming_surface_contract_factory' => [
-                'valid' => $programmingSurfaceContractFactory === [],
-                'violations' => $programmingSurfaceContractFactory,
-            ],
-            'ap30_chat_programming_contract_factory' => [
-                'valid' => $chatProgrammingContractFactory === [],
-                'violations' => $chatProgrammingContractFactory,
-            ],
-            'ap31_continue_resume_contract_factory' => [
-                'valid' => $continueResumeContractFactory === [],
-                'violations' => $continueResumeContractFactory,
-            ],
-            'ap32_fix_contract_factory' => [
-                'valid' => $fixContractFactory === [],
-                'violations' => $fixContractFactory,
-            ],
-            'ap36_kernel_pipeline_health_read_model' => [
-                'valid' => $kernelPipelineHealthReadModel === [],
-                'violations' => $kernelPipelineHealthReadModel,
-            ],
-            'ap37_architecture_validation_surface' => [
-                'valid' => $architectureValidationSurface === [],
-                'violations' => $architectureValidationSurface,
-            ],
-            'ap38_architecture_validation_observability' => [
-                'valid' => $architectureValidationObservability === [],
-                'violations' => $architectureValidationObservability,
-            ],
-            'ap39_architecture_validation_contract_parity' => [
-                'valid' => $architectureValidationContractParity === [],
-                'violations' => $architectureValidationContractParity,
-            ],
-            'ap40_architecture_validation_mcp_tool' => [
-                'valid' => $architectureValidationMcpTool === [],
-                'violations' => $architectureValidationMcpTool,
-            ],
-            'ap41_self_improvement_architecture_validation_review' => [
-                'valid' => $selfImprovementArchitectureValidationReview === [],
-                'violations' => $selfImprovementArchitectureValidationReview,
-            ],
-            'ap42_self_improvement_architecture_audit_schedule' => [
-                'valid' => $selfImprovementArchitectureAuditSchedule === [],
-                'violations' => $selfImprovementArchitectureAuditSchedule,
-            ],
-            'ap43_self_improvement_flow_cadence_contract' => [
-                'valid' => $selfImprovementFlowCadenceContract === [],
-                'violations' => $selfImprovementFlowCadenceContract,
-            ],
-            'ap44_self_improvement_command_next_run_contract' => [
-                'valid' => $selfImprovementCommandNextRunContract === [],
-                'violations' => $selfImprovementCommandNextRunContract,
-            ],
-            'ap45_self_improvement_schedule_mcp_tool' => [
-                'valid' => $selfImprovementScheduleMcpTool === [],
-                'violations' => $selfImprovementScheduleMcpTool,
-            ],
-            'ap46_self_improvement_schedule_health_review' => [
-                'valid' => $selfImprovementScheduleHealthReview === [],
-                'violations' => $selfImprovementScheduleHealthReview,
-            ],
-            'ap47_self_improvement_schedule_health_ledger_event' => [
-                'valid' => $selfImprovementScheduleHealthLedgerEvent === [],
-                'violations' => $selfImprovementScheduleHealthLedgerEvent,
-            ],
-            'ap48_self_improvement_schedule_replay_read_model' => [
-                'valid' => $selfImprovementScheduleReplayReadModel === [],
-                'violations' => $selfImprovementScheduleReplayReadModel,
-            ],
-            'ap49_self_improvement_schedule_replay_surfaces' => [
-                'valid' => $selfImprovementScheduleReplaySurfaces === [],
-                'violations' => $selfImprovementScheduleReplaySurfaces,
-            ],
-            'ap50_self_improvement_schedule_replay_mcp_tool' => [
-                'valid' => $selfImprovementScheduleReplayMcpTool === [],
-                'violations' => $selfImprovementScheduleReplayMcpTool,
-            ],
-            'ap51_self_improvement_schedule_replay_review' => [
-                'valid' => $selfImprovementScheduleReplayReview === [],
-                'violations' => $selfImprovementScheduleReplayReview,
-            ],
-            'ap52_self_improvement_schedule_replay_review_signal' => [
-                'valid' => $selfImprovementScheduleReplayReviewSignal === [],
-                'violations' => $selfImprovementScheduleReplayReviewSignal,
-            ],
-            'ap53_self_improvement_schedule_replay_review_signal_surfaces' => [
-                'valid' => $selfImprovementScheduleReplayReviewSignalSurfaces === [],
-                'violations' => $selfImprovementScheduleReplayReviewSignalSurfaces,
-            ],
-            'ap54_kernel_pipeline_review_signal' => [
-                'valid' => $kernelPipelineReviewSignal === [],
-                'violations' => $kernelPipelineReviewSignal,
-            ],
-            'ap55_repair_loop_review_signal' => [
-                'valid' => $repairLoopReviewSignal === [],
-                'violations' => $repairLoopReviewSignal,
-            ],
-            'ap56_slo_review_signal' => [
-                'valid' => $sloReviewSignal === [],
-                'violations' => $sloReviewSignal,
-            ],
-            'ap57_slo_mcp_tool' => [
-                'valid' => $sloMcpTool === [],
-                'violations' => $sloMcpTool,
-            ],
-            'ap58_kernel_pipeline_mcp_tool' => [
-                'valid' => $kernelPipelineMcpTool === [],
-                'violations' => $kernelPipelineMcpTool,
-            ],
-            'ap59_repair_loop_mcp_tool' => [
-                'valid' => $repairLoopMcpTool === [],
-                'violations' => $repairLoopMcpTool,
-            ],
-            'ap60_repair_loop_unavailable_review_signal' => [
-                'valid' => $repairLoopUnavailableReviewSignal === [],
-                'violations' => $repairLoopUnavailableReviewSignal,
-            ],
-            'ap61_slo_unavailable_review_signal' => [
-                'valid' => $sloUnavailableReviewSignal === [],
-                'violations' => $sloUnavailableReviewSignal,
-            ],
-            'ap62_mcp_replay_unavailable_review_signal' => [
-                'valid' => $mcpReplayUnavailableReviewSignal === [],
-                'violations' => $mcpReplayUnavailableReviewSignal,
-            ],
-            'ap63_schedule_replay_unavailable_shape_parity' => [
-                'valid' => $scheduleReplayUnavailableShapeParity === [],
-                'violations' => $scheduleReplayUnavailableShapeParity,
-            ],
-            'ap64_mcp_replay_window_contract' => [
-                'valid' => $mcpReplayWindowContract === [],
-                'violations' => $mcpReplayWindowContract,
-            ],
-            'ap65_mcp_replay_filter_contract' => [
-                'valid' => $mcpReplayFilterContract === [],
-                'violations' => $mcpReplayFilterContract,
-            ],
-            'ap66_replay_report_input_contract' => [
-                'valid' => $replayReportInputContract === [],
-                'violations' => $replayReportInputContract,
-            ],
-            'ap67_observability_replay_input_contract' => [
-                'valid' => $observabilityReplayInputContract === [],
-                'violations' => $observabilityReplayInputContract,
-            ],
-            'ap68_replay_report_validation_limit_contract' => [
-                'valid' => $replayReportValidationLimitContract === [],
-                'violations' => $replayReportValidationLimitContract,
-            ],
-            'ap69_self_improvement_runtime_window_contract' => [
-                'valid' => $selfImprovementRuntimeWindowContract === [],
-                'violations' => $selfImprovementRuntimeWindowContract,
-            ],
-            'ap70_self_improvement_schedule_window_contract' => [
-                'valid' => $selfImprovementScheduleWindowContract === [],
-                'violations' => $selfImprovementScheduleWindowContract,
-            ],
-            'ap71_self_improvement_orchestrator_window_contract' => [
-                'valid' => $selfImprovementOrchestratorWindowContract === [],
-                'violations' => $selfImprovementOrchestratorWindowContract,
-            ],
-            'ap72_telemetry_window_input_contract' => [
-                'valid' => $telemetryWindowInputContract === [],
-                'violations' => $telemetryWindowInputContract,
-            ],
-            'ap73_runtime_budget_window_contract' => [
-                'valid' => $runtimeBudgetWindowContract === [],
-                'violations' => $runtimeBudgetWindowContract,
-            ],
-            'ap74_ledger_envelope_input_contract' => [
-                'valid' => $ledgerEnvelopeInputContract === [],
-                'violations' => $ledgerEnvelopeInputContract,
-            ],
-            'ap75_ledger_envelope_report_contract' => [
-                'valid' => $ledgerEnvelopeReportContract === [],
-                'violations' => $ledgerEnvelopeReportContract,
-            ],
-            'ap76_telemetry_list_limit_contract' => [
-                'valid' => $telemetryListLimitContract === [],
-                'violations' => $telemetryListLimitContract,
-            ],
-            'ap77_programming_iteration_policy_contract' => [
-                'valid' => $programmingIterationPolicyContract === [],
-                'violations' => $programmingIterationPolicyContract,
-            ],
-            'ap78_open_brain_mcp_input_contract' => [
-                'valid' => $openBrainMcpInputContract === [],
-                'violations' => $openBrainMcpInputContract,
-            ],
-            'ap79_memory_query_input_contract' => [
-                'valid' => $memoryQueryInputContract === [],
-                'violations' => $memoryQueryInputContract,
-            ],
-            'ap80_provider_projection_audit_input_contract' => [
-                'valid' => $providerProjectionAuditInputContract === [],
-                'violations' => $providerProjectionAuditInputContract,
-            ],
-            'ap81_conversation_context_input_contract' => [
-                'valid' => $conversationContextInputContract === [],
-                'violations' => $conversationContextInputContract,
-            ],
-            'ap82_retrieval_rank_input_contract' => [
-                'valid' => $retrievalRankInputContract === [],
-                'violations' => $retrievalRankInputContract,
-            ],
-            'ap83_atlas_vault_command_input_contract' => [
-                'valid' => $atlasVaultCommandInputContract === [],
-                'violations' => $atlasVaultCommandInputContract,
-            ],
-            'ap84_memory_recall_input_contract' => [
-                'valid' => $memoryRecallInputContract === [],
-                'violations' => $memoryRecallInputContract,
-            ],
-            'ap85_context_pack_memory_input_contract' => [
-                'valid' => $contextPackMemoryInputContract === [],
-                'violations' => $contextPackMemoryInputContract,
-            ],
-            'ap86_semantic_context_input_contract' => [
-                'valid' => $semanticContextInputContract === [],
-                'violations' => $semanticContextInputContract,
-            ],
-            'ap87_provider_projection_input_contract' => [
-                'valid' => $providerProjectionInputContract === [],
-                'violations' => $providerProjectionInputContract,
-            ],
-            'ap88_test_command_input_contract' => [
-                'valid' => $testCommandInputContract === [],
-                'violations' => $testCommandInputContract,
-            ],
-            'ap89_engineering_harness_runner_input_contract' => [
-                'valid' => $engineeringHarnessRunnerInputContract === [],
-                'violations' => $engineeringHarnessRunnerInputContract,
-            ],
-            'ap90_engineering_harnessability_input_contract' => [
-                'valid' => $engineeringHarnessabilityInputContract === [],
-                'violations' => $engineeringHarnessabilityInputContract,
-            ],
-            'ap91_engineering_docker_harness_input_contract' => [
-                'valid' => $engineeringDockerHarnessInputContract === [],
-                'violations' => $engineeringDockerHarnessInputContract,
-            ],
-            'ap92_engineering_test_matrix_input_contract' => [
-                'valid' => $engineeringTestMatrixInputContract === [],
-                'violations' => $engineeringTestMatrixInputContract,
-            ],
-            'ap93_engineering_claude_code_baseline_input_contract' => [
-                'valid' => $engineeringClaudeCodeBaselineInputContract === [],
-                'violations' => $engineeringClaudeCodeBaselineInputContract,
-            ],
-            'ap94_engineering_benchmark_input_contract' => [
-                'valid' => $engineeringBenchmarkInputContract === [],
-                'violations' => $engineeringBenchmarkInputContract,
-            ],
-            'ap95_engineering_context_intelligence_input_contract' => [
-                'valid' => $engineeringContextIntelligenceInputContract === [],
-                'violations' => $engineeringContextIntelligenceInputContract,
-            ],
-            'ap96_cli_limit_input_contract' => [
-                'valid' => $cliLimitInputContract === [],
-                'violations' => $cliLimitInputContract,
-            ],
-            'ap97_scheduler_input_contract' => [
-                'valid' => $schedulerInputContract === [],
-                'violations' => $schedulerInputContract,
-            ],
-            'ap98_self_improvement_input_contract' => [
-                'valid' => $selfImprovementInputContract === [],
-                'violations' => $selfImprovementInputContract,
-            ],
-            'ap99_provider_usage_performance_contract' => [
-                'valid' => $providerUsagePerformanceContract === [],
-                'violations' => $providerUsagePerformanceContract,
-            ],
-            'ap100_context_pack_manifest_reflection_contract' => [
-                'valid' => $contextPackManifestReflectionContract === [],
-                'violations' => $contextPackManifestReflectionContract,
-            ],
-            'ap101_context_retrieval_router_contract' => [
-                'valid' => $contextRetrievalRouterContract === [],
-                'violations' => $contextRetrievalRouterContract,
-            ],
-            'ap102_open_brain_retrieval_plan_summary_contract' => [
-                'valid' => $openBrainRetrievalPlanSummaryContract === [],
-                'violations' => $openBrainRetrievalPlanSummaryContract,
-            ],
-            'ap103_retrieval_required_source_availability_contract' => [
-                'valid' => $retrievalRequiredSourceAvailabilityContract === [],
-                'violations' => $retrievalRequiredSourceAvailabilityContract,
-            ],
-            'ap104_retrieval_review_signal_next_action_contract' => [
-                'valid' => $retrievalReviewSignalNextActionContract === [],
-                'violations' => $retrievalReviewSignalNextActionContract,
-            ],
-            'ap105_open_brain_retrieval_self_improvement_contract' => [
-                'valid' => $openBrainRetrievalSelfImprovementContract === [],
-                'violations' => $openBrainRetrievalSelfImprovementContract,
-            ],
-            'ap106_learning_proposed_review_signal_projection_contract' => [
-                'valid' => $learningProposedReviewSignalProjectionContract === [],
-                'violations' => $learningProposedReviewSignalProjectionContract,
-            ],
-            'ap107_proposal_inbox_review_signal_contract' => [
-                'valid' => $proposalInboxReviewSignalContract === [],
-                'violations' => $proposalInboxReviewSignalContract,
-            ],
-            'ap108_learning_proposed_inbox_link_contract' => [
-                'valid' => $learningProposedInboxLinkContract === [],
-                'violations' => $learningProposedInboxLinkContract,
-            ],
-            'ap109_operation_completed_inbox_refs_contract' => [
-                'valid' => $operationCompletedInboxRefsContract === [],
-                'violations' => $operationCompletedInboxRefsContract,
-            ],
-            'ap110_schedule_replay_inbox_refs_contract' => [
-                'valid' => $scheduleReplayInboxRefsContract === [],
-                'violations' => $scheduleReplayInboxRefsContract,
-            ],
-            'ap111_schedule_replay_inbox_refs_surface_parity' => [
-                'valid' => $scheduleReplayInboxRefsSurfaceParity === [],
-                'violations' => $scheduleReplayInboxRefsSurfaceParity,
-            ],
-            'ap112_schedule_replay_inbox_item_hydration' => [
-                'valid' => $scheduleReplayInboxItemHydration === [],
-                'violations' => $scheduleReplayInboxItemHydration,
-            ],
-            'ap113_schedule_replay_inbox_item_hydration_surface_parity' => [
-                'valid' => $scheduleReplayInboxItemHydrationSurfaceParity === [],
-                'violations' => $scheduleReplayInboxItemHydrationSurfaceParity,
-            ],
-            'ap114_schedule_replay_inbox_hydration_gap_signal' => [
-                'valid' => $scheduleReplayInboxHydrationGapSignal === [],
-                'violations' => $scheduleReplayInboxHydrationGapSignal,
-            ],
-            'ap115_self_improvement_schedule_replay_inbox_gap_finding' => [
-                'valid' => $selfImprovementScheduleReplayInboxGapFinding === [],
-                'violations' => $selfImprovementScheduleReplayInboxGapFinding,
-            ],
-            'ap116_self_improvement_schedule_replay_inbox_gap_emission' => [
-                'valid' => $selfImprovementScheduleReplayInboxGapEmission === [],
-                'violations' => $selfImprovementScheduleReplayInboxGapEmission,
-            ],
-            'ap117_proposal_inbox_review_signal_severity' => [
-                'valid' => $proposalInboxReviewSignalSeverity === [],
-                'violations' => $proposalInboxReviewSignalSeverity,
-            ],
-            'ap118_proposal_review_action_contract' => [
-                'valid' => $proposalReviewActionContract === [],
-                'violations' => $proposalReviewActionContract,
-            ],
-            'ap119_cli_inbox_review_action_result_parity' => [
-                'valid' => $cliInboxReviewActionResultParity === [],
-                'violations' => $cliInboxReviewActionResultParity,
-            ],
-            'ap120_inbox_action_evidence_ledger_contract' => [
-                'valid' => $inboxActionEvidenceLedgerContract === [],
-                'violations' => $inboxActionEvidenceLedgerContract,
-            ],
-            'ap121_inbox_action_replay_read_model' => [
-                'valid' => $inboxActionReplayReadModel === [],
-                'violations' => $inboxActionReplayReadModel,
-            ],
-            'ap122_inbox_action_mcp_report' => [
-                'valid' => $inboxActionMcpReport === [],
-                'violations' => $inboxActionMcpReport,
-            ],
-            'ap123_self_improvement_inbox_action_replay_review' => [
-                'valid' => $selfImprovementInboxActionReplayReview === [],
-                'violations' => $selfImprovementInboxActionReplayReview,
-            ],
-            'ap124_observability_inbox_action_replay' => [
-                'valid' => $observabilityInboxActionReplay === [],
-                'violations' => $observabilityInboxActionReplay,
-            ],
-            'ap125_inbox_action_report_surfaces' => [
-                'valid' => $inboxActionReportSurfaces === [],
-                'violations' => $inboxActionReportSurfaces,
-            ],
-            'ap126_architecture_validate_post_ap98_human_output' => [
-                'valid' => $architectureValidatePostAp98HumanOutput === [],
-                'violations' => $architectureValidatePostAp98HumanOutput,
-            ],
-            'ap127_cli_help_architecture_operations_discovery' => [
-                'valid' => $cliHelpArchitectureOperationsDiscovery === [],
-                'violations' => $cliHelpArchitectureOperationsDiscovery,
-            ],
-            'ap128_architecture_operations_shared_catalog' => [
-                'valid' => $architectureOperationsSharedCatalog === [],
-                'violations' => $architectureOperationsSharedCatalog,
-            ],
-            'ap129_architecture_operations_mcp_tool' => [
-                'valid' => $architectureOperationsMcpTool === [],
-                'violations' => $architectureOperationsMcpTool,
-            ],
-            'ap130_architecture_operations_direct_surfaces' => [
-                'valid' => $architectureOperationsDirectSurfaces === [],
-                'violations' => $architectureOperationsDirectSurfaces,
-            ],
-            'ap131_self_improvement_architecture_operations_review' => [
-                'valid' => $selfImprovementArchitectureOperationsReview === [],
-                'violations' => $selfImprovementArchitectureOperationsReview,
-            ],
-            'ap132_architecture_operations_metadata_contract' => [
-                'valid' => $architectureOperationsMetadataContract === [],
-                'violations' => $architectureOperationsMetadataContract,
-            ],
-            'ap133_architecture_operations_filter_contract' => [
-                'valid' => $architectureOperationsFilterContract === [],
-                'violations' => $architectureOperationsFilterContract,
-            ],
-            'ap173_session_bootstrap_docs_split_plan_contract' => [
-                'valid' => $sessionBootstrapDocsSplitPlanContract === [],
-                'violations' => $sessionBootstrapDocsSplitPlanContract,
-            ],
-            'ap174_session_bootstrap_architecture_operations_contract' => [
-                'valid' => $sessionBootstrapArchitectureOperationsContract === [],
-                'violations' => $sessionBootstrapArchitectureOperationsContract,
-            ],
-            'ap175_feature_placement_architecture_operations_contract' => [
-                'valid' => $featurePlacementArchitectureOperationsContract === [],
-                'violations' => $featurePlacementArchitectureOperationsContract,
-            ],
-            'ap176_architecture_readiness_snapshot' => [
-                'valid' => $architectureReadinessSnapshot === [],
-                'violations' => $architectureReadinessSnapshot,
-            ],
-            'ap177_architecture_readiness_mcp_tool' => [
-                'valid' => $architectureReadinessMcpTool === [],
-                'violations' => $architectureReadinessMcpTool,
-            ],
-            'ap178_provider_release_anti_wrapper_contract' => [
-                'valid' => $providerReleaseAntiWrapperContract === [],
-                'violations' => $providerReleaseAntiWrapperContract,
-            ],
-            'ap179_voice_realtime_activation_governance' => [
-                'valid' => $voiceRealtimeActivationGovernance === [],
-                'violations' => $voiceRealtimeActivationGovernance,
-            ],
-            'ap185_voice_realtime_runtime_certification_contract' => [
-                'valid' => $voiceRealtimeRuntimeCertificationContract === [],
-                'violations' => $voiceRealtimeRuntimeCertificationContract,
-            ],
-            'ap686_voice_realtime_python_runtime_boundary_contract' => [
-                'valid' => $voiceRealtimePythonRuntimeBoundaryContract === [],
-                'violations' => $voiceRealtimePythonRuntimeBoundaryContract,
-            ],
-            'ap687_voice_realtime_production_promotion_gate' => [
-                'valid' => $voiceRealtimeProductionPromotionGate === [],
-                'violations' => $voiceRealtimeProductionPromotionGate,
-            ],
-            'ap683_local_rag_graph_promotion_review' => [
-                'valid' => $localRagGraphPromotionReview === [],
-                'violations' => $localRagGraphPromotionReview,
-            ],
-            'ap684_external_graph_harness_contract' => [
-                'valid' => $externalGraphHarnessContract === [],
-                'violations' => $externalGraphHarnessContract,
-            ],
-            'ap685_constelacao_lens1_usage_review_contract' => [
-                'valid' => $constelacaoLens1UsageReviewContract === [],
-                'violations' => $constelacaoLens1UsageReviewContract,
-            ],
-            'ap168_productive_failure_governance_contract' => [
-                'valid' => $productiveFailureGovernanceContract === [],
-                'violations' => $productiveFailureGovernanceContract,
-            ],
-            'ap169_personal_worked_example_privacy_contract' => [
-                'valid' => $personalWorkedExamplePrivacyContract === [],
-                'violations' => $personalWorkedExamplePrivacyContract,
-            ],
-            'ap170_predictive_failure_governance_contract' => [
-                'valid' => $predictiveFailureGovernanceContract === [],
-                'violations' => $predictiveFailureGovernanceContract,
-            ],
-            'ap201_runtime_language_boundary_contract' => [
-                'valid' => $runtimeLanguageBoundaryContract === [],
-                'violations' => $runtimeLanguageBoundaryContract,
-            ],
+            'ap1_surface_provider_bypass' => fn (): array => $this->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
+                            'App\\Services\\Ai\\Kernel\\Provider\\ProviderDriver',
+                            'App\\Services\\Ai\\Provider\\Drivers\\',
+                            'App\\Services\\Ai\\ClaudeCliProvider',
+                            'App\\Services\\Ai\\CodexCliProvider',
+                            'App\\Services\\Ai\\GeminiCliProvider',
+                            'App\\Services\\Ai\\AiGatewayService',
+                            'App\\Services\\Ai\\AiWorker',
+                            'ProviderDriverRegistry',
+                            'ClaudeCliProvider',
+                            'CodexCliProvider',
+                            'GeminiCliProvider',
+                            'provider->execute(',
+                            'prepareRequest(',
+                        ]),
+            'ap2_surface_context_bypass' => fn (): array => $this->scanPhpFilesForForbiddenTokens(app_path('Services/Ai/Surface'), [
+                            'App\\Services\\Ai\\AiContextPackBuilder',
+                            'App\\Services\\Ai\\AtlasOpenBrainContextInjectionService',
+                            'App\\Services\\Ai\\AtlasMemoryRegistryService',
+                            'App\\Services\\Ai\\EngineeringContextPackService',
+                            'App\\Services\\Engineering\\EngineeringContextPackService',
+                            'ContextPackBuilder',
+                            'OpenBrainContextInjection',
+                            'AtlasMemoryRegistry',
+                            'EngineeringContextPack',
+                            'new ContextPack',
+                            'context_pack',
+                            'contextPack',
+                            'context_refs',
+                            'contextRefs',
+                            'memory_refs',
+                            'memoryRefs',
+                        ]),
+            'ap6_decision_receipt_propagation' => fn (): array => $this->scanGatewayDecisionReceiptPropagation(),
+            'ap13_decision_receipt_runtime_guard' => fn (): array => $this->scanWorkerDecisionReceiptRuntimeGuard(),
+            'ap134_decision_receipt_hash_runtime_guard' => fn (): array => $this->scanDecisionReceiptHashRuntimeGuard(),
+            'ap135_decision_receipt_determinism_test' => fn (): array => $this->scanDecisionReceiptDeterminismTest(),
+            'ap136_decision_receipt_chain_replay' => fn (): array => $this->scanDecisionReceiptChainReplay(),
+            'ap137_decision_receipt_replay_surfaces' => fn (): array => $this->scanDecisionReceiptReplaySurfaces(),
+            'ap138_decision_receipt_replay_curator_review' => fn (): array => $this->scanDecisionReceiptReplayCuratorReview(),
+            'ap139_decision_receipt_replay_inbox_emission' => fn (): array => $this->scanDecisionReceiptReplayInboxEmission(),
+            'ap140_ledger_replay_command_surface' => fn (): array => $this->scanLedgerReplayCommandSurface(),
+            'ap141_ledger_projection_registry_contract' => fn (): array => $this->scanLedgerProjectionRegistryContract(),
+            'ap142_ledger_projection_inbox_action' => fn (): array => $this->scanLedgerProjectionInboxAction(),
+            'ap143_ledger_projection_curator_action_emission' => fn (): array => $this->scanLedgerProjectionCuratorActionEmission(),
+            'ap145_documentation_health_curator_review' => fn (): array => $this->scanDocumentationHealthCuratorReview(),
+            'ap146_provider_cost_rate_inbox_replay' => fn (): array => $this->scanProviderCostRateInboxReplay(),
+            'ap148_agent_behavior_identity_fragment' => fn (): array => $this->scanAgentBehaviorIdentityFragment(),
+            'ap149_agent_behavior_execution_plan' => fn (): array => $this->scanAgentBehaviorExecutionPlan(),
+            'ap150_agent_behavior_quality_gate' => fn (): array => $this->scanAgentBehaviorQualityGate(),
+            'ap151_agent_behavior_review_action_surface' => fn (): array => $this->scanAgentBehaviorReviewActionSurface(),
+            'ap152_programming_plan_agent_behavior_contract' => fn (): array => $this->scanProgrammingPlanAgentBehaviorContract(),
+            'ap153_programming_harness_agent_behavior_contract' => fn (): array => $this->scanProgrammingHarnessAgentBehaviorContract(),
+            'ap154_agent_behavior_evidence_ledger' => fn (): array => $this->scanAgentBehaviorEvidenceLedger(),
+            'ap155_agent_behavior_replay_read_model' => fn (): array => $this->scanAgentBehaviorReplayReadModel(),
+            'ap156_agent_behavior_mcp_report' => fn (): array => $this->scanAgentBehaviorMcpReport(),
+            'ap157_agent_behavior_self_improvement_review' => fn (): array => $this->scanAgentBehaviorSelfImprovementReview(),
+            'ap158_agent_behavior_direct_surfaces' => fn (): array => $this->scanAgentBehaviorDirectSurfaces(),
+            'ap159_agent_behavior_dedicated_curator_flow' => fn (): array => $this->scanAgentBehaviorDedicatedCuratorFlow(),
+            'ap160_agent_behavior_curator_filter_surface' => fn (): array => $this->scanAgentBehaviorCuratorFilterSurface(),
+            'ap161_agent_behavior_recurring_schedule' => fn (): array => $this->scanAgentBehaviorRecurringSchedule(),
+            'ap162_agent_behavior_proposal_governance' => fn (): array => $this->scanAgentBehaviorProposalGovernance(),
+            'ap12_provider_driver_identity_bypass' => fn (): array => $this->scanPhpFilesForForbiddenTokens(
+                            app_path('Services/Ai/Provider/Drivers'),
+                            [
+                                'new ClaudeCliProvider',
+                                'new CodexCliProvider',
+                                'new GeminiCliProvider',
+                                'app(ClaudeCliProvider',
+                                'app(CodexCliProvider',
+                                'app(GeminiCliProvider',
+                                'provider_real_execution_allowed\' => true',
+                                'provider_real_execution_allowed" => true',
+                            ],
+                            [
+                                app_path('Services/Ai/Provider/Drivers/ProviderDriverRegistry.php'),
+                            ],
+                        ),
+            'ap14_tool_tier_hot_path' => fn (): array => $this->scanToolTierHotPathPolicy(),
+            'ap15_provider_memory_privacy' => fn (): array => $this->scanProviderMemoryPrivacy(),
+            'ap16_slo_observability' => fn (): array => $this->scanSloObservability(),
+            'ap17_kernel_pipeline_contract' => fn (): array => $this->scanKernelPipelineContract(),
+            'ap18_repair_loop_contract' => fn (): array => $this->scanRepairLoopContract(),
+            'ap19_mcp_domain_catalog_parity' => fn (): array => $this->scanMcpDomainCatalogParity(),
+            'ap20_cli_fix_dev_repair_alias' => fn (): array => $this->scanCliFixDevRepairAlias(),
+            'ap21_cli_continue_dev_resume_alias' => fn (): array => $this->scanCliContinueDevResumeAlias(),
+            'ap22_cli_forge_programming_harness_contract' => fn (): array => $this->scanCliForgeProgrammingHarnessContract(),
+            'ap23_chat_dev_programming_contract' => fn (): array => $this->scanChatDevProgrammingContract(),
+            'ap24_surface_alias_canonicalization' => fn (): array => $this->scanSurfaceAliasCanonicalization(),
+            'ap25_decide_model_selection_contract' => fn (): array => $this->scanDecideModelSelectionContract(),
+            'ap26_cli_dev_model_selection_contract' => fn (): array => $this->scanCliDevModelSelectionContract(),
+            'ap27_chat_model_selection_contract' => fn (): array => $this->scanChatModelSelectionContract(),
+            'ap28_kernel_model_selection_contract_factory' => fn (): array => $this->scanKernelModelSelectionContractFactory(),
+            'ap29_programming_surface_contract_factory' => fn (): array => $this->scanProgrammingSurfaceContractFactory(),
+            'ap30_chat_programming_contract_factory' => fn (): array => $this->scanChatProgrammingContractFactory(),
+            'ap31_continue_resume_contract_factory' => fn (): array => $this->scanContinueResumeContractFactory(),
+            'ap32_fix_contract_factory' => fn (): array => $this->scanFixContractFactory(),
+            'ap36_kernel_pipeline_health_read_model' => fn (): array => $this->scanKernelPipelineHealthReadModel(),
+            'ap37_architecture_validation_surface' => fn (): array => $this->scanArchitectureValidationSurface(),
+            'ap38_architecture_validation_observability' => fn (): array => $this->scanArchitectureValidationObservability(),
+            'ap39_architecture_validation_contract_parity' => fn (): array => $this->scanArchitectureValidationContractParity(),
+            'ap40_architecture_validation_mcp_tool' => fn (): array => $this->scanArchitectureValidationMcpTool(),
+            'ap41_self_improvement_architecture_validation_review' => fn (): array => $this->scanSelfImprovementArchitectureValidationReview(),
+            'ap42_self_improvement_architecture_audit_schedule' => fn (): array => $this->scanSelfImprovementArchitectureAuditSchedule(),
+            'ap43_self_improvement_flow_cadence_contract' => fn (): array => $this->scanSelfImprovementFlowCadenceContract(),
+            'ap44_self_improvement_command_next_run_contract' => fn (): array => $this->scanSelfImprovementCommandNextRunContract(),
+            'ap45_self_improvement_schedule_mcp_tool' => fn (): array => $this->scanSelfImprovementScheduleMcpTool(),
+            'ap46_self_improvement_schedule_health_review' => fn (): array => $this->scanSelfImprovementScheduleHealthReview(),
+            'ap47_self_improvement_schedule_health_ledger_event' => fn (): array => $this->scanSelfImprovementScheduleHealthLedgerEvent(),
+            'ap48_self_improvement_schedule_replay_read_model' => fn (): array => $this->scanSelfImprovementScheduleReplayReadModel(),
+            'ap49_self_improvement_schedule_replay_surfaces' => fn (): array => $this->scanSelfImprovementScheduleReplaySurfaces(),
+            'ap50_self_improvement_schedule_replay_mcp_tool' => fn (): array => $this->scanSelfImprovementScheduleReplayMcpTool(),
+            'ap51_self_improvement_schedule_replay_review' => fn (): array => $this->scanSelfImprovementScheduleReplayReview(),
+            'ap52_self_improvement_schedule_replay_review_signal' => fn (): array => $this->scanSelfImprovementScheduleReplayReviewSignal(),
+            'ap53_self_improvement_schedule_replay_review_signal_surfaces' => fn (): array => $this->scanSelfImprovementScheduleReplayReviewSignalSurfaces(),
+            'ap54_kernel_pipeline_review_signal' => fn (): array => $this->scanKernelPipelineReviewSignal(),
+            'ap55_repair_loop_review_signal' => fn (): array => $this->scanRepairLoopReviewSignal(),
+            'ap56_slo_review_signal' => fn (): array => $this->scanSloReviewSignal(),
+            'ap57_slo_mcp_tool' => fn (): array => $this->scanSloMcpTool(),
+            'ap58_kernel_pipeline_mcp_tool' => fn (): array => $this->scanKernelPipelineMcpTool(),
+            'ap59_repair_loop_mcp_tool' => fn (): array => $this->scanRepairLoopMcpTool(),
+            'ap60_repair_loop_unavailable_review_signal' => fn (): array => $this->scanRepairLoopUnavailableReviewSignal(),
+            'ap61_slo_unavailable_review_signal' => fn (): array => $this->scanSloUnavailableReviewSignal(),
+            'ap62_mcp_replay_unavailable_review_signal' => fn (): array => $this->scanMcpReplayUnavailableReviewSignal(),
+            'ap63_schedule_replay_unavailable_shape_parity' => fn (): array => $this->scanScheduleReplayUnavailableShapeParity(),
+            'ap64_mcp_replay_window_contract' => fn (): array => $this->scanMcpReplayWindowContract(),
+            'ap65_mcp_replay_filter_contract' => fn (): array => $this->scanMcpReplayFilterContract(),
+            'ap66_replay_report_input_contract' => fn (): array => $this->scanReplayReportInputContract(),
+            'ap67_observability_replay_input_contract' => fn (): array => $this->scanObservabilityReplayInputContract(),
+            'ap68_replay_report_validation_limit_contract' => fn (): array => $this->scanReplayReportValidationLimitContract(),
+            'ap69_self_improvement_runtime_window_contract' => fn (): array => $this->scanSelfImprovementRuntimeWindowContract(),
+            'ap70_self_improvement_schedule_window_contract' => fn (): array => $this->scanSelfImprovementScheduleWindowContract(),
+            'ap71_self_improvement_orchestrator_window_contract' => fn (): array => $this->scanSelfImprovementOrchestratorWindowContract(),
+            'ap72_telemetry_window_input_contract' => fn (): array => $this->scanTelemetryWindowInputContract(),
+            'ap73_runtime_budget_window_contract' => fn (): array => $this->scanRuntimeBudgetWindowContract(),
+            'ap74_ledger_envelope_input_contract' => fn (): array => $this->scanLedgerEnvelopeInputContract(),
+            'ap75_ledger_envelope_report_contract' => fn (): array => $this->scanLedgerEnvelopeReportContract(),
+            'ap76_telemetry_list_limit_contract' => fn (): array => $this->scanTelemetryListLimitContract(),
+            'ap77_programming_iteration_policy_contract' => fn (): array => $this->scanProgrammingIterationPolicyContract(),
+            'ap78_open_brain_mcp_input_contract' => fn (): array => $this->scanOpenBrainMcpInputContract(),
+            'ap79_memory_query_input_contract' => fn (): array => $this->scanMemoryQueryInputContract(),
+            'ap80_provider_projection_audit_input_contract' => fn (): array => $this->scanProviderProjectionAuditInputContract(),
+            'ap81_conversation_context_input_contract' => fn (): array => $this->scanConversationContextInputContract(),
+            'ap82_retrieval_rank_input_contract' => fn (): array => $this->scanRetrievalRankInputContract(),
+            'ap83_atlas_vault_command_input_contract' => fn (): array => $this->scanAtlasVaultCommandInputContract(),
+            'ap84_memory_recall_input_contract' => fn (): array => $this->scanMemoryRecallInputContract(),
+            'ap85_context_pack_memory_input_contract' => fn (): array => $this->scanContextPackMemoryInputContract(),
+            'ap86_semantic_context_input_contract' => fn (): array => $this->scanSemanticContextInputContract(),
+            'ap87_provider_projection_input_contract' => fn (): array => $this->scanProviderProjectionInputContract(),
+            'ap88_test_command_input_contract' => fn (): array => $this->scanTestCommandInputContract(),
+            'ap89_engineering_harness_runner_input_contract' => fn (): array => $this->scanEngineeringHarnessRunnerInputContract(),
+            'ap90_engineering_harnessability_input_contract' => fn (): array => $this->scanEngineeringHarnessabilityInputContract(),
+            'ap91_engineering_docker_harness_input_contract' => fn (): array => $this->scanEngineeringDockerHarnessInputContract(),
+            'ap92_engineering_test_matrix_input_contract' => fn (): array => $this->scanEngineeringTestMatrixInputContract(),
+            'ap93_engineering_claude_code_baseline_input_contract' => fn (): array => $this->scanEngineeringClaudeCodeBaselineInputContract(),
+            'ap94_engineering_benchmark_input_contract' => fn (): array => $this->scanEngineeringBenchmarkInputContract(),
+            'ap95_engineering_context_intelligence_input_contract' => fn (): array => $this->scanEngineeringContextIntelligenceInputContract(),
+            'ap96_cli_limit_input_contract' => fn (): array => $this->scanCliLimitInputContract(),
+            'ap97_scheduler_input_contract' => fn (): array => $this->scanSchedulerInputContract(),
+            'ap98_self_improvement_input_contract' => fn (): array => $this->scanSelfImprovementInputContract(),
+            'ap99_provider_usage_performance_contract' => fn (): array => $this->scanProviderUsagePerformanceContract(),
+            'ap100_context_pack_manifest_reflection_contract' => fn (): array => $this->scanContextPackManifestReflectionContract(),
+            'ap101_context_retrieval_router_contract' => fn (): array => $this->scanContextRetrievalRouterContract(),
+            'ap102_open_brain_retrieval_plan_summary_contract' => fn (): array => $this->scanOpenBrainRetrievalPlanSummaryContract(),
+            'ap103_retrieval_required_source_availability_contract' => fn (): array => $this->scanRetrievalRequiredSourceAvailabilityContract(),
+            'ap104_retrieval_review_signal_next_action_contract' => fn (): array => $this->scanRetrievalReviewSignalNextActionContract(),
+            'ap105_open_brain_retrieval_self_improvement_contract' => fn (): array => $this->scanOpenBrainRetrievalSelfImprovementContract(),
+            'ap106_learning_proposed_review_signal_projection_contract' => fn (): array => $this->scanLearningProposedReviewSignalProjectionContract(),
+            'ap107_proposal_inbox_review_signal_contract' => fn (): array => $this->scanProposalInboxReviewSignalContract(),
+            'ap108_learning_proposed_inbox_link_contract' => fn (): array => $this->scanLearningProposedInboxLinkContract(),
+            'ap109_operation_completed_inbox_refs_contract' => fn (): array => $this->scanOperationCompletedInboxRefsContract(),
+            'ap110_schedule_replay_inbox_refs_contract' => fn (): array => $this->scanScheduleReplayInboxRefsContract(),
+            'ap111_schedule_replay_inbox_refs_surface_parity' => fn (): array => $this->scanScheduleReplayInboxRefsSurfaceParity(),
+            'ap112_schedule_replay_inbox_item_hydration' => fn (): array => $this->scanScheduleReplayInboxItemHydration(),
+            'ap113_schedule_replay_inbox_item_hydration_surface_parity' => fn (): array => $this->scanScheduleReplayInboxItemHydrationSurfaceParity(),
+            'ap114_schedule_replay_inbox_hydration_gap_signal' => fn (): array => $this->scanScheduleReplayInboxHydrationGapSignal(),
+            'ap115_self_improvement_schedule_replay_inbox_gap_finding' => fn (): array => $this->scanSelfImprovementScheduleReplayInboxGapFinding(),
+            'ap116_self_improvement_schedule_replay_inbox_gap_emission' => fn (): array => $this->scanSelfImprovementScheduleReplayInboxGapEmission(),
+            'ap117_proposal_inbox_review_signal_severity' => fn (): array => $this->scanProposalInboxReviewSignalSeverity(),
+            'ap118_proposal_review_action_contract' => fn (): array => $this->scanProposalReviewActionContract(),
+            'ap119_cli_inbox_review_action_result_parity' => fn (): array => $this->scanCliInboxReviewActionResultParity(),
+            'ap120_inbox_action_evidence_ledger_contract' => fn (): array => $this->scanInboxActionEvidenceLedgerContract(),
+            'ap121_inbox_action_replay_read_model' => fn (): array => $this->scanInboxActionReplayReadModel(),
+            'ap122_inbox_action_mcp_report' => fn (): array => $this->scanInboxActionMcpReport(),
+            'ap123_self_improvement_inbox_action_replay_review' => fn (): array => $this->scanSelfImprovementInboxActionReplayReview(),
+            'ap124_observability_inbox_action_replay' => fn (): array => $this->scanObservabilityInboxActionReplay(),
+            'ap125_inbox_action_report_surfaces' => fn (): array => $this->scanInboxActionReportSurfaces(),
+            'ap126_architecture_validate_post_ap98_human_output' => fn (): array => $this->scanArchitectureValidatePostAp98HumanOutput(),
+            'ap127_cli_help_architecture_operations_discovery' => fn (): array => $this->scanCliHelpArchitectureOperationsDiscovery(),
+            'ap128_architecture_operations_shared_catalog' => fn (): array => $this->scanArchitectureOperationsSharedCatalog(),
+            'ap129_architecture_operations_mcp_tool' => fn (): array => $this->scanArchitectureOperationsMcpTool(),
+            'ap130_architecture_operations_direct_surfaces' => fn (): array => $this->scanArchitectureOperationsDirectSurfaces(),
+            'ap131_self_improvement_architecture_operations_review' => fn (): array => $this->scanSelfImprovementArchitectureOperationsReview(),
+            'ap132_architecture_operations_metadata_contract' => fn (): array => $this->scanArchitectureOperationsMetadataContract(),
+            'ap133_architecture_operations_filter_contract' => fn (): array => $this->scanArchitectureOperationsFilterContract(),
+            'ap173_session_bootstrap_docs_split_plan_contract' => fn (): array => $this->scanSessionBootstrapDocsSplitPlanContract(),
+            'ap174_session_bootstrap_architecture_operations_contract' => fn (): array => $this->scanSessionBootstrapArchitectureOperationsContract(),
+            'ap175_feature_placement_architecture_operations_contract' => fn (): array => $this->scanFeaturePlacementArchitectureOperationsContract(),
+            'ap176_architecture_readiness_snapshot' => fn (): array => $this->scanArchitectureReadinessSnapshot(),
+            'ap177_architecture_readiness_mcp_tool' => fn (): array => $this->scanArchitectureReadinessMcpTool(),
+            'ap178_provider_release_anti_wrapper_contract' => fn (): array => $this->scanProviderReleaseAntiWrapperContract(),
+            'ap179_voice_realtime_activation_governance' => fn (): array => $this->scanVoiceRealtimeActivationGovernance(),
+            'ap185_voice_realtime_runtime_certification_contract' => fn (): array => $this->scanVoiceRealtimeRuntimeCertificationContract(),
+            'ap686_voice_realtime_python_runtime_boundary_contract' => fn (): array => $this->scanVoiceRealtimePythonRuntimeBoundaryContract(),
+            'ap687_voice_realtime_production_promotion_gate' => fn (): array => $this->scanVoiceRealtimeProductionPromotionGate(),
+            'ap683_local_rag_graph_promotion_review' => fn (): array => $this->scanLocalRagGraphPromotionReview(),
+            'ap684_external_graph_harness_contract' => fn (): array => $this->scanExternalGraphHarnessContract(),
+            'ap685_constelacao_lens1_usage_review_contract' => fn (): array => $this->scanConstelacaoLens1UsageReviewContract(),
+            'ap168_productive_failure_governance_contract' => fn (): array => $this->scanProductiveFailureGovernanceContract(),
+            'ap169_personal_worked_example_privacy_contract' => fn (): array => $this->scanPersonalWorkedExamplePrivacyContract(),
+            'ap170_predictive_failure_governance_contract' => fn (): array => $this->scanPredictiveFailureGovernanceContract(),
+            'ap201_runtime_language_boundary_contract' => fn (): array => $this->scanRuntimeLanguageBoundaryContract(),
         ];
     }
 
+    /**
+     * @param  array<int,string>  $violations
+     * @return array{valid:bool,violations:array<int,string>}
+     */
+    private function architectureScanResult(array $violations): array
+    {
+        return [
+            'valid' => $violations === [],
+            'violations' => $violations,
+        ];
+    }
     /**
      * @return array<int,string>
      */
