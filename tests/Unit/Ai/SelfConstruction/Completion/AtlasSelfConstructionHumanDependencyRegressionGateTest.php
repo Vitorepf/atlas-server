@@ -226,4 +226,33 @@ class AtlasSelfConstructionHumanDependencyRegressionGateTest extends TestCase
 
         $this->assertRegressionShape($verdict['regressions'][0], AtlasSelfConstructionHumanDependencyRegressionGate::REGRESSION_UNDOCUMENTED_HANDOFF);
     }
+
+    // ── AC: ordinary path with decorative bootstrap label + non-atlas actor must NOT pass ──
+
+    public function test_ordinary_path_with_bootstrap_label_and_operator_actor_blocked(): void
+    {
+        $verdict = (new AtlasSelfConstructionHumanDependencyRegressionGate)->check([
+            'final_runtime_owner' => 'atlas_native',
+            'paths' => [
+                ['id' => 'p1', 'kind' => 'ordinary', 'label' => 'bootstrap', 'steady_state_required' => ['operator_required']],
+            ],
+        ]);
+
+        $this->assertFalse($verdict['passed'], 'ordinary path with bootstrap label + operator must be blocked');
+        $this->assertNotEmpty($verdict['blockers']);
+        $this->assertFalse($verdict['inspected_paths'][0]['advisory_exception_applied']);
+    }
+
+    public function test_bootstrap_kind_with_operator_actor_still_passes_as_advisory(): void
+    {
+        $verdict = (new AtlasSelfConstructionHumanDependencyRegressionGate)->check([
+            'final_runtime_owner' => 'atlas_native',
+            'paths' => [
+                ['id' => 'b1', 'kind' => 'bootstrap', 'steady_state_required' => ['operator_required']],
+            ],
+        ]);
+
+        // bootstrap kind IS an allowed exception — this is fine.
+        $this->assertTrue($verdict['passed']);
+    }
 }
