@@ -14,7 +14,7 @@ final class AgentMergeReviewHumanApprovalPlannerTest extends TestCase
     {
         $this->assertSame('atlas.self_construction.agent_merge_review_human_approval_plan.v1', AgentMergeReviewHumanApprovalPlanner::SCHEMA_VERSION);
         $this->assertSame('read_only_agent_merge_review_human_approval_plan', AgentMergeReviewHumanApprovalPlanner::MODE);
-        $this->assertSame(['single', 'double', 'quorum'], AgentMergeReviewHumanApprovalPlanner::APPROVAL_MODES);
+        $this->assertSame(['autonomous_approval', 'single', 'double', 'quorum'], AgentMergeReviewHumanApprovalPlanner::APPROVAL_MODES);
         $this->assertArrayHasKey('low', AgentMergeReviewHumanApprovalPlanner::DEFAULT_APPROVERS);
         $this->assertArrayHasKey('critical', AgentMergeReviewHumanApprovalPlanner::DEFAULT_APPROVERS);
     }
@@ -172,6 +172,51 @@ final class AgentMergeReviewHumanApprovalPlannerTest extends TestCase
         $low = $svc->plan(...$this->scenario('low'));
         $crit = $svc->plan(...$this->scenario('critical'));
         $this->assertLessThan(count($crit['plan']['required_approvers']), count($low['plan']['required_approvers']));
+    }
+
+    // ── AC: absent scope verification is treated as fail-closed ──
+
+    public function test_missing_scope_verification_blocks_approval(): void
+    {
+        $svc = new AgentMergeReviewHumanApprovalPlanner;
+        [$packet, , $risk] = $this->scenario('low');
+        $missingScope = []; // No 'verification' key at all.
+
+        $result = $svc->plan($packet, $missingScope, $risk);
+
+        $this->assertStringContainsString('blocked', $result['status']);
+        $this->assertFalse($result['plan']['approval_eligible']);
+        $found = false;
+        foreach ($result['plan']['blocking_conditions'] as $bc) {
+            if ($bc['name'] === 'scope_verification_missing') {
+                $found = true;
+                break;
+            }
+        }
+        $this->assertTrue($found, 'scope_verification_missing blocking condition must be present');
+    }
+
+    public function test_missing_scope_verification_blocked_status(): void
+    {
+        $svc = new AgentMergeReviewHumanApprovalPlanner;
+        [$packet, , $risk] = $this->scenario('low');
+        $missingScope = [];
+
+        $result = $svc->plan($packet, $missingScope, $risk);
+
+        $this->assertSame('agent_merge_review_human_approval_blocked', $result['status']);
+        $this->assertSame('human_approval_blocked_until_conditions_cleared', $result['plan']['justification']);
+    }
+
+    public function test_missing_scope_verification_prevents_autonomous_approval(): void
+    {
+        $svc = new AgentMergeReviewHumanApprovalPlanner;
+        [$packet, , $risk] = $this->scenario('low');
+        $missingScope = [];
+
+        $result = $svc->plan($packet, $missingScope, $risk);
+
+        $this->assertNotSame('autonomous_approval', $result['plan']['approval_mode']);
     }
 
     /**

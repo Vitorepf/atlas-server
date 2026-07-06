@@ -68,7 +68,9 @@ final class AgentMergeReviewHumanApprovalPlanner
         $humanApprovalReasons = $this->detectHumanApprovalConditions($packet, $scopeVerification, $options);
 
         $hasFreshExecutableProof = (bool) ($options['has_fresh_executable_proof'] ?? false);
-        $isCleanScope = (int) (data_get($scopeVerification, 'verification.forbidden_violation_count') ?? 0) === 0
+        $hasScopeVerification = $scopeVerification['verification'] ?? null;
+        $isCleanScope = is_array($hasScopeVerification)
+            && (int) (data_get($scopeVerification, 'verification.forbidden_violation_count') ?? 0) === 0
             && (int) (data_get($scopeVerification, 'verification.cross_axis_violation_count') ?? 0) === 0
             && (int) (data_get($scopeVerification, 'verification.unsafe_path_violation_count') ?? 0) === 0;
 
