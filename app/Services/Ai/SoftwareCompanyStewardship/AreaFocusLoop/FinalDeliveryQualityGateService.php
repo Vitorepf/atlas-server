@@ -63,7 +63,7 @@ final class FinalDeliveryQualityGateService
      *
      * @param  array<string,string>  $files  path => file contents
      * @param  array<string,string>  $baselineFiles  path => file contents before this cycle
-     * @return array{final:bool,blocker:?string,violations:list<array{file:string,marker:string,excerpt:string}>,scanned_product_files:int}
+     * @return array{final:bool,blocker:?string,violations:list<array{file:string,marker:string,excerpt:string}>,scanned_product_files:int,scaffold_density:array<string,mixed>|null}
      */
     public function assess(array $files, array $baselineFiles = []): array
     {
@@ -92,12 +92,54 @@ final class FinalDeliveryQualityGateService
             }
         }
 
+        // WIRE-OBSERVE: graded hollowness of the ADDED lines — a delivery can be
+        // marker-free yet still be a wall of comments wrapping no behaviour, which
+        // the binary NON_FINAL_MARKERS scan above cannot see. Advisory only: the
+        // final/blocker verdict above is byte-identical to before. Fail-open null.
+        try {
+            $scaffoldDensity = (new ScaffoldDensityScorer)->score($this->addedLinesPerFile($files, $baselineFiles));
+        } catch (\Throwable) {
+            $scaffoldDensity = null;
+        }
+
         return [
             'final' => $violations === [],
             'blocker' => $violations === [] ? null : self::BLOCKER,
             'violations' => $violations,
             'scanned_product_files' => $scanned,
+            'scaffold_density' => $scaffoldDensity,
         ];
+    }
+
+    /**
+     * Derive the added-line bodies of each changed file from the contents this
+     * gate already receives (multiset line diff against the baseline), the exact
+     * input shape {@see ScaffoldDensityScorer::score()} consumes. Lines already
+     * present in the baseline never count as added, so pre-existing commentary
+     * cannot inflate the density of a small touch-up.
+     *
+     * @param  array<string,string>  $files
+     * @param  array<string,string>  $baselineFiles
+     * @return array<string,list<string>>
+     */
+    private function addedLinesPerFile(array $files, array $baselineFiles): array
+    {
+        $added = [];
+        foreach ($files as $path => $contents) {
+            $baselineCounts = array_count_values(explode("\n", (string) ($baselineFiles[(string) $path] ?? '')));
+            $lines = [];
+            foreach (explode("\n", (string) $contents) as $line) {
+                if (($baselineCounts[$line] ?? 0) > 0) {
+                    $baselineCounts[$line]--;
+
+                    continue;
+                }
+                $lines[] = $line;
+            }
+            $added[(string) $path] = $lines;
+        }
+
+        return $added;
     }
 
     /**

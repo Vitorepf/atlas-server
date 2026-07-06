@@ -197,6 +197,11 @@ final class LoopPreflightCycleFirewallService
             'gate_details' => $gateResults,
             'blockers' => AreaFocusStringListNormalizer::uniqueStringValues($blockers),
             'warnings' => AreaFocusStringListNormalizer::uniqueStringValues($warnings),
+            // WIRE-OBSERVE: graded contract quality of the candidate. Gate B above
+            // only blocks the EMPTY source/evidence case; this grades the
+            // sub-threshold one (synthetic stubs, bare tokens, default action).
+            // Advisory only — status/provider_allowed are byte-identical to before.
+            'weak_finding_contract_grade' => TheWeakFindingContractGradeContract::fromArray($candidate)->toArray(),
             'next_action' => $status === self::STATUS_ALLOW ? 'continue' : 'stop_'.$blockStatus,
             'claim_policy' => [
                 'read_only' => true,

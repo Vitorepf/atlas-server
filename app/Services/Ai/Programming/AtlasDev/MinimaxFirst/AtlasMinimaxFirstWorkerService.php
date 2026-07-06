@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\MinimaxFirst;
 
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasMinimaxM27CliRuntimeExecutor;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\DestructiveTestCoverageRemovalContract;
 use Symfony\Component\Process\Process;
 
 /**
@@ -439,6 +440,7 @@ final class AtlasMinimaxFirstWorkerService
         $testChangedFiles = [];
         $largeDeletedFiles = [];
         $largeDeletedTestFiles = [];
+        $testFilesDeletedCount = 0;
 
         foreach ($stats as $row) {
             $file = (string) ($row['file'] ?? '');
@@ -450,6 +452,11 @@ final class AtlasMinimaxFirstWorkerService
                 $testChangedFiles[] = $file;
                 $testInsertions += $insertions;
                 $testDeletions += $deletions;
+                // WIRE-OBSERVE: a pure-deletion diff on a test file that no longer
+                // exists in the worktree is a whole-test-file removal.
+                if ($insertions === 0 && $deletions > 0 && ! is_file($worktree.'/'.$file)) {
+                    $testFilesDeletedCount++;
+                }
                 if ($deletions >= self::DIFF_QUALITY_TEST_DELETIONS
                     && ($deletions / max(1, $insertions)) >= self::DIFF_QUALITY_TEST_DELETION_RATIO_FLOOR) {
                     $largeDeletedTestFiles[] = [
@@ -553,6 +560,16 @@ final class AtlasMinimaxFirstWorkerService
                 'comment_or_whitespace_only_files' => $semanticSummary['comment_or_whitespace_only_files'],
                 'acceptance_return_contract' => $acceptanceReturnContractSummary,
             ],
+            // WIRE-OBSERVE: sub-threshold destructive test-coverage-removal signals
+            // (below the large_test_deletion gate above). Advisory only — passed/
+            // blockers above are byte-identical to before.
+            'destructive_test_coverage_removal' => DestructiveTestCoverageRemovalContract::fromArray([
+                'test_insertions' => $testInsertions,
+                'test_deletions' => $testDeletions,
+                'product_insertions' => $productInsertions,
+                'product_deletions' => $productDeletions,
+                'test_files_deleted_count' => $testFilesDeletedCount,
+            ])->toArray(),
             'thresholds' => [
                 'large_product_lines_without_test' => self::DIFF_QUALITY_LARGE_PRODUCT_LINES_WITHOUT_TEST,
                 'product_deletions_without_test' => self::DIFF_QUALITY_PRODUCT_DELETIONS_WITHOUT_TEST,

@@ -233,4 +233,51 @@ class AreaFocusBranchSandboxPreflightServiceTest extends TestCase
         $this->assertSame(AreaFocusBranchSandboxPreflightService::REPORT_SCHEMA, $r['schema_version']);
         $this->assertArrayHasKey('gate_decision', $r['safety']);
     }
+
+    public function test_report_integrity_verifies_evaluator_stamped_gate_report(): void
+    {
+        // Real path: no gate_report override → the injected AP-723 evaluator
+        // stamps report_hash, so the observe-only integrity audit must verify it.
+        $r = $this->service()->project([
+            'operator_decision' => $this->decision(),
+            'work_order' => $this->workOrder(),
+        ]);
+
+        $integrity = $r['safety']['report_integrity'];
+
+        $this->assertSame('atlas.aaeos.gate_report_hash_integrity.v1', $integrity['schema_version']);
+        $this->assertTrue($integrity['trusted']);
+        $this->assertSame('verified', $integrity['verdict']);
+        $this->assertStringStartsWith('sha256:', $integrity['stamped_hash']);
+        $this->assertSame($integrity['stamped_hash'], $integrity['recomputed_hash']);
+        $this->assertNull($integrity['reason']);
+    }
+
+    public function test_report_integrity_flags_unhashed_gate_report_override(): void
+    {
+        // The default override in gate() carries no report_hash: never trusted.
+        $integrity = $this->project()['safety']['report_integrity'];
+
+        $this->assertFalse($integrity['trusted']);
+        $this->assertSame('unhashed', $integrity['verdict']);
+        $this->assertNull($integrity['stamped_hash']);
+        $this->assertStringStartsWith('sha256:', $integrity['recomputed_hash']);
+    }
+
+    public function test_report_integrity_flags_tampered_gate_report_on_blocked_path(): void
+    {
+        $r = $this->project(['gate_report' => $this->gate([
+            'decision' => 'block',
+            'blocked_when' => [['gate' => 'no_secrets_requested', 'reason' => 'secret access requested']],
+            'report_hash' => 'sha256:'.str_repeat('0', 64),
+        ])]);
+
+        $this->assertSame('blocked', $r['status']);
+
+        $integrity = $r['safety']['report_integrity'];
+
+        $this->assertFalse($integrity['trusted']);
+        $this->assertSame('tampered', $integrity['verdict']);
+        $this->assertNotSame($integrity['stamped_hash'], $integrity['recomputed_hash']);
+    }
 }

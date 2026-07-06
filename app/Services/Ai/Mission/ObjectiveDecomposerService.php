@@ -4,6 +4,7 @@ namespace App\Services\Ai\Mission;
 
 use App\Models\AiMission;
 use App\Models\AiObjective;
+use App\Services\Ai\Mission\DecompositionQuality\ObjectivePairMutualExclusivityScorer;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -25,6 +26,8 @@ class ObjectiveDecomposerService
         $clauses = $this->splitIntoClauses($mission->raw_prompt);
         $created = collect();
         $priority = 1;
+        $exclusivityScorer = new ObjectivePairMutualExclusivityScorer;
+        $previousObjective = null;
 
         foreach ($clauses as $clause) {
             $objective = AiObjective::query()->create([
@@ -41,6 +44,20 @@ class ObjectiveDecomposerService
                 'evidence_refs' => [],
             ]);
 
+            // Observe-only: exclusividade mútua vs objetivo anterior; null quando
+            // não há par anterior ou em erro do scorer (fail-open só na chamada).
+            $pairExclusivity = null;
+            if ($previousObjective !== null) {
+                try {
+                    $pairExclusivity = $exclusivityScorer->score(
+                        ['title' => (string) $previousObjective->title, 'description' => (string) $previousObjective->description],
+                        ['title' => (string) $objective->title, 'description' => (string) $objective->description],
+                    );
+                } catch (\Throwable) {
+                    $pairExclusivity = null;
+                }
+            }
+
             $this->lifecycle->recordEvent(
                 $mission,
                 'objective.created',
@@ -49,10 +66,12 @@ class ObjectiveDecomposerService
                     'objective_id' => $objective->id,
                     'priority' => $priority,
                     'title' => $objective->title,
+                    'pair_exclusivity' => $pairExclusivity,
                 ],
             );
 
             $created->push($objective);
+            $previousObjective = $objective;
             $priority++;
         }
 

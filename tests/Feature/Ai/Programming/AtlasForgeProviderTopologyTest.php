@@ -226,6 +226,113 @@ class AtlasForgeProviderTopologyTest extends TestCase
         $this->assertSame('provider_capacity_exhausted', $classification['event']['blocker']);
     }
 
+    public function test_topology_exposes_observe_only_topology_validation(): void
+    {
+        $obra = $this->makeObra();
+
+        $payload = app(AtlasForgeProviderTopologyService::class)->topology(['obra_id' => (string) $obra->id]);
+
+        $validation = $payload['topology_validation'];
+        $this->assertIsArray($validation);
+
+        $coverage = $validation['role_coverage'];
+        $this->assertSame('atlas.aaeos.forge_role_coverage.v1', $coverage['schema_version']);
+        $this->assertTrue($coverage['coherent']);
+        $this->assertSame([], $coverage['missing_roles']);
+        $this->assertSame([], $coverage['duplicate_roles']);
+        $this->assertTrue($coverage['selected_builder_present']);
+
+        $chain = $validation['fallback_chain_coherence'];
+        $this->assertSame('atlas.aaeos.forge_fallback_coherence.v1', $chain['schema_version']);
+        $this->assertTrue($chain['coherent']);
+        $this->assertTrue($chain['has_capable_entry']);
+        $this->assertSame(
+            [
+                AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER,
+                AtlasForgeProviderTopologyService::ROLE_CONTEXT_SCOUT,
+                AtlasForgeProviderTopologyService::ROLE_REPAIR_AGENT,
+            ],
+            $chain['ordered_roles'],
+        );
+
+        $alignment = $validation['capacity_alignment'];
+        $this->assertSame('atlas.aaeos.forge_capacity_alignment.v1', $alignment['schema_version']);
+        // Snapshot always materializes every canonical provider, so static
+        // policy roles can never point at an absent capacity entry.
+        $this->assertSame([], $alignment['orphan_providers']);
+        $this->assertSame($alignment['defects'] === [], $alignment['coherent']);
+
+        $redundancy = $validation['role_redundancy'];
+        $this->assertSame('atlas.aaeos.forge_role_redundancy.v1', $redundancy['schema_version']);
+        $this->assertTrue($redundancy['coherent']);
+        $this->assertSame('claude_cli', $redundancy['primary_provider']);
+        $this->assertSame('codex_cli', $redundancy['reviewer_provider']);
+        $this->assertFalse($redundancy['shares_provider']);
+    }
+
+    public function test_topology_validation_flags_defects_for_degenerate_receipt_topology(): void
+    {
+        $obra = $this->makeObra();
+
+        $payload = app(AtlasForgeProviderTopologyService::class)->topology([
+            'obra_id' => (string) $obra->id,
+            'decision_receipt' => [
+                'forge_provider_topology' => [
+                    'strategy' => 'one_shot_enterprise_default',
+                    'roles' => [
+                        [
+                            'role' => AtlasForgeProviderTopologyService::ROLE_PRIMARY_BUILDER,
+                            'provider' => 'ghost_provider',
+                            'model' => 'ghost-1',
+                            'status' => 'selected',
+                        ],
+                    ],
+                    'fallback_chain' => [
+                        ['order' => 1, 'role' => AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER, 'provider' => 'codex_cli', 'model' => 'x', 'capable' => false],
+                        ['order' => 1, 'role' => AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER, 'provider' => 'gemini_cli', 'model' => 'y', 'capable' => false],
+                    ],
+                ],
+            ],
+        ]);
+
+        $validation = $payload['topology_validation'];
+
+        $coverage = $validation['role_coverage'];
+        $this->assertFalse($coverage['coherent']);
+        $this->assertEqualsCanonicalizing(
+            [
+                AtlasForgeProviderTopologyService::ROLE_CRITICAL_REVIEWER,
+                AtlasForgeProviderTopologyService::ROLE_CONTEXT_SCOUT,
+                AtlasForgeProviderTopologyService::ROLE_REPAIR_AGENT,
+                AtlasForgeProviderTopologyService::ROLE_LOCAL_TOOL_RUNNER,
+            ],
+            $coverage['missing_roles'],
+        );
+
+        $chain = $validation['fallback_chain_coherence'];
+        $this->assertFalse($chain['coherent']);
+        $chainDefectCodes = array_column($chain['defects'], 'code');
+        $this->assertContains('duplicate_order_value', $chainDefectCodes);
+        $this->assertContains('duplicate_role_in_chain', $chainDefectCodes);
+        $this->assertContains('no_capable_fallback', $chainDefectCodes);
+        $this->assertFalse($chain['has_capable_entry']);
+
+        $alignment = $validation['capacity_alignment'];
+        $this->assertFalse($alignment['coherent']);
+        $this->assertSame(['ghost_provider'], $alignment['orphan_providers']);
+        $this->assertContains('role_provider_absent_from_capacity', array_column($alignment['defects'], 'code'));
+
+        $redundancy = $validation['role_redundancy'];
+        $this->assertFalse($redundancy['coherent']);
+        $this->assertContains('critical_reviewer_missing', array_column($redundancy['defects'], 'code'));
+        $this->assertSame('ghost_provider', $redundancy['primary_provider']);
+        $this->assertNull($redundancy['reviewer_provider']);
+
+        // Observe-only: the validation field never mutates the existing verdict surface.
+        $this->assertSame('atlas.forge.provider_topology.v1', $payload['schema_version']);
+        $this->assertIsArray($payload['blockers']);
+    }
+
     private function makeObra(): AtlasProject
     {
         return AtlasProject::create([

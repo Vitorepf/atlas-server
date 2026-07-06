@@ -75,6 +75,10 @@ final class AtlasMissionControlCockpitService
             'gate_report' => $gateReport,
             'department_count' => $departmentsCount,
             'blockers' => $blockers,
+            // WIRE-OBSERVE (Obra #7): severity reduction over the raw blocker
+            // list — tells the operator whether the intent is blocked/warning/
+            // clear. Observe-only: never changes blockers or phase statuses.
+            'blocker_signal' => (new AaeosBlockerSeverityGate)->assess($blockers),
             'operator_signature_required' => $signatureRequired,
             'provider_safe' => true,
             'generated_at' => gmdate('c'),
@@ -145,7 +149,7 @@ final class AtlasMissionControlCockpitService
 
     /**
      * @param  list<array<string,mixed>>  $envelopes
-     * @return list<array{phase:string,index:int,status:string,gates_passed:int,gates_blocked:int,actor_kind:?string,operator_signature:?string}>
+     * @return list<array{phase:string,index:int,status:string,gates_passed:int,gates_blocked:int,gate_coverage:?array{coverage:string,missing:list<string>,satisfied:bool,extra_passed_gates:list<string>},actor_kind:?string,operator_signature:?string}>
      */
     private function buildJourney(array $envelopes): array
     {
@@ -157,6 +161,12 @@ final class AtlasMissionControlCockpitService
             $byPhase[$env['phase_out']] = $env;
         }
 
+        // WIRE-OBSERVE (Obra #7): required-vs-passed gate diff per emitted phase
+        // row — the journey previously only COUNTED gates_passed/gates_blocked
+        // and never checked required coverage. Observe-only: never changes the
+        // phase status. Pending phases (no envelope) carry an explicit null.
+        $coverageChecker = new AaeosRequiredGateCoverageChecker;
+
         $out = [];
         foreach (AaeosPhaseHandoffService::PHASES as $idx => $phase) {
             $env = $byPhase[$phase] ?? null;
@@ -167,6 +177,7 @@ final class AtlasMissionControlCockpitService
                     'status' => 'pending',
                     'gates_passed' => 0,
                     'gates_blocked' => 0,
+                    'gate_coverage' => null,
                     'actor_kind' => null,
                     'operator_signature' => null,
                 ];
@@ -175,6 +186,7 @@ final class AtlasMissionControlCockpitService
             $gates = is_array($env['gates'] ?? null) ? $env['gates'] : [];
             $blocked = is_array($gates['blocked'] ?? null) ? $gates['blocked'] : [];
             $passed = is_array($gates['passed'] ?? null) ? $gates['passed'] : [];
+            $required = is_array($gates['required'] ?? null) ? $gates['required'] : [];
             $skipped = ! empty($env['skip_reason']);
             $status = $skipped ? 'skipped' : (count($blocked) > 0 ? 'blocked' : ($env['ended_at'] ?? null ? 'complete' : 'in_progress'));
             $out[] = [
@@ -183,6 +195,7 @@ final class AtlasMissionControlCockpitService
                 'status' => $status,
                 'gates_passed' => count($passed),
                 'gates_blocked' => count($blocked),
+                'gate_coverage' => $coverageChecker->check($required, $passed),
                 'actor_kind' => is_array($env['actor'] ?? null) ? ($env['actor']['kind'] ?? null) : null,
                 'operator_signature' => $env['operator_signature'] ?? null,
             ];

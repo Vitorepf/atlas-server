@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 
 /**
@@ -137,6 +138,16 @@ final class AtlasSpecCompilerAndCriticService
 
         $complete = $missing === [];
 
+        // WIRE-OBSERVE (Obra #7): weighted 0-100 completeness score + gaps
+        // ranked by weight, computed by the SpecCompletenessScorer core over
+        // the same twelve canonical fields (compiler names mapped to the
+        // scorer canon: raw_user_request → raw_request,
+        // security_privacy_constraints → security_constraints). Observe-only:
+        // never changes complete/missing_fields.
+        $scorerSpec = $spec;
+        $scorerSpec['raw_request'] = $spec['raw_user_request'] ?? null;
+        $scorerSpec['security_constraints'] = $spec['security_privacy_constraints'] ?? null;
+
         return [
             'schema' => self::RECEIPT_SCHEMA,
             'check' => 'compiler_output',
@@ -144,6 +155,7 @@ final class AtlasSpecCompilerAndCriticService
             'present_fields' => $present,
             'missing_fields' => $missing,
             'required_field_count' => count(self::COMPILER_FIELDS),
+            'completeness_score' => (new SpecCompletenessScorer)->score($scorerSpec),
             'auditable' => true,
         ];
     }

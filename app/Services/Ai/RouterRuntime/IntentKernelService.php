@@ -3,6 +3,7 @@
 namespace App\Services\Ai\RouterRuntime;
 
 use App\Models\AiAtlasIntentClassification;
+use App\Services\Ai\HumanSurface\RequestAmbiguityDimensionClassifier;
 use Illuminate\Support\Str;
 
 class IntentKernelService
@@ -164,6 +165,15 @@ class IntentKernelService
             $matchedKeywords = $override['matched_keywords'];
         }
 
+        // Observe-only: nomeia a dimensão de ambiguidade do pedido cru; não
+        // altera intent_type/confidence. Null explícito em erro (fail-open só
+        // na chamada do classifier).
+        try {
+            $ambiguityDimension = (new RequestAmbiguityDimensionClassifier)->classify($rawInput);
+        } catch (\Throwable) {
+            $ambiguityDimension = null;
+        }
+
         return AiAtlasIntentClassification::query()->create([
             'uuid' => (string) Str::uuid(),
             'mission_id' => $context['mission_id'] ?? null,
@@ -180,6 +190,7 @@ class IntentKernelService
                 'source' => $context['source'] ?? 'cli',
                 'surface_contract' => $surfaceContract,
                 'intent_override' => $override,
+                'ambiguity_dimension' => $ambiguityDimension,
             ],
             'status' => 'classified',
         ]);

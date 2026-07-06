@@ -6,6 +6,7 @@ use App\Models\AiLocalAgentIngestionCandidate;
 use App\Models\AiLocalAgentIngestionRun;
 use App\Models\AiLocalAgentIngestionSource;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog\LocalAgentMemoryPromotionGateEvaluator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -328,6 +329,22 @@ class LocalAgentMemoryIngestionService
             'quality_score' => (int) $source['quality_score'],
             'freshness_score' => (int) $source['freshness_score'],
             'promotion_blocked_reason' => $isSecret ? 'sensitive_secret_class' : null,
+            // WIRE-OBSERVE: deterministic promotion-gate verdict recorded on the
+            // persisted candidate payload (json column — a top-level key would be
+            // silently dropped by the model's $fillable). Advisory only: status
+            // and memory_eligible stay exactly as before. Inputs are this
+            // source's own signals; confidence is quality_score (0-100) mapped
+            // onto the gate's 0-1 scale.
+            'memory_promotion_gate' => (new LocalAgentMemoryPromotionGateEvaluator)->evaluate([
+                'memory_eligible' => false, // mirror of the hardcoded record field below
+                'classification' => (string) $source['source_class'],
+                'lineage' => ['source' => (string) $source['source_hash']],
+                'confidence' => round(((int) $source['quality_score']) / 100, 4),
+                'secret_scan' => [
+                    'passed' => (int) ($source['secret_finding_count'] ?? 0) === 0,
+                    'findings' => (int) ($source['secret_finding_count'] ?? 0),
+                ],
+            ]),
         ];
         $candidateHash = MissionCanonicalHash::sha256([
             'schema' => LocalAgentMemoryIngestionCanon::CANDIDATE_SCHEMA_VERSION,

@@ -176,6 +176,15 @@ class AtlasSelfImprovementResultLedgerService
         //    `new_rule_candidate`; they record the failure mode.
         $learningPacket = $this->buildLearningPacket($grade, $delta, $invariant, $regression, $context);
 
+        // 4b. WIRE-OBSERVE (Obra #7 W2): observe-only quality score of the
+        //     learning packet just built. Fail-open: explicit null on error;
+        //     never alters grade/blockers/status.
+        try {
+            $learningPacketQuality = (new LearningPacketQualityScorer)->score($learningPacket);
+        } catch (Throwable) {
+            $learningPacketQuality = null;
+        }
+
         // 5. Build canonical result entry.
         $entryId = 'res_'.(string) Str::ulid();
         $entry = [
@@ -203,6 +212,7 @@ class AtlasSelfImprovementResultLedgerService
             'recommended_next_action' => $this->nextActionFor($grade),
             'should_become_rule' => $grade === self::GRADE_MAJOR_IMPROVEMENT && $learningPacket['confidence'] >= 0.7,
             'learning_packet' => $learningPacket,
+            'learning_packet_quality' => $learningPacketQuality,
             'recorded_at' => Carbon::now()->toIso8601String(),
             'evidence_refs' => array_values(array_unique(array_merge(
                 (array) ($context['evidence_refs'] ?? []),
@@ -291,11 +301,50 @@ class AtlasSelfImprovementResultLedgerService
             $filtered[] = $entry;
         }
 
+        // WIRE-OBSERVE (Obra #7 W2): observe-only aggregates computed from
+        // the same registry entries already in hand (registry stores
+        // newest-first; reverse for chronological order). Fail-open per
+        // field: explicit null on error; never alters entries/counters.
+        $chronological = array_reverse(array_values(array_filter($entries, 'is_array')));
+
+        try {
+            $gradeTrajectory = (new SelfImprovementGradeTrajectoryClassifier)->classify(
+                array_column($chronological, 'delta_grade'),
+            );
+        } catch (Throwable) {
+            $gradeTrajectory = null;
+        }
+
+        try {
+            $regressionRecurrence = (new RegressionRecurrenceDetector)->detect(array_map(
+                static fn (array $entry): array => [
+                    'grade' => $entry['delta_grade'] ?? null,
+                    'regressed_metrics' => is_array($entry['delta_scorecard'] ?? null)
+                        ? ($entry['delta_scorecard']['regressed_metrics'] ?? [])
+                        : [],
+                ],
+                $chronological,
+            ));
+        } catch (Throwable) {
+            $regressionRecurrence = null;
+        }
+
+        try {
+            $learningPacketConflicts = (new LearningPacketConflictDetector)->detect(
+                array_values(array_filter(array_column($chronological, 'learning_packet'), 'is_array')),
+            );
+        } catch (Throwable) {
+            $learningPacketConflicts = null;
+        }
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => Carbon::now()->toIso8601String(),
             'entries' => $filtered,
             'counters' => $this->computeCounters($entries),
+            'grade_trajectory' => $gradeTrajectory,
+            'regression_recurrence' => $regressionRecurrence,
+            'learning_packet_conflicts' => $learningPacketConflicts,
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'auto_fast_path_executed' => false,

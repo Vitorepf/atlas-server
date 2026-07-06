@@ -8,6 +8,7 @@ use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Area Focus Loop · Branch Sandbox Preflight + Governed Handoff (AP-726).
@@ -276,11 +277,20 @@ class AreaFocusBranchSandboxPreflightService
      */
     private function safety(array $gateReport): array
     {
+        try {
+            // Observe-only integrity audit of the gate report stamp (fail-open:
+            // never changes the preflight verdict; null signals audit failure).
+            $reportIntegrity = (new GateReportEnvelopeHashIntegrityValidator)->validate($gateReport);
+        } catch (Throwable) {
+            $reportIntegrity = null;
+        }
+
         return [
             'gate_decision' => (string) ($gateReport['decision'] ?? ''),
             'blocked_when' => array_values((array) ($gateReport['blocked_when'] ?? [])),
             'warnings' => array_values((array) ($gateReport['warnings'] ?? [])),
             'gate_report_schema' => (string) ($gateReport['schema_version'] ?? ''),
+            'report_integrity' => $reportIntegrity,
         ];
     }
 

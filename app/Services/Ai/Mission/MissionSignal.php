@@ -19,6 +19,8 @@ final class MissionSignal
     /**
      * @param  array<int,string>  $persistenceKeywords
      * @param  array<int,string>  $obraKeywords
+     * @param  array<string,float|null>|null  $ambiguity  observe-only scores
+     *                                                    (dangling_action_verb, structural_sparsity); null quando não computado
      */
     public function __construct(
         public readonly bool $shouldActivateMissionMode,
@@ -29,6 +31,7 @@ final class MissionSignal
         public readonly float $confidence,
         public readonly string $reason,
         public readonly string $normalizedIntent,
+        public readonly ?array $ambiguity = null,
     ) {}
 
     /**
@@ -46,6 +49,7 @@ final class MissionSignal
             'confidence' => $this->confidence,
             'reason' => $this->reason,
             'normalized_intent' => $this->normalizedIntent,
+            'ambiguity' => $this->ambiguity,
         ];
     }
 }

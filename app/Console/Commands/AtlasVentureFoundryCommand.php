@@ -7,6 +7,9 @@ use App\Models\AiVentureIdea;
 use App\Models\AiVentureStrategyReview;
 use App\Services\Ai\VentureFoundry\VentureBusinessRuleService;
 use App\Services\Ai\VentureFoundry\VentureExecutionBridgeService;
+use App\Services\Ai\VentureFoundry\Health\VentureHealthGate;
+use App\Services\Ai\VentureFoundry\Reward\ReconciledCashEventStore;
+use App\Services\Ai\VentureFoundry\Success\VentureReconciledSuccessEvaluator;
 use App\Services\Ai\VentureFoundry\VentureFoundryException;
 use App\Services\Ai\VentureFoundry\VentureGrowthLadderService;
 use App\Services\Ai\VentureFoundry\VentureIdeaGenerationService;
@@ -437,6 +440,19 @@ class AtlasVentureFoundryCommand extends Command
     {
         $venture = $registry->resolve($this->requireVentureOption());
 
+        // Obra #7 W2 observe-wire: honest Phase-1 success verdict (K1 reconciled
+        // cash + K4 health gate) alongside the legacy view. No health signals are
+        // available at this surface, so the gate stays fail-closed (blocked_unknown).
+        // Fail-open on the call only: on error the field is an explicit null.
+        try {
+            $successVerdict = (new VentureReconciledSuccessEvaluator(
+                new ReconciledCashEventStore,
+                new VentureHealthGate,
+            ))->evaluate((string) $venture->venture_id);
+        } catch (\Throwable $e) {
+            $successVerdict = null;
+        }
+
         return $this->output_([
             'venture' => $venture->toArray(),
             'active_business_rules' => array_map(
@@ -444,6 +460,7 @@ class AtlasVentureFoundryCommand extends Command
                 $rules->activeRules($venture),
             ),
             'latest_metrics' => $ladder->latestMetrics($venture),
+            'success_verdict' => $successVerdict,
         ]);
     }
 

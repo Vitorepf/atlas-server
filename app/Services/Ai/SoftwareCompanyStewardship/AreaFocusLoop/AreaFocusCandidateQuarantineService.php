@@ -78,6 +78,14 @@ final class AreaFocusCandidateQuarantineService
         'owner_runtime_provider_unavailable',
     ];
 
+    /**
+     * WIRE-OBSERVE budget for the advisory transient-decay classification written
+     * on ledger entries. Observation only: shouldQuarantine() still tolerates
+     * transient blockers unconditionally; this budget merely records when a
+     * transient streak WOULD decay to permanent under a future decay policy.
+     */
+    public const TRANSIENT_DECAY_OBSERVE_BUDGET = 3;
+
     private const ROUTING_RETRY_AFTER_SECONDS = 600;
 
     private ?string $storageRootOverride = null;
@@ -409,6 +417,21 @@ final class AreaFocusCandidateQuarantineService
         }
         $permanent = $retryAfter === null || $retryAfter === 'permanent';
 
+        // WIRE-OBSERVE: advisory recurrence/decay/eligibility signals computed
+        // from the same ledger + context this append already owns. They never
+        // change shouldQuarantine() or any existing entry field. Fail-open: all
+        // four fields null when observation itself errors.
+        try {
+            $observed = $this->observedQuarantineSignals($areaId, $focus, $finding, $blockers, $context, $permanent);
+        } catch (\Throwable) {
+            $observed = [
+                'transient_recurrence_count' => null,
+                'transient_decay' => null,
+                'eligibility_score' => null,
+                'eligibility_band' => null,
+            ];
+        }
+
         $entry = [
             'schema_version' => self::SCHEMA,
             'quarantine_id' => 'afq_'.substr(MissionCanonicalHash::sha256([
@@ -432,12 +455,69 @@ final class AreaFocusCandidateQuarantineService
             'failure_signature' => $this->failureSignature($blockers, $context),
             'retry_after' => $permanent ? 'permanent' : (string) $retryAfter,
             'reason' => (string) ($context['reason'] ?? $this->repairPolicyForBlockers($blockers)['reason']),
+            'transient_recurrence_count' => $observed['transient_recurrence_count'],
+            'transient_decay' => $observed['transient_decay'],
+            'eligibility_score' => $observed['eligibility_score'],
+            'eligibility_band' => $observed['eligibility_band'],
             'recorded_at' => AreaFocusUtcClock::atomNow(),
         ];
         $entry['entry_hash'] = 'sha256:'.MissionCanonicalHash::sha256($entry);
         $this->append($areaId, $focus, $entry);
 
         return $entry;
+    }
+
+    /**
+     * WIRE-OBSERVE helper: compute the advisory ledger signals for one appended
+     * entry from data already in hand — the append-only ledger itself (recurrence
+     * streak of this cycle's transient blocker), the retry_after-derived severity,
+     * and the caller-supplied context flags.
+     *
+     * @param  array<string,mixed>  $finding
+     * @param  list<string>  $blockers
+     * @param  array<string,mixed>  $context
+     * @return array{transient_recurrence_count:int,transient_decay:array<string,mixed>,eligibility_score:array<string,mixed>,eligibility_band:array<string,mixed>}
+     */
+    private function observedQuarantineSignals(string $areaId, string $focus, array $finding, array $blockers, array $context, bool $permanent): array
+    {
+        $findingKey = (string) ($finding['finding_id'] ?? '');
+        $normalizedBlockers = AreaFocusStringListNormalizer::uniqueStringValues($blockers);
+
+        $transientBlocker = '';
+        foreach ($normalizedBlockers as $blocker) {
+            if ($this->hasTransientBlocker([$blocker])) {
+                $transientBlocker = $blocker;
+                break;
+            }
+        }
+
+        $history = array_map(
+            static fn (array $entry): array => [
+                'finding_key' => (string) ($entry['finding_id'] ?? ''),
+                'blockers' => $entry['blockers'] ?? [],
+            ],
+            $this->readEntries($areaId, $focus),
+        );
+        // The entry being appended is part of the streak it observes.
+        $history[] = ['finding_key' => $findingKey, 'blockers' => $normalizedBlockers];
+
+        $recurrences = (new TransientBlockerRecurrenceCounter)
+            ->consecutiveTransientRecurrences($findingKey, $transientBlocker, $history);
+
+        $eligibility = (new QuarantineEligibilityScorer)->score(
+            $permanent ? 'permanent' : 'transient',
+            $recurrences,
+            ($context['quarantine_after_repair_exhausted'] ?? false) === true,
+            ($context['work_produced'] ?? false) === true,
+        );
+
+        return [
+            'transient_recurrence_count' => $recurrences,
+            'transient_decay' => (new TransientBlockerDecayClassifier)
+                ->classify($recurrences, self::TRANSIENT_DECAY_OBSERVE_BUDGET),
+            'eligibility_score' => $eligibility,
+            'eligibility_band' => (new QuarantineEligibilityBand)->classify((int) $eligibility['score']),
+        ];
     }
 
     /**

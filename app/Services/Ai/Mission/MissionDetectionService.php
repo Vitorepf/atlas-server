@@ -2,6 +2,9 @@
 
 namespace App\Services\Ai\Mission;
 
+use App\Services\Ai\Mission\Ambiguity\DanglingActionVerbScorer;
+use App\Services\Ai\Mission\Ambiguity\PromptStructuralSparsityScorer;
+
 /**
  * Mission Mode detection · keyword heuristics determinístico.
  *
@@ -158,6 +161,26 @@ class MissionDetectionService
             default => 'no_persistence_signal',
         };
 
+        // Observe-only: scores de ambiguidade estrutural do prompt cru; não
+        // influenciam shouldActivateMissionMode. Fail-open só na chamada de
+        // cada scorer, com null explícito por campo em erro.
+        $ambiguity = [
+            'dangling_action_verb' => null,
+            'structural_sparsity' => null,
+        ];
+
+        try {
+            $ambiguity['dangling_action_verb'] = (new DanglingActionVerbScorer)->danglingScore($rawPrompt);
+        } catch (\Throwable) {
+            $ambiguity['dangling_action_verb'] = null;
+        }
+
+        try {
+            $ambiguity['structural_sparsity'] = (new PromptStructuralSparsityScorer)->sparsity($rawPrompt);
+        } catch (\Throwable) {
+            $ambiguity['structural_sparsity'] = null;
+        }
+
         return new MissionSignal(
             shouldActivateMissionMode: $shouldActivate,
             suggestedMissionType: $finalType,
@@ -167,6 +190,7 @@ class MissionDetectionService
             confidence: $confidence,
             reason: $reason,
             normalizedIntent: $normalized,
+            ambiguity: $ambiguity,
         );
     }
 

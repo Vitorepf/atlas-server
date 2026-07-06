@@ -229,4 +229,82 @@ class AtlasSpecCompilerAndCriticTest extends TestCase
         $this->assertFalse($env['ledger']['has_blocking_assumption']);
         $this->assertSame(AtlasSpecCompilerAndCriticService::STATE_READY, $env['output']['state']);
     }
+
+    /**
+     * WIRE-OBSERVE (Obra #7): compileSpec() now carries the weighted 0-100
+     * `completeness_score` computed by the SpecCompletenessScorer core, with
+     * the two compiler field names mapped to the scorer canon
+     * (raw_user_request → raw_request, security_privacy_constraints →
+     * security_constraints). A fully meaningful spec scores exactly 100.
+     */
+    public function test_compile_spec_completeness_score_is_100_for_meaningful_full_spec(): void
+    {
+        $spec = [
+            'raw_user_request' => 'Add a Save button to the profile edit form.',
+            'interpreted_goal' => 'Persist the active profile form on Save.',
+            'non_goals' => ['Redesign the profile page'],
+            'product_area' => 'profile-editing',
+            'business_actor_object_action' => 'user saves profile form',
+            'requirements' => ['Save persists ProfileForm to the API'],
+            'acceptance_criteria' => ['Save shows a success toast on completion'],
+            'design_system_constraints' => 'Use the primary button token',
+            'security_privacy_constraints' => 'Owner-only edit permission',
+            'assumptions' => ['Profile API endpoint already exists'],
+            'blocking_questions' => [],
+            'test_strategy' => 'Feature test for save + error path',
+        ];
+
+        $out = $this->service()->compileSpec($spec);
+
+        // Pre-existing binary verdict untouched by the observe field.
+        $this->assertTrue($out['complete']);
+        $this->assertSame([], $out['missing_fields']);
+
+        $score = $out['completeness_score'];
+        $this->assertSame('atlas.aaeos.spec_completeness_score.v1', $score['schema_version']);
+        $this->assertSame(100, $score['total_score']);
+        $this->assertSame('complete', $score['verdict']);
+        $this->assertSame([], $score['missing_or_weak']);
+        $this->assertSame(12, $score['present_count']);
+        // The two mapped compiler fields earned their weight (proves the mapping).
+        $this->assertTrue($score['fields']['raw_request']['satisfied']);
+        $this->assertTrue($score['fields']['security_constraints']['satisfied']);
+    }
+
+    /**
+     * Dropping weighted fields lowers the score by exactly their weights and
+     * ranks the gaps by weight loss — the graded signal the binary
+     * complete/missing_fields verdict cannot express.
+     */
+    public function test_compile_spec_completeness_score_ranks_gaps_by_weight(): void
+    {
+        $spec = [
+            'raw_user_request' => 'Add a Save button to the profile edit form.',
+            'interpreted_goal' => 'Persist the active profile form on Save.',
+            'non_goals' => ['Redesign the profile page'],
+            'product_area' => 'profile-editing',
+            'business_actor_object_action' => 'user saves profile form',
+            'requirements' => ['Save persists ProfileForm to the API'],
+            // acceptance_criteria (weight 14) omitted
+            'design_system_constraints' => 'Use the primary button token',
+            // security_privacy_constraints (weight 8) omitted
+            'assumptions' => ['Profile API endpoint already exists'],
+            'blocking_questions' => [],
+            'test_strategy' => 'Feature test for save + error path',
+        ];
+
+        $out = $this->service()->compileSpec($spec);
+
+        // Pre-existing binary verdict still reports both misses, unchanged.
+        $this->assertFalse($out['complete']);
+        $this->assertContains('acceptance_criteria', $out['missing_fields']);
+        $this->assertContains('security_privacy_constraints', $out['missing_fields']);
+
+        $score = $out['completeness_score'];
+        $this->assertSame(78, $score['total_score']); // 100 - 14 - 8
+        $this->assertSame('partial', $score['verdict']);
+        // Gaps ranked by weight loss: acceptance_criteria (14) before security_constraints (8).
+        $this->assertSame('acceptance_criteria', $score['missing_or_weak'][0]['field']);
+        $this->assertSame('security_constraints', $score['missing_or_weak'][1]['field']);
+    }
 }

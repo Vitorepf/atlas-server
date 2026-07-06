@@ -63,20 +63,23 @@ class AtlasSddPipeline
         if ($intent->confidenceClass->isBlocking()) {
             $operation->forceFill(['status' => 'needs_clarification'])->save();
 
+            $routerCritique = [
+                'schema_version' => 'atlas.sdd_spec_critic.v1',
+                'status' => 'rejected',
+                'has_blocking_questions' => true,
+                'clarification_questions' => [
+                    'The intent is too ambiguous to compile a spec. Restate it with the target object and the desired outcome.',
+                ],
+                'blocking_issues' => [
+                    ['field' => 'intent', 'severity' => 'high', 'reason' => 'blocking_ambiguity'],
+                ],
+            ];
+
             return AtlasSddOutput::needsClarification([
                 'operation_id' => $operation->id,
                 'intent' => $intent->toArray(),
-                'critique' => [
-                    'schema_version' => 'atlas.sdd_spec_critic.v1',
-                    'status' => 'rejected',
-                    'has_blocking_questions' => true,
-                    'clarification_questions' => [
-                        'The intent is too ambiguous to compile a spec. Restate it with the target object and the desired outcome.',
-                    ],
-                    'blocking_issues' => [
-                        ['field' => 'intent', 'severity' => 'high', 'reason' => 'blocking_ambiguity'],
-                    ],
-                ],
+                'critique' => $routerCritique,
+                'output_state_classification' => $this->classifyOutputState($intent, $routerCritique),
             ]);
         }
 
@@ -96,6 +99,7 @@ class AtlasSddPipeline
                 'intent' => $intent->toArray(),
                 'context' => $context->toArray(),
                 'critique' => $critique,
+                'output_state_classification' => $this->classifyOutputState($intent, $critique),
             ]);
         }
 
@@ -166,7 +170,32 @@ class AtlasSddPipeline
             'drift' => $driftReport,
             'learning_proposal_id' => $learningProposal?->id,
             'critique' => $critique,
+            'output_state_classification' => $this->classifyOutputState($intent, $critique),
         ]);
+    }
+
+    /**
+     * Observe-only canonical output-state classification (Obra #7 W2).
+     * Computed from the critique/intent the pipeline already has in hand;
+     * fail-open: any classifier error yields an explicit null field.
+     *
+     * @param  array<string,mixed>  $critique
+     * @return array<string,mixed>|null
+     */
+    private function classifyOutputState($intent, array $critique): ?array
+    {
+        try {
+            $issues = $critique['blocking_issues'] ?? [];
+
+            return (new SpecOutputStateClassifier)->classify(
+                is_array($issues) ? $issues : [],
+                $intent->confidenceClass->value,
+                [],
+                $intent->type,
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

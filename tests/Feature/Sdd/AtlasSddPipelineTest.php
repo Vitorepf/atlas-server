@@ -93,6 +93,52 @@ class AtlasSddPipelineTest extends TestCase
         $this->assertContains($drift->status, ['pass', 'warn', 'fail']);
     }
 
+    public function test_output_state_classification_is_needs_clarification_on_blocking_ambiguity(): void
+    {
+        $envelope = new OperationEnvelope(rawInput: '   ', workspace: $this->workspace);
+
+        $output = app(AtlasSddPipeline::class)->run($envelope);
+
+        $this->assertSame('needs_clarification', $output->status);
+        $classification = $output->payload['output_state_classification'];
+        $this->assertIsArray($classification);
+        $this->assertSame('atlas.sdd_output_state_classification.v1', $classification['schema_version']);
+        // Observe-only field agrees with the pipeline's own terminal verdict.
+        $this->assertSame('needs_clarification', $classification['state']);
+        $this->assertFalse($classification['plan_permitted']);
+        $this->assertSame(2, $classification['precedence_rank']);
+        $this->assertSame('clarification_required:intent:blocking_ambiguity', $classification['dominant_reason']);
+        $this->assertSame(1, $classification['signals']['blocking_issue_count']);
+        $this->assertTrue($classification['signals']['core_unresolved']);
+    }
+
+    public function test_output_state_classification_is_ready_for_plan_on_clean_terminal_run(): void
+    {
+        $envelope = new OperationEnvelope(
+            rawInput: 'Refatorar runner para suportar cobertura completa de testes',
+            userId: 'vitor',
+            workspace: $this->workspace,
+        );
+
+        $output = app(AtlasSddPipeline::class)->run(
+            envelope: $envelope,
+            proposedWrites: [['path' => 'app/NewService.php', 'contents' => "<?php // x\n"]],
+            proposedCommands: [],
+        );
+
+        $this->assertContains($output->status, ['completed', 'blocked'], 'pipeline must reach a terminal status');
+        $classification = $output->payload['output_state_classification'];
+        $this->assertIsArray($classification);
+        // The pipeline actually compiled a plan on this path, so the
+        // classifier must agree that planning was permitted.
+        $this->assertSame('ready_for_plan', $classification['state']);
+        $this->assertTrue($classification['plan_permitted']);
+        $this->assertSame(4, $classification['precedence_rank']);
+        $this->assertSame(0, $classification['signals']['blocking_issue_count']);
+        $this->assertFalse($classification['signals']['core_unresolved']);
+        $this->assertNotEmpty($output->payload['plan_id']);
+    }
+
     private function bindStubs(): void
     {
         $this->app->bind(AtlasFeaturePlacementService::class, function () {

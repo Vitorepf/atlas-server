@@ -175,4 +175,76 @@ final class AtlasMissionControlCockpitServiceTest extends TestCase
         $this->assertStringNotContainsString('secret-task-1', (string) $encoded);
         $this->assertStringNotContainsString('app/Secret.php', (string) $encoded);
     }
+
+    public function test_gate_coverage_observe_field_diffs_required_vs_passed_per_phase(): void
+    {
+        // Envelope with the canonical required gate NOT passed yet.
+        $incompleteEnv = $this->phases->emit(
+            'i-1', 'intent_capture', 'intent_capture',
+            ['kind' => 'agent', 'id' => 'mf'],
+            [], [],
+        );
+        // Envelope whose required gate is fully covered (plus one extra).
+        $completeEnv = $this->phases->emit(
+            'i-1', 'intent_capture', 'disambiguation',
+            ['kind' => 'agent', 'id' => 'mf'],
+            [], [],
+            gates: ['passed' => ['intent_clarity_score_min_0_8', 'bonus_gate']],
+            endedAt: gmdate('c'),
+        );
+
+        $r = $this->svc->snapshot('i-1', [$incompleteEnv, $completeEnv]);
+
+        $incomplete = $r['phases'][0]['gate_coverage'];
+        $this->assertSame('incomplete', $incomplete['coverage']);
+        $this->assertSame(['surface_captured_intent'], $incomplete['missing']);
+        $this->assertFalse($incomplete['satisfied']);
+
+        $complete = $r['phases'][1]['gate_coverage'];
+        $this->assertSame('complete', $complete['coverage']);
+        $this->assertSame([], $complete['missing']);
+        $this->assertTrue($complete['satisfied']);
+        $this->assertSame(['bonus_gate'], $complete['extra_passed_gates']);
+
+        // Pending phases (no envelope) carry an explicit null, never a fabricated diff.
+        $this->assertNull($r['phases'][2]['gate_coverage']);
+        // Observe-only: the pre-existing status fields are untouched by coverage.
+        $this->assertSame('in_progress', $r['phases'][0]['status']);
+        $this->assertSame('complete', $r['phases'][1]['status']);
+    }
+
+    public function test_blocker_signal_observe_field_reduces_blocker_severity(): void
+    {
+        $env = $this->phases->emit(
+            'i-1', 'intent_capture', 'disambiguation',
+            ['kind' => 'agent', 'id' => 'mf'],
+            [], [],
+            blockers: [
+                ['id' => 'b1', 'severity' => 'high', 'owner' => 'security'],
+                ['id' => 'b2', 'severity' => 'low', 'owner' => 'ops'],
+                ['id' => 'b3', 'severity' => 'medium', 'owner' => ''],
+            ],
+        );
+
+        $r = $this->svc->snapshot('i-1', [$env]);
+
+        $signal = $r['blocker_signal'];
+        $this->assertSame('blocked', $signal['signal']);
+        $this->assertSame(0, $signal['critical_count']);
+        $this->assertSame(1, $signal['high_count']);
+        $this->assertSame(1, $signal['medium_count']);
+        $this->assertSame(1, $signal['low_count']);
+        $this->assertSame(0, $signal['unknown_count']);
+        // Observe-only: the raw blocker list is untouched.
+        $this->assertCount(3, $r['blockers']);
+    }
+
+    public function test_blocker_signal_clear_when_no_blockers(): void
+    {
+        $r = $this->svc->snapshot('i-1', []);
+
+        $this->assertSame('clear', $r['blocker_signal']['signal']);
+        $this->assertSame(0, $r['blocker_signal']['high_count']);
+        $this->assertSame(0, $r['blocker_signal']['medium_count']);
+    }
 }

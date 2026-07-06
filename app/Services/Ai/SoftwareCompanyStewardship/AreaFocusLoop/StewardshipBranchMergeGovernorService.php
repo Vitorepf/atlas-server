@@ -304,6 +304,13 @@ final class StewardshipBranchMergeGovernorService implements StewardshipBranchMe
                 'autonomy_uses_policy_surface' => $policyChangedFiles !== $changedFiles,
             ],
             'merge_conflict_check' => $mergeTree,
+            // WIRE-OBSERVE: structured classification of the raw merge-tree
+            // conflict output above (paths, kind, worst severity, governance-path
+            // flag). Advisory only — status/blockers are byte-identical to before.
+            'conflict_surface' => (new MergeConflictSurfaceClassifier)->classify([
+                'merge_tree_output' => (string) ($mergeTree['error_excerpt'] ?? ''),
+                'changed_files' => $changedFiles,
+            ]),
             'validation' => $validation,
             'auto_merge_policy' => $autoPolicy,
             'auto_merge_policy_without_retryable_operational_blockers' => $retryPolicy,

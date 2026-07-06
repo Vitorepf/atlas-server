@@ -74,6 +74,7 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
      *     majority_refuted: bool,
      *     merge_allowed: bool,
      *     reason: string,
+     *     test_meaningfulness: array<string,mixed>|null,
      * }
      */
     public function refute(array $cycle): array
@@ -100,6 +101,16 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
                 $refuters,
             ));
 
+        // WIRE-OBSERVE: advisory coverage-theater grade of the test files this
+        // cycle adds, computed from the same diff evidence the panel already
+        // receives. It NEVER refutes — merge_allowed above is byte-identical to
+        // before. Fail-open: null when scoring itself errors.
+        try {
+            $testMeaningfulness = $this->testMeaningfulness($cycle);
+        } catch (\Throwable) {
+            $testMeaningfulness = null;
+        }
+
         return [
             'schema_version' => self::SCHEMA,
             'cycle_id' => (string) ($cycle['cycle_id'] ?? ''),
@@ -109,7 +120,41 @@ final class AdversarialProofPanelService implements AdversarialProofPanel
             'majority_refuted' => $refutedCount * 2 > $verifierCount,
             'merge_allowed' => $mergeAllowed,
             'reason' => $reason,
+            'test_meaningfulness' => $testMeaningfulness,
         ];
+    }
+
+    /**
+     * Score the meaningfulness of the test contribution in this cycle's diff.
+     * Prefers the diff-scoped `changed_added_lines` (rel-path => added-line body)
+     * and falls back to `changed_file_contents`, mirroring V3's input contract.
+     * Production symbols are the class basenames of the changed product files.
+     *
+     * @param  array<string,mixed>  $cycle
+     * @return array<string,mixed>
+     */
+    private function testMeaningfulness(array $cycle): array
+    {
+        $addedLines = is_array($cycle['changed_added_lines'] ?? null) ? $cycle['changed_added_lines'] : [];
+        $contents = $addedLines !== []
+            ? $addedLines
+            : (is_array($cycle['changed_file_contents'] ?? null) ? $cycle['changed_file_contents'] : []);
+
+        $testFiles = [];
+        $productionSymbols = [];
+        foreach ($contents as $rel => $body) {
+            if (! is_string($rel) || ! is_string($body)) {
+                continue;
+            }
+            if (str_contains($rel, 'tests/') || str_ends_with($rel, 'Test.php')) {
+                $testFiles[] = ['path' => $rel, 'added_lines' => preg_split('/\r\n|\r|\n/', $body) ?: []];
+
+                continue;
+            }
+            $productionSymbols[] = basename($rel, '.php');
+        }
+
+        return (new TestMeaningfulnessScorer)->score($testFiles, $productionSymbols);
     }
 
     /**

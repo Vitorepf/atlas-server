@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyCapacityAlignmentValidator;
+use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyFallbackChainCoherenceValidator;
+use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyRoleCoverageValidator;
+use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyRoleRedundancyValidator;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
@@ -271,6 +275,26 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
             default => 'open_atlas_decide_receipt_then_dispatch_primary_builder',
         };
 
+        // Observe-only validation read-model (Obra #7 W2): computed from the
+        // arrays already materialized above; never mutates status/blockers.
+        // Fail-open per field: a validator error yields an explicit null.
+        $topologyValidation = [
+            'role_coverage' => $this->observedValidation(
+                fn (): array => (new ForgeTopologyRoleCoverageValidator)->inspect($defaultRoles),
+            ),
+            'fallback_chain_coherence' => $this->observedValidation(
+                fn (): array => (new ForgeTopologyFallbackChainCoherenceValidator)->inspect($fallbackChain),
+            ),
+            'capacity_alignment' => $this->observedValidation(
+                fn (): array => (new ForgeTopologyCapacityAlignmentValidator)->inspect($defaultRoles, $providerCapacity),
+            ),
+            'role_redundancy' => $this->observedValidation(
+                fn (): array => (new ForgeTopologyRoleRedundancyValidator)->inspect(
+                    array_column($defaultRoles, null, 'role'),
+                ),
+            ),
+        ];
+
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
@@ -288,6 +312,7 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
             'fallback_chain' => $fallbackChain,
             'provider_capacity' => $providerCapacity,
             'blockers' => array_values(array_unique($blockers)),
+            'topology_validation' => $topologyValidation,
             'last_fallback_event' => $fallbackEvent,
             'fallback_child_receipt_required' => $fallbackChildReceiptRequired,
             'runtime_dispatch_allowed' => $runtimeDispatchAllowed && $blockers === [],
@@ -309,6 +334,22 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\SoftwareComp
                 ? 'Provider Topology projetada de Decision Receipt real do Atlas Decide; nenhum provider externo foi chamado.'
                 : 'Provider Topology em static_policy: read-model de certificacao sem Decision Receipt runtime.',
         ];
+    }
+
+    /**
+     * Fail-open wrapper for observe-only validators: an error in a validator
+     * never breaks the read-model — the field becomes an explicit null.
+     *
+     * @param  callable(): array<string,mixed>  $inspect
+     * @return array<string,mixed>|null
+     */
+    private function observedValidation(callable $inspect): ?array
+    {
+        try {
+            return $inspect();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

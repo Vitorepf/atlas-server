@@ -6,6 +6,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\MemoryGovernance\MemoryNearDuplicateDetector;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,6 +80,7 @@ class AtlasMemoryGovernanceService
                 'scanned' => 0,
                 'duplicates' => [],
                 'conflicts' => [],
+                'near_duplicates' => null,
             ];
         }
 
@@ -95,7 +97,41 @@ class AtlasMemoryGovernanceService
             'scanned' => $entries->count(),
             'duplicates' => $duplicates,
             'conflicts' => $conflicts,
+            'near_duplicates' => $this->detectNearDuplicates($entries),
         ];
+    }
+
+    /**
+     * WIRE-OBSERVE (Obra #7): near-duplicate Jaccard clusters computed alongside
+     * the exact-hash duplicates (`detectDuplicates()` only catches identical
+     * normalized content — this fills the near-dup gap). Observe-only: never
+     * mutates entries, relations or the existing duplicates/conflicts verdicts.
+     * Fail-open at the call: explicit null when the Python near-duplicate
+     * runtime is unavailable or errors.
+     *
+     * @param  Collection<int,AtlasMemoryEntry>  $entries
+     * @return array<string,mixed>|null
+     */
+    private function detectNearDuplicates(Collection $entries): ?array
+    {
+        try {
+            $rows = $entries
+                ->map(fn (AtlasMemoryEntry $entry): array => [
+                    'id' => $entry->id,
+                    'tokens' => explode(' ', $this->normalizeText((string) $entry->body)),
+                    'memory_type' => (string) $entry->memory_type,
+                    'scope' => $entry->scope_type.':'.(string) $entry->scope_id,
+                    'priority' => (int) $entry->priority,
+                    'importance' => (int) $entry->importance,
+                    'recency' => (int) ($entry->recorded_at?->timestamp ?? 0),
+                ])
+                ->values()
+                ->all();
+
+            return (new MemoryNearDuplicateDetector)->detect($rows);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

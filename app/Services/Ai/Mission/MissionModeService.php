@@ -71,11 +71,25 @@ class MissionModeService
             $objectives = $this->decomposer->decompose($mission);
             $plannedWorkOrders = $this->workOrders->plan($mission);
 
+            // Observe-only: infere edges produtor→consumidor entre objetivos já
+            // decompostos; null explícito em erro (fail-open só na chamada).
+            try {
+                $objectiveDependencyEdges = (new ObjectiveDependencyEdgeInferer)->inferEdges(
+                    $objectives->map(static fn ($objective): array => [
+                        'id' => (string) $objective->id,
+                        'title' => (string) $objective->title,
+                    ])->values()->all(),
+                );
+            } catch (\Throwable) {
+                $objectiveDependencyEdges = null;
+            }
+
             $this->lifecycle->transition($mission, MissionLifecycleService::STATUS_PLANNED, [
                 'actor_type' => $context['actor_type'] ?? 'mission_mode',
                 'objectives_count' => $objectives->count(),
                 'work_orders_count' => $plannedWorkOrders->count(),
                 'signal' => $signal->toArray(),
+                'objective_dependency_edges' => $objectiveDependencyEdges,
             ]);
 
             return MissionModeResult::created($signal, $mission->refresh(), $objectives, $plannedWorkOrders);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow;
 
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringListNormalizer;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ChangeSurfaceBreadthScorer;
 
 /**
  * FASE 2 — zero-provider pre-flight admission gate.
@@ -181,6 +182,10 @@ final class ZeroProviderPreflightGate
             'risk_tier' => $riskTier,
             'scope_file_count' => $fileCount,
             'scope_layers' => array_values($layers),
+            // WIRE-OBSERVE: normalized breadth of the same allowed-files scope
+            // (directory_count, breadth_band, breadth_score). Advisory only —
+            // admitted/blockers above are byte-identical to before. Pure scorer.
+            'change_surface_breadth' => (new ChangeSurfaceBreadthScorer)->score($allowedFiles),
             'operator_authorized' => $authorized,
             'deps_unsatisfied' => $depsUnsatisfied,
             'evaluated_at' => gmdate('c'),

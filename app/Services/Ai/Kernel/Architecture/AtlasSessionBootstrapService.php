@@ -3,6 +3,8 @@
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Services\Ai\AtlasProviderProjectionService;
+use App\Services\Ai\OpenBrain\RecallTrigger\RecallExceptionDetector;
+use App\Services\Ai\OpenBrain\RecallTrigger\RecallTriggerClassifier;
 use App\Services\Engineering\AtlasCodeIntelligenceAutomaticGateService;
 use App\Services\Engineering\AtlasDocumentationRealitySystemService;
 use App\Services\Engineering\AtlasUniversalRealityCartographyService;
@@ -101,6 +103,7 @@ class AtlasSessionBootstrapService
             'blocked_when' => $placement['blocked_when'] ?? [],
             'next_actions' => $placement['next_actions'] ?? [],
             'risks' => $risks,
+            'recall_trigger' => $this->recallTrigger($task),
             'docs_health' => [
                 'status' => $docs['status'] ?? 'unknown',
                 'required_doc_count' => data_get($docs, 'summary.required_doc_count'),
@@ -175,6 +178,27 @@ class AtlasSessionBootstrapService
                 ],
             ],
         ];
+    }
+
+    /**
+     * Observe-only recall-trigger classification of the task (never blocks the session gate).
+     *
+     * @return array{action: string, mandatory: bool, reasons: list<string>, exception: array{is_exception: bool, exception: string|null, reason: string|null}}|null
+     */
+    private function recallTrigger(string $task): ?array
+    {
+        try {
+            $exception = (new RecallExceptionDetector)->detect($task);
+            $classification = (new RecallTriggerClassifier)->classify([
+                'description' => $task,
+                'is_rename_or_typo' => in_array($exception['exception'], ['rename_in_function', 'typo_or_whitespace'], true),
+                'is_meta_question' => $exception['exception'] === 'meta_about_atlas',
+            ]);
+
+            return $classification + ['exception' => $exception];
+        } catch (\Throwable) {
+            return null; // fail-open on the call only: observe field, explicit null on error
+        }
     }
 
     /**
