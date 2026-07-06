@@ -1036,7 +1036,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_company_execution_suite_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_domain_company_execution_suite_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -1070,10 +1070,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
                 'domain_company_suite_requires_sources_connectors_flow_packets_risk_controls_decision_rooms_replay_and_observability' => true,
             ],
-        ];
-        $payload['domain_company_execution_suite_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'domain_company_execution_suite_runtime_status_hash');
     }
 
     /**
@@ -1133,7 +1130,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_flow_work_product_delivery_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_flow_work_product_delivery_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -1163,10 +1160,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_acceptance_required_before_external_handoff' => true,
                 'flow_work_product_delivery_requires_catalog_blueprint_acceptance_handoff_and_replay' => true,
             ],
-        ];
-        $payload['flow_work_product_delivery_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'flow_work_product_delivery_runtime_status_hash');
     }
 
     /**
@@ -1230,7 +1224,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_domain_data_connector_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_domain_data_connector_operating_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -1263,10 +1257,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'read_only_probe_required_before_live_use' => true,
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
             ],
-        ];
-        $payload['domain_data_connector_operating_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'domain_data_connector_operating_runtime_status_hash');
     }
 
     /**
@@ -1326,7 +1317,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_flow_live_read_connector_probe_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_flow_live_read_connector_probe_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -1359,10 +1350,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'operator_scope_required_before_live_connector_probe' => true,
                 'promotion_unlocked' => 'shadow_readiness_not_external_write_authority',
             ],
-        ];
-        $payload['flow_live_read_connector_probe_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'flow_live_read_connector_probe_runtime_status_hash');
     }
 
     /**
@@ -1421,7 +1409,7 @@ class EnterpriseFlowFixtureActionRuntimeService
         $expectedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['expected_flow_count'], $companies));
         $completedFlowCount = array_sum(array_map(static fn (array $company): int => (int) $company['completed_external_research_adoption_flow_count'], $companies));
 
-        $payload = [
+        return AtlasEnvelope::seal([
             'ok' => $expectedFlowCount > 0 && $expectedFlowCount === $completedFlowCount,
             'schema' => 'atlas.ai.holding.enterprise_external_research_adoption_runtime_status.v1',
             'status' => $expectedFlowCount === $completedFlowCount && $expectedFlowCount > 0
@@ -1452,10 +1440,7 @@ class EnterpriseFlowFixtureActionRuntimeService
                 'runtime_ingestion_without_source_review_allowed' => false,
                 'operator_mandate_required_for_external_write_spend_trade_publish_deploy_delete_or_security_action' => true,
             ],
-        ];
-        $payload['external_research_adoption_runtime_status_hash'] = MissionCanonicalHash::sha256($payload);
-
-        return $payload;
+        ], 'external_research_adoption_runtime_status_hash');
     }
 
     /**
