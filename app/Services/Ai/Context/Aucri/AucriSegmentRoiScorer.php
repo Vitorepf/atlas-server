@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context\Aucri;
 
 use App\Services\Ai\Context\AtlasContextStringListNormalizer;
+use App\Services\Ai\Context\Concerns\ExtractsScalarFields;
 
 /**
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
  */
 final class AucriSegmentRoiScorer
 {
+    use ExtractsScalarFields;
+
     private const SCHEMA_VERSION = 'atlas.aucri.segment_roi_scoring.v1';
 
     private const REASON_MUST_KEEP = 'must_keep_pinned';
@@ -146,25 +149,5 @@ final class AucriSegmentRoiScorer
         }
 
         return ($values[$middle - 1] + $values[$middle]) / 2;
-    }
-
-    /**
-     * @param  array<string, mixed>  $segment
-     */
-    private function intValue(array $segment, string $key): int
-    {
-        $value = $segment[$key] ?? 0;
-
-        return is_int($value) ? $value : (int) $value;
-    }
-
-    /**
-     * @param  array<string, mixed>  $segment
-     */
-    private function floatValue(array $segment, string $key): float
-    {
-        $value = $segment[$key] ?? 0.0;
-
-        return is_float($value) || is_int($value) ? (float) $value : (float) $value;
     }
 }

@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Context\Concerns\ExtractsScalarFields;
+
 final class RecallContextBudgetSplitScorer
 {
+    use ExtractsScalarFields;
+
     private const BASE_RATIO = 0.4;
 
     private const PRIOR_EPISODE_BONUS = 0.2;
@@ -89,33 +93,5 @@ final class RecallContextBudgetSplitScorer
             'recall_ratio' => $ratio,
             'reasons' => $reasons,
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $signals
-     */
-    private function intValue(array $signals, string $key): int
-    {
-        $value = $signals[$key] ?? 0;
-
-        return is_int($value) ? $value : (int) $value;
-    }
-
-    /**
-     * @param  array<string, mixed>  $signals
-     */
-    private function stringValue(array $signals, string $key): string
-    {
-        $value = $signals[$key] ?? '';
-
-        return is_string($value) ? $value : '';
-    }
-
-    /**
-     * @param  array<string, mixed>  $signals
-     */
-    private function boolValue(array $signals, string $key): bool
-    {
-        return ($signals[$key] ?? false) === true;
     }
 }

@@ -383,32 +383,27 @@ class AiContextPackBuilder
         return array_values(array_filter($items, fn (array $item): bool => ($item['type'] ?? null) === $type));
     }
 
+    /** Scope-type reason strings: [memory registry reason, verbatim recall reason]. */
+    private const SCOPE_REASONS = [
+        'global' => ['memoria global ativa', 'recall verbatim global aprovado para provider'],
+        'project' => ['memoria ligada ao projeto atual', 'recall verbatim ligado ao projeto atual'],
+        'task' => ['memoria ligada a tarefa atual', 'recall verbatim ligado a tarefa atual'],
+        'engineering_run' => ['aprendizado ligado ao run de engenharia', 'recall verbatim ligado ao run de engenharia'],
+        'workspace' => ['memoria ligada ao workspace atual', 'recall verbatim ligado ao workspace atual'],
+        'session' => ['memoria ligada a sessao atual', 'recall verbatim ligado a sessao atual'],
+        'user' => ['preferencia/contexto ligado ao usuario', 'recall verbatim ligado ao usuario'],
+    ];
+
+    private const SCOPE_REASONS_DEFAULT = ['memoria ativa do registry central', 'recall verbatim aprovado para provider'];
+
     private function memoryReason(AtlasMemoryEntry $entry): string
     {
-        return match ($entry->scope_type) {
-            'global' => 'memoria global ativa',
-            'project' => 'memoria ligada ao projeto atual',
-            'task' => 'memoria ligada a tarefa atual',
-            'engineering_run' => 'aprendizado ligado ao run de engenharia',
-            'workspace' => 'memoria ligada ao workspace atual',
-            'session' => 'memoria ligada a sessao atual',
-            'user' => 'preferencia/contexto ligado ao usuario',
-            default => 'memoria ativa do registry central',
-        };
+        return (self::SCOPE_REASONS[$entry->scope_type] ?? self::SCOPE_REASONS_DEFAULT)[0];
     }
 
     private function verbatimReason(AtlasVerbatimMemory $memory): string
     {
-        return match ($memory->scope_type) {
-            'global' => 'recall verbatim global aprovado para provider',
-            'project' => 'recall verbatim ligado ao projeto atual',
-            'task' => 'recall verbatim ligado a tarefa atual',
-            'engineering_run' => 'recall verbatim ligado ao run de engenharia',
-            'workspace' => 'recall verbatim ligado ao workspace atual',
-            'session' => 'recall verbatim ligado a sessao atual',
-            'user' => 'recall verbatim ligado ao usuario',
-            default => 'recall verbatim aprovado para provider',
-        };
+        return (self::SCOPE_REASONS[$memory->scope_type] ?? self::SCOPE_REASONS_DEFAULT)[1];
     }
 
     private function contextNotes(string $input, array $options)
