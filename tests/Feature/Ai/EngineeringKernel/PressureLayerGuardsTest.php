@@ -178,6 +178,63 @@ final class PressureLayerGuardsTest extends TestCase
         $this->assertSame(1, $byProvider['claude_cli']['failure']);
     }
 
+    // ---------- Goal 3.5: producer — guards run automatically on a land + record cadence ----------
+
+    public function test_observe_landed_slice_runs_the_three_guards_advisory_and_records_cadence(): void
+    {
+        $guards = $this->guards(static fn (string $p): ?int => 4); // landed organs treated as invoked
+        $summary = $guards->observeLandedSlice(
+            ['app/Services/Ai/EngineeringKernel/FalseClaimInvariant.php'],
+            ['app/Services/Ai/EngineeringKernel/FalseClaimInvariant.php'],
+            'reuse App\\Services\\Ai\\EngineeringKernel\\PressureLayerGuards in the land seam',
+            'hermes_cli',
+        );
+
+        // ADVISORY-first: never blocks a land.
+        $this->assertFalse($summary['blocked']);
+        $this->assertTrue($summary['advisory']);
+
+        // All 3 guards ran and were recorded.
+        $ran = array_column($summary['verdicts'], 'guard');
+        $this->assertContains(PressureLayerGuards::RUNTIME_VERIFIER, $ran);
+        $this->assertContains(PressureLayerGuards::BOUNDARY_WIRING_GUARD, $ran);
+        $this->assertContains(PressureLayerGuards::CONTEXT_CARTOGRAPHER, $ran);
+        $this->assertSame($summary['ran'], $summary['recorded']);
+        $this->assertGreaterThanOrEqual(3, $summary['recorded']);
+
+        // The verdicts really entered the ledger the Decision Core weighs — cadence is now non-zero.
+        foreach ([PressureLayerGuards::RUNTIME_VERIFIER, PressureLayerGuards::BOUNDARY_WIRING_GUARD, PressureLayerGuards::CONTEXT_CARTOGRAPHER] as $role) {
+            $stats = $this->feedback->routeStats('programming', $role);
+            $this->assertGreaterThanOrEqual(1, $stats['total_calls_observed'], "no cadence recorded for {$role}");
+        }
+    }
+
+    public function test_observe_landed_slice_flags_an_orphan_but_still_does_not_block(): void
+    {
+        $guards = $this->guards(static fn (string $p): ?int => 0); // every landed organ is an orphan
+        $summary = $guards->observeLandedSlice(
+            ['app/Services/Ai/NewThing.php'],
+            ['app/Services/Ai/NewThing.php'],
+            'land a new organ',
+            'claude_cli',
+        );
+
+        $rv = null;
+        foreach ($summary['verdicts'] as $v) {
+            if ($v['guard'] === PressureLayerGuards::RUNTIME_VERIFIER) {
+                $rv = $v;
+            }
+        }
+        $this->assertNotNull($rv);
+        $this->assertFalse($rv['pass']);        // runtime_verifier CAUGHT the orphan (real capture)
+        $this->assertFalse($summary['blocked']); // ...yet advisory-first never blocks
+
+        // The flag entered the ledger as a real failure (never proven).
+        $stats = $this->feedback->routeStats('programming', PressureLayerGuards::RUNTIME_VERIFIER);
+        $this->assertSame(1, $stats['providers'][0]['failure']);
+        $this->assertSame(0, $stats['providers'][0]['proven_success']);
+    }
+
     // ---------- roster registration: the guards ARE advisory roles in the AAWR output ----------
 
     public function test_guards_are_advisory_roles_in_the_aawr_roster(): void

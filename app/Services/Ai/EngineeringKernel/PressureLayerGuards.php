@@ -204,6 +204,91 @@ final class PressureLayerGuards
         ]);
     }
 
+    /**
+     * PRODUCER — run all 3 advisory guards over a just-landed slice and record each verdict
+     * into the outcome ledger (this is what makes the guards produce CADENCE). ADVISORY: it
+     * NEVER blocks (the commit already happened) and is fail-open per guard (a guard error is
+     * swallowed so a landed slice is never disturbed).
+     *
+     * Inputs the land seam provides: the declared scoped paths, the actually-committed files,
+     * and the objective. runtime_verifier runs per landed app/**\/*.php organ (orphan signal =
+     * VETO #20); boundary_wiring_guard checks committed ⊆ declared radius (commit-scope
+     * integrity); context_cartographer grounds any FQCN cited in the objective (hallucination),
+     * fail-open when the objective cites none.
+     *
+     * @param  list<string>  $declaredPaths  the paths the slice declared it would land
+     * @param  list<string>  $committedFiles  the files actually committed
+     * @return array{schema:string,advisory:bool,blocked:bool,ran:int,recorded:int,verdicts:list<array<string,mixed>>}
+     */
+    public function observeLandedSlice(array $declaredPaths, array $committedFiles, string $objective, string $runtime, string $taskCategory = 'programming'): array
+    {
+        $verdicts = [];
+        $recorded = 0;
+
+        $emit = function (array $verdict) use (&$verdicts, &$recorded, $taskCategory, $runtime): void {
+            $verdicts[] = $verdict;
+            try {
+                $this->recordVerdict($verdict, $taskCategory, $runtime, 'pressure_layer_on_land');
+                $recorded++;
+            } catch (\Throwable) {
+                // fail-open: a ledger write must never disturb a landed slice.
+            }
+        };
+
+        // runtime_verifier — one verdict per landed organ (app/**/*.php). Console commands are
+        // framework-invoked (auto-discovered, never code-referenced), so "0 callers" is expected,
+        // not an orphan — skip them to keep the cadence honest (no systematic false-positive).
+        foreach ($this->normPaths($committedFiles) as $file) {
+            if (! str_starts_with($file, 'app/') || ! str_ends_with($file, '.php')) {
+                continue;
+            }
+            if (str_starts_with($file, 'app/Console/')) {
+                continue;
+            }
+            try {
+                $emit($this->runtimeVerifier($file));
+            } catch (\Throwable) {
+            }
+        }
+
+        // boundary_wiring_guard — the committed files must stay within the declared scope's radius.
+        try {
+            $emit($this->boundaryWiringGuard($declaredPaths, $committedFiles));
+        } catch (\Throwable) {
+        }
+
+        // context_cartographer — ground any FQCN the objective explicitly cites (fail-open otherwise).
+        try {
+            $emit($this->contextCartographer($objective, $this->citedFqcns($objective)));
+        } catch (\Throwable) {
+        }
+
+        return [
+            'schema' => 'atlas.pressure_layer.on_land_observation.v1',
+            'advisory' => true,
+            'blocked' => false, // advisory-first: the guards never block a land yet
+            'ran' => count($verdicts),
+            'recorded' => $recorded,
+            'verdicts' => $verdicts,
+        ];
+    }
+
+    /**
+     * FQCN-shaped citations in prose = tokens containing a namespace separator. Requiring a
+     * backslash avoids false-positives on ordinary Capitalized words, so the cartographer only
+     * fires on a REAL symbol citation and never fabricates a hallucination out of prose.
+     *
+     * @return list<string>
+     */
+    private function citedFqcns(string $objective): array
+    {
+        if (preg_match_all('/[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+/', $objective, $m) === false) {
+            return [];
+        }
+
+        return array_values(array_unique($m[0] ?? []));
+    }
+
     /** Tri-state caller count via the real service, or the test override when supplied. */
     private function callerCount(string $relPath): ?int
     {

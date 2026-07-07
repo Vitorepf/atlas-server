@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\Brain\AtlasEvolutionDiary;
+use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -70,6 +71,26 @@ class AtlasLandCommand extends Command
             );
             $diaryId = $entry['id'] ?? null;
             $res['diario_id'] = $diaryId;
+        }
+
+        // Cognitive Pressure Layer PRODUCER (Goal 3.5): on every real land, run the 3 advisory
+        // guards over the committed slice and record their verdicts into the outcome ledger so the
+        // guards accumulate CADENCE (the Goal 4 gate reads this). ADVISORY + fail-open: the commit
+        // already succeeded, so this never changes the land's exit code. Skipped under tests (would
+        // pollute the live ledger); kill-switch via config('atlas.pressure.observe_on_land').
+        if (($res['committed'] ?? false) === true
+            && config('atlas.pressure.observe_on_land', true)
+            && ! app()->runningUnitTests()) {
+            try {
+                $res['pressure_layer'] = app(PressureLayerGuards::class)->observeLandedSlice(
+                    $paths,
+                    (array) ($res['files_committed'] ?? $paths),
+                    $message,
+                    (string) $this->option('client'),
+                );
+            } catch (\Throwable) {
+                // advisory-first: a guard failure NEVER fails a landed slice.
+            }
         }
 
         if ($this->option('json')) {
