@@ -28,6 +28,7 @@ decisions:
   - Profiles especializados (coder/reviewer/researcher/ops) sao realizados via HERMES_HOME gerenciado, nunca mutando o ~/.hermes do operador.
   - Reconciliacao apenas conta e roteia candidatos (memoria/skill/schedule) para os gates Atlas; nunca promove nada por conta propria.
   - CANON 07/07 - Hermes Executive Mesh NAO e uma camada de arquitetura; e um RUNTIME ADAPTER Hermes-especifico que roda SOB a Workcell Fabric (AAWR) do Atlas Orchestrator. Nenhuma camada leva nome de provider; amanha o mesmo papel de execucao paralela pode ser ocupado por outro runtime. Ver docs/engineering-knowledge-base/atlas-orchestrator-canon.md.
+  - RENAME PENDENTE (07/07) - o nome canonico deste adapter passa a ser Hermes Workcell Adapter; Mesh finge camada/enxame e sai. Renomear classe HermesExecutiveMeshService, command atlas:hermes:mesh, config providers.hermes_cli.mesh.*, e este doc (id/title/canonical_name) para Workcell Adapter, com aliases de compat e callers congelados por rg. Slice proprio (toca chaves), nao junto de outro.
 maintenance:
   - Manter abaixo de 520 linhas; detalhes por componente vivem no codigo e nos testes.
   - Atualizar quando um novo profile, uma nova classe de capacidade paralela (batch, code_execution) ou um novo consumidor do mesh for adicionado.

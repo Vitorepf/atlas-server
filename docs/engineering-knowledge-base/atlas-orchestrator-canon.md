@@ -30,7 +30,7 @@ decisions:
   - As cinco camadas canonicas sao Hyperflow (para onde vai), Decision Core (quem/qual runtime/modelo/topologia), Workcell Fabric (celula provider-neutral), Proof Loop (real vs fake-green), Learning Loop (aprende para a proxima).
   - As cinco camadas mapeiam 1 para 1 em orgaos que JA existem; isto e canon/mapa, nao um sistema novo. NAO fazer big-refactor de unificacao (refutado pela Obra #6 e pelo kernel-unification-map).
   - Regra petrea role slot diferente de runtime identity - nenhuma camada de arquitetura leva nome de provider; o runtime que ocupa um papel e substituivel (hoje Hermes carrega GLM/Kimi/Minimax; amanha pode ser outro).
-  - Workcell Fabric e o AAWR (AtlasAgenticWorkcellRuntimeService), ja provider-neutral e com role_roster. NAO criar camada nova; reusar. Hermes Executive Mesh e um runtime adapter que roda SOB a Workcell Fabric, nao um par dela nem uma camada de arquitetura.
+  - Workcell Fabric e o AAWR (AtlasAgenticWorkcellRuntimeService), ja provider-neutral e com role_roster. NAO criar camada nova; reusar. O adapter Hermes concreto chama-se Hermes Workcell Adapter (categoria Runtime Adapter, sob a Workcell Fabric/AAWR); aposenta o nome Hermes Executive Mesh (Mesh finge camada/enxame), nao e par do AAWR nem camada de arquitetura.
   - Learning Loop parcial - o ADML ja consome ledger de outcome vivo por (task_category, role) com auto-deativacao de rota degradada, mas a auto-ativacao e flag-gated default-OFF; o que falta e o loop AMPLO unificado Dev/Forge/Product OutcomeMemory para o Decision Core provado como sistema.
   - A Cognitive Pressure Layer sao 8 papeis cognitivos (nao 28); comecar por 3 (context_cartographer, boundary_wiring_guard, runtime_verifier) com sinal de outcome ja vivo.
   - Teto honesto - a sociedade cognitiva nao ultrapassa o juiz mais forte; largura (modelos mid abundantes) multiplica verificacao, nao profundidade (frontier igual juiz). O multiplicador e o loop fechado, nao o tamanho do elenco; renomear camada rende aproximadamente zero de capacidade.
@@ -63,7 +63,7 @@ risk_level: low
 next_actions:
   - Fechar e provar o loop amplo Dev/Forge/Product OutcomeMemory para o Decision Core como sistema unificado.
   - Implementar os 3 guardas iniciais da Pressure Layer sobre o role_roster do AAWR.
-  - Aposentar Hermes Mesh como nome de camada, dobrando no AAWR por slice reversivel.
+  - Renomear Hermes Executive Mesh para Hermes Workcell Adapter (classe/service/command/config/doc) com aliases de compat e callers congelados por rg; dobrar no AAWR.
 related_paths:
   - docs/engineering-knowledge-base/atlas-agentic-workcell-runtime.md
   - docs/engineering-knowledge-base/atlas-hermes-executive-mesh.md
@@ -134,7 +134,7 @@ Dev, Forge e Autonomos ja rodam sobre estes cinco orgaos; o canon so nomeia de f
 
 ## Contratos
 - `role slot != runtime identity` - nenhuma camada de arquitetura leva nome de provider; o runtime que ocupa um papel e substituivel.
-- Workcell Fabric e o AAWR existente. Reusar, nao recriar. Hermes Executive Mesh e um runtime adapter SOB a Workcell Fabric.
+- Workcell Fabric e o AAWR existente. Reusar, nao recriar. O adapter Hermes chama-se Hermes Workcell Adapter e roda SOB a Workcell Fabric (aposenta o nome Hermes Executive Mesh).
 - Reuse-first: nenhum orgao novo quando um ja existe. Sem big-refactor de unificacao.
 - VETO de orgao orfao: produtor mais consumidor no mesmo slice ou nao landa.
 
@@ -149,13 +149,13 @@ intencao
 ```
 
 ## Regras para IA
-- Os 8 pontos da sintese: canon das 5 camadas; matar nome Hermes Mesh; nao criar Workcell novo (reusar AAWR); nao big-refactor; fechar/provar o loop amplo de Learning; endurecer o Proof; Pressure Layer em 3 papeis iniciais; runtime abundante e pressao, nao arquitetura.
+- Os 8 pontos da sintese: canon das 5 camadas; renomear Hermes Mesh para Hermes Workcell Adapter; nao criar Workcell novo (reusar AAWR); nao big-refactor; fechar/provar o loop amplo de Learning; endurecer o Proof; Pressure Layer em 3 papeis iniciais; runtime abundante e pressao, nao arquitetura.
 - Ordem: pontos 5 e 6 (Learning mais Proof) NAO sao trabalho novo - sao o fechamento em voo; nao forke. Pontos 1/2/3/8 (canon mais rename) sao obra barata. Ponto 7 (Pressure Layer) vem depois.
 - Os 3 guardas rendem de 1a ordem na hora (bloqueiam land ruim mesmo com o loop amplo ainda nao provado); o loop amplo da o ganho composto.
 
 ## Escopo de Implementacao
 - Fase 0 (em voo) - fechamento da linha ACOS: endurece o Proof, avanca o Learning e faz o instrumento TPE. E os pontos 5 e 6.
-- Fase 1 (barata, hygiene) - canonizar as 5 camadas (este doc, ja feito) mais aposentar Hermes Mesh dobrando no AAWR por slice reversivel. Rende clareza, nao capacidade.
+- Fase 1 (barata, hygiene) - canonizar as 5 camadas (este doc, ja feito) mais renomear Hermes Executive Mesh para Hermes Workcell Adapter (com aliases de compat) dobrando no AAWR por slice reversivel. Rende clareza, nao capacidade.
 - Fase 2 (alavanca) - fechar e PROVAR o loop amplo unificado Dev/Forge/Product OutcomeMemory para o Decision Core. Parte por (task_category, role) ja existe e e testada; falta a unificacao cross-surface e a ativacao em regime.
 - Fase 3 - Pressure Layer: 3 guardas sobre o role_roster do AAWR; expandir para os outros 5 papeis so por evidencia.
 
@@ -192,4 +192,4 @@ Pressure Layer - 8 papeis (previne / sinal / tier / quando). Comecar por 3: `run
 ## Proximas Acoes
 - Fechar e provar o loop amplo Dev/Forge/Product OutcomeMemory para o Decision Core.
 - Implementar os 3 guardas iniciais da Pressure Layer sobre o role_roster do AAWR.
-- Aposentar Hermes Mesh como nome de camada, dobrando no AAWR por slice reversivel.
+- Renomear Hermes Executive Mesh para Hermes Workcell Adapter (classe/service/command/config/doc) com aliases de compat e callers congelados por rg; dobrar no AAWR.
