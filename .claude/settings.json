@@ -25,6 +25,24 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-heartbeat-alert.sh"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh reinject"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh write"
+          }
+        ]
       }
     ],
     "PreToolUse": [
