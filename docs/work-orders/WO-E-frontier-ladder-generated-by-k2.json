@@ -1,0 +1,198 @@
+{
+    "objective": "E: AtlasFrontierWaveLadder + atlas:acos:frontier-status — registra as ondas (Fase0 portao -> SIS2 -> SIS3/SIS5 -> SIS6/SIS7 -> economia), conta eventos externos reais no ledger e rotula active/aguardando_eventos/portao. Satisfaz o criterio PRONTO '5 sistemas frontier etiquetados' + constroi a escada de eventos (o event-gate real).",
+    "allowed_files": [
+        "app/Services/Ai/Cognition/AtlasFrontierWaveLadder.php",
+        "app/Console/Commands/AtlasFrontierStatusCommand.php",
+        "tests/Feature/Ai/Cognition/AtlasFrontierWaveLadderTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/Support/AppendOnlyJsonlStore.php",
+        "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Cognition/AtlasFrontierWaveLadderTest.php",
+        "smoke: atlas:acos:frontier-status etiqueta os 5 sistemas; nenhuma onda active sem >=5 eventos externos reais na anterior"
+    ],
+    "glossary": {
+        "FrontierLadder": "app/Services/Ai/Cognition/AtlasFrontierWaveLadder.php",
+        "FrontierCommand": "app/Console/Commands/AtlasFrontierStatusCommand.php",
+        "JsonlStore": "app/Services/Ai/Support/AppendOnlyJsonlStore.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Cognition/AtlasFrontierWaveLadderTest.php",
+        "hash": "b9679a0e3d62f3d6b521cd2ef1cea7c76719664545cc2e926619004c12e51a06"
+    },
+    "frozen_callers": [
+        {
+            "caller": "routes/console.php:519",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:353",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:502",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:782",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:833",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1774",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:2804",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:4234",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:4396",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Vault/CartographyCanon.php:104",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Vault/CartographyCanon.php:219",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionAutonomousRuntimeCommand.php:157",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionAutonomousRuntimeCommand.php:158",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionAutonomousRuntimeCommand.php:159",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionAutonomousRuntimeCommand.php:178",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopRollbackDecisionCommand.php:19",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexInsightsCommand.php:184",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexInsightsCommand.php:186",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasBrainReplayCommand.php:15",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasAurgTemporalRecordCommand.php:21",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:229",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:522",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:620",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:626",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:657",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:687",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:757",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:876",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:883",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:886",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:901",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:913",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:914",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:922",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "database/atlas/memory-rehydration-wiper-restore.json:10",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "database/atlas/memory-rehydration-wiper-restore.json:20",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:80",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:106",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:206",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:207",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "ativaria uma onda sem os ~5 eventos externos reais na anterior (seria auto-declaracao de sucesso, proibido §15)",
+        "contaria evento de kind desconhecido (so os 3 kinds reais contam)",
+        "fabricaria prontidao dos frontier (SIS2 nao e paridade de inteligencia; e o N, nao o M)",
+        "quebraria se o ledger faltar (deve ser degrade-safe fail-open)"
+    ],
+    "baseline_artifact": {
+        "metric": "frontier_wave_activation",
+        "note": "5 sistemas etiquetados; fase0=portao; SIS2..economia aguardando_eventos (0/5) ate eventos externos reais acumularem; ativacao e funcao do ledger, nunca de texto"
+    },
+    "generated_by": "atlas:obra:work-order"
+}

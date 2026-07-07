@@ -1,0 +1,31 @@
+{
+  "_meta": "Descritor da fatia E (Obra #20) — escada de eventos externos + registro das ondas frontier. obra20 §15: frente N+1 so ATIVA quando N acumulou ~5 eventos externos REAIS no ledger (pack-diff-mergeado / contradicao-que-impediu-erro / memoria-citada-por-sessao-alheia). Design/spec paralelos; ativacao sequencial. 'Nenhuma frente declara sucesso sobre si mesma.' Esta fatia ETIQUETA os 5 sistemas (SIS2-7+economia) e constroi o gate honesto de ativacao — nada active sem eventos reais.",
+  "objective": "E: AtlasFrontierWaveLadder + atlas:acos:frontier-status — registra as ondas (Fase0 portao -> SIS2 -> SIS3/SIS5 -> SIS6/SIS7 -> economia), conta eventos externos reais no ledger e rotula active/aguardando_eventos/portao. Satisfaz o criterio PRONTO '5 sistemas frontier etiquetados' + constroi a escada de eventos (o event-gate real).",
+  "allowed_files": [
+    "app/Services/Ai/Cognition/AtlasFrontierWaveLadder.php",
+    "app/Console/Commands/AtlasFrontierStatusCommand.php",
+    "tests/Feature/Ai/Cognition/AtlasFrontierWaveLadderTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/Support/AppendOnlyJsonlStore.php",
+    "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Cognition/AtlasFrontierWaveLadderTest.php",
+    "smoke: atlas:acos:frontier-status etiqueta os 5 sistemas; nenhuma onda active sem >=5 eventos externos reais na anterior"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Cognition/AtlasFrontierWaveLadderTest.php" },
+  "glossary": {
+    "FrontierLadder": "app/Services/Ai/Cognition/AtlasFrontierWaveLadder.php",
+    "FrontierCommand": "app/Console/Commands/AtlasFrontierStatusCommand.php",
+    "JsonlStore": "app/Services/Ai/Support/AppendOnlyJsonlStore.php"
+  },
+  "freeze_callers_of": ["append", "read"],
+  "stop_and_return": [
+    "ativaria uma onda sem os ~5 eventos externos reais na anterior (seria auto-declaracao de sucesso, proibido §15)",
+    "contaria evento de kind desconhecido (so os 3 kinds reais contam)",
+    "fabricaria prontidao dos frontier (SIS2 nao e paridade de inteligencia; e o N, nao o M)",
+    "quebraria se o ledger faltar (deve ser degrade-safe fail-open)"
+  ],
+  "baseline_artifact": { "metric": "frontier_wave_activation", "note": "5 sistemas etiquetados; fase0=portao; SIS2..economia aguardando_eventos (0/5) ate eventos externos reais acumularem; ativacao e funcao do ledger, nunca de texto" }
+}
