@@ -6,7 +6,7 @@ namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiJob;
-use App\Services\Ai\Hermes\Mesh\HermesExecutiveMeshService;
+use App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter;
 use App\Services\Ai\Hermes\Mesh\HermesMeshProcessWorkerFactory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
  * Default-safe: `status` and `plan` are READ-ONLY (plan composes + seals a
  * dispatch plan but launches nothing). `dispatch` actually fans out a fleet of
  * real `hermes` worktree processes and is FAIL-CLOSED twice over: it refuses
- * unless providers.hermes_cli.mesh.policy === 'atlas_adapter' AND the operator
+ * unless providers.hermes_cli.workcell.policy === 'atlas_adapter' AND the operator
  * passes --confirm. Raw subtask objectives are held only transiently to build
  * the child commands; every emitted plan/receipt carries objective hashes only.
  * Auto-discovered from app/Console/Commands.
@@ -29,16 +29,19 @@ class AtlasHermesMeshCommand extends Command
 {
     use EmitsCanonicalJson;
 
-    protected $signature = 'atlas:hermes:mesh
+    /** Compat alias: the retired command name `atlas:hermes:mesh` still resolves. */
+    protected $aliases = ['atlas:hermes:mesh'];
+
+    protected $signature = 'atlas:hermes:workcell
         {action=status : status|plan|dispatch}
         {--file= : JSON file: {"permission_mode":"write","subtasks":[{"objective":"...","role":"coder","toolsets":["file"],"worktree":true}]}}
         {--json : Emit JSON}
         {--dry-run : Build + print the exact per-child hermes argv WITHOUT launching}
         {--confirm : Required to actually dispatch the live fleet}';
 
-    protected $description = 'Atlas Executive Mesh surface: status (config + readiness), plan (compose + seal a governed many-agent plan, read-only), dispatch (fan out a real hermes worktree fleet — requires mesh.policy=atlas_adapter AND --confirm).';
+    protected $description = 'Atlas Workcell Adapter surface (Hermes runtime): status (config + readiness), plan (compose + seal a governed many-agent plan, read-only), dispatch (fan out a real hermes worktree fleet — requires workcell.policy=atlas_adapter AND --confirm).';
 
-    public function handle(HermesExecutiveMeshService $service, HermesMeshProcessWorkerFactory $factory): int
+    public function handle(WorkcellAdapter $service, HermesMeshProcessWorkerFactory $factory): int
     {
         return match ($this->action()) {
             'plan' => $this->handlePlan($service),
@@ -49,17 +52,17 @@ class AtlasHermesMeshCommand extends Command
 
     private function handleStatus(): int
     {
-        $policy = (string) config('atlas.ai.providers.hermes_cli.mesh.policy', 'off');
+        $policy = (string) config('atlas.ai.providers.hermes_cli.workcell.policy', 'off');
         $payload = [
             'action' => 'status',
             'authority' => 'atlas',
             'hermes_mesh_can_decide' => false,
             'mesh_policy' => $policy,
             'dispatch_enabled' => $policy === 'atlas_adapter',
-            'max_parallel_workers' => (int) config('atlas.ai.providers.hermes_cli.mesh.max_parallel_workers', 8),
-            'max_children' => (int) config('atlas.ai.providers.hermes_cli.mesh.max_children', 64),
-            'checkpoint_policy' => (string) config('atlas.ai.providers.hermes_cli.mesh.checkpoint_policy', 'off'),
-            'worktree_fleet' => (bool) config('atlas.ai.providers.hermes_cli.mesh.worktree_fleet', true),
+            'max_parallel_workers' => (int) config('atlas.ai.providers.hermes_cli.workcell.max_parallel_workers', 8),
+            'max_children' => (int) config('atlas.ai.providers.hermes_cli.workcell.max_children', 64),
+            'checkpoint_policy' => (string) config('atlas.ai.providers.hermes_cli.workcell.checkpoint_policy', 'off'),
+            'worktree_fleet' => (bool) config('atlas.ai.providers.hermes_cli.workcell.worktree_fleet', true),
             'delegation_concurrency_ceiling' => (int) config('atlas.ai.providers.hermes_cli.delegation_max_concurrent_children', 3),
         ];
 
@@ -76,7 +79,7 @@ class AtlasHermesMeshCommand extends Command
         return self::SUCCESS;
     }
 
-    private function handlePlan(HermesExecutiveMeshService $service): int
+    private function handlePlan(WorkcellAdapter $service): int
     {
         [$mission, $subtasks, $error] = $this->load();
         if ($error !== null) {
@@ -96,7 +99,7 @@ class AtlasHermesMeshCommand extends Command
         return self::SUCCESS;
     }
 
-    private function handleDispatch(HermesExecutiveMeshService $service, HermesMeshProcessWorkerFactory $factory): int
+    private function handleDispatch(WorkcellAdapter $service, HermesMeshProcessWorkerFactory $factory): int
     {
         [$mission, $subtasks, $error] = $this->load();
         if ($error !== null) {
@@ -115,8 +118,8 @@ class AtlasHermesMeshCommand extends Command
             return $this->renderDryRun($service, $factory, $mission, $subtasks, $objectivesByIndex);
         }
 
-        if (config('atlas.ai.providers.hermes_cli.mesh.policy') !== 'atlas_adapter') {
-            return $this->failWith('dispatch refused: providers.hermes_cli.mesh.policy is not atlas_adapter (default-safe). Set ATLAS_AI_HERMES_MESH_POLICY=atlas_adapter to enable.');
+        if (config('atlas.ai.providers.hermes_cli.workcell.policy') !== 'atlas_adapter') {
+            return $this->failWith('dispatch refused: providers.hermes_cli.workcell.policy is not atlas_adapter (default-safe). Set ATLAS_AI_HERMES_WORKCELL_POLICY=atlas_adapter to enable.');
         }
 
         if (! (bool) $this->option('confirm')) {
@@ -150,7 +153,7 @@ class AtlasHermesMeshCommand extends Command
      * @param  array<int,array<string,mixed>>  $subtasks
      * @param  array<int,string>  $objectivesByIndex
      */
-    private function renderDryRun(HermesExecutiveMeshService $service, HermesMeshProcessWorkerFactory $factory, array $mission, array $subtasks, array $objectivesByIndex): int
+    private function renderDryRun(WorkcellAdapter $service, HermesMeshProcessWorkerFactory $factory, array $mission, array $subtasks, array $objectivesByIndex): int
     {
         // Force-enable the plan for the preview so the operator sees the real
         // fleet that WOULD launch (dispatch itself still requires policy+confirm).
@@ -170,7 +173,7 @@ class AtlasHermesMeshCommand extends Command
         $payload = [
             'action' => 'dry_run',
             'launched' => false,
-            'live_dispatch_would_be_allowed' => config('atlas.ai.providers.hermes_cli.mesh.policy') === 'atlas_adapter',
+            'live_dispatch_would_be_allowed' => config('atlas.ai.providers.hermes_cli.workcell.policy') === 'atlas_adapter',
             'max_parallel_workers' => $plan['max_parallel_workers'] ?? 0,
             'commands' => $commands,
         ];
@@ -275,7 +278,7 @@ class AtlasHermesMeshCommand extends Command
      */
     private function policy(): array
     {
-        return ['enabled' => config('atlas.ai.providers.hermes_cli.mesh.policy') === 'atlas_adapter'];
+        return ['enabled' => config('atlas.ai.providers.hermes_cli.workcell.policy') === 'atlas_adapter'];
     }
 
     private function transientJob(): AiJob

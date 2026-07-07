@@ -713,6 +713,15 @@ class AppServiceProvider extends ServiceProvider
             HermesKanbanCli::class,
             HermesKanbanProcessCli::class,
         );
+        // Workcell Adapter (Atlas Orchestrator Canon): the provider-neutral runtime
+        // adapter contract under the Workcell Fabric (AAWR). Default impl = the Hermes
+        // many-agent fan-out. `role slot != runtime identity` — rebinding this one line
+        // swaps the runtime that fills the slot. Bound (not singleton): the adapter is
+        // stateless/pure. Canonical consumers inject the contract, not the concrete.
+        $this->app->bind(
+            \App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter::class,
+            \App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter::class,
+        );
         // R8 honest retrieval-precision harness: bind the semantic-retrieval
         // boundary to the REAL Python runtime client (tests inject a fake engine
         // to prove the honest-unmeasured branch without spawning Python).

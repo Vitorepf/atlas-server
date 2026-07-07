@@ -62,14 +62,38 @@ class OrchestratorLayerNamingGuardTest extends TestCase
         $this->assertStringContainsString('Workcell Fabric', $doc);
     }
 
-    public function test_mesh_service_code_frames_itself_as_adapter_under_the_fabric(): void
+    public function test_workcell_adapter_code_frames_itself_as_adapter_under_the_fabric(): void
     {
-        $src = file_get_contents(app_path('Services/Ai/Hermes/Mesh/HermesExecutiveMeshService.php'));
+        $src = file_get_contents(app_path('Services/Ai/Hermes/Mesh/HermesWorkcellAdapter.php'));
         $this->assertNotFalse($src);
 
         $this->assertStringContainsString('RUNTIME ADAPTER', $src);
         $this->assertStringContainsString('Workcell Fabric', $src);
-        $this->assertStringNotContainsString('sovereign orchestrator', $src, 'Code still frames the mesh as a top-layer orchestrator.');
+        $this->assertStringContainsString('implements WorkcellAdapter', $src);
+        $this->assertStringNotContainsString('sovereign orchestrator', $src, 'Code still frames the adapter as a top-layer orchestrator.');
+    }
+
+    public function test_mesh_name_survives_only_as_a_deprecated_alias(): void
+    {
+        // Canon rename (Goal 3 SLICE 1): the canonical class is HermesWorkcellAdapter;
+        // the retired name HermesExecutiveMeshService must remain a pure deprecated alias.
+        $alias = file_get_contents(app_path('Services/Ai/Hermes/Mesh/HermesExecutiveMeshService.php'));
+        $this->assertNotFalse($alias);
+        $this->assertStringContainsString('@deprecated', $alias);
+        $this->assertStringContainsString('extends HermesWorkcellAdapter', $alias);
+
+        // Zero broken callers: the retired FQCN still resolves as the same runtime type,
+        // and the canonical class satisfies the provider-neutral Workcell Adapter contract.
+        $this->assertTrue(is_a(
+            \App\Services\Ai\Hermes\Mesh\HermesExecutiveMeshService::class,
+            \App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter::class,
+            true,
+        ));
+        $this->assertTrue(is_a(
+            \App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter::class,
+            \App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter::class,
+            true,
+        ));
     }
 
     /**

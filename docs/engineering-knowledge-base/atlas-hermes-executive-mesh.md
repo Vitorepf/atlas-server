@@ -1,7 +1,8 @@
 ---
 id: atlas-hermes-executive-mesh
 type: engineering_knowledge
-title: Atlas Hermes Executive Mesh
+title: Atlas Hermes Workcell Adapter
+canonical_name: Workcell Adapter
 status: active
 category: architecture
 priority: 93
@@ -28,7 +29,7 @@ decisions:
   - Profiles especializados (coder/reviewer/researcher/ops) sao realizados via HERMES_HOME gerenciado, nunca mutando o ~/.hermes do operador.
   - Reconciliacao apenas conta e roteia candidatos (memoria/skill/schedule) para os gates Atlas; nunca promove nada por conta propria.
   - CANON 07/07 - Hermes Executive Mesh NAO e uma camada de arquitetura; e um RUNTIME ADAPTER Hermes-especifico que roda SOB a Workcell Fabric (AAWR) do Atlas Orchestrator. Nenhuma camada leva nome de provider; amanha o mesmo papel de execucao paralela pode ser ocupado por outro runtime. Ver docs/engineering-knowledge-base/atlas-orchestrator-canon.md.
-  - RENAME PENDENTE (07/07) - o nome arquitetural/canonico e Workcell Adapter (contrato provider-neutral, sob a Workcell Fabric/AAWR); Hermes e apenas UMA implementacao (nao vai no nome canonico). Renomear a classe HermesExecutiveMeshService para HermesWorkcellAdapter (implements WorkcellAdapter), command atlas:hermes:mesh e config providers.hermes_cli.mesh.* para workcell, e este doc; Mesh sai. Aliases de compat e callers congelados por rg. Slice proprio (toca chaves), nao junto de outro.
+  - RENAME FEITO (Goal 3 SLICE 1) - o nome arquitetural/canonico e Workcell Adapter (contrato provider-neutral WorkcellAdapter em App\Services\Ai\AgenticWorkcell\Contracts, sob a Workcell Fabric/AAWR); Hermes e apenas UMA implementacao. A classe canonica e HermesWorkcellAdapter (implements WorkcellAdapter); HermesExecutiveMeshService sobrevive so como alias @deprecated (subclasse). O command canonico e atlas:hermes:workcell (atlas:hermes:mesh continua como alias de compat); a config canonica e providers.hermes_cli.workcell.* (mesh.* fica como alias que le as duas chaves de env). O id/graph deste doc fica estavel para nao orfanar arestas. As classes-folha internas Hermes*Mesh* (planner/reconciler/runner) sao a impl Hermes RETIDA e congelada (fora do escopo do rename canonico; Hermes = so impl).
 maintenance:
   - Manter abaixo de 520 linhas; detalhes por componente vivem no codigo e nos testes.
   - Atualizar quando um novo profile, uma nova classe de capacidade paralela (batch, code_execution) ou um novo consumidor do mesh for adicionado.
