@@ -1116,6 +1116,10 @@ final class PipelineRunExecutor implements RunExecutor
                     'result' => $receipt->completion->status === CompletionSummary::STATUS_PASSED
                         ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
                         : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                    // proven_real (Goal 2): a PASSED completion here is backed by the real
+                    // verification gate — the ONLY success the Learning Loop's activation regime
+                    // may weight. Anything short of a real gate pass is not proven.
+                    'proven_real' => $receipt->completion->status === CompletionSummary::STATUS_PASSED,
                     'latency_ms' => $callResultForGates->durationMs,
                     // Custo real: hermes_cli é LOCAL (custo marginal zero) —
                     // null deixava a camada cost-outcome do ADML sem evidência

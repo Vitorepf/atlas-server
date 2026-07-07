@@ -62,6 +62,9 @@ final class AtlasDecideLiveEvidenceActivationTest extends TestCase
                 'provider' => $provider,
                 'model' => $provider.'-default-model',
                 'result' => $result,
+                // Goal 2: the auto-activation regime weights only proven_real outcomes.
+                // These fixtures represent real proven Dev runs, so a success is proven.
+                'proven_real' => $result === 'success',
                 'actor' => 'atlas_dev_pipeline',
             ]);
         }

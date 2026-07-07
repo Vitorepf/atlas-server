@@ -148,6 +148,11 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $tokensUsed = ($inputTokens ?? 0) + ($outputTokens ?? 0);
         }
         $actor = (string) ($input['actor'] ?? 'ai_gateway');
+        // proven_real (Goal 2): this success is backed by a REAL gate verdict (passed the
+        // OutcomeProofGate / sovereign floor), not a fake-green. Absent ⇒ false (an unmarked
+        // outcome is NOT proven). This is the ONLY signal the Learning Loop's activation regime
+        // is allowed to weight — a fake-green must never shift routing.
+        $provenReal = ($input['proven_real'] ?? false) === true;
 
         $at = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
 
@@ -160,6 +165,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'provider' => $provider,
             'model' => $model,
             'result' => $result,
+            'proven_real' => $provenReal,
             'latency_ms' => $latency,
             'quality_score' => $quality,
             'cost_usd' => $costUsd,
@@ -227,6 +233,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $window = array_slice($rows, -self::WINDOW_SIZE);
             $n = count($window);
             $success = 0;
+            $provenSuccess = 0;
             $failure = 0;
             $timeout = 0;
             $latencySum = 0;
@@ -249,6 +256,11 @@ final class AtlasDecideLiveOutcomeFeedbackService
                     self::RESULT_TIMEOUT => $timeout++,
                     default => null,
                 };
+                // A success counts as PROVEN only when the entry is proven_real (a real gate
+                // verdict). A fake-green success inflates $success but never $provenSuccess.
+                if ($r === self::RESULT_SUCCESS && ($w['proven_real'] ?? false) === true) {
+                    $provenSuccess++;
+                }
                 if (isset($w['latency_ms']) && is_int($w['latency_ms'])) {
                     $latencySum += $w['latency_ms'];
                     $latencyCount++;
@@ -270,13 +282,16 @@ final class AtlasDecideLiveOutcomeFeedbackService
                 }
             }
             $successRate = $n > 0 ? round($success / $n, 4) : null;
+            $provenSuccessRate = $n > 0 ? round($provenSuccess / $n, 4) : null;
             $providers[$p] = [
                 'provider' => $p,
                 'window_size' => $n,
                 'success' => $success,
+                'proven_success' => $provenSuccess,
                 'failure' => $failure,
                 'timeout' => $timeout,
                 'success_rate' => $successRate,
+                'proven_success_rate' => $provenSuccessRate,
                 'avg_latency_ms' => $latencyCount > 0 ? (int) round($latencySum / $latencyCount) : null,
                 'avg_quality_score' => $qualityCount > 0 ? round($qualitySum / $qualityCount, 4) : null,
                 'avg_cost_usd' => $costCount > 0 ? round($costSum / $costCount, 6) : null,

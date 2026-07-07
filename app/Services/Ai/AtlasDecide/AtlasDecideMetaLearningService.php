@@ -137,13 +137,16 @@ class AtlasDecideMetaLearningService
         if ($framework === '') {
             $framework = null;
         }
+        // Goal 2 — when the caller is the activation regime (proven_only), the signal weights
+        // ONLY proven_real outcomes. Default false keeps every legacy/advisory caller unchanged.
+        $provenOnly = ($scope['proven_only'] ?? false) === true;
 
         // Offline (Rivals 1.0) ledger retired. The LIVE outcome ledger — real Dev
         // runs recording result/latency/cost per (task_category, role) — is the
         // evidence source now: enough samples with a strong success rate produce
         // an actionable signal; anything less stays honestly insufficient
         // (fail-closed, byte-identical to the retired-ledger behavior).
-        $signal = $this->liveEvidenceSignal($taskCategory, $role, $framework) ?? [
+        $signal = $this->liveEvidenceSignal($taskCategory, $role, $framework, $provenOnly) ?? [
             'signal' => self::SIGNAL_INSUFFICIENT,
             'evidence_count' => 0,
             'confidence' => self::CONFIDENCE_INSUFFICIENT,
@@ -322,10 +325,15 @@ class AtlasDecideMetaLearningService
             throw new InvalidArgumentException('task_category and role are required for activate/deactivate.');
         }
 
+        // Carry the proven-only regime through so the activated route is the SAME proven
+        // winner the sweep recommended — never a fake-green-inflated one — and so the routing
+        // table re-derives that route under the same regime it was activated under.
+        $provenOnly = ($input['proven_only'] ?? false) === true;
         $rec = $this->recommend([
             'task_category' => $taskCategory,
             'role' => $role,
             'framework' => $framework,
+            'proven_only' => $provenOnly,
         ]);
 
         if ($action === self::ACTION_ACTIVATE) {
@@ -350,6 +358,7 @@ class AtlasDecideMetaLearningService
             'actor' => $actor,
             'at' => $at,
             'recommendation_hash_at_activation' => $rec['recommendation_hash'] ?? null,
+            'proven_only' => $provenOnly,
             'routing_basis' => $rec['routing_basis'] ?? self::ROUTING_BASIS_SCORE,
             'recommended_provider' => $rec['recommended_provider'] ?? null,
             'recommended_model' => $rec['recommended_model'] ?? null,
@@ -403,6 +412,9 @@ class AtlasDecideMetaLearningService
                 'task_category' => (string) $r['task_category'],
                 'role' => (string) $r['role'],
                 'framework' => $r['framework'] ?? null,
+                // Re-derive under the SAME regime the route was activated with, so a
+                // proven-activated route never resolves back to a fake-green-inflated provider.
+                'proven_only' => ($r['proven_only'] ?? false) === true,
             ]);
             $entries[] = [
                 'task_category' => $r['task_category'],
@@ -523,7 +535,9 @@ class AtlasDecideMetaLearningService
 
         foreach ($scopes as [$task, $role, $framework]) {
             $envelope['inspected'][] = ['task_category' => $task, 'role' => $role, 'framework' => $framework];
-            $rec = $this->recommend(['task_category' => $task, 'role' => $role, 'framework' => $framework]);
+            // The activation regime weights ONLY proven_real outcomes — a fake-green must
+            // never auto-activate a route into the Learning Loop's routing weight.
+            $rec = $this->recommend(['task_category' => $task, 'role' => $role, 'framework' => $framework, 'proven_only' => true]);
             if (! (bool) ($rec['actionable'] ?? false)) {
                 $envelope['skipped'][] = ['task_category' => $task, 'role' => $role, 'reason' => $rec['reason'] ?? []];
 
@@ -542,6 +556,7 @@ class AtlasDecideMetaLearningService
                     'role' => $role,
                     'framework' => $framework,
                     'actor' => $actor,
+                    'proven_only' => true,
                 ]);
                 $envelope['activated'][] = [
                     'task_category' => $task,
@@ -738,7 +753,7 @@ class AtlasDecideMetaLearningService
      *
      * @return array<string,mixed>|null
      */
-    private function liveEvidenceSignal(string $taskCategory, string $role, ?string $framework): ?array
+    private function liveEvidenceSignal(string $taskCategory, string $role, ?string $framework, bool $provenOnly = false): ?array
     {
         if ($this->liveFeedback === null || $taskCategory === '' || $role === '') {
             return null;
@@ -756,17 +771,22 @@ class AtlasDecideMetaLearningService
             return null;
         }
 
+        // Goal 2 — the Learning Loop's activation regime weights ONLY proven_real outcomes.
+        // Under $provenOnly a fake-green success (proven_success_rate=0) can never rank or win:
+        // ZERO consumption of non-proven evidence. Default false keeps the legacy signal intact.
+        $rateKey = $provenOnly ? 'proven_success_rate' : 'success_rate';
+
         $eligible = array_values(array_filter(
             (array) ($stats['providers'] ?? []),
             static fn (array $p): bool => (int) ($p['window_size'] ?? 0) >= AtlasDecideLiveOutcomeFeedbackService::MIN_CALLS_FOR_SIGNAL
-                && ($p['success_rate'] ?? null) !== null,
+                && ($p[$rateKey] ?? null) !== null,
         ));
         if ($eligible === []) {
             return null;
         }
 
-        usort($eligible, static function (array $a, array $b): int {
-            $rate = ((float) $b['success_rate']) <=> ((float) $a['success_rate']);
+        usort($eligible, static function (array $a, array $b) use ($rateKey): int {
+            $rate = ((float) $b[$rateKey]) <=> ((float) $a[$rateKey]);
             if ($rate !== 0) {
                 return $rate;
             }
@@ -777,7 +797,7 @@ class AtlasDecideMetaLearningService
 
         $top = $eligible[0];
         $runnerUp = $eligible[1] ?? null;
-        $rate = (float) $top['success_rate'];
+        $rate = (float) $top[$rateKey];
         if ($rate < AtlasDecideLiveOutcomeFeedbackService::DEGRADATION_THRESHOLD) {
             return null;
         }
@@ -785,6 +805,7 @@ class AtlasDecideMetaLearningService
         return [
             'signal' => self::SIGNAL_OK,
             'evidence_count' => (int) ($stats['total_calls_observed'] ?? 0),
+            'proven_only' => $provenOnly,
             'confidence' => ((int) $top['window_size'] >= 10 && $rate >= 0.8)
                 ? self::CONFIDENCE_HIGH
                 : self::CONFIDENCE_MEDIUM,
@@ -793,7 +814,7 @@ class AtlasDecideMetaLearningService
             // a dead-heat live race must fall in the close-race guard instead.
             'top_vs_runner_up_score_gap' => $runnerUp === null
                 ? 0.0
-                : max(0.01, ($rate - (float) $runnerUp['success_rate']) * 100),
+                : max(0.01, ($rate - (float) $runnerUp[$rateKey]) * 100),
             'top_measured_provider' => (string) $top['provider'],
             'top_measured_model' => $top['last_model'] ?? null,
             'runner_up_provider' => $runnerUp['provider'] ?? null,
