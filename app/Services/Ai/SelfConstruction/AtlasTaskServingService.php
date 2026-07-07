@@ -7,6 +7,7 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Models\AtlasDevFailureCapsule;
 use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
@@ -578,6 +579,23 @@ final class AtlasTaskServingService
                 } catch (Throwable) {
                     // fail-open: a canary error never wedges or mutates the resolved report.
                 }
+            }
+
+            // C3 (Obra #18) — symmetric closure: a PROVEN esteira completion emits a G0
+            // memory candidate through the SAME governed channel the Stop hook uses
+            // (proposeLearning, kind=memory, ALWAYS pending_review). Delta-surprise filters
+            // bare successes; the write-back's capture-quality gate + dedup are the second
+            // anti-inflation line. Fail-open: closing to the registry never breaks a report.
+            try {
+                $candidate = TaskOutcomeLearningCandidate::from(
+                    ['objective' => (string) ($scope['objective'] ?? ''), 'allowed_files' => array_values((array) ($scope['allowed_files'] ?? []))],
+                    ['outcome' => 'success', 'commit' => (string) ($commit['commit_sha'] ?? ''), 'evidence' => (array) ($payload['evidence'] ?? [])],
+                );
+                if ($candidate !== null) {
+                    app(AtlasOpenBrainWriteBackService::class)->proposeLearning($candidate);
+                }
+            } catch (Throwable) {
+                // fail-open: symmetric closure never wedges or mutates the resolved report.
             }
 
             return $this->reportEnvelope('resolved', $clientId, array_merge([
