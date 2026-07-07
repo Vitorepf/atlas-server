@@ -4,30 +4,22 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Support;
 
-use RuntimeException;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 
+/**
+ * @deprecated Use JsonlReceiptStore in EngineeringKernel/Adapters instead.
+ *             This class is now a thin forwarder kept for backward compatibility.
+ */
 final class AppendOnlyJsonlStore
 {
-    public const DEFAULT_JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+    public const DEFAULT_JSON_FLAGS = JsonlReceiptStore::DEFAULT_JSON_FLAGS;
 
     /**
      * @return list<array<string,mixed>>
      */
     public static function read(string $path): array
     {
-        if (! is_file($path)) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
-                $rows[] = $decoded;
-            }
-        }
-
-        return $rows;
+        return (new JsonlReceiptStore($path))->read();
     }
 
     /**
@@ -36,22 +28,7 @@ final class AppendOnlyJsonlStore
      */
     public static function readWhereWithRejectedCount(string $path, callable $accept): array
     {
-        if (! is_file($path)) {
-            return [[], 0];
-        }
-
-        $rows = [];
-        $rejected = 0;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $decoded = json_decode($line, true);
-            if (is_array($decoded) && $accept($decoded)) {
-                $rows[] = $decoded;
-            } else {
-                $rejected++;
-            }
-        }
-
-        return [$rows, $rejected];
+        return (new JsonlReceiptStore($path))->readWhereWithRejectedCount($accept);
     }
 
     /**
@@ -59,11 +36,7 @@ final class AppendOnlyJsonlStore
      */
     public static function jsonlFilesInDirectory(string $dir): array
     {
-        if (! is_dir($dir)) {
-            return [];
-        }
-
-        return array_values(array_filter((array) glob($dir.DIRECTORY_SEPARATOR.'*.jsonl'), 'is_string'));
+        return (new JsonlReceiptStore($dir.'/dummy.jsonl'))->jsonlFilesInDirectory();
     }
 
     /**
@@ -71,103 +44,26 @@ final class AppendOnlyJsonlStore
      */
     public static function append(string $path, array $payload, int $jsonFlags = self::DEFAULT_JSON_FLAGS): void
     {
-        self::ensureDirectory(dirname($path));
-
-        $fp = fopen($path, 'ab');
-        if ($fp === false) {
-            throw new RuntimeException("Could not open {$path} for writing.");
-        }
-
-        try {
-            // Throw, never skip: the strict variant already throws on open failure, and a
-            // silently dropped ledger line is evidence loss. Best-effort callers belong on
-            // appendSilently().
-            if (! flock($fp, LOCK_EX)) {
-                throw new RuntimeException("Could not lock {$path} for writing.");
-            }
-            fwrite($fp, json_encode($payload, $jsonFlags).PHP_EOL);
-            fflush($fp);
-            flock($fp, LOCK_UN);
-        } finally {
-            fclose($fp);
-        }
+        (new JsonlReceiptStore($path))->append($payload, $jsonFlags);
     }
 
     /**
-     * Replace a JSONL file with the current row set while preserving the same
-     * locked writer semantics as append().
-     *
      * @param  list<array<string,mixed>>  $rows
      */
     public static function rewrite(string $path, array $rows, int $jsonFlags = self::DEFAULT_JSON_FLAGS): void
     {
-        self::ensureDirectory(dirname($path));
-
-        $fp = fopen($path, 'wb');
-        if ($fp === false) {
-            throw new RuntimeException("Could not open {$path} for rewriting.");
-        }
-
-        try {
-            if (! flock($fp, LOCK_EX)) {
-                throw new RuntimeException("Could not lock {$path} for rewriting.");
-            }
-
-            foreach ($rows as $row) {
-                fwrite($fp, json_encode($row, $jsonFlags).PHP_EOL);
-            }
-
-            fflush($fp);
-            flock($fp, LOCK_UN);
-        } finally {
-            fclose($fp);
-        }
+        (new JsonlReceiptStore($path))->rewrite($rows, $jsonFlags);
     }
 
     /**
-     * ARBOR-GRAFT LED1 — durable atomic rewrite. Unlike rewrite() (which opens the canonical path 'wb' and
-     * can leave a torn file if the process is killed mid-write — a real hazard for the resume ledger of a
-     * 24h soak), this writes the full row set to a temp sibling, flushes it to disk, then atomically
-     * renames it over the canonical path. A crash at any point leaves EITHER the old complete file OR the
-     * new complete file — never a half-written one. Mirrors the in-repo ReceiptStorage::writeAtomic pattern.
-     *
      * @param  list<array<string,mixed>>  $rows
      */
     public static function rewriteAtomic(string $path, array $rows, int $jsonFlags = self::DEFAULT_JSON_FLAGS): void
     {
-        self::ensureDirectory(dirname($path));
-
-        $tmp = $path.'.tmp.'.bin2hex(random_bytes(6));
-        $fp = fopen($tmp, 'wb');
-        if ($fp === false) {
-            throw new RuntimeException("Could not open {$tmp} for atomic rewrite.");
-        }
-
-        try {
-            foreach ($rows as $row) {
-                fwrite($fp, json_encode($row, $jsonFlags).PHP_EOL);
-            }
-            fflush($fp);
-            // Flush to physical disk before the rename so a power-loss can't leave a torn canonical file.
-            if (function_exists('fdatasync')) {
-                @fdatasync($fp);
-            } elseif (function_exists('fsync')) {
-                @fsync($fp);
-            }
-        } finally {
-            fclose($fp);
-        }
-
-        if (! @rename($tmp, $path)) {
-            @unlink($tmp);
-            throw new RuntimeException("Could not atomically replace {$path}.");
-        }
+        (new JsonlReceiptStore($path))->rewriteAtomic($rows, $jsonFlags);
     }
 
     /**
-     * Preserve legacy file_put_contents JSONL append semantics: no fopen
-     * exception path, caller-provided file write flags, and caller-provided JSON flags.
-     *
      * @param  array<string,mixed>  $payload
      */
     public static function appendUsingFilePutContents(
@@ -177,36 +73,15 @@ final class AppendOnlyJsonlStore
         int $writeFlags = FILE_APPEND | LOCK_EX,
         int $directoryMode = 0775,
     ): void {
-        self::ensureDirectory(dirname($path), $directoryMode);
-
-        file_put_contents($path, json_encode($payload, $jsonFlags).PHP_EOL, $writeFlags);
+        (new JsonlReceiptStore($path))->appendUsingFilePutContents($payload, $jsonFlags, $writeFlags, $directoryMode);
     }
 
     /**
-     * Preserve legacy best-effort JSONL appends: directory creation is attempted,
-     * fopen is suppressed, an unopenable file is ignored, and JSON encoding does
-     * not throw unless the caller passes JSON_THROW_ON_ERROR.
-     *
      * @param  array<string,mixed>  $payload
      */
     public static function appendSilently(string $path, array $payload, int $jsonFlags): void
     {
-        self::ensureDirectory(dirname($path));
-
-        $fp = @fopen($path, 'ab');
-        if ($fp === false) {
-            return;
-        }
-
-        try {
-            if (flock($fp, LOCK_EX)) {
-                fwrite($fp, json_encode($payload, $jsonFlags).PHP_EOL);
-                fflush($fp);
-                flock($fp, LOCK_UN);
-            }
-        } finally {
-            fclose($fp);
-        }
+        (new JsonlReceiptStore($path))->appendSilently($payload, $jsonFlags);
     }
 
     public static function appendEncodedLineSilently(
@@ -215,15 +90,10 @@ final class AppendOnlyJsonlStore
         int $writeFlags = FILE_APPEND | LOCK_EX,
         int $directoryMode = 0775,
     ): void {
-        self::ensureDirectory(dirname($path), $directoryMode);
-
-        @file_put_contents($path, $line.PHP_EOL, $writeFlags);
+        (new JsonlReceiptStore($path))->appendEncodedLineSilently($line, $writeFlags, $directoryMode);
     }
 
     /**
-     * Preserve legacy batch JSONL appends: all rows are encoded into one buffer
-     * and written through one file_put_contents call.
-     *
      * @param  list<array<string,mixed>>  $rows
      * @param  callable(array<string,mixed>):string  $encodeRow
      */
@@ -234,22 +104,6 @@ final class AppendOnlyJsonlStore
         int $writeFlags = FILE_APPEND | LOCK_EX,
         int $directoryMode = 0775,
     ): void {
-        self::ensureDirectory(dirname($path), $directoryMode);
-
-        $buffer = '';
-        foreach ($rows as $row) {
-            $buffer .= $encodeRow($row).PHP_EOL;
-        }
-
-        file_put_contents($path, $buffer, $writeFlags);
-    }
-
-    private static function ensureDirectory(string $dir, int $mode = 0775): void
-    {
-        if (is_dir($dir)) {
-            return;
-        }
-
-        @mkdir($dir, $mode, true);
+        (new JsonlReceiptStore($path))->appendRowsUsingFilePutContents($rows, $encodeRow, $writeFlags, $directoryMode);
     }
 }
