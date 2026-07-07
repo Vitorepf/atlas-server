@@ -1670,6 +1670,23 @@ return [
                     'profiles' => [],
                     'poll_interval_microseconds' => (int) env('ATLAS_AI_HERMES_MESH_POLL_US', 50000),
                 ],
+                // Workcell Adapter (Atlas Orchestrator Canon): the CANONICAL,
+                // provider-neutral config for the governed many-agent fan-out — same
+                // switches as the retired `mesh` block above, default-off. Each key
+                // reads its WORKCELL env first, then falls back to the legacy MESH env
+                // so operators who configured the old keys keep working unchanged.
+                // New code reads `workcell.*`; `mesh` survives only as a compat alias.
+                'workcell' => [
+                    'policy' => env('ATLAS_AI_HERMES_WORKCELL_POLICY', env('ATLAS_AI_HERMES_MESH_POLICY', 'off')),
+                    'auto_route' => (bool) env('ATLAS_AI_HERMES_WORKCELL_AUTO_ROUTE', env('ATLAS_AI_HERMES_MESH_AUTO_ROUTE', false)),
+                    'max_parallel_workers' => (int) env('ATLAS_AI_HERMES_WORKCELL_MAX_PARALLEL', env('ATLAS_AI_HERMES_MESH_MAX_PARALLEL', 8)),
+                    'max_children' => (int) env('ATLAS_AI_HERMES_WORKCELL_MAX_CHILDREN', env('ATLAS_AI_HERMES_MESH_MAX_CHILDREN', 64)),
+                    'checkpoint_policy' => env('ATLAS_AI_HERMES_WORKCELL_CHECKPOINT_POLICY', env('ATLAS_AI_HERMES_MESH_CHECKPOINT_POLICY', 'off')),
+                    'worktree_fleet' => (bool) env('ATLAS_AI_HERMES_WORKCELL_WORKTREE_FLEET', env('ATLAS_AI_HERMES_MESH_WORKTREE_FLEET', true)),
+                    'isolate_profile_home' => (bool) env('ATLAS_AI_HERMES_WORKCELL_ISOLATE_PROFILE_HOME', env('ATLAS_AI_HERMES_MESH_ISOLATE_PROFILE_HOME', false)),
+                    'profiles' => [],
+                    'poll_interval_microseconds' => (int) env('ATLAS_AI_HERMES_WORKCELL_POLL_US', env('ATLAS_AI_HERMES_MESH_POLL_US', 50000)),
+                ],
                 // Hermes Kanban swarm substrate (DURABLE workers→verifier→synthesizer
                 // graph), distinct from the EPHEMERAL Executive Mesh fan-out above:
                 // Atlas drives `hermes kanban swarm`/`dispatch` ONE-SHOT against a
