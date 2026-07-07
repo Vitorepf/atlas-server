@@ -274,6 +274,84 @@ final class PressureLayerGuards
     }
 
     /**
+     * SLICE 4 — the PRE-LAND seam. observeLandedSlice runs POST-commit and can only ground the
+     * FQCNs a commit message happens to cite in prose (almost always none → the cartographer
+     * fail-opens, unproven — an honestly-low cadence). This runs on the IN-PROGRESS diff BEFORE
+     * the land and feeds the two weak-seam guards a RICH deterministic signal:
+     *   - boundary_wiring_guard : the in-progress diff files vs the declared radius (earlier than
+     *     the post-commit check);
+     *   - context_cartographer  : the symbols the diff actually REFERENCES (its `use ...;` imports),
+     *     not just prose citations — so a clean wiring grounds and the verdict is PROVEN, lifting
+     *     the cartographer's cadence off fail-open. A hallucinated import is caught before it lands.
+     *
+     * ADVISORY + fail-open per guard, exactly like {@see self::observeLandedSlice()}.
+     *
+     * @param  list<string>  $declaredPaths  the paths the slice declares it will land
+     * @param  list<string>  $diffFiles  the in-progress diff's changed files
+     * @param  list<string>  $referencedSymbols  FQCNs the diff wires into (see {@see self::referencedSymbols()})
+     * @return array{schema:string,advisory:bool,blocked:bool,ran:int,recorded:int,verdicts:list<array<string,mixed>>}
+     */
+    public function observeInProgressDiff(array $declaredPaths, array $diffFiles, array $referencedSymbols, string $objective, string $runtime, string $taskCategory = 'programming', bool $record = true): array
+    {
+        $verdicts = [];
+        $recorded = 0;
+
+        $emit = function (array $verdict) use (&$verdicts, &$recorded, $taskCategory, $runtime, $record): void {
+            $verdicts[] = $verdict;
+            if (! $record) {
+                return;
+            }
+            try {
+                $this->recordVerdict($verdict, $taskCategory, $runtime, 'pressure_layer_pre_land');
+                $recorded++;
+            } catch (\Throwable) {
+                // fail-open: a ledger write must never disturb the pre-land check.
+            }
+        };
+
+        // boundary_wiring_guard — the in-progress diff must stay within the declared scope's radius.
+        try {
+            $emit($this->boundaryWiringGuard($declaredPaths, $diffFiles));
+        } catch (\Throwable) {
+        }
+
+        // context_cartographer — ground the RICH referenced-symbol signal (the diff's imports).
+        try {
+            $emit($this->contextCartographer($objective, array_values(array_unique($referencedSymbols))));
+        } catch (\Throwable) {
+        }
+
+        return [
+            'schema' => 'atlas.pressure_layer.pre_land_observation.v1',
+            'advisory' => true,
+            'blocked' => false, // advisory-first: the pre-land seam records, it does not block
+            'ran' => count($verdicts),
+            'recorded' => $recorded,
+            'verdicts' => $verdicts,
+        ];
+    }
+
+    /**
+     * The RICH pre-land signal: the fully-qualified symbols a PHP source (or a unified diff of one)
+     * REFERENCES via its `use ...;` imports. These are the dependencies the new code wires into —
+     * grounding them proves the wiring is real (or catches a hallucinated import). Requiring a
+     * namespace separator keeps it to real symbols; `use function`/`use const` are excluded.
+     *
+     * @return list<string>
+     */
+    public static function referencedSymbols(string $source): array
+    {
+        if (preg_match_all('/^[+\s]*use\s+(?!function\s|const\s)([A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)+)(?:\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?\s*;/m', $source, $m) === false) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(
+            $m[1] ?? [],
+            static fn (string $s): bool => str_contains($s, '\\'),
+        )));
+    }
+
+    /**
      * FQCN-shaped citations in prose = tokens containing a namespace separator. Requiring a
      * backslash avoids false-positives on ordinary Capitalized words, so the cartographer only
      * fires on a REAL symbol citation and never fabricates a hallucination out of prose.
