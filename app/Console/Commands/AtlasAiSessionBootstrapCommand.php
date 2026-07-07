@@ -2,8 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\Kernel\Architecture\AtlasGovernanceGateService;
 use App\Services\Ai\Kernel\Architecture\AtlasSessionBootstrapService;
+use App\Services\Ai\Obra\AtlasObraStateService;
+use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Engineering\AtlasDocumentationRealityReflectiveStatusService;
 use Illuminate\Console\Command;
 use Throwable;
@@ -34,6 +38,12 @@ class AtlasAiSessionBootstrapCommand extends Command
         // breaks bootstrap (the core service is untouched; any error degrades to a note).
         $payload['adrs'] = $this->adrsPresence($reflective);
 
+        // S2 (Obra #19) — the minute-1 ops room: what is in flight + what would
+        // clobber me, without a single grep. CONSUMES the T1 obra-state file (never
+        // duplicates it), the master switch, a NON-BLOCKING probe of the two
+        // main-write locks, and the open-WO count. Additive + fail-safe.
+        $payload['ops_room'] = $this->opsRoom();
+
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -49,6 +59,14 @@ class AtlasAiSessionBootstrapCommand extends Command
         $this->components->twoColumnDetail('KB', data_get($payload, 'kb_status.status').' / '.data_get($payload, 'kb_status.active').' active');
         $this->components->twoColumnDetail('Provider projection', data_get($payload, 'provider_projection.status'));
         $this->components->twoColumnDetail('ADRS immune', (string) data_get($payload, 'adrs.summary', 'unknown'));
+        $this->components->twoColumnDetail('Ops room', sprintf(
+            'switch=%s · obra=%s · locks(commit/merge)=%s/%s · WOs=%s',
+            data_get($payload, 'ops_room.master_switch', '?'),
+            data_get($payload, 'ops_room.obra.obra_id', '—'),
+            data_get($payload, 'ops_room.locks.task_commit', '?'),
+            data_get($payload, 'ops_room.locks.main_merge', '?'),
+            data_get($payload, 'ops_room.open_work_orders', '?'),
+        ));
 
         $safeNextBlocks = array_slice((array) ($payload['safe_next_blocks'] ?? []), 0, 5);
         if ($safeNextBlocks !== []) {
@@ -124,5 +142,87 @@ class AtlasAiSessionBootstrapCommand extends Command
         }
 
         return $block;
+    }
+
+    /**
+     * S2 (Obra #19) — the minute-1 ops room. Read-only + fail-safe aggregation of
+     * what is in flight and what would clobber this session: the master switch, the
+     * active obra (CONSUMED from the T1 obra-state file, never duplicated), a
+     * non-blocking probe of the two main-write locks, and the open-WO count. Any
+     * fault degrades that field to null/unknown — never breaks bootstrap. Kept small
+     * (the S2 brief budget) by summarising, not dumping, the obra state.
+     *
+     * @return array<string,mixed>
+     */
+    private function opsRoom(): array
+    {
+        $room = ['schema' => 'atlas.session.ops_room.v1'];
+
+        try {
+            $room['master_switch'] = AtlasLoopMasterSwitch::state();
+        } catch (Throwable) {
+            $room['master_switch'] = 'unknown';
+        }
+
+        try {
+            $obra = (new AtlasObraStateService)->current();
+            if (is_array($obra)) {
+                $sessions = (array) ($obra['sessions'] ?? []);
+                $last = $sessions === [] ? null : end($sessions);
+                $room['obra'] = [
+                    'obra_id' => $obra['obra_id'] ?? null,
+                    'phase' => $obra['phase'] ?? null,
+                    'sessions' => count($sessions),
+                    'last_session_at' => is_array($last) ? ($last['at'] ?? null) : null,
+                    'last_session_files' => is_array($last) ? count((array) ($last['files'] ?? [])) : 0,
+                    'last_session_result' => is_array($last) ? ($last['result'] ?? null) : null,
+                ];
+            } else {
+                $room['obra'] = null;
+            }
+        } catch (Throwable) {
+            $room['obra'] = null;
+        }
+
+        // Non-blocking probe of the two main-write locks — "what would clobber me".
+        $room['locks'] = [
+            'task_commit' => $this->lockState(base_path('.git/'.basename(AtlasTaskScopedCommitter::LOCK_REL))),
+            'main_merge' => $this->lockState(base_path('.git/'.AtlasLoopMergeActuator::LOCK_BASENAME)),
+        ];
+
+        try {
+            $room['open_work_orders'] = count(glob(base_path('docs/work-orders/WO-*.json')) ?: []);
+        } catch (Throwable) {
+            $room['open_work_orders'] = null;
+        }
+
+        return $room;
+    }
+
+    /**
+     * Non-blocking lock probe: 'free' when the lock can be taken right now (or was
+     * never created), 'contended' when another writer holds it, 'unknown' on error.
+     * Never blocks — LOCK_NB returns immediately.
+     */
+    private function lockState(string $absPath): string
+    {
+        if (! file_exists($absPath)) {
+            return 'free';
+        }
+        $handle = @fopen($absPath, 'c');
+        if ($handle === false) {
+            return 'unknown';
+        }
+        try {
+            if (@flock($handle, LOCK_EX | LOCK_NB)) {
+                @flock($handle, LOCK_UN);
+
+                return 'free';
+            }
+
+            return 'contended';
+        } finally {
+            @fclose($handle);
+        }
     }
 }
