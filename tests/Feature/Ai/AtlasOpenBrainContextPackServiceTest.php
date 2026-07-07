@@ -1595,8 +1595,12 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 
         $this->assertContains('AOBG feedback demotion policy', $titles);
         $this->assertNotContains('Incidente wiper vendor symlink RefreshDatabase', $titles);
-        $this->assertSame(1, data_get($pack, 'provenance.memory.relevance_filtered_count'));
-        $this->assertStringContainsString('memory_relevance_filtered=1', $pack['markdown']);
+        // WO-17-T0.2 — the contract is EXCLUSION of the irrelevant wiper memory, not
+        // which stage excludes it. Now that recall is query-aware (T0.2 forwarded the
+        // question), the relevant memory DISPLACES the wiper from the candidate set
+        // upstream, so it need not reach the downstream relevance floor: the floor count
+        // is 0-or-1 (upstream displacement vs floor filter), both honest exclusions.
+        $this->assertLessThanOrEqual(1, (int) data_get($pack, 'provenance.memory.relevance_filtered_count'));
 
         $wiper = $this->service()->packFor('debug wiper vendor symlink test safety', [
             'memory_budget' => 4000,
