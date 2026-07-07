@@ -55,6 +55,16 @@ EVENT="$(cat 2>/dev/null || true)"
 PROMPT="$(printf '%s' "$EVENT" | jq -r '.prompt // empty' 2>/dev/null || true)"
 [ -n "$PROMPT" ] || exit 0
 
+# S4 (Obra #19) — dieta do hook, part 1: skip a clearly-OPERATIONAL prompt. A bare
+# read-only shell one-liner ("ls ...", "git status", "cat x") needs no brain pack; the
+# pack would be pure noise + tokens. Conservative BY DESIGN (single line AND a known ops
+# verb) so design/architecture prompts are NEVER skipped. Disable with ATLAS_AOBG_HOOK_SKIP_OPS=0.
+if [ "${ATLAS_AOBG_HOOK_SKIP_OPS:-1}" = "1" ] && [[ "$PROMPT" != *$'\n'* ]]; then
+    case "$PROMPT" in
+        ls|ls\ *|cat\ *|cd\ *|pwd|git\ status*|git\ log*|git\ diff*|rg\ *|grep\ *|find\ *|tail\ *|head\ *) exit 0 ;;
+    esac
+fi
+
 # Anchor to the project root the harness hands us; fall back to the hook's own repo.
 # WORKSPACE_DIR is the codebase Claude is operating on. ATLAS_SERVER_DIR is where
 # Artisan lives. They are the same for atlas-server, but intentionally differ when
@@ -101,21 +111,38 @@ esac
 [ "$TOTAL" -gt 0 ] 2>/dev/null || exit 0
 
 # The pack already renders a compact, human/agent-readable markdown brief (the one block a
-# hook injects). Carry it verbatim, wrapped in the UserPromptSubmit additionalContext
-# envelope. jq does all string-encoding so the pack content can never break the JSON
-# envelope. Fall back to a synthesized header only if `.markdown` is somehow empty.
-printf '%s' "$PACK_JSON" | jq -c '
-    ((.markdown // "") | if . == "" then
+# hook injects). Build that brief string ($CTX), falling back to a synthesized header only
+# if `.markdown` is somehow empty.
+CTX="$(printf '%s' "$PACK_JSON" | jq -r '
+    (.markdown // "") | if . == "" then
         ("# Atlas Open Brain Context Pack (AOBG)\n"
          + "task=" + (.task // "") + "  workspace=" + (.workspace // "atlas-server")
          + "  provider-bound=yes  " + (.honesty // "curated top-K (not exhaustive)"))
-      else . end) as $ctx
-    | {
-        hookSpecificOutput: {
-            hookEventName: "UserPromptSubmit",
-            additionalContext: $ctx
-        }
+      else . end
+' 2>/dev/null || true)"
+[ -n "$CTX" ] || exit 0
+
+# S4 (Obra #19) — dieta do hook, part 2: DEDUPE by content hash. This same session
+# observed the SAME pack injected 4× on consecutive prompts — pure token waste. Keep the
+# last injected pack's hash per workspace; if the new pack is byte-identical, inject
+# NOTHING (the model already has it). Disable with ATLAS_AOBG_HOOK_DEDUPE=0.
+if [ "${ATLAS_AOBG_HOOK_DEDUPE:-1}" = "1" ]; then
+    WS_KEY="$(printf '%s' "$WORKSPACE_DIR" | cksum | cut -d' ' -f1)"
+    HASH_FILE="${TMPDIR:-/tmp}/atlas-ctx-lasthash-${WS_KEY}"
+    CTX_HASH="$(printf '%s' "$CTX" | cksum | cut -d' ' -f1)"
+    if [ -f "$HASH_FILE" ] && [ "$(cat "$HASH_FILE" 2>/dev/null)" = "$CTX_HASH" ]; then
+        exit 0   # identical to the last injection — the diet skips it
+    fi
+    printf '%s' "$CTX_HASH" > "$HASH_FILE" 2>/dev/null || true
+fi
+
+# Carry $CTX verbatim, wrapped in the UserPromptSubmit additionalContext envelope. jq does
+# all string-encoding so the pack content can never break the JSON envelope.
+jq -cn --arg ctx "$CTX" '{
+    hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: $ctx
     }
-' 2>/dev/null || exit 0
+}' 2>/dev/null || exit 0
 
 exit 0
