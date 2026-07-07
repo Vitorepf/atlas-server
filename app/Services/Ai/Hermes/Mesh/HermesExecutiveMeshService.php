@@ -7,8 +7,14 @@ use App\Services\Ai\Hermes\HermesAdapterReceipt;
 use App\Services\Ai\Hermes\HermesDelegationAdapter;
 
 /**
- * Atlas Executive Mesh — the sovereign orchestrator that turns ONE mission into
- * a governed many-agent Hermes fleet.
+ * Atlas Hermes Executive Mesh — a RUNTIME ADAPTER that runs UNDER the Workcell
+ * Fabric (AAWR / AtlasAgenticWorkcellRuntimeService), NOT an architecture layer
+ * and NOT a peer of it. It turns ONE mission into a governed many-agent Hermes
+ * fleet that occupies the role slots the Workcell Fabric defines. Per the canon
+ * rule `role slot != runtime identity`, the runtime is substitutable: tomorrow
+ * the same parallel-execution role can be filled by another runtime, with no
+ * architecture layer ever carrying a provider name.
+ * Canon: docs/engineering-knowledge-base/atlas-orchestrator-canon.md.
  *
  * It composes the pure leaf components (planner, profile resolver, checkpoint
  * policy) + the delegation cap adapter into a single sealed composed plan, then
@@ -31,7 +37,7 @@ class HermesExecutiveMeshService
         private readonly HermesCheckpointPolicy $checkpoints,
         private readonly HermesMeshReconciler $reconciler,
         private readonly HermesDelegationAdapter $delegation,
-        private readonly HermesMeshCheckpointExecutor $checkpointExecutor = new HermesMeshCheckpointExecutor(),
+        private readonly HermesMeshCheckpointExecutor $checkpointExecutor = new HermesMeshCheckpointExecutor,
     ) {}
 
     /**
@@ -107,7 +113,7 @@ class HermesExecutiveMeshService
      *
      * @param  array<string,mixed>  $composedPlan
      * @param  callable(array<string,mixed>):MeshWorkerHandle  $worker
-     * @return array<int,array<string,mixed>>  result packets, child-index ordered
+     * @return array<int,array<string,mixed>> result packets, child-index ordered
      */
     public function dispatch(array $composedPlan, callable $worker): array
     {
@@ -173,9 +179,9 @@ class HermesExecutiveMeshService
      * @param  array<string,mixed>|null  $policy
      * @param  array<int,array<string,mixed>>  $capabilityManifest
      * @param  null|callable(array<string,mixed>,array<string,mixed>):array<string,mixed>  $verifier
-     *         optional verifier: ($packet, $child) => ['passed' => bool]. When a
-     *         child fails verification, the governed checkpoint executor decides
-     *         (fail-closed) whether a rollback is armed.
+     *                                                                                                optional verifier: ($packet, $child) => ['passed' => bool]. When a
+     *                                                                                                child fails verification, the governed checkpoint executor decides
+     *                                                                                                (fail-closed) whether a rollback is armed.
      * @return array<string,mixed>
      */
     public function run(AiJob $job, array $parentMission, array $subtasks, callable $worker, ?array $policy = null, array $capabilityManifest = [], ?callable $verifier = null): array
