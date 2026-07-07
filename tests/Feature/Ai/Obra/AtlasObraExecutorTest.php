@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Obra;
 
 use App\Services\Ai\Obra\AtlasObraExecutor;
+use App\Services\Ai\Obra\AtlasSpecCritiqueCalibrationLedger;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ObraNodeGate;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
@@ -156,6 +157,34 @@ final class AtlasObraExecutorTest extends TestCase
         // Plan + nodes are recorded done in the spine tables.
         $this->assertSame('done', DB::table('atlas_obra_plans')->where('id', 'obra-acc')->value('status'));
         $this->assertSame(3, DB::table('atlas_obra_nodes')->where('plan_id', 'obra-acc')->where('status', 'done')->count());
+    }
+
+    public function test_t4s6_calibration_records_a_bet_and_resolves_it_on_a_real_obra(): void
+    {
+        // T4-S6 veto-#20 proof: the CALIBRATION producer (obra open) and consumer (close)
+        // both fire on a REAL cost-free obra — the organ is wired, never orphan.
+        $calibRoot = sys_get_temp_dir().'/atlas-calib-wire-'.substr(md5(uniqid('', true)), 0, 8);
+        $this->app->instance(
+            AtlasSpecCritiqueCalibrationLedger::class,
+            new AtlasSpecCritiqueCalibrationLedger($calibRoot)
+        );
+
+        $this->seedLinearPlan('obra-calib', 2);
+
+        $r = (new AtlasObraExecutor($this->accumulatingDelivery(), new GovernedBranchMaterializationService))
+            ->executePlanId('obra-calib', ['repo_dir' => $this->repo]);
+        $this->assertSame(AtlasObraExecutor::STATUS_DONE, $r['status'], 'reason: '.($r['reason'] ?? ''));
+
+        $file = $calibRoot.'/ledger.jsonl';
+        $this->assertFileExists($file, 'the calibration ledger was written during the obra');
+        $kinds = array_map(
+            static fn (string $line): string => (string) (json_decode($line, true)['kind'] ?? ''),
+            file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: []
+        );
+        $this->assertContains('bet', $kinds, 'the calibration PRODUCER recorded a bet at obra open');
+        $this->assertContains('outcome', $kinds, 'the calibration CONSUMER resolved it at obra close');
+
+        File::deleteDirectory($calibRoot);
     }
 
     public function test_running_obra_resumes_existing_worktree_and_skips_done_nodes(): void

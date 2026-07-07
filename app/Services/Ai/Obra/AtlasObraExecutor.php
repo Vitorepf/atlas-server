@@ -218,6 +218,12 @@ final class AtlasObraExecutor
         $resumed = (bool) ($open['resumed'] ?? false);
         $resumeCount = (int) ($open['resume_count'] ?? 0);
         $this->setPlanStatus($planId, 'running');
+
+        // T4-S6 (Obra #17) — CALIBRATION producer: record the P3 critic's BET on this
+        // obra's spec (keyed by the obra id) so the close can resolve whether a flagged
+        // concern materialized. This also activates the critic PER-OBRA (it was CLI-only)
+        // and feeds the calibration curve. Fail-open: calibration never affects the obra.
+        $this->recordCritiqueBet($planId, $plan);
         $this->setPlanRuntime($planId, [
             'branch' => $branch,
             'worktree' => $worktree,
@@ -476,6 +482,13 @@ final class AtlasObraExecutor
         ]);
 
         $certified = (bool) ($envelope['certified'] ?? false);
+
+        // T4-S6 (Obra #17) — CALIBRATION consumer: resolve the critic's bet with the obra
+        // outcome. The obra came out CLEAN when the whole assembled branch certified; a
+        // concern the critic flagged that never materialized (clean outcome) is a
+        // refutation-reversal the curve counts. Fail-open.
+        $this->resolveCritiqueBet($planId, $certified);
+
         // status: done ONLY when the WHOLE obra certified; otherwise failed (halt) or
         // the honest needs_review (steps passed but integration failed / unrunnable / absent).
         if ($halted) {
@@ -645,6 +658,70 @@ final class AtlasObraExecutor
         }
 
         return null;
+    }
+
+    /**
+     * T4-S6 (Obra #17) — CALIBRATION producer helper. Critique this obra's spec with the
+     * deterministic P3 critic and record its bet, keyed by the obra id. Best-effort: any
+     * fault (brain outage, missing service) leaves the obra byte-identical.
+     *
+     * @param  array<string,mixed>  $plan
+     */
+    private function recordCritiqueBet(string $planId, array $plan): void
+    {
+        try {
+            $specText = $this->obraSpecText($plan);
+            if ($specText === '') {
+                return;
+            }
+            $critique = app(AtlasSpecCritiqueService::class)->critique($specText);
+            app(AtlasSpecCritiqueCalibrationLedger::class)->recordBet($planId, $critique);
+        } catch (Throwable) {
+            // calibration is best-effort; never let it break an obra
+        }
+    }
+
+    /**
+     * T4-S6 (Obra #17) — CALIBRATION consumer helper. Resolve the recorded bet with the
+     * obra's clean/not-clean outcome (the whole assembled branch certified). Fail-open.
+     */
+    private function resolveCritiqueBet(string $planId, bool $certified): void
+    {
+        try {
+            app(AtlasSpecCritiqueCalibrationLedger::class)
+                ->resolve($planId, $certified, 'certified='.($certified ? '1' : '0'));
+        } catch (Throwable) {
+            // never let calibration break an obra
+        }
+    }
+
+    /**
+     * The obra's "spec" for the critic: its objective plus each node's most descriptive
+     * field, joined. Empty when the plan carries no text.
+     *
+     * @param  array<string,mixed>  $plan
+     */
+    private function obraSpecText(array $plan): string
+    {
+        $parts = [];
+        $objective = trim((string) ($plan['objective'] ?? ''));
+        if ($objective !== '') {
+            $parts[] = $objective;
+        }
+        foreach ((array) ($plan['nodes'] ?? []) as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+            foreach (['objective', 'title', 'summary', 'text'] as $field) {
+                $value = trim((string) ($node[$field] ?? ''));
+                if ($value !== '') {
+                    $parts[] = $value;
+                    break;
+                }
+            }
+        }
+
+        return trim(implode("\n", $parts));
     }
 
     /**
