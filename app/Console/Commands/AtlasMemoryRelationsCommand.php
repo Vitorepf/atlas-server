@@ -2,11 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\AtlasMemoryGovernanceService;
 use App\Services\Ai\Memory\MemoryQueryInput;
-use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 
 class AtlasMemoryRelationsCommand extends Command
@@ -14,7 +15,7 @@ class AtlasMemoryRelationsCommand extends Command
     private ?MemoryQueryInput $memoryInput = null;
 
     protected $signature = 'atlas:memory:relations
-        {action=list : list, review, resolve or dismiss}
+        {action=list : list, review, resolve, dismiss, link or supersede}
         {relation? : Relation UUID for review/resolve/dismiss}
         {--id= : Relation UUID for review/resolve/dismiss}
         {--type=* : duplicate or conflict}
@@ -50,8 +51,94 @@ class AtlasMemoryRelationsCommand extends Command
             'review' => $this->review($governance, null),
             'resolve' => $this->review($governance, 'resolved'),
             'dismiss' => $this->review($governance, 'dismissed'),
+            'link' => $this->link($governance),
+            'supersede' => $this->supersede($governance),
             default => $this->invalidAction($action),
         };
+    }
+
+    /**
+     * D3 (Obra #18) — reactivate the 0-use command as a WRITE surface: create a
+     * relation between two memories so the graph stops being empty. Both endpoints
+     * must exist; the type is one of {@see AtlasMemoryEntryRelation::TYPES}.
+     */
+    private function link(AtlasMemoryGovernanceService $governance): int
+    {
+        [$source, $target] = $this->relationEndpoints();
+        if ($source === null || $target === null) {
+            return self::FAILURE;
+        }
+        $types = array_values(array_filter((array) $this->option('type'), 'is_string'));
+        $type = $types[0] ?? 'duplicate';
+        if (! in_array($type, AtlasMemoryEntryRelation::TYPES, true)) {
+            $this->error('--type deve ser um de: '.implode(', ', AtlasMemoryEntryRelation::TYPES));
+
+            return self::FAILURE;
+        }
+
+        $relation = AtlasMemoryEntryRelation::query()->create([
+            'source_memory_entry_id' => $source->id,
+            'target_memory_entry_id' => $target->id,
+            'relation_type' => $type,
+            'status' => $this->stringOption('status') ?: 'open',
+            'reason' => $this->stringOption('reason'),
+            'metadata' => $this->metadata(),
+        ]);
+
+        return $this->outputPayload(['relation' => $governance->relationPayload($relation)]);
+    }
+
+    /**
+     * D3 — explicit supersede: mark the SOURCE memory as superseded BY the target
+     * (source = old, target = new). Sets `superseded_by_id` on the source AND records
+     * a conflict-typed relation so the superseded chain is real + consultable.
+     */
+    private function supersede(AtlasMemoryGovernanceService $governance): int
+    {
+        [$source, $target] = $this->relationEndpoints();
+        if ($source === null || $target === null) {
+            return self::FAILURE;
+        }
+
+        $source->forceFill(['superseded_by_id' => $target->id])->save();
+        $relation = AtlasMemoryEntryRelation::query()->create([
+            'source_memory_entry_id' => $source->id,
+            'target_memory_entry_id' => $target->id,
+            'relation_type' => 'conflict',
+            'status' => 'resolved',
+            'reason' => $this->stringOption('reason') ?: 'superseded_by',
+            'metadata' => $this->metadata() + ['verb' => 'supersede'],
+        ]);
+
+        return $this->outputPayload([
+            'relation' => $governance->relationPayload($relation),
+            'superseded' => ['source' => $source->id, 'superseded_by' => $target->id],
+        ]);
+    }
+
+    /**
+     * Resolve --source-id and --target-id to existing entries (both required).
+     *
+     * @return array{0:?AtlasMemoryEntry,1:?AtlasMemoryEntry}
+     */
+    private function relationEndpoints(): array
+    {
+        $sourceId = $this->stringOption('source-id');
+        $targetId = $this->stringOption('target-id');
+        if ($sourceId === null || $targetId === null) {
+            $this->error('Informe --source-id e --target-id.');
+
+            return [null, null];
+        }
+        $source = AtlasMemoryEntry::query()->find($sourceId);
+        $target = AtlasMemoryEntry::query()->find($targetId);
+        if ($source === null || $target === null) {
+            $this->error('source ou target não encontrado.');
+
+            return [null, null];
+        }
+
+        return [$source, $target];
     }
 
     private function list(AtlasMemoryGovernanceService $governance): int
