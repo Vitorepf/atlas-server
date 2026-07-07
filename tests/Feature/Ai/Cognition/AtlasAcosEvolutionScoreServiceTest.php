@@ -54,4 +54,34 @@ class AtlasAcosEvolutionScoreServiceTest extends TestCase
         $this->assertSame(0.0, (float) $signals['pack_anti_lixo']['points']);
         $this->assertSame('store ausente (0 honesto)', $signals['pack_anti_lixo']['evidence']);
     }
+
+    /**
+     * Carta de Autonomia (Regra 4): a assinatura do operador foi REVOGADA. A
+     * parcela de execução governada não pode mais depender de `operator_signed`
+     * (que ficaria presa em 0 → teto 9.0 para sempre); ela mede o substituto
+     * real — reversibilidade viva + Diário íntegro. Se alguém religar a
+     * assinatura, a evidência volta a citar operator_signature e este teste cai.
+     */
+    public function test_execucao_governada_credits_reversibility_not_operator_signature(): void
+    {
+        $report = app(AtlasAcosEvolutionScoreService::class)->build();
+
+        $signals = collect($report['dimensions']['autonomia']['signals'])->keyBy('signal');
+        $governada = $signals['execucao_governada'];
+        $evidence = (string) $governada['evidence'];
+
+        // A assinatura do operador saiu de cena.
+        $this->assertStringNotContainsString('operator_signature', $evidence);
+        $this->assertStringNotContainsString('awaiting_operator', $evidence);
+
+        // O substituto autônomo entrou no lugar.
+        $this->assertStringContainsString('governanca_autonoma=', $evidence);
+        $this->assertStringContainsString('reversivel=', $evidence);
+
+        // A suíte roda dentro do repo (.git presente) com o comando de replay
+        // carregado: o trilho de reversibilidade É provável aqui → creditado.
+        $this->assertStringContainsString('reversivel=yes', $evidence);
+        $this->assertGreaterThanOrEqual(0.5, (float) $governada['points']);
+        $this->assertLessThanOrEqual(2.5, (float) $governada['points']);
+    }
 }

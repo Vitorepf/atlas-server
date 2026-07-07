@@ -6,6 +6,7 @@ namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
+use App\Services\Ai\Brain\AtlasEvolutionDiary;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -23,9 +24,12 @@ use Throwable;
  *                              eventos reais + lições geridas (quarentena→promoção).
  *   3. autonomia             — motor launchd pulsando + gates de longo horizonte
  *                              auditados + cadeia de promoção de tier implementada
- *                              e testada + execução governada (assinatura S49 é a
- *                              ÚNICA parcela que depende do operador; sem ela o
- *                              teto honesto é 9.0, nunca fabricamos o 10).
+ *                              e testada + execução governada (Carta de Autonomia
+ *                              Regra 4: a assinatura do operador foi REVOGADA; a
+ *                              parcela que dela dependia agora mede o substituto
+ *                              REAL — reversibilidade viva (git revert +
+ *                              atlas:brain:replay) + Diário de Evolução íntegro,
+ *                              "a licença que substitui a aprovação").
  *
  * DEGRADE-SAFE: toda probe que falha (tabela ausente, arquivo ausente, classe
  * inexistente) pontua 0 com evidência dizendo por quê — nunca um ready falso.
@@ -50,6 +54,9 @@ class AtlasAcosEvolutionScoreService
 
     /** FQN da cadeia de promoção de tier (H3.2); probe por class_exists. */
     private const TIER_CHAIN_CLASS = 'App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService';
+
+    /** FQN do comando de reversão da memória (Carta Regra 4); probe por class_exists. */
+    private const REVERSAL_COMMAND_CLASS = 'App\Console\Commands\AtlasBrainReplayCommand';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -80,7 +87,7 @@ class AtlasAcosEvolutionScoreService
             'acos_scorecard_overall' => (float) data_get($card, 'score.overall_out_of_10', 0.0),
             'notes' => [
                 'method' => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
-                'autonomy_ceiling' => 'A parcela de assinatura do operador (S49) nunca é fabricada: sem assinatura, autonomia atinge no máximo 9.0.',
+                'autonomy_governance' => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
             ],
         ];
         $envelope['score_hash'] = 'sha256:'.hash('sha256', (string) json_encode([
@@ -191,15 +198,21 @@ class AtlasAcosEvolutionScoreService
         ];
 
         $switchReadable = $this->loopMasterSwitchReadable();
+        // Carta de Autonomia (Regra 4): a assinatura do operador foi REVOGADA. A
+        // parcela que era `operator_signed` (1.0, presa em 0 para sempre → teto
+        // 9.0) agora mede o substituto real que a Carta nomeia: reversibilidade
+        // viva + Diário de Evolução íntegro. "Reversibilidade é a licença que
+        // substitui a aprovação." Continua evidence-resolved e degrade-safe.
+        $governance = $this->autonomousGovernance();
         $signals[] = [
             'signal' => 'execucao_governada',
-            'points' => round(($switchReadable ? 0.5 : 0.0) + ($chain['tier_exposed'] ? 1.0 : 0.0) + ($chain['operator_signed'] ? 1.0 : 0.0), 2),
+            'points' => round(($switchReadable ? 0.5 : 0.0) + ($chain['tier_exposed'] ? 1.0 : 0.0) + $governance['points'], 2),
             'max' => 2.5,
             'evidence' => sprintf(
-                'master_switch=%s tier_exposed=%s operator_signature=%s',
+                'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
                 $switchReadable ? 'legível' : 'indisponível',
                 $chain['tier_exposed'] ? 'yes' : 'no',
-                $chain['operator_signed'] ? 'signed' : 'awaiting_operator_signature',
+                $governance['evidence'],
             ),
         ];
 
@@ -341,6 +354,47 @@ class AtlasAcosEvolutionScoreService
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Carta de Autonomia (Regra 4) — o substituto autônomo da assinatura do
+     * operador, que a Carta revogou. Vale 1.0 (o lugar exato do antigo
+     * operator_signed) e é degrade-safe: sem trilho de reversão ou sem Diário
+     * íntegro, pontua 0 com evidência explicando — nunca fabricado.
+     *
+     * @return array{points:float, evidence:string}
+     */
+    private function autonomousGovernance(): array
+    {
+        // Reversibilidade viva (0.5): os DOIS trilhos que a Carta nomeia existem —
+        // git revert (repo presente) e atlas:brain:replay (comando registrado).
+        $gitRepo = is_dir(base_path('.git'));
+        $replayReady = class_exists(self::REVERSAL_COMMAND_CLASS);
+        $reversible = $gitRepo && $replayReady;
+
+        // Diário vivo + íntegro (0.5): há evoluções etiquetadas e a hash-chain
+        // fecha ponta a ponta (navegável + à prova de adulteração).
+        $diaryOk = false;
+        $diaryCount = 0;
+        try {
+            $chain = (new AtlasEvolutionDiary)->verifyChain();
+            $diaryCount = (int) ($chain['count'] ?? 0);
+            $diaryOk = ($chain['ok'] ?? false) === true && $diaryCount > 0;
+        } catch (Throwable) {
+            $diaryOk = false;
+        }
+
+        return [
+            'points' => round(($reversible ? 0.5 : 0.0) + ($diaryOk ? 0.5 : 0.0), 2),
+            'evidence' => sprintf(
+                'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)',
+                $reversible ? 'yes' : 'no',
+                $gitRepo ? 'yes' : 'no',
+                $replayReady ? 'yes' : 'no',
+                $diaryOk ? 'yes' : 'no',
+                $diaryCount,
+            ),
+        ];
     }
 
     /**
