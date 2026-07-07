@@ -461,6 +461,10 @@ final class AtlasTaskServingService
                     $admission = [
                         'logic' => (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluateLogicReuse($admissionFiles),
                         'wiring' => (new TaskQuality\AtlasTaskWiringAdmissionGate)->evaluate($admissionFiles),
+                        // K4 (Obra #18) — kit conformance: untouched pre-written oracle,
+                        // no artisan command-name collision, diff ⊆ allowed. Fail-safe to
+                        // pass on non-kit packets.
+                        'kit' => (new TaskQuality\AtlasTaskKitConformanceGate)->evaluate($scope, $admissionFiles),
                     ];
                     $this->orchestrator->appendReportReceipt($taskPacketId, [
                         'receipt_kind' => 'admission_gate_v2',
@@ -472,7 +476,8 @@ final class AtlasTaskServingService
                 }
                 if ($admissionMode === 'enforce' && $admission !== null
                     && (($admission['logic']['passed'] ?? true) !== true
-                        || ($admission['wiring']['passed'] ?? true) !== true)) {
+                        || ($admission['wiring']['passed'] ?? true) !== true
+                        || ($admission['kit']['passed'] ?? true) !== true)) {
                     return $this->reportEnvelope('commit_failed', $clientId, [
                         'outcome' => 'success',
                         'lease_closed' => false,

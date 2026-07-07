@@ -1516,8 +1516,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
         array $deficiencies = [],
         string $reason = 'packet_not_self_sufficient',
         string $receiptKind = 'packet_quarantined_not_self_sufficient',
-    ): array
-    {
+    ): array {
         // Release the lease (registry only) so no active lease lingers; the queue record stays `claimed`.
         $this->leases->release($leaseId, $agentId, ['reason' => $reason]);
 
@@ -1561,6 +1560,9 @@ final class AgentControlPlaneTaskQueueOrchestrator
             // seam, not one chain stage in isolation (an extraction stage alone always
             // grows; the payoff lands when the callers shed their copies).
             'refactor_design_spec' => data_get($packet, 'refactor_design_spec'),
+            // K4 (Obra #18) — the frozen acceptance-test reference so the kit
+            // conformance gate can prove the pre-written oracle was untouched.
+            'acceptance_test_ref' => (array) data_get($packet, 'acceptance_test_ref', []),
         ];
     }
 
