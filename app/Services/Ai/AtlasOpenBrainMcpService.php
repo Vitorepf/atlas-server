@@ -1417,15 +1417,22 @@ class AtlasOpenBrainMcpService
             $context['workspace'] = $workspace;
         }
 
+        $recall = $this->recall->recall(
+            $query,
+            $context,
+            $this->object($arguments['filters'] ?? []),
+            $this->object($arguments['options'] ?? []),
+        );
+
         return [
             'ok' => true,
             'tool' => 'atlas_memory_recall',
-            'memory_recall' => $this->recall->recall(
-                $query,
-                $context,
-                $this->object($arguments['filters'] ?? []),
-                $this->object($arguments['options'] ?? []),
-            ),
+            'memory_recall' => $recall,
+            // T4-S4 (Obra #17) — the recall's UNCERTAINTY MAP: how confident is this
+            // retrieval? A weak/flat recall is flagged so the caller treats it as a weak
+            // signal (and can ask for more), not as settled truth. Pure read over the
+            // recall result; zero extra provider spend.
+            'uncertainty' => (new AtlasRecallUncertaintyMap)->forRecall($recall),
         ];
     }
 
