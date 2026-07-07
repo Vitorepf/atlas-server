@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Models\AtlasDevFailureCapsule;
+use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
@@ -167,6 +168,20 @@ final class AtlasTaskServingService
             }
 
             $task = $this->projectTask($claim);
+
+            // L2 (Obra #19) — blackboard-aware lease: if another engine holds an ACTIVE
+            // claim on any of this packet's allowed_files, DEFER the lease (a live model
+            // session is editing there; serving would clobber). Fail-open: an unavailable
+            // blackboard degrades to today's behaviour (no defer). Own-engine claims never
+            // block (except_engine=clientId).
+            $contended = $this->blackboardConflictsFor($task, $clientId);
+            if ($contended !== []) {
+                return $this->served($clientId, $this->envelope('lease_deferred', $clientId, null, [
+                    'reason' => 'files_claimed_by_another_engine',
+                    'contended_files' => $contended,
+                    'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+                ]));
+            }
 
             // AUTHOR≠JUDGE (govA-author-not-judge-servetime-w2): the serve-time inspection is an
             // INDEPENDENT acceptance gate, distinct from the minter's self-check. We call the
@@ -996,6 +1011,37 @@ final class AtlasTaskServingService
         }
 
         return trim(implode(' ', array_keys($tokens)));
+    }
+
+    /**
+     * L2 (Obra #19) — the packet's allowed_files that ANOTHER engine currently holds an
+     * active blackboard claim on. Fail-open: any hiccup (or an unavailable/absent
+     * blackboard) returns [] so serving never stalls on coordination. The requesting
+     * engine's OWN claims are excluded (except_engine), so it never blocks itself.
+     *
+     * @param  array<string,mixed>  $task
+     * @return list<string>
+     */
+    private function blackboardConflictsFor(array $task, string $clientId): array
+    {
+        try {
+            $files = array_values(array_map('strval', (array) ($task['allowed_files'] ?? [])));
+            if ($files === []) {
+                return [];
+            }
+            $blackboard = app(AtlasAobgBlackboardService::class);
+            $contended = [];
+            foreach ($files as $file) {
+                $conflicts = $blackboard->conflictsFor($file, ['except_engine' => $clientId]);
+                if ((int) ($conflicts['count'] ?? 0) > 0) {
+                    $contended[] = $file;
+                }
+            }
+
+            return $contended;
+        } catch (Throwable) {
+            return []; // fail-open: coordination never stalls a serve
+        }
     }
 
     private function siblingTestsFor(array $task): array
