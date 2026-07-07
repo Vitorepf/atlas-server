@@ -1,6 +1,8 @@
 # LEIA-ME DO IMPLEMENTADOR — linha de obras ACOS (#15→#18)
 
-Data: 2026-07-06 · Público: o modelo implementador (ex.: Codex) e qualquer sessão fria · Autoridade: este arquivo define O QUE implementar e em que ordem. Em conflito entre docs, a precedência é: **ordem de trabalho > este LEIA-ME > #18 > #17 (com adendo) > #16/#15 (visão, NUNCA implementar direto)**.
+Data: 2026-07-06 · Público: o modelo implementador (ex.: Codex) e qualquer sessão fria · Autoridade: este arquivo define O QUE implementar e em que ordem. Em conflito entre docs, a precedência é: **CARTA DE AUTONOMIA > ordem de trabalho > este LEIA-ME > #18 > #17 (com adendo) > #16/#15 (visão, NUNCA implementar direto)**.
+
+> **GOVERNANÇA-MÃE:** `docs/obra-linha-acos-carta-de-autonomia-2026-07-06.md` prevalece sobre tudo. O Atlas é AUTÔNOMO: age na main local, commita direto, se promove/autocorrige sozinho e etiqueta cada evolução no Diário de Evolução — **não existe aprovação do operador em ponto nenhum da linha**. Onde qualquer doc antigo disser "operador aprova / assinatura humana / G0 não auto-promove / gate:evento-operador", leia o que a Carta diz. A única salvaguarda é a **reversibilidade** (tudo reversível por git revert / journal replay); os únicos controles do operador são o master switch e o push remoto.
 
 ## Papel de cada documento
 
@@ -27,7 +29,7 @@ Data: 2026-07-06 · Público: o modelo implementador (ex.: Codex) e qualquer ses
 
 1. **Aditivo-only em símbolo público.** Mudar/remover assinatura, renomear método, "consolidar" classes = PROIBIDO sem que a ordem liste os callers e o destino de cada um. Se parecer necessário: PARE e devolva.
 2. **Você nunca escreve o oráculo.** O teste de aceitação vem pronto na ordem e está em forbidden_files. Testes ADICIONAIS seus são bem-vindos; editar o de aceitação, nunca.
-3. **Gates têm dois tipos.** `gate:mecânico` = você fecha com o comando literal da ordem. `gate:evento-operador` = SÓ o operador fecha; você não simula, não declara, não fabrica.
+3. **Todo gate é automático (`gate:mecânico`).** Você fecha com o comando literal da ordem; o Atlas se auto-verifica. **Não existe mais `gate:evento-operador`** — a Carta de Autonomia o revogou. Nenhuma fase, promoção ou merge espera o operador: rode o check, e se passar, aja e etiquete no Diário de Evolução.
 4. **Arquivo fora de allowed_files = PARE**, mesmo que "só uma linha".
 5. **Símbolo citado que você não encontra**: verifique no workspace certo (`cd atlas-server`), com `rg --no-ignore` se o path envolve `storage/`. Se continuar não existindo: PARE e devolva com o diagnóstico — não crie um novo com o mesmo nome.
 6. **Suite vermelha ampla**: classifique (minha regressão / pré-existente / WIP externo) e PARE. Nunca "force verde". Há trabalho paralelo vivo nesta main (workers + sessões do operador); reds de `AtlasMemoryRegistryTest` sobre verbatim/redacted são WIP externo conhecido — não toque.

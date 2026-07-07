@@ -1,6 +1,8 @@
 # Obra #15 (proposta) — ACOS: de recuperador higiênico a consciência de engenharia
 
-Data: 2026-07-06 · Régua: a do operador (hoje **4/10**) · Status: aprovável
+> ⛔ **STATUS: VISÃO — NÃO IMPLEMENTAR DIRETO.** A execução vive em `obra17-acos-3x-plano-mestre-2026-07-06.md` + `docs/work-orders/`. Várias fases aqui foram CORRIGIDAS ou REFUTADAS pela #17 (ex.: a F4 "guard não avisa conflito de decisão" é DIAGNÓSTICO FALSO — o `decisionViolationCheck` já existe e roda; a F1/F2 "estender o harvester" foi refutada). Governança: `obra-linha-acos-carta-de-autonomia-2026-07-06.md`. Comece pelo `obra-linha-acos-leia-me-implementador.md`.
+
+Data: 2026-07-06 · Régua: a do operador (hoje **4/10**) · Status: VISÃO (não-executável direto)
 
 ## A régua certa (o que 9/10 significa)
 

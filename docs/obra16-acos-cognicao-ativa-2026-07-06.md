@@ -1,6 +1,8 @@
 # Obra #16 (visão) — ACOS Cognição Ativa: o cérebro que pensa entre as sessões
 
-Data: 2026-07-06 · Camada ACIMA da Obra #15 · Status: aprovável
+> ⛔ **STATUS: VISÃO — NÃO IMPLEMENTAR DIRETO.** A execução vive em `obra17-*` + `docs/work-orders/`. Só P3 (crítica adversarial de spec) e P6 (delta de surpresa) sobreviveram, re-sequenciados na #17/#18. Refutado/adiado aqui: P1 (briefing noturno "sem humano" — LLM headless não provado, ADIADO pela #17), P2/P4 (enxugados para raio determinístico). Governança: `obra-linha-acos-carta-de-autonomia-2026-07-06.md`. Comece pelo `obra-linha-acos-leia-me-implementador.md`.
+
+Data: 2026-07-06 · Camada ACIMA da Obra #15 · Status: VISÃO (não-executável direto)
 
 ## O salto conceitual
 
