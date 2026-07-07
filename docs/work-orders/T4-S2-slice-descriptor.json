@@ -1,0 +1,33 @@
+{
+  "_meta": "Descritor da fatia T4-S2 (Obra #17, saltos frontier) — 'surpresa medida como gate de gravação'. Predição barata pré-sessão (a APOSTA = o context pack que a sessão começou com, já injetado no transcript pelo hook) vs. realizado (learnings destilados). Surpresa = tokens salientes do learning ausentes do pack. O previsto (coberto pelo pack) quase não grava; o surpreendente grava. Religa a IDEIA de surprisePoints do ProductiveFailureComparisonEngine (sem arrastar suas deps pesadas ao hot path de captura). Memória por informação nova, não harvest plano.",
+  "objective": "T4-S2: AtlasSurpriseGateService (novo órgão puro, determinístico, zero-LLM) mede surpresa de cada candidato G0 contra a aposta pré-sessão (o pack no transcript) e SUPRIME os previstos na captura de sessão — o mecanismo que faz 'candidatos G0 caem ≥40% sem perda de precision'. Fail-open: sem pack no transcript, gating desliga (byte-idêntico a hoje).",
+  "allowed_files": [
+    "app/Services/Ai/Cognition/AtlasSurpriseGateService.php",
+    "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php",
+    "tests/Unit/Ai/Cognition/AtlasSurpriseGateServiceTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasOpenBrainWriteBackService.php",
+    "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "app/Services/Ai/Cognitive/ProductiveFailure/ProductiveFailureComparisonEngine.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Unit/Ai/Cognition/AtlasSurpriseGateServiceTest.php",
+    "smoke: captureSession com pack no transcript SUPRIME o learning previsto e MANTÉM o surpreendente; receipt carrega surprise_gate{gated,candidates_before,candidates_fed,suppressed_predicted}; sem pack ⇒ gated=false e todos os learnings passam (fail-open)"
+  ],
+  "acceptance_test_ref": { "path": "tests/Unit/Ai/Cognition/AtlasSurpriseGateServiceTest.php" },
+  "glossary": {
+    "SurpriseGate": "app/Services/Ai/Cognition/AtlasSurpriseGateService.php",
+    "SessionCapture": "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php",
+    "WriteBack": "app/Services/Ai/AtlasOpenBrainWriteBackService.php",
+    "ComparisonEngine": "app/Services/Ai/Cognitive/ProductiveFailure/ProductiveFailureComparisonEngine.php"
+  },
+  "freeze_callers_of": ["captureSession", "proposeLearning"],
+  "stop_and_return": [
+    "o threshold seria tunado para bater exatamente -40% (Goodhart proibido — ver D5 quality 93->56 não-tunado; escolher default principiado e deixar o runtime medir a queda real)",
+    "um learning surpreendente seria perdido por false 'predicted' (só suprimir quando prediction é substancial: guard min_prediction_tokens; sem pack ⇒ fail-open, não gate)",
+    "os ATLAS-SURPRISE explícitos seriam gatados (NÃO — são surpresa por declaração; só os learnings passam pelo gate)",
+    "a proposeLearning seria alterada para carregar surprise-at-birth (frozen caller — fora de escopo; a métrica 'usada >=2x' é follow-up runtime que precisa do surprise no row da memória)"
+  ],
+  "baseline_artifact": { "metric": "candidatos_g0_por_sessao", "note": "instrumento entregue (surprise gate + receipt com candidates_before/fed/suppressed); a queda -≥40% e o uso 2× medem-se sobre sessões reais ao longo de 30d, NÃO fabricados nesta sessão. O teste unitário prova o MECANISMO (previsto suprimido, surpreendente mantido, fail-open sem pack)." }
+}

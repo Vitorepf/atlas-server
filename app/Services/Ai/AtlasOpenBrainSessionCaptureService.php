@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
@@ -73,12 +74,22 @@ class AtlasOpenBrainSessionCaptureService
      */
     private const SURPRISE_MARKERS = ['ATLAS-SURPRISE:', 'ATLAS SURPRISE:', 'SURPRISE:'];
 
+    /**
+     * T4-S2 — the pre-session BET markers: the context the brain surfaced during the
+     * session (the pack the session started with + per-file brain notes, injected via
+     * the hooks' additionalContext). A learning whose salient tokens are already
+     * covered by this text is "predicted" — the pack knew it — and the surprise gate
+     * suppresses it as a G0 candidate. Marker-based so it matches the real transcript.
+     */
+    private const PREDICTION_MARKERS = ['Atlas Open Brain Context Pack', 'Context Pack (AOBG)', 'Atlas brain —', '(AOBG)'];
+
     /** A cited evidence ref is a file path with a :line or a known scheme (foo://bar). */
     private const EVIDENCE_REF_PATTERN = '#(?:[A-Za-z0-9_./\\\\-]+\.[A-Za-z0-9]+(?::\d+)?|[a-z][a-z0-9_+.-]*://[^\s]+)#';
 
     public function __construct(
         private readonly AtlasOpenBrainWriteBackService $writeBack,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
+        private readonly AtlasSurpriseGateService $surpriseGate,
     ) {}
 
     /**
@@ -135,8 +146,32 @@ class AtlasOpenBrainSessionCaptureService
 
             // 2) LEARNINGS — each explicit, file-cited learning → a `proposed` learning
             //    via the same governed pipeline (capture quality gate + never-apply).
+            //    T4-S2 — the SURPRISE GATE runs first: a learning already covered by the
+            //    pre-session bet (the pack the session started with) is "predicted" and is
+            //    SUPPRESSED — "o previsto quase não grava". Only surprising learnings (new
+            //    information the pack lacked) become G0 candidates. Fail-open: with no bet
+            //    carried (gated=false) every learning passes, byte-identical to before.
+            $prediction = (string) ($distilled['prediction'] ?? '');
             $learnings = [];
+            $suppressed = [];
+            $gatedAny = false;
+            $candidatesConsidered = 0;
             foreach (array_slice($distilled['learnings'], 0, $maxLearnings) as $learning) {
+                $candidatesConsidered++;
+                $verdict = $this->surpriseGate->evaluate(
+                    trim(($learning['claim'] ?? '').' '.$learning['summary']),
+                    $prediction,
+                );
+                $gatedAny = $gatedAny || $verdict['gated'];
+                if (! $verdict['record']) {
+                    // Predicted — audited (reversible, in the receipt below), not fed to G0.
+                    $suppressed[] = [
+                        'surprise' => $verdict['surprise'],
+                        'summary' => mb_substr($learning['summary'], 0, 120),
+                    ];
+
+                    continue;
+                }
                 $learnings[] = $this->writeBack->proposeLearning([
                     'kind' => 'memory',
                     'summary' => $learning['summary'],
@@ -149,6 +184,9 @@ class AtlasOpenBrainSessionCaptureService
                     'payload' => [
                         'source' => 'aobg_session_capture',
                         'session_id' => $sessionId,
+                        // T4-S2 — the measured surprise the candidate was admitted with.
+                        'surprise' => $verdict['surprise'],
+                        'surprise_priority' => $verdict['priority'],
                         'structured' => [
                             'claim' => $learning['claim'],
                             'why' => $learning['why'],
@@ -207,6 +245,16 @@ class AtlasOpenBrainSessionCaptureService
                 'obra_state' => $obraState,
                 // WO-17-T2 — delta de surpresa: structured G0 candidates (what the pack lacked).
                 'surprise_delta' => array_values((array) ($distilled['surprises'] ?? [])),
+                // T4-S2 — surprise gate audit: how many predicted candidates were
+                // suppressed. The -≥40% is MEASURED here over real sessions, never tuned.
+                'surprise_gate' => [
+                    'gated' => $gatedAny,
+                    'threshold' => (float) config('atlas.aobg.surprise_gate.threshold', AtlasSurpriseGateService::DEFAULT_THRESHOLD),
+                    'candidates_before' => $candidatesConsidered,
+                    'candidates_fed' => count($learnings),
+                    'suppressed_predicted' => count($suppressed),
+                    'suppressed' => $suppressed,
+                ],
                 'distill' => 'deterministic', // NO provider/LLM call in the default path
                 'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
                 'generated_at' => now()->toJSON(),
@@ -320,6 +368,7 @@ class AtlasOpenBrainSessionCaptureService
     {
         $maxFiles = max(1, (int) config('atlas.aobg.session_capture.max_files', 50));
         $maxLearningChars = max(1, (int) config('atlas.aobg.session_capture.max_learning_chars', 600));
+        $maxPredictionChars = max(0, (int) config('atlas.aobg.surprise_gate.max_prediction_chars', 20000));
 
         $files = [];
         $learnings = [];
@@ -327,6 +376,7 @@ class AtlasOpenBrainSessionCaptureService
         $result = null;
         $firstUserPrompt = null;
         $derivedSessionId = null;
+        $prediction = ''; // T4-S2 — the pre-session bet accreted from AOBG-marked text.
 
         foreach ($lines as $line) {
             if (! is_array($line)) {
@@ -368,6 +418,11 @@ class AtlasOpenBrainSessionCaptureService
                 if ($surprise !== null && count($surprises) < 16 && ! in_array($surprise, $surprises, true)) {
                     $surprises[] = $surprise;
                 }
+                // T4-S2 — accrete the pre-session bet: any AOBG-marked context the brain
+                // surfaced this session is the prediction each learning is judged against.
+                if ($maxPredictionChars > 0 && mb_strlen($prediction) < $maxPredictionChars && $this->looksLikePrediction($text)) {
+                    $prediction .= "\n".mb_substr($text, 0, $maxPredictionChars - mb_strlen($prediction));
+                }
             }
         }
 
@@ -378,13 +433,29 @@ class AtlasOpenBrainSessionCaptureService
             ?? ($firstUserPrompt !== null ? mb_substr($firstUserPrompt, 0, 280) : 'session capture');
 
         return [
-            'files' => array_values($files),
+            'files' => $files,
             'result' => $result,
             'learnings' => $learnings,
-            'surprises' => array_values($surprises),
+            'surprises' => $surprises,
+            'prediction' => trim($prediction),
             'request' => $request,
             'derived_session_id' => $derivedSessionId,
         ];
+    }
+
+    /**
+     * T4-S2 — does this transcript text carry AOBG context (the pre-session bet)?
+     * A text block that surfaced brain context is prediction, not a learning.
+     */
+    private function looksLikePrediction(string $text): bool
+    {
+        foreach (self::PREDICTION_MARKERS as $marker) {
+            if (stripos($text, $marker) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -625,7 +696,7 @@ class AtlasOpenBrainSessionCaptureService
     private function evidenceRefs(string $body): array
     {
         $refs = [];
-        if (preg_match_all(self::EVIDENCE_REF_PATTERN, $body, $m) && isset($m[0])) {
+        if (preg_match_all(self::EVIDENCE_REF_PATTERN, $body, $m)) {
             foreach ($m[0] as $ref) {
                 $ref = trim((string) $ref);
                 // A bare sentence word like "engine." can have a dot — require a path
@@ -836,6 +907,12 @@ class AtlasOpenBrainSessionCaptureService
                     'fed' => (bool) ($entry['fed'] ?? false),
                     'counts' => (array) ($entry['counts'] ?? []),
                     'outcome_reason' => (string) data_get($entry, 'outcome.reason', ''),
+                    // T4-S2 — counts only (never content) so the -≥40% G0-candidate drop
+                    // is auditable from this ledger over real 30-day usage.
+                    'surprise_gate' => array_intersect_key(
+                        (array) ($entry['surprise_gate'] ?? []),
+                        array_flip(['gated', 'threshold', 'candidates_before', 'candidates_fed', 'suppressed_predicted']),
+                    ),
                 ]),
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
             );
