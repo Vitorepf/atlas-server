@@ -1,0 +1,120 @@
+{
+    "objective": "T0.2: medir o hit-rate do decisionViolationCheck e religar o T0.1 ao guard — o recall passa a repassar a PERGUNTA ao candidate set (1 linha, aditiva); instrumento `atlas:aobg:guard-hitrate` publica antes/depois no Diário.",
+    "allowed_files": [
+        "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+        "app/Console/Commands/AtlasAobgGuardHitRateCommand.php",
+        "tests/Feature/Ai/AtlasGuardQueryAwareRecallTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/AtlasMemoryRegistryService.php",
+        "app/Services/Ai/AtlasOpenBrainGuardService.php",
+        "config/atlas.php",
+        "app/Services/Ai/Brain/AtlasEvolutionDiary.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/AtlasGuardQueryAwareRecallTest.php"
+    ],
+    "glossary": {
+        "Hybrid": "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+        "Registry": "app/Services/Ai/AtlasMemoryRegistryService.php",
+        "Guard": "app/Services/Ai/AtlasOpenBrainGuardService.php",
+        "Diary": "app/Services/Ai/Brain/AtlasEvolutionDiary.php",
+        "HitRateCommand": "app/Console/Commands/AtlasAobgGuardHitRateCommand.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/AtlasGuardQueryAwareRecallTest.php",
+        "hash": "67dd716e7824927077ee495a6807734197c3dd0048913f05c15398c2927958bd"
+    },
+    "frozen_callers": [
+        {
+            "caller": "routes/api.php:479",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:1153",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:284",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:327",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:330",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:331",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:440",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:442",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:989",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1857",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1858",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1860",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1862",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1875",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:171",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:230",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:231",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:233",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:235",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:324",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "o forward do query quebra uma suíte de frozen_callers do recall",
+        "campo/coluna citado não existe no schema real",
+        "3 tentativas vermelhas no mesmo ponto"
+    ],
+    "baseline_artifact": {
+        "metric": "guard_decision_hitrate",
+        "note": "recall() não repassa a pergunta a relevantForContext (Hybrid:178-179); guard cego por construção — corpus local (8 decisões em escopo) < limit 12, sem lift empírico local; salto provado por teste com corpus > limite"
+    },
+    "generated_by": "atlas:obra:work-order"
+}

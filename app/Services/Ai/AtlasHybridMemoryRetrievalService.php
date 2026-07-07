@@ -175,8 +175,17 @@ class AtlasHybridMemoryRetrievalService
             return [];
         }
 
+        // WO-17-T0.2 — forward the QUESTION into candidate selection. T0.1 made
+        // relevantForContext() query-aware, but recall() never passed the query, so
+        // every consumer (guard, context pack, projection) got a candidate set that
+        // was blind to the question — the vectors below only reordered a wrong set.
+        // Empty query, or a caller that set its own, ⇒ byte-identical to before.
+        $registryContext = ($query !== '' && ! array_key_exists('query', $context))
+            ? $context + ['query' => $query]
+            : $context;
+
         $entries = $this->registry
-            ->relevantForContext($context, $this->registryFilters($filters), $limit)
+            ->relevantForContext($registryContext, $this->registryFilters($filters), $limit)
             ->filter(fn (AtlasMemoryEntry $entry): bool => $this->privacy->providerAllowed($entry))
             ->values();
 

@@ -1,0 +1,33 @@
+{
+  "_meta": "Descritor da fatia T0.2 (Obra #17). Consumido por `atlas:obra:work-order` (K2). MEDIR o guard de decisão que JÁ existe + fechar o gap de 1 linha que faz o T0.1 (query-aware retrieval) finalmente ALCANÇAR o guard: hoje `recall()` não repassa a pergunta a `relevantForContext`, então o candidate set do guard continua cego. Publica hit-rate antes/depois no Diário.",
+  "objective": "T0.2: medir o hit-rate do decisionViolationCheck e religar o T0.1 ao guard — o recall passa a repassar a PERGUNTA ao candidate set (1 linha, aditiva); instrumento `atlas:aobg:guard-hitrate` publica antes/depois no Diário.",
+  "allowed_files": [
+    "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+    "app/Console/Commands/AtlasAobgGuardHitRateCommand.php",
+    "tests/Feature/Ai/AtlasGuardQueryAwareRecallTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "app/Services/Ai/AtlasOpenBrainGuardService.php",
+    "config/atlas.php",
+    "app/Services/Ai/Brain/AtlasEvolutionDiary.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/AtlasGuardQueryAwareRecallTest.php"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/AtlasGuardQueryAwareRecallTest.php" },
+  "glossary": {
+    "Hybrid": "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+    "Registry": "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "Guard": "app/Services/Ai/AtlasOpenBrainGuardService.php",
+    "Diary": "app/Services/Ai/Brain/AtlasEvolutionDiary.php",
+    "HitRateCommand": "app/Console/Commands/AtlasAobgGuardHitRateCommand.php"
+  },
+  "freeze_callers_of": ["recall"],
+  "stop_and_return": [
+    "o forward do query quebra uma suíte de frozen_callers do recall",
+    "campo/coluna citado não existe no schema real",
+    "3 tentativas vermelhas no mesmo ponto"
+  ],
+  "baseline_artifact": { "metric": "guard_decision_hitrate", "note": "recall() não repassa a pergunta a relevantForContext (Hybrid:178-179); guard cego por construção — corpus local (8 decisões em escopo) < limit 12, sem lift empírico local; salto provado por teste com corpus > limite" }
+}
