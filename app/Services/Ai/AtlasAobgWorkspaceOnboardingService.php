@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
-use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
+use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -102,8 +105,8 @@ class AtlasAobgWorkspaceOnboardingService
      * Honest status for the resolved workspace: does the brain know THIS project?
      *
      * @param  array<string,mixed>  $opts
-     *   - workspace: explicit workspace path OR id (wins over cwd).
-     *   - cwd: caller's working directory (the external tool's project dir).
+     *                                     - workspace: explicit workspace path OR id (wins over cwd).
+     *                                     - cwd: caller's working directory (the external tool's project dir).
      * @return array{
      *   schema:string, workspace_id:string, workspace_path:?string, indexed:bool,
      *   symbols:int, last_index:?string, needs_onboarding:bool, needs_reindex:bool, auto_onboard:bool,
@@ -144,7 +147,7 @@ class AtlasAobgWorkspaceOnboardingService
      * an arbitrary repo implicitly). Returns the post-action status + what was done.
      *
      * @param  array<string,mixed>  $opts  same shape as {@see status()}; plus:
-     *   - force: re-run the index even when already indexed (still gated by auto_onboard).
+     *                                     - force: re-run the index even when already indexed (still gated by auto_onboard).
      * @return array<string,mixed>
      */
     public function onboard(array $opts = []): array
@@ -259,6 +262,13 @@ class AtlasAobgWorkspaceOnboardingService
         }
 
         $after = $this->status($scopedOpts);
+
+        // WO-17-T3 — multi-project: auto-generate a minimal deterministic brief on
+        // activation so a freshly-opened repo has "lembra por quê" from turn 1 (the
+        // retriever is already workspace-scoped; this was the missing trigger).
+        // Side-effect only, fail-open — never blocks or breaks activation.
+        $this->generateBriefFor($workspacePath, (string) $after['workspace_id']);
+
         $action = match (true) {
             ($profile['ok'] ?? false) !== true => 'activation_profile_blocked',
             ($bootstrap['ok'] ?? false) !== true => 'activation_bootstrap_incomplete',
@@ -270,6 +280,24 @@ class AtlasAobgWorkspaceOnboardingService
         };
 
         return $this->activationEnvelope($action, $shouldIndex, $after, $before, $opts, $profile, $bootstrap, $run);
+    }
+
+    /**
+     * WO-17-T3 — auto-generate the minimal deterministic brief for a freshly activated
+     * workspace (scope = repo dir name; churn/HEAD read from the workspace repo, not the
+     * artisan host). Fail-open side effect — never part of the activation verdict.
+     */
+    private function generateBriefFor(string $workspacePath, string $workspaceId): void
+    {
+        try {
+            $scope = basename(rtrim($workspacePath, DIRECTORY_SEPARATOR));
+            if ($scope === '') {
+                $scope = $workspaceId;
+            }
+            app(AtlasDeterministicBriefService::class)->generate($scope, $workspacePath);
+        } catch (Throwable) {
+            // fail-open — brief generation must never block or break activation.
+        }
     }
 
     /**
@@ -614,7 +642,6 @@ class AtlasAobgWorkspaceOnboardingService
 
     /**
      * @param  array<string,mixed>  $profile
-     * @param  string|null  $workspacePath
      * @return array<string,mixed>
      */
     private function missingWorkspaceFleetRow(array $profile, ?string $workspacePath): array
@@ -949,7 +976,7 @@ class AtlasAobgWorkspaceOnboardingService
     }
 
     /**
-     * @return \Illuminate\Database\Query\Builder
+     * @return Builder
      */
     private function activeQuery(string $table, string $workspaceId, ?string $alias = null)
     {
@@ -1228,7 +1255,7 @@ class AtlasAobgWorkspaceOnboardingService
      * The most recent index time for the scoped symbols — prefers `indexed_at` (the real
      * index event) and falls back to `updated_at`. Returns null when neither is present.
      *
-     * @param  \Illuminate\Database\Query\Builder  $scoped
+     * @param  Builder  $scoped
      */
     private function lastIndexTimestamp($scoped): ?string
     {
@@ -1320,6 +1347,7 @@ class AtlasAobgWorkspaceOnboardingService
                     if (count($base['missing_files']) < 8) {
                         $base['missing_files'][] = $relative;
                     }
+
                     continue;
                 }
 
@@ -1397,7 +1425,7 @@ class AtlasAobgWorkspaceOnboardingService
             return ($this->indexRunner)($workspacePath, $workspaceId);
         }
 
-        $exit = \Illuminate\Support\Facades\Artisan::call(self::ONBOARD_COMMAND, [
+        $exit = Artisan::call(self::ONBOARD_COMMAND, [
             'action' => 'index-code',
             '--workspace' => $workspacePath,
         ]);

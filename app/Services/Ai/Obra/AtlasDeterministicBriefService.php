@@ -44,14 +44,15 @@ final class AtlasDeterministicBriefService
      *
      * @return array<string,mixed>
      */
-    public function generate(string $scope = 'atlas-server'): array
+    public function generate(string $scope = 'atlas-server', ?string $repoPath = null): array
     {
         $scope = $this->sanitize($scope);
-        $hotFiles = $this->hotFiles();
+        $repoPath = rtrim($repoPath ?? base_path(), '/');
+        $hotFiles = $this->hotFiles($repoPath);
         $brief = [
             'schema' => self::SCHEMA,
             'scope' => $scope,
-            'head' => $this->gitHead(),
+            'head' => $this->gitHead($repoPath),
             'generated_at' => now()->toISOString(),
             'hot_files' => $hotFiles,
             'modules' => $this->modulesByChurn($hotFiles),
@@ -125,11 +126,11 @@ final class AtlasDeterministicBriefService
      *
      * @return list<array{file:string, changes:int}>
      */
-    private function hotFiles(int $limit = 15): array
+    private function hotFiles(?string $repoPath = null, int $limit = 15): array
     {
         try {
             $out = @shell_exec(
-                'git -C '.escapeshellarg(base_path())
+                'git -C '.escapeshellarg($repoPath ?? base_path())
                 .' log --since='.escapeshellarg(self::CHURN_SINCE)
                 .' --name-only --pretty=format: -- app 2>/dev/null'
             );
@@ -210,10 +211,10 @@ final class AtlasDeterministicBriefService
         }
     }
 
-    private function gitHead(): string
+    private function gitHead(?string $repoPath = null): string
     {
         try {
-            return trim((string) @shell_exec('git -C '.escapeshellarg(base_path()).' rev-parse --short HEAD 2>/dev/null'));
+            return trim((string) @shell_exec('git -C '.escapeshellarg($repoPath ?? base_path()).' rev-parse --short HEAD 2>/dev/null'));
         } catch (Throwable) {
             return '';
         }

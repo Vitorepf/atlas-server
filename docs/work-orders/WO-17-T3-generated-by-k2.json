@@ -1,0 +1,202 @@
+{
+    "objective": "T3: brief mínimo automático no workspace activate (multi-projeto) + raio de explosão determinístico (atlas:blast-radius: afetados+testes+decisões) com medição de cobertura sobre slices reais.",
+    "allowed_files": [
+        "app/Services/Ai/Obra/AtlasBlastRadiusService.php",
+        "app/Console/Commands/AtlasBlastRadiusCommand.php",
+        "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+        "app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php",
+        "tests/Feature/Ai/Obra/AtlasBlastRadiusTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+        "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+        "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBlastRadiusReaderSupport.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Obra/AtlasBlastRadiusTest.php",
+        "smoke: atlas:blast-radius <arquivo> lista afetados+testes+decisões; atlas:aobg:workspace activate auto-gera brief; medição de cobertura publicada honestamente"
+    ],
+    "glossary": {
+        "BlastRadius": "app/Services/Ai/Obra/AtlasBlastRadiusService.php",
+        "BlastRadiusCommand": "app/Console/Commands/AtlasBlastRadiusCommand.php",
+        "Brief": "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+        "Onboarding": "app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php",
+        "ReaderSupport": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBlastRadiusReaderSupport.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Obra/AtlasBlastRadiusTest.php",
+        "hash": "50fcdd347a81ecc068705d85e475004dfdd1fd6e0676be996b213415a06c4446"
+    },
+    "frozen_callers": [
+        {
+            "caller": "routes/api.php:368",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:509",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:512",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:1881",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasCliScheduleCommand.php:20",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasCrossDomainGraphBuildCommand.php:45",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/ProjectExecutionService.php:347",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasCrossDomainAnalyticsCommand.php:66",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Jobs/AssembleWorkspaceFolderIntelligenceJob.php:73",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningCommand.php:18",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfImprovementActivateForgeCommand.php:23",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/SemanticActivateCommand.php:10",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:10",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:12",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:18",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:19",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:28",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideMetaLearningActivateCommand.php:41",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideLiveFeedbackCommand.php:26",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasDecideLiveFeedbackCommand.php:100",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:345",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:347",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:357",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/app.php:51",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_venture_foundry.php:5",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/RoutineSchedulingService.php:61",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Semantic/AtlasVaultLinkService.php:28",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Semantic/AtlasVaultLinkService.php:104",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/AtlasCodeRealityUsageIntelligenceService.php:1918",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Semantic/AtlasVaultManagedNoteService.php:240",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/EngineeringTaskGenerationService.php:16",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php:227",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/AtlasRoutineController.php:110",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/AtlasRoutineController.php:121",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasEngineeringDeliverCommand.php:31",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/EngineeringProjectBlueprintController.php:80",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/OperatorIntelligence/OperatorSkillProposalBridge.php:54",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/OperatorIntelligence/SkillScaffoldGenerator.php:31",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasProviderProjectionService.php:37",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasProviderProjectionService.php:148",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "o brief na activation quebraria/atrasaria a ativação (deve ser side-effect fail-open)",
+        "o raio dependeria do world-model (edges table vazia local — usar symbols+referências)",
+        "cobertura seria fabricada em vez de medida (reportar honesto, estilo T0.4)"
+    ],
+    "baseline_artifact": {
+        "metric": "raio_cobertura",
+        "note": "raio preciso por-arquivo (acha referenciadores reais + testes + decisões); cobertura de co-edição medida honestamente sobre slices reais (multi-feature deflacionam; mono-feature ~0.8); world-model vazio local ⇒ raio via symbols+rg"
+    },
+    "generated_by": "atlas:obra:work-order"
+}

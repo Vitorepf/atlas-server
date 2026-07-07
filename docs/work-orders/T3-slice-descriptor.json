@@ -1,0 +1,35 @@
+{
+  "_meta": "Descritor da fatia T3 (Obra #17) — 'qualquer repo + raio determinístico'. Multi-projeto: activate auto-gera brief mínimo (o disparo que faltava; retriever já é workspace-scoped). Raio de explosão determinístico: call graph afetado (referências ao símbolo) + testes que cobrem + decisões tocadas, via symbols + rg + recall query-aware (T0.2). Sem world-model (edges table vazia local).",
+  "objective": "T3: brief mínimo automático no workspace activate (multi-projeto) + raio de explosão determinístico (atlas:blast-radius: afetados+testes+decisões) com medição de cobertura sobre slices reais.",
+  "allowed_files": [
+    "app/Services/Ai/Obra/AtlasBlastRadiusService.php",
+    "app/Console/Commands/AtlasBlastRadiusCommand.php",
+    "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+    "app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php",
+    "tests/Feature/Ai/Obra/AtlasBlastRadiusTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+    "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+    "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBlastRadiusReaderSupport.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Obra/AtlasBlastRadiusTest.php",
+    "smoke: atlas:blast-radius <arquivo> lista afetados+testes+decisões; atlas:aobg:workspace activate auto-gera brief; medição de cobertura publicada honestamente"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Obra/AtlasBlastRadiusTest.php" },
+  "glossary": {
+    "BlastRadius": "app/Services/Ai/Obra/AtlasBlastRadiusService.php",
+    "BlastRadiusCommand": "app/Console/Commands/AtlasBlastRadiusCommand.php",
+    "Brief": "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+    "Onboarding": "app/Services/Ai/AtlasAobgWorkspaceOnboardingService.php",
+    "ReaderSupport": "app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopBlastRadiusReaderSupport.php"
+  },
+  "freeze_callers_of": ["activate", "generate"],
+  "stop_and_return": [
+    "o brief na activation quebraria/atrasaria a ativação (deve ser side-effect fail-open)",
+    "o raio dependeria do world-model (edges table vazia local — usar symbols+referências)",
+    "cobertura seria fabricada em vez de medida (reportar honesto, estilo T0.4)"
+  ],
+  "baseline_artifact": { "metric": "raio_cobertura", "note": "raio preciso por-arquivo (acha referenciadores reais + testes + decisões); cobertura de co-edição medida honestamente sobre slices reais (multi-feature deflacionam; mono-feature ~0.8); world-model vazio local ⇒ raio via symbols+rg" }
+}
