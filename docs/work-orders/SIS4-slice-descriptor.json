@@ -1,0 +1,33 @@
+{
+  "_meta": "Descritor da fatia SIS4 (Obra #20) — arestas 4D: atlas_aurg_edges ganha as colunas temporal-truth (padrao HasTemporalTruth JA aplicado a 2 outras tabelas — extensao byte-a-byte); stateAt(T) vira SQL. CONSOME o eixo bi-temporal do T4-S1 (landado antes). Migration ADITIVA (colunas nullable + backfill valid_from=created_at nos 3552 edges reais); testes rodam em sqlite :memory:, pgsql vivo intocado. NAO e o cenario do wiper (aquilo foi RefreshDatabase no pgsql vivo). Model auto-carimba valid_from no create (validade comeca ao aparecer).",
+  "objective": "SIS4: colunas HasTemporalTruth em atlas_aurg_edges + AtlasAurgEdge usa o trait + AtlasAurgEdge::current($at) as-of SQL + atlas:aurg:edges-asof reader + reconciliacao SQL≡scan em N datas. Promove o eixo de validade das arestas de replay p/ SQL.",
+  "allowed_files": [
+    "database/migrations/2026_07_07_181500_add_temporal_truth_to_atlas_aurg_edges.php",
+    "app/Models/AtlasAurgEdge.php",
+    "app/Console/Commands/AtlasAurgEdgesAsOfCommand.php",
+    "tests/Feature/Ai/Reality/AtlasAurgEdgesAsOfTest.php"
+  ],
+  "forbidden_files": [
+    "database/migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php",
+    "app/Support/TemporalTruth/HasTemporalTruth.php",
+    "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Reality/AtlasAurgEdgesAsOfTest.php",
+    "smoke: atlas:aurg:edges-asof --at=<iso> retorna edges validos as-of (degrade honesto se a migration nao rodou na tabela viva)"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Reality/AtlasAurgEdgesAsOfTest.php" },
+  "glossary": {
+    "AurgEdge": "app/Models/AtlasAurgEdge.php",
+    "TemporalTruthTrait": "app/Support/TemporalTruth/HasTemporalTruth.php",
+    "AurgTemporal": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php"
+  },
+  "freeze_callers_of": ["edgePayload"],
+  "stop_and_return": [
+    "rodaria migration no pgsql vivo (so o operador roda migrate; teste e :memory:; comando degrada honesto ate rodar)",
+    "mudaria assinatura/comportamento publico de AtlasAurgEdge (aditivo: trait + fillable + booted + casts)",
+    "valid_from NULL seria lido como sempre-valido e quebraria as-of passado (por isso backfill=created_at + auto-stamp no create)",
+    "reconciliacao seria tautologica (deve comparar SQL current() contra scan hand-computed independente)"
+  ],
+  "baseline_artifact": { "metric": "edges_asof_sql", "note": "current($at) = edges valid_from<=T & nao expirado/superseded; reconciliacao SQL≡scan em 4 datas verde; 3552 edges reais recebem valid_from=created_at no backfill; p95<200ms e cadencia (gate de perf pos-migrate-vivo)" }
+}
