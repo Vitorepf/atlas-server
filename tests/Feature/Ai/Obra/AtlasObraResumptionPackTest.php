@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Obra;
 
 use App\Services\Ai\AtlasOpenBrainContextPackService;
-use App\Services\Ai\LongHorizon\LongHorizonContinuityPackEmitterService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;
@@ -17,7 +16,8 @@ use Tests\TestCase;
  *     section FIRST (the resuming session sees where it was in turn 1 — the ≤3-turns
  *     gate: the facts are in the pack, no exploration needed);
  *   - with NO active obra the pack is byte-compatible (no resumption section);
- *   - the religated LongHorizon emitter's read fail-opens (never breaks the pack).
+ *   - the retomada carries NO decorative obra-continuity arm (B2e removed the
+ *     always-null wire; on-disk obra state renders the section).
  */
 final class AtlasObraResumptionPackTest extends TestCase
 {
@@ -104,11 +104,25 @@ final class AtlasObraResumptionPackTest extends TestCase
         $this->assertFalse(($pack['retomada']['present'] ?? false));
     }
 
-    public function test_religated_emitter_read_fails_open_to_null(): void
+    public function test_resumption_pack_carries_no_decorative_continuity_arm(): void
     {
-        // No continuation pack (and possibly no table in sqlite) → null, never a throw.
-        $continuity = $this->app->make(LongHorizonContinuityPackEmitterService::class)
-            ->latestContinuityFor('obra', 'obra-17');
-        $this->assertNull($continuity);
+        // B2e (fechamento ACOS): the obra-scoped long-horizon continuity arm was
+        // decorative (no producer → always null). It was removed to kill the nominal
+        // lie; the retomada payload must NOT carry a 'continuity' key and the markdown
+        // must NOT render a continuity line. The on-disk obra state renders the rest.
+        $state = $this->state();
+        $state->setCurrent('obra-17');
+        $state->recordSession('obra-17', [
+            'session_id' => 'sess-1',
+            'files' => ['app/Services/Ai/Obra/AtlasObraStateService.php'],
+            'result' => ['delivered' => true],
+            'request' => 'sem continuity decorativa',
+        ], ['phase' => 'T1']);
+
+        $pack = $this->app->make(AtlasOpenBrainContextPackService::class)->packFor('continuar a obra 17');
+
+        $this->assertTrue(($pack['retomada']['present'] ?? false), 'a retomada continua presente');
+        $this->assertArrayNotHasKey('continuity', (array) ($pack['retomada'] ?? []));
+        $this->assertStringNotContainsString('long-horizon continuity', (string) $pack['markdown']);
     }
 }

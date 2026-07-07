@@ -6,7 +6,6 @@ namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
-use App\Services\Ai\LongHorizon\LongHorizonContinuityPackEmitterService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -270,10 +269,10 @@ class AtlasOpenBrainContextPackService
 
     /**
      * WO-17-T1 — the ACTIVE obra's resumption facts, or {present:false} when no obra
-     * is active. Fuses three brains: the on-disk obra state (last session + drift), the
-     * long-horizon continuity emitter (religated via its cheap read — nominal consumer)
-     * and refutations relevant to the task (admission-time matcher, query-aware since
-     * T0.2). Fail-open on every arm — resumption must never break the interactive pack.
+     * is active. Fuses two brains: the on-disk obra state (last session + drift) and
+     * refutations relevant to the task (admission-time matcher, query-aware since T0.2).
+     * (B2e removed a decorative long-horizon-continuity arm that had no producer and so
+     * was always null.) Fail-open on every arm — resumption must never break the pack.
      *
      * @return array<string,mixed>
      */
@@ -296,10 +295,11 @@ class AtlasOpenBrainContextPackService
                 ? "main avançou desde sua última sessão (era {$lastHead}, agora {$nowHead})"
                 : 'sem drift de main desde a última sessão';
 
-            // Religa o emitter órfão: consumidor NOMINAL do produto persistido (cheap).
-            $continuity = app(LongHorizonContinuityPackEmitterService::class)
-                ->latestContinuityFor('obra', $id);
-
+            // B2e (fechamento ACOS): the obra-scoped long-horizon continuity arm was
+            // DECORATIVE — no producer emits an 'obra' continuation pack, so
+            // latestContinuityFor('obra', …) was always null. Removed to kill the nominal
+            // lie; the on-disk obra state below already carries phase, session, drift,
+            // pendencies and decisions — everything the retomada section renders.
             return [
                 'present' => true,
                 'obra_id' => $id,
@@ -308,7 +308,6 @@ class AtlasOpenBrainContextPackService
                 'drift' => $drift,
                 'pendencies' => array_values((array) ($obra['pendencies'] ?? [])),
                 'decisions' => array_values((array) ($obra['decisions'] ?? [])),
-                'continuity' => $continuity,
                 'refutacoes' => $this->refutationMatches($task, $workspaceId),
             ];
         } catch (Throwable) {
@@ -2362,14 +2361,6 @@ class AtlasOpenBrainContextPackService
             $pend = array_slice((array) ($retomada['pendencies'] ?? []), 0, 6);
             if ($pend !== []) {
                 $lines[] = '- falta: '.implode('; ', array_map('strval', $pend));
-            }
-            $continuity = (array) ($retomada['continuity'] ?? []);
-            if ($continuity !== []) {
-                $lines[] = sprintf(
-                    '- long-horizon continuity: fase=%s%s',
-                    (string) ($continuity['current_phase'] ?? 'n/a'),
-                    ($continuity['stale'] ?? false) ? ' (STALE)' : '',
-                );
             }
             foreach (array_slice((array) ($retomada['refutacoes'] ?? []), 0, 3) as $ref) {
                 $lines[] = '- ⚠️ já refutado antes: '.(string) $ref;
