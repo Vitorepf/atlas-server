@@ -8,6 +8,7 @@ use App\Models\AtlasAgenticWorkcell;
 use App\Models\AtlasAgenticWorkcellEvent;
 use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
+use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -125,6 +126,10 @@ final class AtlasAgenticWorkcellRuntimeService
 
         return [
             ...$payload,
+            // Cognitive Pressure Layer advisory guards (Atlas Orchestrator Canon). Response-only
+            // (never persisted, never in workcell_hash): they schedule no task and own no write
+            // scope, so they cannot disturb the counted execution roster.
+            'pressure_layer_guards' => $this->pressureLayerAdvisoryRoster($domain, $flowId),
             'workcell_id' => $record?->id,
             'writes' => $record !== null,
         ];
@@ -474,6 +479,34 @@ final class AtlasAgenticWorkcellRuntimeService
                     'forbidden_actions' => ['spawn_provider_directly', 'mutate_files_outside_ownership', 'declare_completion_without_evidence'],
                 ];
             })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The Cognitive Pressure Layer advisory guard roles (Atlas Orchestrator Canon +
+     * acos-cognitive-role-matrix-8-minimal). Read-only ADVISORY roles that PRESSURE the
+     * role_roster's work — one verdict per guard (runtime_verifier / context_cartographer /
+     * boundary_wiring_guard) feeds the proof-gated outcome ledger the Decision Core weighs.
+     * Kept OUT of the counted execution roster (they schedule no task, own no write scope);
+     * they are the width/deterministic verification tier, surfaced alongside it.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function pressureLayerAdvisoryRoster(string $domain, string $flowId): array
+    {
+        return collect(PressureLayerGuards::advisoryRoles())
+            ->map(fn (array $guard): array => [
+                'role_id' => (string) $guard['role_id'],
+                'advisory' => true,
+                'read_only' => true,
+                'tier' => (string) ($guard['tier'] ?? 'width'),
+                'domain' => $domain,
+                'flow_id' => $flowId,
+                'prevents' => (string) ($guard['prevents'] ?? ''),
+                'signal' => (string) ($guard['signal'] ?? ''),
+                'forbidden_actions' => ['mutate_files', 'spawn_provider_directly', 'fabricate_verdict'],
+            ])
             ->values()
             ->all();
     }
