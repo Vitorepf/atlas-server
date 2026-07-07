@@ -1,0 +1,38 @@
+{
+  "_meta": "Descritor da fatia T2 (Obra #17) — 'lembra por quê e avisa antes'. Brief determinístico v1 SEM LLM (churn + invariantes pétreas + refutações + HEAD; stale⇒pack injeta BRIEF STALE) + delta de surpresa no Stop hook (candidato G0) + crítica adversarial de spec evento-driven municiada com refutações/decisões (aproveita recall query-aware do T0.2).",
+  "objective": "T2: brief determinístico (atlas:brief) + superfície de staleness no pack (BRIEF STALE nunca silencioso) + delta de surpresa (ATLAS-SURPRISE→G0) + crítica de spec (atlas:spec:critique) que pega colisões com refutações ANTES da implementação.",
+  "allowed_files": [
+    "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+    "app/Console/Commands/AtlasBriefCommand.php",
+    "app/Services/Ai/Obra/AtlasSpecCritiqueService.php",
+    "app/Console/Commands/AtlasSpecCritiqueCommand.php",
+    "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+    "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php",
+    "tests/Feature/Ai/Obra/AtlasDeterministicBriefTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+    "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "app/Services/Ai/Obra/AtlasObraStateService.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Obra/AtlasDeterministicBriefTest.php",
+    "smoke: atlas:brief --generate produz brief; pack mostra '## Brief (determinístico)'; atlas:spec:critique surfacia refutação real antes de codar"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Obra/AtlasDeterministicBriefTest.php" },
+  "glossary": {
+    "Brief": "app/Services/Ai/Obra/AtlasDeterministicBriefService.php",
+    "BriefCommand": "app/Console/Commands/AtlasBriefCommand.php",
+    "SpecCritique": "app/Services/Ai/Obra/AtlasSpecCritiqueService.php",
+    "SpecCritiqueCommand": "app/Console/Commands/AtlasSpecCritiqueCommand.php",
+    "ContextPack": "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+    "SessionCapture": "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php"
+  },
+  "freeze_callers_of": ["packFor", "captureSession"],
+  "stop_and_return": [
+    "o brief seria stale silencioso (deve sempre marcar BRIEF STALE)",
+    "a crítica de spec chamaria LLM (deve ser determinística)",
+    "algum número de gate seria fabricado (perguntas evitáveis −50% precisa de semana de uso — o instrumento é entregue, a medição vem depois)"
+  ],
+  "baseline_artifact": { "metric": "perguntas_evitaveis", "note": "instrumento entregue (brief + spec critique + delta de surpresa); a queda −≥50% mede-se sobre uso real ao longo da semana (T0.4 baseline VAZIO por design anti-fabricação); brief aparece no pack de sessão real, crítica pega refutação da #8 antes de codar" }
+}

@@ -256,6 +256,10 @@ class AtlasOpenBrainContextPackService
         // active, so packs with no active obra are byte-identical to before.
         $pack['retomada'] = $this->retomadaSection($workspaceId, $task);
 
+        // WO-17-T2 — the deterministic brief ("lembra por quê e avisa antes"): present
+        // only when a brief exists; STALE the moment HEAD moves past it (never silent).
+        $pack['brief'] = $this->briefSection();
+
         $pack['context_pack_hash'] = $this->contextPackHash($pack);
         $pack['context_feedback_request'] = $this->contextFeedbackRequest($pack, $opts);
         $pack['generated_at'] = now()->toJSON();
@@ -338,6 +342,36 @@ class AtlasOpenBrainContextPackService
             ), static fn (string $t): bool => $t !== ''));
         } catch (Throwable) {
             return [];
+        }
+    }
+
+    /**
+     * WO-17-T2 — the deterministic brief surface. {present:false} when none exists;
+     * else a compact projection + staleness (STALE the moment HEAD moved past it, so
+     * the pack shows "BRIEF STALE desde X" — never a silent stale brief). Fail-open.
+     *
+     * @return array<string,mixed>
+     */
+    private function briefSection(): array
+    {
+        try {
+            $svc = app(\App\Services\Ai\Obra\AtlasDeterministicBriefService::class);
+            $brief = $svc->read();
+            if ($brief === null) {
+                return ['present' => false];
+            }
+            $st = $svc->staleness($brief);
+
+            return [
+                'present' => true,
+                'stale' => (bool) $st['stale'],
+                'generated_at' => (string) $st['generated_at'],
+                'invariants' => array_slice((array) ($brief['invariants'] ?? []), 0, 3),
+                'refutations' => array_slice((array) ($brief['refutations'] ?? []), 0, 3),
+                'modules' => array_slice((array) ($brief['modules'] ?? []), 0, 3),
+            ];
+        } catch (Throwable) {
+            return ['present' => false];
         }
     }
 
@@ -2339,6 +2373,34 @@ class AtlasOpenBrainContextPackService
             }
             foreach (array_slice((array) ($retomada['refutacoes'] ?? []), 0, 3) as $ref) {
                 $lines[] = '- ⚠️ já refutado antes: '.(string) $ref;
+            }
+            $lines[] = '';
+        }
+
+        // WO-17-T2 — the deterministic brief. Staleness is ALWAYS visible (never a
+        // silent stale brief): "BRIEF STALE desde X" when HEAD moved past it.
+        $brief = (array) ($pack['brief'] ?? []);
+        if (($brief['present'] ?? false) === true) {
+            $lines[] = '## Brief (determinístico)';
+            if (($brief['stale'] ?? false) === true) {
+                $lines[] = '- ⚠️ BRIEF STALE desde '.(string) ($brief['generated_at'] ?? '').' — o HEAD mudou; rode `atlas:brief --generate`';
+            } else {
+                $lines[] = '- fresh (gerado '.(string) ($brief['generated_at'] ?? '').')';
+            }
+            $invariants = array_slice((array) ($brief['invariants'] ?? []), 0, 3);
+            if ($invariants !== []) {
+                $lines[] = '- invariantes (pétreas): '.implode('; ', array_map('strval', $invariants));
+            }
+            foreach (array_slice((array) ($brief['refutations'] ?? []), 0, 3) as $ref) {
+                $lines[] = '- ⚠️ refutação: '.(string) $ref;
+            }
+            $modules = array_map(
+                static fn ($m): string => is_array($m) ? (string) ($m['module'] ?? '') : (string) $m,
+                array_slice((array) ($brief['modules'] ?? []), 0, 3),
+            );
+            $modules = array_values(array_filter($modules, static fn (string $m): bool => $m !== ''));
+            if ($modules !== []) {
+                $lines[] = '- módulos quentes: '.implode(', ', $modules);
             }
             $lines[] = '';
         }

@@ -66,6 +66,13 @@ class AtlasOpenBrainSessionCaptureService
      */
     private const LEARNING_MARKERS = ['ATLAS-LEARNING:', 'ATLAS LEARNING:', 'LEARNING:'];
 
+    /**
+     * WO-17-T2 — the DELTA-DE-SURPRESA marker: "what the pack did NOT have and the
+     * session discovered". An explicitly-marked surprise is a HIGH-priority G0
+     * candidate (the pack failed to carry it — the most valuable thing to memorise).
+     */
+    private const SURPRISE_MARKERS = ['ATLAS-SURPRISE:', 'ATLAS SURPRISE:', 'SURPRISE:'];
+
     /** A cited evidence ref is a file path with a :line or a known scheme (foo://bar). */
     private const EVIDENCE_REF_PATTERN = '#(?:[A-Za-z0-9_./\\\\-]+\.[A-Za-z0-9]+(?::\d+)?|[a-z][a-z0-9_+.-]*://[^\s]+)#';
 
@@ -104,7 +111,7 @@ class AtlasOpenBrainSessionCaptureService
 
             // ANTI-NOISE: a session with nothing structural to record is a NO-OP. An
             // empty/garbage transcript must never mint a contentless mission node.
-            if ($distilled['files'] === [] && $distilled['result'] === null && $distilled['learnings'] === []) {
+            if ($distilled['files'] === [] && $distilled['result'] === null && $distilled['learnings'] === [] && ($distilled['surprises'] ?? []) === []) {
                 return $this->emptyResult($workspaceId, $sessionId, $startedAt, 'nothing_to_capture');
             }
 
@@ -198,6 +205,8 @@ class AtlasOpenBrainSessionCaptureService
                 ],
                 'apcr' => $apcr,
                 'obra_state' => $obraState,
+                // WO-17-T2 — delta de surpresa: structured G0 candidates (what the pack lacked).
+                'surprise_delta' => array_values((array) ($distilled['surprises'] ?? [])),
                 'distill' => 'deterministic', // NO provider/LLM call in the default path
                 'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
                 'generated_at' => now()->toJSON(),
@@ -314,6 +323,7 @@ class AtlasOpenBrainSessionCaptureService
 
         $files = [];
         $learnings = [];
+        $surprises = [];
         $result = null;
         $firstUserPrompt = null;
         $derivedSessionId = null;
@@ -353,6 +363,11 @@ class AtlasOpenBrainSessionCaptureService
                 if ($resultFromText !== null) {
                     $result = $resultFromText; // last marker wins (the final state)
                 }
+                // WO-17-T2 — delta de surpresa: what the pack didn't have (G0 candidate).
+                $surprise = $this->markedText($text, self::SURPRISE_MARKERS, $maxLearningChars);
+                if ($surprise !== null && count($surprises) < 16 && ! in_array($surprise, $surprises, true)) {
+                    $surprises[] = $surprise;
+                }
             }
         }
 
@@ -366,9 +381,34 @@ class AtlasOpenBrainSessionCaptureService
             'files' => array_values($files),
             'result' => $result,
             'learnings' => $learnings,
+            'surprises' => array_values($surprises),
             'request' => $request,
             'derived_session_id' => $derivedSessionId,
         ];
+    }
+
+    /**
+     * WO-17-T2 — extract the text after any of $markers (marker-only, no file-cite:
+     * a surprise is "the pack lacked this", not a code claim). Returns null when absent.
+     *
+     * @param  list<string>  $markers
+     */
+    private function markedText(string $text, array $markers, int $maxChars): ?string
+    {
+        foreach (preg_split('/\R/', $text) ?: [] as $rawLine) {
+            $line = trim($rawLine);
+            foreach ($markers as $marker) {
+                $pos = stripos($line, $marker);
+                if ($pos !== false) {
+                    $body = trim(mb_substr($line, $pos + strlen($marker)));
+                    if ($body !== '') {
+                        return mb_substr($body, 0, $maxChars);
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
