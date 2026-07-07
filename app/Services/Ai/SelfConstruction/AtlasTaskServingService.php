@@ -983,13 +983,23 @@ final class AtlasTaskServingService
     {
         $packet = (array) data_get($claim, 'queue_entry.task_packet', []);
 
+        $forbidden = array_values((array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', [])));
+
+        // K1 (Obra #18) — the pre-written acceptance test is IMMUTABLE for the
+        // implementer: its path rides in forbidden_files (they make it pass,
+        // never edit it) and its hash lets the gate (K4) prove it was untouched.
+        $acceptanceTestRef = $this->normalizeAcceptanceTestRef(data_get($packet, 'acceptance_test_ref'));
+        if ($acceptanceTestRef['path'] !== '' && ! in_array($acceptanceTestRef['path'], $forbidden, true)) {
+            $forbidden[] = $acceptanceTestRef['path'];
+        }
+
         return [
             'task_packet_id' => (string) ($claim['task_packet_id'] ?? data_get($packet, 'task_packet_id', '')),
             'lease_id' => (string) ($claim['lease_id'] ?? ''),
             'lease_expires_at' => (string) data_get($claim, 'lease.expires_at', ''),
             'objective' => (string) data_get($packet, 'objective', ''),
             'allowed_files' => array_values((array) data_get($packet, 'normalized_scope.allowed_files', data_get($packet, 'allowed_files', []))),
-            'forbidden_files' => array_values((array) data_get($packet, 'normalized_scope.forbidden_files', data_get($packet, 'forbidden_files', []))),
+            'forbidden_files' => $forbidden,
             'scope_in' => array_values((array) data_get($packet, 'normalized_scope.scope_in', data_get($packet, 'scope_in', []))),
             'acceptance_criteria' => array_values((array) data_get($packet, 'acceptance_criteria', [])),
             // The builder stores the evidence list under `evidence_requirements.required` — projecting the bare
@@ -1008,7 +1018,87 @@ final class AtlasTaskServingService
             // The brain's seam decision (when present) travels to the worker: the
             // stage contract of a heavy-refactor chain, not an advisory hint.
             'refactor_design_spec' => data_get($packet, 'refactor_design_spec'),
+            // K1 (Obra #18) — Kit da Ordem: campos aditivos que blindam a delegação
+            // frontier→barato contra as falhas históricas (Codex quebrando callers,
+            // oráculo alucinado, poison-packets, sigla sem path). Ausentes ⇒ vazios.
+            'frozen_callers' => $this->normalizeFrozenCallers(data_get($packet, 'frozen_callers', [])),
+            'acceptance_test_ref' => $acceptanceTestRef,
+            'stop_and_return' => array_values(array_filter(
+                array_map(static fn ($s): string => trim((string) $s), (array) data_get($packet, 'stop_and_return', [])),
+                static fn (string $s): bool => $s !== '',
+            )),
+            'glossary' => $this->normalizeGlossary(data_get($packet, 'glossary', [])),
+            'baseline_artifact' => $this->normalizeBaselineArtifact(data_get($packet, 'baseline_artifact')),
         ];
+    }
+
+    /**
+     * K1 — each frozen caller carries a declared destination so a change stays
+     * additive-only: touching a caller's signature without a frozen entry is a
+     * give_back, not a silent break.
+     *
+     * @return list<array{caller:string,destination:string}>
+     */
+    private function normalizeFrozenCallers(mixed $raw): array
+    {
+        $out = [];
+        foreach ((array) $raw as $entry) {
+            if (is_string($entry)) {
+                $caller = trim($entry);
+                $destination = '';
+            } else {
+                $caller = trim((string) data_get($entry, 'caller', data_get($entry, 'ref', '')));
+                $destination = trim((string) data_get($entry, 'destination', data_get($entry, 'why', '')));
+            }
+            if ($caller !== '') {
+                $out[] = ['caller' => $caller, 'destination' => $destination];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * K1 — path+hash of the pre-written, never-edited acceptance test.
+     *
+     * @return array{path:string,hash:string}
+     */
+    private function normalizeAcceptanceTestRef(mixed $raw): array
+    {
+        return [
+            'path' => trim((string) data_get($raw, 'path', '')),
+            'hash' => trim((string) data_get($raw, 'hash', '')),
+        ];
+    }
+
+    /**
+     * K1 — sigla → absolute path. An unresolved sigla makes the order invalid
+     * (the linter, K3, rejects it at the source).
+     *
+     * @return array<string,string>
+     */
+    private function normalizeGlossary(mixed $raw): array
+    {
+        $out = [];
+        foreach ((array) $raw as $sigla => $path) {
+            $sigla = trim((string) $sigla);
+            $path = trim((string) $path);
+            if ($sigla !== '' && $path !== '') {
+                $out[$sigla] = $path;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * K1 — the measured baseline the delivery must move (not a proxy).
+     *
+     * @return array<string,mixed>|null
+     */
+    private function normalizeBaselineArtifact(mixed $raw): ?array
+    {
+        return is_array($raw) && $raw !== [] ? $raw : null;
     }
 
     /**
