@@ -17,7 +17,7 @@ final class MemoryHealthCompositeScorerTest extends TestCase
     {
         parent::setUp();
 
-        $this->scorer = new MemoryHealthCompositeScorer();
+        $this->scorer = new MemoryHealthCompositeScorer;
     }
 
     /**
@@ -26,11 +26,17 @@ final class MemoryHealthCompositeScorerTest extends TestCase
     private function allAt(int $value): array
     {
         return [
+            // D5 weights: structural_honesty/rationale/provider_safety=0.14,
+            // relation_density/feedback=0.12, governance=0.10, readiness/freshness=0.08,
+            // retrieval_eval=0.06, completeness=0.02.
+            'structural_honesty' => $value,
+            'rationale' => $value,
             'provider_safety' => $value,
-            'readiness' => $value,
-            'governance' => $value,
-            'freshness' => $value,
+            'relation_density' => $value,
             'feedback' => $value,
+            'governance' => $value,
+            'readiness' => $value,
+            'freshness' => $value,
             'retrieval_eval' => $value,
             'completeness' => $value,
         ];
@@ -51,11 +57,11 @@ final class MemoryHealthCompositeScorerTest extends TestCase
     {
         $result = $this->scorer->compose($this->allAt(0));
 
-        // Weighted argmax: provider_safety (0.24) beats readiness (0.22),
-        // not first-key insertion or alphabetical ordering.
+        // Weighted argmax with all axes at 0: the first of the top-weight (0.14) trio
+        // in iteration order wins the tie — structural_honesty. Headroom 100*0.14=14.0.
         $this->assertSame(0, $result['composite_score']);
-        $this->assertSame('provider_safety', $result['limiting_dimension']);
-        $this->assertSame(24.0, $result['limiting_headroom']);
+        $this->assertSame('structural_honesty', $result['limiting_dimension']);
+        $this->assertSame(14.0, $result['limiting_headroom']);
     }
 
     public function test_single_zero_axis_selects_weakest_weighted_dimension(): void
@@ -65,11 +71,11 @@ final class MemoryHealthCompositeScorerTest extends TestCase
 
         $result = $this->scorer->compose($dimensions);
 
-        // Only governance has positive headroom: 100 * 0.20 = 20.0.
-        // Composite = 100 * (1 - 0.20) = 80.
-        $this->assertSame(80, $result['composite_score']);
+        // Only governance has positive headroom: 100 * 0.10 = 10.0.
+        // Composite = 100 * (1 - 0.10) = 90.
+        $this->assertSame(90, $result['composite_score']);
         $this->assertSame('governance', $result['limiting_dimension']);
-        $this->assertSame(20.0, $result['limiting_headroom']);
+        $this->assertSame(10.0, $result['limiting_headroom']);
     }
 
     public function test_missing_dimension_is_fail_closed_and_becomes_limiter(): void
@@ -95,28 +101,27 @@ final class MemoryHealthCompositeScorerTest extends TestCase
         $result = $this->scorer->compose($dimensions);
 
         // provider_safety clamps to 100 (no headroom); readiness clamps to 0
-        // -> headroom 100 * 0.22 = 22.0. Composite = 0.22*0 + 0.78*100 = 78.
-        $this->assertSame(78, $result['composite_score']);
+        // -> headroom 100 * 0.08 = 8.0. Composite = 0.08*0 + 0.92*100 = 92.
+        $this->assertSame(92, $result['composite_score']);
         $this->assertSame('readiness', $result['limiting_dimension']);
-        $this->assertSame(22.0, $result['limiting_headroom']);
+        $this->assertSame(8.0, $result['limiting_headroom']);
     }
 
     public function test_equal_weighted_headroom_tie_resolves_to_highest_weight_first(): void
     {
-        // provider_safety=78 -> headroom (100-78)*0.24 = 5.28
-        // readiness=76      -> headroom (100-76)*0.22 = 5.28  (exact tie at 2dp)
-        // The doc mandates ties break to highest-weight-first iteration order,
-        // so provider_safety (0.24) MUST win over readiness (0.22). IEEE-754
-        // drift makes the raw floats 5.2799…93 vs 5.2800…02, which would flip the
-        // winner to readiness under a naive raw-float compare — this guards it.
+        // structural_honesty and rationale share the top weight (0.14). At the same
+        // value both have headroom (100-78)*0.14 = 3.08 — an exact tie. The doc
+        // mandates ties break to highest-weight-FIRST iteration order, so the axis
+        // listed first in WEIGHTS (structural_honesty) MUST win over rationale, never
+        // the last-seen one (compose uses a strict `>` so the first survivor holds).
         $dimensions = $this->allAt(100);
-        $dimensions['provider_safety'] = 78;
-        $dimensions['readiness'] = 76;
+        $dimensions['structural_honesty'] = 78;
+        $dimensions['rationale'] = 78;
 
         $result = $this->scorer->compose($dimensions);
 
-        $this->assertSame('provider_safety', $result['limiting_dimension']);
-        $this->assertSame(5.28, $result['limiting_headroom']);
+        $this->assertSame('structural_honesty', $result['limiting_dimension']);
+        $this->assertSame(3.08, $result['limiting_headroom']);
     }
 
     public function test_huge_and_infinite_values_saturate_to_ceiling_not_floor(): void
@@ -153,11 +158,11 @@ final class MemoryHealthCompositeScorerTest extends TestCase
 
         $result = $this->scorer->compose($dimensions);
 
-        // readiness -> 0: headroom (100-0)*0.22 = 22.0; composite = 78.
+        // readiness -> 0: headroom (100-0)*0.08 = 8.0; composite = 92.
         // NaN is present (numeric), so it is NOT recorded as missing.
-        $this->assertSame(78, $result['composite_score']);
+        $this->assertSame(92, $result['composite_score']);
         $this->assertSame('readiness', $result['limiting_dimension']);
-        $this->assertSame(22.0, $result['limiting_headroom']);
+        $this->assertSame(8.0, $result['limiting_headroom']);
         $this->assertSame([], $result['missing_dimensions']);
     }
 
@@ -179,8 +184,8 @@ final class MemoryHealthCompositeScorerTest extends TestCase
         $result = $this->scorer->compose($dimensions);
 
         // list<string> contract: sequential int keys 0..n, only string values,
-        // ordered highest-weight-first (freshness 0.14 before feedback 0.10).
-        $this->assertSame(['freshness', 'feedback'], $result['missing_dimensions']);
+        // ordered highest-weight-first (feedback 0.12 before freshness 0.08).
+        $this->assertSame(['feedback', 'freshness'], $result['missing_dimensions']);
         $this->assertSame(
             array_keys($result['missing_dimensions']),
             range(0, count($result['missing_dimensions']) - 1),
@@ -190,6 +195,32 @@ final class MemoryHealthCompositeScorerTest extends TestCase
             static fn (mixed $value): bool => is_string($value),
         );
         $this->assertSame($result['missing_dimensions'], $onlyStrings);
+    }
+
+    public function test_d5_score_is_driven_by_the_crude_quality_numbers_not_mere_presence(): void
+    {
+        // The wiper state: safe/present/conflict-free/fresh (all 100), but structurally
+        // hollow — 50% title=summary, ~5% with rationale, 0 relations, 0 feedback fill.
+        $wiper = $this->allAt(100);
+        $wiper['structural_honesty'] = 50;
+        $wiper['rationale'] = 5;
+        $wiper['relation_density'] = 0;
+        $wiper['feedback'] = 0;
+        $wiperScore = $this->scorer->compose($wiper)['composite_score'];
+
+        // Now D1-D4 move the RAW numbers (re-hydration, relations, feedback). The SAME
+        // policy must reward that — the score rises ONLY because the crude dims rose.
+        $healed = $this->allAt(100);
+        $healed['structural_honesty'] = 95;
+        $healed['rationale'] = 90;
+        $healed['relation_density'] = 80;
+        $healed['feedback'] = 85;
+        $healedScore = $this->scorer->compose($healed)['composite_score'];
+
+        // The hollow store is dragged far below the old naive ~93 …
+        $this->assertLessThan(60, $wiperScore);
+        // … and improving the crude numbers (D1-D4) is what — and the only thing that — raises it.
+        $this->assertGreaterThan($wiperScore + 30, $healedScore);
     }
 
     public function test_class_is_pure_with_zero_constructor_dependencies(): void

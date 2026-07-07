@@ -11,12 +11,20 @@ final class MemoryHealthCompositePolicy
      * @var array<string,float>
      */
     private const WEIGHTS = [
-        'provider_safety' => 0.24,
-        'readiness' => 0.22,
-        'governance' => 0.2,
-        'freshness' => 0.14,
-        'feedback' => 0.1,
-        'retrieval_eval' => 0.08,
+        // D5 (Obra #18) — recalibrated so the score is driven by the CRUDE quality
+        // numbers (structural honesty, rationale, relation density, feedback fill),
+        // not by mere presence. These four collectively carry ~52% of the weight, so
+        // the composite rises only when D1-D4 move the raw counts. Presence
+        // (readiness) and safety are necessary but no longer dominate.
+        'structural_honesty' => 0.14,
+        'rationale' => 0.14,
+        'provider_safety' => 0.14,
+        'relation_density' => 0.12,
+        'feedback' => 0.12,
+        'governance' => 0.1,
+        'readiness' => 0.08,
+        'freshness' => 0.08,
+        'retrieval_eval' => 0.06,
         'completeness' => 0.02,
     ];
 

@@ -279,6 +279,27 @@ class AtlasMemoryQualityService
             'missing_confidence_active' => $active->filter(fn (AtlasMemoryEntry $entry): bool => $entry->confidence === null)->count(),
             'stale_unused_active' => $active->filter(fn (AtlasMemoryEntry $entry): bool => $entry->last_used_at === null
                 && ($entry->recorded_at === null || $entry->recorded_at->lessThan($staleBefore)))->count(),
+            // D5 (Obra #18) — crude, SQL-verifiable structural markers of the wiper state:
+            // a title that just repeats the summary carries no extra information, and a
+            // body with no rationale is a stub. First-class inputs to the honest score.
+            'title_equals_summary_active' => $active->filter(function (AtlasMemoryEntry $entry): bool {
+                $title = trim((string) ($entry->title ?? ''));
+
+                return $title !== '' && $title === trim((string) ($entry->summary ?? ''));
+            })->count(),
+            'with_rationale_active' => $active->filter(function (AtlasMemoryEntry $entry): bool {
+                $body = mb_strtolower(trim((string) ($entry->body ?? '')));
+                if ($body === '') {
+                    return false;
+                }
+                foreach (['porqu', 'because', 'why:', '**why', 'motivo', 'razão', 'razao'] as $marker) {
+                    if (str_contains($body, $marker)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            })->count(),
         ];
     }
 
@@ -294,6 +315,7 @@ class AtlasMemoryQualityService
                 'open' => 0,
                 'open_duplicates' => 0,
                 'open_conflicts' => 0,
+                'entries_with_relation' => 0,
             ];
         }
 
@@ -303,6 +325,7 @@ class AtlasMemoryQualityService
                 'open' => 0,
                 'open_duplicates' => 0,
                 'open_conflicts' => 0,
+                'entries_with_relation' => 0,
             ];
         }
 
@@ -313,11 +336,29 @@ class AtlasMemoryQualityService
                     ->orWhereIn('target_memory_entry_id', $activeEntryIds);
             });
 
+        // D5: relation DENSITY — distinct active entries that carry ANY relation (not
+        // just open), the crude number D3 must move. Wiper state = 0.
+        $activeSet = array_flip($activeEntryIds);
+        $withRelation = [];
+        foreach (AtlasMemoryEntryRelation::query()
+            ->where(function (Builder $query) use ($activeEntryIds): void {
+                $query->whereIn('source_memory_entry_id', $activeEntryIds)
+                    ->orWhereIn('target_memory_entry_id', $activeEntryIds);
+            })
+            ->get(['source_memory_entry_id', 'target_memory_entry_id']) as $relation) {
+            foreach ([$relation->source_memory_entry_id, $relation->target_memory_entry_id] as $id) {
+                if (isset($activeSet[(string) $id])) {
+                    $withRelation[(string) $id] = true;
+                }
+            }
+        }
+
         return [
             'table_present' => 1,
             'open' => (clone $query)->count(),
             'open_duplicates' => (clone $query)->where('relation_type', 'duplicate')->count(),
             'open_conflicts' => (clone $query)->where('relation_type', 'conflict')->count(),
+            'entries_with_relation' => count($withRelation),
         ];
     }
 
@@ -598,19 +639,51 @@ class AtlasMemoryQualityService
             + ((int) $relations['open_duplicates'] * 10)
             + ((int) $sourceIntegrity['orphaned'] * 15));
 
+        $activeForRatio = max(1, $active);
+        $usageTotal = (int) ($feedback['usage_total'] ?? 0);
+        $feedbackTotal = (int) ($feedback['feedback_total'] ?? 0);
+
         return [
             'readiness' => $active > 0 ? 100 : 0,
             'provider_safety' => (int) round(($ratios['provider_safe_ratio'] ?? 0.0) * 100),
             'governance' => max(0, 100 - $governancePenalty),
             'freshness' => max(0, 100 - (int) round(($ratios['stale_unused_ratio'] ?? 0.0) * 100)),
-            'feedback' => (int) ($feedback['feedback_total'] > 0
-                ? max(0, 100 - round(($ratios['negative_feedback_ratio'] ?? 0.0) * 100))
-                : 72),
+            // D5 — the feedback dimension is now the FILL rate, not a free 72. A system
+            // with many usages and ZERO feedback (the wiper: 0/18320) is a dead write and
+            // scores ~0 here; it rises only when real feedback_action is recorded (D4).
+            'feedback' => $this->feedbackComponent($usageTotal, $feedbackTotal, (float) ($ratios['negative_feedback_ratio'] ?? 0.0)),
             'retrieval_eval' => (int) ($retrievalEval['recall_usage_total'] > 0
                 ? max(0, round(($ratios['retrieval_recall_coverage_ratio'] ?? 0.0) * 100) - round(($ratios['retrieval_negative_feedback_ratio'] ?? 0.0) * 40))
                 : 60),
             'completeness' => max(0, 100 - $completenessPenalty),
+            // D5 — the three crude wiper markers as FIRST-CLASS dimensions. Each is a
+            // verifiable SQL ratio, so the composite rises only when D1-D4 move the raw
+            // numbers (re-hydration, relations, feedback) — never by weight-tuning.
+            'structural_honesty' => $active > 0
+                ? (int) round((1 - min(1.0, (int) $counts['title_equals_summary_active'] / $activeForRatio)) * 100)
+                : 0,
+            'rationale' => $active > 0
+                ? (int) round(min(1.0, (int) $counts['with_rationale_active'] / $activeForRatio) * 100)
+                : 0,
+            'relation_density' => $active > 0
+                ? (int) round(min(1.0, (int) ($relations['entries_with_relation'] ?? 0) / $activeForRatio) * 100)
+                : 0,
         ];
+    }
+
+    /**
+     * D5 — the feedback dimension. No usage yet ⇒ 50 (no signal, not a free pass);
+     * otherwise the fraction of usages that carry a feedback_action, docked by the
+     * negative-feedback ratio. The wiper (0 feedback over 18 320 usages) scores ~0.
+     */
+    private function feedbackComponent(int $usageTotal, int $feedbackTotal, float $negativeRatio): int
+    {
+        if ($usageTotal <= 0) {
+            return 50;
+        }
+        $fill = min(1.0, $feedbackTotal / $usageTotal);
+
+        return (int) round($fill * max(0.0, 100 - $negativeRatio * 100));
     }
 
     /**
