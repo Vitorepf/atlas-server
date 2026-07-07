@@ -1864,6 +1864,9 @@ class AtlasOpenBrainContextPackService
             $summary = (string) ($row['summary'] ?? '');
             $body = (string) ($row['body'] ?? ($row['snippet'] ?? ($row['excerpt'] ?? '')));
             $candidates[] = [
+                // T4-S5: the recalled entry id (provider-safe provenance) so the dialectic
+                // engine can look up OPEN conflict relations among the delivered memories.
+                'id' => (string) ($row['source_ref_id'] ?? ($row['id'] ?? '')),
                 'type' => (string) ($row['type'] ?? ''),
                 'scope' => (string) ($row['scope'] ?? ''),
                 'title' => $title,
@@ -2519,6 +2522,14 @@ class AtlasOpenBrainContextPackService
                     $title !== '' ? $title : '(untitled)',
                     $summary !== '' ? ' — '.mb_substr($summary, 0, 200) : '',
                 );
+            }
+
+            // T4-S5 (Obra #17) — dialectic contradiction: MARK any OPEN conflict among the
+            // recalled memories, so two sides of an unresolved tension are never delivered
+            // as settled truth. Consumes the D3 conflict edges; fail-open (no relations /
+            // any fault → no marks, pack byte-identical).
+            foreach (app(AtlasDialecticTensionService::class)->tensionMarks($memory) as $mark) {
+                $lines[] = $mark;
             }
         }
 

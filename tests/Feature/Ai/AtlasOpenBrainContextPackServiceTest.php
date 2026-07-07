@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
+use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
@@ -76,6 +77,53 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             (new Process(['rm', '-rf', $dir]))->run();
         }
         parent::tearDown();
+    }
+
+    public function test_t4s5_pack_marks_an_open_tension_between_two_recalled_memories(): void
+    {
+        Schema::dropIfExists('atlas_memory_entry_relations');
+        Schema::create('atlas_memory_entry_relations', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('source_memory_entry_id')->index();
+            $table->uuid('target_memory_entry_id')->index();
+            $table->string('relation_type', 40);
+            $table->string('status', 24)->default('open');
+            $table->float('confidence')->nullable();
+            $table->text('reason')->nullable();
+            $table->json('metadata')->default('{}');
+            $table->timestamps();
+        });
+
+        // Two decisions on the SAME topic — both recall for the task (the PROVEN seedMemory
+        // pattern this suite already relies on), and the D3 graph records them as an OPEN
+        // conflict. Equal recorded_at ⇒ equal age ⇒ neither Pareto-dominates ⇒ BOTH are
+        // delivered, which is the only case where a two-sided tension must be marked.
+        $this->seedMemory('mem-conf-a', 'Embedding decision: use a Redis vector store', true, 'normal');
+        $this->seedMemory('mem-conf-b', 'Embedding decision: use in-process vectors', true, 'normal');
+        // Pareto frontier so BOTH are delivered: A matches the task better (has "store")
+        // but is OLDER; B matches slightly less but is NEWER — neither dominates the other,
+        // so the pack hands over both sides of the open contradiction (the gate's case).
+        AtlasMemoryEntry::query()->where('source_id', 'mem-conf-a')->update(['recorded_at' => '2026-05-01 00:00:00']);
+        AtlasMemoryEntry::query()->where('source_id', 'mem-conf-b')->update(['recorded_at' => '2026-07-06 00:00:00']);
+        $a = (string) AtlasMemoryEntry::query()->where('source_id', 'mem-conf-a')->value('id');
+        $b = (string) AtlasMemoryEntry::query()->where('source_id', 'mem-conf-b')->value('id');
+        AtlasMemoryEntryRelation::query()->create([
+            'id' => (string) Str::uuid7(),
+            'source_memory_entry_id' => $a,
+            'target_memory_entry_id' => $b,
+            'relation_type' => 'conflict',
+            'status' => 'open',
+            'reason' => 'estratégia de embedding contraditória, não reconciliada',
+            'metadata' => [],
+        ]);
+
+        $pack = $this->service()->packFor('embedding decision vector store', ['memory_budget' => 20000]);
+        $md = (string) $pack['markdown'];
+
+        Schema::dropIfExists('atlas_memory_entry_relations');
+
+        $this->assertStringContainsString('tensão aberta', $md, 'the pack must MARK the open contradiction, not deliver both as settled truth');
+        $this->assertStringContainsString('estratégia de embedding contraditória', $md);
     }
 
     public function test_pack_fuses_all_three_brain_sources(): void
