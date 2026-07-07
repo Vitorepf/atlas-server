@@ -7,6 +7,7 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Models\AtlasDevFailureCapsule;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
+use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
 use App\Services\Ai\EngineeringKernel\Adapters\MaestroCostBudgetMeterAdapter;
 use App\Services\Ai\EngineeringKernel\BudgetMeter;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
@@ -503,6 +504,20 @@ final class AtlasTaskServingService
             }
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
+
+            // DIARIO-3 — the scoped commit that just landed on the local main IS an
+            // auto-merge; label it in the Evolution Diary in the SAME act, reversible
+            // by git revert. Fail-open: the diary never fails a report.
+            try {
+                app(AtlasEvolutionDiaryRecorder::class)->merged(
+                    (string) ($commit['commit_sha'] ?? ''),
+                    'auto-merge do task '.$taskPacketId.' na main local',
+                    'checks automáticos verdes (verificação + admission v2); sem espera por humano',
+                    'commit '.substr((string) ($commit['commit_sha'] ?? ''), 0, 10),
+                );
+            } catch (Throwable) {
+                // never fail a report over the diary
+            }
 
             // Usage metering: one fact per resolved commit through the shared BudgetMeter mechanism,
             // landing in the SAME Maestro cost ledger `atlas:task:maestro:cost` reads. Swallowed on
