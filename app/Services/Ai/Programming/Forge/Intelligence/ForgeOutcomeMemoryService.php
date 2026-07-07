@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Forge\Intelligence;
 
 use App\Models\AiForgeOutcomeMemory;
 use App\Models\AiForgeWorkPacketExecutionCycle;
+use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
@@ -11,6 +12,10 @@ use Illuminate\Support\Str;
 final class ForgeOutcomeMemoryService
 {
     public const SCHEMA_VERSION = 'atlas.forge.outcome_memory.v1';
+
+    public function __construct(
+        private readonly OutcomeProofGate $proofGate = new OutcomeProofGate,
+    ) {}
 
     /**
      * @param  array<string,mixed>|null  $failureCapsule
@@ -21,12 +26,22 @@ final class ForgeOutcomeMemoryService
         $aedpds = (array) data_get($cycle->execution_plan, 'forge_native_capabilities.blocks.AEDPDS', []);
         $aedpdsDrivers = array_values((array) ($aedpds['selected_drivers'] ?? []));
         $aedpdsEffectiveness = $this->aedpdsEffectiveness($cycle, $aedpdsDrivers, $aedpds);
+
+        // Proof gate (cross-surface, Goal 2) — a claimed success whose supplied execution
+        // evidence is a lie (0 tests / lint-as-suite / fixed-smoke) must NOT promote into
+        // learning. Same OutcomeProofGate/FalseClaimInvariant as Dev. Absent execution block
+        // ⇒ unproven (not fake-green): default-safe, no destructive flip of legacy successes.
+        $proof = $this->proofGate->assess((string) ($cycle->outcome_status ?? 'unknown'), $this->executionEvidence($cycle));
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'cycle_uuid' => $cycle->uuid,
             'packet_id' => $cycle->work_packet_canonical_id,
             'outcome_status' => $cycle->outcome_status,
             'execution_mode' => $cycle->execution_mode,
+            'proven_real' => $proof['proven_real'],
+            'fake_green' => $proof['fake_green'],
+            'proof_reason' => $proof['reason'],
             'evidence_kinds' => AiStringListNormalizer::uniqueTruthyMappedScalarStrings(
                 (array) ($cycle->evidence_refs ?? []),
                 static fn (mixed $ref): mixed => is_array($ref) ? ($ref['kind'] ?? '') : '',
@@ -36,13 +51,38 @@ final class ForgeOutcomeMemoryService
             'aedpds_doctrine_hash' => (string) ($aedpds['doctrine_hash'] ?? ''),
             'aedpds_gate_hash' => (string) ($aedpds['gate_hash'] ?? ''),
             'aedpds_effectiveness' => $aedpdsEffectiveness,
-            'learning_candidates' => $this->learningCandidates($cycle, $failureCapsule),
-            'should_promote_to_aemor' => $cycle->outcome_status !== null,
-            'human_review_required' => $cycle->outcome_status !== 'success',
+            'learning_candidates' => $this->learningCandidates($cycle, $failureCapsule, $proof['fake_green']),
+            'should_promote_to_aemor' => $cycle->outcome_status !== null && ! $proof['fake_green'],
+            'human_review_required' => $cycle->outcome_status !== 'success' || $proof['fake_green'],
         ];
         $payload['outcome_memory_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * Execution-evidence block the proof gate inspects. The executor emits it into
+     * gate_result.execution when it runs a real suite; absence means "unproven", not
+     * "fake-green" (no positive lie).
+     *
+     * @return array<string,mixed>
+     */
+    private function executionEvidence(AiForgeWorkPacketExecutionCycle $cycle): array
+    {
+        $execution = data_get($cycle->gate_result, 'execution', []);
+
+        return is_array($execution) ? $execution : [];
+    }
+
+    /**
+     * Real fake-green counter for Forge: outcomes whose claimed success was refused as
+     * fake-green (persisted marker). Measured, never fabricated.
+     */
+    public static function fakeGreenSuppressedCount(): int
+    {
+        return AiForgeOutcomeMemory::query()
+            ->whereJsonContains('learning_candidates', OutcomeProofGate::FAKE_GREEN_MARKER)
+            ->count();
     }
 
     /**
@@ -84,7 +124,7 @@ final class ForgeOutcomeMemoryService
      * @param  array<string,mixed>|null  $failureCapsule
      * @return list<string>
      */
-    private function learningCandidates(AiForgeWorkPacketExecutionCycle $cycle, ?array $failureCapsule): array
+    private function learningCandidates(AiForgeWorkPacketExecutionCycle $cycle, ?array $failureCapsule, bool $fakeGreen): array
     {
         $signals = ['forge_packet_cycle:'.$cycle->outcome_status];
         foreach ((array) data_get($cycle->execution_plan, 'forge_native_capabilities.blocks.AEDPDS.selected_drivers', []) as $driver) {
@@ -97,6 +137,9 @@ final class ForgeOutcomeMemoryService
         }
         if (($cycle->gate_result['all_passed'] ?? null) === true) {
             $signals[] = 'gate_result:all_passed';
+        }
+        if ($fakeGreen) {
+            $signals[] = OutcomeProofGate::FAKE_GREEN_MARKER;
         }
 
         return $signals;

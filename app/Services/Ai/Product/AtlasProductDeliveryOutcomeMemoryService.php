@@ -5,6 +5,7 @@ namespace App\Services\Ai\Product;
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -12,6 +13,10 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 class AtlasProductDeliveryOutcomeMemoryService
 {
     public const SCHEMA_VERSION = 'atlas.product_delivery.outcome_memory.v1';
+
+    public function __construct(
+        private readonly OutcomeProofGate $proofGate = new OutcomeProofGate,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $delivery
@@ -22,6 +27,13 @@ class AtlasProductDeliveryOutcomeMemoryService
     public function build(array $delivery, array $proof, array $evidence = []): array
     {
         $status = $this->normalizeStatus((string) ($proof['status'] ?? $delivery['status'] ?? 'needs_review'));
+
+        // Proof gate BEFORE the row is written (Goal 2): a claimed-ready delivery whose
+        // supplied execution evidence is a lie must NOT promote into learning. Same
+        // OutcomeProofGate as Dev/Forge. Absent execution block ⇒ unproven, not fake-green.
+        $proofVerdict = $this->proofGate->assess($status, is_array($proof['execution'] ?? null) ? $proof['execution'] : []);
+        $baselinePromote = $status !== 'ready' || $this->evidenceKinds($evidence) !== [];
+
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'delivery_hash' => (string) ($delivery['delivery_hash'] ?? ''),
@@ -29,9 +41,12 @@ class AtlasProductDeliveryOutcomeMemoryService
             'proof_hash' => (string) ($proof['proof_hash'] ?? ''),
             'route' => (string) ($delivery['route'] ?? data_get($proof, 'target.route', 'unknown')),
             'outcome_status' => $status,
+            'proven_real' => $proofVerdict['proven_real'],
+            'fake_green' => $proofVerdict['fake_green'],
+            'proof_reason' => $proofVerdict['reason'],
             'evidence_kinds' => $this->evidenceKinds($evidence),
             'required_repairs' => AiStringListNormalizer::trimmedScalarValues($proof['required_repairs'] ?? []),
-            'learning_candidates' => $this->learningCandidates($delivery, $proof, $status, $evidence),
+            'learning_candidates' => $this->learningCandidates($delivery, $proof, $status, $evidence, $proofVerdict['fake_green']),
             'delivery_summary' => [
                 'schema_version' => $delivery['schema_version'] ?? null,
                 'status' => $delivery['status'] ?? null,
@@ -54,12 +69,27 @@ class AtlasProductDeliveryOutcomeMemoryService
                 'critical_blocker_count' => count((array) ($proof['critical_blockers'] ?? [])),
                 'counterexample_count' => count((array) ($proof['counterexamples'] ?? [])),
             ],
-            'should_promote_to_aemor' => $status !== 'ready' || $this->evidenceKinds($evidence) !== [],
-            'human_review_required' => $status !== 'ready' || $this->highRisk($delivery),
+            'should_promote_to_aemor' => $baselinePromote && ! $proofVerdict['fake_green'],
+            'human_review_required' => $status !== 'ready' || $this->highRisk($delivery) || $proofVerdict['fake_green'],
         ];
         $payload['outcome_memory_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    /**
+     * Real fake-green counter for Product delivery: outcomes whose claimed-ready delivery
+     * was refused as fake-green (persisted marker). Measured, never fabricated.
+     */
+    public static function fakeGreenSuppressedCount(): int
+    {
+        if (! DatabaseTableAvailability::has('atlas_product_delivery_outcome_memories')) {
+            return 0;
+        }
+
+        return AtlasProductDeliveryOutcomeMemory::query()
+            ->whereJsonContains('learning_candidates', OutcomeProofGate::FAKE_GREEN_MARKER)
+            ->count();
     }
 
     /**
@@ -236,7 +266,7 @@ class AtlasProductDeliveryOutcomeMemoryService
      * @param  array<string,mixed>  $evidence
      * @return list<string>
      */
-    private function learningCandidates(array $delivery, array $proof, string $status, array $evidence): array
+    private function learningCandidates(array $delivery, array $proof, string $status, array $evidence, bool $fakeGreen): array
     {
         $items = [
             'product_delivery_outcome:'.$status,
@@ -250,6 +280,9 @@ class AtlasProductDeliveryOutcomeMemoryService
         }
         if ($this->evidenceKinds($evidence) === []) {
             $items[] = 'missing_product_delivery_evidence';
+        }
+        if ($fakeGreen) {
+            $items[] = OutcomeProofGate::FAKE_GREEN_MARKER;
         }
 
         return array_values(array_unique($items));
@@ -313,5 +346,4 @@ class AtlasProductDeliveryOutcomeMemoryService
 
         return "AEDPDS {$route} delivery closed with {$status} outcome; reuse evidence kinds, repairs, and risk policy before similar product delivery.";
     }
-
 }

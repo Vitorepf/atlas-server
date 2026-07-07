@@ -24,6 +24,9 @@ namespace App\Services\Ai\EngineeringKernel;
  */
 final class OutcomeProofGate
 {
+    /** Persisted, queryable learning-candidate marker for a suppressed fake-green (all surfaces). */
+    public const FAKE_GREEN_MARKER = 'fake_green_suppressed';
+
     public function __construct(
         private readonly FalseClaimInvariant $invariant = new FalseClaimInvariant,
     ) {}
