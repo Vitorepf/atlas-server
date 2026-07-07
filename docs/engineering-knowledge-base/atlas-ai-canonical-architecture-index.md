@@ -20,6 +20,7 @@ decisions:
   - Atlas AI Thesis is the constitutional fixed point above all architecture.
   - This file is the first conflict-resolution entry point, not a full map of every doc.
   - Detailed subject authority and status live in focused child docs.
+  - Atlas Orchestrator canon (Hyperflow -> Decision Core -> Workcell Fabric -> Proof Loop -> Learning Loop) e o mapa mental unico da espinha de execucao/roteamento; nenhuma camada leva nome de provider (runtime substituivel). Detalhe em atlas-orchestrator-canon.md.
   - No document competes for universal authority; every layer has a bounded role.
 maintenance:
   - Update when a new layer, constitutional doc or authority family is promoted.
@@ -45,6 +46,7 @@ related_paths:
   - docs/engineering-knowledge-base/system-graph/living-architecture-graph-contract.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
   - docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md
+  - docs/engineering-knowledge-base/atlas-orchestrator-canon.md
   - docs/engineering-knowledge-base/kernel/
   - docs/engineering-knowledge-base/atlas-ai-master-architecture.md
   - docs/engineering-knowledge-base/master-architecture/

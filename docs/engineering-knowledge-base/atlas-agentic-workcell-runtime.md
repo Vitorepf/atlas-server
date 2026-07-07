@@ -40,6 +40,7 @@ decisions:
   - AAWR exige verificacao independente e evidencia antes de completion.
   - AAWR aprende padroes organizacionais a partir de outcomes.
   - AAWR nao substitui Atlas Agentic Engineering OS, Programming Governance, Atlas Dev ou Atlas Forge; ele fornece contrato organizacional quando o runtime correto precisar de workcell.
+  - CANON 07/07 - AAWR e a camada Workcell Fabric do Atlas Orchestrator (Hyperflow, Decision Core, Workcell Fabric, Proof Loop, Learning Loop); e a celula provider-neutral de role slots. Hermes Executive Mesh e um runtime adapter que roda SOB esta camada, nao um par dela. Ver docs/engineering-knowledge-base/atlas-orchestrator-canon.md.
 maintenance:
   - Atualizar antes de criar novos agentes, topologias, subagentes ou fluxos paralelos.
   - Nao criar multi-agent paralelo fora do AAWR sem contrato de compatibilidade.
@@ -53,6 +54,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-persistent-context-runtime.md
   - docs/engineering-knowledge-base/atlas-temporal-engineering-operating-system.md
   - docs/engineering-knowledge-base/atlas-intelligence-factory-os.md
+  - docs/engineering-knowledge-base/atlas-orchestrator-canon.md
   - docs/engineering-knowledge-base/atlas-hyperflow-operation.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 doc_schema: atlas_canonical_module_doc.v1

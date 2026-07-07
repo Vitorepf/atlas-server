@@ -27,6 +27,7 @@ decisions:
   - Concorrencia, profundidade de spawn e timeouts sempre clampados a tetos de config; nenhum filho re-delega, persiste memoria ou envia mensagem (leaf-blocked).
   - Profiles especializados (coder/reviewer/researcher/ops) sao realizados via HERMES_HOME gerenciado, nunca mutando o ~/.hermes do operador.
   - Reconciliacao apenas conta e roteia candidatos (memoria/skill/schedule) para os gates Atlas; nunca promove nada por conta propria.
+  - CANON 07/07 - Hermes Executive Mesh NAO e uma camada de arquitetura; e um RUNTIME ADAPTER Hermes-especifico que roda SOB a Workcell Fabric (AAWR) do Atlas Orchestrator. Nenhuma camada leva nome de provider; amanha o mesmo papel de execucao paralela pode ser ocupado por outro runtime. Ver docs/engineering-knowledge-base/atlas-orchestrator-canon.md.
 maintenance:
   - Manter abaixo de 520 linhas; detalhes por componente vivem no codigo e nos testes.
   - Atualizar quando um novo profile, uma nova classe de capacidade paralela (batch, code_execution) ou um novo consumidor do mesh for adicionado.
@@ -35,6 +36,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-hermes-capability-registry.md
   - docs/engineering-knowledge-base/atlas-hermes-executive-runtime-product-spec.md
   - docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md
+  - docs/engineering-knowledge-base/atlas-orchestrator-canon.md
   - app/Services/Ai/Hermes/Mesh/HermesExecutiveMeshPlanner.php
   - app/Services/Ai/Hermes/Mesh/HermesProfileResolver.php
   - app/Services/Ai/Hermes/Mesh/HermesMeshReconciler.php
