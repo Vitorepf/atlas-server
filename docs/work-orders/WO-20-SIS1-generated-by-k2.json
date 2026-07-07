@@ -1,0 +1,193 @@
+{
+    "objective": "SIS1: persistencia UNA opt-in no working set (hydrate na construcao, persist atomico a cada mutacao) + atlas:working-set (record/show, produtor+consumidor real) + teste cross-instancia provando 'fato sobrevive ao processo'. VETO#20 ok; aditivo (default null = in-process). Auto-wire nos hooks + SSE mobile->desktop = proxima fatia.",
+    "allowed_files": [
+        "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php",
+        "app/Console/Commands/AtlasWorkingSetCommand.php",
+        "tests/Feature/Ai/CognitiveMemory/AtlasWorkingSetPersistenceTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php",
+        "app/Services/Ai/CognitiveMemory/AtlasCognitiveMemoryFabricService.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/CognitiveMemory/AtlasWorkingSetPersistenceTest.php",
+        "smoke: atlas:working-set --track=... numa call e --show noutra ve o fato (sobrevive ao processo); consumidores DI (fabric) intocados"
+    ],
+    "glossary": {
+        "WorkingSet": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php",
+        "WorkingSetCommand": "app/Console/Commands/AtlasWorkingSetCommand.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/CognitiveMemory/AtlasWorkingSetPersistenceTest.php",
+        "hash": "f3749a30e945adb9317257a066f5c8a21ddc354d69d325ec3ddff27bea9c22d7"
+    },
+    "frozen_callers": [
+        {
+            "caller": "app/Providers/AppServiceProvider.php:925",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/database.php:143",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/AtlasAiProviderReleaseSourcesController.php:17",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/AtlasAiProviderReleaseSourcesController.php:28",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:13",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:22",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:35",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:39",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:44",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:48",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasAiMarketingKeywordMoatCommand.php:57",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainMcpService.php:682",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainMcpService.php:2356",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "database/migrations/2026_05_19_140000_create_ai_learning_signals_table.php:41",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionCompoundingCommand.php:20",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionCompoundingCommand.php:53",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasSelfConstructionCompoundingCommand.php:168",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasPlanExecutionE2eCommand.php:13",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasPlanExecutionE2eCommand.php:29",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasPlanExecutionTrackCommand.php:11",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasWorkingSetCommand.php:51",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php:4113",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php:4135",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php:4152",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/WorkspaceIntelligence/AtlasWorkspaceIntelligenceRuntimeService.php:4153",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php:46",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php:57",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php:238",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:75",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:129",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:149",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:196",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:197",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:202",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:214",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:225",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:227",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:339",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php:351",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "default path-real quebraria isolamento de teste (fabric test poluido) -> default DEVE ser null/in-process",
+        "mudaria comportamento in-process dos consumidores DI (aditivo: persistencia so com path explicito)",
+        "persist no hot-path sem atomicidade corromperia estado (usa tmp+rename atomico, fail-open)",
+        "declararia mobile->desktop SSE pronto (esta fatia entrega SO a durabilidade cross-processo; SSE e proxima)"
+    ],
+    "baseline_artifact": {
+        "metric": "working_set_survives_process",
+        "note": "fato track numa instancia -> nova instancia no mesmo arquivo ve (3/5 asserts); reset tambem persiste; default null = in-process byte-identico (fabric 11/11 verde). ponytail: flush a cada mutacao (hot-path) — cache/lazy se throughput importar"
+    },
+    "generated_by": "atlas:obra:work-order"
+}

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\CognitiveMemory;
 
+use Throwable;
+
 /**
  * Atlas Cognition Operating System — working-set memory policy.
  *
@@ -78,6 +80,82 @@ class AtlasCognitiveWorkingSetMemoryService
     private array $deltaSeen = [];
 
     /**
+     * SIS1 (Obra #20) — Working Memory UNA persistida. Phase 2 (o AP prometido no
+     * docblock): o working set deixa de morrer com o processo. Todas as instâncias
+     * compartilham UM arquivo em disco (default), então o estado operador+projeto
+     * sobrevive e flui entre invocações (a base do mobile→desktop). Path opcional
+     * p/ isolar em teste; hidrata na construção, persiste a cada mutação. Aditivo:
+     * as operações in-process são idênticas — só ganham durabilidade.
+     */
+    private ?string $persistPath;
+
+    /**
+     * Persistence is OPT-IN: a null path keeps the historic in-process-only
+     * behaviour (so existing DI consumers are byte-identical). The CLI (and,
+     * later, the session hooks) construct with an explicit shared path to get
+     * the UNA persistida — survives-the-process — semantics.
+     */
+    public function __construct(?string $persistPath = null)
+    {
+        $this->persistPath = $persistPath;
+
+        $this->hydrate();
+    }
+
+    public function persistPath(): ?string
+    {
+        return $this->persistPath;
+    }
+
+    /** Canonical shared file for the one persisted working memory. */
+    public static function sharedPath(): string
+    {
+        return function_exists('storage_path')
+            ? storage_path('atlas/working-set/state.json')
+            : sys_get_temp_dir().'/atlas/working-set/state.json';
+    }
+
+    private function hydrate(): void
+    {
+        if ($this->persistPath === null) {
+            return;
+        }
+        try {
+            if (! is_file($this->persistPath)) {
+                return;
+            }
+            $decoded = json_decode((string) file_get_contents($this->persistPath), true, 512, JSON_THROW_ON_ERROR);
+            if (is_array($decoded)) {
+                $this->workingSet = (array) ($decoded['working_set'] ?? []);
+                $this->deltaSeen = (array) ($decoded['delta_seen'] ?? []);
+            }
+        } catch (Throwable) {
+            // corrupt/absent state never blocks the in-process working set.
+        }
+    }
+
+    private function persist(): void
+    {
+        if ($this->persistPath === null) {
+            return;
+        }
+        try {
+            $dir = dirname($this->persistPath);
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            $tmp = $this->persistPath.'.tmp';
+            file_put_contents($tmp, json_encode([
+                'working_set' => $this->workingSet,
+                'delta_seen' => $this->deltaSeen,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), LOCK_EX);
+            @rename($tmp, $this->persistPath); // atomic swap
+        } catch (Throwable) {
+            // fail-open: persistence never breaks the working set.
+        }
+    }
+
+    /**
      * Calcula budget canonico para um modo.
      *
      * @return array{schema_version:string,mode:string,max_items:int,max_bytes_estimate:int}
@@ -135,6 +213,8 @@ class AtlasCognitiveWorkingSetMemoryService
         if (! $found) {
             $this->workingSet[$scope][] = $item;
         }
+
+        $this->persist();
     }
 
     /**
@@ -230,6 +310,7 @@ class AtlasCognitiveWorkingSetMemoryService
         }
 
         $this->deltaSeen[$scope] = $seen;
+        $this->persist();
 
         return [
             'schema_version' => 'atlas.cognitive_memory.delta_receipt.v1',
@@ -247,6 +328,7 @@ class AtlasCognitiveWorkingSetMemoryService
     public function resetDelta(string $scope): void
     {
         $this->deltaSeen[$scope] = [];
+        $this->persist();
     }
 
     /**
@@ -255,6 +337,7 @@ class AtlasCognitiveWorkingSetMemoryService
     public function resetWorkingSet(string $scope): void
     {
         $this->workingSet[$scope] = [];
+        $this->persist();
     }
 
     /**

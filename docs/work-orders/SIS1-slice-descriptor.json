@@ -1,0 +1,30 @@
+{
+  "_meta": "Descritor da fatia SIS1 (Obra #20) — Working Memory UNA persistida (Phase 2 prometida no proprio docblock do servico: 'Persistencia opcional via cache driver file'). O AtlasCognitiveWorkingSetMemoryService era in-process (morre com o processo). Esta fatia adiciona persistencia OPT-IN por path: default null = comportamento in-process IDENTICO (zero regressao nos consumidores DI); path explicito (o CLI, e futuramente os hooks) = estado sobrevive ao processo -> a base do mobile->desktop. Regressao pega e corrigida: default path-real hydrate-on-construct poluia instancias DI (fabric test) -> opt-in null resolve.",
+  "objective": "SIS1: persistencia UNA opt-in no working set (hydrate na construcao, persist atomico a cada mutacao) + atlas:working-set (record/show, produtor+consumidor real) + teste cross-instancia provando 'fato sobrevive ao processo'. VETO#20 ok; aditivo (default null = in-process). Auto-wire nos hooks + SSE mobile->desktop = proxima fatia.",
+  "allowed_files": [
+    "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php",
+    "app/Console/Commands/AtlasWorkingSetCommand.php",
+    "tests/Feature/Ai/CognitiveMemory/AtlasWorkingSetPersistenceTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/Context/AtlasCognitiveMemoryFabricService.php",
+    "app/Services/Ai/CognitiveMemory/AtlasCognitiveMemoryFabricService.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/CognitiveMemory/AtlasWorkingSetPersistenceTest.php",
+    "smoke: atlas:working-set --track=... numa call e --show noutra ve o fato (sobrevive ao processo); consumidores DI (fabric) intocados"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/CognitiveMemory/AtlasWorkingSetPersistenceTest.php" },
+  "glossary": {
+    "WorkingSet": "app/Services/Ai/CognitiveMemory/AtlasCognitiveWorkingSetMemoryService.php",
+    "WorkingSetCommand": "app/Console/Commands/AtlasWorkingSetCommand.php"
+  },
+  "freeze_callers_of": ["track", "workingSet"],
+  "stop_and_return": [
+    "default path-real quebraria isolamento de teste (fabric test poluido) -> default DEVE ser null/in-process",
+    "mudaria comportamento in-process dos consumidores DI (aditivo: persistencia so com path explicito)",
+    "persist no hot-path sem atomicidade corromperia estado (usa tmp+rename atomico, fail-open)",
+    "declararia mobile->desktop SSE pronto (esta fatia entrega SO a durabilidade cross-processo; SSE e proxima)"
+  ],
+  "baseline_artifact": { "metric": "working_set_survives_process", "note": "fato track numa instancia -> nova instancia no mesmo arquivo ve (3/5 asserts); reset tambem persiste; default null = in-process byte-identico (fabric 11/11 verde). ponytail: flush a cada mutacao (hot-path) — cache/lazy se throughput importar" }
+}
