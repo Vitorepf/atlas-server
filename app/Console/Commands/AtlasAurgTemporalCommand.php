@@ -10,21 +10,29 @@ use Illuminate\Console\Command;
 class AtlasAurgTemporalCommand extends Command
 {
     protected $signature = 'atlas:aurg:temporal
-        {--at= : ISO-8601 timestamp; returns state-at}
+        {--at= : ISO-8601 timestamp; returns state-at (transaction time)}
+        {--valid-at= : ISO-8601 timestamp; returns state as-of VALID time (T4-S1 bi-temporal)}
         {--from= : ISO-8601 start (range)}
         {--to= : ISO-8601 end (range)}
         {--limit=100 : max ticks in timeline}
         {--json : JSON output}';
 
-    protected $description = 'AURG · temporal timeline · state-at or range query (read-only).';
+    protected $description = 'AURG · temporal timeline · state-at (transaction) / state-as-of-valid (T4-S1) / range query (read-only).';
 
     public function handle(AtlasUnifiedRealityGraphTemporalService $svc): int
     {
         $at = $this->option('at');
+        $validAt = $this->option('valid-at');
         $from = $this->option('from');
         $to = $this->option('to');
 
-        if ($at !== null && $at !== '') {
+        if ($validAt !== null && $validAt !== '') {
+            // T4-S1: as-of VALID time — "what the code truth was at this instant".
+            // Read the DEDICATED code-truth log (the git-history axis), not the
+            // reality-graph tick log.
+            $svc->setLogPath($svc->codeTruthLogPath());
+            $payload = ['action' => 'state-as-of-valid', 'valid_at' => $validAt, 'tick' => $svc->stateAtValid((string) $validAt)];
+        } elseif ($at !== null && $at !== '') {
             $payload = ['action' => 'state-at', 'at' => $at, 'tick' => $svc->stateAt((string) $at)];
         } elseif ($from !== null && $to !== null) {
             $payload = ['action' => 'traverse', 'from' => $from, 'to' => $to, 'ticks' => $svc->traverseTime((string) $from, (string) $to)];

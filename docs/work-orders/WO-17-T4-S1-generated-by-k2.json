@@ -1,0 +1,94 @@
+{
+    "objective": "T4-S1: segundo eixo de tempo (valid-time do git) no AURG-4D. PRODUTOR atlas:aurg:backfill-temporal (git log -> ticks com valid_at=data do commit, idempotente por commit sha, bounded) + CONSUMIDOR stateAtValid(iso) exposto via atlas:aurg:temporal --valid-at; GATE 30 perguntas temporais >=85% contra o git real (as-of independente via git rev-list --before).",
+    "allowed_files": [
+        "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php",
+        "app/Services/Ai/Reality/AtlasGitHistoryTemporalProducerService.php",
+        "app/Console/Commands/AtlasAurgBackfillTemporalCommand.php",
+        "app/Console/Commands/AtlasAurgTemporalCommand.php",
+        "tests/Feature/Ai/Reality/AtlasBitemporalGitGateTest.php"
+    ],
+    "forbidden_files": [
+        "database/migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php",
+        "app/Services/Ai/Support/AppendOnlyJsonlStore.php",
+        "app/Support/TemporalTruth/HasTemporalTruth.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Reality/AtlasBitemporalGitGateTest.php",
+        "smoke: atlas:aurg:backfill-temporal --limit=N emite ticks bi-temporais idempotentes; atlas:aurg:temporal --valid-at=<iso> retorna o estado as-of valid-time; gate >=85% medido, nao fabricado"
+    ],
+    "glossary": {
+        "Temporal4D": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php",
+        "TemporalCommand": "app/Console/Commands/AtlasAurgTemporalCommand.php",
+        "AppendOnlyStore": "app/Services/Ai/Support/AppendOnlyJsonlStore.php",
+        "TemporalTruthTrait": "app/Support/TemporalTruth/HasTemporalTruth.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Reality/AtlasBitemporalGitGateTest.php",
+        "hash": "731c29797e015c39abdf3a5849157b2f746e12937012f983f2d7ca942119fc85"
+    },
+    "frozen_callers": [
+        {
+            "caller": "app/Console/Commands/AtlasAurgTemporalCommand.php:36",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasGitHistoryTemporalProducerService.php:16",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php:18",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php:224",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php:247",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasAurgTemporalRecordCommand.php:70",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reconciliation/AtlasAutonomousReconciliationRuntimeService.php:252",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasGitHistoryTemporalProducerService.php:22",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasGitHistoryTemporalProducerService.php:71",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php:940",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php:122",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php:352",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Teos/AtlasTeosI3CounterfactualService.php:190",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "mexeria em atlas_aurg_edges (colunas temporal-truth SQL sao SIS4, nao T4-S1)",
+        "mudaria assinatura/comportamento de recordTick()/stateAt() (aditivo-only: novo campo opcional + novo metodo)",
+        "o gate seria softball/tautologico em vez de checar as-of contra git rev-list --before independente (Goodhart => PARE)",
+        "produtor duplicaria ticks a cada run (precisa idempotencia por commit sha)"
+    ],
+    "baseline_artifact": {
+        "metric": "perguntas_temporais_acerto",
+        "note": ">=30 perguntas geradas de datas reais do git; ground-truth = git rev-list -1 --before=D HEAD; predicao = stateAtValid(D).snapshot_hash; acerto >=85% honesto (nunca 100% fabricado — mesma-data/merge deflacionam)"
+    },
+    "generated_by": "atlas:obra:work-order"
+}

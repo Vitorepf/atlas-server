@@ -1,0 +1,35 @@
+{
+  "_meta": "Descritor da fatia T4-S1 (Obra #17) — modelo bi-temporal. O AURG-4D (AtlasUnifiedRealityGraphTemporalService) é MONO-temporal: tick.at = now() (tempo de transacao, 'quando o ACOS soube'). Falta o 2o eixo: valid-time ('quando a verdade valeu no codigo'), vindo do historico git. T4-S1 fica na camada tick-log/JSONL (SIS4 depois promove pra colunas SQL em atlas_aurg_edges — NAO tocar aqui). Aditivo: valid_at nao entra em tick_id/tick_hash (canonical=at|snapshot_hash|prevHash) => 5031 ticks legados + callers byte-identicos.",
+  "objective": "T4-S1: segundo eixo de tempo (valid-time do git) no AURG-4D. PRODUTOR atlas:aurg:backfill-temporal (git log -> ticks com valid_at=data do commit, idempotente por commit sha, bounded) + CONSUMIDOR stateAtValid(iso) exposto via atlas:aurg:temporal --valid-at; GATE 30 perguntas temporais >=85% contra o git real (as-of independente via git rev-list --before).",
+  "allowed_files": [
+    "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php",
+    "app/Services/Ai/Reality/AtlasGitHistoryTemporalProducerService.php",
+    "app/Console/Commands/AtlasAurgBackfillTemporalCommand.php",
+    "app/Console/Commands/AtlasAurgTemporalCommand.php",
+    "tests/Feature/Ai/Reality/AtlasBitemporalGitGateTest.php"
+  ],
+  "forbidden_files": [
+    "database/migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php",
+    "app/Services/Ai/Support/AppendOnlyJsonlStore.php",
+    "app/Support/TemporalTruth/HasTemporalTruth.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Reality/AtlasBitemporalGitGateTest.php",
+    "smoke: atlas:aurg:backfill-temporal --limit=N emite ticks bi-temporais idempotentes; atlas:aurg:temporal --valid-at=<iso> retorna o estado as-of valid-time; gate >=85% medido, nao fabricado"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Reality/AtlasBitemporalGitGateTest.php" },
+  "glossary": {
+    "Temporal4D": "app/Services/Ai/Reality/AtlasUnifiedRealityGraphTemporalService.php",
+    "TemporalCommand": "app/Console/Commands/AtlasAurgTemporalCommand.php",
+    "AppendOnlyStore": "app/Services/Ai/Support/AppendOnlyJsonlStore.php",
+    "TemporalTruthTrait": "app/Support/TemporalTruth/HasTemporalTruth.php"
+  },
+  "freeze_callers_of": ["stateAt", "recordTick"],
+  "stop_and_return": [
+    "mexeria em atlas_aurg_edges (colunas temporal-truth SQL sao SIS4, nao T4-S1)",
+    "mudaria assinatura/comportamento de recordTick()/stateAt() (aditivo-only: novo campo opcional + novo metodo)",
+    "o gate seria softball/tautologico em vez de checar as-of contra git rev-list --before independente (Goodhart => PARE)",
+    "produtor duplicaria ticks a cada run (precisa idempotencia por commit sha)"
+  ],
+  "baseline_artifact": { "metric": "perguntas_temporais_acerto", "note": ">=30 perguntas geradas de datas reais do git; ground-truth = git rev-list -1 --before=D HEAD; predicao = stateAtValid(D).snapshot_hash; acerto >=85% honesto (nunca 100% fabricado — mesma-data/merge deflacionam)" }
+}

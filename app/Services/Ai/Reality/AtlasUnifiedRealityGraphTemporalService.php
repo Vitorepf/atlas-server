@@ -89,6 +89,30 @@ final class AtlasUnifiedRealityGraphTemporalService
     }
 
     /**
+     * T4-S1: the DEDICATED log for the bi-temporal code-truth axis (git-history
+     * ticks). Kept SEPARATE from the reality-graph tick log so `stateAtValid`
+     * answers "what the code truth was at T" without the reality snapshots
+     * (which span the same dates) interleaving. SIS4 later promotes this to SQL
+     * edges on atlas_aurg_edges.
+     */
+    public function codeTruthLogPath(): string
+    {
+        $base = function_exists('storage_path')
+            ? storage_path('atlas/aurg')
+            : sys_get_temp_dir().'/atlas/aurg';
+
+        return $base.DIRECTORY_SEPARATOR.'temporal_code_truth.jsonl';
+    }
+
+    /** Point this instance at a specific log (axis selection for producer/reader). */
+    public function setLogPath(string $path): self
+    {
+        $this->logPathOverride = $path;
+
+        return $this;
+    }
+
+    /**
      * Append a tick. Idempotent in the sense that the caller computes
      * `tick_id` deterministically — duplicate tick_ids are rejected.
      *
@@ -111,6 +135,22 @@ final class AtlasUnifiedRealityGraphTemporalService
         }
 
         $at = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+
+        // T4-S1 (bi-temporal): optional VALID-time axis — "when the truth held
+        // in the code" — distinct from `at` (transaction time / "when the ACOS
+        // recorded it"). Absent → valid_at = at, so the 5031 legacy ticks and
+        // every existing caller behave byte-identically. Not part of tick_id or
+        // tick_hash (canonical stays at|snapshot_hash|prev), so the hash chain
+        // over pre-existing ticks is unchanged.
+        $validAt = $at;
+        if (isset($input['valid_at'])) {
+            $parsed = strtotime((string) $input['valid_at']);
+            if ($parsed === false) {
+                throw new InvalidArgumentException("Unparseable valid_at: '".(string) $input['valid_at']."'.");
+            }
+            $validAt = (new DateTimeImmutable('@'.$parsed))->setTimezone(new DateTimeZone('UTC'))->format(DateTimeInterface::ATOM);
+        }
+
         $prev = $this->lastTick();
         $prevHash = $prev !== null ? ($prev['tick_hash'] ?? null) : null;
 
@@ -132,6 +172,7 @@ final class AtlasUnifiedRealityGraphTemporalService
             'schema_version' => self::TICK_SCHEMA,
             'tick_id' => $tickId,
             'at' => $at,
+            'valid_at' => $validAt,
             'actor' => $actor,
             'kind' => $kind,
             'snapshot_hash' => $snapshotHash,
@@ -194,6 +235,38 @@ final class AtlasUnifiedRealityGraphTemporalService
             }
             if ($best === null || $tAt > strtotime((string) $best['at'])) {
                 $best = $t;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * Bi-temporal read (T4-S1): the most-recent tick whose VALID time
+     * (`valid_at` — "when the truth held in the code") is <= $iso. This is the
+     * as-of-valid-time state, distinct from {@see stateAt()} which resolves by
+     * transaction time (`at`). Legacy ticks with no `valid_at` fall back to
+     * `at`, so a mono-temporal log answers exactly as before. On equal
+     * `valid_at`, the later-recorded tick wins (latest knowledge of that instant).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function stateAtValid(string $iso): ?array
+    {
+        $target = strtotime($iso);
+        if ($target === false) {
+            throw new InvalidArgumentException("Unparseable ISO-8601: '{$iso}'.");
+        }
+        $best = null;
+        $bestValid = null;
+        foreach ($this->readTicks() as $t) {
+            $v = strtotime((string) ($t['valid_at'] ?? $t['at'] ?? ''));
+            if ($v === false || $v > $target) {
+                continue;
+            }
+            if ($best === null || $v >= $bestValid) {
+                $best = $t;
+                $bestValid = $v;
             }
         }
 
