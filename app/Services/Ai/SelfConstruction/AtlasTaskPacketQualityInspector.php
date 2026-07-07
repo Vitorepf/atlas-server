@@ -81,6 +81,15 @@ final class AtlasTaskPacketQualityInspector
         // governing constitution gate approved the scope. Without that receipt the cold worker has no authority
         // to implement the change and the report gate cannot validate compliance.
         'property_gated_target_missing_constitution_evidence',
+        // K3 (Obra #18) — kit-order linting (fires ONLY when the packet carries kit fields, so legacy packets
+        // stay byte-identical). A glossary sigla with no path, a cited path that doesn't exist on disk (the
+        // phantom-symbol catcher that would have caught the 2 false ghosts), a kit order shipped without its
+        // pre-written test, or an acceptance criterion naming a code file outside allowed∪forbidden are all
+        // invalid AT THE SOURCE. No gate-operador rule exists — under the Carta every gate is automatic.
+        'glossary_sigla_without_path',
+        'cited_path_missing',
+        'kit_order_missing_pre_written_test',
+        'acceptance_cites_unlisted_file',
     ];
 
     /**
@@ -149,6 +158,7 @@ final class AtlasTaskPacketQualityInspector
             $classified[AtlasTaskPropertyGatedTargetPolicy::CLASSIFICATION_PROPERTY_GATED],
             static function (string $p): bool {
                 $norm = ltrim(str_replace('\\', '/', $p), '/');
+
                 return ! str_starts_with($norm, 'tests/') && ! str_contains($norm, '/tests/');
             }
         ));
@@ -261,6 +271,14 @@ final class AtlasTaskPacketQualityInspector
             }
         }
 
+        // K3 — kit-order linting. Opt-in (only fires when kit fields are present),
+        // so legacy packets are byte-identical.
+        foreach ($this->kitOrderDeficiencies($packet, $allowed, $forbidden, $acceptance) as $code) {
+            if (! in_array($code, $deficiencies, true)) {
+                $deficiencies[] = $code;
+            }
+        }
+
         $blocking = array_values(array_intersect($deficiencies, self::BLOCKING_DEFICIENCIES));
 
         return [
@@ -289,6 +307,117 @@ final class AtlasTaskPacketQualityInspector
                 'test_only_has_contract' => ! $this->allowedFilesAreOnlyTests($allowed) || $this->hasStrongTestOnlyContract($packet),
             ],
         ];
+    }
+
+    /**
+     * K3 (Obra #18) — kit-order linting. Fires ONLY when the packet carries kit
+     * fields, so legacy packets stay byte-identical (no queue jam). Rejects at
+     * the SOURCE the failure modes the kit exists to prevent. No gate-operador
+     * rule: under the Carta every gate is automatic.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  list<string>  $allowed
+     * @param  list<string>  $forbidden
+     * @param  list<string>  $acceptance
+     * @return list<string>
+     */
+    private function kitOrderDeficiencies(array $packet, array $allowed, array $forbidden, array $acceptance): array
+    {
+        $glossary = (array) data_get($packet, 'glossary', []);
+        $frozenCallers = (array) data_get($packet, 'frozen_callers', []);
+        $acceptanceTestPath = trim((string) data_get($packet, 'acceptance_test_ref.path', ''));
+        $stopAndReturn = (array) data_get($packet, 'stop_and_return', []);
+        $baseline = data_get($packet, 'baseline_artifact');
+
+        $isKitOrder = $glossary !== [] || $frozenCallers !== [] || $acceptanceTestPath !== ''
+            || $stopAndReturn !== [] || (is_array($baseline) && $baseline !== []);
+        if (! $isKitOrder) {
+            return [];
+        }
+
+        $out = [];
+
+        // 1. A glossary sigla with no path — an unresolved reference.
+        foreach ($glossary as $sigla => $path) {
+            if (trim((string) $sigla) !== '' && trim((string) $path) === '') {
+                $out[] = 'glossary_sigla_without_path';
+                break;
+            }
+        }
+
+        // 2. A cited path that doesn't exist on disk — glossary values, the file
+        //    part of each frozen caller, and the pre-written test all MUST
+        //    pre-exist. This is the phantom-symbol catcher.
+        $cited = array_values(array_filter(array_map('strval', $glossary), static fn (string $p): bool => $p !== ''));
+        foreach ($frozenCallers as $fc) {
+            $caller = is_string($fc) ? $fc : (string) data_get($fc, 'caller', data_get($fc, 'ref', ''));
+            if (trim($caller) !== '') {
+                $cited[] = $caller;
+            }
+        }
+        if ($acceptanceTestPath !== '') {
+            $cited[] = $acceptanceTestPath;
+        }
+        foreach ($cited as $path) {
+            if (! $this->citedPathExists($path)) {
+                $out[] = 'cited_path_missing';
+                break;
+            }
+        }
+
+        // 3. A kit order must ship its pre-written acceptance test.
+        if ($acceptanceTestPath === '') {
+            $out[] = 'kit_order_missing_pre_written_test';
+        }
+
+        // 4. Acceptance criteria may only name code files inside allowed ∪ forbidden.
+        $scope = array_merge($allowed, $forbidden);
+        foreach ($this->pathTokensIn($acceptance) as $token) {
+            if (! in_array($token, $scope, true)) {
+                $out[] = 'acceptance_cites_unlisted_file';
+                break;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * True when a cited repo-relative path (optionally with a `:line` anchor)
+     * exists on disk. The path is resolved against the app root.
+     */
+    private function citedPathExists(string $path): bool
+    {
+        $path = trim($path);
+        if ($path === '') {
+            return true;
+        }
+        // Strip a `:line` / `:line-col` anchor (frozen-caller references carry them).
+        $file = preg_replace('/:\d+(-\d+)?$/', '', $path) ?? $path;
+
+        return is_file(base_path(ltrim($file, '/'))) || is_dir(base_path(ltrim($file, '/')));
+    }
+
+    /**
+     * Repo-relative CODE/config/test paths named inside free text (prefixed by a
+     * governance directory + a source extension). Conservative on purpose, so
+     * prose and doc references never false-trip the scope check.
+     *
+     * @param  list<string>  $lines
+     * @return list<string>
+     */
+    private function pathTokensIn(array $lines): array
+    {
+        $out = [];
+        foreach ($lines as $line) {
+            if (preg_match_all('#(?:app|tests|routes|config|database)/[A-Za-z0-9_./-]+\.(?:php|json|neon)#', (string) $line, $matches)) {
+                foreach ($matches[0] as $token) {
+                    $out[] = $token;
+                }
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**
