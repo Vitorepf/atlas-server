@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Models\AtlasDevFailureCapsule;
+use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
@@ -205,6 +206,12 @@ final class AtlasTaskServingService
                 // fast path and Forge prompts already receive. Advisory,
                 // fail-open, workspace-scoped (anti cross-repo bleed).
                 $task['known_failure_modes'] = $this->knownFailureModesFor($task);
+                // C2 (Obra #18) — the FIFTH advisory source: decisions +
+                // refutations relevant to this packet's files, via the SAME
+                // query-aware recall (Obra #17 T0.2) the live provider injection
+                // uses. The worker sees a decision already registered for its
+                // zone BEFORE spending muscle. Advisory, fail-open, provider-safe.
+                $task['relevant_memory'] = $this->relevantMemoryFor($task);
 
                 return $this->served($clientId, $this->envelope('served', $clientId, $task, []));
             }
@@ -915,6 +922,80 @@ final class AtlasTaskServingService
         } catch (Throwable) {
             return []; // fail-open: advisory memory never blocks a serve
         }
+    }
+
+    /**
+     * C2 (Obra #18) — decisions + refutations relevant to this packet's files,
+     * as provider-safe "title — summary" strings, via the query-aware recall
+     * (Obra #17 T0.2). Semantic arm disabled: registry + verbatim + compounding
+     * are all local (the vector search honestly degrades to lexical with no
+     * embedding engine) so a serve never costs a provider call.
+     *
+     * ponytail: scope is the query built from the packet's file/module tokens —
+     * a lexical/semantic scope, honest today; swap to hard memory↔code edges
+     * once D3 lands them. The query-scope is the retrieval the #17 sequence mandates.
+     *
+     * @param  array<string,mixed>  $task
+     * @return list<string>
+     */
+    private function relevantMemoryFor(array $task): array
+    {
+        try {
+            $files = array_values(array_map('strval', (array) ($task['allowed_files'] ?? [])));
+            if ($files === []) {
+                return [];
+            }
+            $query = $this->memoryQueryFromFiles($files);
+            if ($query === '') {
+                return [];
+            }
+
+            $recall = app(AtlasHybridMemoryRetrievalService::class)->recall(
+                $query,
+                [],
+                [],
+                ['limit' => 5, 'include_semantic' => false, 'requester' => 'atlas_task_serving'],
+            );
+
+            $out = [];
+            foreach ((array) ($recall['recall'] ?? []) as $item) {
+                $title = trim((string) ($item['title'] ?? ''));
+                $summary = trim((string) ($item['summary'] ?? ''));
+                if ($title === '') {
+                    continue;
+                }
+                $out[$summary !== '' ? "{$title} — {$summary}" : $title] = true;
+            }
+
+            return array_keys($out);
+        } catch (Throwable) {
+            return []; // fail-open: advisory memory never blocks a serve
+        }
+    }
+
+    /**
+     * Build a recall query from a packet's files: each file's basename (sans
+     * extension) + its last two directory segments (the module), deduped.
+     *
+     * @param  list<string>  $files
+     */
+    private function memoryQueryFromFiles(array $files): string
+    {
+        $tokens = [];
+        foreach ($files as $f) {
+            $f = str_replace('\\', '/', (string) $f);
+            $base = (string) preg_replace('/\.[a-z0-9]+$/i', '', basename($f));
+            if ($base !== '') {
+                $tokens[$base] = true;
+            }
+            foreach (array_slice(explode('/', trim(dirname($f), '/')), -2) as $dir) {
+                if ($dir !== '' && $dir !== '.') {
+                    $tokens[$dir] = true;
+                }
+            }
+        }
+
+        return trim(implode(' ', array_keys($tokens)));
     }
 
     private function siblingTestsFor(array $task): array
