@@ -202,7 +202,9 @@ final class StewardshipOwnerSandboxRuntimeRunnerServiceTest extends TestCase
         $this->assertFileExists($workspace.'/vendor/bin/phpunit');
         $this->assertTrue(is_executable($workspace.'/vendor/bin/phpunit'));
         $this->assertFileExists($workspace.'/vendor/composer/autoload_static.php');
-        $this->assertTrue(is_link($workspace.'/vendor/symfony'));
+        // P6 (Obra #19): vendor is CLONED, never symlinked — the package dir is a real copy.
+        $this->assertFalse(is_link($workspace.'/vendor/symfony'), 'vendor package must be cloned, never symlinked (wiper floor)');
+        $this->assertDirectoryExists($workspace.'/vendor/symfony');
         $this->assertTrue($report['command_preparation']['dependency_preparation']['composer_autoload_local']);
         $this->assertTrue($report['command_preparation']['dependency_preparation']['dependency_projection']['local_bin_dir']);
     }

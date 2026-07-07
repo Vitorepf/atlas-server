@@ -6,6 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution\Framework;
 
 use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Support\AtlasCloneDir;
 use RuntimeException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -66,8 +67,8 @@ final class AtlasLoopFrameworkMaterializer
             // 1. A detached worktree off HEAD — shares .git, checks out tracked files only (no vendor).
             $this->git(['-C', $canonical, 'worktree', 'add', '--detach', $base, 'HEAD'], 'worktree_add');
 
-            // 2. Provision vendor: symlink the heavy packages read-only; REAL-copy autoload.php +
-            //    composer/ + bin/ so the worktree's autoloader/phpunit bind to the worktree.
+            // 2. Provision vendor: CLONE it (APFS clonefile) so the worktree's autoloader/phpunit
+            //    bind to the worktree — never symlinked (a symlinked vendor is the wiper vector).
             $this->provisionVendor($canonical, $base);
 
             // 3. Regenerate the autoloader INSIDE the worktree (resolves App\ -> worktree app/).
@@ -248,25 +249,14 @@ final class AtlasLoopFrameworkMaterializer
         if (! is_dir($srcVendor)) {
             throw new RuntimeException('framework materialize: canonical vendor/ missing — run composer install');
         }
-        if (! is_dir($dstVendor) && ! mkdir($dstVendor, 0o755, true) && ! is_dir($dstVendor)) {
-            throw new RuntimeException('framework materialize: cannot create worktree vendor/');
-        }
 
-        // Symlink every package dir EXCEPT composer + bin (those must be real local copies).
-        foreach (scandir($srcVendor) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..' || $entry === 'composer' || $entry === 'bin' || $entry === 'autoload.php') {
-                continue;
-            }
-            @symlink($srcVendor.'/'.$entry, $dstVendor.'/'.$entry);
-        }
-        // Real copies: autoload.php + composer/ (so dump-autoload writes here) + bin/ (so phpunit
-        // binds to THIS worktree's autoload, avoiding a Cannot-redeclare-ComposerAutoloaderInit fatal).
-        if (is_file($srcVendor.'/autoload.php')) {
-            copy($srcVendor.'/autoload.php', $dstVendor.'/autoload.php');
-        }
-        $this->copyDir($srcVendor.'/composer', $dstVendor.'/composer');
-        if (is_dir($srcVendor.'/bin')) {
-            $this->copyDir($srcVendor.'/bin', $dstVendor.'/bin');
+        // P6 (Obra #19): CLONE the whole vendor (APFS clonefile), never symlink package dirs.
+        // dump-autoload (step 3) then rewrites the worktree's OWN cloned autoload.php + composer/,
+        // never the live source — a symlinked vendor is the wiper vector. cp -Rc is copy-on-write,
+        // so the full clone is near-zero time/space and phpunit/composer bind to THIS worktree.
+        // Must not pre-create $dstVendor: `cp -Rc src dst` needs dst absent, else it nests dst/vendor.
+        if (! AtlasCloneDir::copy($srcVendor, $dstVendor)) {
+            throw new RuntimeException('framework materialize: vendor clonefile copy failed');
         }
     }
 
@@ -387,14 +377,6 @@ final class AtlasLoopFrameworkMaterializer
         }
 
         return null;
-    }
-
-    private function copyDir(string $src, string $dst): void
-    {
-        if (! is_dir($src)) {
-            return;
-        }
-        (new Process(['bash', '-lc', 'cp -R '.escapeshellarg($src).' '.escapeshellarg($dst)]))->setTimeout(120.0)->run();
     }
 
     /**

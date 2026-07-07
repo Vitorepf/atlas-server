@@ -11,6 +11,7 @@ use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockWriter;
 use App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus;
 use App\Services\Ai\EngineeringKernel\Repair\FailureTaxonomy;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
+use App\Support\AtlasCloneDir;
 use Closure;
 use Symfony\Component\Process\Process;
 
@@ -472,7 +473,9 @@ class AtlasRepoVerifiedDeliveryService
         }
 
         // Share deps + provide an isolated env/DB and the writable runtime dirs.
-        @symlink($root.'/vendor', $wt.'/vendor');
+        // P6 (Obra #19): vendor is CLONED (APFS clonefile), never symlinked — a symlinked
+        // vendor lets `composer dump-autoload` in the worktree rewrite the LIVE autoload (wiper).
+        AtlasCloneDir::copy($root.'/vendor', $wt.'/vendor');
         foreach (['storage/framework/cache/data', 'storage/framework/views', 'storage/framework/sessions', 'storage/logs', 'bootstrap/cache', 'database'] as $d) {
             @mkdir($wt.'/'.$d, 0775, true);
         }

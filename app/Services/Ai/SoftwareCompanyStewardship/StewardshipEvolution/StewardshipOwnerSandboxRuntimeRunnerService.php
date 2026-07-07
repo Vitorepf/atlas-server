@@ -9,6 +9,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\OwnerFlow\OwnerSand
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Support\AtlasCloneDir;
 use App\Support\AtlasSecurity;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -577,65 +578,40 @@ final class StewardshipOwnerSandboxRuntimeRunnerService implements OwnerSandboxR
     }
 
     /**
-     * Build a local vendor projection for a git worktree. Package directories
-     * remain symlinked to the canonical install, but Composer's generated
-     * autoload files are copied locally so `$baseDir` resolves to the AP-756
-     * worktree instead of main. Without this, focused tests validate stale main
-     * classes and the autonomous loop burns provider cycles on false failures.
+     * Build a local vendor for a git worktree by CLONING the canonical vendor (APFS
+     * clonefile) so `$baseDir` resolves to the AP-756 worktree instead of main. P6
+     * (Obra #19): the clone is a real copy-on-write dir, NEVER a symlink — a symlinked
+     * vendor lets `composer dump-autoload` in the worktree rewrite the LIVE autoload
+     * (the wiper). Without a local vendor, focused tests validate stale main classes
+     * and the autonomous loop burns provider cycles on false failures.
      *
      * @return array<string,mixed>
      */
     private function projectVendorForWorkspace(string $vendorSource, string $vendorTarget): array
     {
-        File::ensureDirectoryExists($vendorTarget);
-
-        $entries = @scandir($vendorSource);
-        if (! is_array($entries)) {
+        if (! is_dir($vendorSource)) {
             return ['ok' => false, 'prepared' => false, 'reason' => 'canonical_vendor_unreadable'];
         }
 
-        $linked = 0;
-        foreach ($entries as $entry) {
-            if ($entry === '.' || $entry === '..' || $entry === 'bin' || $entry === 'composer' || $entry === 'autoload.php') {
-                continue;
-            }
-
-            $source = $vendorSource.DIRECTORY_SEPARATOR.$entry;
-            $target = $vendorTarget.DIRECTORY_SEPARATOR.$entry;
-            if (file_exists($target) || is_link($target)) {
-                continue;
-            }
-            if (! @symlink($source, $target)) {
-                return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_projection_symlink_failed', 'entry' => $entry];
-            }
-            $linked++;
+        // Must NOT pre-create $vendorTarget: `cp -Rc src dst` needs dst absent (else it nests
+        // dst/vendor). The caller already guaranteed the target is absent.
+        if (! AtlasCloneDir::copy($vendorSource, $vendorTarget)) {
+            return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_clone_failed'];
         }
 
-        if (! @copy($vendorSource.DIRECTORY_SEPARATOR.'autoload.php', $vendorTarget.DIRECTORY_SEPARATOR.'autoload.php')) {
-            return ['ok' => false, 'prepared' => false, 'reason' => 'vendor_autoload_copy_failed'];
-        }
-
-        $binSource = $vendorSource.DIRECTORY_SEPARATOR.'bin';
+        // Ensure bin/ executables stay runnable regardless of the source's mode bits.
         $binTarget = $vendorTarget.DIRECTORY_SEPARATOR.'bin';
-        if (is_dir($binSource)) {
-            File::copyDirectory($binSource, $binTarget);
+        if (is_dir($binTarget)) {
             $this->chmodExecutableFiles($binTarget);
         }
-
-        $composerSource = $vendorSource.DIRECTORY_SEPARATOR.'composer';
-        $composerTarget = $vendorTarget.DIRECTORY_SEPARATOR.'composer';
-        if (! is_dir($composerSource)) {
-            return ['ok' => false, 'prepared' => false, 'reason' => 'canonical_vendor_composer_missing'];
-        }
-        File::copyDirectory($composerSource, $composerTarget);
 
         return [
             'ok' => true,
             'prepared' => true,
             'reason' => 'workspace_vendor_projection_ready',
-            'symlinked_entries' => $linked,
-            'local_bin_dir' => ! is_dir($binSource) || is_dir($binTarget),
-            'local_composer_dir' => is_dir($composerTarget),
+            'cloned' => true,
+            'local_bin_dir' => ! is_dir($vendorSource.DIRECTORY_SEPARATOR.'bin') || is_dir($binTarget),
+            'local_composer_dir' => is_dir($vendorTarget.DIRECTORY_SEPARATOR.'composer'),
             'local_autoload' => is_file($vendorTarget.DIRECTORY_SEPARATOR.'autoload.php'),
         ];
     }

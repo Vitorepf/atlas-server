@@ -8,6 +8,7 @@ use App\Services\Ai\Rivals\Core\RunReceipt;
 use App\Services\Ai\Rivals\Support\EventStream;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
+use App\Support\AtlasCloneDir;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
@@ -489,8 +490,10 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             // (2º vetor do wiper, onda 23:46 UTC 02/07: o symptom check em
             // worktree sem floor dropou as tabelas dev runtime intelligence).
             $this->provisionDatabaseFloor($worktree);
+            // P6 (Obra #19): vendor is CLONED (APFS clonefile), never symlinked — a symlinked
+            // vendor lets `composer dump-autoload` in the worktree rewrite the LIVE autoload (wiper).
             if (is_dir($repo.'/vendor') && ! is_dir($worktree.'/vendor')) {
-                symlink($repo.'/vendor', $worktree.'/vendor');
+                AtlasCloneDir::copy($repo.'/vendor', $worktree.'/vendor');
             }
             $testDiff = Process::path($repo)->run(
                 'git diff '.escapeshellarg($case['base_sha']).' '.escapeshellarg($case['golden_sha']).' -- '

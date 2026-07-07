@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Support\AtlasCloneDir;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -646,7 +647,14 @@ final class AreaFocusBranchSandboxMaterializerService implements AreaFocusBranch
             }
 
             try {
-                @symlink($source, $target);
+                // P6 (Obra #19): vendor is CLONED (APFS clonefile), never symlinked — a symlinked
+                // vendor lets `composer dump-autoload` in the worktree rewrite the LIVE autoload
+                // (wiper). .env is an isolated file (not the autoload vector), still symlinked.
+                if ($dependency === 'vendor') {
+                    AtlasCloneDir::copy($source, $target);
+                } else {
+                    @symlink($source, $target);
+                }
             } catch (Throwable) {
                 // Non-fatal: the owner command will block honestly if it cannot boot.
             }

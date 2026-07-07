@@ -62,7 +62,9 @@ final class AtlasLoopFrameworkMaterializerTest extends TestCase
             $this->assertSame(['app/Subject.php'], $task['allowed_files']);
             $this->assertTrue(is_dir($workspace));
             $this->assertTrue(is_file($workspace.'/vendor/autoload.php'));
-            $this->assertTrue(is_link($workspace.'/vendor/acme'));
+            // P6 (Obra #19): vendor is CLONED, never symlinked — the package dir is a real copy.
+            $this->assertFalse(is_link($workspace.'/vendor/acme'), 'vendor package must be cloned, never symlinked (wiper floor)');
+            $this->assertTrue(is_file($workspace.'/vendor/acme/package.php'));
 
             $env = (string) file_get_contents($workspace.'/.env.testing');
             $this->assertStringContainsString('APP_ENV=testing', $env);

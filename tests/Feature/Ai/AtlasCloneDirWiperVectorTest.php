@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Support\AtlasCloneDir;
 use Illuminate\Support\Facades\File;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -74,5 +75,49 @@ final class AtlasCloneDirWiperVectorTest extends TestCase
             file_get_contents($liveVendor.'/autoload.php'),
             'proves WHY vendor must be cloned, not symlinked',
         );
+    }
+
+    /**
+     * The P6 floor across EVERY provisioner: while ANY of them symlinks vendor, the wiper
+     * vector survives — `composer dump-autoload` inside the worktree follows the link and
+     * rewrites the LIVE autoload of the source repo. Each provisioner must route vendor
+     * through the AtlasCloneDir clonefile helper. This is the audit's own detector
+     * (`symlink\([^)]*vendor`) frozen as a permanent regression gate, plus a positive check
+     * that the clone helper is wired. A new provisioner MUST be added to this list.
+     *
+     * NOTE — AtlasLoopProposalMaterializer.php also symlinks vendor but is a pétreo
+     * FORBIDDEN_SELF_TARGET (AtlasLoopHarnessGuard): the loop's scoped committer refuses
+     * to land it, so its clonefile fix must go through an operator-gated channel. It is
+     * deliberately excluded here rather than silently covered.
+     */
+    #[DataProvider('vendorProvisioners')]
+    public function test_no_provisioner_symlinks_vendor(string $relativePath): void
+    {
+        $source = (string) file_get_contents(base_path($relativePath));
+
+        $this->assertSame(
+            0,
+            preg_match('/\bsymlink\s*\([^)]*vendor/i', $source),
+            $relativePath.' still symlinks vendor — the wiper vector. Clone it with AtlasCloneDir instead.',
+        );
+        $this->assertStringContainsString(
+            'AtlasCloneDir',
+            $source,
+            $relativePath.' must route vendor through the AtlasCloneDir clonefile helper.',
+        );
+    }
+
+    /** @return array<string,array{0:string}> */
+    public static function vendorProvisioners(): array
+    {
+        return [
+            'repo-verified-delivery' => ['app/Services/Ai/RealExecution/AtlasRepoVerifiedDeliveryService.php'],
+            'governed-branch' => ['app/Services/Ai/RealExecution/GovernedBranchMaterializationService.php'],
+            'engineering-workspace' => ['app/Services/Engineering/EngineeringWorkspaceService.php'],
+            'bench-suite-adapter' => ['app/Services/Ai/Rivals/Adapters/AtlasBenchSuiteAdapter.php'],
+            'loop-framework-materializer' => ['app/Services/Ai/AutonomousEvolution/Framework/AtlasLoopFrameworkMaterializer.php'],
+            'owner-sandbox-runtime' => ['app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php'],
+            'area-focus-branch-sandbox' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php'],
+        ];
     }
 }
