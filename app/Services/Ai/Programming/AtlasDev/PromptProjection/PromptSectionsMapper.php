@@ -197,8 +197,15 @@ final class PromptSectionsMapper
             $refs[] = $this->contextRefToString($ref);
         }
 
+        // C1 — memory refs now carry a provider-safe title+summary in their
+        // reason (inlined by OpenBrainProjectionAdapter). Render it like the
+        // discovery/exemplar groups do, behind the SAME sendability guard so one
+        // toxic token in a memory never fail-closes the whole prompt.
         foreach ($projection->memoryRefs as $ref) {
-            $refs[] = $this->contextRefToString($ref);
+            $line = $this->contextRefToString($ref).' :: '.$ref->reason;
+            if ($this->isSendable($line)) {
+                $refs[] = $line;
+            }
         }
 
         foreach ($projection->codeRefs as $ref) {
@@ -242,17 +249,10 @@ final class PromptSectionsMapper
                 $parts[] = 'verified via '.$command;
             }
             $line = implode(' — ', $parts);
-            // Sendability poisoning guard: the quality checker fail-closes
-            // the WHOLE prompt when any provider-unsafe token appears in the
-            // rendered text. A single persisted green run whose goal mentions
-            // e.g. '.env' would otherwise make every future prompt of this
-            // workspace non-sendable until its receipt dir is deleted. A
-            // toxic exemplar is dropped, never allowed to DoS the run.
-            $lineLower = strtolower($line);
-            foreach (PromptQualityChecker::PROVIDER_UNSAFE_TOKENS as $token) {
-                if (str_contains($lineLower, strtolower($token))) {
-                    continue 2;
-                }
+            // A toxic exemplar (goal mentioning e.g. an env-file path) is dropped
+            // rather than allowed to fail-close every future prompt of this run.
+            if (! $this->isSendable($line)) {
+                continue;
             }
             $refs[] = $line;
         }
@@ -263,6 +263,24 @@ final class PromptSectionsMapper
     private function contextRefToString(ContextRef $ref): string
     {
         return $ref->kind.'://'.$ref->ref;
+    }
+
+    /**
+     * Sendability guard: the quality checker fail-closes the WHOLE prompt when
+     * any provider-unsafe token appears in the rendered text, so a single toxic
+     * ref (a memory or exemplar whose text mentions e.g. an env-file path) is
+     * dropped rather than allowed to DoS every future prompt of this workspace.
+     */
+    private function isSendable(string $line): bool
+    {
+        $lower = strtolower($line);
+        foreach (PromptQualityChecker::PROVIDER_UNSAFE_TOKENS as $token) {
+            if (str_contains($lower, strtolower($token))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

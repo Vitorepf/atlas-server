@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Discovery;
 
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
@@ -12,6 +13,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -161,6 +163,18 @@ final class OpenBrainProjectionAdapter
         $knowledge = [];
         $code = [];
 
+        // C1 — dereference memory: the opaque atlas-memory://entry/<id> URI
+        // teaches the provider nothing (it rides in a diff-only run with no
+        // tools to resolve it). Inline a provider-safe title+summary so the
+        // decision TEXT is in the prompt, not just a pointer. Fail-open: on any
+        // fault the ref keeps its generic reason.
+        $memoryText = $this->providerSafeMemoryText(array_values(array_filter(array_map(
+            static fn ($ref): string => is_array($ref) && ($ref['type'] ?? '') === 'atlas_memory_entry'
+                ? (string) ($ref['id'] ?? '')
+                : '',
+            $contextRefs,
+        ))));
+
         foreach ($contextRefs as $ref) {
             if (! is_array($ref)) {
                 continue;
@@ -180,10 +194,11 @@ final class OpenBrainProjectionAdapter
                         'harness_learning' => ContextRef::KIND_HARNESS_LEARNING,
                         default => ContextRef::KIND_DECISION,
                     };
+                    $text = $memoryText[$id] ?? '';
                     $memory[$id] = new ContextRef(
                         kind: $kind,
                         ref: 'atlas-memory://entry/'.$id,
-                        reason: 'open_brain memory '.$memoryType,
+                        reason: $text !== '' ? $memoryType.': '.$text : 'open_brain memory '.$memoryType,
                     );
                     break;
                 case 'atlas_verbatim_memory':
@@ -226,6 +241,50 @@ final class OpenBrainProjectionAdapter
         usort($code, $sortByRef);
 
         return [$memory, $knowledge, $code];
+    }
+
+    /**
+     * C1 — provider-safe title+summary for a set of memory ids, so the Dev
+     * prompt carries the decision TEXT instead of an opaque URI. Sensitive/
+     * secret or external-AI-blocked entries are OMITTED (they stay URI-only);
+     * redacted entries contribute their redacted fields. Fail-open: any fault
+     * yields an empty map and every ref keeps its generic reason.
+     *
+     * @param  list<string>  $ids
+     * @return array<string,string> id => single-line "title — summary"
+     */
+    private function providerSafeMemoryText(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter($ids)));
+        if ($ids === []) {
+            return [];
+        }
+
+        try {
+            $out = [];
+            AtlasMemoryEntry::query()
+                ->whereIn('id', $ids)
+                ->get(['id', 'title', 'summary', 'redacted_title', 'redacted_summary', 'redaction_status', 'privacy_class', 'external_ai_allowed'])
+                ->each(function (AtlasMemoryEntry $entry) use (&$out): void {
+                    if ($entry->external_ai_allowed === false
+                        || in_array((string) $entry->privacy_class, ['sensitive', 'secret'], true)) {
+                        return; // not provider-safe → stays URI-only
+                    }
+
+                    $redacted = $entry->redaction_status === 'redacted';
+                    $title = trim((string) ($redacted ? $entry->redacted_title : $entry->title));
+                    $summary = trim((string) ($redacted ? $entry->redacted_summary : $entry->summary));
+                    $text = trim(preg_replace('/\s+/', ' ', trim($title.($title !== '' && $summary !== '' ? ' — ' : '').$summary)) ?? '');
+
+                    if ($text !== '') {
+                        $out[(string) $entry->id] = Str::limit($text, 220, '');
+                    }
+                });
+
+            return $out;
+        } catch (Throwable) {
+            return []; // fail-open: never block discovery because memory text was unavailable
+        }
     }
 
     /**
