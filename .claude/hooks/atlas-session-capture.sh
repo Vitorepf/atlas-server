@@ -120,5 +120,12 @@ fi
 # markers from the SAME transcript into one persisted retrieval-feedback event. Fail-open.
 php artisan atlas:context:feedback-auto "--transcript=$TRANSCRIPT" --json >/dev/null 2>&1 || true
 
+# D4 (Obra #18): implicit-feedback inference — a memory RECALLED this session AND present
+# in the session's working-tree diff = useful_implicit (recalled ∧ acted-on). Fires at Stop
+# while the edits are still uncommitted, so the command's default `git diff HEAD` sees them;
+# --apply is what makes it AUTOMATIC (was a manual chore). Fail-open, local DB, zero spend;
+# idempotent (usages with prior feedback are skipped).
+php artisan atlas:memory:feedback-implicit --apply --json >/dev/null 2>&1 || true
+
 # Always succeed — a capture fault must never stall or fail session end.
 exit 0
