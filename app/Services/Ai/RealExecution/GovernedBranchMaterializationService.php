@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\RealExecution;
 
+use App\Services\Ai\AutonomousEvolution\AtlasLoopProposalMaterializer;
+use App\Support\AtlasCloneDir;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -12,7 +14,7 @@ use Throwable;
  * the OPERATOR merges" frontier (operator-chosen governance, 2026-06-09).
  *
  * Where the loop/forge stop at an isolated throwaway workspace
- * ({@see \App\Services\Ai\AutonomousEvolution\AtlasLoopProposalMaterializer}),
+ * ({@see AtlasLoopProposalMaterializer}),
  * this takes a CERTIFIED + gate-credentialed diff one principled step further: it
  * applies it to a REAL git branch (`atlas/materialize/<id>`) created in a private
  * git WORKTREE, commits it, runs the focused measure, and hands back a
@@ -656,7 +658,16 @@ final class GovernedBranchMaterializationService
         foreach (['vendor', '.env', 'node_modules'] as $dep) {
             $src = $repo.'/'.$dep;
             $dst = $worktree.'/'.$dep;
-            if ((is_dir($src) || is_file($src)) && ! file_exists($dst)) {
+            if (! (is_dir($src) || is_file($src)) || file_exists($dst)) {
+                continue;
+            }
+            // P6 (Obra #19): vendor is CLONED (APFS clonefile), never symlinked — a
+            // symlinked vendor lets `composer dump-autoload` in the worktree follow the
+            // link and rewrite the LIVE autoload (the wiper vector). The clone is
+            // copy-on-write and isolated; .env/node_modules stay symlinked (unchanged).
+            if ($dep === 'vendor') {
+                AtlasCloneDir::copy($src, $dst);
+            } else {
                 @symlink($src, $dst);
             }
         }

@@ -5,6 +5,7 @@ namespace App\Services\Engineering;
 use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Services\Ai\Support\AiValueNormalizer;
+use App\Support\AtlasCloneDir;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -643,6 +644,19 @@ class EngineeringWorkspaceService
             }
             if (file_exists($target) || is_link($target)) {
                 $artifacts['skipped'][] = $artifact.':already_present';
+
+                continue;
+            }
+
+            // P6 (Obra #19): vendor is CLONED (APFS clonefile), never symlinked — an
+            // isolated copy so `composer dump-autoload` inside the worktree can never
+            // follow a link and rewrite the LIVE autoload (the wiper vector).
+            if ($artifact === 'vendor') {
+                if (AtlasCloneDir::copy($source, $target)) {
+                    $artifacts['symlinks'][] = 'vendor:cloned';
+                } else {
+                    $artifacts['skipped'][] = 'vendor:clone_failed';
+                }
 
                 continue;
             }
