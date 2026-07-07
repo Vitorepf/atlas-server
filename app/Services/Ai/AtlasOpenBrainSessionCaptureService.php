@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Throwable;
@@ -76,14 +77,14 @@ class AtlasOpenBrainSessionCaptureService
      * Distil a session and feed the brain through the governed write-back.
      *
      * @param  array<string,mixed>  $opts  optional:
-     *   - transcript: absolute path to the session transcript JSONL (Claude Code shape).
-     *   - transcript_lines: list<array<string,mixed>>|list<string> already-parsed lines
-     *       (test seam / non-file callers) — wins over `transcript`.
-     *   - session_id: explicit session id (the mission node identity); else derived.
-     *   - request: a label for what the session was asked to do; else derived.
-     *   - workspace / cwd: scope (resolved + recorded for audit, never leaked).
-     *   - provider: provider/agent label (e.g. claude-code).
-     *   - max_learnings: cap on proposed learnings fed from one session.
+     *                                     - transcript: absolute path to the session transcript JSONL (Claude Code shape).
+     *                                     - transcript_lines: list<array<string,mixed>>|list<string> already-parsed lines
+     *                                     (test seam / non-file callers) — wins over `transcript`.
+     *                                     - session_id: explicit session id (the mission node identity); else derived.
+     *                                     - request: a label for what the session was asked to do; else derived.
+     *                                     - workspace / cwd: scope (resolved + recorded for audit, never leaked).
+     *                                     - provider: provider/agent label (e.g. claude-code).
+     *                                     - max_learnings: cap on proposed learnings fed from one session.
      * @return array<string,mixed> {schema, fed(bool), outcome, learnings, counts, ...}
      */
     public function captureSession(array $opts = []): array
@@ -135,7 +136,18 @@ class AtlasOpenBrainSessionCaptureService
                     'scope' => 'global',
                     'provider' => $provider,
                     'workspace' => $workspaceId,
-                    'payload' => ['source' => 'aobg_session_capture', 'session_id' => $sessionId],
+                    // D2 — the STRUCTURED learning rides in the payload so the brain
+                    // stores claim + porquê + arquivos + evidence, not a flat blob.
+                    'payload' => [
+                        'source' => 'aobg_session_capture',
+                        'session_id' => $sessionId,
+                        'structured' => [
+                            'claim' => $learning['claim'],
+                            'why' => $learning['why'],
+                            'files' => $learning['files'],
+                            'evidence' => $learning['evidence_refs'],
+                        ],
+                    ],
                 ]);
             }
 
@@ -146,6 +158,10 @@ class AtlasOpenBrainSessionCaptureService
                     $learningsFed++;
                 }
             }
+
+            // D2 — fill the APCR post_execution_update from the session's structured
+            // learnings when this session carries a persistent context pack.
+            $apcr = $this->updateApcr($opts, $workspaceId, $sessionId, $distilled['learnings']);
 
             $result = [
                 'schema' => self::SCHEMA,
@@ -174,6 +190,7 @@ class AtlasOpenBrainSessionCaptureService
                     'learnings_found' => count($distilled['learnings']),
                     'learnings_fed' => $learningsFed,
                 ],
+                'apcr' => $apcr,
                 'distill' => 'deterministic', // NO provider/LLM call in the default path
                 'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
                 'generated_at' => now()->toJSON(),
@@ -188,6 +205,59 @@ class AtlasOpenBrainSessionCaptureService
         }
     }
 
+    /**
+     * D2 — fill the APCR post_execution_update from a captured session's structured
+     * learnings. Opt-in: only when `persistent_context_pack_id` is supplied. Delegates
+     * to the existing governed {@see AtlasPersistentContextRuntimeService::recordOutcome()},
+     * which creates a PENDING memory delta (requires_confirmation, never auto-promoted)
+     * — the same floor as the rest of capture. Fail-open.
+     *
+     * @param  array<string,mixed>  $opts
+     * @param  list<array{summary:string,evidence_refs:list<string>,claim:string,why:string,files:list<string>}>  $learnings
+     * @return array<string,mixed>
+     */
+    private function updateApcr(array $opts, string $workspaceId, string $sessionId, array $learnings): array
+    {
+        $packId = $this->string($opts['persistent_context_pack_id'] ?? null);
+        if ($packId === null || $learnings === []) {
+            return ['fed' => false, 'reason' => $packId === null ? 'no_apcr_pack' : 'no_learnings'];
+        }
+
+        try {
+            $refs = [];
+            foreach ($learnings as $learning) {
+                foreach ($learning['evidence_refs'] as $ref) {
+                    if (! in_array($ref, $refs, true)) {
+                        $refs[] = $ref;
+                    }
+                }
+            }
+            $primary = $learnings[0];
+            $receipt = app(AtlasPersistentContextRuntimeService::class)->recordOutcome(
+                [
+                    'persistent_context_pack_id' => $packId,
+                    'scope' => ['workspace' => $workspaceId, 'scope_type' => 'workspace', 'scope_id' => $workspaceId],
+                    'evidence_refs' => $refs,
+                ],
+                [
+                    'claim' => $primary['claim'] !== '' ? $primary['claim'] : $primary['summary'],
+                    'summary' => $primary['summary'],
+                    'evidence_refs' => $refs,
+                    'session_id' => $sessionId,
+                    'memory_type' => 'technical_context',
+                ],
+            );
+
+            return [
+                'fed' => (string) ($receipt['status'] ?? '') === 'recorded',
+                'status' => (string) ($receipt['status'] ?? ''),
+                'post_execution_update_hash' => $receipt['post_execution_update_hash'] ?? null,
+            ];
+        } catch (Throwable) {
+            return ['fed' => false, 'reason' => 'apcr_unavailable'];
+        }
+    }
+
     // ------------------------------------------------------------------
     // deterministic distillation (NO provider call)
     // ------------------------------------------------------------------
@@ -199,7 +269,7 @@ class AtlasOpenBrainSessionCaptureService
      *
      * @param  list<array<string,mixed>>  $lines
      * @param  array<string,mixed>  $opts
-     * @return array{files:list<string>, result:array{status?:string,ok?:bool,delivered?:bool}|null, learnings:list<array{summary:string,evidence_refs:list<string>}>, request:string, derived_session_id:?string}
+     * @return array{files:list<string>, result:array{status?:string,ok?:bool,delivered?:bool}|null, learnings:list<array{summary:string,evidence_refs:list<string>,claim:string,why:string,files:list<string>}>, request:string, derived_session_id:?string}
      */
     private function distil(array $lines, array $opts): array
     {
@@ -373,7 +443,7 @@ class AtlasOpenBrainSessionCaptureService
      * the line must start with a LEARNING marker AND contain at least one evidence ref
      * (file:line or scheme://). No inference from prose.
      *
-     * @return array{summary:string, evidence_refs:list<string>}|null
+     * @return array{summary:string, evidence_refs:list<string>, claim:string, why:string, files:list<string>}|null
      */
     private function explicitLearning(string $text, int $maxChars): ?array
     {
@@ -402,13 +472,73 @@ class AtlasOpenBrainSessionCaptureService
                 continue; // cite-or-omit: a marked line with no citation is dropped
             }
 
+            // D2 — STRUCTURED learning: split the body into claim / porquê / arquivos
+            // so the brain stores a reasoned learning, not a flat blob. `summary` and
+            // `evidence_refs` are UNCHANGED (byte-compat for the governed write-back +
+            // its quality gate); claim/why/files are additive.
+            [$claim, $why, $files] = $this->splitStructuredLearning($body);
+            if ($files === []) {
+                $files = array_values(array_filter(
+                    $refs,
+                    static fn (string $r): bool => str_contains($r, '/') || (bool) preg_match('/:\d+$/', $r),
+                ));
+            }
+
             return [
                 'summary' => mb_substr($body, 0, $maxChars),
                 'evidence_refs' => $refs,
+                'claim' => mb_substr($claim, 0, $maxChars),
+                'why' => mb_substr($why, 0, $maxChars),
+                'files' => $files,
             ];
         }
 
         return null;
+    }
+
+    /**
+     * D2 — split a learning body into [claim, porquê, arquivos]. Optional inline
+     * markers: `<claim> WHY:/PORQUE: <why> FILES:/ARQUIVOS: a.php, b.php`. Absent
+     * markers ⇒ claim = whole body, why = '', files = []. Deterministic, no LLM.
+     *
+     * @return array{0:string,1:string,2:list<string>}
+     */
+    private function splitStructuredLearning(string $body): array
+    {
+        $filesRaw = '';
+        // Peel a trailing FILES:/ARQUIVOS: segment off the end first.
+        if (preg_match('/(.*?)\b(?:FILES|ARQUIVOS)\s*:\s*(.*)$/isu', $body, $m)) {
+            $body = trim($m[1]);
+            $filesRaw = $m[2];
+        }
+
+        $claim = trim($body);
+        $why = '';
+        if (preg_match('/(.*?)\b(?:WHY|PORQU[EÊ])\s*:\s*(.*)$/isu', $body, $m)) {
+            $claim = trim($m[1]);
+            $why = trim($m[2]);
+        }
+
+        return [$claim !== '' ? $claim : trim($body), $why, $this->splitFiles($filesRaw)];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitFiles(string $raw): array
+    {
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', trim($raw)) ?: [] as $token) {
+            $token = trim((string) $token);
+            if ($token !== '' && (str_contains($token, '/') || str_contains($token, '.')) && ! in_array($token, $out, true)) {
+                $out[] = $token;
+            }
+            if (count($out) >= 20) {
+                break;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -465,8 +595,8 @@ class AtlasOpenBrainSessionCaptureService
     }
 
     /**
-     * @param  list<array{summary:string, evidence_refs:list<string>}>  $learnings
-     * @return list<array{summary:string, evidence_refs:list<string>}>
+     * @param  list<array{summary:string, evidence_refs:list<string>, claim:string, why:string, files:list<string>}>  $learnings
+     * @return list<array{summary:string, evidence_refs:list<string>, claim:string, why:string, files:list<string>}>
      */
     private function dedupLearnings(array $learnings): array
     {
