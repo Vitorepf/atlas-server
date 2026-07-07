@@ -127,4 +127,23 @@ class MemoryJournalReplayTest extends TestCase
             ->assertExitCode(1);
         $this->assertSame(0, AtlasMemoryEntry::query()->count(), 'A broken chain must not partially reconstruct.');
     }
+
+    public function test_replay_excluding_a_seq_reverses_that_mutation(): void
+    {
+        $this->seedTwelve();
+
+        $records = (new AtlasMemoryJournal($this->journalPath))->read();
+        $seq3 = collect($records)->firstWhere('seq', 3);
+        $removedId = (string) $seq3['id'];
+
+        $this->dropAtlasMemoryEntryTable();
+        $this->createAtlasMemoryEntryTable();
+
+        // "replay-sem-a-entrada" — rebuild the brain as if seq 3 never happened.
+        $this->artisan('atlas:brain:replay', ['--journal' => $this->journalPath, '--exclude-seq' => [3]])
+            ->assertExitCode(0);
+
+        $this->assertSame(11, AtlasMemoryEntry::query()->count(), 'Exactly the excluded mutation is gone.');
+        $this->assertNull(AtlasMemoryEntry::query()->find($removedId), 'The excluded row must be absent after the reversal.');
+    }
 }

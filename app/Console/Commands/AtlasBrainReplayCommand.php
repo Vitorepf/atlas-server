@@ -27,6 +27,7 @@ class AtlasBrainReplayCommand extends Command
         {--journal= : Journal path (defaults to config atlas.brain.journal.path)}
         {--dry-run : Verify the chain and report the digest without writing rows}
         {--truncate : Delete existing memory rows before replaying (clean rebuild)}
+        {--exclude-seq=* : Journal seq(s) to omit — the "replay-sem-a-entrada" reversal (implies --truncate)}
         {--json : Machine-readable output}';
 
     protected $description = 'Rebuild brain memory rows from the hash-chained journal (SIS8 reversibility).';
@@ -57,10 +58,14 @@ class AtlasBrainReplayCommand extends Command
         }
 
         $dryRun = (bool) $this->option('dry-run');
+        $excluded = array_map('intval', (array) $this->option('exclude-seq'));
+        // Excluding a seq is a reversal: rebuild the brain as if that mutation
+        // never happened, which only holds from a clean slate.
+        $truncate = (bool) $this->option('truncate') || $excluded !== [];
         $applied = 0;
 
         if (! $dryRun) {
-            if ($this->option('truncate')) {
+            if ($truncate) {
                 AtlasMemoryEntry::withTrashed()->cursor()->each->forceDelete();
             }
 
@@ -70,6 +75,9 @@ class AtlasBrainReplayCommand extends Command
             $columns = array_flip(Schema::getColumnListing('atlas_memory_entries'));
 
             foreach ($journal->read() as $record) {
+                if (in_array((int) ($record['seq'] ?? -1), $excluded, true)) {
+                    continue; // omitted mutation — the reversal
+                }
                 $id = (string) ($record['id'] ?? '');
                 if ($id === '' || ! is_array($record['attributes'] ?? null)) {
                     continue;
@@ -94,6 +102,7 @@ class AtlasBrainReplayCommand extends Command
             'rows_applied' => $applied,
             'rows_present' => AtlasMemoryEntry::withTrashed()->count(),
             'content_digest' => $digest,
+            'excluded_seqs' => $excluded,
             'dry_run' => $dryRun,
             'rto_seconds' => round(microtime(true) - $started, 3),
         ], self::SUCCESS);
