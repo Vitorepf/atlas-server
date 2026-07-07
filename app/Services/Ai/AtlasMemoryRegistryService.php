@@ -68,6 +68,7 @@ class AtlasMemoryRegistryService
         // honestly and recall falls back to lexical (never a fake vector).
         $this->semanticIndexer->indexEntry($entry);
         $this->accrueRealityGraph($entry);
+        $this->accrueRelations($entry);
 
         return $entry;
     }
@@ -84,6 +85,7 @@ class AtlasMemoryRegistryService
         $this->journal($entry, 'upsert');
         $this->semanticIndexer->indexEntry($entry);
         $this->accrueRealityGraph($entry);
+        $this->accrueRelations($entry);
 
         return $entry;
     }
@@ -116,6 +118,7 @@ class AtlasMemoryRegistryService
         $this->journal($entry, 'curate');
         $this->semanticIndexer->indexEntry($entry);
         $this->accrueRealityGraph($entry);
+        $this->accrueRelations($entry);
 
         return $entry->refresh();
     }
@@ -143,6 +146,22 @@ class AtlasMemoryRegistryService
                 null,
             );
             $service->ingestMemoryEntry($entry);
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
+    /**
+     * D3 (Obra #18) — auto-relation accrual: relate a just-written entry against its
+     * (type,scope) bucket via the governance hook, so duplicate/conflict edges accrue
+     * continuously on write instead of only on a manual `atlas:memory:govern scan`.
+     * Same fail-open contract as accrueRealityGraph — a relation fault never breaks the
+     * memory write (the governance hook is itself fail-open; this is belt-and-suspenders).
+     */
+    private function accrueRelations(AtlasMemoryEntry $entry): void
+    {
+        try {
+            app(AtlasMemoryGovernanceService::class)->relateNewEntry($entry);
         } catch (Throwable $throwable) {
             report($throwable);
         }
@@ -512,6 +531,7 @@ class AtlasMemoryRegistryService
             ]),
         ]));
         $this->accrueRealityGraph($entry);
+        $this->accrueRelations($entry);
 
         return $entry;
     }

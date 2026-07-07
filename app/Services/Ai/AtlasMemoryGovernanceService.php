@@ -12,6 +12,7 @@ use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AtlasMemoryGovernanceService
 {
@@ -99,6 +100,45 @@ class AtlasMemoryGovernanceService
             'conflicts' => $conflicts,
             'near_duplicates' => $this->detectNearDuplicates($entries),
         ];
+    }
+
+    /**
+     * D3 (Obra #18) — auto-relation hook: relate a JUST-WRITTEN memory against the only
+     * entries that could be its duplicate/conflict — the ones sharing its
+     * (memory_type, scope_type, scope_id) bucket, since both detectors group by exactly
+     * those keys. A cheap indexed slice, never the full-corpus scan, so it is safe on
+     * every write. Reuses the same detectors as scan(), so any relation is
+     * updateOrCreate-deduped by the unique pair index. Fail-open: a relation-accrual
+     * fault must NEVER break the memory write that triggered it.
+     */
+    public function relateNewEntry(AtlasMemoryEntry $entry): void
+    {
+        try {
+            if (! DatabaseTableAvailability::has('atlas_memory_entries')
+                || ! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
+                return;
+            }
+
+            $peers = AtlasMemoryEntry::query()
+                ->where('memory_type', $entry->memory_type)
+                ->where('scope_type', $entry->scope_type)
+                ->when(
+                    $entry->scope_id === null,
+                    fn (Builder $q): Builder => $q->whereNull('scope_id'),
+                    fn (Builder $q): Builder => $q->where('scope_id', $entry->scope_id),
+                )
+                ->where('status', 'active')
+                ->get();
+
+            if ($peers->count() < 2) {
+                return; // only the new entry itself in its bucket → nothing to relate
+            }
+
+            $this->detectDuplicates($peers, false);
+            $this->detectConflicts($peers, false);
+        } catch (Throwable) {
+            // fail-open: relation accrual must never break a memory write
+        }
     }
 
     /**

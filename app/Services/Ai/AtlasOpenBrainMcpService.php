@@ -1740,6 +1740,15 @@ class AtlasOpenBrainMcpService
             'recorded_at' => now(),
         ]);
 
+        // D3 (Obra #18) — the MCP record path bypasses AtlasMemoryRegistryService's
+        // accruals, so relate this new entry against its (type,scope) bucket here too.
+        // Fail-open: relation accrual must never fail the record tool.
+        try {
+            app(AtlasMemoryGovernanceService::class)->relateNewEntry($entry);
+        } catch (Throwable) {
+            // never fail the record tool over relation accrual
+        }
+
         return [
             'ok' => true,
             'tool' => 'atlas_memory_record',
