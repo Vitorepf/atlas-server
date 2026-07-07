@@ -60,11 +60,11 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
         $apply = (bool) $this->option('apply');
         $marked = 0;
         foreach ($usages as $usage) {
-            if ($usage->feedback_action !== null) {
+            if ($usage->getAttribute('feedback_action') !== null) {
                 continue; // already has feedback — never overwrite
             }
             $entry = $usage->memoryEntry;
-            if ($entry === null || ! $this->diffMentions($diff, (string) $entry->title)) {
+            if ($entry === null || ! $this->diffMentions($diff, (string) $entry->getAttribute('title'))) {
                 continue;
             }
             if ($apply) {
