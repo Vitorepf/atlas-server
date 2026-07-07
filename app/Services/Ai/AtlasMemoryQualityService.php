@@ -421,6 +421,7 @@ class AtlasMemoryQualityService
                 'table_present' => 0,
                 'recall_usage_total' => 0,
                 'entries_recalled' => 0,
+                'top_entry_recall_count' => 0,
                 'active_entries_never_recalled' => count($activeEntryIds),
                 'stale_never_recalled_active' => $this->staleNeverRecalledCount($active, collect()),
                 'thin_never_recalled_active' => $this->thinNeverRecalledCount($active, collect()),
@@ -436,6 +437,7 @@ class AtlasMemoryQualityService
                 'table_present' => 1,
                 'recall_usage_total' => 0,
                 'entries_recalled' => 0,
+                'top_entry_recall_count' => 0,
                 'active_entries_never_recalled' => 0,
                 'stale_never_recalled_active' => 0,
                 'thin_never_recalled_active' => 0,
@@ -457,10 +459,23 @@ class AtlasMemoryQualityService
         $feedback = (clone $query)->whereNotNull('feedback_action');
         $negative = ['not_useful', 'wrong_context', 'stale', 'too_much', 'corrected'];
 
+        // D5 — recall CONCENTRATION: how many recalls pile on the single most-recalled
+        // entry. The wiper audit found 90% of 18 320 recalls returning ONE memory — a
+        // degenerate retrieval that a coverage-only score hides. This is the crude number
+        // behind that pathology.
+        $topEntryRecallCount = (int) ((clone $query)
+            ->selectRaw('memory_entry_id, COUNT(*) as aggregate_count')
+            ->groupBy('memory_entry_id')
+            ->orderByDesc('aggregate_count')
+            ->limit(1)
+            ->get()
+            ->value('aggregate_count') ?? 0);
+
         return [
             'table_present' => 1,
             'recall_usage_total' => (clone $query)->count(),
             'entries_recalled' => $recalledIds->count(),
+            'top_entry_recall_count' => $topEntryRecallCount,
             'active_entries_never_recalled' => max(0, count($activeEntryIds) - $recalledIds->count()),
             'stale_never_recalled_active' => $this->staleNeverRecalledCount($active, $recalledIds),
             'thin_never_recalled_active' => $this->thinNeverRecalledCount($active, $recalledIds),
@@ -616,6 +631,9 @@ class AtlasMemoryQualityService
             'negative_feedback_ratio' => $this->ratio((int) $feedback['negative'], $feedbackTotal),
             'retrieval_recall_coverage_ratio' => $this->ratio((int) $retrievalEval['entries_recalled'], max(1, (int) $retrievalEval['entries_recalled'] + (int) ($retrievalEval['stale_never_recalled_active'] ?? 0))),
             'retrieval_negative_feedback_ratio' => $this->ratio((int) $retrievalEval['recall_negative_feedback'], $recallFeedbackTotal),
+            // D5 — share of recalls piling on the single most-recalled entry (the wiper's
+            // degenerate-retrieval signature). 0.9 ⇒ 90% of recalls return one memory.
+            'recall_concentration_ratio' => $this->ratio((int) ($retrievalEval['top_entry_recall_count'] ?? 0), max(1, (int) ($retrievalEval['recall_usage_total'] ?? 0))),
             'open_relation_ratio' => $this->ratio((int) $relations['open'], $active),
             'source_orphan_ratio' => $this->ratio((int) $sourceIntegrity['orphaned'], $checked),
         ];
@@ -652,8 +670,15 @@ class AtlasMemoryQualityService
             // with many usages and ZERO feedback (the wiper: 0/18320) is a dead write and
             // scores ~0 here; it rises only when real feedback_action is recorded (D4).
             'feedback' => $this->feedbackComponent($usageTotal, $feedbackTotal, (float) ($ratios['negative_feedback_ratio'] ?? 0.0)),
+            // D5 — retrieval quality is coverage MINUS negative feedback MINUS the
+            // degenerate-concentration penalty: a store whose recalls all pile on one
+            // entry is NOT well-retrieved, however high its nominal coverage. Honest, not
+            // weight-tuning — it makes the dimension measure what it claims (the wiper's
+            // 90%-to-one-entry pathology the audit named).
             'retrieval_eval' => (int) ($retrievalEval['recall_usage_total'] > 0
-                ? max(0, round(($ratios['retrieval_recall_coverage_ratio'] ?? 0.0) * 100) - round(($ratios['retrieval_negative_feedback_ratio'] ?? 0.0) * 40))
+                ? max(0, round(($ratios['retrieval_recall_coverage_ratio'] ?? 0.0) * 100)
+                    - round(($ratios['retrieval_negative_feedback_ratio'] ?? 0.0) * 40)
+                    - round(($ratios['recall_concentration_ratio'] ?? 0.0) * 100))
                 : 60),
             'completeness' => max(0, 100 - $completenessPenalty),
             // D5 — the three crude wiper markers as FIRST-CLASS dimensions. Each is a
