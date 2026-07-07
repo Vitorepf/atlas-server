@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Autonomy;
 
+use App\Services\Ai\EngineeringKernel\Adapters\ReceiptHashTrait;
+
 /**
  * Pure, in-memory receipt ledger. Produces canonical, provider-free receipts
  * for stop/go decisions — no file writes, no DB rows, no provider messages.
@@ -49,6 +51,8 @@ namespace App\Services\Ai\SelfConstruction\Autonomy;
  */
 final class AtlasSelfConstructionAutonomyDecisionReceiptLedger
 {
+    use ReceiptHashTrait;
+
     public const SCHEMA = 'atlas.self_construction.autonomy.decision_receipt_ledger.v1';
 
     private const VALID_DECISIONS = ['stop', 'go'];
@@ -72,10 +76,10 @@ final class AtlasSelfConstructionAutonomyDecisionReceiptLedger
         $rollbackPath  = (string) ($facts['rollback_path'] ?? '');
 
         // AC3: normalize by ksort recursively, then JSON-encode for hash.
-        $normalizedFacts = $this->normalizeRecursive($inputFacts);
+        $normalizedFacts = self::canonicalize($inputFacts);
         // AC4: the hash covers the full decision record — including the new evidence/actor/risk/
         // rollback fields — so a later audit can replay the exact decision chain from stored facts.
-        $hashPayload     = json_encode([
+        $receiptHash = self::hashPayload([
             'decision'       => $decision,
             'reasons'        => $reasons,
             'input_facts'    => $normalizedFacts,
@@ -87,7 +91,6 @@ final class AtlasSelfConstructionAutonomyDecisionReceiptLedger
             'risk'           => $risk,
             'rollback_path'  => $rollbackPath,
         ]);
-        $receiptHash = hash('sha256', (string) $hashPayload);
 
         $sealedAt = $sealedAtIn ?? substr($receiptHash, 0, 16);
 
@@ -126,17 +129,5 @@ final class AtlasSelfConstructionAutonomyDecisionReceiptLedger
             'has_rollback_context' => $hasRollbackContext,
             'autonomy_evidence_verdict' => $autonomyEvidenceVerdict,
         ];
-    }
-
-    private function normalizeRecursive(array $data): array
-    {
-        ksort($data);
-        foreach ($data as $k => $v) {
-            if (is_array($v)) {
-                $data[$k] = $this->normalizeRecursive($v);
-            }
-        }
-
-        return $data;
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ContinuousRuntime;
 
+use App\Services\Ai\EngineeringKernel\Adapters\ReceiptHashTrait;
+
 /**
  * Bounded continuous Self-Construction cycle runner.
  *
@@ -27,6 +29,8 @@ namespace App\Services\Ai\SelfConstruction\ContinuousRuntime;
  */
 final class AtlasSelfConstructionContinuousRuntimeCycleRunner
 {
+    use ReceiptHashTrait;
+
     public const SCHEMA = 'atlas.continuous_runtime.cycle_runner.v1';
 
     public const STOP_SAFETY = 'safety_stop';
@@ -106,9 +110,10 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             if (((int) ($queueHealth['claimable_depth'] ?? -1)) === 0) {
                 $replAction = (string) ($repl['action'] ?? 'unknown');
                 $extra['queue_low_autotopup_reason'] = 'claimable_depth_zero:replenisher_action:'.$replAction;
-                $extra['replenisher_request_digest'] = 'replenish_'.substr(
-                    hash('sha256', (string) json_encode($repl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
-                    0, 24
+                $extra['replenisher_request_digest'] = self::prefixedHashPayload(
+                    'replenish_',
+                    $repl,
+                    24
                 );
             }
 
@@ -374,7 +379,7 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
         array $learn,
         array $unattendedSupervisor,
     ): string {
-        $canonical = json_encode([
+        return self::prefixedHashPayload('cycle_receipt_', [
             'cycle_id' => $cycleId,
             'stopped' => $stopped,
             'stop_reason' => $stopReason,
@@ -383,8 +388,6 @@ final class AtlasSelfConstructionContinuousRuntimeCycleRunner
             'verify_merge' => $verifyMerge,
             'learn' => $learn,
             'unattended_supervisor' => $unattendedSupervisor,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-
-        return 'cycle_receipt_'.substr(hash('sha256', (string) $canonical), 0, 32);
+        ], 32);
     }
 }

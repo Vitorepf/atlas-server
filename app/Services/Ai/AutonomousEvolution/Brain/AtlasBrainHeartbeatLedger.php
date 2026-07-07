@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlLedgerTrait;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 
 final class AtlasBrainHeartbeatLedger
 {
+    use JsonlLedgerTrait;
+
     public const SCHEMA = 'atlas.brain.heartbeat.v1';
 
-    public function __construct(private readonly ?string $root = null) {}
+    public function __construct(?string $root = null)
+    {
+        $this->root = rtrim((string) ($root ?? config('atlas.brain.heartbeat_root', storage_path('app/atlas/brain/heartbeat'))), '/');
+    }
 
     /** @param array{actor?:string,command?:string,status?:string,dry_run?:bool} $row */
     public function record(string $scope, array $row, ?int $at = null): ?array
@@ -47,18 +53,6 @@ final class AtlasBrainHeartbeatLedger
             return [];
         }
 
-        $rows = (new JsonlReceiptStore($this->pathFor($this->slugify($scope))))->replay();
-
-        return array_values(array_slice($rows, -$k));
-    }
-
-    private function pathFor(string $scope): string
-    {
-        return rtrim((string) ($this->root ?? config('atlas.brain.heartbeat_root', storage_path('app/atlas/brain/heartbeat'))), '/').'/'.$scope.'.ndjson';
-    }
-
-    private function slugify(string $scope): string
-    {
-        return strtolower((string) preg_replace('/[^a-z0-9._-]+/i', '-', trim($scope)));
+        return $this->doTail($scope, $k);
     }
 }

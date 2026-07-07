@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlLedgerTrait;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 
 /**
@@ -16,11 +17,11 @@ use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
  */
 final class AtlasBrainProvenanceLedger
 {
+    use JsonlLedgerTrait;
+
     public const SCHEMA = 'atlas.brain.provenance_ledger.v1';
 
     public const DEFAULT_TAIL = 30;
-
-    private readonly string $root;
 
     public function __construct(?string $root = null)
     {
@@ -64,23 +65,5 @@ final class AtlasBrainProvenanceLedger
         }
 
         return $persisted;
-    }
-
-    /** @return list<array<string,mixed>> */
-    public function tail(string $scope, int $k = self::DEFAULT_TAIL): array
-    {
-        $out = (new JsonlReceiptStore($this->pathFor($this->slugify(trim($scope)))))->replay();
-
-        return array_values(array_slice($out, -max(1, $k)));
-    }
-
-    private function pathFor(string $scope): string
-    {
-        return $this->root.'/'.$scope.'.ndjson';
-    }
-
-    private function slugify(string $s): string
-    {
-        return strtolower((string) preg_replace('/[^a-z0-9._-]+/i', '-', $s));
     }
 }

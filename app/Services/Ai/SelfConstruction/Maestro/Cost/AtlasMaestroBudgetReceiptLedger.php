@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Maestro\Cost;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\EngineeringKernel\Adapters\ReceiptHashTrait;
 
 /**
  * Append-only receipt ledger for {@see AtlasMaestroBudgetGate} decisions.
@@ -18,6 +19,8 @@ use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
  */
 final class AtlasMaestroBudgetReceiptLedger
 {
+    use ReceiptHashTrait;
+
     public const SCHEMA = 'atlas.maestro.budget_receipt.v1';
 
     private readonly JsonlReceiptStore $store;
@@ -119,8 +122,7 @@ final class AtlasMaestroBudgetReceiptLedger
     private function receiptHash(array $row): string
     {
         unset($row['receipt_hash']);
-        $canonical = json_encode($row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        return 'budget_receipt_'.substr(hash('sha256', (string) $canonical), 0, 24);
+        return self::prefixedHashPayload('budget_receipt_', $row, 24);
     }
 }
