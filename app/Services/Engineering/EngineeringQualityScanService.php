@@ -218,7 +218,9 @@ class EngineeringQualityScanService
             $changedOnly && $phpTargets === [] ? 'no_changed_php_targets' : null,
         );
 
-        $plans[] = $this->workspaceBinaryPlan('phpstan', 'vendor/bin/phpstan', array_values(array_filter(['./vendor/bin/phpstan', 'analyse', '--no-progress', '--error-format=json', ...$phpTargets])), $workspace, File::exists($workspace.'/phpstan.neon') || File::exists($workspace.'/phpstan.neon.dist'));
+        // P1 (Obra #19): larastan's bootstrap OOMs under the default memory_limit — pin --memory-limit=3G so the
+        // default invocation never crashes (was the phpstan-crashes-on-default bug).
+        $plans[] = $this->workspaceBinaryPlan('phpstan', 'vendor/bin/phpstan', array_values(array_filter(['./vendor/bin/phpstan', 'analyse', '--no-progress', '--memory-limit=3G', '--error-format=json', ...$phpTargets])), $workspace, File::exists($workspace.'/phpstan.neon') || File::exists($workspace.'/phpstan.neon.dist'));
         $plans[] = $this->workspaceBinaryPlan('psalm', 'vendor/bin/psalm', array_values(array_filter(['./vendor/bin/psalm', '--output-format=json', ...$phpTargets])), $workspace, File::exists($workspace.'/psalm.xml') || File::exists($workspace.'/psalm.xml.dist'));
         $plans[] = $this->workspaceBinaryPlan('typescript', 'node_modules/.bin/tsc', ['./node_modules/.bin/tsc', '--noEmit', '--pretty', 'false'], $workspace, File::isFile($workspace.'/tsconfig.json'));
         $plans[] = $this->workspaceBinaryPlan('biome', 'node_modules/.bin/biome', ['./node_modules/.bin/biome', 'ci', '--reporter=json', ...($frontendTargets ?: ['.'])], $workspace, $this->hasAny($workspace, ['biome.json', 'biome.jsonc']));
