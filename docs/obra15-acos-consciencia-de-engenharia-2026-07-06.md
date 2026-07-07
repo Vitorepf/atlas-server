@@ -1,6 +1,8 @@
 # Obra #15 (proposta) — ACOS: de recuperador higiênico a consciência de engenharia
 
 > ⛔ **STATUS: VISÃO — NÃO IMPLEMENTAR DIRETO.** A execução vive em `obra17-acos-3x-plano-mestre-2026-07-06.md` + `docs/work-orders/`. Várias fases aqui foram CORRIGIDAS ou REFUTADAS pela #17 (ex.: a F4 "guard não avisa conflito de decisão" é DIAGNÓSTICO FALSO — o `decisionViolationCheck` já existe e roda; a F1/F2 "estender o harvester" foi refutada). Governança: `obra-linha-acos-carta-de-autonomia-2026-07-06.md`. Comece pelo `obra-linha-acos-leia-me-implementador.md`.
+>
+> **Governança:** Carta de Autonomia — o Atlas age sozinho na main local, commita e etiqueta no Diário de Evolução; **sem aprovação**. Onde este doc disser aprovação/assinatura/evento-operador/G0-não-auto-promove, vale o autônomo.
 
 Data: 2026-07-06 · Régua: a do operador (hoje **4/10**) · Status: VISÃO (não-executável direto)
 
@@ -58,4 +60,4 @@ Estender o `atlas:cognition:evolution-score` com a dimensão **valor_de_engenhar
 Pré-requisitos já entregues pela #14: pack sem lixo, cadência viva, ciclo de lições, feedback loop coletando (CPR medível), índice multi-classe correto.
 
 ## Regras herdadas (pétreas)
-Byte-prova na execução; líquido/valor medido antes de declarar entregue; G0 nunca auto-promove; verify-then-absorb em todo doc; vocabulário proibido; push só com OK; lane do operador.
+Byte-prova na execução; líquido/valor medido antes de declarar entregue; G0 auto-promove após os checks automáticos verdes + etiqueta no Diário de Evolução (reversível); verify-then-absorb em todo doc; vocabulário proibido; push ao remoto só com OK (eixo separado; a main local é autônoma).

@@ -2,6 +2,8 @@
 
 > ⛔ **STATUS: VISÃO — NÃO IMPLEMENTAR DIRETO.** A execução vive em `obra17-*` + `docs/work-orders/`. Só P3 (crítica adversarial de spec) e P6 (delta de surpresa) sobreviveram, re-sequenciados na #17/#18. Refutado/adiado aqui: P1 (briefing noturno "sem humano" — LLM headless não provado, ADIADO pela #17), P2/P4 (enxugados para raio determinístico). Governança: `obra-linha-acos-carta-de-autonomia-2026-07-06.md`. Comece pelo `obra-linha-acos-leia-me-implementador.md`.
 
+> **Governança:** Carta de Autonomia — o Atlas age sozinho na main local, commita e etiqueta no Diário de Evolução; **sem aprovação**. Onde este doc disser aprovação/assinatura/evento-operador/G0-não-auto-promove, vale o autônomo.
+
 Data: 2026-07-06 · Camada ACIMA da Obra #15 · Status: VISÃO (não-executável direto)
 
 ## O salto conceitual
@@ -12,7 +14,7 @@ A #15 dá ao ACOS **memória de engenharia** (lembrar, recuperar, avisar). Esta 
 
 ## P1 — Cognição noturna (o dia é digerido, a manhã vem pronta)
 A cadência de hoje re-prova receipts; evolui para **trabalho de compreensão**: após cada dia de commits, o ACOS re-sintetiza os briefs afetados (F1 da #15), detecta drift entre intenção (specs/decisões) e realidade (código), e emite o **briefing da manhã**: o que mudou embaixo de você, que suposições quebraram, o que está pronto para decidir, o que os workers fizeram na main.
-**Gate:** briefing diário gerado sem humano; ≥70% dos itens julgados úteis pelo operador em 2 semanas de uso (feedback de 1 toque).
+**Gate:** briefing diário gerado sozinho; o Atlas mede sozinho o proveito (≥70% dos itens confirmados úteis por uso real em 2 semanas — item citado/consumido em sessão), declara a fase pronta e etiqueta 'evolucao-de-fase' no Diário.
 
 ## P2 — Simulação antecipatória (TEOS aplicado a engenharia real)
 Antes de refatoração/implementação complexa, o ACOS pré-computa o **raio de explosão**: call graph afetado, testes que cobrem, decisões/invariantes tocados, e — usando o corpus de refutações e o histórico de falhas — **onde vai quebrar** ("mudar X põe em risco os invariantes A/B; a última tentativa parecida foi refutada por Y"). Os runtimes contrafactuais (TEOS-I3/I4) existem como subsistemas certificados; esta fase os liga ao trabalho de engenharia de verdade.
@@ -49,4 +51,4 @@ Ordem executável: #15 F3+F2 → #16 P1 (briefing já com F2) → #15 F1 → #16
 1. Multiplicador composto? Sim — cada provider novo herda pensamento acumulado, não só memória. 2. Antifrágil? Sim — quanto mais caos (workers, obras paralelas, drift), mais o briefing/drift-detection vale. 3. Fim-a-fim em linguagem natural? Sim — briefing da manhã É linguagem natural. 4. Destrava substituir função humana? Sim — o "tech lead que lembra tudo e antecipa" é função humana cara. 5. Local-first? Sim — tudo roda na cadência local; crítica cross-model usa a política de providers vigente.
 
 ## Regras herdadas (pétreas)
-Byte-prova; gates mensuráveis antes de declarar entregue; G0 nunca auto-promove; crítica adversarial nunca vira hard-block sem histórico de acerto; vocabulário proibido; push só com OK.
+Byte-prova; gates mensuráveis antes de declarar entregue; G0 auto-promove após os checks automáticos verdes + etiqueta no Diário de Evolução (reversível); crítica adversarial nunca vira hard-block sem histórico de acerto; vocabulário proibido; push ao remoto só com OK (eixo separado; a main local é autônoma).

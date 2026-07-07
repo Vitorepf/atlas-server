@@ -1,6 +1,8 @@
 # Obra #18 — ACOS em outro nível: matéria-prima, canos e o kit de delegação
 
 Data: 2026-07-06 · Método: 3 investigadores adversariais (Anatomista do Dado / Engenheiro de Implementabilidade / Caçador de Costuras) + verificação cruzada · Status: aprovável
+
+> **Governança:** Carta de Autonomia — o Atlas age sozinho na main local, commita e etiqueta no Diário de Evolução; **sem aprovação**. Onde este doc disser aprovação/assinatura/evento-operador/G0-não-auto-promove, vale o autônomo.
 Papel na linha: a **#17** conserta o MOTOR de retrieval; a **#18** garante que (a) existe conhecimento real para recuperar, (b) ele chega a TODAS as superfícies de entrega, (c) cada slice é executável por modelo barato. As duas obras são complementares e parcialmente paralelas.
 
 ## A tese em três achados (todos provados em auditoria de 06/07)
@@ -27,7 +29,7 @@ Baselines = números da auditoria censitária (acima). Todos os slices são exec
 |---|---|---|
 | **C1 Dereferenciar memória no prompt do Dev** (dias — a alavanca máxima) | inline `title + summary` provider-safe de cada memory ref na seção Context Refs — a MESMA manobra que `PromptSectionsMapper` já fez 2× (discovery/exemplars), reusando a redação do `DevFailureCapsulePromptInjector` e o guard de sendability (:251-256). Incluir o `RepairPromptComposer` (hoje zero cognição). Slice-irmão barato: auditar refs `awis_cache:` opacos do Forge | 0% dos prompts Dev com texto de decisão (provado por construção) → **≥80% dos runs em zona com decisão registrada contêm o TEXTO no prompt renderizado; colisões tardias em runs Dev caem vs. baseline** |
 | **C2 Quinta fonte advisory na esteira** | `AtlasTaskServingService::next()` já tem o padrão fail-open (:188-206) com 4 fontes; adicionar `relevant_memory` (decisões+refutações escopadas pelo `allowed_files` do packet). Sequência: depois do T0 da #17 (precisa do retrieval por query) | packets com decisão de zona: 0% → **≥80% dos packets em zonas com decisão carregam-na; give_backs por decisão-já-registrada → 0 na janela** |
-| **C3 Fechamento simétrico** | outcome de QUALQUER superfície (report da esteira, completion do Dev) emite candidato G0 pelo MESMO canal do Stop hook, com delta-de-surpresa como filtro anti-inflação; G0 continua nunca auto-promovendo | entregas não-Claude-Code gerando candidato: ~0 → **alvo definido com precision G0 sem queda (verify-then-absorb)** |
+| **C3 Fechamento simétrico** | outcome de QUALQUER superfície (report da esteira, completion do Dev) emite candidato G0 pelo MESMO canal do Stop hook, com delta-de-surpresa como filtro anti-inflação; G0 auto-promove após os checks automáticos verdes + etiqueta no Diário de Evolução (reversível) | entregas não-Claude-Code gerando candidato: ~0 → **alvo definido com precision G0 sem queda (verify-then-absorb roda sozinho)** |
 | Fora com razão | Chat gateway (única costura fail-closed — herda o T0 da #17 de graça); Forge (costurado nos 2 sentidos); missões (decomposição cognitiva é obra futura, não remendo) | — |
 
 ## Frente K — KIT DE DELEGAÇÃO (a linha frontier→barato como produto)
@@ -38,7 +40,7 @@ Nada de harness novo: **4 extensões de órgãos vivos** + disciplina de escrita
 |---|---|
 | **K1 Schema da ordem = extensão do envelope do packet** (`AtlasTaskServingService` ~:990 já tem allowed/forbidden_files, acceptance, evidence, delivery_rules) | adicionar: `frozen_callers` (output de rg colado pelo planejador, com destino declarado por caller — mudança **aditiva-only**, trocar assinatura = give_back), `acceptance_test_ref` (path+hash do teste PRÉ-ESCRITO pelo planejador, que entra em forbidden_files — o implementador o faz passar, nunca o edita), `stop_and_return` (critérios pare-e-devolva das famílias de poison-packet), `glossary` (toda sigla → path absoluto; sigla não resolvida = ordem inválida), `baseline_artifact` |
 | **K2 Scaffolder `atlas:obra:work-order <slice>`** | gera a ordem do doc da obra + auto-preenche callers via code graph + **valida que todo path/símbolo citado existe** (teria pego os 2 falsos-fantasmas desta rodada — nos dois sentidos) |
-| **K3 Linter de ordem = extensão do `AtlasTaskPacketQualityInspector`** | recusa na FONTE: sigla sem path, path inexistente, aceitação citando arquivo fora de allowed∪forbidden, sem teste pré-escrito, gate sem rótulo `mecânico`/`evento-operador` (o implementador NUNCA fecha gate de operador) |
+| **K3 Linter de ordem = extensão do `AtlasTaskPacketQualityInspector`** | recusa na FONTE: sigla sem path, path inexistente, aceitação citando arquivo fora de allowed∪forbidden, sem teste pré-escrito, gate sem rótulo `mecânico`/`automático` (o Atlas roda e fecha; passou → etiqueta no Diário) |
 | **K4 Gate de conformidade = extensão do admission gate v2** (mesmo enforce; `wired_or_tagged`/`no_duplicate_logic` continuam) | hash do teste pré-escrito intocado; diff ⊆ allowed_files; suítes dos frozen_callers verdes; sem colisão de nome de comando artisan |
 | **K5 Disciplina do planejador** (contrato, não código) | teste de aceitação escrito ANTES da ordem (não consegue escrever = slice não está pronto); todo símbolo verificado com rg antes de citado (workspace certo, `--no-ignore` em storage/); "religar X" sempre com call site consumidor + teste que prova leitura; 1 slice = 1 commit com prova; gates rotulados; assumir implementador SEM hooks (Codex não tem sentinel/capture — tudo vai no texto da ordem) |
 
@@ -58,7 +60,7 @@ Nada de harness novo: **4 extensões de órgãos vivos** + disciplina de escrita
 
 ## Medição da obra (régua do operador, herdada da #17)
 
-Os 3 contadores (TPE, perguntas evitáveis, colisões tardias) + dois específicos: **taxa de prompt-com-cognição** (% de runs Dev/esteira em zona com decisão que carregam o texto dela — baseline 0%) e **memórias estruturadas/dia** (baseline 0,25 stubs/dia). Fase vira ready só com evento externo (regra da #17).
+Os 3 contadores (TPE, perguntas evitáveis, colisões tardias) + dois específicos: **taxa de prompt-com-cognição** (% de runs Dev/esteira em zona com decisão que carregam o texto dela — baseline 0%) e **memórias estruturadas/dia** (baseline 0,25 stubs/dia). O Atlas mede sozinho, declara a fase pronta e etiqueta 'evolucao-de-fase' no Diário (regra da #17).
 
 ## Pétreas
-Byte-prova; baseline antes do código; G0 nunca auto-promove; aditivo-only em símbolo público sem lista de callers congelada; testes nunca no pgsql vivo; vocabulário proibido; push só com OK; `rg --no-ignore` em storage/.
+Byte-prova; baseline antes do código; G0 auto-promove após os checks automáticos verdes + etiqueta no Diário de Evolução (reversível); aditivo-only em símbolo público sem lista de callers congelada; testes nunca no pgsql vivo; vocabulário proibido; push ao remoto só com OK (eixo separado; a main local é autônoma); `rg --no-ignore` em storage/.

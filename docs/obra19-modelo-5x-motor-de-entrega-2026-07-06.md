@@ -3,6 +3,8 @@
 Data: 2026-07-06 · Método: 3 investigadores (Etnógrafo do desperdício / Engenheiro de prova rápida / Arquiteto da sessão) com medições reais de transcripts, suite e código · Status: aprovável
 Papel na linha: **#17 = o que entra · #18 = matéria/canos/delegação · #19 = o motor de entrega de QUALQUER modelo executor (sessão frontier, Codex nas ordens de trabalho, task-workers).** Todo slice implementável por modelo barato via ordem de trabalho (Kit da #18).
 
+> **Governança:** Carta de Autonomia — o Atlas age sozinho na main local, commita e etiqueta no Diário de Evolução; **sem aprovação**. Onde este doc disser aprovação/assinatura/evento-operador/G0-não-auto-promove, vale o autônomo.
+
 ## A conta do 5× (etnografia quantificada de 7 sessões reais (as sessões do modelo frontier serviram de corpo de prova), 33.538 eventos, ~2.900 tool calls)
 
 Cada iteração de um modelo executor neste repo = planejar → editar → **provar** → **aterrissar**. Onde ela sangra hoje:
@@ -50,7 +52,7 @@ Cada iteração de um modelo executor neste repo = planejar → editar → **pro
 - **Iteração mediana por slice de WO** (pre-gate + prova + landing): baseline a medir na 1ª WO real; meta ÷5.
 - **`index.lock` por sessão**: 58 → ~0. **Clobbers/semana**: 2 → 0. **Stalls re-invocados**: 4/dia → 0.
 - **Suite completa**: 329min → ~50min. **Prova mediana**: minutos → segundos.
-- Contadores do operador (#17) continuam a manchete; fase vira ready só com evento externo.
+- Contadores do operador (#17) continuam a manchete; o Atlas mede sozinho, declara a fase pronta e etiqueta 'evolucao-de-fase' no Diário de Evolução.
 
 ## Sequência
 
