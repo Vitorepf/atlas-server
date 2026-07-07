@@ -47,7 +47,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
                 configContextFloor: (int) config('atlas.loop.context_sufficiency_floor', 0),
             );
         } catch (\Throwable) {
-            return new self();
+            return new self;
         }
     }
 
@@ -124,44 +124,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
      */
     private function falseClaimBlocked(AcceptanceBundle $bundle): array
     {
-        $e = $bundle->execution;
-        $claimsPass = $e->claimedStatus === 'passed';
-
-        // A claimed pass with zero tests or zero assertions is a lie, full stop.
-        if ($claimsPass && $e->testsRun < 1) {
-            return $this->fail('claimed_pass_with_zero_tests_run');
-        }
-        if ($claimsPass && $e->assertionsExecuted < 1) {
-            return $this->fail('claimed_pass_with_zero_assertions');
-        }
-
-        // The fixed smoke artifact is the legacy fake-green kernel's fingerprint.
-        foreach ($e->artifacts as $artifact) {
-            if (str_contains($artifact, self::FIXED_SMOKE_SIGNATURE)) {
-                return $this->fail('fixed_smoke_artifact_is_not_a_test_run');
-            }
-        }
-
-        // If it claims a suite (selected_tests) but actually only ran a lint, that is the exact
-        // "php -l as suite" lie the legacy fake-green kernel commits.
-        $ranALint = false;
-        $ranATestRunner = false;
-        foreach ($e->commands as $cmd) {
-            if ($this->isLintCommand($cmd)) {
-                $ranALint = true;
-            }
-            if ($this->isTestRunnerCommand($cmd)) {
-                $ranATestRunner = true;
-            }
-        }
-        if ($claimsPass && $ranALint && ! $ranATestRunner) {
-            return $this->fail('lint_only_run_presented_as_suite');
-        }
-        if ($claimsPass && $e->selectedTests !== [] && ! $ranATestRunner) {
-            return $this->fail('claimed_suite_without_running_a_test_runner');
-        }
-
-        return $this->pass('real_execution_evidence_present');
+        // Single source of the anti-fake-green rule — shared with the OutcomeMemory
+        // write-path proof gate so a fake-green cannot slip through a drifted copy.
+        return (new FalseClaimInvariant)->evaluate($bundle->execution);
     }
 
     /**
@@ -429,21 +394,6 @@ final class SovereignHonestyFloor implements AcceptanceGate
         return ($proof['passed'] ?? false) === true
             ? $this->pass('original_failure_replayed_green:'.(string) ($proof['original_failure_ref'] ?? ''))
             : $this->fail('original_failure_replay_still_red');
-    }
-
-    private function isLintCommand(string $cmd): bool
-    {
-        return (bool) preg_match('/(^|\s)php\s+-l(\s|$)/', $cmd);
-    }
-
-    private function isTestRunnerCommand(string $cmd): bool
-    {
-        $needle = strtolower($cmd);
-
-        return str_contains($needle, 'phpunit')
-            || str_contains($needle, 'artisan test')
-            || str_contains($needle, 'paratest')
-            || str_contains($needle, 'pest');
     }
 
     /**
