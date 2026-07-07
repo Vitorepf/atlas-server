@@ -39,6 +39,76 @@ final class AgentControlPlaneTaskPacketBuilder
      * @return array<string,mixed>
      */
     /**
+     * K1 (Obra #18) — the kit-order (Ordem) fields, normalized, or [] when the input is
+     * NOT a kit-order (no kit field present). Additive by design: a non-kit packet gets
+     * no kit keys, so K3's $isKitOrder stays false and its fail-safe-pass is unchanged;
+     * a real kit-order now travels its fields to storage instead of being stripped, so
+     * K3 (source linter) and K4 (conformance gate) evaluate a real Ordem.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    private static function normalizeKitOrder(array $input): array
+    {
+        $glossary = [];
+        foreach ((array) ($input['glossary'] ?? []) as $sigla => $path) {
+            $s = trim((string) $sigla);
+            if ($s !== '') {
+                // An empty path is a real K3 deficiency (glossary_sigla_without_path) —
+                // carried on purpose so the linter can refuse it at the source.
+                $glossary[$s] = trim((string) $path);
+            }
+        }
+
+        $frozenCallers = [];
+        foreach ((array) ($input['frozen_callers'] ?? []) as $fc) {
+            if (! is_array($fc)) {
+                continue;
+            }
+            $caller = trim((string) ($fc['caller'] ?? ''));
+            if ($caller !== '') {
+                $frozenCallers[] = ['caller' => $caller, 'destination' => trim((string) ($fc['destination'] ?? ''))];
+            }
+        }
+
+        $acceptanceTestRef = [];
+        $atr = $input['acceptance_test_ref'] ?? null;
+        if (is_array($atr) && trim((string) ($atr['path'] ?? '')) !== '') {
+            $acceptanceTestRef = ['path' => trim((string) $atr['path']), 'hash' => trim((string) ($atr['hash'] ?? ''))];
+        }
+
+        $stopAndReturn = array_values(array_filter(array_map(
+            fn ($v): string => trim((string) $v),
+            (array) ($input['stop_and_return'] ?? [])
+        ), fn (string $v): bool => $v !== ''));
+
+        $baselineArtifact = [];
+        $ba = $input['baseline_artifact'] ?? null;
+        if (is_array($ba) && $ba !== []) {
+            $baselineArtifact = $ba;
+        }
+
+        $out = [];
+        if ($glossary !== []) {
+            $out['glossary'] = $glossary;
+        }
+        if ($frozenCallers !== []) {
+            $out['frozen_callers'] = $frozenCallers;
+        }
+        if ($acceptanceTestRef !== []) {
+            $out['acceptance_test_ref'] = $acceptanceTestRef;
+        }
+        if ($stopAndReturn !== []) {
+            $out['stop_and_return'] = $stopAndReturn;
+        }
+        if ($baselineArtifact !== []) {
+            $out['baseline_artifact'] = $baselineArtifact;
+        }
+
+        return $out;
+    }
+
+    /**
      * The seam decision a heavy refactor must carry: every field named, every field
      * substantive. Returns the normalized spec or null when absent/incomplete —
      * an incomplete spec is treated exactly like no spec (never half-trusted).
@@ -212,6 +282,9 @@ final class AgentControlPlaneTaskPacketBuilder
         // atlas_task_governance.refactor_design_spec_required to make it blocking. The spec
         // travels ON the packet so every stage worker sees the same seam decision.
         $refactorDesignSpec = self::normalizeRefactorDesignSpec((array) ($input['refactor_design_spec'] ?? []));
+        // K1 (Obra #18) — carry the kit-order (Ordem) fields THROUGH the builder instead
+        // of stripping them, so K3/K4 evaluate a real Ordem. [] for a non-kit packet.
+        $kitOrder = self::normalizeKitOrder($input);
         $isHeavyRefactor = count($allowed) >= 3
             && AtlasRefactorProofGate::appliesTo($objective);
         if ($isHeavyRefactor && $refactorDesignSpec === null) {
@@ -378,6 +451,7 @@ final class AgentControlPlaneTaskPacketBuilder
             'dedup_target' => (string) ($input['dedup_target'] ?? $scopeHash),
             'expected_structural_leverage' => (float) ($input['expected_structural_leverage'] ?? 0.0),
             'refactor_design_spec' => $refactorDesignSpec,
+            ...$kitOrder,
             'blocking_reasons' => $blockingReasons,
             'warnings' => $warnings,
             'read_only' => true,
