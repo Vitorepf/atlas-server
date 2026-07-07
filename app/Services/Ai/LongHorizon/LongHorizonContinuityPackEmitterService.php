@@ -165,6 +165,44 @@ final class LongHorizonContinuityPackEmitterService
     }
 
     /**
+     * WO-17-T1 — the CHEAP read the resumption pack consumes (religa o órfão).
+     *
+     * The heavy emit() certifies + persists on the CLI/schedule path; this is the
+     * hot-path-safe accessor: ONE indexed lookup of the latest persisted continuation
+     * pack for a scope, projected to the few fields the resumption section shows.
+     * Returns null when there is none (fail-open: the section stays honestly silent).
+     *
+     * @return array<string,mixed>|null
+     */
+    public function latestContinuityFor(string $scopeType, ?string $scopeId): ?array
+    {
+        try {
+            $pack = AtlasLongHorizonContinuationPack::query()
+                ->where('scope_type', trim($scopeType))
+                ->when($scopeId !== null && trim($scopeId) !== '', fn ($q) => $q->where('scope_id', trim((string) $scopeId)))
+                ->orderByDesc('created_at')
+                ->first();
+
+            if ($pack === null) {
+                return null;
+            }
+
+            return [
+                'uuid' => (string) $pack->uuid,
+                'scope_type' => (string) $pack->scope_type,
+                'scope_id' => $pack->scope_id,
+                'current_phase' => (string) ($pack->current_phase ?? ''),
+                'state_summary' => (string) ($pack->state_summary ?? ''),
+                'open_tasks' => array_values((array) ($pack->open_tasks ?? [])),
+                'stale_after' => $pack->stale_after?->toIso8601String(),
+                'stale' => $pack->stale_after !== null && $pack->stale_after->isPast(),
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     private function persistPack(array $payload): AtlasLongHorizonContinuationPack
@@ -283,7 +321,6 @@ final class LongHorizonContinuityPackEmitterService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array

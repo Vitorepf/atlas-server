@@ -1,0 +1,131 @@
+{
+    "objective": "T1: estado por obra em storage/atlas/obras/ (Stop hook) + obra ativa explícita (nunca inferida) + seção de retomada no context pack (religa o emitter órfão via latestContinuityFor + matcher de refutação na admissão); gate de retomada ≤3 turns.",
+    "allowed_files": [
+        "app/Services/Ai/Obra/AtlasObraStateService.php",
+        "app/Console/Commands/AtlasObraCurrentCommand.php",
+        "app/Services/Ai/LongHorizon/LongHorizonContinuityPackEmitterService.php",
+        "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+        "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php",
+        "tests/Feature/Ai/Obra/AtlasObraResumptionPackTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+        "app/Services/Ai/AtlasMemoryRegistryService.php",
+        "app/Services/Ai/Compounding/AtlasObraLessonHarvester.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Obra/AtlasObraResumptionPackTest.php",
+        "smoke: atlas:obra:current --set + atlas:aobg:capture-session grava o estado; atlas:context-pack mostra '## Retomada da obra ativa' com última sessão + refutações"
+    ],
+    "glossary": {
+        "ObraState": "app/Services/Ai/Obra/AtlasObraStateService.php",
+        "ObraCurrentCommand": "app/Console/Commands/AtlasObraCurrentCommand.php",
+        "Emitter": "app/Services/Ai/LongHorizon/LongHorizonContinuityPackEmitterService.php",
+        "ContextPack": "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+        "SessionCapture": "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Obra/AtlasObraResumptionPackTest.php",
+        "hash": "31b8d137f2319fd984e344a03b5e9e9544421949aa69bbc58efc68562cc6757e"
+    },
+    "frozen_callers": [
+        {
+            "caller": "app/Console/Commands/AtlasContextPackCommand.php:88",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasCodeGraphContextCommand.php:41",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasCodeGraphContextCommand.php:87",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/CodeGraph/CodeGraphContextRetriever.php:22",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/CodeGraph/CodeGraphContextRetriever.php:42",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/CodeGraph/CodeGraphContextRetriever.php:203",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/CodeGraph/CodeGraphContextRetriever.php:212",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainMcpService.php:1448",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainMcpService.php:3385",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextPackService.php:28",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextPackService.php:153",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextPackService.php:1094",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextPackService.php:1099",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextExpansionService.php:144",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextExpansionService.php:178",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Organism/OpenBrainContextPackAnchor.php:13",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Organism/OpenBrainContextPackAnchor.php:27",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainContextInjectionService.php:583",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Programming/AtlasForgeProviderInvocationPromptBuilder.php:220",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Programming/AtlasForgeProviderInvocationPromptBuilder.php:244",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasAobgCaptureSessionCommand.php:61",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php:91",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "a seção de retomada quebraria o pack quando não há obra ativa (deve ser byte-compatível)",
+        "religar o emitter no hot path introduziria custo pesado (deve ser cheap read, fail-open)",
+        "obra ativa inferida em vez de explícita"
+    ],
+    "baseline_artifact": {
+        "metric": "tpe_retomada",
+        "note": "gate ≤3 turns atendido por construção: os fatos de retomada (última sessão, arquivos, drift, refutações) chegam no pack no turn 1; LongHorizon órfão religado por consumidor nominal (latestContinuityFor)"
+    },
+    "generated_by": "atlas:obra:work-order"
+}

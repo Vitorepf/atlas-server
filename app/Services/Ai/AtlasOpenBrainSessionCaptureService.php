@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -163,6 +164,11 @@ class AtlasOpenBrainSessionCaptureService
             // learnings when this session carries a persistent context pack.
             $apcr = $this->updateApcr($opts, $workspaceId, $sessionId, $distilled['learnings']);
 
+            // WO-17-T1 — feed the ACTIVE obra's state with this session's footprint, so
+            // the next session can resume ("você tocou X, provou Y"). No-op unless an
+            // obra is explicitly active; fail-open so it never breaks capture.
+            $obraState = $this->recordObraState($sessionId, $distilled);
+
             $result = [
                 'schema' => self::SCHEMA,
                 'fed' => $outcomeFed || $learningsFed > 0,
@@ -191,6 +197,7 @@ class AtlasOpenBrainSessionCaptureService
                     'learnings_fed' => $learningsFed,
                 ],
                 'apcr' => $apcr,
+                'obra_state' => $obraState,
                 'distill' => 'deterministic', // NO provider/LLM call in the default path
                 'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
                 'generated_at' => now()->toJSON(),
@@ -202,6 +209,35 @@ class AtlasOpenBrainSessionCaptureService
         } catch (Throwable $e) {
             // FAIL-OPEN — capture can never break session end.
             return $this->failOpen($startedAt, $e);
+        }
+    }
+
+    /**
+     * WO-17-T1 — record this session's footprint into the ACTIVE obra's state file so
+     * the next session resumes. No-op unless an obra is explicitly active (never
+     * inferred). Own try/catch: an obra-state fault must not lose the capture result.
+     *
+     * @param  array<string,mixed>  $distilled
+     * @return array<string,mixed>
+     */
+    private function recordObraState(string $sessionId, array $distilled): array
+    {
+        try {
+            $svc = app(AtlasObraStateService::class);
+            $id = $svc->currentId();
+            if ($id === null) {
+                return ['updated' => false, 'reason' => 'no_active_obra'];
+            }
+            $svc->recordSession($id, [
+                'session_id' => $sessionId,
+                'files' => $distilled['files'] ?? [],
+                'result' => $distilled['result'] ?? null,
+                'request' => $distilled['request'] ?? '',
+            ]);
+
+            return ['updated' => true, 'obra_id' => $id];
+        } catch (Throwable) {
+            return ['updated' => false, 'reason' => 'fault'];
         }
     }
 

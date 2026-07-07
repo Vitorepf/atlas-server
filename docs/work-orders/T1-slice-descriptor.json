@@ -1,0 +1,36 @@
+{
+  "_meta": "Descritor da fatia T1 (Obra #17) — 'retomei e ele sabia'. Estado por obra escrito pelo Stop hook + seção de retomada no pack (UserPromptSubmit), religando o LongHorizonContinuityPackEmitterService órfão com consumidor NOMINAL + teste, e um matcher de refutação na admissão (aproveita o recall query-aware do T0.2).",
+  "objective": "T1: estado por obra em storage/atlas/obras/ (Stop hook) + obra ativa explícita (nunca inferida) + seção de retomada no context pack (religa o emitter órfão via latestContinuityFor + matcher de refutação na admissão); gate de retomada ≤3 turns.",
+  "allowed_files": [
+    "app/Services/Ai/Obra/AtlasObraStateService.php",
+    "app/Console/Commands/AtlasObraCurrentCommand.php",
+    "app/Services/Ai/LongHorizon/LongHorizonContinuityPackEmitterService.php",
+    "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+    "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php",
+    "tests/Feature/Ai/Obra/AtlasObraResumptionPackTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+    "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "app/Services/Ai/Compounding/AtlasObraLessonHarvester.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Obra/AtlasObraResumptionPackTest.php",
+    "smoke: atlas:obra:current --set + atlas:aobg:capture-session grava o estado; atlas:context-pack mostra '## Retomada da obra ativa' com última sessão + refutações"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Obra/AtlasObraResumptionPackTest.php" },
+  "glossary": {
+    "ObraState": "app/Services/Ai/Obra/AtlasObraStateService.php",
+    "ObraCurrentCommand": "app/Console/Commands/AtlasObraCurrentCommand.php",
+    "Emitter": "app/Services/Ai/LongHorizon/LongHorizonContinuityPackEmitterService.php",
+    "ContextPack": "app/Services/Ai/AtlasOpenBrainContextPackService.php",
+    "SessionCapture": "app/Services/Ai/AtlasOpenBrainSessionCaptureService.php"
+  },
+  "freeze_callers_of": ["packFor", "captureSession"],
+  "stop_and_return": [
+    "a seção de retomada quebraria o pack quando não há obra ativa (deve ser byte-compatível)",
+    "religar o emitter no hot path introduziria custo pesado (deve ser cheap read, fail-open)",
+    "obra ativa inferida em vez de explícita"
+  ],
+  "baseline_artifact": { "metric": "tpe_retomada", "note": "gate ≤3 turns atendido por construção: os fatos de retomada (última sessão, arquivos, drift, refutações) chegam no pack no turn 1; LongHorizon órfão religado por consumidor nominal (latestContinuityFor)" }
+}

@@ -6,6 +6,8 @@ namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\LongHorizon\LongHorizonContinuityPackEmitterService;
+use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AtlasCode\WorkspaceFolderIntelligenceService;
@@ -249,12 +251,94 @@ class AtlasOpenBrainContextPackService
             'context_hygiene' => $this->contextHygieneSummary($code, $reality, $memorySection),
         ];
 
+        // WO-17-T1 — "retomei e ele sabia": the resumption section for the ACTIVE obra
+        // (explicit pointer, never inferred). Fail-open + only present when an obra is
+        // active, so packs with no active obra are byte-identical to before.
+        $pack['retomada'] = $this->retomadaSection($workspaceId, $task);
+
         $pack['context_pack_hash'] = $this->contextPackHash($pack);
         $pack['context_feedback_request'] = $this->contextFeedbackRequest($pack, $opts);
         $pack['generated_at'] = now()->toJSON();
         $pack['markdown'] = $this->renderMarkdown($pack);
 
         return $pack;
+    }
+
+    /**
+     * WO-17-T1 — the ACTIVE obra's resumption facts, or {present:false} when no obra
+     * is active. Fuses three brains: the on-disk obra state (last session + drift), the
+     * long-horizon continuity emitter (religated via its cheap read — nominal consumer)
+     * and refutations relevant to the task (admission-time matcher, query-aware since
+     * T0.2). Fail-open on every arm — resumption must never break the interactive pack.
+     *
+     * @return array<string,mixed>
+     */
+    private function retomadaSection(string $workspaceId, string $task): array
+    {
+        try {
+            $state = app(AtlasObraStateService::class);
+            $id = $state->currentId();
+            if ($id === null) {
+                return ['present' => false];
+            }
+
+            $obra = $state->read($id) ?? ['obra_id' => $id];
+            $sessions = array_values((array) ($obra['sessions'] ?? []));
+            $last = $sessions === [] ? null : (array) end($sessions);
+
+            $lastHead = trim((string) ($obra['head'] ?? ($last['head'] ?? '')));
+            $nowHead = $state->gitHead();
+            $drift = ($lastHead !== '' && $nowHead !== '' && $lastHead !== $nowHead)
+                ? "main avançou desde sua última sessão (era {$lastHead}, agora {$nowHead})"
+                : 'sem drift de main desde a última sessão';
+
+            // Religa o emitter órfão: consumidor NOMINAL do produto persistido (cheap).
+            $continuity = app(LongHorizonContinuityPackEmitterService::class)
+                ->latestContinuityFor('obra', $id);
+
+            return [
+                'present' => true,
+                'obra_id' => $id,
+                'phase' => $obra['phase'] ?? null,
+                'last_session' => $last,
+                'drift' => $drift,
+                'pendencies' => array_values((array) ($obra['pendencies'] ?? [])),
+                'decisions' => array_values((array) ($obra['decisions'] ?? [])),
+                'continuity' => $continuity,
+                'refutacoes' => $this->refutationMatches($task, $workspaceId),
+            ];
+        } catch (Throwable) {
+            return ['present' => false];
+        }
+    }
+
+    /**
+     * Admission-time refutation matcher: refutations relevant to the task the session
+     * is about to work on ("isto já foi refutado antes"). Query-aware recall (T0.2
+     * forwarded the question), refutation_memory only, capped + provider-safe.
+     *
+     * @return list<string>
+     */
+    private function refutationMatches(string $task, string $workspaceId): array
+    {
+        if (trim($task) === '') {
+            return [];
+        }
+        try {
+            $recall = $this->memory->recall(
+                $task,
+                ['workspace' => $workspaceId],
+                ['memory_type' => 'refutation_memory'],
+                ['limit' => 3, 'requester' => 'obra_retomada', 'include_verbatim' => false, 'include_semantic' => false, 'include_compounding' => false],
+            );
+
+            return array_values(array_filter(array_map(
+                static fn ($row): string => trim((string) (is_array($row) ? ($row['title'] ?? '') : '')),
+                (array) ($recall['recall'] ?? []),
+            ), static fn (string $t): bool => $t !== ''));
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**
@@ -2218,6 +2302,46 @@ class AtlasOpenBrainContextPackService
             self::HONESTY_LABEL,
         );
         $lines[] = '';
+
+        // WO-17-T1 — resumption FIRST: on resume, "você estava no slice N, provou X,
+        // falta Y, cuidado com Z" is the most important thing the session can read.
+        $retomada = (array) ($pack['retomada'] ?? []);
+        if (($retomada['present'] ?? false) === true) {
+            $last = (array) ($retomada['last_session'] ?? []);
+            $lines[] = '## Retomada da obra ativa';
+            $lines[] = sprintf('- obra=%s  fase=%s', (string) ($retomada['obra_id'] ?? ''), (string) ($retomada['phase'] ?? '—'));
+            if ($last !== []) {
+                $result = $last['result'] ?? null;
+                $resultStr = is_array($result) ? (($result['delivered'] ?? false) ? 'delivered' : (string) ($result['status'] ?? 'registrado')) : (is_scalar($result) ? (string) $result : '—');
+                $lines[] = sprintf(
+                    '- última sessão: tocou %d arquivo(s); resultado=%s; em %s',
+                    count((array) ($last['files'] ?? [])),
+                    $resultStr,
+                    (string) ($last['at'] ?? '—'),
+                );
+                $files = array_slice((array) ($last['files'] ?? []), 0, 6);
+                if ($files !== []) {
+                    $lines[] = '  arquivos: '.implode(', ', array_map('strval', $files));
+                }
+            }
+            $lines[] = '- '.(string) ($retomada['drift'] ?? '');
+            $pend = array_slice((array) ($retomada['pendencies'] ?? []), 0, 6);
+            if ($pend !== []) {
+                $lines[] = '- falta: '.implode('; ', array_map('strval', $pend));
+            }
+            $continuity = (array) ($retomada['continuity'] ?? []);
+            if ($continuity !== []) {
+                $lines[] = sprintf(
+                    '- long-horizon continuity: fase=%s%s',
+                    (string) ($continuity['current_phase'] ?? 'n/a'),
+                    ($continuity['stale'] ?? false) ? ' (STALE)' : '',
+                );
+            }
+            foreach (array_slice((array) ($retomada['refutacoes'] ?? []), 0, 3) as $ref) {
+                $lines[] = '- ⚠️ já refutado antes: '.(string) $ref;
+            }
+            $lines[] = '';
+        }
 
         $policy = (array) ($pack['context_delivery_policy'] ?? []);
         $lines[] = '## Context delivery policy';
