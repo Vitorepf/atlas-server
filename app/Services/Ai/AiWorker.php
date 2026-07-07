@@ -7,9 +7,12 @@ use App\Models\AiJobAttempt;
 use App\Models\AiMission;
 use App\Models\AiQualityAction;
 use App\Models\AiTrace;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
 use App\Services\Ai\Evidence\CertificationRuntimeService;
 use App\Services\Ai\Evidence\MissionEvidenceAdapter;
+use App\Services\Ai\Gateway\ChatWeakResponseProbe;
 use App\Services\Ai\Hermes\Mesh\HermesMeshJobRunner;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -31,6 +34,10 @@ use App\Services\Ai\Mobile\JobResultInboxEmitter;
 use App\Services\Ai\Policy\PermissionGateService;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
+use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryCanon;
+use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
+use App\Services\Ai\Router\AtlasSemanticFlowArbiterService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
@@ -51,7 +58,7 @@ class AiWorker
      * AppServiceProvider so unit tests can construct AiWorker without
      * pulling the live outcome ledger.
      */
-    private ?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $liveOutcomeFeedback = null;
+    private ?AtlasDecideLiveOutcomeFeedbackService $liveOutcomeFeedback = null;
 
     /**
      * Opt-in seam (Patamar 4 · A4 · Swarm Auto-Failover). When wired AND
@@ -59,14 +66,14 @@ class AiWorker
      * dispatch via the production resolver, and the winning arm's result
      * replaces the failure. Default: null → original behaviour preserved.
      */
-    private ?\App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService $swarmAutoFailover = null;
+    private ?AtlasSwarmAutoFailoverService $swarmAutoFailover = null;
 
-    public function setSwarmAutoFailover(?\App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService $svc): void
+    public function setSwarmAutoFailover(?AtlasSwarmAutoFailoverService $svc): void
     {
         $this->swarmAutoFailover = $svc;
     }
 
-    public function setLiveOutcomeFeedback(?\App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService $svc): void
+    public function setLiveOutcomeFeedback(?AtlasDecideLiveOutcomeFeedbackService $svc): void
     {
         $this->liveOutcomeFeedback = $svc;
     }
@@ -239,7 +246,7 @@ class AiWorker
         }
 
         try {
-            $flowId = app(\App\Services\Ai\Router\AtlasSemanticFlowArbiterService::class)->arbitrate($message);
+            $flowId = app(AtlasSemanticFlowArbiterService::class)->arbitrate($message);
         } catch (\Throwable) {
             return $job;
         }
@@ -277,7 +284,7 @@ class AiWorker
         // fecha o ciclo de aprendizado — frases recorrentes viram atalho
         // léxico por evidência e o custo do árbitro amortiza sozinho.
         try {
-            \App\Services\Ai\Support\AppendOnlyJsonlStore::append(
+            AppendOnlyJsonlStore::append(
                 storage_path('atlas/router/misroute_candidates.jsonl'),
                 [
                     'schema_version' => 'atlas.router.misroute_candidate.v1',
@@ -484,25 +491,25 @@ class AiWorker
                         // dispatched, so we transparently fall back to the single provider.
                         $result = $this->meshJobRunner->run($job)
                             ?? $provider->runStreaming($job, $job->prompt, function (array $event) use ($job, $attempt, $onStream, &$firstTokenRecorded): void {
-                            $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
-                            if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
-                                $firstTokenRecorded = true;
-                                $this->recordTelemetry('provider_first_token', $job, $attempt, [
-                                    'event_phase' => 'provider',
-                                    'duration_ms' => $this->diffMs($attempt->started_at, now()),
-                                    'metadata' => [
-                                        'stream_event_type' => $event['type'] ?? null,
-                                        'stream_event_name' => $event['name'] ?? null,
-                                        'sequence' => $recorded?->sequence,
-                                    ],
-                                ]);
-                            }
-                            $event['sequence'] = $recorded?->sequence;
-                            $event['job_id'] = $job->id;
-                            $event['trace_id'] = $job->trace_id;
-                            $event['attempt_id'] = $attempt->id;
-                            $onStream?->__invoke($event);
-                        });
+                                $recorded = $this->stream->recordProviderEvent($job, $attempt, $event);
+                                if (! $firstTokenRecorded && in_array(($event['type'] ?? null), ['token', 'response'], true)) {
+                                    $firstTokenRecorded = true;
+                                    $this->recordTelemetry('provider_first_token', $job, $attempt, [
+                                        'event_phase' => 'provider',
+                                        'duration_ms' => $this->diffMs($attempt->started_at, now()),
+                                        'metadata' => [
+                                            'stream_event_type' => $event['type'] ?? null,
+                                            'stream_event_name' => $event['name'] ?? null,
+                                            'sequence' => $recorded?->sequence,
+                                        ],
+                                    ]);
+                                }
+                                $event['sequence'] = $recorded?->sequence;
+                                $event['job_id'] = $job->id;
+                                $event['trace_id'] = $job->trace_id;
+                                $event['attempt_id'] = $attempt->id;
+                                $onStream?->__invoke($event);
+                            });
 
                         return $this->withPowerSessionMetadata($result, (string) $powerSession->id);
                     }, $this->sloContextForJob($job, $attempt, $workerId));
@@ -560,9 +567,9 @@ class AiWorker
                     $framework = null;
                 }
                 $resultKind = match (true) {
-                    ($result->errorCode ?? null) === 'provider_timeout' => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_TIMEOUT,
-                    $result->ok === true => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
-                    default => \App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                    ($result->errorCode ?? null) === 'provider_timeout' => AtlasDecideLiveOutcomeFeedbackService::RESULT_TIMEOUT,
+                    $result->ok === true => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                    default => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
                 };
                 $inputTokens = data_get($result->metadata, 'input_tokens');
                 $outputTokens = data_get($result->metadata, 'output_tokens');
@@ -582,7 +589,7 @@ class AiWorker
                 // learned routes that produce weak answers degrade instead of
                 // looking permanently green.
                 if ($result->ok) {
-                    $probe = (new \App\Services\Ai\Gateway\ChatWeakResponseProbe)->inspect(
+                    $probe = (new ChatWeakResponseProbe)->inspect(
                         $result->output,
                         is_array(data_get($job->payload, 'specialist_flow_execution'))
                             ? (array) data_get($job->payload, 'specialist_flow_execution')
@@ -1983,7 +1990,7 @@ class AiWorker
             // job metadata for surfaces/telemetry — never blocked. Absent key
             // when clean keeps the metadata byte-identical to the pre-probe
             // baseline.
-            $weakProbe = (new \App\Services\Ai\Gateway\ChatWeakResponseProbe)->inspect(
+            $weakProbe = (new ChatWeakResponseProbe)->inspect(
                 $result->output,
                 is_array(data_get($job->payload, 'specialist_flow_execution'))
                     ? (array) data_get($job->payload, 'specialist_flow_execution')
@@ -2603,6 +2610,63 @@ class AiWorker
                 'correlation_id' => $job->trace_id ?: $envelopeId,
                 'emitter_stage' => 'ai.worker',
                 'emitter_version' => 'ai-worker-v1',
+            ]);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        $this->recordNativeRepairTelemetry($type, $job, $attempt, $payload);
+    }
+
+    /**
+     * Mirror native programming-repair ledger events into the dedicated
+     * Programming Runtime telemetry read-model. The native repair loop writes
+     * lifecycle events to the Evidence Ledger, but without this the dedicated
+     * aggregate reports zero repair runs — a read-model that lies while the
+     * loop actually ran. Best-effort: never blocks the runtime, never carries
+     * secrets, no-ops for non-repair event types.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function recordNativeRepairTelemetry(
+        LedgerEventType $type,
+        AiJob $job,
+        ?AiJobAttempt $attempt,
+        array $payload,
+    ): void {
+        $executionStatus = match ($type) {
+            LedgerEventType::RepairInitiated => 'in_progress',
+            LedgerEventType::GatePassed => 'passed',
+            LedgerEventType::GateBlocked => 'blocked',
+            LedgerEventType::RepairCompleted => match ((string) ($payload['repair_status'] ?? '')) {
+                'passed' => 'passed',
+                'stopped' => 'blocked',
+                default => 'failed', // exhausted
+            },
+            default => null,
+        };
+        if ($executionStatus === null) {
+            return; // not a native-repair lifecycle event → no telemetry mirror
+        }
+
+        try {
+            app(ProgrammingRuntimeTelemetryRecorder::class)->record([
+                'event_name' => 'repair_attempt_recorded',
+                'event_phase' => 'native_programming_repair',
+                'flow' => $job->agent_slug ?: $job->kind,
+                'selected_core' => ProgrammingRuntimeTelemetryCanon::SELECTED_CORE_DEV,
+                'run_id' => $job->trace_id ?: $job->id,
+                'execution_status' => $executionStatus,
+                'repair_attempt_count' => $payload['current_iteration'] ?? null,
+                'metadata' => [
+                    'source' => 'ai.worker.native_programming_repair',
+                    'ledger_event_type' => $type->value,
+                    'repair_status' => $payload['repair_status'] ?? null,
+                    'reason' => $payload['reason'] ?? null,
+                    'quality_status' => $payload['quality_status'] ?? null,
+                    'max_iterations' => $payload['max_iterations'] ?? null,
+                    'attempt_number' => $attempt?->attempt_number,
+                ],
             ]);
         } catch (\Throwable $exception) {
             report($exception);
