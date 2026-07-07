@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Support\ParatestPathIsolation;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
@@ -52,6 +53,42 @@ abstract class TestCase extends BaseTestCase
         }
         if (self::$pristineMemoryLimit !== null && self::$pristineMemoryLimit !== '') {
             @ini_set('memory_limit', self::$pristineMemoryLimit);
+        }
+
+        $this->isolateSharedPathsPerWorker();
+    }
+
+    /**
+     * P4 (Obra #19) — paratest shared-path isolation. Under paratest each worker sets
+     * TEST_TOKEN; without isolation, N workers writing the SAME fixed FILE paths (the
+     * Rivals storage, the learning-transfer admission ledger, the trust-ladder log)
+     * collide and corrupt each other. Suffix each with the token so every worker owns
+     * its copy.
+     *
+     * GUARDED by TEST_TOKEN: a serial `php artisan test` (no token) returns early and is
+     * BYTE-IDENTICAL to before. NEVER touches the sqlite :memory: DB — that is already
+     * per-process isolated (each process boots its own :memory:) and is pétrea-frozen.
+     */
+    private function isolateSharedPathsPerWorker(): void
+    {
+        $token = (string) getenv('TEST_TOKEN');
+        if ($token === '') {
+            return; // serial run — unchanged
+        }
+
+        foreach ([
+            'ATLAS_RIVALS2_STORAGE',
+            'ATLAS_LEARNING_TRANSFER_ADMISSION_LEDGER_PATH',
+            'ATLAS_TRUST_LADDER_LOG_PATH',
+        ] as $var) {
+            $current = (string) getenv($var);
+            if ($current === '') {
+                continue;
+            }
+            $isolated = ParatestPathIsolation::isolate($current, $token);
+            putenv($var.'='.$isolated);
+            $_ENV[$var] = $isolated;
+            $_SERVER[$var] = $isolated;
         }
     }
 }
