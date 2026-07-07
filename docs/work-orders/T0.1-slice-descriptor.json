@@ -1,0 +1,34 @@
+{
+  "_meta": "Descritor da fatia T0.1 (do WO-17-T0.1). Consumido por `atlas:obra:work-order` (K2) para GERAR a ordem de trabalho — prova o Kit end-to-end (K2 gera → K3 aceita → K4 protege), não à mão.",
+  "objective": "WO-17-T0.1: retrieval por query no registry — o candidate set do recall deixa de ser cego à pergunta (aditivo; callers intactos).",
+  "allowed_files": [
+    "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php",
+    "tests/Feature/Ai/Memory/MemoryQueryAwareRetrievalTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+    "app/Services/Ai/AiContextPackBuilder.php",
+    "app/Services/Ai/AtlasProviderProjectionService.php",
+    "app/Services/Engineering/EngineeringContextPackService.php",
+    "app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php",
+    "phpunit.xml"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Memory/MemoryQueryAwareRetrievalTest.php"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Memory/MemoryQueryAwareRetrievalTest.php" },
+  "glossary": {
+    "Registry": "app/Services/Ai/AtlasMemoryRegistryService.php",
+    "VectorSearch": "app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php",
+    "EvolutionScore": "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php",
+    "Model": "app/Models/AtlasMemoryEntry.php"
+  },
+  "freeze_callers_of": ["relevantForContext"],
+  "stop_and_return": [
+    "campo/coluna citado não existe no schema real",
+    "o teste pré-escrito exige comportamento que só um forbidden file entrega",
+    "3 tentativas vermelhas no mesmo ponto"
+  ],
+  "baseline_artifact": { "metric": "contexto_sem_valor", "note": "~70% do contexto sem valor vem do candidate set cego à query" }
+}

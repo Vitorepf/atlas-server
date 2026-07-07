@@ -1,0 +1,73 @@
+{
+    "objective": "WO-17-T0.1: retrieval por query no registry — o candidate set do recall deixa de ser cego à pergunta (aditivo; callers intactos).",
+    "allowed_files": [
+        "app/Services/Ai/AtlasMemoryRegistryService.php",
+        "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php",
+        "tests/Feature/Ai/Memory/MemoryQueryAwareRetrievalTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/AtlasHybridMemoryRetrievalService.php",
+        "app/Services/Ai/AiContextPackBuilder.php",
+        "app/Services/Ai/AtlasProviderProjectionService.php",
+        "app/Services/Engineering/EngineeringContextPackService.php",
+        "app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php",
+        "phpunit.xml"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Memory/MemoryQueryAwareRetrievalTest.php"
+    ],
+    "glossary": {
+        "Registry": "app/Services/Ai/AtlasMemoryRegistryService.php",
+        "VectorSearch": "app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php",
+        "EvolutionScore": "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php",
+        "Model": "app/Models/AtlasMemoryEntry.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Memory/MemoryQueryAwareRetrievalTest.php",
+        "hash": "717cc25fdcd035c5f92cf5a948106a6d365872ca6b711fedcbd8e57649047395"
+    },
+    "frozen_callers": [
+        {
+            "caller": "app/Services/Ai/AtlasProviderProjectionService.php:730",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Engineering/EngineeringContextPackService.php:178",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasHybridMemoryRetrievalService.php:179",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasHybridMemoryRetrievalService.php:240",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasVerbatimMemoryService.php:96",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AiContextPackBuilder.php:249",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AiContextPackBuilder.php:274",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/AtlasMemoryRegistryService.php:290",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "campo/coluna citado não existe no schema real",
+        "o teste pré-escrito exige comportamento que só um forbidden file entrega",
+        "3 tentativas vermelhas no mesmo ponto"
+    ],
+    "baseline_artifact": {
+        "metric": "contexto_sem_valor",
+        "note": "~70% do contexto sem valor vem do candidate set cego à query"
+    },
+    "generated_by": "atlas:obra:work-order"
+}
