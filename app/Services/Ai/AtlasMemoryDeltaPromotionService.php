@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
 use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 class AtlasMemoryDeltaPromotionService
 {
@@ -49,6 +51,22 @@ class AtlasMemoryDeltaPromotionService
 
             $entry = $this->registry->record($this->entryAttributes($delta, $overrides));
             $this->markPromoted($delta, $entry);
+
+            // DIARIO-3 — a delta just became a governed memory entry (G0 auto-promotion);
+            // label it as `promocao-memoria` in the Evolution Diary in the SAME act,
+            // reversible via replay-sem-a-entrada (the promoting journal seq). Fail-open:
+            // the diary never fails a promotion. Only the NEW-entry path emits — the dedup
+            // branch above returns an already-existing memory (no promotion happened).
+            try {
+                app(AtlasEvolutionDiaryRecorder::class)->memoryPromoted(
+                    (string) $entry->id,
+                    'memória promovida do delta '.$delta->id,
+                    'checks automáticos verdes (delta accepted + long-horizon guard); sem espera por humano',
+                    'entry '.substr((string) $entry->id, 0, 8),
+                );
+            } catch (Throwable) {
+                // never fail a promotion over the diary
+            }
 
             return $entry;
         });

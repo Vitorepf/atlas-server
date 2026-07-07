@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
@@ -101,6 +102,20 @@ class AtlasLoopTierPromotionChainService
                 'operator_signed' => ($receipt['operator_signed'] ?? false) === true,
                 'blockers' => [],
             ], $areaId);
+
+            // DIARIO-3 — an area just graduated to a higher autonomy tier (an automation
+            // graduating). Label it as `graduacao` in the Evolution Diary in the same act;
+            // reversible via the tier-promotion receipt. Fail-open: never fail a promotion.
+            try {
+                app(AtlasEvolutionDiaryRecorder::class)->graduated(
+                    'área '.$areaId.' graduada para tier '.$tier,
+                    'decisão promote validada contra o estado real da área + runtime (kill-switch off); sem espera por humano',
+                    'receipt '.substr($receiptHash, 0, 12),
+                    'tier:'.$areaId.':'.$tier,
+                );
+            } catch (Throwable) {
+                // never fail a promotion over the diary
+            }
         }
 
         return [

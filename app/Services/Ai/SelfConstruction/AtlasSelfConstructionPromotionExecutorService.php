@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -190,6 +191,20 @@ final class AtlasSelfConstructionPromotionExecutorService
 
         $receiptHash = hash('sha256', $operator.'|'.$branch.'|'.$proposalHash.'|'.implode(',', $relativeTargets));
         $this->recordReceipt($proposalId, $proposalHash, $operator, $branch, $relativeTargets, $receiptHash);
+
+        // DIARIO-3 — auto-construction just integrated a NEW organ onto a review branch
+        // (requires_human_approval=false). Label it as `orgao-novo` in the Evolution Diary
+        // in the same act; reversible via git (drop the branch by the receipt id). Fail-open.
+        try {
+            app(AtlasEvolutionDiaryRecorder::class)->newOrgan(
+                'órgão auto-construído integrado no branch '.$branch.' (proposal '.$proposalId.')',
+                'scaffold provado pelos checks automáticos; integração autônoma sem espera por humano',
+                'branch '.$branch,
+                'receipt:'.substr($receiptHash, 0, 12),
+            );
+        } catch (Throwable) {
+            // never fail a promotion over the diary
+        }
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
