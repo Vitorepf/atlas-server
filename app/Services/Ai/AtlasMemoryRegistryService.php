@@ -8,11 +8,13 @@ use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Services\Ai\Brain\AtlasMemoryJournal;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
+use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\MemoryScopeHelpers;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -308,7 +310,7 @@ class AtlasMemoryRegistryService
             $projectId = AtlasTask::query()->find($taskId)?->project_id;
         }
 
-        $query = AtlasMemoryEntry::query()->where(function (Builder $query) use ($projectId, $taskId, $runId, $sessionId, $userId, $workspaceId): void {
+        $scopeWhere = function (Builder $query) use ($projectId, $taskId, $runId, $sessionId, $userId, $workspaceId): void {
             $query->where('scope_type', 'global');
 
             if ($projectId) {
@@ -339,11 +341,121 @@ class AtlasMemoryRegistryService
             if ($workspaceId) {
                 $query->orWhere(fn (Builder $nested) => $nested->where('scope_type', 'workspace')->where('scope_id', $workspaceId));
             }
-        });
+        };
 
-        return $this->applyFilters($query, $filters)
-            ->limit($this->limit($limit))
-            ->get();
+        $limit = $this->limit($limit);
+        $priorityQuery = fn (): Builder => $this->applyFilters(
+            AtlasMemoryEntry::query()->where($scopeWhere),
+            $filters,
+        )->limit($limit);
+
+        // WO-17-T0.1 — the QUESTION enters candidate selection. Absent or empty
+        // query ⇒ byte-identical to the blind scope+priority+LIMIT path.
+        $queryText = trim((string) ($context['query'] ?? ''));
+        if ($queryText === '') {
+            return $priorityQuery()->get();
+        }
+
+        // Present ⇒ union of (a) ids relevant to the question — which the priority
+        // cut would otherwise make invisible — and (b) the priority ids, capped at
+        // $limit, then one typed fetch that preserves the union order.
+        $priorityIds = $priorityQuery()->pluck('id')->map(fn ($id): string => (string) $id)->all();
+        $relevantIds = $this->queryRelevantEntries($queryText, $scopeWhere, $filters, $limit);
+        $orderedIds = $this->mergeIdsCapped($relevantIds, $priorityIds, $limit);
+
+        $byId = AtlasMemoryEntry::query()->whereIn('id', $orderedIds)->get()->keyBy('id');
+
+        return collect($orderedIds)
+            ->map(fn (string $id): ?AtlasMemoryEntry => $byId->get($id))
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * WO-17-T0.1 — ids of entries whose CONTENT matches the question, so a
+     * low-priority but on-topic memory is no longer invisible. pgsql ranks by
+     * real vector similarity; any other driver (sqlite in the suite) — or a
+     * vector failure — degrades silently to a case-insensitive lexical match,
+     * never an exception to the caller.
+     *
+     * @param  array<string,mixed>  $filters
+     * @return array<int,string>
+     */
+    private function queryRelevantEntries(string $queryText, Closure $scopeWhere, array $filters, int $limit): array
+    {
+        if (AtlasMemoryEntry::query()->getModel()->getConnection()->getDriverName() === 'pgsql') {
+            try {
+                $vector = app(AtlasMemoryVectorSearchService::class);
+                if ($vector->available()) {
+                    $poolIds = $this->applyFilters(AtlasMemoryEntry::query()->where($scopeWhere), $filters)
+                        ->limit(max($limit * 10, 100))
+                        ->pluck('id')
+                        ->map(fn ($id): string => (string) $id)
+                        ->all();
+
+                    $scores = $vector->scoreEntries($queryText, $poolIds);
+                    arsort($scores);
+                    $topIds = array_slice(array_keys($scores), 0, $limit);
+
+                    if ($topIds !== []) {
+                        return array_map(fn ($id): string => (string) $id, $topIds);
+                    }
+                }
+            } catch (Throwable $throwable) {
+                report($throwable); // degrade silently to lexical
+            }
+        }
+
+        return $this->lexicalMatch($queryText, $scopeWhere, $filters, $limit);
+    }
+
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return array<int,string>
+     */
+    private function lexicalMatch(string $queryText, Closure $scopeWhere, array $filters, int $limit): array
+    {
+        $tokens = array_values(array_filter(
+            preg_split('/\s+/', mb_strtolower($queryText)) ?: [],
+            static fn (string $token): bool => mb_strlen($token) >= 3,
+        ));
+        if ($tokens === []) {
+            return [];
+        }
+
+        return $this->applyFilters(AtlasMemoryEntry::query()->where($scopeWhere), $filters)
+            ->where(function (Builder $inner) use ($tokens): void {
+                foreach ($tokens as $token) {
+                    $like = '%'.$token.'%';
+                    $inner->orWhereRaw('lower(title) like ?', [$like])
+                        ->orWhereRaw('lower(summary) like ?', [$like])
+                        ->orWhereRaw('lower(body) like ?', [$like]);
+                }
+            })
+            ->limit($limit)
+            ->pluck('id')
+            ->map(fn ($id): string => (string) $id)
+            ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $primary
+     * @param  array<int,string>  $secondary
+     * @return array<int,string>
+     */
+    private function mergeIdsCapped(array $primary, array $secondary, int $limit): array
+    {
+        $ordered = [];
+        foreach ([...$primary, ...$secondary] as $id) {
+            if (! in_array($id, $ordered, true)) {
+                $ordered[] = $id;
+            }
+            if (count($ordered) >= $limit) {
+                break;
+            }
+        }
+
+        return $ordered;
     }
 
     /**

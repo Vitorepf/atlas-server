@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -139,7 +140,10 @@ class AtlasAcosEvolutionScoreService
             'signal' => 'feedback_loop_vivo',
             'points' => round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2),
             'max' => 2.5,
-            'evidence' => sprintf('feedback_events_7d=%d global_hints=%s', max(0, $feedback7d), $hintsOn ? 'on' : 'off'),
+            // WO-17-T0.1 — the recall candidate set is now query-aware (the
+            // question enters selection, not just re-ranking). Evidence-only;
+            // points/weights unchanged.
+            'evidence' => sprintf('feedback_events_7d=%d global_hints=%s retrieval_mode=query_aware', max(0, $feedback7d), $hintsOn ? 'on' : 'off'),
         ];
 
         $held = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where('decision', 'hold'));
@@ -331,7 +335,7 @@ class AtlasAcosEvolutionScoreService
     private function loopMasterSwitchReadable(): bool
     {
         try {
-            \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
+            AtlasLoopMasterSwitch::enabled();
 
             return true;
         } catch (Throwable) {
