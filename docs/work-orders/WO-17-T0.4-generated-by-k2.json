@@ -1,0 +1,31 @@
+{
+    "objective": "T0.4: publicar a linha de partida (baselines-âncora) da Obra #17 — colisões tardias #8=10 (real), eventos de evolução autônoma=15 (real), TPE de retomada e perguntas evitáveis VAZIO honesto (instrumento em T1/T2).",
+    "allowed_files": [
+        "docs/obra17-baselines-ancora-2026-07-07.md"
+    ],
+    "forbidden_files": [
+        "docs/obra17-acos-3x-plano-mestre-2026-07-06.md",
+        "docs/obra-linha-acos-carta-de-autonomia-2026-07-06.md"
+    ],
+    "acceptance_criteria": [
+        "a tabela publica 2 números reais com fonte auditável e marca os 2 não-instrumentados como VAZIO (nenhum TPE fabricado)"
+    ],
+    "glossary": {
+        "Baselines": "docs/obra17-baselines-ancora-2026-07-07.md",
+        "PlanoMestre": "docs/obra17-acos-3x-plano-mestre-2026-07-06.md",
+        "Carta": "docs/obra-linha-acos-carta-de-autonomia-2026-07-06.md"
+    },
+    "acceptance_test_ref": {
+        "path": "",
+        "hash": ""
+    },
+    "frozen_callers": [],
+    "stop_and_return": [
+        "algum número seria inventado em vez de medido (viola Carta R4)"
+    ],
+    "baseline_artifact": {
+        "metric": "baselines_ancora",
+        "note": "colisões #8=10 (plano-mestre); eventos autônomos=15 (atlas:evolucao --desde=2026-07-01); TPE/evitáveis VAZIO — instrumento em T1/T2"
+    },
+    "generated_by": "atlas:obra:work-order"
+}
