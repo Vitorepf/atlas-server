@@ -6,6 +6,7 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
+use App\Services\Ai\Brain\AtlasMemoryJournal;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
@@ -29,11 +30,14 @@ class AtlasMemoryRegistryService
 
     private ?AtlasRealityGraphIngestionService $realityGraphIngestion;
 
+    private ?AtlasMemoryJournal $journal;
+
     public function __construct(
         ?AtlasMemoryPrivacyService $privacy = null,
         ?MemoryQueryInput $input = null,
         ?AtlasMemorySemanticIndexer $semanticIndexer = null,
         ?AtlasRealityGraphIngestionService $realityGraphIngestion = null,
+        ?AtlasMemoryJournal $journal = null,
     ) {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
         $this->input = $input ?? app(MemoryQueryInput::class);
@@ -41,6 +45,8 @@ class AtlasMemoryRegistryService
         // Lazy (built on first accrual, not here): the memory write path must never
         // pay for — or fail on — brain wiring it might not even use.
         $this->realityGraphIngestion = $realityGraphIngestion;
+        // SIS8 — journal-first reversibility; lazy + fail-open like the accrual above.
+        $this->journal = $journal;
     }
 
     /**
@@ -51,6 +57,10 @@ class AtlasMemoryRegistryService
         $payload = $this->normalize($attributes);
 
         $entry = AtlasMemoryEntry::query()->create($payload);
+        // SIS8 — journal-first: record the authoritative mutation before any
+        // derived state (vectors/graph) so the brain is reconstructable from
+        // the journal alone.
+        $this->journal($entry, 'record');
         // R1: embed-on-write with the REAL embedding engine so recall can rank by
         // vector similarity. Best-effort + pgsql-only; on sqlite/no-venv it skips
         // honestly and recall falls back to lexical (never a fake vector).
@@ -69,6 +79,7 @@ class AtlasMemoryRegistryService
         $payload = $this->normalize($attributes);
 
         $entry = AtlasMemoryEntry::query()->updateOrCreate($identity, $payload);
+        $this->journal($entry, 'upsert');
         $this->semanticIndexer->indexEntry($entry);
         $this->accrueRealityGraph($entry);
 
@@ -100,6 +111,7 @@ class AtlasMemoryRegistryService
         ], $attributes));
 
         $entry->fill($payload)->save();
+        $this->journal($entry, 'curate');
         $this->semanticIndexer->indexEntry($entry);
         $this->accrueRealityGraph($entry);
 
@@ -129,6 +141,31 @@ class AtlasMemoryRegistryService
                 null,
             );
             $service->ingestMemoryEntry($entry);
+        } catch (Throwable $throwable) {
+            report($throwable);
+        }
+    }
+
+    /**
+     * SIS8 (Obra #20) — journal-first reversibility. Append the authoritative
+     * post-write snapshot to the hash-chained disk journal so `atlas:brain:replay`
+     * can rebuild the brain after a DROP DATABASE. Fail-open exactly like the
+     * semantic indexer and
+     * reality-graph accrual on this same path: a journal fault must never break
+     * the memory write.
+     *
+     * ponytail: journals AFTER persist, so a process death in the µs between the
+     * DB write and the append leaves that one mutation un-journaled. Close the
+     * window with a two-phase intent/commit line only if durability demands it.
+     */
+    private function journal(AtlasMemoryEntry $entry, string $op): void
+    {
+        try {
+            $journal = $this->journal ??= app(AtlasMemoryJournal::class);
+            if (! $journal->enabled()) {
+                return;
+            }
+            $journal->append($op, $entry->getTable(), (string) $entry->getKey(), $entry->attributesToArray());
         } catch (Throwable $throwable) {
             report($throwable);
         }
