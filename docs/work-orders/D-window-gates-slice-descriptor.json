@@ -1,0 +1,32 @@
+{
+  "_meta": "Descritor da fatia D (Obra #18/#19) — painel honesto dos gates de janela viva. Os gates D3 densidade/D4 fill/D5 quality + long-horizon sao 'codigo completo, prova pendente': a certificacao enche na CADENCIA de dados reais (dias/runs sustentados), nao se forca. Esta fatia INSTRUMENTA o status consolidado: le o valor medido (AtlasMemoryQualityService::scorecard components) + o veredito da PROPRIA fonte (receipts em storage/app/atlas/evidence/*-gate.json) e rotula met/aguardando_janela/sem_dados. Anti-Goodhart por construcao: NUNCA fabrica numero, NUNCA inventa pass — surfaca valor + certified flag da fonte.",
+  "objective": "D: AtlasAcosWindowGatesService + atlas:acos:window-gates — painel consolidado dos gates de janela (D3/D4/D5 vivos via scorecard + receipts long-horizon), rotulado met/aguardando_janela/sem_dados honestamente. Satisfaz o item do checklist 'gates de janela instrumentados e medidos (ou rotulados aguardando-janela, honesto)'.",
+  "allowed_files": [
+    "app/Services/Ai/Cognition/AtlasAcosWindowGatesService.php",
+    "app/Console/Commands/AtlasAcosWindowGatesCommand.php",
+    "tests/Feature/Ai/Cognition/AtlasAcosWindowGatesServiceTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/AtlasMemoryQualityService.php",
+    "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Cognition/AtlasAcosWindowGatesServiceTest.php",
+    "smoke: atlas:acos:window-gates --json mostra dimensoes vivas (valor real) + receipts (certified/aguardando_janela); nada fabricado"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Cognition/AtlasAcosWindowGatesServiceTest.php" },
+  "glossary": {
+    "WindowGates": "app/Services/Ai/Cognition/AtlasAcosWindowGatesService.php",
+    "WindowGatesCommand": "app/Console/Commands/AtlasAcosWindowGatesCommand.php",
+    "MemoryQuality": "app/Services/Ai/AtlasMemoryQualityService.php",
+    "EvolutionScore": "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php"
+  },
+  "freeze_callers_of": ["scorecard"],
+  "stop_and_return": [
+    "assertaria um pass contra threshold que eu inventasse (D5 direcao contestada no doc => 'reported', nao asserta)",
+    "fabricaria numero quando a fonte esta ausente (deve ser sem_dados/aguardando_janela honesto)",
+    "criaria um gate NOVO em vez de instrumentar os existentes (e leitura/consumo, nao novo gate)",
+    "quebraria se scorecard/receipt falhar (deve ser degrade-safe fail-open)"
+  ],
+  "baseline_artifact": { "metric": "window_gates_status", "note": "D3 relation_density=0 (grafo memoria-codigo 0-row, honesto) aguardando_janela; D5 structural=50 aguardando; 8 receipts (3 certified reais + 5 aguardando_janela via 'insufficient_*_evidence'). Valores medidos, veredito da fonte, zero fabricacao" }
+}
