@@ -1,0 +1,31 @@
+{
+  "_meta": "Descritor da fatia T4-S7 (Obra #17) — guard de nao-regressao do re-ranker (a ESSENCIA canonica do salto: 'precision@k NUNCA regride'). A consolidacao noturna pode re-treinar o re-ranker (isso e a parte venv/ML: scripts/setup-semantic-rag-runtime.sh), mas o gate petreo e que uma consolidacao SO promove (etiqueta refatoracao) quando precision@k no control CONGELADO >= baseline. Esta fatia entrega o MECANISMO DE SEGURANCA (guard); o re-treino ML e o follow-up venv (como o gate do E entregou a escada e deferiu SIS2-7). Consome metrico REAL (LocalRagPrecisionCorpusService::report — degrada a unmeasured sem o engine, nunca fabrica pass).",
+  "objective": "T4-S7: AtlasConsolidationRerankGuard (freeze baseline precision@k hash-stampado + verdict promote_allowed/blocked_regression/unmeasured/no_baseline) + atlas:acos:consolidation-guard. Gate de nao-regressao real; degrade-safe sem venv; re-treino ML deferido honestamente.",
+  "allowed_files": [
+    "app/Services/Ai/Cognition/AtlasConsolidationRerankGuard.php",
+    "app/Console/Commands/AtlasConsolidationGuardCommand.php",
+    "tests/Feature/Ai/Cognition/AtlasConsolidationRerankGuardTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/Context/LocalRagPrecisionCorpusService.php",
+    "app/Services/Semantic/EmbeddingService.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Cognition/AtlasConsolidationRerankGuardTest.php",
+    "smoke: atlas:acos:consolidation-guard reporta verdict (no_baseline/unmeasured honesto sem venv; blocked_regression quando precision@k cai)"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Cognition/AtlasConsolidationRerankGuardTest.php" },
+  "glossary": {
+    "RerankGuard": "app/Services/Ai/Cognition/AtlasConsolidationRerankGuard.php",
+    "GuardCommand": "app/Console/Commands/AtlasConsolidationGuardCommand.php",
+    "PrecisionCorpus": "app/Services/Ai/Context/LocalRagPrecisionCorpusService.php"
+  },
+  "freeze_callers_of": ["report"],
+  "stop_and_return": [
+    "deixaria promover com precision@k regredido (o gate petreo e NUNCA regride)",
+    "fabricaria pass sem metrico (venv ausente -> unmeasured, nunca promote)",
+    "afirmaria que o re-treino ML esta pronto (esta fatia e SO o guard; retrain e venv/semantic_rag)",
+    "amoleceria o baseline silenciosamente (baseline hash-stampado)"
+  ],
+  "baseline_artifact": { "metric": "rerank_precision_non_regression", "note": "guard promove SO se precision@k >= baseline congelado (epsilon p/ igualdade); degrada a unmeasured sem o engine; 4 testes provam nunca-fabrica-pass + bloqueia regressao. Re-treino do re-ranker (ARFL/AREBA/semantic_rag venv) e o follow-up ML — este slice e a rede de seguranca que impede consolidacao ruim de landar" }
+}

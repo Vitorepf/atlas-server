@@ -1,0 +1,118 @@
+{
+    "objective": "T4-S7: AtlasConsolidationRerankGuard (freeze baseline precision@k hash-stampado + verdict promote_allowed/blocked_regression/unmeasured/no_baseline) + atlas:acos:consolidation-guard. Gate de nao-regressao real; degrade-safe sem venv; re-treino ML deferido honestamente.",
+    "allowed_files": [
+        "app/Services/Ai/Cognition/AtlasConsolidationRerankGuard.php",
+        "app/Console/Commands/AtlasConsolidationGuardCommand.php",
+        "tests/Feature/Ai/Cognition/AtlasConsolidationRerankGuardTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/Context/LocalRagPrecisionCorpusService.php",
+        "app/Services/Semantic/EmbeddingService.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Cognition/AtlasConsolidationRerankGuardTest.php",
+        "smoke: atlas:acos:consolidation-guard reporta verdict (no_baseline/unmeasured honesto sem venv; blocked_regression quando precision@k cai)"
+    ],
+    "glossary": {
+        "RerankGuard": "app/Services/Ai/Cognition/AtlasConsolidationRerankGuard.php",
+        "GuardCommand": "app/Console/Commands/AtlasConsolidationGuardCommand.php",
+        "PrecisionCorpus": "app/Services/Ai/Context/LocalRagPrecisionCorpusService.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Cognition/AtlasConsolidationRerankGuardTest.php",
+        "hash": "de224ff24c5c6a4b0ee788b2b029003e4f9ea2894ff49d22a4788e52b85c58f1"
+    },
+    "frozen_callers": [
+        {
+            "caller": "routes/api.php:331",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:459",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:460",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:462",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:463",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:470",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:473",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:647",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:649",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_rivals.php:39",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/filesystems.php:38",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/filesystems.php:45",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/filesystems.php:54",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/filesystems.php:67",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_ai.php:570",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_ai.php:621",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_ai.php:631",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:99",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:293",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/console.php:295",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "deixaria promover com precision@k regredido (o gate petreo e NUNCA regride)",
+        "fabricaria pass sem metrico (venv ausente -> unmeasured, nunca promote)",
+        "afirmaria que o re-treino ML esta pronto (esta fatia e SO o guard; retrain e venv/semantic_rag)",
+        "amoleceria o baseline silenciosamente (baseline hash-stampado)"
+    ],
+    "baseline_artifact": {
+        "metric": "rerank_precision_non_regression",
+        "note": "guard promove SO se precision@k >= baseline congelado (epsilon p/ igualdade); degrada a unmeasured sem o engine; 4 testes provam nunca-fabrica-pass + bloqueia regressao. Re-treino do re-ranker (ARFL/AREBA/semantic_rag venv) e o follow-up ML — este slice e a rede de seguranca que impede consolidacao ruim de landar"
+    },
+    "generated_by": "atlas:obra:work-order"
+}
