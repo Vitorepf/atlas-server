@@ -1,0 +1,35 @@
+{
+    "objective": "T0.3: UserPromptSubmit injeta 1 linha quando storage/atlas/scheduler/heartbeat.jsonl está stale (>24h) — o scheduler nunca mais morre em silêncio; fail-OPEN; dedup do double-wire.",
+    "allowed_files": [
+        ".claude/hooks/atlas-heartbeat-alert.sh",
+        ".claude/settings.json"
+    ],
+    "forbidden_files": [
+        ".claude/hooks/atlas-ctx.sh",
+        "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php"
+    ],
+    "acceptance_criteria": [
+        "bash -n .claude/hooks/atlas-heartbeat-alert.sh",
+        "heartbeat fresh => hook emite nada; stale (>24h) => 1 linha additionalContext; 2a chamada em <5s => nada (dedup)"
+    ],
+    "glossary": {
+        "HeartbeatHook": ".claude/hooks/atlas-heartbeat-alert.sh",
+        "Settings": ".claude/settings.json",
+        "CtxHook": ".claude/hooks/atlas-ctx.sh",
+        "Reader": "app/Services/Ai/Cognition/AtlasAcosEvolutionScoreService.php"
+    },
+    "acceptance_test_ref": {
+        "path": "",
+        "hash": ""
+    },
+    "frozen_callers": [],
+    "stop_and_return": [
+        "o hook degradaria a sessão em qualquer caminho (viola fail-OPEN)",
+        "wiring duplicaria a entrada no settings.json"
+    ],
+    "baseline_artifact": {
+        "metric": "scheduler_silent_death",
+        "note": "incidente: scheduler launchd DISABLED morreu ~8 dias em silêncio; heartbeatFresh existe mas só em comando que ninguém roda — falta o alerta ATIVO no hook de toda sessão"
+    },
+    "generated_by": "atlas:obra:work-order"
+}
