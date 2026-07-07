@@ -1,0 +1,34 @@
+{
+  "_meta": "Descritor da fatia T4-S3 (Obra #17) — memoria procedural / playbook de reparo (FUNDACAO). Substrato faltava: RepairResult tem executed:bool mas ZERO sinal de sucesso ('funcionou?' e re-teste downstream). Esta fatia captura o outcome real: task que recebeu decisao de reparo e DEPOIS passa = aquele dominio resolveu. Chave estavel = atlas_task:<id> (nao o envelope_id per-run). Como strategyFor(domain) e deterministico, o sinal honesto e a TAXA DE RESOLUCAO por dominio (nao recipe fake). Degrade-safe: corpus vazio -> unmeasured.",
+  "objective": "T4-S3: corpus de OUTCOME de reparo (AtlasRepairPlaybookLedger, disk JSONL append-only) + produtor wirado no EngineeringHarnessExecutionService (recordDecision no fail, recordResolved no pass, fail-open) + consumidor atlas:repair:playbook + playbook anexado a decisao. Taxa de resolucao por dominio medida de dados reais, nunca fabricada.",
+  "allowed_files": [
+    "app/Services/Ai/Kernel/Repair/AtlasRepairPlaybookLedger.php",
+    "app/Console/Commands/AtlasRepairPlaybookCommand.php",
+    "app/Services/Engineering/EngineeringHarnessExecutionService.php",
+    "tests/Feature/Ai/Kernel/AtlasRepairPlaybookLedgerTest.php"
+  ],
+  "forbidden_files": [
+    "app/Services/Ai/Kernel/Repair/RepairResult.php",
+    "app/Services/Ai/Kernel/Repair/AtlasRepairOrchestrator.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php"
+  ],
+  "acceptance_criteria": [
+    "php artisan test tests/Feature/Ai/Kernel/AtlasRepairPlaybookLedgerTest.php",
+    "smoke: atlas:repair:playbook <domain> reporta status/attempts/resolved/resolve_rate; corpus vazio => unmeasured (nunca taxa fabricada)"
+  ],
+  "acceptance_test_ref": { "path": "tests/Feature/Ai/Kernel/AtlasRepairPlaybookLedgerTest.php" },
+  "glossary": {
+    "PlaybookLedger": "app/Services/Ai/Kernel/Repair/AtlasRepairPlaybookLedger.php",
+    "PlaybookCommand": "app/Console/Commands/AtlasRepairPlaybookCommand.php",
+    "Harness": "app/Services/Engineering/EngineeringHarnessExecutionService.php",
+    "RepairResult": "app/Services/Ai/Kernel/Repair/RepairResult.php"
+  },
+  "freeze_callers_of": ["execute", "recordRepairResult"],
+  "stop_and_return": [
+    "creditaria resolucao sem decisao previa (recordResolved deve ser no-op sem decisao aberta)",
+    "fabricaria taxa com corpus vazio (deve ser unmeasured)",
+    "mudaria assinatura/comportamento de execute()/RepairResult (aditivo-only: dep opcional + side-effects fail-open)",
+    "quebraria o fluxo de reparo se o corpus falhar (deve ser fail-open, nunca bloqueia)"
+  ],
+  "baseline_artifact": { "metric": "repair_resolve_rate_por_dominio", "note": "corpus real (decision no fail + resolved no pass, chave atlas_task); playbook = resolved/attempts por dominio; honesto: unmeasured ate encher, nunca fabricado. Sinal fraco no dia 1 (decisao e planejada, execution_enabled=false) rotulado como resolucao-que-seguiu-a-decisao, nao prova-de-causa" }
+}

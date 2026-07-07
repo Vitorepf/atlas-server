@@ -7,6 +7,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Failure\FailureClassification;
 use App\Services\Ai\Kernel\Failure\FailureDomain;
 use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
+use App\Services\Ai\Kernel\Repair\AtlasRepairPlaybookLedger;
 use App\Services\Ai\Kernel\Repair\RepairDecision;
 use App\Services\Ai\Kernel\Repair\RepairRequestFactory;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
@@ -22,6 +23,7 @@ class EngineeringHarnessExecutionService
         private readonly AtlasRepairOrchestrator $repairOrchestrator,
         private readonly RepairRequestFactory $repairRequests,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly AtlasRepairPlaybookLedger $playbook = new AtlasRepairPlaybookLedger,
     ) {}
 
     public function execute(ProgrammingExecutionRequest $request): ProgrammingExecutionResult
@@ -237,6 +239,13 @@ class EngineeringHarnessExecutionService
     private function withKernelRepairDecision(ProgrammingExecutionRequest $request, array $result, ?AtlasTask $task, array $harnessOptions): array
     {
         if (($result['status'] ?? null) === 'passed') {
+            // T4-S3: a task that had an OPEN repair decision and now PASSES →
+            // credit that domain's repair as resolved (the outcome signal the
+            // corpus was missing). No-op if there was no prior decision.
+            if ($task instanceof AtlasTask) {
+                $this->playbook->recordResolved('atlas_task:'.$task->id);
+            }
+
             return $result;
         }
 
@@ -254,6 +263,15 @@ class EngineeringHarnessExecutionService
             'blocks_when_kernel_blocks' => true,
             'execution_enabled' => false,
         ];
+
+        // T4-S3: record the planned repair into the outcome corpus (keyed by the
+        // stable task id so a later pass correlates) + surface the per-domain
+        // resolution-rate playbook as an advisory hint. Fail-open.
+        if ($task instanceof AtlasTask) {
+            $domain = $this->kernelRepairFailureDomain($result)->value;
+            $this->playbook->recordDecision('atlas_task:'.$task->id, $domain, (string) $decision->strategy);
+            $result['repair_playbook'] = $this->playbook->playbookFor($domain);
+        }
 
         return $result;
     }

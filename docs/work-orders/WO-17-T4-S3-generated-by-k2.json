@@ -1,0 +1,145 @@
+{
+    "objective": "T4-S3: corpus de OUTCOME de reparo (AtlasRepairPlaybookLedger, disk JSONL append-only) + produtor wirado no EngineeringHarnessExecutionService (recordDecision no fail, recordResolved no pass, fail-open) + consumidor atlas:repair:playbook + playbook anexado a decisao. Taxa de resolucao por dominio medida de dados reais, nunca fabricada.",
+    "allowed_files": [
+        "app/Services/Ai/Kernel/Repair/AtlasRepairPlaybookLedger.php",
+        "app/Console/Commands/AtlasRepairPlaybookCommand.php",
+        "app/Services/Engineering/EngineeringHarnessExecutionService.php",
+        "tests/Feature/Ai/Kernel/AtlasRepairPlaybookLedgerTest.php"
+    ],
+    "forbidden_files": [
+        "app/Services/Ai/Kernel/Repair/RepairResult.php",
+        "app/Services/Ai/Kernel/Repair/AtlasRepairOrchestrator.php",
+        "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php"
+    ],
+    "acceptance_criteria": [
+        "php artisan test tests/Feature/Ai/Kernel/AtlasRepairPlaybookLedgerTest.php",
+        "smoke: atlas:repair:playbook <domain> reporta status/attempts/resolved/resolve_rate; corpus vazio => unmeasured (nunca taxa fabricada)"
+    ],
+    "glossary": {
+        "PlaybookLedger": "app/Services/Ai/Kernel/Repair/AtlasRepairPlaybookLedger.php",
+        "PlaybookCommand": "app/Console/Commands/AtlasRepairPlaybookCommand.php",
+        "Harness": "app/Services/Engineering/EngineeringHarnessExecutionService.php",
+        "RepairResult": "app/Services/Ai/Kernel/Repair/RepairResult.php"
+    },
+    "acceptance_test_ref": {
+        "path": "tests/Feature/Ai/Kernel/AtlasRepairPlaybookLedgerTest.php",
+        "hash": "fda355fbc238f77c707982d78ebd2636b7f42c1daa520ee1573458770d47ef7d"
+    },
+    "frozen_callers": [
+        {
+            "caller": "config/atlas.php:4250",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas.php:4270",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "routes/api.php:618",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/database.php:16",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_dev.php:140",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_operator_intelligence.php:43",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_code_verification.php:16",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_code_verification.php:52",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:880",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:1115",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Providers/AppServiceProvider.php:1128",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_ai.php:266",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "config/atlas_ai.php:346",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:14",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:23",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:25",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:27",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:49",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:87",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasLoopCortexQueryCommand.php:92",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Http/Controllers/AtlasAiRepairController.php:75",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php:15242",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php:15255",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php:15317",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php:515",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        },
+        {
+            "caller": "app/Console/Commands/AtlasAiRepairCommand.php:65",
+            "destination": "declare o destino desta chamada (aditivo-only)"
+        }
+    ],
+    "stop_and_return": [
+        "creditaria resolucao sem decisao previa (recordResolved deve ser no-op sem decisao aberta)",
+        "fabricaria taxa com corpus vazio (deve ser unmeasured)",
+        "mudaria assinatura/comportamento de execute()/RepairResult (aditivo-only: dep opcional + side-effects fail-open)",
+        "quebraria o fluxo de reparo se o corpus falhar (deve ser fail-open, nunca bloqueia)"
+    ],
+    "baseline_artifact": {
+        "metric": "repair_resolve_rate_por_dominio",
+        "note": "corpus real (decision no fail + resolved no pass, chave atlas_task); playbook = resolved/attempts por dominio; honesto: unmeasured ate encher, nunca fabricado. Sinal fraco no dia 1 (decisao e planejada, execution_enabled=false) rotulado como resolucao-que-seguiu-a-decisao, nao prova-de-causa"
+    },
+    "generated_by": "atlas:obra:work-order"
+}
