@@ -7,7 +7,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaStewardship;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
-use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -244,7 +244,7 @@ final class AreaStewardshipActiveHandoffService
             'recorded_at' => $this->now(),
         ]);
 
-        AppendOnlyJsonlStore::append($path, $record);
+        (new JsonlReceiptStore($path))->append($record);
 
         return $record;
     }
@@ -258,7 +258,7 @@ final class AreaStewardshipActiveHandoffService
             return null;
         }
 
-        foreach (AppendOnlyJsonlStore::read($path) as $packet) {
+        foreach ((new JsonlReceiptStore($path))->read() as $packet) {
             if ((string) ($packet['handoff_packet_id'] ?? '') === $packetId) {
                 return $packet;
             }

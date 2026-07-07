@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
-use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 
 final class AreaFocusJsonlWriter
 {
@@ -13,7 +13,7 @@ final class AreaFocusJsonlWriter
      */
     public static function append(string $path, array $recordPayload): void
     {
-        AppendOnlyJsonlStore::append($path, $recordPayload);
+        (new JsonlReceiptStore($path))->append($recordPayload);
     }
 
     /**
@@ -21,6 +21,6 @@ final class AreaFocusJsonlWriter
      */
     public static function rewrite(string $path, array $records): void
     {
-        AppendOnlyJsonlStore::rewrite($path, $records);
+        (new JsonlReceiptStore($path))->rewrite($records);
     }
 }
