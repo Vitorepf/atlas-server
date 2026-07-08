@@ -2362,46 +2362,6 @@ class AiChatCommand extends Command
         return $candidate;
     }
 
-    /**
-     * @param  array{kind:string, path?:string}  $classification
-     * @param  array<int,array<string,mixed>>  $pendingImages
-     */
-    private function applyBracketedPasteClassification(
-        array $classification,
-        AtlasImageAttachmentService $images,
-        string $workspace,
-        string &$buffer,
-        string &$label,
-        array &$pendingImages,
-    ): void {
-        if ($classification['kind'] === 'clipboard_image') {
-            [$label, $pendingImages] = $this->pasteClipboardImageIntoComposer($images, $workspace, $pendingImages, $label, $buffer);
-
-            return;
-        }
-
-        if ($classification['kind'] === 'image_path' && isset($classification['path'])) {
-            $this->output->write("\n");
-            $this->line('Anexando imagem '.basename($classification['path']).'...');
-
-            try {
-                $attachments = $images->fromPaths([$classification['path']], $workspace);
-            } catch (\Throwable $exception) {
-                $this->warn('Nao consegui anexar imagem: '.$exception->getMessage());
-                $this->renderRawPrompt($label, $buffer);
-
-                return;
-            }
-
-            $pendingImages = $this->mergeImageAttachments($pendingImages, $attachments, $images);
-            $this->printPendingImages($pendingImages);
-            $label = $this->labelWithImageCount($label, $pendingImages);
-            $this->renderRawPrompt($label, $buffer);
-
-            return;
-        }
-    }
-
     private function readAvailableTerminalSequence(int $maxBytes = 16): string
     {
         $sequence = '';
@@ -3145,51 +3105,6 @@ class AiChatCommand extends Command
     {
         $title = (bool) $this->option('cockpit') ? 'atlas dev status' : 'atlas status';
         $this->renderConsolePanel($title, $workspace, $provider, $mode, $permissionMode, $stream, $busyMode, $threadId, $activatedSkills, $skillTrust, $modelSelection);
-    }
-
-    private function permissionBadge(string $permissionMode): string
-    {
-        return match ($permissionMode) {
-            'danger' => '<fg=red;options=bold>DANGER</>',
-            'write' => '<fg=yellow;options=bold>WRITE</>',
-            default => '<fg=green;options=bold>READ</>',
-        };
-    }
-
-    private function permissionNotice(string $permissionMode, bool $plain = false): string
-    {
-        return match ($permissionMode) {
-            'danger' => $plain
-                ? 'PERMISSAO: DANGER - Atlas pode operar dentro das raizes autorizadas; sudo exige pedido explicito.'
-                : '<fg=red;options=bold>PERMISSAO DANGER</> <fg=gray>Atlas pode operar dentro das raizes autorizadas; sudo exige pedido explicito.</>',
-            'write' => $plain
-                ? 'PERMISSAO: WRITE - Atlas pode editar e rodar comandos no workspace.'
-                : '<fg=yellow;options=bold>PERMISSAO WRITE</> <fg=gray>Atlas pode editar e rodar comandos no workspace.</>',
-            default => $plain
-                ? 'PERMISSAO: READ - Atlas apenas le e inspeciona.'
-                : '<fg=green;options=bold>PERMISSAO READ</> <fg=gray>Atlas apenas le e inspeciona.</>',
-        };
-    }
-
-    private function printControlBanner(string $workspace, string $permissionMode): void
-    {
-        $roots = $this->allowedRootsForPrompt();
-        $rootSummary = $roots !== [] ? implode(', ', array_slice($roots, 0, 3)) : $workspace;
-        $extra = count($roots) > 3 ? ' +'.(count($roots) - 3) : '';
-        $meaning = match ($permissionMode) {
-            'danger' => 'pode operar dentro das raizes',
-            'write' => 'pode editar e rodar dentro do workspace',
-            default => 'so leitura e inspecao',
-        };
-        $intentLine = $this->intentEnabled
-            ? 'intent · ativo · sobe permissao por pedido, nunca por padrao'
-            : 'intent · desligado · respeitando --permission verbatim';
-
-        $this->line($this->dimItalic('  · controle · '.$workspace));
-        $this->line($this->dimItalic('  · raizes ·   '.$rootSummary.$extra));
-        $this->line($this->dimItalic('  · sudo ·     so com pedido explicito'));
-        $this->line($this->dimItalic('  · permissao · '.$permissionMode.' · '.$meaning));
-        $this->line($this->dimItalic('  · '.$intentLine));
     }
 
     private function dimItalic(string $text): string

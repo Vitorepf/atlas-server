@@ -2497,38 +2497,6 @@ PROMPT;
         }
     }
 
-    private function providerFallbackReason(string $candidateProvider, string $selectedProvider, array $options): string
-    {
-        if ($candidateProvider === $selectedProvider) {
-            return 'none';
-        }
-
-        if ($candidateProvider === 'gemini_cli' && $this->geminiBlockedForInvocation($options)) {
-            return 'gemini_blocked_for_dev_like_task';
-        }
-
-        if ($this->hasImageAttachments($options)
-            && ! $this->providerSupportsImageAttachments($candidateProvider)
-            && $this->providerSupportsImageAttachments($selectedProvider)
-        ) {
-            return 'image_attachment_provider_fallback';
-        }
-
-        if ($this->isAutomaticInvocation($options)
-            && ! (bool) ($this->runtimeSettings->providerConfig($candidateProvider)['allow_auto'] ?? true)
-        ) {
-            return 'candidate_auto_disabled';
-        }
-
-        if (! $this->isAutomaticInvocation($options)
-            && ! (bool) ($this->runtimeSettings->providerConfig($candidateProvider)['allow_manual'] ?? true)
-        ) {
-            return 'candidate_manual_disabled';
-        }
-
-        return 'provider_gate_fallback';
-    }
-
     private function automaticFallbackProvider(array $options = []): string
     {
         $default = $this->runtimeSettings->defaultProvider();
