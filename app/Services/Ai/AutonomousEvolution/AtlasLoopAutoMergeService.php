@@ -24,6 +24,13 @@ use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
+ * ⚠️ O NOME ENGANA: "AutoMerge" NÃO faz `git merge`. Faz `git apply` + `git add -- <arquivos>`
+ * + `git commit` ESCOPADO na branch atual (main) — commit por proposta, nunca branch-and-merge.
+ * O único `git merge --no-ff` real do autônomo é {@see AtlasLoopObraAutoMergeService} (só obra grande).
+ * @atlas-live VIVO — reusado pelo Autônomos (SelfConstruction/RuntimeDaemon). NÃO aposentar pelo
+ * prefixo AtlasLoop*: ver keep-list em docs/engineering-knowledge-base/atlas-autonomos-live-system.md
+ * e memória loop-morto-autonomos-vivo. (Classe legada ACDE porém consumida pelo caminho vivo.)
+ *
  * A travessia merge-livre v2 (decisão do operador, 11-12/06): propostas CERTIFICADAS do
  * Loop (frozen judge + certificação adversarial universal) são MERGEADAS EM MAIN de
  * verdade — o merge não é o evento de risco; o evento de risco é o veredito, e o
