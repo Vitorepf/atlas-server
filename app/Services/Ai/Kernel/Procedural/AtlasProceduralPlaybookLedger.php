@@ -74,7 +74,16 @@ final class AtlasProceduralPlaybookLedger
             $latest = $row;
         }
 
-        return $latest !== null ? ProceduralPlaybook::fromArray($latest) : null;
+        if ($latest === null) {
+            return null;
+        }
+
+        // Slice 3: fold real-failure prior-corrections into the recovered
+        // playbook, so a proven failure CHANGES the next retrieval/injection.
+        $playbook = ProceduralPlaybook::fromArray($latest);
+        $corrections = $this->correctionsFor($key);
+
+        return $corrections === [] ? $playbook : $playbook->withPriorCorrections($corrections);
     }
 
     /**
@@ -135,6 +144,39 @@ final class AtlasProceduralPlaybookLedger
     }
 
     /**
+     * Producer/consumer (Slice 3): a prior-correction derived from a REAL,
+     * proven failure of following the playbook. This is the delta over a static
+     * checklist — a proven failure CHANGES the next retrieval/injection (the
+     * correction is folded back by {@see retrieve()}).
+     *
+     * Fabrication-proof: writes ONLY when the application has a recorded outcome
+     * that the OutcomeProofGate accepted as a truthful non-success (proven_real,
+     * not credited, no success claim). No real failure on record → no correction.
+     */
+    public function recordFailureCorrection(string $applicationId, string $correction): bool
+    {
+        $correction = trim($correction);
+        if (trim($applicationId) === '' || $correction === '') {
+            return false;
+        }
+
+        $failure = $this->realFailureOutcomeFor($applicationId);
+        if ($failure === null) {
+            return false;
+        }
+
+        $this->append([
+            'event' => 'correction',
+            'application_id' => $applicationId,
+            'task_category' => (string) ($failure['task_category'] ?? ''),
+            'correction' => $correction,
+            'derived_from' => 'real_failure_outcome',
+        ]);
+
+        return true;
+    }
+
+    /**
      * Per-category MEASURED follow rate — the same honest contract as the repair
      * ledger: `unmeasured` (never a fabricated rate) until at least one attempt.
      * A credited success requires a proven_real outcome; fake_greens are counted
@@ -192,6 +234,56 @@ final class AtlasProceduralPlaybookLedger
         }
 
         return ($last !== null && (string) ($last['event'] ?? '') === 'applied') ? $last : null;
+    }
+
+    /**
+     * The application's outcome row IF it is a proven, truthful failure — the
+     * only thing that may seed a prior-correction. At most one outcome exists
+     * per application (recordOutcome no-ops after the first).
+     *
+     * @return array<string,mixed>|null
+     */
+    private function realFailureOutcomeFor(string $applicationId): ?array
+    {
+        foreach ($this->readAll() as $row) {
+            if ((string) ($row['application_id'] ?? '') !== $applicationId) {
+                continue;
+            }
+            if ((string) ($row['event'] ?? '') !== 'outcome') {
+                continue;
+            }
+            if (($row['proven_real'] ?? false) === true
+                && ($row['credited'] ?? false) === false
+                && ($row['claims_success'] ?? false) === false) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * All prior-corrections recorded for a task category, in order.
+     *
+     * @return list<string>
+     */
+    private function correctionsFor(string $normalizedKey): array
+    {
+        $corrections = [];
+        foreach ($this->readAll() as $row) {
+            if ((string) ($row['event'] ?? '') !== 'correction') {
+                continue;
+            }
+            if (ProceduralPlaybook::normalizeCategory((string) ($row['task_category'] ?? '')) !== $normalizedKey) {
+                continue;
+            }
+            $correction = trim((string) ($row['correction'] ?? ''));
+            if ($correction !== '') {
+                $corrections[] = $correction;
+            }
+        }
+
+        return $corrections;
     }
 
     /** @return list<array<string,mixed>> */

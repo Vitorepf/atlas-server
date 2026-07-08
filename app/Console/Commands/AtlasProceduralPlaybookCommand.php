@@ -22,14 +22,15 @@ use Illuminate\Console\Command;
 class AtlasProceduralPlaybookCommand extends Command
 {
     protected $signature = 'atlas:playbook
-        {action : define|show|apply|outcome|rate}
+        {action : define|show|apply|outcome|correct|rate}
         {category? : task category (for show|apply|rate)}
         {--json-in= : JSON playbook payload (for action=define)}
-        {--application-id= : application id (for action=outcome)}
+        {--application-id= : application id (for action=outcome|correct)}
         {--status= : real outcome status success|failed|... (for action=outcome)}
         {--tests-run=0 : execution evidence — test cases run (for action=outcome)}
         {--assertions=0 : execution evidence — assertions executed (for action=outcome)}
         {--command=* : execution evidence — command(s) run (for action=outcome)}
+        {--correction= : prior-correction text derived from a real failure (for action=correct)}
         {--json : machine-readable output}';
 
     protected $description = 'Define / retrieve / apply a general procedural playbook and record its proven-real follow outcome by task category (ATLAS BUILD #3).';
@@ -41,9 +42,26 @@ class AtlasProceduralPlaybookCommand extends Command
             'show' => $this->show($ledger),
             'apply' => $this->apply($applier),
             'outcome' => $this->outcome($ledger),
+            'correct' => $this->correct($ledger),
             'rate' => $this->rate($ledger),
-            default => $this->bail('Unknown action. Use: define | show | apply | outcome | rate'),
+            default => $this->bail('Unknown action. Use: define | show | apply | outcome | correct | rate'),
         };
+    }
+
+    private function correct(AtlasProceduralPlaybookLedger $ledger): int
+    {
+        $applicationId = (string) ($this->option('application-id') ?? '');
+        $correction = (string) ($this->option('correction') ?? '');
+        if (trim($applicationId) === '' || trim($correction) === '') {
+            return $this->bail('correct requires --application-id and --correction.');
+        }
+
+        $recorded = $ledger->recordFailureCorrection($applicationId, $correction);
+
+        return $this->report(
+            ['application_id' => $applicationId, 'status' => $recorded ? 'recorded' : 'rejected_no_real_failure'],
+            sprintf('[playbook] correct id=%s status=%s', $applicationId, $recorded ? 'recorded' : 'rejected_no_real_failure'),
+        );
     }
 
     private function apply(AtlasProceduralPlaybookApplier $applier): int
