@@ -73,12 +73,13 @@ final class AtlasLoopMutationAdequacyGateService
         // SKIP-certify when nothing at all is producible. This turns the original false-reject of a
         // relocated-literal refactor AND the false-reject of a no-decision-op refactor into pass/skip,
         // without ever lowering the true bar (a surviving DECISION mutant still rejects).
-        // ACDE lever #4 — FEATURE-lane sufficiency. The default feature lane samples at most max_mutants and
-        // returns on the FIRST survivor via the strpos firstMutation() (so most added branches go un-probed
-        // and the 0.5 kill-ratio floor is near-binary at a denominator of ~1). When ON, the feature/bugfix
-        // lane is routed through the SAME exhaustive added-DECISION survivor hunt the refactor lane uses
-        // (exact-index firstAddedLineMutation/addedLineMap — never strpos), bounded by a per-task target
-        // budget. Default OFF => the legacy strpos path below => byte-identical.
+        // ACDE lever #4 — FEATURE-lane sufficiency. The default feature lane position-confines ONE mutant per
+        // target to the FIRST mutable ADDED line (exact NEW-file index, decision OR cosmetic) and samples at
+        // most max_mutants, so the 0.5 kill-ratio floor sits at a denominator of ~1. When ON, the feature/
+        // bugfix lane is instead routed through the SAME EXHAUSTIVE added-DECISION survivor hunt the refactor
+        // lane uses (probing every added decision, not just the first mutable line), bounded by a per-task
+        // target budget. Both lanes are added-line-confined; the flag trades a wider probe for one acceptance
+        // re-run per probed target.
         $exhaustiveFeature = ! $decisionOnly
             && (bool) config('atlas.loop.mutation_adequacy_gate.exhaustive_added_decisions_feature_lane', false);
         if ($decisionOnly || $exhaustiveFeature) {
@@ -89,7 +90,7 @@ final class AtlasLoopMutationAdequacyGateService
             return $this->evaluateRefactorContract($workspace, $commands, $timeout, $targets, $baseline, $propertyProbe, $budget);
         }
 
-        $addedLines = $this->addedLines($workspace);
+        $addedLineMap = $this->addedLineMap($workspace);
         $mutants = [];
         $sampled = 0;
         foreach ($targets as $target) {
@@ -98,7 +99,12 @@ final class AtlasLoopMutationAdequacyGateService
             }
             $path = $workspace.'/'.$target;
             $original = is_file($path) ? (string) file_get_contents($path) : '';
-            $mutation = $this->firstMutation($target, $original, $addedLines[$target] ?? null, false, []);
+            // SOUNDNESS (loop-can-self-deceive, LIMPA-BOA 08/07): position-confine the feature/bugfix
+            // mutant to an ADDED line at its EXACT NEW-file index — decision OR cosmetic — exactly as the
+            // decision lane does. No mutable ADDED line => null => no_applicable_mutation (fail-closed).
+            // The removed whole-file/strpos fallback could kill a mutant in OLD, COVERED code and
+            // green-light a test that never exercises the new symbol.
+            $mutation = $this->firstAddedLineMutation($target, $original, $addedLineMap[$target] ?? [], false, false);
             if ($mutation === null) {
                 continue;
             }
@@ -503,45 +509,6 @@ final class AtlasLoopMutationAdequacyGateService
     }
 
     /**
-     * Prefer mutating the approved diff, not unrelated historical code in the
-     * same large file. That makes the gate an anti-empty-test proof for this
-     * proposal instead of a random mutation of old surface area.
-     *
-     * @return array<string,string>
-     */
-    private function addedLines(string $workspace): array
-    {
-        $process = new Process(['git', 'diff', '--unified=0', '--no-ext-diff'], $workspace, null, null, 30.0);
-        $process->run();
-        if (! $process->isSuccessful() && $process->getExitCode() !== 1) {
-            return [];
-        }
-
-        $byFile = [];
-        $current = null;
-        foreach (preg_split('/\R/', (string) $process->getOutput()) ?: [] as $line) {
-            if (str_starts_with($line, '+++ b/')) {
-                $current = substr($line, 6);
-                $byFile[$current] ??= [];
-
-                continue;
-            }
-            if ($current !== null && str_starts_with($line, '+') && ! str_starts_with($line, '+++')) {
-                $byFile[$current][] = substr($line, 1);
-            }
-        }
-
-        $out = [];
-        foreach ($byFile as $file => $lines) {
-            if ($lines !== []) {
-                $out[$file] = implode("\n", $lines);
-            }
-        }
-
-        return $out;
-    }
-
-    /**
      * Map each ADDED line to its exact NEW-file line number (1-based) per file.
      *
      * Fix A (adversarial panel, 2026-06-14): {@see addedLines} concatenates non-contiguous
@@ -605,53 +572,6 @@ final class AtlasLoopMutationAdequacyGateService
     }
 
     /**
-     * @param  array<int,string>  $addedLineMap  NEW-file line number => added line text (Fix A)
-     * @return array{mutation_id:string,operator:string,content:string}|null
-     */
-    private function firstMutation(string $file, string $content, ?string $preferredText = null, bool $decisionOnly = false, array $addedLineMap = []): ?array
-    {
-        // Refactor contracts (decisionOnly) POSITION-CONFINE the mutation: every added line is
-        // mutated AT ITS EXACT NEW-file index (Fix A, adversarial panel 2026-06-14). The legacy
-        // strpos-based path could land a per-line mutation on a byte-identical line in OLD,
-        // UNCHANGED code (false certify); index mutation makes that structurally impossible even
-        // for multi-hunk diffs and duplicate line text. No added line yields a decision mutant =>
-        // null => no_applicable_mutation (fail-closed, no free pass into old code).
-        if ($decisionOnly) {
-            return $this->firstAddedLineMutation($file, $content, $addedLineMap);
-        }
-
-        $preferredText = is_string($preferredText) ? trim($preferredText, "\n") : '';
-        if ($preferredText !== '') {
-            $preferredMutation = $this->mutationForText($file, $preferredText, $decisionOnly);
-            if ($preferredMutation !== null && str_contains($content, $preferredText)) {
-                $mutatedContent = $this->replaceFirstLiteral($content, $preferredText, $preferredMutation['content']);
-                if ($mutatedContent !== $content) {
-                    $preferredMutation['content'] = $mutatedContent;
-
-                    return $preferredMutation;
-                }
-            }
-
-            foreach (preg_split('/\R/', $preferredText) ?: [] as $line) {
-                if (trim($line) === '') {
-                    continue;
-                }
-                $lineMutation = $this->mutationForText($file, $line, $decisionOnly);
-                if ($lineMutation !== null && str_contains($content, $line)) {
-                    $mutatedContent = $this->replaceFirstLiteral($content, $line, $lineMutation['content']);
-                    if ($mutatedContent !== $content) {
-                        $lineMutation['content'] = $mutatedContent;
-
-                        return $lineMutation;
-                    }
-                }
-            }
-        }
-
-        return $this->mutationForText($file, $content, $decisionOnly);
-    }
-
-    /**
      * Fix A: mutate exactly ONE added line at its NEW-file index, never via strpos.
      *
      * Splits the live file into lines, finds the first added line (by NEW line number) that the
@@ -668,10 +588,15 @@ final class AtlasLoopMutationAdequacyGateService
      *                      SAME position-confinement + drift guard + comment/docblock skip, so a
      *                      cosmetic mutant can never land on old code either.
      *
+     * $decisionOnly (default true) gates the DECISION-family restriction. The feature/bugfix lane passes
+     * false with $cosmeticOnly=false so BOTH families are eligible (any killed added-line mutant proves the
+     * test exercises the new code); the refactor lane keeps the default (decision-only, or cosmetic-only for
+     * its fallback). Whichever family is chosen, the mutant is still confined to the added line's exact index.
+     *
      * @param  array<int,string>  $addedLineMap  NEW-file line number => added line text
      * @return array{mutation_id:string,operator:string,content:string}|null
      */
-    private function firstAddedLineMutation(string $file, string $content, array $addedLineMap, bool $cosmeticOnly = false): ?array
+    private function firstAddedLineMutation(string $file, string $content, array $addedLineMap, bool $cosmeticOnly = false, bool $decisionOnly = true): ?array
     {
         if ($addedLineMap === []) {
             return null;
@@ -709,10 +634,10 @@ final class AtlasLoopMutationAdequacyGateService
             )) {
                 continue;
             }
-            // decisionOnly stays true for BOTH modes (cosmetic-only is selected separately below) so the
-            // generic relational ops in mutationForText keep their comment/string masking guards; the
-            // $cosmeticOnly flag flips WHICH family is allowed, not the masking.
-            $lineMutation = $this->mutationForText($file, $addedText, true, $cosmeticOnly);
+            // $decisionOnly/$cosmeticOnly select WHICH operator family is eligible (refactor lane: decision-
+            // only or cosmetic-only; feature lane: both). Masking is intrinsic to the relational operators, so
+            // it holds regardless — a no-op edit to a docblock `>` can never masquerade as a decision mutant.
+            $lineMutation = $this->mutationForText($file, $addedText, $decisionOnly, $cosmeticOnly);
             if ($lineMutation === null || $lineMutation['content'] === $addedText) {
                 continue;
             }
@@ -895,16 +820,6 @@ final class AtlasLoopMutationAdequacyGateService
         }
 
         return isset(AtlasLoopMutationOperators::COSMETIC_OPERATORS[$operator]) ? 'cosmetic' : 'decision';
-    }
-
-    private function replaceFirstLiteral(string $haystack, string $needle, string $replacement): string
-    {
-        $pos = strpos($haystack, $needle);
-        if ($pos === false) {
-            return $haystack;
-        }
-
-        return substr_replace($haystack, $replacement, $pos, strlen($needle));
     }
 
     /**

@@ -118,9 +118,11 @@ CMD;
 
         $acceptance = $this->refactorAcceptance(); // complexity_proof=true, metric_kind=minimize
 
-        // OFF (legacy first-mutation-wins): the cosmetic return_string_literal fires first on the
-        // relocated, UNASSERTED literal -> it survives -> the behaviour-preserving refactor is FALSELY
-        // rejected. This is the exact live-loop certs=0 bug the keystone fixes.
+        // OFF (feature lane): the mutant is position-confined to the FIRST mutable ADDED line — the relocated
+        // `return $this->isZero($n) ? 'zero' : 'nonzero';`, whose COVERED 'zero' literal classify(0) asserts.
+        // Flipping it turns the sibling test RED -> KILLED -> certified. (Before the soundness fix the feature
+        // lane ran the strpos/whole-file path and false-rejected on the UNASSERTED label() literal; it can no
+        // longer reach unrelated lines.) ON still specifically prefers the DECISION operator below.
         $off = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
             $this->workspace,
             $acceptance,
@@ -128,9 +130,9 @@ CMD;
             ['enabled' => true, 'refactor_decision_aware' => false],
         );
 
-        $this->assertSame('mutation_survived', $off['status'], 'OFF must reproduce the false rejection');
-        $this->assertFalse($off['certified']);
-        $this->assertSame('return_string_literal', data_get($off, 'mutants.0.operator'));
+        $this->assertSame('mutation_killed', $off['status'], 'feature lane confines the mutant to the covered added literal and kills it');
+        $this->assertTrue($off['certified']);
+        $this->assertSame('string_literal', data_get($off, 'mutants.0.operator'));
         $this->assertSame('cosmetic', $off['decisive_operator_family']);
 
         // ON (decision-aware): cosmetic operators are skipped for refactor contracts, so the covered
@@ -300,11 +302,15 @@ CMD;
         $this->assertFalse(data_get($on, 'mutants.0.killed'));
     }
 
-    public function test_non_refactor_contract_is_byte_identical_when_flag_on(): void
+    public function test_feature_lane_confines_mutant_to_first_added_line_and_certifies_covered_literal(): void
     {
-        // SAME fixture as (a), but a NON-refactor contract: metric_kind='gate', no complexity_proof.
-        // refactorDecisionAware() is false even with the flag ON, so the legacy first-mutation-wins
-        // path runs and the cosmetic literal survives exactly as it did before the keystone.
+        // SAME fixture as (a), run as a FEATURE contract (metric_kind='gate', no complexity_proof) so
+        // refactorDecisionAware() is false regardless of the flag. The feature lane position-confines the
+        // mutant to the FIRST mutable ADDED line — the relocated classify body whose COVERED 'zero' literal
+        // classify(0) asserts — kills it, and certifies. The refactor_decision_aware flag does not reach this
+        // lane. (Pre-soundness-fix this ran the strpos/whole-file firstMutation path; the "byte-identical
+        // legacy" behavior it used to pin is exactly the loop-can-self-deceive hole that path is removed to
+        // close — a whole-file fallback could kill a mutant in OLD covered code and green-light an empty test.)
         $this->workspace = $this->refactorWorkspaceWithCoveredDecisionAndUnassertedLiteral();
 
         $acceptance = $this->refactorAcceptance();
@@ -318,10 +324,38 @@ CMD;
             ['enabled' => true, 'refactor_decision_aware' => true],
         );
 
-        $this->assertSame('mutation_survived', $on['status'], 'the flag must ONLY affect refactor contracts');
-        $this->assertFalse($on['certified']);
-        $this->assertSame('return_string_literal', data_get($on, 'mutants.0.operator'));
+        $this->assertSame('mutation_killed', $on['status'], 'the flag must not reach the feature lane');
+        $this->assertTrue($on['certified']);
+        $this->assertSame('string_literal', data_get($on, 'mutants.0.operator'));
         $this->assertSame('cosmetic', $on['decisive_operator_family']);
+    }
+
+    public function test_feature_lane_fails_closed_when_added_code_has_no_mutable_line_never_mutates_old_covered_code(): void
+    {
+        // SOUNDNESS REGRESSION (loop-can-self-deceive, LIMPA-BOA 08/07): a FEATURE diff (default lane — no
+        // complexity_proof, exhaustive flag OFF) adds a method whose body matches NO mutation operator
+        // (`$this->sink->store($rows);` — no return-literal / relational / string literal), while the file
+        // still has an OLD `return true;` covered by the frozen test. The pre-fix whole-file firstMutation
+        // fallback mutated that OLD covered `return true;` -> the frozen test killed it -> mutation_killed /
+        // certified, even though the NEW symbol is exercised by ZERO acceptance commands (empty test green-lit).
+        // The confined feature lane must instead find NO mutable ADDED line and fail closed
+        // (no_applicable_mutation), NEVER manufacturing a kill from old covered code.
+        config(['atlas.loop.extra_mutation_operators_enabled' => false]);
+        $this->workspace = $this->featureWorkspaceWithNonMutableAddedCodeOverOldCoveredReturnTrue();
+
+        $result = app(AtlasLoopMutationAdequacyGateService::class)->evaluate(
+            $this->workspace,
+            $this->featureAcceptance(),
+            ['src/Calc.php'],
+            ['enabled' => true],
+        );
+
+        $this->assertNotSame('mutation_killed', $result['status'], 'must NEVER mutate the OLD covered `return true;`');
+        $this->assertSame('no_applicable_mutation', $result['status'], 'no mutable ADDED line => fail closed');
+        $this->assertFalse($result['certified']);
+        $this->assertSame(['no_applicable_mutation'], $result['blockers']);
+        $this->assertSame(0, $result['mutants_sampled'], 'the old covered `return true;` must never be sampled');
+        $this->assertSame(0, $result['mutants_killed']);
     }
 
     public function test_refactor_contract_never_false_certifies_via_duplicate_line_in_old_covered_code(): void
@@ -1331,6 +1365,45 @@ PHP);
         file_put_contents($dir.'/src/Bar.php', "<?php\nfinal class Bar { public function value(): string { return 'green'; } }\n");
 
         return $dir;
+    }
+
+    /**
+     * SOUNDNESS fixture (loop-can-self-deceive): a FEATURE diff whose ADDED lines carry NO mutable operator
+     * (`$this->sink->store($rows);` — no return-literal, relational or string literal), added to a file whose
+     * OLD `return true;` (isReady, unchanged) IS covered by the frozen test. The pre-fix whole-file firstMutation
+     * fallback would mutate that OLD covered `return true;` and get a false kill; the confined feature lane must
+     * find NO mutable ADDED line and fail closed (no_applicable_mutation).
+     */
+    private function featureWorkspaceWithNonMutableAddedCodeOverOldCoveredReturnTrue(): string
+    {
+        $baseline = <<<'PHP'
+<?php
+final class Calc {
+    public function isReady(): bool {
+        return true;
+    }
+}
+PHP;
+        $test = <<<'PHP'
+<?php
+require __DIR__.'/../src/Calc.php';
+$c = new Calc();
+if ($c->isReady() !== true) { fwrite(STDERR, 'isReady wrong'); exit(1); }
+exit(0);
+PHP;
+        $refactor = <<<'PHP'
+<?php
+final class Calc {
+    public function isReady(): bool {
+        return true;
+    }
+    public function newlyAdded(array $rows): void {
+        $this->sink->store($rows);
+    }
+}
+PHP;
+
+        return $this->refactorWorkspace($baseline, $test, $refactor);
     }
 
     public function test_overfit_probe_detects_arg_count_short_circuit(): void
