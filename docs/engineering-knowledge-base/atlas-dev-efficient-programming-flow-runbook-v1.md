@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Runbook v1
 status: active
 category: programming
 priority: 105
-summary: Runbook de implementacao do Atlas Dev Efficient Programming Flow. Sequencia de fatias com paths absolutos, signatures, fixtures, DoD operacional e ordem dentro da fatia. Doc filho do contrato principal e do contracts. Nao contem regras de medicao, benchmark, oraculos ou Rivals — sao trabalho de outra equipe.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

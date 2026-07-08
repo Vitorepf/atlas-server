@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockRuntimeValidator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Facades\Artisan;

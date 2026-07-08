@@ -3,7 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
 use Tests\Concerns\MakesSelfConstructionAgentRuns;

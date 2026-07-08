@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionReservationRepositoryHotScopeTest extends TestCase

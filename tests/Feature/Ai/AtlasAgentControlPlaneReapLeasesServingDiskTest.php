@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockRuntimeValidator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Carbon\CarbonImmutable;
@@ -86,7 +86,7 @@ final class AtlasAgentControlPlaneReapLeasesServingDiskTest extends TestCase
         $this->assertSame('claimable', $record['status']);
 
         // Sanity: the default-disk repo (the buggy reaper target) has no record of this packet.
-        $defaultRecord = (new \App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository)->get('serving-expired-1');
+        $defaultRecord = (new \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository)->get('serving-expired-1');
         $this->assertNull($defaultRecord, 'seeded packet must live on the serving disk only');
     }
 

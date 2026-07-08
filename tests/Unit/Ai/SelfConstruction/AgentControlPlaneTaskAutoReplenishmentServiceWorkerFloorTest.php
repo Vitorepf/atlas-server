@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskAutoReplenishmentService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskAutoReplenishmentService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

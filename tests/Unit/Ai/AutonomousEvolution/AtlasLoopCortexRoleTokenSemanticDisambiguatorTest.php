@@ -7,7 +7,7 @@ namespace Tests\Unit\Ai\AutonomousEvolution;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopCortexRoleTokenSemanticDisambiguator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use Tests\TestCase;
 
 /**

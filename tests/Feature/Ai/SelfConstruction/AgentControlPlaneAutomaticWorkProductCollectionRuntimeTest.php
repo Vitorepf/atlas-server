@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneAutomaticWorkProductCollectionCertificationService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductCandidateNormalizer;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductCollectionReceiptPlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductManifestReconciler;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticWorkProductCollectionCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductCandidateNormalizer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductCollectionReceiptPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductManifestReconciler;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

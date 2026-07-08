@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\TaskServing;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskSimplicityContractAuditor;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskSimplicityContractSentinel;
 use Tests\TestCase;

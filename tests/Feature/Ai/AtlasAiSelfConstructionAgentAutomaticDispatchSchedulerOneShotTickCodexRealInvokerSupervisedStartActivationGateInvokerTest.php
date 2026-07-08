@@ -3,7 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
 use Tests\Concerns\MakesCodexRealInvokerPostStartFixtures;

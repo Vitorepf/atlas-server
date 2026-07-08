@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentValidationGateResultRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateResultRepository;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadConsumptionRateReporter;
 use App\Services\Ai\SelfConstruction\Maestro\Projection\AtlasMaestroWorkloadProjectionFactEmitter;

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchExecutorReleaseAuthorizationPersistenceWriter;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorReleaseAuthorizationPersistenceWriter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

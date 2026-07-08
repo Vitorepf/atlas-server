@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneRuntimePilotCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

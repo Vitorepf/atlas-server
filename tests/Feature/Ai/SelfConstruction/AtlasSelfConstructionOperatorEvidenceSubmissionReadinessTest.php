@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimeGapMatrixService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimeGapMatrixService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

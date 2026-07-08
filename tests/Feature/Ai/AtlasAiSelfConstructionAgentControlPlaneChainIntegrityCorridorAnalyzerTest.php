@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneChainIntegrityCorridorAnalyzer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityCorridorAnalyzer;
 use Tests\TestCase;
 
 final class AtlasAiSelfConstructionAgentControlPlaneChainIntegrityCorridorAnalyzerTest extends TestCase

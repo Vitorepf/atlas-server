@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

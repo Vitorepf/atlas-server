@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionOperatorResumeAliasConsistencyTest extends TestCase

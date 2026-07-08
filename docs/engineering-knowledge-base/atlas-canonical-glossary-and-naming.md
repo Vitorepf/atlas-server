@@ -227,7 +227,7 @@ exemplos ✓/✗ · aliases ok/proibidos.
 - `legacy alias tolerado`. UX facade DENTRO do Atlas Code que aparece quando operador interage com Obras Forge no Desktop.
 - Use: tela do Forge no Atlas Code (`AtlasCodeForge*Service`, `/works/{project}/forge/*`). Nao use: como sinonimo de Atlas Forge.
 - Relacao: subset de UX do Atlas Code; consome Atlas Forge. Cluster 1 do audit.
-- ✓ "Atlas Code Forge fast path emite preview". ✗ "Atlas Code Forge orquestra multiagente" (use Atlas Forge).
+- ✓ "Atlas Code Forge executor Dev emite preview". ✗ "Atlas Code Forge orquestra multiagente" (use Atlas Forge).
 - Aliases: ok={Atlas Code Forge, Code Forge surface}; proibido={Code Forge = Forge OS, Atlas Code Forge como novo nucleo}.
 
 ### Obra

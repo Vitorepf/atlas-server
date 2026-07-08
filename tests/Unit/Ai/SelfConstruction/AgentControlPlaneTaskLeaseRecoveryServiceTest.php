@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

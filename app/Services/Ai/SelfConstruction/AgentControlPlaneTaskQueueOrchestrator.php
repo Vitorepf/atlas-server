@@ -23,6 +23,15 @@ use Throwable;
  * never spends tokens, never advances the next required slice, never
  * enables self-programming and never writes the evidence ledger.
  */
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\Maestro\Health\Maestro;
+
 final class AgentControlPlaneTaskQueueOrchestrator
 {
     public const SCHEMA_VERSION = 'atlas.self_construction.agent_control_plane_task_queue_orchestrator.v1';

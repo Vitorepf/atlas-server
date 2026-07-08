@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateCertificationService;
-use App\Services\Ai\SelfConstruction\AgentValidationGatePlanBuilder;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateCertificationService;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGatePlanBuilder;
 use Tests\TestCase;
 
 final class AgentValidationGateCertificationServiceTest extends TestCase

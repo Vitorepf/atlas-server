@@ -107,6 +107,10 @@ php artisan atlas:ai:self-construction --codex-start-packet --actor=<agent-id> -
 ```
 
 Depois disso, siga o contrato retornado: rode o bootstrap e o scope validator do pacote, edite somente `allowed_files`, não toque nos hot scopes de Voice/Kernel, rode os gates exigidos e responda usando o `final_response_contract`.
+
+### Elite executors (Defatoração Elite)
+Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra). Diferença = operador presente + escala/duração — nunca "Dev = fast patch". ACDE `atlas:loop:*` hard-deleted; use `atlas:brain:*` / `atlas:task:*`.
+
 <!-- atlas:manual:end -->
 
 ## Atlas Pointers

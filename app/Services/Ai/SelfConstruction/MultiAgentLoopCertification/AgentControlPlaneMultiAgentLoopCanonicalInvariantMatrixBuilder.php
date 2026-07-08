@@ -10,6 +10,8 @@ namespace App\Services\Ai\SelfConstruction\MultiAgentLoopCertification;
  * Extracted from AgentControlPlaneMultiAgentLoopCertificationService to reduce
  * the god-class. Pure static method — no instance state.
  */
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+
 final class AgentControlPlaneMultiAgentLoopCanonicalInvariantMatrixBuilder
 {
     /**

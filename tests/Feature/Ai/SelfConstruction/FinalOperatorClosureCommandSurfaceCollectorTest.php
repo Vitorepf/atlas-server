@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\FinalOperatorClosureCommandSurfaceCollector;
+use App\Services\Ai\SelfConstruction\Support\FinalOperatorClosureCommandSurfaceCollector;
 use Tests\TestCase;
 
 final class FinalOperatorClosureCommandSurfaceCollectorTest extends TestCase

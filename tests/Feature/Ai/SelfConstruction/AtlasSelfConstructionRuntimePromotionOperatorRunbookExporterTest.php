@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

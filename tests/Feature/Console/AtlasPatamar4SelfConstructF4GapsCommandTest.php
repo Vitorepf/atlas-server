@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Console;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use Tests\TestCase;
 
 class AtlasPatamar4SelfConstructF4GapsCommandTest extends TestCase

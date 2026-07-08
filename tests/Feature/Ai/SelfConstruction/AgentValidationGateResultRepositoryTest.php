@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateDryRunEvaluator;
-use App\Services\Ai\SelfConstruction\AgentValidationGatePlanBuilder;
-use App\Services\Ai\SelfConstruction\AgentValidationGateResultRepository;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateDryRunEvaluator;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGatePlanBuilder;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateResultRepository;
 use Tests\TestCase;
 
 final class AgentValidationGateResultRepositoryTest extends TestCase

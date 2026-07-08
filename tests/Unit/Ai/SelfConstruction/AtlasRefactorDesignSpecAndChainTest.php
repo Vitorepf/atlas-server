@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch;

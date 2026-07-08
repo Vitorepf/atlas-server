@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeEvidenceDossierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeEvidenceDossierService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionRealProviderSmokeEvidenceDossierTest extends TestCase

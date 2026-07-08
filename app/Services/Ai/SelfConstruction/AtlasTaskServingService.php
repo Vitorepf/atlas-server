@@ -11,6 +11,8 @@ use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\EngineeringKernel\Adapters\MaestroCostBudgetMeterAdapter;
 use App\Services\Ai\EngineeringKernel\BudgetMeter;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
@@ -92,6 +94,8 @@ final class AtlasTaskServingService
         ?Closure $evidenceContractEvaluator = null,
         ?BudgetMeter $budgetMeter = null,
         ?AtlasRefactorProofGate $refactorProofGate = null,
+        private readonly ?EliteExecutorKernel $eliteKernel = null,
+        private readonly ?AtlasContextRuntime $contextRuntime = null,
     ) {
         $this->refactorProofGate = $refactorProofGate ?? new AtlasRefactorProofGate;
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
@@ -525,6 +529,8 @@ final class AtlasTaskServingService
                     'commit' => $commit,
                 ]);
             }
+
+            $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, $commit);
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
 
@@ -1294,5 +1300,38 @@ final class AtlasTaskServingService
             'status' => $status,                 // reported | disabled | invalid_report
             'client_id' => $clientId,
         ], $extra);
+    }
+
+    /**
+     * @param  array<string, mixed>  $scope
+     * @param  array<string, mixed>  $commit
+     */
+    private function eliteAutonomosContextAndOutcome(string $taskPacketId, array $scope, array $commit): void
+    {
+        if ($this->contextRuntime !== null) {
+            $this->contextRuntime->certifyEnforcement([
+                'flow_id' => 'atlas_autonomos',
+                'domain' => 'self_construction',
+                'task_type' => 'task_serving_commit',
+                'risk_level' => 'high',
+                'provider' => 'local',
+                'provider_target' => 'local',
+                'objective' => (string) ($scope['objective'] ?? 'task commit'),
+                'source_refs' => array_map(
+                    static fn (string $ref): array => ['ref' => $ref],
+                    array_values(array_map('strval', (array) ($scope['allowed_files'] ?? []))),
+                ),
+                'task_packet_id' => $taskPacketId,
+            ]);
+        }
+
+        $this->eliteKernel?->assertHonestOutcome([
+            'status' => 'success',
+            'execution' => [
+                'task_packet_id' => $taskPacketId,
+                'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
+                'files_committed' => (array) ($commit['files_committed'] ?? []),
+            ],
+        ], 'autonomos');
     }
 }

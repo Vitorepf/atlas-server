@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\MultiAgentLoopCertification;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalLoopHealthDigestService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
 
 /**
  * Read-only presence predicates that probe the Terminal-Loop Health Digest to

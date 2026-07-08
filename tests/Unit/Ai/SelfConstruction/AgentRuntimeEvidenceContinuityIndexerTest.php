@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceContinuityIndexer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceContinuityIndexer;
 use Tests\TestCase;
 
 final class AgentRuntimeEvidenceContinuityIndexerTest extends TestCase

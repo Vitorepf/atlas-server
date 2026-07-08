@@ -1,0 +1,334 @@
+<?php
+
+namespace App\Services\Ai\SelfConstruction\ControlPlane;
+
+use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
+
+class AgentDispatchExecutorReceiptUseWriter
+{
+    private const DISPATCH_RECEIPTS_TABLE = 'atlas_self_construction_agent_dispatch_receipts';
+
+    private const LEDGER_TABLE = 'atlas_ledger_events';
+
+    public function __construct(
+        private readonly AtlasEvidenceLedger $ledger,
+    ) {}
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function markReceiptUsedAtomically(array $input): array
+    {
+        $normalized = $this->normalize($input);
+
+        if (! Schema::hasTable(self::DISPATCH_RECEIPTS_TABLE)) {
+            throw new InvalidArgumentException('dispatch_receipts_table_missing');
+        }
+
+        if (! Schema::hasTable(self::LEDGER_TABLE)) {
+            throw new InvalidArgumentException('append_only_ledger_table_missing');
+        }
+
+        return DB::transaction(function () use ($normalized): array {
+            $receipt = AtlasSelfConstructionAgentDispatchReceipt::query()
+                ->where('receipt_hash', $normalized['receipt_hash'])
+                ->lockForUpdate()
+                ->first();
+
+            if (! $receipt instanceof AtlasSelfConstructionAgentDispatchReceipt) {
+                throw new InvalidArgumentException('dispatch_receipt_not_found');
+            }
+
+            $existingAttemptId = (string) data_get($receipt->payload, 'receipt_use.provider_start_attempt_id', '');
+
+            if ($receipt->used_at !== null) {
+                if ($existingAttemptId !== '' && $existingAttemptId === $normalized['provider_start_attempt_id']) {
+                    return $this->result($receipt, idempotent: true, ledgerEventId: null);
+                }
+
+                throw new InvalidArgumentException('dispatch_receipt_already_used');
+            }
+
+            $this->assertReceiptCanBeUsed($receipt, $normalized);
+
+            $payload = (array) ($receipt->payload ?? []);
+            $payload['receipt_use'] = [
+                'provider_start_attempt_id' => $normalized['provider_start_attempt_id'],
+                'executor_contract_hash' => $normalized['executor_contract_hash'],
+                'executor_release_authorization_hash' => $normalized['executor_release_authorization_hash'],
+                'actor' => $normalized['actor'],
+                'session' => $normalized['session'],
+                'reason' => $normalized['reason'],
+                'used_by_writer' => self::class,
+                'used_before_provider_start' => true,
+                'provider_start_side_effect_performed' => false,
+                'marked_at' => CarbonImmutable::now()->toIso8601String(),
+            ];
+
+            $receipt->forceFill([
+                'status' => 'used_pending_provider_start',
+                'used_at' => CarbonImmutable::now(),
+                'payload' => $payload,
+            ])->save();
+
+            $ledgerEvent = $this->ledger->record(LedgerEventType::OperationCompleted, [
+                'domain_event_type' => 'self_construction.agent_dispatch_executor_receipt.used',
+                'receipt_key' => $receipt->receipt_key,
+                'receipt_hash' => $receipt->receipt_hash,
+                'packet_id' => $receipt->packet_id,
+                'provider' => $receipt->provider,
+                'provider_role' => $receipt->provider_role,
+                'provider_start_attempt_id' => $normalized['provider_start_attempt_id'],
+                'executor_contract_hash' => $normalized['executor_contract_hash'],
+                'executor_release_authorization_hash' => $normalized['executor_release_authorization_hash'],
+                'provider_start_side_effect_performed' => false,
+                'dispatch_allowed' => false,
+            ], [
+                'envelope_id' => 'self_construction:agent_dispatch_executor_receipt_use',
+                'receipt_id' => $receipt->receipt_key,
+                'correlation_id' => $receipt->receipt_hash,
+                'emitter_stage' => 'atlas.self_construction.agent_control_plane',
+                'emitter_version' => 'agent-dispatch-executor-receipt-use-writer.v1',
+            ]);
+
+            if ($ledgerEvent === null) {
+                throw new InvalidArgumentException('append_only_ledger_event_write_failed');
+            }
+
+            return $this->result($receipt, idempotent: false, ledgerEventId: (string) $ledgerEvent->event_id);
+        });
+    }
+
+    private const GENERIC_SUCCESS_PHRASES = [
+        'success',
+        'done',
+        'completed',
+        'task completed',
+        'ok',
+        'finished',
+    ];
+
+    /**
+     * Converts a provider execution receipt into structured learning feedback
+     * for worker fit, task quality and future dispatch decisions.
+     *
+     * Rejects receipts that are success-text-only: a textual outcome of
+     * "success"/"done"/etc with no proof artifact and no machine-readable
+     * outcome_class is unusable signal and must not be turned into a
+     * learning_payload that downstream registries would trust.
+     *
+     * @param  array<string,mixed>  $receipt  { outcome_text?: string,
+     *   outcome_class?: string, proof_command?: string, proof_output?: string,
+     *   started_at?: string, completed_at?: string, failure_class?: string,
+     *   worker_id?: string, packet_id?: string }
+     * @return array<string,mixed>
+     */
+    public function learningPayloadFromReceipt(array $receipt): array
+    {
+        $outcomeClass = trim((string) ($receipt['outcome_class'] ?? ''));
+        $proofCommand = trim((string) ($receipt['proof_command'] ?? ''));
+        $proofOutput = trim((string) ($receipt['proof_output'] ?? ''));
+        $outcomeText = strtolower(trim((string) ($receipt['outcome_text'] ?? '')));
+
+        $hasProof = $proofCommand !== '' || $proofOutput !== '';
+        $isGenericSuccessText = in_array($outcomeText, self::GENERIC_SUCCESS_PHRASES, true);
+
+        // weak_green: generic success text with no concrete command evidence.
+        // This is a distinct outcome from verified success — it carries signal
+        // but must not be trusted as proven. It becomes a learning payload with
+        // outcome_class=weak_green instead of being rejected.
+        $isWeakGreen = $isGenericSuccessText && ! $hasProof && $outcomeClass === '';
+
+        if ($isWeakGreen) {
+            $outcomeClass = 'weak_green';
+        }
+
+        if ($outcomeClass === '' && ! $hasProof) {
+            return [
+                'status' => 'rejected_success_text_only',
+                'reason' => $isGenericSuccessText
+                    ? 'receipt_has_generic_success_text_without_proof_or_outcome_class'
+                    : 'receipt_missing_proof_and_outcome_class',
+                'learning_payload' => null,
+            ];
+        }
+
+        $startedAt = $receipt['started_at'] ?? null;
+        $completedAt = $receipt['completed_at'] ?? null;
+        $elapsedSeconds = null;
+
+        if (is_string($startedAt) && is_string($completedAt) && $startedAt !== '' && $completedAt !== '') {
+            try {
+                $elapsedSeconds = (int) CarbonImmutable::parse($startedAt)->diffInSeconds(CarbonImmutable::parse($completedAt));
+            } catch (\Exception) {
+                $elapsedSeconds = null;
+            }
+        }
+
+        $failureClass = trim((string) ($receipt['failure_class'] ?? ''));
+        $proofStatus = match (true) {
+            $outcomeClass === 'success' && $hasProof => 'proven',
+            $outcomeClass === 'success' && ! $hasProof => 'unproven_success_claim',
+            $outcomeClass === 'weak_green' => 'unproven_success_claim',
+            $outcomeClass === 'failed' => 'proven_failure',
+            default => 'unknown',
+        };
+
+        $workerFitSignal = match (true) {
+            $proofStatus === 'proven' => 'positive',
+            $proofStatus === 'unproven_success_claim' => 'untrusted',
+            $proofStatus === 'proven_failure' => 'negative',
+            default => 'neutral',
+        };
+
+        // For give_back and poison outcomes, include root_cause and respec_hint
+        // when present in the receipt.
+        $rootCause = trim((string) ($receipt['root_cause'] ?? ''));
+        $respecHint = trim((string) ($receipt['respec_hint'] ?? ''));
+        $isGiveBackOrPoison = in_array($outcomeClass, ['give_back', 'poison'], true);
+
+        $learningPayload = [
+            'packet_id' => (string) ($receipt['packet_id'] ?? ''),
+            'worker_id' => (string) ($receipt['worker_id'] ?? ''),
+            'task_outcome' => $outcomeClass !== '' ? $outcomeClass : 'unknown',
+            'proof_status' => $proofStatus,
+            'elapsed_seconds' => $elapsedSeconds,
+            'failure_class' => $failureClass !== '' ? $failureClass : null,
+            'worker_fit_signal' => $workerFitSignal,
+            'destination' => ['runtime_registry', 'task_fabric'],
+        ];
+
+        // Verified success payloads include task_family and evidence_hash
+        // when present in the receipt.
+        $taskFamily = trim((string) ($receipt['task_family'] ?? ''));
+        $evidenceHash = trim((string) ($receipt['evidence_hash'] ?? ''));
+        if ($outcomeClass === 'success' && $proofStatus === 'proven') {
+            if ($taskFamily !== '') {
+                $learningPayload['task_family'] = $taskFamily;
+            }
+            if ($evidenceHash !== '') {
+                $learningPayload['evidence_hash'] = $evidenceHash;
+            }
+        }
+
+        // give_back and poison payloads include root_cause and respec_hint.
+        if ($isGiveBackOrPoison) {
+            if ($rootCause !== '') {
+                $learningPayload['root_cause'] = $rootCause;
+            }
+            if ($respecHint !== '') {
+                $learningPayload['respec_hint'] = $respecHint;
+            }
+        }
+
+        return [
+            'status' => 'learning_payload_built',
+            'reason' => null,
+            'learning_payload' => $learningPayload,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,string>
+     */
+    private function normalize(array $input): array
+    {
+        $required = [
+            'receipt_hash',
+            'executor_contract_hash',
+            'executor_release_authorization_hash',
+            'provider_start_attempt_id',
+            'actor',
+            'session',
+            'packet_id',
+            'provider',
+            'reason',
+        ];
+
+        foreach ($required as $field) {
+            if (! Arr::has($input, $field) || $input[$field] === null || $input[$field] === '') {
+                throw new InvalidArgumentException('missing_'.$field);
+            }
+        }
+
+        foreach (['receipt_hash', 'executor_contract_hash', 'executor_release_authorization_hash'] as $hashField) {
+            $hash = strtolower((string) $input[$hashField]);
+
+            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+                throw new InvalidArgumentException('invalid_'.$hashField);
+            }
+
+            $input[$hashField] = $hash;
+        }
+
+        return [
+            'receipt_hash' => (string) $input['receipt_hash'],
+            'executor_contract_hash' => (string) $input['executor_contract_hash'],
+            'executor_release_authorization_hash' => (string) $input['executor_release_authorization_hash'],
+            'provider_start_attempt_id' => (string) $input['provider_start_attempt_id'],
+            'actor' => (string) $input['actor'],
+            'session' => (string) $input['session'],
+            'packet_id' => (string) $input['packet_id'],
+            'provider' => (string) $input['provider'],
+            'reason' => (string) $input['reason'],
+        ];
+    }
+
+    /**
+     * @param  array<string,string>  $normalized
+     */
+    private function assertReceiptCanBeUsed(AtlasSelfConstructionAgentDispatchReceipt $receipt, array $normalized): void
+    {
+        if ($receipt->decision !== 'approve_dispatch_once') {
+            throw new InvalidArgumentException('dispatch_receipt_decision_not_approved');
+        }
+
+        if ($receipt->status !== 'signed_pending_dispatch') {
+            throw new InvalidArgumentException('dispatch_receipt_status_not_pending');
+        }
+
+        if ($receipt->expires_at !== null && $receipt->expires_at->lessThanOrEqualTo(CarbonImmutable::now())) {
+            throw new InvalidArgumentException('dispatch_receipt_expired');
+        }
+
+        if ((string) $receipt->packet_id !== $normalized['packet_id']) {
+            throw new InvalidArgumentException('dispatch_receipt_packet_mismatch');
+        }
+
+        if ((string) $receipt->provider !== $normalized['provider']) {
+            throw new InvalidArgumentException('dispatch_receipt_provider_mismatch');
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function result(
+        AtlasSelfConstructionAgentDispatchReceipt $receipt,
+        bool $idempotent,
+        ?string $ledgerEventId,
+    ): array {
+        return [
+            'status' => 'receipt_marked_used',
+            'receipt_id' => (string) $receipt->id,
+            'receipt_key' => $receipt->receipt_key,
+            'receipt_hash' => $receipt->receipt_hash,
+            'new_status' => $receipt->status,
+            'used_at' => $receipt->used_at?->toIso8601String(),
+            'idempotent' => $idempotent,
+            'ledger_event_id' => $ledgerEventId,
+            'receipt_use_condition_satisfied' => true,
+            'provider_start_allowed_after_mark' => false,
+            'dispatch_allowed' => false,
+        ];
+    }
+}

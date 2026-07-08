@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 
 /**
@@ -13,7 +13,7 @@ use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
  * contract (worker-executable / not operator-only / no runtime-allowed flags / etc.).
  *
  * One method migrated verbatim from
- * {@see \App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalWorkerBootstrapService}:
+ * {@see \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService}:
  *  - {@see self::workerEligibilityGuard}: read the current claimable records from the queue
  *    repository, scan each for the seven violation codes (`claimable_task_not_worker_executable`,
  *    `claimable_task_requires_operator_handoff`,

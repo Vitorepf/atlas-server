@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCertificationService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

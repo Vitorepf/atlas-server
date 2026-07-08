@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopCertificationService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopDigestPredicates;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopDigestPredicates;
 use Tests\TestCase;
 
 /**

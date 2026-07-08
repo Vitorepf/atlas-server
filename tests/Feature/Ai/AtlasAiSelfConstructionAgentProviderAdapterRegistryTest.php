@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
 use InvalidArgumentException;
 use Tests\TestCase;
 

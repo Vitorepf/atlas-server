@@ -12,7 +12,7 @@ use App\Services\Ai\Patamar4\AtlasRuntimeDegradationSignalService;
 use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
-use App\Services\Ai\SelfConstruction\AtlasSelfDivergenceModelService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfDivergenceModelService;
 use Tests\TestCase;
 
 /**

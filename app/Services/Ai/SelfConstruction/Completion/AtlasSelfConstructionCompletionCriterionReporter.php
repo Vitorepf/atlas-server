@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Completion;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReleaseDossierService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanSignedCompletionReceiptService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeCertificationService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionReceiptService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReleaseDossierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionForgeSelfImprovementIntegrationSmokeService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanSignedCompletionReceiptService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeCertificationService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionReceiptService;
 use Illuminate\Support\Collection;
 
 /**

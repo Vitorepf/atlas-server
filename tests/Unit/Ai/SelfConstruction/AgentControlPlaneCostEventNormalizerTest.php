@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCostEventNormalizer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostEventNormalizer;
 use PHPUnit\Framework\TestCase;
 
 /**

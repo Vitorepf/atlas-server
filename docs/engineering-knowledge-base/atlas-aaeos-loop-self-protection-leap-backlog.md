@@ -8,7 +8,7 @@ implementation_state: backlog_only_no_runtime
 authority_class: backlog
 category: agentic-engineering
 priority: 98
-summary: Atomic single-decision new-class pure-logic slices for the loop, mined from canonical AAEOS docs/code and adversarially filtered against scaffold + complexity. Each creates ONE new dependency-free class with ONE method computing a real decision from inputs, paired test with meaningful assertions. Decompose-ready; the loop one-shots these without I/O or existing-class edits.
+summary: "⚰️ LEGADO / ACDE-MORTO — use atlas:brain:* / atlas:task:*."
 owner: operator (Vitor)
 risk_level: medium
 tags:

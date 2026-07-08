@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateCertificationService;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateCertificationService;
 use PHPUnit\Framework\TestCase;
 
 final class AgentValidationGateCertificationServiceTest extends TestCase

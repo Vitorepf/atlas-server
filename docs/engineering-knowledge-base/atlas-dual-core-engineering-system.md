@@ -21,8 +21,11 @@ capabilities:
   - dev_to_forge_escalation
   - shared_evidence_contract
 decisions:
-  - Atlas Dev e completo por si so como sistema leve, rapido, governado e auditavel de programacao assistida por IA.
-  - Atlas Forge e completo por si so como sistema pesado, enterprise, continuo e automatizado de engenharia de software por Obras.
+  - Dev · Forge · Autônomos são os três executores de engenharia de elite (mesmo bar mundial). Diferença = necessidade de operador + escala/duração — não ranking de ambição.
+  - Atlas Dev é fábrica elite com operador presente — não é "fast patch" nem produto leve.
+  - Atlas Forge é fábrica elite para obras enormes/longas — operador só no planejamento.
+  - Autônomos é executor elite zero-operador (cérebro atlas:brain + músculo atlas:task).
+  - Atlas Dev e Forge são runtimes user-space completos sob Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court e Governor.
   - Atlas Dev nao e Forge mini, Forge nao e gerente do Dev, e nenhum dos dois deve ser fundido em um sistema unico.
   - Na arquitetura v3, Dev e Forge sao runtimes user-space sob Constitution, Mission Control, Policy Plane, Engineering Kernel, Spec Court, Verification Court e Governor.
   - O roteamento Dev/Forge pertence a Mission Control/Policy Plane; o Dual-Core define identidade e contrato, nao cria um OS acima do governo.
@@ -132,7 +135,7 @@ quality_gates:
 failure_modes:
   - IA funde Dev e Forge e cria arquitetura confusa.
   - IA transforma Forge em gerente do Dev e perde a ideia de Obra enterprise.
-  - IA transforma Dev em Forge mini e deixa o fast path pesado demais.
+  - IA transforma Dev em Forge mini e deixa o executor Dev com overhead de Obra.
   - IA manda tarefa pesada para Dev e gera patch incompleto sem SDD.
   - IA manda tarefa pequena para Forge e gera overhead desnecessario.
 observability_signals:
@@ -163,7 +166,7 @@ Atlas Dual-Core Engineering System e o contrato que define a convivencia entre
 dois runtimes user-space completos de engenharia de software:
 
 ```text
-Atlas Dev   = nucleo rapido, leve, governado e auditavel para programacao diaria.
+Atlas Dev   = executor elite com operador presente, governado e auditavel para programacao diaria.
 Atlas Forge = nucleo pesado, enterprise, continuo e automatizado para Obras.
 ```
 
@@ -206,7 +209,7 @@ Mission Control / Atlas AI Router
 
 | Nucleo | Identidade | Nao e |
 | --- | --- | --- |
-| Atlas Dev | Fast path de programacao assistida superior a provider direto | Forge mini |
+| Atlas Dev | Executor elite de programacao (operador presente) superior a provider direto | Forge mini |
 | Atlas Forge | Sistema completo de engenharia pesada por Obras | Gerente do Dev |
 | Autonomos / Self-Construction | Runtime 24/7 de Atlas construindo Atlas | Loop piloto nem Dev/Forge escondido |
 
@@ -306,7 +309,7 @@ Campos minimos:
 
 Regras:
 
-- `route=dev` quando a tarefa cabe em fast path governado.
+- `route=dev` quando a tarefa cabe no executor Dev (operador presente, escopo contido).
 - `route=forge` quando a tarefa ja nasce como Obra.
 - `route=dev_to_forge` quando o Dev comecou ou analisou e descobriu que passou
   do limite dele.
@@ -360,6 +363,12 @@ Quando Forge receber um Escalation Packet, ele deve:
 5. Decidir providers, autonomy, budget e fallback.
 6. Registrar Decision Receipt.
 7. Comecar a Obra ou bloquear honestamente.
+
+**Call-site de producao (vivo):** `DevToForgePromotionService` anexa
+`escalation_packet.v1` e chama `ForgeIntakeService::intakeFromEscalationPacket()`
+no caminho de promocao Dev→Forge (fail-open: erro vira `forge_intake_error`
+no candidate, sem derrubar a promocao). Intake a partir de packet nao e mais
+somente teste.
 
 Forge pode discordar do Dev. Se discordar, deve registrar:
 
@@ -482,7 +491,7 @@ Desktop/API deve expor:
 
 - Fundir Dev e Forge e perder a clareza operacional.
 - Transformar Forge em gerente do Dev e enfraquecer Obras.
-- Transformar Dev em Forge mini e matar o fast path.
+- Transformar Dev em Forge mini e perder a identidade dos três executores elite.
 - Escalar em silencio sem packet, motivo e evidence.
 - Mandar trabalho pesado para Dev ou trabalho pequeno para Forge.
 

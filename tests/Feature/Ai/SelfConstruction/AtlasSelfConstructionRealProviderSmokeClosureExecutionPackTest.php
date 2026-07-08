@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

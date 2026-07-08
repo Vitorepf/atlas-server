@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHeartbeatRepository;
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryOrchestrator;
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryQuarantineRepository;
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryHeartbeatRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryOrchestrator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryQuarantineRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

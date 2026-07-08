@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerCandidateSelector;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerCandidateSelector;
 use Tests\TestCase;
 
 final class AgentDispatchPlannerCandidateSelectorTest extends TestCase

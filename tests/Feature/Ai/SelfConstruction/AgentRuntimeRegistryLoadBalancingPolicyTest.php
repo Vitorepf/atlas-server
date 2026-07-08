@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryLoadBalancingPolicy;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryLoadBalancingPolicy;
 use Tests\TestCase;
 
 final class AgentRuntimeRegistryLoadBalancingPolicyTest extends TestCase

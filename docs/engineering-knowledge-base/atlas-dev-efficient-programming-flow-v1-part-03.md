@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow v1 · Parte 3
 status: active
 category: programming
 priority: 105
-summary: Recorte focado de Atlas Dev Efficient Programming Flow v1: 19. Verification E Repair ate 26.3 Atlas Dev Como Template Para Outras Verticais.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

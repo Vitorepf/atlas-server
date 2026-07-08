@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Models\AtlasSelfConstructCycle;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;

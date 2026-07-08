@@ -160,7 +160,7 @@ Roadmap reusa os 14 schemas da doc de contratos. Receipts esperados por missão:
 
 **Specialist flows** (alvo): plan, code, debug, review, explain, research,
 test, refactor, frontend, backend, database, security (quando aplicável).
-**Fast path vs deep path**: fast = single-call com scope guard, deep = senior
+**Executor Dev vs Forge**: Dev = operador presente / escopo contido; Forge = escala longa com scope guard, deep = senior
 engineer loop com auditoria 7 capabilities.
 
 **Patch Intelligence** (real, em `ProgrammingPatchVerifier`):

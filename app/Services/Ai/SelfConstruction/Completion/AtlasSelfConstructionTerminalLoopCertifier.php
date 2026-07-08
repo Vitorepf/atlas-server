@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Completion;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneOneShotWorkerPacketService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskAutoReplenishmentService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneOneShotWorkerPacketService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskAutoReplenishmentService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalLoopHealthDigestService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalLoopOperationalProofService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalWorkerBootstrapService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkerTaskEligibilityCertificationService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopOperationalProofService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkerTaskEligibilityCertificationService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 
 /**
  * Multi-agent terminal-loop certification for the Atlas self-construction

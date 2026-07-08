@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneChainIntegritySurfaceAuditor;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegritySurfaceAuditor;
 use Tests\TestCase;
 
 final class AgentControlPlaneChainIntegritySurfaceAuditorTest extends TestCase

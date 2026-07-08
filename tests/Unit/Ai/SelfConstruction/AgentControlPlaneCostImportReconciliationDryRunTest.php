@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCostImportReconciliationDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostImportReconciliationDryRun;
 use PHPUnit\Framework\TestCase;
 
 final class AgentControlPlaneCostImportReconciliationDryRunTest extends TestCase

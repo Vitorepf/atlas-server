@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\FinalOperatorEvidenceSubmissionEnvelopeBuilder;
+use App\Services\Ai\SelfConstruction\Support\FinalOperatorEvidenceSubmissionEnvelopeBuilder;
 use PHPUnit\Framework\TestCase;
 
 /**
  * ITEM8 — proves the cohesive operator-submission-envelope cluster extracted from
- * {@see \App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService}
+ * {@see \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService}
  * into FinalOperatorEvidenceSubmissionEnvelopeBuilder. Three methods migrated verbatim:
  *  - operatorSubmissionEnvelopes (10-arg aggregate of the three envelopes + statuses + hash).
  *  - operatorEnvelopeSummary (8-arg per-envelope summary).

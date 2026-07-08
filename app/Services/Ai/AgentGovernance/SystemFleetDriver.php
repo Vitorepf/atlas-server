@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgentGovernance;
 
-use App\Console\Commands\AtlasLoopKeepaliveCommand;
 use App\Support\AtlasPhpBinary;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -113,7 +112,7 @@ final class SystemFleetDriver implements FleetDriver
                 $etime = new Process(['ps', '-p', (string) $pid, '-o', 'etime='], null, null, null, 10.0);
                 $etime->run();
                 // Reuse the keepalive's timezone-free etime→epoch parser (no duplication).
-                $epoch = AtlasLoopKeepaliveCommand::bootEpochFromEtime(trim($etime->getOutput()), $now);
+                $epoch = ProcessEtimeEpoch::fromEtime(trim($etime->getOutput()), $now);
                 if ($epoch !== null) {
                     $oldest = $oldest === null ? $epoch : min($oldest, $epoch);
                 }

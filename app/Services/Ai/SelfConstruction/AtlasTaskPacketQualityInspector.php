@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\SelfConstruction\GovernedTargets\AtlasTaskPropertyGatedTargetPolicy;
 use App\Services\Ai\SelfConstruction\Support\NormalizesToStringList;
 use App\Services\Ai\SelfConstruction\TaskQuality\AtlasTaskHiddenPoisonDetector;
+use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 
 /**
  * PART 2 · axis 8 — the task-packet SELF-SUFFICIENCY inspector (the "packet-quality scorer" the operator's

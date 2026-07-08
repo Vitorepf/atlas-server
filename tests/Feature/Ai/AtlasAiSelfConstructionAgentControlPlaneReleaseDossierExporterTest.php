@@ -2,17 +2,17 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationBaselineService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationMutationGuard;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationScenarioSimulator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneChainIntegrityAuditService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneDeterministicChainReplayService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMacroSprintPromotionGate;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReleaseDossierExporter;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReleaseDossierService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReplayDiffService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReplaySnapshotStore;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationBaselineService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationMutationGuard;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationScenarioSimulator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityAuditService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneDeterministicChainReplayService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMacroSprintPromotionGate;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReleaseDossierExporter;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReleaseDossierService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReplayDiffService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReplaySnapshotStore;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

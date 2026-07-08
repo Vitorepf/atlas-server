@@ -4,7 +4,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentHeartbeat;
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentDispatchExecutorAdapterInvocationBoundary;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorAdapterInvocationBoundary;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

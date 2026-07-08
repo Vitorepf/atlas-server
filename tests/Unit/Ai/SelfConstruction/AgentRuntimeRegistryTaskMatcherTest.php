@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryTaskMatcher;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryTaskMatcher;
 use Tests\TestCase;
 
 final class AgentRuntimeRegistryTaskMatcherTest extends TestCase

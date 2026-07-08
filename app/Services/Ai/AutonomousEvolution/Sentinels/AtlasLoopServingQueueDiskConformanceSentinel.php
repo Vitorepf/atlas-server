@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Sentinels;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
 use Closure;
 use ReflectionProperty;
 

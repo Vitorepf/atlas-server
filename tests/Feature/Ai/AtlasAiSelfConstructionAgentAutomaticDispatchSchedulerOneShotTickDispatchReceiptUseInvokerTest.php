@@ -3,7 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;

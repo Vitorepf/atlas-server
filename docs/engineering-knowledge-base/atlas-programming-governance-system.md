@@ -286,7 +286,7 @@ Invariantes:
 
 ### Atlas Dev Fast Lane
 
-Atlas Dev aplica uma versao compacta e proporcional destes invariantes para trabalho diario. Ele nao substitui Programming Governance e nao possui gates concorrentes. Alguns gates sao projecoes diretas; outros sao Dev-only para operacionalizar o fast path, mas nao podem contradizer Governance.
+Atlas Dev aplica uma versao compacta e proporcional destes invariantes para trabalho diario. Ele nao substitui Programming Governance e nao possui gates concorrentes. Alguns gates sao projecoes diretas; outros sao Dev-only para operacionalizar o executor Dev (operador presente), mas nao podem contradizer Governance.
 
 Mapeamento canonico:
 
@@ -303,7 +303,7 @@ Mapeamento canonico:
 
 Gates Dev-only justificados: `light_task_contract_gate`, `verification_gate`, `forge_escalation_gate`. Eles adicionam contrato operacional, verificacao focada e parada segura para Forge preview.
 
-O fast path pode reduzir payload e custo por R-level, mas nao pode relaxar uma lei de governanca: write sem spec, sem contrato, sem escopo, sem verification/evidence ou sem completion state continua invalido.
+O executor Dev pode reduzir payload e custo por R-level, mas nao pode relaxar uma lei de governanca: write sem spec, sem contrato, sem escopo, sem verification/evidence ou sem completion state continua invalido.
 
 ## Fluxo
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceSubmissionPreflightService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionCompletionEvidenceSubmissionPreflightServiceTest extends TestCase

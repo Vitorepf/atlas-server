@@ -5,7 +5,7 @@ title: Atlas Dev Flow Map And Product Options v1 · Parte 7
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Flow Map And Product Options v1: Fatia 7: entrada no Rivals ate Regra Final.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - product-options

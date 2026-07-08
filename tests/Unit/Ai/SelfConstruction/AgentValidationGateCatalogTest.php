@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateCatalog;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateCatalog;
 use Tests\TestCase;
 
 /**

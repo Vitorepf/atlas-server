@@ -6,7 +6,7 @@ namespace App\Services\Ai\SelfDirectedEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use DateTimeImmutable;
 use DateTimeInterface;

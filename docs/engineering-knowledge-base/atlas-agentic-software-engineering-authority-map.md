@@ -24,7 +24,7 @@ decisions:
   - Agentic Software Engineering e a categoria de mercado; Atlas Agentic Engineering OS e o sistema-mae canonico do Atlas nessa categoria.
   - Atlas Autonomous Engineering Government e a autoridade final para autonomia de engenharia 24/7, acima de Loop, Task Fabric, Maestro, Company Runtime e stewardship multi-projeto.
   - Atlas Code e surface/cockpit/produto visual; nunca e runtime-mae, dominio, Forge ou Atlas Dev.
-  - Atlas Dev e fast path governado para programacao eficiente; Atlas Forge e fabrica pesada; eles sao irmaos sob governanca, nao pai/filho.
+  - Atlas Dev e executor elite (operador presente) para programacao governada; Atlas Forge e fabrica pesada; eles sao irmaos sob governanca, nao pai/filho.
   - Atlas Programming Governance System define a lei de programacao; Forge, Dev e Atlas Code consomem essa lei.
   - Atlas Forge Continuum OS define continuidade, provider topology, fallback, review, evidence e Rivals para programacao pesada; Forge Operating System e a fabrica operacional dentro desse continuum.
   - TEOS e north-star temporal de continuidade; nao substitui Atlas Dev, Forge, Programming Governance ou Agentic Engineering OS.
@@ -217,7 +217,7 @@ Atlas AI / Autonomous Intelligence OS
 | 10 | Loop autonomo | `atlas-autonomous-engineering-operating-system.md` | Define goal loop, planning, execution, review, learning e escalation. |
 | 11 | Lei de programacao | `atlas-programming-governance-system.md` | Define placement, spec, plan, task contract, Code Intelligence, evidence, review e learning. |
 | 12 | Fronteira Dev/Forge | `atlas-dual-core-engineering-system.md` | Define Dev e Forge como nucleos irmaos, nao hierarquia. |
-| 13 | Fast path | `atlas-dev-efficient-programming-flow-v1.md` | Define Atlas Dev para trabalho eficiente, curto/medio e governado. |
+| 13 | Executor Dev (ex-fast path LEGADO) | `atlas-dev-efficient-programming-flow-v1.md` | Define Atlas Dev para trabalho eficiente, curto/medio e governado. |
 | 14 | Fluxo pesado | `atlas-programming-forge-flow.md` | Define taxonomia do fluxo pesado `programming.forge`. |
 | 15 | Continuum pesado | `atlas-forge-continuum-os.md` | Define continuidade, provider topology, fallback, review, evidence, Rivals e learning. |
 | 16 | Fabrica Forge | `atlas-forge-operating-system.md` | Define packets, multiagente, integration queue, release gate e evidence normalization. |
@@ -278,7 +278,7 @@ Fluxo seguro para qualquer IA reorganizar ou usar docs desta area:
 - Use **Agentic Software Engineering** como categoria da area.
 - Use **Atlas Agentic Engineering OS** como sistema-mae do Atlas nessa area.
 - Use **Atlas Programming Governance System** para leis de programacao.
-- Use **Atlas Dev** para fast path eficiente.
+- Use **Atlas Dev** para trabalho elite com operador presente.
 - Use **Atlas Forge** para fabrica pesada, longa, multiagente ou multiprovider.
 - Use **Atlas Code** apenas como surface/cockpit/produto visual.
 - Use **TEOS** apenas como camada temporal/north-star de continuidade.
@@ -361,7 +361,7 @@ Exemplo correto:
 ```text
 Pedido: "fazer Atlas Dev vencer Claude Opus com Sonnet".
 Leitura: Authority Map -> Dual-Core -> Atlas Dev Efficient Flow -> Superiority/Rivals docs.
-Conclusao: otimizar fast path e benchmark; nao declarar vitoria sem evidence.
+Conclusao: otimizar os tres executores elite; nao declarar vitoria sem evidence.
 ```
 
 Exemplo incorreto:

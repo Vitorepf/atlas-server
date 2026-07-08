@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionEvidenceDossierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionEvidenceDossierService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionRuntimePromotionEvidenceDossierTest extends TestCase

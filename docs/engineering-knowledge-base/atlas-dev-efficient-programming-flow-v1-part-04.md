@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow v1 · Parte 4
 status: active
 category: programming
 priority: 105
-summary: Recorte focado de Atlas Dev Efficient Programming Flow v1: 26.4 Sumario Operacional (Estado Real Implementado) ate 27. Regra Final.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

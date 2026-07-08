@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Contracts v1 · Parte 7
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Efficient Programming Flow Contracts v1: 6.3 FailureCapsule ate 7.1 FastPathTelemetry.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - split-doc

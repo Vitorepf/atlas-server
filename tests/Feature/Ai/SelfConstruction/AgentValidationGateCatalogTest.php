@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateCatalog;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateCatalog;
 use Tests\TestCase;
 
 final class AgentValidationGateCatalogTest extends TestCase

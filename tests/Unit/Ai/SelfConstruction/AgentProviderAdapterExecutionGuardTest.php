@@ -3,8 +3,8 @@
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterExecutionGuard;
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterExecutionGuard;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

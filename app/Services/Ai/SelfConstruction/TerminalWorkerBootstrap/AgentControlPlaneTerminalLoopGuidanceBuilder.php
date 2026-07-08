@@ -13,7 +13,7 @@ use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTe
  * runbook / shell recipe / current-step artefacts a long-running terminal worker needs.
  *
  * Seven methods migrated verbatim from
- * {@see \App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalWorkerBootstrapService}:
+ * {@see \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService}:
  *  - {@see self::terminalLoopOperatorCommands}: the wide operator-commands artefact (claim / renew /
  *    complete / recover / next / inspect queue / inspect leases / long-running-loop contract /
  *    operator-loop contract).

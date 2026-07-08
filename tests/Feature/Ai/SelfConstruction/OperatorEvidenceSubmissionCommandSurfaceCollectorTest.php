@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\OperatorEvidenceSubmissionCommandSurfaceCollector;
+use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceSubmissionCommandSurfaceCollector;
 use Tests\TestCase;
 
 final class OperatorEvidenceSubmissionCommandSurfaceCollectorTest extends TestCase

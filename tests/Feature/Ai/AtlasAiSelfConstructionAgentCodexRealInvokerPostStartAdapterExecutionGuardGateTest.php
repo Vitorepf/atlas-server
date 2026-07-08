@@ -3,8 +3,8 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartAdapterExecutionGuardGate;
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartAdapterExecutionGuardGate;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

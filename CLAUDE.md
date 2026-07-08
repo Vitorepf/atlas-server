@@ -59,6 +59,10 @@ Adicionar abaixo. Atlas preserva todo o bloco entre os marcadores.
 ### Tese canônica + Vocabulário proibido + Filtro de 5 + Coluna vertebral → vivem no umbrella
 
 Estes quatro blocos vivem no umbrella `Atlas/CLAUDE.md`, que **sempre carrega como ancestral deste workspace** (Claude Code lê o CLAUDE.md de todos os diretórios-pai). Ficavam duplicados aqui — ~40 linhas idênticas carregadas 2× por turno. Editar a tese **só no umbrella**; aqui ficam apenas notas server-specific. Como o bloco Manual Notes fica fora do checksum, este enxugamento sobrevive a toda re-projeção (`atlas memory projection`).
+
+### Elite executors (Defatoração Elite)
+Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra). Diferença = operador presente + escala/duração — nunca "Dev = fast patch". ACDE `atlas:loop:*` hard-deleted; use `atlas:brain:*` / `atlas:task:*`.
+
 <!-- atlas:manual:end -->
 
 <!-- atlas:aobg:auto-bootstrap:start -->

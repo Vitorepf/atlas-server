@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\ReadinessJsonInput;
+use App\Services\Ai\SelfConstruction\Support\ReadinessJsonInput;
 use PHPUnit\Framework\TestCase;
 
 final class ReadinessJsonInputTest extends TestCase

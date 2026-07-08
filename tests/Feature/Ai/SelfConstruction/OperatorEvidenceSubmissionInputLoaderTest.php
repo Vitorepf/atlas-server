@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\OperatorEvidenceSubmissionInputLoader;
+use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceSubmissionInputLoader;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

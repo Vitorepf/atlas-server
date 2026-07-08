@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Health;
 
-use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSentinel;
 use Closure;
 use DateTimeImmutable;

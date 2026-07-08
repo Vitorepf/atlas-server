@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use Closure;
 
 /**

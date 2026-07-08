@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
-use App\Services\Ai\SelfConstruction\AgentDispatchExecutorProviderStartDriver;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorProviderStartDriver;
 use Carbon\CarbonImmutable;
 use PHPUnit\Framework\TestCase;
 

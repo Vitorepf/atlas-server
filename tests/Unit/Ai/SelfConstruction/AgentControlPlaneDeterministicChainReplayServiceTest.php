@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneChainIntegrityAuditService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneDeterministicChainReplayService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityAuditService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneDeterministicChainReplayService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Tests\TestCase;
 
 final class AgentControlPlaneDeterministicChainReplayServiceTest extends TestCase

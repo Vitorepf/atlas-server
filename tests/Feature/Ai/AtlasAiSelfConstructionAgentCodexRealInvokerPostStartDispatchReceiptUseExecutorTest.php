@@ -4,7 +4,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor;
+use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartDispatchReceiptUseExecutor;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

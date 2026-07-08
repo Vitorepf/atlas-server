@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionScaffoldStagingExecutorService;
 use Illuminate\Console\Command;
 
 class AtlasScaffoldStageCommand extends Command

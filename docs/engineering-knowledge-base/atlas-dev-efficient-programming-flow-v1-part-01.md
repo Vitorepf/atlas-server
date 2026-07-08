@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow v1 · Parte 1
 status: active
 category: programming
 priority: 105
-summary: Recorte focado de Atlas Dev Efficient Programming Flow v1: 1. Papel No Atlas ate 8. Pipeline Completo.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

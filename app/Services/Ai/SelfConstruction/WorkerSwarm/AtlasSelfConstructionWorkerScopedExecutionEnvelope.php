@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\WorkerSwarm;
 
-use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 
 /**
  * Pure composer — produces a deterministic, FACTS-only execution envelope for a SCOPED worker packet.

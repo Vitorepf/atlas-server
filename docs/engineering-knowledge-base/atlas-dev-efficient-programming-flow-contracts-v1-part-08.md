@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Contracts v1 · Parte 8
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Efficient Programming Flow Contracts v1: 7.2 FastPathErrorLedgerEntry ate 10. Resumo Operacional.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - split-doc

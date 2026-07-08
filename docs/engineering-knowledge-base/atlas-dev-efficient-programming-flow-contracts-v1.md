@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Contracts v1
 status: active
 category: programming
 priority: 105
-summary: Schemas canonicos detalhados dos artefatos do Atlas Dev Efficient Programming Flow, agrupados em quatro camadas (Plano, Contexto, Receipt, Telemetria). Cada artefato vem com schema YAML, invariants enforced, regra de identidade/hash, exemplo valido, exemplos invalidos e signature PHP DTO. Doc filho do contrato principal; nao define passo-a-passo de implementacao.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

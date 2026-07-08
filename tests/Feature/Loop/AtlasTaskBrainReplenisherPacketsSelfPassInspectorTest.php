@@ -6,7 +6,7 @@ namespace Tests\Feature\Loop;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use DomainException;
 use ReflectionMethod;

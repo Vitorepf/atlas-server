@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\ReadinessHash;
-use App\Services\Ai\SelfConstruction\ReadinessProjectionAgentCodexSection;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
+use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionAgentCodexSection;
 use Tests\TestCase;
 
 /**

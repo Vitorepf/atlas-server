@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopCertificationService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopProbeRunner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopProbeRunner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use Closure;
 use Tests\TestCase;

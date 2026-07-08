@@ -11,7 +11,7 @@ use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasRealityGraphSnapshotBuilderService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use Tests\TestCase;
 
 /**
@@ -91,7 +91,7 @@ class AtlasAutonomousReconciliationRuntimeServiceTest extends TestCase
         $this->aurg = new AtlasUnifiedRealityGraphTemporalService(new AtlasRealityGraphSnapshotBuilderService);
         $this->aurg->setLogPathForTesting($this->aurgLog);
 
-        $ascb = new \App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService($scoreCard);
+        $ascb = new \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService($scoreCard);
         $ascb->setProposalsLogPathForTesting(sys_get_temp_dir().'/atlas_recon_setup_ascb_'.$u.'.jsonl');
         $ascb->setApprovalsLogPathForTesting(sys_get_temp_dir().'/atlas_recon_setup_ascb_appr_'.$u.'.jsonl');
 
@@ -107,7 +107,7 @@ class AtlasAutonomousReconciliationRuntimeServiceTest extends TestCase
         $admission->setTicketsLogPathForTesting($this->admissionLog);
         $scoreCard = $this->app->make(AtlasCognitionScoreCardService::class);
         $cfa = new StubCognitiveFunctionAtlasWithoutGaps($scoreCard, $kernel);
-        $ascb = new \App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService($scoreCard);
+        $ascb = new \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService($scoreCard);
         $ascb->setProposalsLogPathForTesting(sys_get_temp_dir().'/atlas_recon_noop_ascb_'.uniqid('', true).'.jsonl');
         $ascb->setApprovalsLogPathForTesting(sys_get_temp_dir().'/atlas_recon_noop_ascb_appr_'.uniqid('', true).'.jsonl');
         $svc = new AtlasAutonomousReconciliationRuntimeService($cfa, $admission, $this->aurg, $ascb);

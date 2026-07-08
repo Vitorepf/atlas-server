@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use Tests\TestCase;
 
 class AtlasSelfConstructionSubsystemBuilderServiceTest extends TestCase

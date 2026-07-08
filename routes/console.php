@@ -136,26 +136,14 @@ Schedule::command('atlas:venture review-cycle --json')
 // appendOutputTo: o output JSON de CADA drain agendado vai p/ um log (antes era /dev/null)
 // — observabilidade de operação 24h: dá p/ auditar POR QUE um drain mergeou 0 (vazio?
 // throttled? apply-conflict?) sem precisar re-rodar manual.
-Schedule::command('atlas:loop:automerge --limit=10 --json')
-    ->everyFifteenMinutes()
-    ->withoutOverlapping(10)
-    ->appendOutputTo(storage_path('logs/loop-automerge.log'))
-    // §0 MASTER SWITCH AND the merge flag — OFF ⇒ never write main, even on stale certified proposals.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.ai.loop.auto_merge_to_main', false));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // Conversion flywheel: feed a characterization_test task per REAL coverage gap (a refactor blocked
 // by mutation_survived on a still-uncovered decision) to the live supervisor. The command itself is
 // the hard gate — it no-ops unless the lane flag is ON and pre-validates each gap is real on current
 // code (it never enqueues spurious/already-covered gaps). withoutOverlapping + a generous interval so
 // a live materialize+verify pre-check pass never stacks; appendOutputTo for 24h observability.
-Schedule::command('atlas:loop:coverage-gaps --hours=24 --feed --json')
-    ->everyThirtyMinutes()
-    ->withoutOverlapping(20)
-    ->appendOutputTo(storage_path('logs/loop-coverage-gaps-feed.log'))
-    // §0 MASTER SWITCH AND the lane flag — OFF ⇒ never feed the live supervisor.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.loop.characterization_test_lane_enabled', false));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L3-11 · Mint de green-run receipts da dimensão pipeline do ACOS, em cadência. Mira os
 // subsistemas `partial` (cada receipt verde flipa partial→ready) e sobe o scorecard com
@@ -258,37 +246,18 @@ Schedule::command('atlas:governance:change-class-trust-release-gate --write-rece
 
 // L4-4 · Loss-observer diário: autópsia do ledger do Loop. Detecta razões/gates
 // dominantes de rejeição e abre backlog intents dedupados para o próprio Loop atacar.
-Schedule::command('atlas:loop:loss-observer --json')
-    ->dailyAt((string) config('atlas.loop.loss_observer.schedule_time', '05:20'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.loss_observer.enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L4-2 · Backlog auto-alimentado: transforma loss observer, corpus de falhas,
 // residuais de campanha, scorecard fraco e achados de sweep em intents dedupados.
-Schedule::command('atlas:loop:backlog-feed --json')
-    ->dailyAt((string) config('atlas.loop.backlog_auto_feed.schedule_time', '05:25'))
-    ->withoutOverlapping()
-    // §0 MASTER SWITCH AND the feed flag — OFF ⇒ never top up the queue.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.loop.backlog_auto_feed.enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L4-6 · Painel 24h no digest matinal: um comando responde "o que Atlas fez
 // sozinho ontem?" com funil, merges+impacto, canários, custo, keepalive e fila
 // parked-for-review. Read-only; não manda e-mail nem chama provider.
-Schedule::command('atlas:loop:morning-digest --json')
-    ->dailyAt((string) config('atlas.loop.morning_digest.schedule_time', '05:35'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.morning_digest.enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
-// L5-1 · Pauta semanal governada: propõe a semana a partir de evidência resolvida.
-// O schedule pode criar um draft no backlog, mas nunca aprova nem executa a pauta.
-$weeklyAgendaCommand = (bool) config('atlas.loop.weekly_agenda.scheduled_create_proposal', true)
-    ? 'atlas:loop:weekly-agenda --create-proposal --json'
-    : 'atlas:loop:weekly-agenda --json';
-Schedule::command($weeklyAgendaCommand)
-    ->weeklyOn((int) config('atlas.loop.weekly_agenda.schedule_day', 1), (string) config('atlas.loop.weekly_agenda.schedule_time', '05:45'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.weekly_agenda.enabled', true));
+// L5-1 weekly-agenda schedule REMOVED — atlas:loop:* hard-deleted (elite residual).
 
 // L5-14 · Weekly Atlas report, written before the L5-1 agenda cadence. It is
 // a readable source artifact and agenda feed, never an approval/merge action.
@@ -332,58 +301,27 @@ Schedule::command('atlas:ai:learning-recall-lift --json')
 
 // L6-1 · Meta-harness A/B lift read-model. It never edits harness code; it
 // only proves or blocks the claim from real Loop outcomes.
-Schedule::command('atlas:loop:meta-harness-ab-lift --json')
-    ->dailyAt((string) config('atlas.loop.meta_harness_ab_lift.schedule_time', '06:15'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.meta_harness_ab_lift.enabled', true)
-        && (bool) config('atlas.loop.meta_harness_ab_lift.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L6-2 · Judge self-calibration from historical RED-canary fix-forward cases.
 // Writes only evidence artifacts/packets; it never changes merge gates or runs providers.
-Schedule::command('atlas:loop:judge-calibration --write --json')
-    ->dailyAt((string) config('atlas.loop.judge_self_calibration.schedule_time', '06:20'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.judge_self_calibration.enabled', true)
-        && (bool) config('atlas.loop.judge_self_calibration.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L6-3 · Explorer strategy bandit. Measures certification-per-token by target
 // type and writes a routing receipt; the grinder applies only proven lift.
-Schedule::command('atlas:loop:strategy-bandit --write-receipt --json')
-    ->dailyAt((string) config('atlas.loop.explorer_strategy_bandit.schedule_time', '06:25'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.explorer_strategy_bandit.enabled', true)
-        && (bool) config('atlas.loop.explorer_strategy_bandit.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
-// L6-4 · Code-graph auto-architecture proposals. Parked draft only; no
-// provider call, no Obra creation, no refactor apply.
-$autoArchitectureCommand = (bool) config('atlas.loop.auto_architecture_proposals.scheduled_create_proposal', true)
-    ? 'atlas:loop:auto-architecture --write-receipt --create-proposal --json'
-    : 'atlas:loop:auto-architecture --write-receipt --json';
-Schedule::command($autoArchitectureCommand)
-    ->dailyAt((string) config('atlas.loop.auto_architecture_proposals.schedule_time', '06:30'))
-    ->withoutOverlapping()
-    // §0 MASTER SWITCH AND the proposal flags — OFF ⇒ never create architecture proposals.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.loop.auto_architecture_proposals.enabled', true)
-        && (bool) config('atlas.loop.auto_architecture_proposals.schedule_enabled', true));
+// L6-4 auto-architecture schedule REMOVED — atlas:loop:* hard-deleted (elite residual).
 
 // L6-5 · Mutation adequacy proof. The live semantic certifier uses this gate
 // inline; the scheduled fixture proves the gate itself still rejects weak tests
 // and generates NaN/INF/overflow adversarial inputs without touching source.
-Schedule::command('atlas:loop:mutation-gate --fixture=strong --write-receipt --json')
-    ->dailyAt((string) config('atlas.loop.mutation_adequacy_gate.schedule_time', '06:35'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.mutation_adequacy_gate.enabled', true)
-        && (bool) config('atlas.loop.mutation_adequacy_gate.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L6-6 · Cross-file consumer proof. The live semantic certifier uses this gate
 // inline; the scheduled fixture proves code-graph-discovered consumer contracts
 // are replayed without touching source or merge policy.
-Schedule::command('atlas:loop:cross-file-consumer-gate --fixture=safe --write-receipt --json')
-    ->dailyAt((string) config('atlas.loop.cross_file_consumer_gate.schedule_time', '06:40'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.cross_file_consumer_gate.enabled', true)
-        && (bool) config('atlas.loop.cross_file_consumer_gate.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L6-7 · Observed-behavior regression oracle. Receipt-only: proves the sentinel
 // still blocks drift in behavior contracts that are not covered by test specs.
@@ -396,43 +334,21 @@ Schedule::command('atlas:self-improvement:regression-sentinel --fixture=safe --w
 // L6-8 · Formal-light invariant gate. Receipt-only: verifies reproducible
 // proof envelopes for sensitive kernel floors without claiming full formal
 // verification, touching source, providers, merge policy or never-merge.
-Schedule::command('atlas:loop:formal-invariant-gate --fixture=safe --write-receipt --json')
-    ->dailyAt((string) config('atlas.loop.formal_invariant_gate.schedule_time', '06:50'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.formal_invariant_gate.enabled', true)
-        && (bool) config('atlas.loop.formal_invariant_gate.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L5-13 · Perpetual adversarial sweep, fortnightly by ISO-week parity. LOW is
 // enqueued as governed backlog intent; HIGH is parked for operator review.
 $perpetualSweepWeekParity = (int) config('atlas.loop.perpetual_sweep.schedule_week_parity', 0);
-Schedule::command('atlas:loop:perpetual-sweep --write --json')
-    ->weeklyOn((int) config('atlas.loop.perpetual_sweep.schedule_day', 6), (string) config('atlas.loop.perpetual_sweep.schedule_time', '06:05'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.perpetual_sweep.enabled', true)
-        && (bool) config('atlas.loop.perpetual_sweep.schedule_enabled', true)
-        && ((int) now()->format('W') % 2) === $perpetualSweepWeekParity);
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // L5-5 · TAXA² dials: daily receipt of the raise-only/clamped overlay that the
 // campaign supervisor also consumes on boot. Receipt-only; no providers, no merge.
-Schedule::command('atlas:loop:taxa2-dials --write-receipt --json')
-    ->dailyAt((string) config('atlas.loop.taxa2_dials.schedule_time', '05:55'))
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.taxa2_dials.enabled', false)
-        && (bool) config('atlas.loop.taxa2_dials.schedule_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // 24h-autonomia · Keepalive do supervisor do Loop: campanha running com heartbeat velho
 // E sem processo vivo é relançada detached (resume pelo campaign-id; nada se perde).
 // Motivado por evidência real: o soak morreu silenciosamente em 12/06 com budget sobrando.
-Schedule::command('atlas:loop:keepalive --stale-minutes=2 --json')
-    ->everyFiveMinutes()
-    // withoutOverlapping(5): o keepalive é a REDE DE SEGURANÇA — se o lock dele travasse
-    // 24h (default), ele pararia de respawnar o supervisor morto = independência perdida.
-    // Expiry de 5min (= sua própria cadência) destrava sozinho se um passe crashar.
-    ->withoutOverlapping(5)
-    // §0 MASTER SWITCH (fail-closed) AND the legacy keepalive flag. OFF ⇒ the scheduler never even dispatches
-    // the keepalive (the command itself also no-ops; defense-in-depth). The definitive auto-respawn cut.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.loop.keepalive_enabled', true));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // AGENT GOVERNANCE — the BABÁ. Converge the whole fleet toward the operator's DESIRED-STATE: start
 // desired+gated agents that died, STOP anything alive the operator did not sanction, auto-OFF runs past their
@@ -452,10 +368,7 @@ Schedule::command('atlas:agents:reconcile --json')
 // ITEM10 — CONFIDENCE CALIBRATION. Fits the honest delivery-confidence arm-threshold from post-merge
 // {predicted,correct} samples. Report-only: it NEVER arms the gate (the operator does that manually once
 // recommended_threshold is non-null with n>=20). Inert while atlas.loop.confidence_calibration.enabled is OFF.
-Schedule::command('atlas:loop:confidence-calibrate --json')
-    ->daily()
-    ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.loop.confidence_calibration.enabled', false));
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // PART 2 · A3/MF-05 — reap expired Agent Control Plane leases every minute so a dead client's task returns
 // to claimable (R2 dead-agent recovery). Gated by the loop MASTER SWITCH => OFF = never fires (byte-identical
@@ -496,11 +409,7 @@ Schedule::command('atlas:task:servable-heartbeat --json')
 // the snapshot fresh on a guaranteed cadence. §0 MASTER SWITCH gate (OFF ⇒ byte-identical
 // no-op) + withoutOverlapping (a slow build never doubles up) + appendOutputTo so build
 // failures hit storage/logs/cortex-comprehension-build.log instead of dying silent.
-Schedule::command('atlas:loop:cortex:cadence --json')
-    ->dailyAt('03:00')
-    ->withoutOverlapping()
-    ->appendOutputTo(storage_path('logs/cortex-comprehension-build.log'))
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+// REMOVED atlas:loop schedule (elite hard-delete)
 
 // fable-M S23 — cadência da AUTO-ATIVAÇÃO de rota por evidência (S8/S12/S13): com a flag ON,
 // o sweep ativa rotas cujo ledger live sustenta a recomendação (o sweep de DEGRADAÇÃO/desativação

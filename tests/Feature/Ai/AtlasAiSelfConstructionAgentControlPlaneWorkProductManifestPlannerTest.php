@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockPlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductManifestPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductManifestPlanner;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

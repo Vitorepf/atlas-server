@@ -6,7 +6,7 @@ use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Models\AtlasSelfConstructionAgentSandboxBinding;
-use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartProviderStartDriverGate;
+use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProviderStartDriverGate;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

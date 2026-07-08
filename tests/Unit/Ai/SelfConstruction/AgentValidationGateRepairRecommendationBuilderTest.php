@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateRepairRecommendationBuilder;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateRepairRecommendationBuilder;
 use Tests\TestCase;
 
 /**

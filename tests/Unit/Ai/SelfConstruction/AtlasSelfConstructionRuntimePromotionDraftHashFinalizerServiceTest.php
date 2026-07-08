@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionDraftHashFinalizerService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionRuntimePromotionDraftHashFinalizerServiceTest extends TestCase

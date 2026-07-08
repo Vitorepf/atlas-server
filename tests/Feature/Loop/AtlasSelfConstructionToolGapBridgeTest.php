@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Loop;
 
 use App\Models\AtlasLoopCampaign;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionToolGapBridgeService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionToolGapBridgeService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;

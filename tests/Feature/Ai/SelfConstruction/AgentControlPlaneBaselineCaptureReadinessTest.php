@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneBaselineCaptureReadinessService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReplaySnapshotStore;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneBaselineCaptureReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReplaySnapshotStore;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

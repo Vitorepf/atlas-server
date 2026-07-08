@@ -2,15 +2,15 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockRuntimeValidator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalLoopHealthDigestService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;

@@ -4,9 +4,9 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentWakeupItem;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;

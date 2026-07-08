@@ -20,6 +20,8 @@ namespace App\Services\Ai\SelfConstruction\MultiProject;
  *
  * Pure: no I/O, no process, no provider, no git, no scheduler/queue side-effect.
  */
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeSchedulerManifest;
+
 final class AtlasProjectLaneRuntimeInstanceRegistry
 {
     public const SCHEMA = 'atlas.project_lane.runtime_instance_registry.v1';

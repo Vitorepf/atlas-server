@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceCertificationService;
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceJournalRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceJournalRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

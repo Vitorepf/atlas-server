@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
 use Tests\TestCase;
 
 final class AgentProviderAdapterRegistryTest extends TestCase

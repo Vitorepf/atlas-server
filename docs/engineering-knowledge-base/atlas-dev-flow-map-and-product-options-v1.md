@@ -5,7 +5,7 @@ title: Atlas Dev Flow Map And Product Options v1
 status: active
 category: programming
 priority: 104
-summary: Mapa completo e caderno de campanha do Atlas Dev (fluxo de desenvolvimento workspace-bound dentro do Atlas AI): fluxos atuais, casos de uso, opcoes de produto, contexto acumulado, hipoteses e plano para construir um Atlas Dev robusto, governado e de qualidade extrema dentro do Atlas AI. Atlas AI e o produto/superficie unica; Atlas Dev e UM fluxo entre varios (Research, Explain, Debug, Review, Conversation, Forge). Benchmark, Rivals e comparacao contra Opus ficam fora da fase atual (equipe Medicao). Para entrypoint canonico do Atlas Dev e ordem de leitura, ver `atlas-dev-index.md`.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - atlas-cli

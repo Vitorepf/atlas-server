@@ -8,7 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionMod
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackPatternMiner;
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use Tests\TestCase;
 

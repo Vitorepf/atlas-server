@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalEvidenceBundleService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalEvidenceReplayService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceBundleService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceReplayService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionFinalEvidenceReplayServiceTest extends TestCase

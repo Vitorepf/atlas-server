@@ -21,7 +21,7 @@ capabilities:
   - canal_unico_enforcement
 decisions:
   - Superioridade vem de SISTEMA (RAG+contexto+evidence+certificação+compounding+dual-core), não de prompt melhor.
-  - Atlas Dev = núcleo rápido diário; Atlas Forge = núcleo pesado de Obras; sem fusão.
+  - Atlas Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra); diferença = operador + escala/duração.
   - "10x/30x/100x" só pode ser declarado COM definição de métrica auditada.
   - Runtime hoje ≠ estado-alvo; este doc separa o que está vivo do que é design.
   - Claim externo contra Claude Code/Codex permanece bloqueado por policy; este doc governa arquitetura interna e backlog.
@@ -137,7 +137,7 @@ next_actions:
 **Tese central:** Atlas Dev + Atlas Forge **não superam Claude Code/Codex por
 prompt** — superam por **sistema**. A vantagem real vem de 11 classes operacionais
 que provedor cru não tem: contexto persistente, RAG mandatório, codebase world
-model, roteamento multi-flow, dual-core (Dev rápido + Forge pesado),
+model, roteamento multi-flow, dual-core (Dev · Forge · Autônomos elite; diferença = operador + escala),
 evidence-as-truth, certificação quality-aware, repair loop com classifier,
 compounding memory, benchmarking honesto e canal único que faz Evidence + Curador
 aprenderem com cada uso (`atlas-ai-thesis-multiplier-channel.md:123-149`).
@@ -150,8 +150,12 @@ aprenderem com cada uso (`atlas-ai-thesis-multiplier-channel.md:123-149`).
   `DualCoreRouteDecisionService` + testes e callers reais em promotion/handoff.
 - **Schema 2 (`atlas.dev_to_forge.escalation_packet.v1`) shipped** —
   `EscalationPacket` + factory + handoff/promotion tests.
-- AiWorker continua bypassing Kernel canônico (Phase 2 audit, ainda válido).
-- **Não declaramos superioridade externa** até benchmark com métrica auditada provar.
+- AiWorker continua bypassing Kernel canônico (Phase 2 audit, ainda válido) —
+  residual explícito fora do núcleo da Defatoração Elite; honesty do
+  `EliteExecutorKernel` **não** fecha Mission/Router/Policy bypass.
+- Escalation intake vivo: `DevToForgePromotionService` →
+  `ForgeIntakeService::intakeFromEscalationPacket()` (produção, fail-open).
+- **Não declaramos superioridade externa** até métrica auditada provar.
 
 Este doc é índice. Detalhes contratuais em
 `atlas-programming-superiority-contracts.md`; fases e missões em
@@ -179,7 +183,7 @@ Layer -1: Multiplier Channel thesis
   Layer 0: Identidade Atlas AI (sistema, não prompt)
     Layer 0.9: Autonomous Intelligence OS (multi-domínio)
       Layer 0.72: Programming Governance → ESTA DOC GOVERNA AQUI
-        ├─ Atlas Dev (núcleo rápido, 138 files)
+        ├─ Atlas Dev (executor elite · operador presente, 138 files)
         ├─ Atlas Forge (núcleo pesado, ~75 files)
         └─ Dual-Core boundary (route_decision.v1 + escalation_packet.v1)
 ```
@@ -222,7 +226,7 @@ Intent Kernel (classifica)
   ↓
 Dual-Core Router (emite route_decision.v1)
   ↓                                                              ↓
-Atlas Dev (fast path)                                       Atlas Forge (Obras)
+Atlas Dev (executor elite)                                  Atlas Forge (Obras · escala longa)
   ↓                                                              ↓
 Super RAG Spine (mandatory RAG gate)                       SDD intake
   ↓                                                              ↓

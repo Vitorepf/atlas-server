@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\SelfConstructionImplementationPriorityScorer;
+use App\Services\Ai\SelfConstruction\Support\SelfConstructionImplementationPriorityScorer;
 use Tests\TestCase;
 
 final class AtlasAiSelfConstructionImplementationPriorityScorerTest extends TestCase

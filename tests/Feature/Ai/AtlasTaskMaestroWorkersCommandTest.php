@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Console\Commands\AtlasTaskMaestroWorkersCommand;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerCheckpointLedger;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFairnessAuditor;
 use App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe;

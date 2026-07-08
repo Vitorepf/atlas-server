@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
-use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 
 /**
  * Pure, facts-only completer that turns review_recommended blocked-respec drafts (from

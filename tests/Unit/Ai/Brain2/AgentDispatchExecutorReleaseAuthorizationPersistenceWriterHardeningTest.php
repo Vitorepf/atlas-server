@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Brain2;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
-use App\Services\Ai\SelfConstruction\AgentDispatchExecutorReleaseAuthorizationPersistenceWriter;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorReleaseAuthorizationPersistenceWriter;
 use Tests\TestCase;
 
 /**

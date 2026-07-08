@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

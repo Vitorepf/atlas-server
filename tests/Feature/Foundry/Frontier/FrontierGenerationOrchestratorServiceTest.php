@@ -110,7 +110,7 @@ final class FrontierGenerationOrchestratorServiceTest extends TestCase
             'cycle_receipts' => [[
                 'cycle_id' => 'cycle-001',
                 'subsystem' => 'pipeline_not_proven',
-                'schema' => \App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService::PROPOSAL_SCHEMA,
+                'schema' => \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService::PROPOSAL_SCHEMA,
                 'baseline' => 0.42,
             ]],
             'evidence_packs' => [],
@@ -143,7 +143,7 @@ final class FrontierGenerationOrchestratorServiceTest extends TestCase
             'canonical_property_mapping' => [
                 'area_id' => 'agentic_engineering_os',
                 'subsystem' => 'pipeline_not_proven',
-                'schema' => \App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService::PROPOSAL_SCHEMA,
+                'schema' => \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService::PROPOSAL_SCHEMA,
                 'measured_signal_ref' => 'cycle_receipts[0]',
             ],
         ];

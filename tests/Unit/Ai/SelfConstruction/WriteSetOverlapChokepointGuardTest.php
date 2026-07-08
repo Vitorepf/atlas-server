@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 /**
  * PART 2 · A5/MF-12 — the anti-regression GUARD. Every write-set / scope OVERLAP chokepoint in the Agent
- * Control Plane must route conflict detection through the SINGLE {@see \App\Services\Ai\SelfConstruction\WriteSetOverlap}
+ * Control Plane must route conflict detection through the SINGLE {@see \App\Services\Ai\SelfConstruction\Support\WriteSetOverlap}
  * predicate. Without this guard a future edit could reintroduce a raw `array_intersect` in one corner and
  * silently lose the dir-vs-file / read-vs-write fix there while the others stay correct.
  */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerGovernancePrecheck;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerGovernancePrecheck;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

@@ -154,7 +154,7 @@ final class AgentControlPlaneLeasePathCanonicalizer
      */
     public function leasePath(string $leaseId): string
     {
-        return \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$this->canonicalizeLeaseId($leaseId).'.json';
+        return \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/'.$this->canonicalizeLeaseId($leaseId).'.json';
     }
 
     /**

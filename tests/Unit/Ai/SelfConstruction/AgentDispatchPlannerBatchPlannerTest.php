@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerBatchPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerBatchPlanner;
 use Tests\TestCase;
 
 final class AgentDispatchPlannerBatchPlannerTest extends TestCase

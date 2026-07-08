@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
-use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 
 /**
  * Pure miner. Recovers missing draft fields from blocked packet content when it is SAFE to do

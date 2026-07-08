@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfDirectedEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use RuntimeException;

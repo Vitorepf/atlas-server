@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\ReadinessProjectionHumanCompletionReceiptSection;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Readiness\ReadinessProjectionHumanCompletionReceiptSection;
 use Tests\TestCase;
 
 /**

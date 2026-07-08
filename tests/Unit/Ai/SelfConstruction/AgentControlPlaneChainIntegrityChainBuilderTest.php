@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneChainIntegrityChainBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityChainBuilder;
 use PHPUnit\Framework\TestCase;
 
 final class AgentControlPlaneChainIntegrityChainBuilderTest extends TestCase

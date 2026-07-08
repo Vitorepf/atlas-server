@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHandoffProtocolBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryHandoffProtocolBuilder;
 use Tests\TestCase;
 
 final class AgentRuntimeRegistryHandoffProtocolBuilderTest extends TestCase

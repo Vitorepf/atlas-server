@@ -2,22 +2,8 @@
 
 namespace App\Providers;
 
-use App\Console\Commands\AtlasLoopAnomalyCommand;
-use App\Console\Commands\AtlasLoopAuditCommand;
-use App\Console\Commands\AtlasLoopCortexMemoryIntegrationCommand;
-use App\Console\Commands\AtlasLoopFactAnchorCommand;
-use App\Console\Commands\AtlasLoopLiveCycleCommand;
-use App\Console\Commands\AtlasLoopSelfIntrospectionCommand;
 use App\Console\Commands\AtlasTaskMaestroCostCommand;
-use App\Console\Commands\AtlasLoopMigrateCommand;
-use App\Console\Commands\AtlasLoopFrozenContractCommand;
-use App\Console\Commands\AtlasLoopCortexIntentCommand;
-use App\Console\Commands\AtlasLoopRollingWindowCli;
-use App\Console\Commands\AtlasLoopSchemaFuzzCommand;
-use App\Console\Commands\AtlasLoopFormalInvariantProofCli;
-use App\Console\Commands\AtlasLoopIntentResolveCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
-use App\Console\Commands\AtlasLoopSchemaMigrateRunCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexOrphanAgeReporter;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexSymbolAgeReporter;
@@ -26,6 +12,7 @@ use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleRecei
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
+use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentResolverBindings;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityFollowUpScheduler;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityResolutionLedger;
 use Illuminate\Support\Facades\Artisan;
@@ -185,12 +172,12 @@ use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionDetector;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionLoopService;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementAdversarialRecheck;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementReceiptLog;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementRelevanceGate;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionDetector;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementAdversarialRecheck;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementReceiptLog;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementRelevanceGate;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AdversarialProofPanelService;
@@ -261,6 +248,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
+
+        $this->app->afterResolving(function (mixed $resolved): void {
+            if (! is_object($resolved)) {
+                return;
+            }
+            $class = $resolved::class;
+            if (str_contains($class, 'Aaeos\\Generated\\')) {
+                app(\App\Services\Ai\Aaeos\AaeosGeneratedContractGate::class)->assertHotPathAllowed($class);
+            }
+        });
+
         // Refiller port (Consolidation) → Discovery refiller concrete. Breaks root↔Discovery cycle by
         // letting root-adjacent consumers (e.g. AtlasLoopCampaignSupervisor) type-hint the port and
         // resolve the live Discovery refiller through the container. The Collaborators wrapper is also
@@ -306,7 +305,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe::class, static function (): \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe {
             return new \App\Services\Ai\SelfConstruction\Maestro\Concurrency\AtlasMaestroWorkerFleetProbe(
                 static function (): iterable {
-                    $leaseRepo = new \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository(
+                    $leaseRepo = new \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository(
                         \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::disk()
                     );
                     foreach ($leaseRepo->activeLeases() as $lease) {
@@ -998,6 +997,11 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Throwable $e) {
                     // Defensive — AiWorker stays functional without the ledger.
                 }
+                try {
+                    $svc->setEliteExecutorKernel($app->make(\App\Services\Ai\EngineeringKernel\EliteExecutorKernel::class));
+                } catch (\Throwable $e) {
+                    // Defensive — worker proceeds without elite kernel seam.
+                }
             }
         });
 
@@ -1486,9 +1490,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Intent ambiguity resolver loop wiring. Data source (intents) is a callable bound under
         // INTENTS_SOURCE_BINDING; tests / future producers override it. Default = no intents.
-        if (! $this->app->bound(AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING)) {
+        if (! $this->app->bound(AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING)) {
             $this->app->instance(
-                AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING,
+                AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING,
                 static fn (): array => [],
             );
         }
@@ -1496,7 +1500,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopIntentAmbiguityClarifierProposer::class);
 
         $this->app->singleton(AtlasLoopIntentAmbiguityResolutionLedger::class, function ($app) {
-            $intentsSource = $app->make(AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING);
+            $intentsSource = $app->make(AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING);
             $proposer = $app->make(AtlasLoopIntentAmbiguityClarifierProposer::class);
             $path = (string) config(
                 'atlas.loop.intent_resolver.ledger_path',
@@ -1538,7 +1542,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(AtlasLoopIntentAmbiguityFollowUpScheduler::class, function ($app) {
-            $intentsSource = $app->make(AtlasLoopIntentResolveCommand::INTENTS_SOURCE_BINDING);
+            $intentsSource = $app->make(AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING);
             $ledgerPath = (string) config(
                 'atlas.loop.intent_resolver.ledger_path',
                 storage_path('app/atlas/loop/intent-resolver/ledger.jsonl'),
@@ -1572,31 +1576,9 @@ class AppServiceProvider extends ServiceProvider
 
         if ($this->app->runningInConsole()) {
             $this->commands([
-                AtlasLoopAnomalyCommand::class,
-                AtlasLoopAuditCommand::class,
-                AtlasLoopCortexMemoryIntegrationCommand::class,
-                AtlasLoopFactAnchorCommand::class,
-                AtlasLoopFrozenContractCommand::class,
-                AtlasLoopCortexIntentCommand::class,
-                AtlasLoopLiveCycleCommand::class,
-                AtlasLoopSelfIntrospectionCommand::class,
                 AtlasTaskMaestroCostCommand::class,
-                AtlasLoopMigrateCommand::class,
-                AtlasLoopRollingWindowCli::class,
-                AtlasLoopSchemaFuzzCommand::class,
-                AtlasLoopSchemaMigrateRunCommand::class,
-                AtlasLoopIntentResolveCommand::class,
                 AtlasTaskMaestroRetryCommand::class,
             ]);
-
-            // Per-app (not global-static) registration so the dormant gate can be flipped per test
-            // without leaking through Artisan::starting()'s process-global bootstrappers array.
-            // Conditional registration. AtlasLoopFormalInvariantProofCli itself is abstract
-            // (so Laravel's path-based auto-discovery skips it); only when the operator config
-            // flag is true do we register the concrete runner subclass.
-            if ((bool) config('atlas.loop.formal_proofs_cli_enabled', false)) {
-                $this->commands([AtlasLoopFormalInvariantProofCli::RUNNER_CLASS]);
-            }
         }
 
         // AP-819 Obra B — overlay da Harness Surface: reaplica overrides de

@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionAntiFraudMatrixService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionAntiFraudMatrixService;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfConstructionCompletionAntiFraudMatrixServiceTest extends TestCase

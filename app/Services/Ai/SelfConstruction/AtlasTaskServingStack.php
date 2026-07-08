@@ -16,6 +16,14 @@ use Illuminate\Support\Facades\Config;
  * pollution. Set `ATLAS_TASK_SERVING_QUEUE_DISK` to a dedicated disk name (default 'local' keeps the legacy
  * shared behaviour, so tests and the certification probes are untouched).
  */
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
+
 final class AtlasTaskServingStack
 {
     /** The configured serving queue disk, registering a dedicated local disk on first use when one is named. */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateResultRepository;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateResultRepository;
 use Tests\TestCase;
 
 final class AgentValidationGateResultRepositoryTest extends TestCase

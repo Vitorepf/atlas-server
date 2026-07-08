@@ -24,6 +24,8 @@ namespace App\Services\Ai\SelfConstruction\NativeWorker;
  *   - Cycle never runs git, never starts Claude/Codex/Cursor/external providers, never opens an
  *     unrestricted shell.
  */
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchMaterializer;
+
 final class AtlasNativeWorkerClaimExecuteReportCycle
 {
     public const SCHEMA = 'atlas.native_worker.claim_execute_report_cycle.v1';

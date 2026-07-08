@@ -45,14 +45,4 @@ final class AtlasBrainHeartbeatLedger
 
         return $persisted;
     }
-
-    /** @return list<array<string,mixed>> */
-    public function tail(string $scope, int $k = 30): array
-    {
-        if ($k <= 0) {
-            return [];
-        }
-
-        return $this->doTail($scope, $k);
-    }
 }

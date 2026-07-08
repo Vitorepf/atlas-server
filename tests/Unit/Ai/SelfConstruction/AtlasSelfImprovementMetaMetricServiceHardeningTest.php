@@ -26,7 +26,7 @@ final class AtlasSelfImprovementMetaMetricServiceHardeningTest extends TestCase
             ->once()
             ->andReturn(false);
 
-        $service = new \App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService();
+        $service = new \App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService();
         $result = $service->record([], 0, 0);
 
         $this->assertFalse($result['recorded']);
@@ -45,7 +45,7 @@ final class AtlasSelfImprovementMetaMetricServiceHardeningTest extends TestCase
      */
     public function test_record_has_json_encode_fail_closed_guard(): void
     {
-        $service = new \App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService();
+        $service = new \App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService();
         $method = new \ReflectionMethod($service, 'record');
         $source = file_get_contents($method->getFileName());
 
@@ -64,7 +64,7 @@ final class AtlasSelfImprovementMetaMetricServiceHardeningTest extends TestCase
      */
     public function test_record_does_not_cast_json_encode_to_string(): void
     {
-        $service = new \App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService();
+        $service = new \App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService();
         $method = new \ReflectionMethod($service, 'record');
         $filename = $method->getFileName();
         $startLine = $method->getStartLine();

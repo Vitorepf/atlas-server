@@ -3,8 +3,8 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker;
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
 use Tests\Concerns\MakesSelfConstructionAgentRuns;

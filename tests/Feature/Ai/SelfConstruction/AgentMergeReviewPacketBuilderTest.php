@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentMergeReviewPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewPacketBuilder;
 use Tests\TestCase;
 
 final class AgentMergeReviewPacketBuilderTest extends TestCase

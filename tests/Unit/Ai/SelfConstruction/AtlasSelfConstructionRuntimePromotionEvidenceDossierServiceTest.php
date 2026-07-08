@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionEvidenceDossierService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionEvidenceDossierService;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfConstructionRuntimePromotionEvidenceDossierServiceTest extends TestCase

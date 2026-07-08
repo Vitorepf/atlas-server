@@ -10,7 +10,7 @@ namespace App\Services\Ai\SelfConstruction\Replenishment;
  * produce, so the service can decide whether to claim a packet or escalate to operator handoff.
  *
  * Six methods migrated verbatim from
- * {@see \App\Services\Ai\SelfConstruction\AgentControlPlaneTaskAutoReplenishmentService}:
+ * {@see \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskAutoReplenishmentService}:
  *  - {@see self::completionAuditPayload}: walk five known paths (root, `current_completion_audit`,
  *    `completion_audit`, `operator_handoff_packet.completion_audit`, fallback to the input) and
  *    return the first non-empty nested array.

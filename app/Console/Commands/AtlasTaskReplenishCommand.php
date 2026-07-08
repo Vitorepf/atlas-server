@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use Illuminate\Console\Command;
 
 /**

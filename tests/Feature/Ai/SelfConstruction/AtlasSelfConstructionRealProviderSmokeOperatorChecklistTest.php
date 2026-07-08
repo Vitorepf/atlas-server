@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeOperatorChecklistService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeOperatorChecklistService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

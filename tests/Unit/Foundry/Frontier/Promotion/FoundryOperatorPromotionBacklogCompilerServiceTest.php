@@ -6,7 +6,7 @@ namespace Tests\Unit\Foundry\Frontier\Promotion;
 
 use App\Services\Ai\Foundry\Frontier\Promotion\FoundryOperatorPromotionBacklogCompilerService;
 use App\Services\Ai\Foundry\FoundrySchemas;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusInboxService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSelfConstructionAdmissionBridgeService;

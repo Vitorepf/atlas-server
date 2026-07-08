@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

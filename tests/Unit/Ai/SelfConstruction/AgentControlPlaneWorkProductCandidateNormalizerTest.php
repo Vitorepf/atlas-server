@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductCandidateNormalizer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductCandidateNormalizer;
 use PHPUnit\Framework\TestCase;
 
 /**

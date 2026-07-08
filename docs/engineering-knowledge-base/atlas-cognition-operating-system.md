@@ -21,7 +21,8 @@ capabilities:
   - self_improvement_closed_loop_level7
   - cognitive_quality_certification
 decisions:
-  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 73 subsistemas estruturais no scorecard v3 atual.
+  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 73 subsistemas estruturais no scorecard v3 e ~15 modulos profundos no v4.
+  - ContextRuntime (`AtlasContextRuntime { compose, certify }`) e a unica porta de contexto dos tres executores elite; blocos AUCRI sao policies internas do gate, nao retrieval direto.
   - Boundary clara entre ACOS (cognicao) e consumidores (Forge, AWIS, Mission, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS). Quem consome ACOS nunca esta dentro de ACOS.
   - ACOS 10/10 estrutural e o ALVO, definido por `atlas:cognition:scorecard --json`: code, doc e pipeline RESOLVIDOS-por-evidencia ready para os 73 subsistemas. Hoje, resolvido, esta em ~7.86 (code 10/10, doc 8.37, pipeline 5.22 — pipeline e a fraca: 0/73 com green-run receipt). Volume real de outcomes e dimensao operacional de uso, nao blocker estrutural.
   - Pipeline canonico ACOS: Captura -> Quarentena (G0) -> Promotion Gates (G1-G8) -> Memory Registry (10 types x 9 scopes x 4 privacy) -> Embedding (ASEF) -> Retrieval (AHRI + AARF + AGRN + AURG) -> Ranking (ACRS) -> Freshness Gate (ACFQ) -> Privacy/Trust (ARPTL) -> Cost Governor (ARCLG) -> Compilation (ACCR + ACCCR + ATER + ACPFR) -> Working Memory (ACMF) -> Persistence (APCR) -> Injection (Open Brain) -> Outcome (AEMOR) -> Learning Signal -> Memory Candidate -> Promotion -> Compounding -> Self-Improvement L7.

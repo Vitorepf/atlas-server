@@ -52,6 +52,9 @@ O Autônomos é a arquitetura **cérebro externo + músculo externo** que evolui
 Originar trabalho de evolução de alto valor (cérebro) e implementá-lo com prova (músculo), commitando na
 main local de forma escopada, sem depender do operador no caminho normal.
 
+**Bar elite:** Autônomos opera no **mesmo patamar** que Dev e Forge — engenharia de elite. A diferença é
+**zero operador** + escala 24/7, não qualidade inferior.
+
 ## Arquitetura viva (as duas metades)
 
 ### 1. CÉREBRO — cria as tasks (`app/Services/Ai/AutonomousEvolution/Brain/`, ~96 classes `AtlasBrain*`)

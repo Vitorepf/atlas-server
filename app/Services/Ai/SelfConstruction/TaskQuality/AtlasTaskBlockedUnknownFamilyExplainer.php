@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
-use App\Services\Ai\SelfConstruction\WriteSetOverlap;
+use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 
 /**
  * Pure, deterministic explainer for blocked queue packets that {@see AtlasTaskBlockedPacketFamilyClassifier}
@@ -38,6 +38,8 @@ use App\Services\Ai\SelfConstruction\WriteSetOverlap;
  * Pure: only reads the packet array — no queue mutation, DB write, provider call, network, file write,
  * or git command.
  */
+use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+
 final class AtlasTaskBlockedUnknownFamilyExplainer
 {
     public const SCHEMA = 'atlas.task_quality.blocked_unknown_family_explainer.v1';

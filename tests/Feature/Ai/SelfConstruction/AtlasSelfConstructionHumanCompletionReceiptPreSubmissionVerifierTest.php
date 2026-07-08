@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceHashService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceHashService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptVerifierService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierTest extends TestCase

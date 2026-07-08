@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentMergeReviewHumanApprovalPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewHumanApprovalPlanner;
 use Tests\TestCase;
 
 final class AgentMergeReviewHumanApprovalPlannerTest extends TestCase

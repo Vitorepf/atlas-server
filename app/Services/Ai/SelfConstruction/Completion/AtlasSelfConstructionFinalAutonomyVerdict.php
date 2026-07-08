@@ -21,6 +21,8 @@ namespace App\Services\Ai\SelfConstruction\Completion;
  * `asks_for_human` is ALWAYS false — even in unsafe verdicts, the next actions stay Atlas-native
  * (sandbox / extractor / replenishment), never operator/human rescue.
  */
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeSoakRunner;
+
 final class AtlasSelfConstructionFinalAutonomyVerdict
 {
     public const SCHEMA = 'atlas.self_construction.final_autonomy_verdict.v1';

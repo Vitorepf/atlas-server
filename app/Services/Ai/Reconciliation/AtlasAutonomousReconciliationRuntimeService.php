@@ -8,7 +8,7 @@ use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use DateTimeImmutable;

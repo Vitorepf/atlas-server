@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerDryRunReceiptBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerDryRunReceiptBuilder;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

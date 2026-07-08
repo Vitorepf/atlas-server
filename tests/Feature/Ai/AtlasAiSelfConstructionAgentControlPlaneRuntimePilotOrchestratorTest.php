@@ -2,18 +2,18 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneChainIntegrityAuditService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseSimulator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCostImportDryRun;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneDeterministicChainReplayService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentParallelismPlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneRuntimePilotOrchestrator;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneScopeLockPlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductManifestPlanner;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityAuditService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseSimulator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostImportDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneDeterministicChainReplayService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentParallelismPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotOrchestrator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductManifestPlanner;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

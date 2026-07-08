@@ -22,6 +22,8 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Health;
  * Pure, deterministic, read-only composition — no queue mutation, provider calls,
  * filesystem write, or git command.
  */
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+
 final class AtlasMaestroQueueHealthInterventionRunner
 {
     public const SCHEMA = 'atlas.maestro.health.queue_health_intervention_runner.v1';

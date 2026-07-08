@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchExecutorReceiptUseWriter;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorReceiptUseWriter;
 use Tests\TestCase;
 
 final class AgentDispatchExecutorReceiptUseWriterTest extends TestCase

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfDivergenceModelService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfDivergenceModelService;
 use Tests\TestCase;
 
 class AtlasSelfDivergenceModelServiceTest extends TestCase

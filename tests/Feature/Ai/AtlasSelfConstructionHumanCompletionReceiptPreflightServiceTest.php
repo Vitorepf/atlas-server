@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptPreflightService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptPreflightService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionHumanCompletionReceiptPreflightServiceTest extends TestCase

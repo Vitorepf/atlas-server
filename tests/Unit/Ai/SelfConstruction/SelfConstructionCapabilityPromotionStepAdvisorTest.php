@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\SelfConstructionCapabilityPromotionStepAdvisor;
+use App\Services\Ai\SelfConstruction\Support\SelfConstructionCapabilityPromotionStepAdvisor;
 use PHPUnit\Framework\TestCase;
 
 final class SelfConstructionCapabilityPromotionStepAdvisorTest extends TestCase

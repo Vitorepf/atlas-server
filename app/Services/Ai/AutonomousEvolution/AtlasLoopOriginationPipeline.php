@@ -6,7 +6,7 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
-use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Engineering\EliteCompactionFreezeGuard;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use Illuminate\Support\Carbon;
 use Throwable;
@@ -44,6 +44,19 @@ final class AtlasLoopOriginationPipeline
      */
     public function produce(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $priorAttempts = [], array $refusalCounts = []): array
     {
+        $freezeRefusal = app(EliteCompactionFreezeGuard::class)->refusalPayload('AtlasLoopOriginationPipeline');
+        if ($freezeRefusal !== null) {
+            return [
+                'produced' => false,
+                'action' => 'abstain',
+                'reason' => (string) ($freezeRefusal['reason'] ?? 'frozen'),
+                'objective' => null,
+                'target_path' => null,
+                'obligations' => [],
+                'freeze' => $freezeRefusal,
+            ];
+        }
+
         // FIX-2 writer-availability preflight (opt-in, docs/atlas-brain-harness-build-spec.md): if a preflight is
         // injected and reports the brain writer is NOT available (the resolved brain_default provider fails router
         // isConfigured), short-circuit BEFORE touching the originator/gate. Recording a dead writer as an honest

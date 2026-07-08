@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRealProviderSmokeReplayDiffService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeReplayDiffService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionRealProviderSmokeReplayDiffServiceTest extends TestCase

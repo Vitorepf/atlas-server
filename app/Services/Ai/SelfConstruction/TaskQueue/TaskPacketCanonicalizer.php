@@ -11,7 +11,7 @@ namespace App\Services\Ai\SelfConstruction\TaskQueue;
  * Six methods, all migrated verbatim from AgentControlPlaneTaskPacketQueueRepository:
  *  - {@see self::recursivelyKsort}: deep ksort that preserves list vs assoc shape (ksort only on assoc).
  *  - {@see self::normalizePacketForHash}: strip volatile / identity fields, then deep ksort so the
- *    resulting JSON is bit-identical to what {@see \App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder}
+ *    resulting JSON is bit-identical to what {@see \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder}
  *    hashes for the same packet.
  *  - {@see self::contractMatchesDefault}: every default key is present in $current AND equals $default
  *    (extra keys in $current are tolerated — they do NOT trigger a non-conform verdict).
@@ -22,6 +22,8 @@ namespace App\Services\Ai\SelfConstruction\TaskQueue;
  * Pure / zero Laravel surface / zero side effects — extracted so the repository can split cohesive
  * canonicalization logic out of its public signature without changing ANY caller-visible byte.
  */
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+
 class TaskPacketCanonicalizer
 {
     private const JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;

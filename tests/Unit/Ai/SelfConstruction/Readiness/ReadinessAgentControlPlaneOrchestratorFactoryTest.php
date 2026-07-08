@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\Readiness;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskAutoReplenishmentService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskAutoReplenishmentService;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\Readiness\ReadinessAgentControlPlaneOrchestratorFactory;
 use Tests\TestCase;

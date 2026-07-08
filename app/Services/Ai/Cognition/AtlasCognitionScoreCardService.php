@@ -61,10 +61,10 @@ use App\Services\Ai\Programming\Cartography\AtlasProgrammingCartographyPublisher
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\ResearchDomain\ResearchRuntimeService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionPromotionPlanService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
-use App\Services\Ai\SelfConstruction\AtlasSelfDivergenceModelService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionPromotionPlanService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionScaffoldStagingExecutorService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfDivergenceModelService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementOrchestrator;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
@@ -284,7 +284,38 @@ class AtlasCognitionScoreCardService
         ];
         $envelope['scorecard_hash'] = $this->hash($rows, $score);
 
+        if ((bool) config('atlas_elite_compaction.scorecard.dual_emit_v3', true)) {
+            $grouper = new AtlasCognitionScoreCardV4Grouper;
+            $modules = $grouper->group($rows);
+            $envelope['v4'] = [
+                'schema_version' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
+                'module_count' => count($modules),
+                'modules' => $modules,
+            ];
+        }
+
         return $envelope;
+    }
+
+    /**
+     * Build scorecard v4 module rollup only.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildV4(): array
+    {
+        $v3 = $this->build();
+
+        return [
+            'schema_version' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
+            'generated_at' => $v3['generated_at'] ?? gmdate('c'),
+            'module_count' => $v3['v4']['module_count'] ?? 0,
+            'modules' => $v3['v4']['modules'] ?? [],
+            'subsystem_count' => $v3['subsystem_count'] ?? 0,
+            'score' => $v3['score'] ?? [],
+            'scorecard_hash' => $v3['scorecard_hash'] ?? null,
+            'claim_policy' => $v3['claim_policy'] ?? [],
+        ];
     }
 
     /**

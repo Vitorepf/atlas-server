@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionAuditBlockerExplainerService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionAuditBlockerExplainerService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionCompletionAuditBlockerExplainerServiceTest extends TestCase

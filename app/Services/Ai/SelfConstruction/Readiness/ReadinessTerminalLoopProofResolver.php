@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
-use App\Services\Ai\SelfConstruction\ReadinessJsonInput;
+use App\Services\Ai\SelfConstruction\Support\ReadinessJsonInput;
 use Illuminate\Support\Facades\Storage;
 
 /**

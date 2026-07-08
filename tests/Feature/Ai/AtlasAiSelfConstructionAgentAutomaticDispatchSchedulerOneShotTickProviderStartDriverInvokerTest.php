@@ -5,7 +5,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentSandboxBinding;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

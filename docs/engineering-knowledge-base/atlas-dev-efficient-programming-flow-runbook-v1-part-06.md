@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Runbook v1 · Parte 6
 status: active
 category: programming
 priority: 104
-summary: Recorte focado do runbook Atlas Dev Efficient Programming Flow v1: 10.2 PRs Sugeridos ate 10.3 DoD Operacional Da Fatia 3.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

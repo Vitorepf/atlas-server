@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\Aaeos\Generated;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Tests\TestCase;
 
 /**

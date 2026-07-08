@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Contracts v1 · Parte 6
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Efficient Programming Flow Contracts v1: 6.1 ScopeGuardReceipt ate 6.2 VerificationReceipt.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - split-doc

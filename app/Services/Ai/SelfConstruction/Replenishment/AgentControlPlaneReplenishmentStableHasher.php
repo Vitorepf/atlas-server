@@ -10,7 +10,7 @@ namespace App\Services\Ai\SelfConstruction\Replenishment;
  * the canonical JSON).
  *
  * Three methods migrated verbatim from
- * {@see \App\Services\Ai\SelfConstruction\AgentControlPlaneTaskAutoReplenishmentService}:
+ * {@see \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskAutoReplenishmentService}:
  *  - {@see self::normalizeForHash}: clone the payload, drop `generated_at` and
  *    `auto_replenishment_hash` (the volatile identity fields the hash must NOT cover), then
  *    deep ksort so the resulting JSON is bit-identical regardless of key order.

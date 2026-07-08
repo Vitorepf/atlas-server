@@ -8,7 +8,7 @@ implementation_state: backlog_only_mixed_readiness_no_runtime
 authority_class: backlog
 category: agentic-engineering
 priority: 94
-summary: Reconciled, deduped, mixed-readiness evolution backlog for the two in-scope areas (AAEOS software-engineering area and the 24h Factory/Stewardship loop). This is source backlog, not runtime proof and not the default loop-ready feed. Only rows that decompose into bounded executable slices with ready status, satisfied dependencies, and safe allowed_files may reach provider execution.
+summary: "⚰️ LEGADO / ACDE-MORTO — use atlas:brain:* / atlas:task:*."
 owner: operator (Vitor)
 risk_level: high
 tags:

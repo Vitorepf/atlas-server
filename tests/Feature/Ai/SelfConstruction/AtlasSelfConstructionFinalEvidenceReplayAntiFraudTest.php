@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionAntiFraudMatrixService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionCompletionEvidenceLockfileService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalEvidenceBundleService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalEvidenceReplayService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionAntiFraudMatrixService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionEvidenceLockfileService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceBundleService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceReplayService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionFinalEvidenceReplayAntiFraudTest extends TestCase

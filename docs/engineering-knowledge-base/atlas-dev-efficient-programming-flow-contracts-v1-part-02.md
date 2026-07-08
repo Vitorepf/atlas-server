@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Contracts v1 · Parte 2
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Efficient Programming Flow Contracts v1: 4.1 OperationEnvelope ate 4.2 CompactSDD.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - split-doc

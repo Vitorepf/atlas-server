@@ -7,7 +7,7 @@ namespace App\Services\Ai\AutonomousEvolution\Sentinels;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 
 /**
- * REGRESSION SENTINEL — re-proves the test-coverage oracle that {@see \App\Services\Ai\SelfConstruction\AtlasTaskBrainReplenisher}
+ * REGRESSION SENTINEL — re-proves the test-coverage oracle that {@see \App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher}
  * runs over every minted packet (via its `validateAgainstInspector` chokepoint, which delegates to
  * {@see AtlasTaskPacketQualityInspector}) continues to cover BOTH the `app/` and the mirrored `tests/` half.
  *

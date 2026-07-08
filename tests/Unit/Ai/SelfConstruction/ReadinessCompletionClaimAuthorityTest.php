@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\ReadinessCompletionClaimAuthority;
+use App\Services\Ai\SelfConstruction\Support\ReadinessCompletionClaimAuthority;
 use Tests\TestCase;
 
 final class ReadinessCompletionClaimAuthorityTest extends TestCase

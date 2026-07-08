@@ -5,7 +5,7 @@ title: Atlas Dev Flow Map And Product Options v1 · Parte 1
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Flow Map And Product Options v1: Resumo ate Contexto 2: Programming Governance, SCOR-1 E Spec Como Arma.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - product-options

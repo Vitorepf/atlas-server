@@ -11,7 +11,7 @@ use App\Models\AiEngineeringCompanyReleasePack;
 use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use App\Services\Ai\Support\DatabaseTableAvailability;

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Console\Commands\AtlasAiSelfConstructionStatusCommand;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\NamingPolicy\AtlasSelfConstructionNamingPolicyGate;
 use Tests\TestCase;
 

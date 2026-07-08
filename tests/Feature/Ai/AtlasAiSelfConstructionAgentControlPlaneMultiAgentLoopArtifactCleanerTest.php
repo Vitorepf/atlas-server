@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopArtifactCleaner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneMultiAgentLoopCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopArtifactCleaner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
 use Tests\TestCase;
 
 /**

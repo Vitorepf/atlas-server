@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneWorkProductManifestReconciler;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkProductManifestReconciler;
 use Tests\TestCase;
 
 final class AgentControlPlaneWorkProductManifestReconcilerTest extends TestCase

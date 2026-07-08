@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneGovernancePolicyEvaluator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernancePolicyEvaluator;
 use PHPUnit\Framework\TestCase;
 
 final class AgentControlPlaneGovernancePolicyEvaluatorTest extends TestCase

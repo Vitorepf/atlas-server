@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
-use App\Console\Commands\AtlasLoopMorningDigestCommand;
 use App\Services\Ai\AtlasForge\AtlasForgeParallelDurableCoordinatorService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService;
 use App\Services\Ai\Obra\AtlasObraReceiptStamp;
@@ -230,7 +229,7 @@ final class AtlasForgeMultiNodeL410ProofService
      */
     private function deliveredItem(array $digest, array $expectedFiles): array
     {
-        $commandAvailable = class_exists(AtlasLoopMorningDigestCommand::class);
+        $commandAvailable = class_exists('App\\Console\\Commands\\AtlasLoopMorningDigestCommand');
 
         return [
             'id' => self::ITEM_ID,

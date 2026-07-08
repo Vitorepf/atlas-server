@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerCertificationService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

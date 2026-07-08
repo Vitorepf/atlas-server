@@ -7,8 +7,8 @@ namespace Tests\Unit\Ai\SelfConstruction;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionScaffoldStagingExecutorService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionScaffoldStagingExecutorService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 

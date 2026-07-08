@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalLoopHealthDigestService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -125,7 +125,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestServiceTest extends TestCas
             'task_packet_hash' => hash('sha256', 'task-claimed-only'),
             'status' => 'claimable',
         ], ['tags' => ['lane-a']]);
-        $lease = (new \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository)->claim(
+        $lease = (new \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository)->claim(
             'task-claimed-only',
             'agent-active',
             ['write_set' => [], 'read_set' => []],

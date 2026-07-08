@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Brain2;
 
-use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate;
-use App\Services\Ai\SelfConstruction\AgentCodexRealInvokerReleasePreflight;
+use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartRealInvokerReleasePreflightGate;
+use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerReleasePreflight;
 use PHPUnit\Framework\TestCase;
 
 /**

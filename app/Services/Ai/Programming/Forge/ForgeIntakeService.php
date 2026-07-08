@@ -3,7 +3,7 @@
 namespace App\Services\Ai\Programming\Forge;
 
 use App\Models\AiForgeIntake;
-use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
@@ -56,6 +56,7 @@ class ForgeIntakeService
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
         private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
         private readonly ?AwisExecutionGatePort $workspaceExecutionGate = null,
+        private readonly ?EliteExecutorKernel $eliteKernel = null,
     ) {}
 
     /**
@@ -76,6 +77,7 @@ class ForgeIntakeService
         );
 
         $this->materializeChildren($intake, null, $prompt, $options);
+        $this->assertEliteForgeIntakeOutcome($intake);
 
         return $intake;
     }
@@ -123,6 +125,7 @@ class ForgeIntakeService
         );
 
         $this->materializeChildren($intake, $packet, $prompt, $options);
+        $this->assertEliteForgeIntakeOutcome($intake);
 
         return $intake;
     }
@@ -1087,5 +1090,21 @@ class ForgeIntakeService
         }
 
         return preg_replace('/\s+/u', ' ', $normalized) ?? $lower;
+    }
+
+    private function assertEliteForgeIntakeOutcome(AiForgeIntake $intake): void
+    {
+        if ($this->eliteKernel === null) {
+            return;
+        }
+        $status = (string) ($intake->status ?? 'blocked');
+        $this->eliteKernel->assertHonestOutcome([
+            'status' => $status === 'blocked' ? 'failed' : 'success',
+            'execution' => [
+                'intake_id' => (string) ($intake->uuid ?? ''),
+                'intake_hash' => (string) ($intake->intake_hash ?? ''),
+                'origin' => (string) ($intake->origin ?? ''),
+            ],
+        ], 'forge');
     }
 }

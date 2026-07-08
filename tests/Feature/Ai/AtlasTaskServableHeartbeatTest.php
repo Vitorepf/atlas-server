@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
-use App\Services\Ai\SelfConstruction\AtlasTaskCoordinationHealthService;
-use App\Services\Ai\SelfConstruction\AtlasTaskServableHeartbeatService;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskServableHeartbeatService;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

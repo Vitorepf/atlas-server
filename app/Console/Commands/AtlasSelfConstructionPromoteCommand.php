@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionPromotionExecutorService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionPromotionExecutorService;
 use Illuminate\Console\Command;
 
 /**

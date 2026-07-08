@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\Completion;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionTerminalLoopCertifier;
 use Tests\TestCase;
 
@@ -12,7 +12,7 @@ class AtlasSelfConstructionTerminalLoopCertifierTest extends TestCase
 {
     private function readiness(): AtlasSelfConstructionReadinessService
     {
-        return new AtlasSelfConstructionReadinessService(new \App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository);
+        return new AtlasSelfConstructionReadinessService(new \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository);
     }
 
     private function makeModules(): array

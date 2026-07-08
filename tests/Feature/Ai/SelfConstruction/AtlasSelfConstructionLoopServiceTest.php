@@ -6,9 +6,9 @@ namespace Tests\Feature\Ai\SelfConstruction;
 
 use App\Services\Ai\RealExecution\AtlasMissionService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionDetector;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionLoopService;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementRelevanceGate;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionDetector;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementRelevanceGate;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 

@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow v1 · Parte 2
 status: active
 category: programming
 priority: 105
-summary: Recorte focado de Atlas Dev Efficient Programming Flow v1: 9. State Machine ate 18. Scope Guard.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

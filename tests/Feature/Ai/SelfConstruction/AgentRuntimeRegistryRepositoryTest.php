@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -486,7 +486,7 @@ final class AgentRuntimeRegistryRepositoryTest extends TestCase
         $record = $repo->get('agent-a');
         $record['current_task_count'] = 5;
         Storage::disk('local')->put(
-            \App\Services\Ai\SelfConstruction\AgentRuntimeRegistryRepository::STORAGE_PREFIX.'/agent_agent-a.json',
+            \App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryRepository::STORAGE_PREFIX.'/agent_agent-a.json',
             json_encode($record),
         );
 

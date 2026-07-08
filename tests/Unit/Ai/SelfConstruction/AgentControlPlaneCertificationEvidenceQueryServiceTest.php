@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationEvidenceQueryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationEvidenceQueryService;
 use Tests\TestCase;
 
 final class AgentControlPlaneCertificationEvidenceQueryServiceTest extends TestCase

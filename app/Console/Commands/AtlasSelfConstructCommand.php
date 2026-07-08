@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionLoopService;
-use App\Services\Ai\SelfConstruction\AtlasSelfImprovementMetaMetricService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService;
 use Illuminate\Console\Command;
 
 /**

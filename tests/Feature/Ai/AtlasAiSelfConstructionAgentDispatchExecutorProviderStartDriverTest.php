@@ -5,7 +5,7 @@ namespace Tests\Feature\Ai;
 use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
 use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
 use App\Models\AtlasSelfConstructionAgentSandboxBinding;
-use App\Services\Ai\SelfConstruction\AgentDispatchExecutorProviderStartDriver;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchExecutorProviderStartDriver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

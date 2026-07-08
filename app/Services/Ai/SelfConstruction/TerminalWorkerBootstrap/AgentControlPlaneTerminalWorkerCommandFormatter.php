@@ -9,7 +9,7 @@ namespace App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap;
  * uses to render CLI arguments, escape values, recommend queue tags, and normalize string lists.
  *
  * Five methods migrated verbatim from
- * {@see \App\Services\Ai\SelfConstruction\AgentControlPlaneTerminalWorkerBootstrapService}:
+ * {@see \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalWorkerBootstrapService}:
  *  - {@see self::bootstrapCommand}: the full `atlas:ai:self-construction` CLI invocation that
  *    kicks off the terminal-worker status probe, including the actor / target-min / max-new
  *    flags and a per-tag `--queue-tag=...` argument for each tag in the list.

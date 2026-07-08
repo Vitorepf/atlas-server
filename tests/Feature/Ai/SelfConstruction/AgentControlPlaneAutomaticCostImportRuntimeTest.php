@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneAutomaticCostImportRuntimeCertificationService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCostEventNormalizer;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCostImportReceiptPlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCostImportReconciliationDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticCostImportRuntimeCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostEventNormalizer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostImportReceiptPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCostImportReconciliationDryRun;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

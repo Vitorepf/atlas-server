@@ -4,8 +4,8 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
 use App\Models\AtlasSelfConstructionAgentSandboxBinding;
-use App\Services\Ai\SelfConstruction\AgentCodexProviderExecutionDriver;
-use App\Services\Ai\SelfConstruction\AgentProviderAdapterRegistry;
+use App\Services\Ai\SelfConstruction\Support\AgentCodexProviderExecutionDriver;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentProviderAdapterRegistry;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

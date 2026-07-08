@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneDiffArtifactPreviewBuilder;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneExecutionWorkspaceCertificationService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneExecutionWorkspacePlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneRollbackPlanBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneDiffArtifactPreviewBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspaceCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspacePlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRollbackPlanBuilder;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

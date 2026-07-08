@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasTaskServableHeartbeatService;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskServableHeartbeatService;
 use Tests\TestCase;
 
 final class AtlasTaskServableHeartbeatServiceTest extends TestCase

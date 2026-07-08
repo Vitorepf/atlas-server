@@ -2,9 +2,9 @@
 
 namespace Tests\Unit\Services\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerBatchPlanner;
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerBatchPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

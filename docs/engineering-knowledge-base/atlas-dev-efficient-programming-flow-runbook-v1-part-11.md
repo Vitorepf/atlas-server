@@ -5,7 +5,7 @@ title: Atlas Dev Efficient Programming Flow Runbook v1 · Parte 11
 status: active
 category: programming
 priority: 104
-summary: Recorte focado do runbook Atlas Dev Efficient Programming Flow v1: 15.6 Senior Engineer Loop ate 16. Sequencia De Trabalho Recomendada Por Agente IA.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - efficient-programming-flow

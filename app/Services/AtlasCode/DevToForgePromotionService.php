@@ -12,6 +12,7 @@ use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationDecision;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
+use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -208,6 +209,7 @@ final class DevToForgePromotionService
         // atlas-dev-forge-escalation-consolidation-plan.md Phase 1.
         $preview = $this->attachCanonicalEscalationPacket($preview, $promotionTarget);
         $preview['route_decision_v1'] = $this->recordCanonicalRouteDecision($preview, $promotionTarget);
+        $preview = $this->intakeForgeFromEscalationPacket($preview, $promotionTarget);
 
         $this->persist($preview);
 
@@ -302,6 +304,39 @@ final class DevToForgePromotionService
             $candidate['escalation_packet_v1'] = $packet->toCanonicalArray();
         } catch (Throwable $e) {
             $candidate['escalation_packet_v1_error'] = $e->getMessage();
+        }
+
+        return $candidate;
+    }
+
+    /**
+     * Production wire: Dev→Forge promotion consumes EscalationPacket via ForgeIntakeService.
+     *
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    private function intakeForgeFromEscalationPacket(array $candidate, string $promotionTarget): array
+    {
+        if (! in_array($promotionTarget, [
+            PromotionSignalDetector::TARGET_FORGE_OBRA,
+            PromotionSignalDetector::TARGET_OBRA_CANDIDATE,
+        ], true)) {
+            return $candidate;
+        }
+        $payload = $candidate['escalation_packet_v1'] ?? null;
+        if (! is_array($payload) || $payload === []) {
+            return $candidate;
+        }
+        try {
+            $packet = EscalationPacket::fromArray($payload);
+            $intake = app(ForgeIntakeService::class)->intakeFromEscalationPacket($packet, [
+                'workspace_slug' => $candidate['workspace_slug'] ?? null,
+                'obra_title' => $candidate['title'] ?? null,
+            ]);
+            $candidate['forge_intake_id'] = (string) ($intake->uuid ?? $intake->getKey() ?? '');
+            $candidate['forge_intake_status'] = (string) ($intake->status ?? '');
+        } catch (Throwable $e) {
+            $candidate['forge_intake_error'] = $e->getMessage();
         }
 
         return $candidate;

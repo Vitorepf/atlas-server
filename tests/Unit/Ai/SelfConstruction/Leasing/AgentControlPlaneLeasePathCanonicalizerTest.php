@@ -104,7 +104,7 @@ final class AgentControlPlaneLeasePathCanonicalizerTest extends TestCase
         // Single-source invariant: leasePath MUST live under the repository's STORAGE_PREFIX —
         // a divergent dir here silently breaks registry rebuild and prune (conflicts lost).
         $this->assertSame(
-            \App\Services\Ai\SelfConstruction\AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/lease_abc-123.json',
+            \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository::STORAGE_PREFIX.'/lease_abc-123.json',
             $this->canonicalizer->leasePath('Lease_ABC-123'),
         );
     }

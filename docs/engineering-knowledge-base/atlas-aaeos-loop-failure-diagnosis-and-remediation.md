@@ -8,7 +8,7 @@ implementation_state: diagnosis_and_plan_no_runtime
 authority_class: runbook
 category: agentic-engineering
 priority: 97
-summary: Evidence-based diagnosis of why the AAEOS autonomous stewardship loop ran 24/7 for ~4 days (Codex + MiniMax) without delivering any backlog slice, while a strong-model parallel fan-out delivered ~107 specced slices plus ~85 latent-bug fixes in hours. Roots the failure in five structural defects — scan-only execution, weak-yet-blocking gates, sequential governance tax, under-powered execution provider, and infrastructure yak-shave — and gives a prioritized remediation plan. Honest about where the comparison is unfair to the loop.
+summary: "⚰️ LEGADO / ACDE-MORTO — use atlas:brain:* / atlas:task:*."
 owner: operator (Vitor)
 risk_level: medium
 tags:

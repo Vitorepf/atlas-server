@@ -242,15 +242,15 @@ Tripla `(envelope_hash, prompt_projection_hash, task_contract_hash)` co-validado
 
 ## Termos Legados Aceitos
 
-### Fast Path
+### Fast Path (LEGADO — preferir "executor Dev")
 
-Sinonimo tecnico aceito para "fluxo Atlas Dev". Originalmente designava Atlas Dev em oposicao a Forge ("heavy path"). Termo legado mas mantido em decisoes locked, capabilities e graph paths.
+Termo LEGADO; preferir "executor Dev" / elite identity. Historicamente sinonimo de "fluxo Atlas Dev". Originalmente designava Atlas Dev em oposicao a Forge ("heavy path"). Termo legado mas mantido em decisoes locked, capabilities e graph paths.
 
 **NAO confundir com**: produto leve (Atlas Dev nao e "Forge mais barato"; e fluxo de desenvolvimento workspace-bound).
 
 ### Heavy Path
 
-Sinonimo legado para Atlas Forge. Designava governance pesada vs fast path. Hoje preferir "Forge" ou "fluxo Obra-driven".
+Sinonimo legado para Atlas Forge. Designava governance pesada vs executor Dev (operador presente). Hoje preferir "Forge" ou "fluxo Obra-driven".
 
 ## Resumo
 
@@ -304,7 +304,7 @@ Manutencao deste glossario. Significado canonico vive aqui.
 
 ## Exemplos
 
-IA encontra "fast path" no doc principal Atlas Dev. Consulta aqui. Aprende: sinonimo tecnico aceito para "fluxo Atlas Dev". Nao confunde com "produto leve". Segue com interpretacao correta.
+IA encontra "fast path" no doc principal Atlas Dev. Consulta aqui. Aprende: termo LEGADO — sinonimo historico de "fluxo Atlas Dev" / executor Dev. Nao confunde com "produto leve". Segue com interpretacao elite (Dev · Forge · Autonomos).
 
 ## Proximas Acoes
 

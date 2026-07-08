@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
-use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\AiValueNormalizer;
@@ -51,7 +51,7 @@ class AtlasForgeLiveExecutionService
         private readonly ProgrammingRepairExecutor $repairExecutor,
         private readonly ProgrammingStageReceiptStore $stageReceiptStore,
         private readonly AtlasEvidenceLedger $evidenceLedger,
-        private readonly AtlasAucriRuntimeEnforcementService $aucriEnforcement,
+        private readonly AtlasContextRuntime $contextRuntime,
         private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
     ) {}
 
@@ -349,7 +349,7 @@ class AtlasForgeLiveExecutionService
             array_filter((array) data_get($contextStage, 'context_pack.ranked_refs', []), 'is_array')
         ));
 
-        $enforcement = $this->aucriEnforcement->enforce([
+        $enforcement = $this->contextRuntime->certifyEnforcement([
             'flow_id' => 'atlas_forge',
             'domain' => 'programming',
             'task_type' => 'forge_live_execution',
@@ -391,7 +391,7 @@ class AtlasForgeLiveExecutionService
         return [
             'name' => 'aucri_runtime_enforcement',
             'status' => ($enforcement['status'] ?? 'blocked') === 'passed' ? 'passed' : 'blocked',
-            'schema_version' => AtlasAucriRuntimeEnforcementService::SCHEMA_VERSION,
+            'schema_version' => AtlasContextRuntime::SCHEMA_VERSION,
             'runtime_enforcement_hash' => (string) ($enforcement['runtime_enforcement_hash'] ?? ''),
             'blockers' => array_values((array) ($enforcement['blockers'] ?? [])),
             'enforcement' => $enforcement,

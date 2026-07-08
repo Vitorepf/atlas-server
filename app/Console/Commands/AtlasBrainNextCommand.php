@@ -30,6 +30,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTaskSpecTranslator;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Engineering\EliteCompactionFreezeGuard;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -79,6 +80,11 @@ final class AtlasBrainNextCommand extends Command
         // §0 — fail-CLOSED master gate. OFF ⇒ clean no-op (never a crash), gated independently of the muscle.
         if (! AtlasBrainMasterSwitch::enabled()) {
             return $this->emit(['status' => 'disabled', 'reason' => 'brain_master_switch_off']);
+        }
+
+        $freezeRefusal = app(EliteCompactionFreezeGuard::class)->refusalPayload('atlas:brain:next');
+        if ($freezeRefusal !== null) {
+            return $this->emit($freezeRefusal, self::FAILURE);
         }
 
         $repoRoot = rtrim((string) ($this->option('repo') ?: base_path()), '/');

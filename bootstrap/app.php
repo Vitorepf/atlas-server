@@ -97,6 +97,7 @@ use App\Console\Commands\AtlasDevSeniorLoopRunCommand;
 use App\Console\Commands\AtlasDevSmokeCommand;
 use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
+use App\Console\Commands\AtlasEliteCompactionCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkFairCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkReplayManifestCommand;
@@ -119,14 +120,6 @@ use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasLearnProjectCommand;
-use App\Console\Commands\AtlasLoopCertifyImplementationCommand;
-use App\Console\Commands\AtlasLoopCompileVerifierCommand;
-use App\Console\Commands\AtlasLoopMaterializeCommand;
-use App\Console\Commands\AtlasLoopMorningDigestCommand;
-use App\Console\Commands\AtlasLoopPromoteCommand;
-use App\Console\Commands\AtlasLoopReviewFeedbackCommand;
-use App\Console\Commands\AtlasLoopTaxa2DialsCommand;
-use App\Console\Commands\AtlasLoopVerifyProposalsCommand;
 use App\Console\Commands\AtlasMemoryCurateCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryQualityCommand;
@@ -302,16 +295,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
-        AtlasLoopCertifyImplementationCommand::class,
-        AtlasLoopCompileVerifierCommand::class,
-        AtlasLoopMaterializeCommand::class,
-        AtlasLoopMorningDigestCommand::class,
-        AtlasLoopPromoteCommand::class,
-        AtlasLoopReviewFeedbackCommand::class,
-        AtlasLoopTaxa2DialsCommand::class,
         AtlasUnifiedLoopInstallLaunchdCommand::class,
         AtlasUnifiedLoopSupervisorCommand::class,
-        AtlasLoopVerifyProposalsCommand::class,
         AtlasMemoryCurateCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
@@ -358,6 +343,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,
         AtlasEngineeringKnowledgeCommand::class,
+        AtlasEliteCompactionCommand::class,
         AtlasEngineeringQualityScanCommand::class,
         AtlasEngineeringReplayCommand::class,
         AtlasEngineeringRunCommand::class,

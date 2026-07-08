@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService;
 use Illuminate\Console\Command;
 use Throwable;
 

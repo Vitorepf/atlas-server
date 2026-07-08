@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentValidationGateFailureClassifier;
-use App\Services\Ai\SelfConstruction\AgentValidationGateRepairRecommendationBuilder;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateFailureClassifier;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateRepairRecommendationBuilder;
 use Tests\TestCase;
 
 final class AgentValidationGateRepairRecommendationBuilderTest extends TestCase

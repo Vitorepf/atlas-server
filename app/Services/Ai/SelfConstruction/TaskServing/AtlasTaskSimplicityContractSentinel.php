@@ -12,6 +12,8 @@ namespace App\Services\Ai\SelfConstruction\TaskServing;
  * Read-only by construction: accepts an injected record list (records the caller already loaded
  * from {@see AgentControlPlaneTaskPacketQueueRepository::list()}) and never mutates queue state.
  */
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+
 final class AtlasTaskSimplicityContractSentinel
 {
     public const SCHEMA = 'atlas.task_serving.simplicity_contract_sentinel.v1';

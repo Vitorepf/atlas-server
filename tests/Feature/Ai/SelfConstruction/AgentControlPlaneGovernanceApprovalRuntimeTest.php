@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneApprovalReceiptPlanner;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneGovernanceApprovalCertificationService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneGovernancePolicyEvaluator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneApprovalReceiptPlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernanceApprovalCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernancePolicyEvaluator;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 

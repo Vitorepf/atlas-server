@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceCertificationService;
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceContinuityIndexer;
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceJournalRepository;
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceReceiptBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceContinuityIndexer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceJournalRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceReceiptBuilder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

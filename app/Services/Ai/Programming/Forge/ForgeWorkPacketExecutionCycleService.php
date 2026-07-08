@@ -7,7 +7,7 @@ use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
-use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeFailureIntelligenceService;
@@ -73,6 +73,7 @@ class ForgeWorkPacketExecutionCycleService
         // config anyway.
         private readonly ?\App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService $engineeringConductor = null,
         ?AtlasDevGateAdapter $devGate = null,
+        private readonly ?EliteExecutorKernel $eliteKernel = null,
     ) {
         $this->devGate = $devGate ?? new AtlasDevGateAdapter;
     }
@@ -349,6 +350,15 @@ class ForgeWorkPacketExecutionCycleService
             // stays functional. Flip on once the executor emits real sovereign evidence.
             return $this->block($cycle, 'sovereign_engineering_gate_not_promoted', $state);
         }
+
+        $this->eliteKernel?->assertHonestOutcome([
+            'status' => 'success',
+            'execution' => [
+                'evidence_refs' => $cleanEvidence,
+                'gate_result' => $gateResult,
+                'cycle_id' => $cycle->uuid,
+            ],
+        ], 'forge');
 
         $cycle->evidence_refs = $cleanEvidence;
         $cycle->gate_result = $gateResult;

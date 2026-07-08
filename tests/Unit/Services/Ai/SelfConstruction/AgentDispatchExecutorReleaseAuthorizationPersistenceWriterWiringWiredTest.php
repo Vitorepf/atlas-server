@@ -3,7 +3,7 @@
 namespace Tests\Unit\Services\Ai\SelfConstruction;
 
 use App\Models\AtlasSelfConstructionAgentRun;
-use App\Services\Ai\SelfConstruction\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;

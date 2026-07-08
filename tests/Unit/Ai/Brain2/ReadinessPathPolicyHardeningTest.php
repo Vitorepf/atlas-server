@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Brain2;
 
-use App\Services\Ai\SelfConstruction\ReadinessPathPolicy;
+use App\Services\Ai\SelfConstruction\Support\ReadinessPathPolicy;
 use PHPUnit\Framework\TestCase;
 
 /**

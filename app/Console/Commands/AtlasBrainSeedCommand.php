@@ -15,7 +15,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecRepairHints;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
-use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+use App\Services\Engineering\EliteCompactionFreezeGuard;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -63,6 +63,11 @@ final class AtlasBrainSeedCommand extends Command
         $dryRun = (bool) $this->option('dry-run');
         // Enqueue is gated by the BRAIN switch (NOT the muscle serving switch). OFF ⇒ gate-only, never enqueue.
         $brainOn = AtlasBrainMasterSwitch::enabled();
+
+        $freezeRefusal = app(EliteCompactionFreezeGuard::class)->refusalPayload('atlas:brain:seed');
+        if ($freezeRefusal !== null && ! $dryRun) {
+            return $this->emit(array_merge($freezeRefusal, ['dry_run' => false]), self::FAILURE);
+        }
 
         $guard = app(AtlasLoopHarnessGuard::class);
         $classifier = app(AtlasBrainEvolutionLevelClassifier::class);

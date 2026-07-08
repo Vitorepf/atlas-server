@@ -5,7 +5,7 @@ title: Atlas Dev Flow Map And Product Options v1 · Parte 3
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Flow Map And Product Options v1: Contexto 4: Opiniao Externa Sobre Atlas Dev Efficient Programming Flow ate O que ainda nao existe como driver proprio.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - product-options

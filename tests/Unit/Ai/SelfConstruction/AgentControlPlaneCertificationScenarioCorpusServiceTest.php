@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationScenarioCorpusService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationScenarioCorpusService;
 use Tests\TestCase;
 
 final class AgentControlPlaneCertificationScenarioCorpusServiceTest extends TestCase

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneRuntimePilotOrchestrator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotOrchestrator;
 use Tests\TestCase;
 
 final class AgentControlPlaneRuntimePilotOrchestratorTest extends TestCase

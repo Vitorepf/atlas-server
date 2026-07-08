@@ -5,7 +5,7 @@ title: Atlas Dev Flow Map And Product Options v1 · Parte 5
 status: active
 category: programming
 priority: 104
-summary: Recorte focado de Atlas Dev Flow Map And Product Options v1: Open Brain E Contexto ate Review.
+summary: "⚰️ LEGADO / identidade pré-elite — Dev·Forge·Autônomos = elite; diferença = operador + escala."
 tags:
   - atlas-dev
   - product-options

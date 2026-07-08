@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeEvidenceReceiptBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceReceiptBuilder;
 use PHPUnit\Framework\TestCase;
 
 final class AgentRuntimeEvidenceReceiptBuilderTest extends TestCase

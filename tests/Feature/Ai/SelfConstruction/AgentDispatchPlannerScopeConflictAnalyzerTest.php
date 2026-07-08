@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerScopeConflictAnalyzer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerScopeConflictAnalyzer;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

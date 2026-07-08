@@ -10,6 +10,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\Evidence\CertificationRuntimeService;
 use App\Services\Ai\Evidence\MissionEvidenceAdapter;
 use App\Services\Ai\Gateway\ChatWeakResponseProbe;
@@ -67,6 +68,13 @@ class AiWorker
      * replaces the failure. Default: null → original behaviour preserved.
      */
     private ?AtlasSwarmAutoFailoverService $swarmAutoFailover = null;
+
+    private ?EliteExecutorKernel $eliteKernel = null;
+
+    public function setEliteExecutorKernel(?EliteExecutorKernel $kernel): void
+    {
+        $this->eliteKernel = $kernel;
+    }
 
     public function setSwarmAutoFailover(?AtlasSwarmAutoFailoverService $svc): void
     {
@@ -633,6 +641,22 @@ class AiWorker
             $pipelinePlan,
             $this->kernelPipelines->auditContextForJob($job),
         );
+    }
+
+    private function assertEliteKernelHonestOutcome(AiJob $job, AiJobAttempt $attempt): void
+    {
+        if ($this->eliteKernel === null) {
+            return;
+        }
+        try {
+            $payload = is_array($job->payload) ? $job->payload : [];
+            $this->eliteKernel->assertHonestOutcome([
+                'status' => 'success',
+                'execution' => (array) data_get($payload, 'execution', data_get($payload, 'programming_completion.execution', [])),
+            ], 'dev');
+        } catch (\Throwable $e) {
+            $this->logger->event('elite_kernel_fake_green_blocked', $e->getMessage(), 'warning', $attempt->provider, $job, $attempt);
+        }
     }
 
     private function completeKernelMissionFromSuccessfulJob(
@@ -2141,6 +2165,7 @@ class AiWorker
                 $this->recomputeTraceMetrics($trace);
             }
             $this->completeKernelMissionFromSuccessfulJob($job->refresh(), $attempt, $responseHash, $workerId);
+            $this->assertEliteKernelHonestOutcome($job, $attempt);
             $this->audit->record('ai_job_succeeded', [
                 'subject_type' => 'ai_job',
                 'subject_id' => $job->id,

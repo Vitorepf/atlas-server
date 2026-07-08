@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Services\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentDispatchPlannerScopeConflictAnalyzer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerScopeConflictAnalyzer;
 use Tests\TestCase;
 
 /**

@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentMergeReviewPacketBuilder;
-use App\Services\Ai\SelfConstruction\AgentMergeReviewRiskScorer;
-use App\Services\Ai\SelfConstruction\AgentMergeReviewScopeVerifier;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewRiskScorer;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewScopeVerifier;
 use Tests\TestCase;
 
 final class AgentMergeReviewRiskScorerTest extends TestCase

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService;
-use App\Services\Ai\SelfConstruction\OperatorEvidenceDraftHashFinalizationSummarizer;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftHashFinalizerService;
+use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceDraftHashFinalizationSummarizer;
 use Tests\TestCase;
 
 final class OperatorEvidenceDraftHashFinalizationSummarizerTest extends TestCase

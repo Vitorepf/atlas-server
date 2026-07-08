@@ -11,7 +11,7 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Concerns\RunsCliProcesses;
-use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceGate;
@@ -3626,7 +3626,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             ],
         ];
 
-        $enforcement = app(AtlasAucriRuntimeEnforcementService::class)->enforce([
+        $enforcement = app(AtlasContextRuntime::class)->certifyEnforcement([
             'flow_id' => 'atlas_dev',
             'domain' => 'programming',
             'task_type' => $taskKind,

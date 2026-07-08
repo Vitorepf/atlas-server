@@ -18,6 +18,8 @@ namespace App\Services\Ai\SelfConstruction\Maestro\Tiering;
  *     downgrades an in-tier allow to allow_with_review — confidence never silently waves a hard packet through.
  *   - Pure: same (clientId, packet) ⇒ byte-identical verdict; sole I/O is the registry lookup + classifier call.
  */
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
+
 final class AtlasMaestroTieredRoutingPolicy
 {
     public const SCHEMA = 'atlas.maestro.tier_routing.v1';

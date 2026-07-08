@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryCapabilityCatalog;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCapabilityCatalog;
 use Tests\TestCase;
 
 final class AgentRuntimeRegistryCapabilityCatalogTest extends TestCase

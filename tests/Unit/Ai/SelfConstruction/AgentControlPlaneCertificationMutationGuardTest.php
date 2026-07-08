@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationMutationGuard;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneDeterministicChainReplayService;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneReplaySnapshotStore;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationMutationGuard;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneDeterministicChainReplayService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneReplaySnapshotStore;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use PHPUnit\Framework\TestCase;
 
 final class AgentControlPlaneCertificationMutationGuardTest extends TestCase

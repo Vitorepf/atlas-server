@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryHeartbeatRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryHeartbeatRepository;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;

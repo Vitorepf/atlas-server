@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasTaskSwarmProofService;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskSwarmProofService;
 use PHPUnit\Framework\TestCase;
 
 /**

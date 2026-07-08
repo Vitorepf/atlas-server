@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentMergeReviewCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewCertificationService;
 use Tests\TestCase;
 
 final class AgentMergeReviewCertificationServiceTest extends TestCase

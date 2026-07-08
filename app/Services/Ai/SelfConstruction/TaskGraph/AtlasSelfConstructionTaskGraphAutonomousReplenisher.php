@@ -22,6 +22,8 @@ namespace App\Services\Ai\SelfConstruction\TaskGraph;
  *     max_applied, enqueue_results, plan, replenisher_hash
  *   }
  */
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskGraphRuntimeBridge;
+
 final class AtlasSelfConstructionTaskGraphAutonomousReplenisher
 {
     public const SCHEMA = 'atlas.self_construction.task_graph_autonomous_replenisher.v1';

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneExecutionWorkspacePlanner;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspacePlanner;
 use Tests\TestCase;
 
 final class AgentControlPlaneExecutionWorkspacePlannerTest extends TestCase

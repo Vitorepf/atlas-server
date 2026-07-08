@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\FinalOperatorClosureCorridorHashSupport;
+use App\Services\Ai\SelfConstruction\Support\FinalOperatorClosureCorridorHashSupport;
 use PHPUnit\Framework\TestCase;
 
 /**
  * ITEM8 — proves the cohesive canonicalization/hashing utility cluster extracted from
- * {@see \App\Services\Ai\SelfConstruction\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService}
+ * {@see \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalOperatorEvidenceClosureCorridorService}
  * into FinalOperatorClosureCorridorHashSupport. Three methods migrated verbatim:
  *  - stableHash: SHA-256 of the canonical JSON after stripVolatileKeys + in-method unset +
  *    ksortRecursive.

@@ -6,7 +6,7 @@ namespace Tests\Feature\Foundry\Frontier;
 
 use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\Foundry\Frontier\Armor\FrontierDriftMapperGate;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionSubsystemBuilderService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionSubsystemBuilderService;
 use PHPUnit\Framework\TestCase;
 
 final class FrontierDriftMapperGateTest extends TestCase

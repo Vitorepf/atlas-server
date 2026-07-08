@@ -2,10 +2,10 @@
 
 namespace Tests\Feature\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionReservationRepository;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionClosurePackService;
-use App\Services\Ai\SelfConstruction\AtlasSelfConstructionRuntimePromotionClosurePackVerifierService;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionReservationRepository;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionClosurePackService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRuntimePromotionClosurePackVerifierService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

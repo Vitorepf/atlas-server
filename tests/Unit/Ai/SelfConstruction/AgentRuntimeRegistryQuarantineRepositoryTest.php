@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentRuntimeRegistryQuarantineRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryQuarantineRepository;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

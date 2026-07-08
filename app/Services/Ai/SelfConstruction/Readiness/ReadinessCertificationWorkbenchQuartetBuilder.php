@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
-use App\Services\Ai\SelfConstruction\ReadinessHash;
+use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
 
 /**
  * Builds the certification-workbench quartet payload (contract / preflight /

@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use App\Services\Ai\SelfConstruction\AgentControlPlaneCertificationCoverageReportService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneCertificationCoverageReportService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
