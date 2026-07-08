@@ -20,6 +20,23 @@ graph_layer: system
 > Engineering Kernel, Governor ou Learning-Application Controller. Não crie novo
 > runtime chamado Loop e não trate Loop como OS, governo ou autoridade final.
 
+## REALIDADE OPERANTE (o que já roda hoje) vs. o ALVO deste doc
+
+Este documento mistura duas coisas — separe-as ao ler:
+
+- **VIVO (roda hoje, provado):** o **Autônomos** = cérebro externo cria tasks
+  (`atlas:brain:next` origina+projeta spec author≠judge → `atlas:brain:seed` gate-and-enqueue,
+  seed-gate refusa ~50%) + músculo externo implementa (`atlas:task next` → provider →
+  **commit escopado na main** via `SelfConstruction/AtlasTaskScopedCommitter`, `git add -- <arquivos>`,
+  nunca `add -A`, nunca merge). **Já produziu 4.841 landings.** Doc canônico do vivo:
+  `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`.
+- **ALVO / aspiração (arquitetura v3, ainda não é o runtime do dia-a-dia):** o
+  `Atlas Autonomous Engineering Government` com Spec Court, Verification Court, Governor,
+  Engineering Kernel e separação plena de poderes descrita abaixo.
+- **MORTO:** o antigo runtime monolítico "Loop" (ACDE, `AutonomousEvolution/` raiz). Onde as seções
+  abaixo dizem "delivery ~3/10" ou "fechar o ciclo na main NUNCA foi provado", isso descreve o
+  **loop-morto**, não o autônomo vivo — que fecha o ciclo na main diariamente por task escopada.
+
 ## Resumo
 
 O antigo Loop foi o piloto de autopoiese/evolução que ensinou o Atlas a buscar
