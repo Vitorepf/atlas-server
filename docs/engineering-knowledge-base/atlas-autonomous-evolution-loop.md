@@ -5,7 +5,7 @@ title: Atlas Autonomous Evolution Loop
 status: active
 category: autonomous-evolution
 priority: 100
-summary: Canonical contract for AAEL, the Autonomous Evolution Portfolio OS that lets Atlas improve itself through governed opportunity selection, sandbox execution, evidence, promotion gates and learning.
+summary: "⚰️ LEGADO / ACDE-MORTO — contrato do AAEL (Autonomous Evolution Portfolio), parte do loop ACDE fracassado; NÃO é 'o OS que faz o Atlas se melhorar' hoje. O sistema VIVO de auto-evolução é o AUTÔNOMOS: cérebro atlas:brain:next/seed cria tasks + músculo atlas:task next implementa → commit escopado na main (SelfConstruction); 4.841 landings. Doc preservado como contrato histórico do portfolio governor. Corretivo: docs/loop-canonical-definition.md + memória loop-morto-autonomos-vivo."
 tags:
   - atlas-ai
   - aael

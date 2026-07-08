@@ -5,7 +5,7 @@ title: Atlas Evolution Loop Runtime Engine
 status: active
 category: autonomous-evolution
 priority: 99
-summary: The proven AtlasEvolution* runtime — the autonomous, propose-only "third product" (distinct from Dev, Forge, AND from AAEL the portfolio governor). A scenario explorer drives a generator (a provider, or pure code) to produce candidates; a FROZEN JUDGE re-scores each against a frozen acceptance contract; the best is certified-for-review and NEVER merged. A durable campaign supervisor runs it for a wall-clock budget with crash recovery, kill/pause, and a 3-layer never-merge invariant. Any AI can instantiate the loop for a NEW purpose by providing a base_workspace + an acceptance contract.
+summary: "⚰️ LEGADO / ACDE-MORTO — o AtlasEvolution* runtime foi o MVP fracassado (NÃO 'proven', NÃO o produto vivo). NÃO instanciar este loop para propósito novo; use o AUTÔNOMOS vivo: cérebro atlas:brain:next/seed cria tasks + músculo atlas:task next implementa → commit escopado na main (SelfConstruction); 4.841 landings. Doc preservado só como referência histórica do explorer/frozen-judge/campaign-supervisor propose-only. Corretivo: docs/loop-canonical-definition.md + memória loop-morto-autonomos-vivo."
 tags:
   - atlas-ai
   - evolution-loop

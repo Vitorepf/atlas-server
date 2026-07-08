@@ -6,7 +6,7 @@ status: planned
 implementation_state: partially_implemented
 category: autonomous-evolution
 priority: 99
-summary: Design canonico do registry que transforma skills, loop catalogs, agent workflow OSs e aprendizados internos em padroes governados de execucao para o Atlas Loop escolher, provar e otimizar.
+summary: "⚰️ LEGADO / ACDE-MORTO (status: planned) — design de registry de padrões cujo consumidor era 'o Atlas Loop' (ACDE fracassado). O sistema VIVO é o AUTÔNOMOS: cérebro atlas:brain:next/seed cria tasks + músculo atlas:task next implementa → commit escopado na main (SelfConstruction); 4.841 landings. Doc preservado como design histórico não-implementado. Corretivo: docs/loop-canonical-definition.md + memória loop-morto-autonomos-vivo."
 tags:
   - atlas-ai
   - loop

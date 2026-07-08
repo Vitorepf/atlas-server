@@ -5,7 +5,7 @@ title: Atlas Self-Improvement Closed Loop Level 7 v1
 status: active
 category: self-construction
 priority: 100
-summary: Closed loop end-to-end Self-Improvement → Forge. Backlog persistente, projeção 12 stages, result ledger com delta scorecard real, learning packet, next-cycle recommendation, integração com Obra Command Center. NUNCA chama provider, NUNCA executa Fast Path automático, NUNCA promove completion claim, NUNCA libera external_rivals_certification.
+summary: "⚰️ LEGADO / ACDE-MORTO — projeção 'closed loop' do ACDE fracassado; NÃO é o motor de auto-melhoria vivo. O VIVO é o AUTÔNOMOS: cérebro atlas:brain:next/seed cria tasks + músculo atlas:task next implementa → commit escopado na main (SelfConstruction); 4.841 landings. Doc preservado como referência histórica (backlog persistente, projeção 12 stages, result ledger, learning packet; read-only, nunca chama provider/merge). Corretivo: docs/loop-canonical-definition.md + memória loop-morto-autonomos-vivo."
 tags:
   - atlas
   - self-improvement

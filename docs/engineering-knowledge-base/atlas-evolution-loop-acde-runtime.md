@@ -6,7 +6,7 @@ status: active
 category: autonomous-evolution
 priority: 98
 doc_schema: atlas_canonical_module_doc.v1
-summary: The CANONICAL owner map for the ACDE (Atlas Compounding Delivery Engine) runtime that grew on top of the AtlasEvolution* loop since 2026-06. Quality comes from the FLOW, not the LLM — the out-of-process FROZEN JUDGE + SEMANTIC IMPLEMENTATION CERTIFIER prove every win, the LLM is swappable fuel. Maps the eight families (discovery/supply, grind/cert, escalation conductor, obra large-work, auto-merge governance, the Arbor idea-tree graft, compounding/learning, governance flags) to their anchor files, and records the 2026-06-17 power-up (Arbor-graft armed, DI dead-wiring closed, contract-swap guard, obra day-2 verified). Child of atlas-evolution-loop-runtime; the loop is the engine that BUILDS Atlas, so this map is load-bearing for all downstream self-improvement.
+summary: "⚰️ LEGADO / ACDE-MORTO — mapa HISTÓRICO do loop ACDE (app/Services/Ai/AutonomousEvolution/ raiz), que é o MVP fracassado. NÃO é o sistema vivo e NÃO deve ser implementado contra: 'o loop é o motor que constrói o Atlas' é FALSO hoje. O VIVO é o AUTÔNOMOS: cérebro atlas:brain:next/seed cria tasks + músculo atlas:task next implementa → commit escopado na main (SelfConstruction/AtlasTaskScopedCommitter); já produziu 4.841 landings. Preservado só como owner-map das 8 famílias/anchor files do ACDE (frozen judge, cert semântico, obra, arbor-graft, compounding). Corretivo canônico: docs/loop-canonical-definition.md + memória loop-morto-autonomos-vivo."
 tags:
   - atlas-ai
   - evolution-loop

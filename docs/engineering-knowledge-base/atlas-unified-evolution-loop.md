@@ -7,7 +7,7 @@ graph_layer: system
 status: active
 category: autonomous-evolution
 priority: 100
-summary: Supervisor propose-only que usa busca sob verificadores frozen para evoluir codigo, docs e P4 pequeno do Atlas com gates deterministas, refutadores e passagem para Verification Court / Merge Governor.
+summary: "⚰️ LEGADO / ACDE-MORTO — supervisor propose-only do loop ACDE fracassado; NÃO é o evoluidor vivo do código/docs. O VIVO é o AUTÔNOMOS: cérebro atlas:brain:next/seed cria tasks + músculo atlas:task next implementa → commit escopado na main (SelfConstruction); 4.841 landings. Doc preservado como referência histórica da busca sob verificadores frozen. Corretivo: docs/loop-canonical-definition.md + memória loop-morto-autonomos-vivo."
 tags:
   - atlas-ai
   - autonomous-evolution
