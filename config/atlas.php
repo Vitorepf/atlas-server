@@ -1152,6 +1152,17 @@ return [
             ],
         ],
 
+        // SLICE 2 — shared provider-governance seam. The muscle paths (Forge/loop
+        // CLI, Dev claude) consult the SAME cost-guard + ADML the manager runs
+        // BEFORE they spawn, WITHOUT being forced through AiProviderManager::get()
+        // (which would break streaming/worktree). ADVISORY by default: the consult
+        // only measures + records coverage. Flip enforce ON (WITH a
+        // cache.cost_guard.hard_units > 0) to let the cost guard actually BLOCK a
+        // would-be-too-expensive spawn. Default OFF => byte-identical to today.
+        'governance' => [
+            'enforce' => (bool) env('ATLAS_AI_GOVERNANCE_ENFORCE', false),
+        ],
+
         // Hermes Executive Runtime auto-routing gate (default-safe).
         // Atlas Decide may auto-route to hermes_cli ONLY when providers.hermes_cli.allow_auto
         // is true AND the task matches this allowlist AND no privacy/memory/gateway block applies.
