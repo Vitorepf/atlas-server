@@ -40,6 +40,13 @@ final class ProviderGovernanceCoverageLedger
 
     public const PATH_BYPASS = 'bypass';
 
+    /**
+     * SLICE 2 — a muscle path that spawned its provider DIRECTLY but first
+     * consulted the shared governance seam (same cost-guard + ADML the manager
+     * runs). Counts toward GOVERNED coverage, not bypass.
+     */
+    public const PATH_CONSULTED = 'consulted';
+
     public const SURFACE_MANAGER = 'ai_provider_manager';
 
     public const SURFACE_FORGE_PROCESS_RUNNER = 'forge_process_runner';
@@ -86,6 +93,18 @@ final class ProviderGovernanceCoverageLedger
     }
 
     /**
+     * A muscle path that spawned directly but consulted the shared governance
+     * seam first (SLICE 2) — governed, not blind. Context carries the advisory
+     * (ADML verdict + cost-guard result) for audit.
+     *
+     * @param  array<string,mixed>  $context
+     */
+    public function recordConsulted(string $provider, string $surface, array $context = []): void
+    {
+        $this->record(self::PATH_CONSULTED, $provider, $surface, $context);
+    }
+
+    /**
      * @param  array<string,mixed>  $context
      */
     private function record(string $path, string $provider, string $surface, array $context): void
@@ -95,6 +114,8 @@ final class ProviderGovernanceCoverageLedger
                 'schema_version' => self::SCHEMA,
                 'path' => $path,
                 'covered' => $path === self::PATH_COVERED,
+                // governed = manager-resolved OR consulted-the-shared-seam.
+                'governed' => $path === self::PATH_COVERED || $path === self::PATH_CONSULTED,
                 'provider' => $provider !== '' ? $provider : 'unknown',
                 'surface' => $surface !== '' ? $surface : 'unknown',
                 'context' => $context,
@@ -111,50 +132,53 @@ final class ProviderGovernanceCoverageLedger
      * ponytail: reads the whole ledger each call (like the sibling gateway-
      * consultation ledger). Add windowing/rotation if the 24/7 loop grows it.
      *
+     * `governed` = covered (manager-resolved) + consulted (shared-seam). The
+     * bypass rate falls as muscles move from blind bypass to consulted.
+     *
      * @return array{
-     *   total:int, covered:int, bypass:int, bypass_rate:float, covered_rate:float,
-     *   by_surface:array<string,array{covered:int,bypass:int}>,
-     *   by_provider:array<string,array{covered:int,bypass:int}>
+     *   total:int, covered:int, consulted:int, bypass:int, governed:int,
+     *   bypass_rate:float, covered_rate:float, governed_rate:float,
+     *   by_surface:array<string,array{covered:int,consulted:int,bypass:int}>,
+     *   by_provider:array<string,array{covered:int,consulted:int,bypass:int}>
      * }
      */
     public function summary(): array
     {
         $rows = AppendOnlyJsonlStore::read($this->logPath());
 
-        $covered = 0;
-        $bypass = 0;
+        $counts = [self::PATH_COVERED => 0, self::PATH_CONSULTED => 0, self::PATH_BYPASS => 0];
         $bySurface = [];
         $byProvider = [];
         foreach ($rows as $row) {
             $path = (string) ($row['path'] ?? '');
-            $isCovered = $path === self::PATH_COVERED;
-            $isBypass = $path === self::PATH_BYPASS;
-            if (! $isCovered && ! $isBypass) {
+            if (! array_key_exists($path, $counts)) {
                 continue;
             }
             $surface = (string) ($row['surface'] ?? 'unknown');
             $provider = (string) ($row['provider'] ?? 'unknown');
-            $bySurface[$surface] ??= ['covered' => 0, 'bypass' => 0];
-            $byProvider[$provider] ??= ['covered' => 0, 'bypass' => 0];
-            $bucket = $isCovered ? 'covered' : 'bypass';
-            $bySurface[$surface][$bucket]++;
-            $byProvider[$provider][$bucket]++;
-            if ($isCovered) {
-                $covered++;
-            } else {
-                $bypass++;
-            }
+            $bySurface[$surface] ??= ['covered' => 0, 'consulted' => 0, 'bypass' => 0];
+            $byProvider[$provider] ??= ['covered' => 0, 'consulted' => 0, 'bypass' => 0];
+            $counts[$path]++;
+            $bySurface[$surface][$path]++;
+            $byProvider[$provider][$path]++;
         }
 
-        $total = $covered + $bypass;
+        $covered = $counts[self::PATH_COVERED];
+        $consulted = $counts[self::PATH_CONSULTED];
+        $bypass = $counts[self::PATH_BYPASS];
+        $governed = $covered + $consulted;
+        $total = $governed + $bypass;
 
         return [
             'total' => $total,
             'covered' => $covered,
+            'consulted' => $consulted,
             'bypass' => $bypass,
+            'governed' => $governed,
             // Honest 0-baseline: no data => 0.0, never fabricated.
             'bypass_rate' => $total > 0 ? round($bypass / $total, 4) : 0.0,
             'covered_rate' => $total > 0 ? round($covered / $total, 4) : 0.0,
+            'governed_rate' => $total > 0 ? round($governed / $total, 4) : 0.0,
             'by_surface' => $bySurface,
             'by_provider' => $byProvider,
         ];

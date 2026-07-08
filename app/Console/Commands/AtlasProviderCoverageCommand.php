@@ -50,14 +50,16 @@ final class AtlasProviderCoverageCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->line(sprintf('  total executions : %d', $summary['total']));
-        $this->line(sprintf('  covered (manager): %d (%.1f%%)', $summary['covered'], $summary['covered_rate'] * 100));
-        $this->line(sprintf('  bypass  (muscle) : %d (%.1f%%)', $summary['bypass'], $summary['bypass_rate'] * 100));
+        $this->line(sprintf('  total executions   : %d', $summary['total']));
+        $this->line(sprintf('  governed (covered+consulted): %d (%.1f%%)', $summary['governed'], $summary['governed_rate'] * 100));
+        $this->line(sprintf('    covered  (manager get)   : %d', $summary['covered']));
+        $this->line(sprintf('    consulted (shared seam)  : %d', $summary['consulted']));
+        $this->line(sprintf('  bypass  (blind muscle)     : %d (%.1f%%)', $summary['bypass'], $summary['bypass_rate'] * 100));
 
         if ($summary['by_surface'] !== []) {
             $this->line('  by surface:');
             foreach ($summary['by_surface'] as $surface => $counts) {
-                $this->line(sprintf('    - %-22s covered=%d bypass=%d', $surface, $counts['covered'], $counts['bypass']));
+                $this->line(sprintf('    - %-22s covered=%d consulted=%d bypass=%d', $surface, $counts['covered'], $counts['consulted'], $counts['bypass']));
             }
         }
 

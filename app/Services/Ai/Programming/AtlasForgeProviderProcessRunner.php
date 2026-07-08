@@ -61,6 +61,10 @@ class AtlasForgeProviderProcessRunner
     public function run(array $request): array
     {
         $providerKey = is_string($request['provider'] ?? null) ? (string) $request['provider'] : 'unknown';
+        // SLICE 2 — when the caller consulted the shared governance seam before
+        // this spawn it passes governed=true; the seam already recorded the
+        // execution as CONSULTED, so this runner must NOT also record a bypass.
+        $governed = (bool) ($request['governed'] ?? false);
         $argv = is_array($request['argv'] ?? null) ? $request['argv'] : [];
         $cwd = $request['cwd'] ?? null;
         $stdin = is_string($request['stdin'] ?? null) ? $request['stdin'] : null;
@@ -116,12 +120,17 @@ class AtlasForgeProviderProcessRunner
 
         // SLICE 1 — a real provider process was spawned WITHOUT going through
         // AiProviderManager: that is a governance BYPASS. Recorded here (not in
-        // blockedResult) so only genuine executions count. Fail-open.
-        $this->coverageLedger?->recordBypass(
-            $providerKey,
-            ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
-            ['status' => $status],
-        );
+        // blockedResult) so only genuine executions count. Fail-open. SLICE 2 —
+        // skipped when the caller consulted the shared seam (governed): the seam
+        // already recorded it as CONSULTED, so recording bypass too would
+        // double-count and the rate would never move.
+        if (! $governed) {
+            $this->coverageLedger?->recordBypass(
+                $providerKey,
+                ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
+                ['status' => $status],
+            );
+        }
 
         return [
             'schema_version' => self::SCHEMA_VERSION,

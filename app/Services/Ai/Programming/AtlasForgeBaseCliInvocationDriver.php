@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Governance\ProviderGovernanceConsult;
+use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Support\AiStringListNormalizer;
 
@@ -149,6 +151,21 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         $maxOutputChars = (int) ($request['max_output_chars'] ?? 12000);
         $env = $this->processEnv($request);
 
+        // SLICE 2 — consult the SHARED governance seam (same cost-guard + ADML
+        // the manager runs) BEFORE the spawn, instead of forcing this CLI path
+        // through AiProviderManager::get() (which would break the worktree/stdin
+        // model). Advisory by default: it records the execution as CONSULTED and
+        // only blocks when the operator flips enforce ON with a hard threshold.
+        // Fail-open — a null advisory falls back to the SLICE 1 bypass record.
+        $advisory = $this->consultGovernance($prompt);
+        if ($advisory !== null && ($advisory['should_block'] ?? false) === true) {
+            return $this->blocked(
+                $request,
+                blockers: ['governance_cost_guard_block'],
+                note: 'Governance cost guard blocked spawn (enforce ON): '.(string) ($advisory['reason'] ?? 'cost_guard_hard_exceeded'),
+            );
+        }
+
         // SEC-003: snapshot the worktree BEFORE the provider runs so changed_files
         // is a real before/after delta (provider-authored), never raw porcelain
         // that would launder pre-existing dirty/stray files into the result.
@@ -164,6 +181,9 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             // SLICE 1 — let the runner attribute the governance-bypass record to
             // this provider (Forge/loop CLI spawn skips AiProviderManager).
             'provider' => $this->provider(),
+            // SLICE 2 — when the seam was consulted the runner records CONSULTED
+            // (governed), not a blind bypass. Null advisory => governed=false.
+            'governed' => $advisory !== null,
         ]);
 
         $providerCalled = (bool) ($result['provider_called'] ?? false);
@@ -377,6 +397,32 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
         }
 
         return null;
+    }
+
+    /**
+     * SLICE 2 — consult the shared governance seam before a CLI spawn. Resolved
+     * lazily (no constructor churn across the driver hierarchy) and fully
+     * fail-open: if the container or seam is unavailable it returns null and the
+     * runner records the SLICE 1 bypass instead. Advisory only unless enforce ON.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function consultGovernance(?string $prompt): ?array
+    {
+        try {
+            if (! function_exists('app')) {
+                return null;
+            }
+
+            return app(ProviderGovernanceConsult::class)->consultBeforeSpawn([
+                'provider' => $this->provider(),
+                'surface' => ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
+                'prompt' => (string) ($prompt ?? ''),
+                'kind' => 'atlas_programming',
+            ]);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected function encodePrompt(mixed $prompt): ?string

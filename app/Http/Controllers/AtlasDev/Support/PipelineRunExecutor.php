@@ -8,6 +8,7 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
@@ -1335,15 +1336,32 @@ final class PipelineRunExecutor implements RunExecutor
 
         $adapter = new SonnetClaudeCliAdapter($gateway);
 
-        // SLICE 1 — the Dev claude path drives ClaudeCliGateway DIRECTLY, skipping
-        // AiProviderManager (no cost-guard / ADML route). Count it as a governance
-        // BYPASS at the real execution point. Best-effort; never gates the call.
-        $coverage = $this->resolve(ProviderGovernanceCoverageLedger::class);
-        if ($coverage instanceof ProviderGovernanceCoverageLedger) {
-            $coverage->recordBypass(
-                SonnetClaudeCliAdapter::PROVIDER,
-                ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
-            );
+        // SLICE 2 — the Dev claude path drives ClaudeCliGateway DIRECTLY, skipping
+        // AiProviderManager. Rather than run blind, consult the SHARED governance
+        // seam (same cost-guard + ADML the manager runs) before executing. It
+        // records this execution as CONSULTED (coverage rises) and, only when the
+        // operator flips enforce ON with a hard threshold, can block the spawn.
+        // Fail-open: no seam bound => proceeds exactly as today.
+        $consult = $this->resolve(ProviderGovernanceConsult::class);
+        if ($consult instanceof ProviderGovernanceConsult) {
+            $advisory = $consult->consultBeforeSpawn([
+                'provider' => SonnetClaudeCliAdapter::PROVIDER,
+                'surface' => ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
+                'prompt' => $promptProjection->renderedPromptText,
+                'kind' => 'atlas_dev_run',
+            ]);
+            if (($advisory['should_block'] ?? false) === true) {
+                return [
+                    $this->blockedProviderCallResult(
+                        runId: $promptProjection->runId,
+                        provider: SonnetClaudeCliAdapter::PROVIDER,
+                        modelFamily: SonnetClaudeCliAdapter::MODEL_FAMILY,
+                        error: 'governance_cost_guard_block',
+                        stderr: 'Governance cost guard blocked spawn (enforce ON): '.(string) ($advisory['reason'] ?? 'cost_guard_hard_exceeded'),
+                    ),
+                    0,
+                ];
+            }
         }
 
         return [
