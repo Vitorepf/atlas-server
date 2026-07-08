@@ -156,6 +156,20 @@ final class AtlasEngineeringHonestyGate
             $reasons[] = 'not_a_pure_deletion';
         }
 
+        // 3c-bis — IMPORTS/TRAIT-USES UNCHANGED: the member-level checks (3/3b) enumerate ONLY
+        // class methods/consts/props, and isPureDeletion (3c) tolerates the deletion of ANY line
+        // as long as the result stays a subsequence. Neither tracks a namespace-level `use`
+        // import or a class-level `use Trait;`. So a diff that removes a flagged dead member AND
+        // a `use App\Support\Helper;` still needed by a surviving method (or a `use SomeTrait;`
+        // whose methods a survivor calls) passes every check yet FATALs at runtime (class-not-
+        // found / undefined-method) — php -l cannot see it, the analyzer does no name resolution.
+        // A member-only removal must leave the import + trait-use set IDENTICAL (the deterministic
+        // remover only deletes member spans and never touches these; only a provider-authored diff
+        // reaches here with a `use` removed). Fail-closed: an unparseable side yields a sentinel.
+        if ($this->importAndTraitUses($originalContent) !== $this->importAndTraitUses($proposedContent)) {
+            $reasons[] = 'removed_or_changed_import_or_trait_use';
+        }
+
         // 3d — NO-DANGLING-REFERENCE (post-state): after removal, NO surviving code may still
         // reference a removed member. A surviving PUBLIC caller is invisible to the private-only
         // re-proof (3) — this catches it directly by scanning the proposed AST for any call/fetch
@@ -556,6 +570,48 @@ final class AtlasEngineeringHonestyGate
                 }
             }
         }
+
+        return $out;
+    }
+
+    /**
+     * Every namespace-level `use` import + every class-level `use Trait;`, as a SORTED list of
+     * verbatim slices. A member-only dead-code removal must leave these identical — the member
+     * checks never track `use` lines, so deleting one a survivor depends on would otherwise
+     * certify a runtime-breaking change as a clean pure-deletion. Fail-closed: an unparseable
+     * file yields a sentinel that never matches.
+     *
+     * @return list<string>
+     */
+    private function importAndTraitUses(string $code): array
+    {
+        try {
+            $stmts = $this->parser->parse($code);
+        } catch (\Throwable) {
+            $stmts = null;
+        }
+        if ($stmts === null) {
+            return ['__unparseable__'];
+        }
+
+        $slice = static function (Node $n) use ($code): string {
+            $start = $n->getStartFilePos();
+            $end = $n->getEndFilePos();
+
+            return ($start >= 0 && $end >= $start) ? substr($code, $start, $end - $start + 1) : '';
+        };
+
+        $out = [];
+        foreach ($this->finder->findInstanceOf($stmts, Node\Stmt\Use_::class) as $node) {
+            $out[] = 'use:'.$slice($node);
+        }
+        foreach ($this->finder->findInstanceOf($stmts, Node\Stmt\GroupUse::class) as $node) {
+            $out[] = 'groupuse:'.$slice($node);
+        }
+        foreach ($this->finder->findInstanceOf($stmts, Node\Stmt\TraitUse::class) as $node) {
+            $out[] = 'traituse:'.$slice($node);
+        }
+        sort($out);
 
         return $out;
     }

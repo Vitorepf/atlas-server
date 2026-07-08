@@ -96,6 +96,74 @@ final class AtlasEngineeringHonestyGateTest extends TestCase
         $this->assertTrue($verdict['report']['holdouts']['repo_clean']);
     }
 
+    public function test_rejects_removal_that_also_deletes_a_still_used_import(): void
+    {
+        // The diff removes the dead method AND `use App\Support\Helper;` — but the surviving
+        // run() still calls Helper::format. php -l is clean (unqualified Helper just rebinds to
+        // the current namespace) and no member-level check sees the namespace `use` line, so
+        // without 3c-bis this certifies a runtime class-not-found FATAL as a clean pure-deletion.
+        $original = <<<'PHP'
+        <?php
+        namespace App;
+        use App\Support\Helper;
+        final class Subject {
+            public function run(): string { return Helper::format((string) $this->live()); }
+            private function live(): int { return 1; }
+            private function deadM(): int { return 2; }
+        }
+        PHP;
+        $proposed = <<<'PHP'
+        <?php
+        namespace App;
+        final class Subject {
+            public function run(): string { return Helper::format((string) $this->live()); }
+            private function live(): int { return 1; }
+        }
+        PHP;
+
+        $this->writeOrigin($original);
+        $verdict = $this->gate()->evaluateDeadCodeRemoval(
+            $this->repo, 'app/Subject.php', $original, $proposed,
+            [['kind' => 'method', 'name' => 'deadM', 'line' => 7, 'class' => 'Subject']],
+        );
+
+        $this->assertFalse($verdict['certified'], json_encode($verdict['reasons']));
+        $this->assertContains('removed_or_changed_import_or_trait_use', $verdict['reasons']);
+    }
+
+    public function test_certifies_member_removal_that_preserves_imports(): void
+    {
+        // Guard against over-rejection: a genuine member-only removal that LEAVES the import in
+        // place (still used by a survivor) must still certify.
+        $original = <<<'PHP'
+        <?php
+        namespace App;
+        use App\Support\Helper;
+        final class Subject {
+            public function run(): string { return Helper::format((string) $this->live()); }
+            private function live(): int { return 1; }
+            private function deadM(): int { return 2; }
+        }
+        PHP;
+        $proposed = <<<'PHP'
+        <?php
+        namespace App;
+        use App\Support\Helper;
+        final class Subject {
+            public function run(): string { return Helper::format((string) $this->live()); }
+            private function live(): int { return 1; }
+        }
+        PHP;
+
+        $this->writeOrigin($original);
+        $verdict = $this->gate()->evaluateDeadCodeRemoval(
+            $this->repo, 'app/Subject.php', $original, $proposed,
+            [['kind' => 'method', 'name' => 'deadM', 'line' => 7, 'class' => 'Subject']],
+        );
+
+        $this->assertTrue($verdict['certified'], json_encode($verdict['reasons']));
+    }
+
     public function test_rejects_a_noop(): void
     {
         $this->writeOrigin(self::ORIGINAL);
