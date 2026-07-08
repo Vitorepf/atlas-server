@@ -20,6 +20,11 @@ use PhpParser\ParserFactory;
  * restrict the claim to `private`: it is the largest subset where "no reference
  * here" provably means "dead", with no whole-program call graph required.
  *
+ * The ONE exception is a `trait`: its private members are composed into every using
+ * class and can be called from THERE (cross-file), so "no reference in this file"
+ * does NOT prove a trait member dead. Single-file scope is unsound for traits, so —
+ * per the fail-closed principle below — trait definitions are skipped entirely.
+ *
  * False-positives are driven toward zero by construction:
  *   - magic methods (__construct, __call, …) are never flagged;
  *   - promoted constructor properties are skipped (they are the public ctor contract);
@@ -117,6 +122,12 @@ final class AtlasDeadCodeAnalyzer
         foreach ($classes as $class) {
             // Interfaces cannot hold private members; nothing to analyze.
             if ($class instanceof Node\Stmt\Interface_) {
+                continue;
+            }
+            // Traits are UNSOUND for single-file analysis: a private trait member is
+            // composed into every using class and can be called from there (cross-file),
+            // so "no reference in this file" does not prove deadness. Fail-closed — skip.
+            if ($class instanceof Node\Stmt\Trait_) {
                 continue;
             }
             foreach ($this->deadMembers($class) as $member) {

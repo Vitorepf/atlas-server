@@ -65,6 +65,24 @@ final class AtlasDeadCodeAnalyzerTest extends TestCase
         $this->assertSame([], $report['dead']);
     }
 
+    public function test_never_flags_trait_private_member(): void
+    {
+        // A trait's private member has zero in-trait references here, yet it is composed
+        // into every using class and can be called from THERE (cross-file). Single-file
+        // scope cannot prove it dead — the analyzer must skip traits (fail-closed),
+        // otherwise it false-positives live trait helpers used by the using class.
+        $report = $this->analyze(<<<'PHP'
+        <?php
+        trait Subject {
+            private function calledByUsingClass(): int { return 1; }
+            private const HELPER = 1;
+        }
+        PHP);
+
+        $this->assertTrue($report['parseable']);
+        $this->assertSame([], $report['dead']);
+    }
+
     public function test_dynamic_dispatch_disables_method_flagging(): void
     {
         $report = $this->analyze(<<<'PHP'
