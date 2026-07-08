@@ -141,6 +141,7 @@ use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
@@ -1372,6 +1373,16 @@ class AppServiceProvider extends ServiceProvider
                     $svc->setCompressionPipeline($app->make(CompressionPipeline::class));
                 } catch (\Throwable $e) {
                     // Defensive: compression stays unwired on any resolution failure.
+                }
+
+                // SLICE 1 — governance-coverage meter. Records the COVERED half
+                // (a resolution through this governed manager) so the muscle
+                // bypass rate is a real number. Best-effort; on any failure the
+                // manager stays unmetered (byte-identical).
+                try {
+                    $svc->setCoverageLedger($app->make(ProviderGovernanceCoverageLedger::class));
+                } catch (\Throwable $e) {
+                    // Coverage measurement is best-effort; never a gate.
                 }
             }
         });

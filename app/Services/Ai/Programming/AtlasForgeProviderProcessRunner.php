@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -45,11 +46,21 @@ class AtlasForgeProviderProcessRunner
     private $processFactory;
 
     /**
-     * @param  array{argv:array<int,string>, cwd?:?string, stdin?:?string, timeout_seconds?:int, max_output_chars?:int, env?:array<string,string|false>}  $request
+     * SLICE 1 — this runner IS the Forge/loop muscle spawn choke that bypasses
+     * AiProviderManager. Optional so every existing `new AtlasForgeProviderProcessRunner()`
+     * (and DI) is unchanged; when injected it records a BYPASS per real spawn.
+     */
+    public function __construct(
+        private readonly ?ProviderGovernanceCoverageLedger $coverageLedger = null,
+    ) {}
+
+    /**
+     * @param  array{argv:array<int,string>, cwd?:?string, stdin?:?string, timeout_seconds?:int, max_output_chars?:int, env?:array<string,string|false>, provider?:string}  $request
      * @return array<string,mixed>
      */
     public function run(array $request): array
     {
+        $providerKey = is_string($request['provider'] ?? null) ? (string) $request['provider'] : 'unknown';
         $argv = is_array($request['argv'] ?? null) ? $request['argv'] : [];
         $cwd = $request['cwd'] ?? null;
         $stdin = is_string($request['stdin'] ?? null) ? $request['stdin'] : null;
@@ -102,6 +113,15 @@ class AtlasForgeProviderProcessRunner
         $stderrRedacted = $this->redact($stderr);
         $stdoutExcerpt = $this->excerpt($stdoutRedacted, $maxOutputChars);
         $stderrExcerpt = $this->excerpt($stderrRedacted, $maxOutputChars);
+
+        // SLICE 1 — a real provider process was spawned WITHOUT going through
+        // AiProviderManager: that is a governance BYPASS. Recorded here (not in
+        // blockedResult) so only genuine executions count. Fail-open.
+        $this->coverageLedger?->recordBypass(
+            $providerKey,
+            ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
+            ['status' => $status],
+        );
 
         return [
             'schema_version' => self::SCHEMA_VERSION,

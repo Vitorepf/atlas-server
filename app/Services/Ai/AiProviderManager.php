@@ -8,6 +8,7 @@ use App\Services\Ai\Caching\CachingAiProvider;
 use App\Services\Ai\Caching\EfficiencyOutcomeRecorder;
 use App\Services\Ai\Compression\CompressionAiProvider;
 use App\Services\Ai\Compression\CompressionPipeline;
+use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Telemetry\AiCostEstimator;
 use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
 use Closure;
@@ -50,6 +51,14 @@ class AiProviderManager
      * (atlas.compression_layer.enabled, default false) and FAIL-OPEN.
      */
     private ?CompressionPipeline $compressionPipeline = null;
+
+    /**
+     * Opt-in governance-coverage meter (SLICE 1). Wired via
+     * {@see self::setCoverageLedger()} during AppServiceProvider resolving.
+     * When null — the default, and every existing unit construction — nothing
+     * is recorded and {@see self::get()} stays byte-identical. It never gates.
+     */
+    private ?ProviderGovernanceCoverageLedger $coverageLedger = null;
 
     /**
      * Open provider registry: provider key => Closure(): AiProvider.
@@ -101,6 +110,11 @@ class AiProviderManager
             throw new InvalidArgumentException("Provider driver for [{$provider}] did not resolve to an AiProvider.");
         }
 
+        // SLICE 1 — the governed resolution is the COVERED half of the bypass
+        // meter. Muscle paths that skip this method record BYPASS. Opt-in +
+        // fail-open (the ledger swallows), so unwired construction is unchanged.
+        $this->coverageLedger?->recordCovered($provider, ProviderGovernanceCoverageLedger::SURFACE_MANAGER);
+
         // Compression is wrapped INNERMOST (it transforms the prompt the real
         // provider sees), response-cache OUTERMOST (it keys on the logical prompt
         // and short-circuits before any provider call). Both are opt-in,
@@ -134,6 +148,15 @@ class AiProviderManager
     public function setCompressionPipeline(CompressionPipeline $pipeline): void
     {
         $this->compressionPipeline = $pipeline;
+    }
+
+    /**
+     * Opt-in setter wired by AppServiceProvider — mirrors the other decorators.
+     * When null the manager records no coverage and stays byte-identical.
+     */
+    public function setCoverageLedger(?ProviderGovernanceCoverageLedger $ledger): void
+    {
+        $this->coverageLedger = $ledger;
     }
 
     /**

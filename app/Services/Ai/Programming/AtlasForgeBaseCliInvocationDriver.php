@@ -161,6 +161,9 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             'timeout_seconds' => $timeout,
             'max_output_chars' => $maxOutputChars,
             'env' => $env,
+            // SLICE 1 — let the runner attribute the governance-bypass record to
+            // this provider (Forge/loop CLI spawn skips AiProviderManager).
+            'provider' => $this->provider(),
         ]);
 
         $providerCalled = (bool) ($result['provider_called'] ?? false);

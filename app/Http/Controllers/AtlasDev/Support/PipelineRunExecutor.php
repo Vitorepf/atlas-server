@@ -8,6 +8,7 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
@@ -1333,6 +1334,17 @@ final class PipelineRunExecutor implements RunExecutor
         }
 
         $adapter = new SonnetClaudeCliAdapter($gateway);
+
+        // SLICE 1 — the Dev claude path drives ClaudeCliGateway DIRECTLY, skipping
+        // AiProviderManager (no cost-guard / ADML route). Count it as a governance
+        // BYPASS at the real execution point. Best-effort; never gates the call.
+        $coverage = $this->resolve(ProviderGovernanceCoverageLedger::class);
+        if ($coverage instanceof ProviderGovernanceCoverageLedger) {
+            $coverage->recordBypass(
+                SonnetClaudeCliAdapter::PROVIDER,
+                ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
+            );
+        }
 
         return [
             $adapter->executeOneCall(
