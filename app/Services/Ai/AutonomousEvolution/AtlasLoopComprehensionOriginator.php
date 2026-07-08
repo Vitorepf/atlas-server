@@ -200,7 +200,9 @@ final class AtlasLoopComprehensionOriginator
         if (! $router->isConfigured($provider)) {
             return null;
         }
-        $result = $router->invoke($provider, null, ['text' => $prompt, 'instruction' => $prompt, 'messages' => [['role' => 'user', 'content' => $prompt]]], [
+        // Modelo por-role do cérebro (abstrato/env): '' => null => provider self-select (comportamento atual).
+        $model = trim((string) config('atlas.brain.writer_model', '')) ?: null;
+        $result = $router->invoke($provider, $model, ['text' => $prompt, 'instruction' => $prompt, 'messages' => [['role' => 'user', 'content' => $prompt]]], [
             'timeout_seconds' => max(5, (int) config('atlas.brain.writer_timeout_seconds', 30)),
             'max_output_chars' => 4000,
         ]);

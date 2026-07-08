@@ -45,6 +45,11 @@ return [
         'cycle_capsule_root' => storage_path('app/atlas/brain/cycle-capsule'),
         // Brain writer must fail cleanly in minutes, not inherit the loop's long provider-attempt budget.
         'writer_timeout_seconds' => max(5, (int) env('ATLAS_BRAIN_WRITER_TIMEOUT_SECONDS', 30)),
+        // Modelo do writer do cérebro (originador). '' => provider self-select = comportamento atual.
+        // Só tem efeito com ATLAS_BRAIN_PROVIDER=hermes_cli; use um slug servido pelo verboo
+        // (glm-5.2, kimi-k2.7, kimi-k2.7-code, minimax-m3). NUNCA família Atlas-Decide (sonnet/…): cli_error.
+        // Abstrato/env — trocar de motor amanhã = só mudar ATLAS_BRAIN_PROVIDER + ATLAS_BRAIN_WRITER_MODEL.
+        'writer_model' => trim((string) env('ATLAS_BRAIN_WRITER_MODEL', '')),
 
         // The scope the brain evolves when none is named. The brain has ONE defined scope today: the whole
         // autonomous block (brain + loop engine + muscle). Add cortex/maestro/… here as DATA — no code change.
