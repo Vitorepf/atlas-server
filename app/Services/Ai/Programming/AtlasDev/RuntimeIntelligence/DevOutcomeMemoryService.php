@@ -90,7 +90,7 @@ class DevOutcomeMemoryService
     {
         $payload = $this->build($input, $taskPacket->toArray(), $failureCapsule?->toArray());
 
-        return AtlasDevOutcomeMemory::query()->updateOrCreate(
+        $memory = AtlasDevOutcomeMemory::query()->updateOrCreate(
             ['outcome_memory_hash' => $payload['outcome_memory_hash']],
             [
                 'schema_version' => $payload['schema_version'],
@@ -108,6 +108,28 @@ class DevOutcomeMemoryService
                 'human_review_required' => $payload['human_review_required'],
             ],
         );
+
+        // BUILD #3 producer (task-END): feed the real Dev outcome to the general
+        // procedural playbook so its measured follow rate moves with real use
+        // (SAME proven_real gate) and a proven failure seeds a prior-correction.
+        // Keyed by run id — the application id the task-START injection opened.
+        // Skipped under phpunit so the broad Dev suite never pollutes the live
+        // ledger; fail-open — learning never breaks the outcome write.
+        try {
+            if (! app()->runningUnitTests()) {
+                app(\App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookDevBridge::class)
+                    ->recordOutcomeForTask(
+                        (string) $payload['run_id'],
+                        (string) $payload['outcome_status'],
+                        is_array($input['execution'] ?? null) ? $input['execution'] : [],
+                        $payload['changed_files'],
+                    );
+            }
+        } catch (\Throwable) {
+            // fail-open
+        }
+
+        return $memory;
     }
 
     private function normalizeStatus(string $status): string

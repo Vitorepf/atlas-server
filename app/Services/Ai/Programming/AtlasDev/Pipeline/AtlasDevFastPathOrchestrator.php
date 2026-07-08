@@ -193,6 +193,29 @@ class AtlasDevFastPathOrchestrator
         $knownFailureModes = ($this->failureCapsuleInjector ?? new DevFailureCapsulePromptInjector)
             ->injectFor($taskContract->allowedFiles, $workspaceSlug);
 
+        // BUILD #3 producer (task-START): match a proven procedural playbook by
+        // task kind and MERGE its provider-safe lines into the same
+        // knownFailureModes prompt channel — ADVISORY (never blocks). Recording
+        // the attempt (applied, keyed by run id) here gives the follow rate its
+        // denominator; the outcome half closes at
+        // DevOutcomeMemoryService::persist. Skipped under phpunit so the broad
+        // Dev suite never pollutes the live ledger; fail-open.
+        // ponytail: reuse the knownFailureModes list channel instead of
+        // threading a new section through builder+mapper+VO+renderer; give the
+        // playbook its own "## Proven Procedure" header only if the merged lines
+        // measurably need it.
+        try {
+            if (! app()->runningUnitTests()) {
+                $playbookLines = app(\App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookDevBridge::class)
+                    ->injectionLinesForTask($envelope->runId, $classification->taskKind);
+                if ($playbookLines !== []) {
+                    $knownFailureModes = array_merge($knownFailureModes, $playbookLines);
+                }
+            }
+        } catch (\Throwable) {
+            // fail-open: procedural injection never breaks planning.
+        }
+
         $promptProjection = $this->promptBuilder->build(
             envelope: $envelope,
             compactSdd: $compactSdd,

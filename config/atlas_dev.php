@@ -28,6 +28,14 @@
 */
 
 return [
+    // BUILD #3 producer — inject the proven procedural playbook into a Dev task
+    // (advisory) and record its real follow outcome. Default on; set
+    // ATLAS_DEV_PROCEDURAL_PLAYBOOK_ENABLED=false to take the wiring back to a
+    // byte-identical pre-wiring Dev flow (kill-switch).
+    'procedural_playbook' => [
+        'enabled' => (bool) env('ATLAS_DEV_PROCEDURAL_PLAYBOOK_ENABLED', true),
+    ],
+
     'efficient' => [
         'enabled' => (bool) env('ATLAS_DEV_EFFICIENT_ENABLED', true),
 
