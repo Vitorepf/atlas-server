@@ -77,7 +77,7 @@ main local de forma escopada, sem depender do operador no caminho normal.
 | Cérebro vivo | `app/Services/Ai/AutonomousEvolution/Brain/**` (`AtlasBrain*`) | **VIVO** |
 | Comandos vivos | `atlas:brain:*`, `atlas:task:*` | **VIVO** |
 | Loop ACDE | `app/Services/Ai/AutonomousEvolution/` **raiz** (~600 `AtlasLoop*`/`AtlasEvolution*`) | **MORTO** — exceto o keep-list abaixo |
-| Superfície de comando ACDE | 335 comandos `atlas:loop:*` | **MORTO** (rotulados `[ACDE-MORTO]` no `artisan list`) |
+| Superfície de comando ACDE | 335 comandos `atlas:loop:*` | **MORTO** — os comandos VIVOS são `atlas:brain:*` / `atlas:task:*` |
 
 ## Keep-list: 26 classes `AtlasLoop*` VIVAS (NÃO aposentar pelo prefixo)
 

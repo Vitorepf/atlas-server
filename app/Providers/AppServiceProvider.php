@@ -1597,23 +1597,6 @@ class AppServiceProvider extends ServiceProvider
             if ((bool) config('atlas.loop.formal_proofs_cli_enabled', false)) {
                 $this->commands([AtlasLoopFormalInvariantProofCli::RUNNER_CLASS]);
             }
-
-            // De-confusão: rotula a superfície `atlas:loop:*` (ACDE legado/morto) em `artisan list`.
-            // Os comandos vivos do autônomo são `atlas:brain:*` e `atlas:task:*` — não recebem prefixo.
-            // Cosmético (só muda a descrição exibida); gated a NÃO-testing para não vazar pelo
-            // bootstrappers array process-global do Artisan::starting() (isolamento per-test — ver acima).
-            if (! $this->app->runningUnitTests()) {
-                \Illuminate\Support\Facades\Artisan::starting(static function (\Illuminate\Console\Application $artisan): void {
-                    foreach ($artisan->all() as $command) {
-                        if (str_starts_with((string) $command->getName(), 'atlas:loop:')) {
-                            $desc = (string) $command->getDescription();
-                            if (! str_starts_with($desc, '[ACDE-MORTO]')) {
-                                $command->setDescription('[ACDE-MORTO] '.$desc);
-                            }
-                        }
-                    }
-                });
-            }
         }
 
         // AP-819 Obra B — overlay da Harness Surface: reaplica overrides de
