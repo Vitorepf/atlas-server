@@ -22,7 +22,7 @@ use Illuminate\Console\Command;
 class AtlasProceduralPlaybookCommand extends Command
 {
     protected $signature = 'atlas:playbook
-        {action : define|show|apply|outcome|correct|rate}
+        {action : define|show|apply|outcome|correct|rate|cadence}
         {category? : task category (for show|apply|rate)}
         {--json-in= : JSON playbook payload (for action=define)}
         {--application-id= : application id (for action=outcome|correct)}
@@ -44,8 +44,40 @@ class AtlasProceduralPlaybookCommand extends Command
             'outcome' => $this->outcome($ledger),
             'correct' => $this->correct($ledger),
             'rate' => $this->rate($ledger),
-            default => $this->bail('Unknown action. Use: define | show | apply | outcome | correct | rate'),
+            'cadence' => $this->cadence($ledger),
+            default => $this->bail('Unknown action. Use: define | show | apply | outcome | correct | rate | cadence'),
         };
+    }
+
+    private function cadence(AtlasProceduralPlaybookLedger $ledger): int
+    {
+        $playbooks = $ledger->cadence();
+
+        if ((bool) $this->option('json')) {
+            $this->line((string) json_encode(
+                ['schema_version' => 'atlas.kernel.procedural_playbook.cadence.v1', 'playbooks' => $playbooks],
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            ));
+
+            return self::SUCCESS;
+        }
+
+        if ($playbooks === []) {
+            $this->line('[playbook] cadence: no playbooks defined yet (honest zero)');
+
+            return self::SUCCESS;
+        }
+
+        $this->line(sprintf('[playbook] cadence: %d playbook(s)', count($playbooks)));
+        foreach ($playbooks as $p) {
+            $this->line(sprintf(
+                '  %-24s status=%s injections=%d successes=%d success_rate=%.2f corrections=%d fake_green=%d',
+                $p['task_category'], $p['status'], $p['attempts'], $p['successes'],
+                $p['success_rate'], $p['corrections'], $p['fake_green_suppressed'],
+            ));
+        }
+
+        return self::SUCCESS;
     }
 
     private function correct(AtlasProceduralPlaybookLedger $ledger): int

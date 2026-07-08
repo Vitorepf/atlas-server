@@ -220,6 +220,69 @@ final class AtlasProceduralPlaybookLedger
     }
 
     /**
+     * Cadence read model (Slice 2): every DEFINED playbook with its measured
+     * follow signal in ONE single pass — injections (attempts), success rate,
+     * corrections fired, fake-greens suppressed. Honest zero: a defined-but-
+     * never-applied playbook reports attempts=0/unmeasured; a stray outcome with
+     * no define never manufactures a row.
+     *
+     * @return list<array{task_category:string,status:string,attempts:int,successes:int,success_rate:float,fake_green_suppressed:int,corrections:int}>
+     */
+    public function cadence(): array
+    {
+        /** @var array<string,array{category:string,defined:bool,attempts:int,successes:int,fake_green:int,corrections:int}> $agg */
+        $agg = [];
+        foreach ($this->readAll() as $row) {
+            $rawCategory = (string) ($row['task_category'] ?? '');
+            $key = ProceduralPlaybook::normalizeCategory($rawCategory);
+            if ($key === '') {
+                continue;
+            }
+            $agg[$key] ??= ['category' => $rawCategory, 'defined' => false, 'attempts' => 0, 'successes' => 0, 'fake_green' => 0, 'corrections' => 0];
+
+            switch ((string) ($row['event'] ?? '')) {
+                case 'define':
+                    $agg[$key]['defined'] = true;
+                    $agg[$key]['category'] = $rawCategory;
+                    break;
+                case 'applied':
+                    $agg[$key]['attempts']++;
+                    break;
+                case 'outcome':
+                    if (($row['credited'] ?? false) === true) {
+                        $agg[$key]['successes']++;
+                    }
+                    if (($row['fake_green'] ?? false) === true) {
+                        $agg[$key]['fake_green']++;
+                    }
+                    break;
+                case 'correction':
+                    $agg[$key]['corrections']++;
+                    break;
+            }
+        }
+
+        $report = [];
+        foreach ($agg as $a) {
+            if (! $a['defined']) {
+                continue;
+            }
+            $report[] = [
+                'task_category' => $a['category'],
+                'status' => $a['attempts'] > 0 ? 'measured' : 'unmeasured',
+                'attempts' => $a['attempts'],
+                'successes' => $a['successes'],
+                'success_rate' => $a['attempts'] > 0 ? round($a['successes'] / $a['attempts'], 3) : 0.0,
+                'fake_green_suppressed' => $a['fake_green'],
+                'corrections' => $a['corrections'],
+            ];
+        }
+        usort($report, static fn (array $x, array $y): int => strcmp($x['task_category'], $y['task_category']));
+
+        return $report;
+    }
+
+    /**
      * @return array<string,mixed>|null the open (un-outcomed) application row, or
      *                                  null if none / already outcomed
      */
