@@ -11,13 +11,19 @@ Regenerate with `atlas memory projection --target=claude --write` after Atlas me
 
 ## Manual Notes
 <!-- atlas:manual:start -->
-### 🎯 Loop — DEFINIÇÃO CANÔNICA (ler ANTES de qualquer trabalho no Loop de evolução autônoma)
-O **Loop** (AutonomousEvolution / ACDE) pega um **ESCOPO** (ex.: Atlas Dev, memória, engenharia) e **mói 24/7 evoluindo-o ao máximo patamar de forma EXPONENCIAL**. Fonte de verdade: `docs/loop-canonical-definition.md` + memórias `loop-*` (objetivo/pipeline/teto/guardrail).
-- **NÃO é:** micro-edição/faxina (remover linhas/espaços), otimizar PROXY (landing-rate, ciclomática, test-count), nem one-shot (patience/best-of-N/desistir). Refactor que preserva comportamento = melhoria ZERO.
-- **É:** entender o escopo+objetivo (cérebro do Atlas) → identificar a evolução mais exponencial → **PROJEÇÃO frontier + crítica cross-model em loop (a fase que garante a qualidade)** → orquestração multi-agente → implementar → testar → revisão de wiring. Contínuo, commit-por-pedaço, nunca one-shot.
-- **Teto/objetivo de vida:** o Loop é o ÚNICO que evolui o Atlas (24/7, sozinho, sem humano e sem Claude Code/Codex/Factory revisando); escopo liberado aos poucos começando pelo próprio loop.
-- **FACULDADE DE AMBIÇÃO (DEFINE o loop — nunca confundir):** um escopo dado ao loop **NÃO TEM TETO** — melhorar o loop é melhorar uma INTELIGÊNCIA (recursivo, aberto). O loop **VIVE o escopo, SEMPRE elevando o nível**; ele existe **pro escopo evoluir SEMPRE**. Loop BURRO para quando acaba o reativo óbvio ("terminei a lista"); loop INTELIGENTE atinge o limite e o **ULTRAPASSA** — quando o reativo seca, pergunta *"como ser fundamentalmente mais poderoso/inteligente/resiliente/autônomo?"* e **ORIGINA o próximo salto de grandeza** (trabalho REAL provado, NUNCA fake). Ver `loop-ambition-faculty`.
-- **REGRA (anti-Goodhart):** antes de o loop tocar algo, pergunte *"isso evolui o escopo exponencialmente de verdade, deixando o Atlas mais capaz?"* Se for edição pequena/faxina/proxy → **PARE**. (Uma IA derivou pra proxy por dias — não repita: ver `loop-not-proxy-cleanup-feedback`.)
+### ⚰️ Loop MORTO / Autônomos VIVO — CORREÇÃO PÉTREA (ler ANTES de tocar evolução autônoma)
+**O "Loop" (AutonomousEvolution / ACDE) MORREU — foi o MVP fracassado do Autônomos. NÃO é o sistema vivo. NÃO mirar "ligar o master switch do loop" (`ATLAS_LOOP_MASTER_ENABLED`) como meta — isso é o cadáver.** (Uma IA ancorou meses de análise no loop-morto; não repita — ver memória `loop-morto-autonomos-vivo`.)
+
+**O sistema VIVO é o AUTÔNOMOS** (cérebro externo + músculo externo), e JÁ produziu **4.841 landings** na main:
+- **CÉREBRO cria as tasks:** `atlas:brain:next` (origina + projeta spec, author≠judge, escreve só `docs/`+ledger) → `atlas:brain:seed` (gate-and-enqueue no disco de serving; seed-gate refusa ~50% = filtro de qualidade). Scope `autonomous` = master ON.
+- **MÚSCULO implementa:** `atlas:task next` → provider (Codex/Hermes/…) implementa → **commit escopado na main** (`git add -- <só os arquivos da task>`, NUNCA `git add -A`, NUNCA merge). Committer vivo = `SelfConstruction/AtlasTaskScopedCommitter`. Ver `loop-commits-scoped-main-not-merge`.
+- **Onde o VIVO mora:** músculo em `app/Services/Ai/SelfConstruction/`, cérebro em `app/Services/Ai/AutonomousEvolution/Brain/`. O `AutonomousEvolution/` **raiz** (~180 `AtlasLoop*`/`AtlasEvolution*`) é **ACDE-MORTO** — EXCETO ~12 classes `AtlasLoop*` reusadas pelo vivo (rotuladas "VIVO — não aposentar" no próprio arquivo; não deletar pelo prefixo).
+
+**Princípios que continuam valendo — mas para o AUTÔNOMOS vivo, não pro loop morto:**
+- **Anti-Goodhart:** antes de tocar algo, *"isso evolui o escopo de verdade, deixa o Atlas mais capaz?"* Edição pequena/faxina/proxy (landing-rate, ciclomática, test-count) → **PARE**. Refactor que preserva comportamento = melhoria ZERO. Ver `loop-not-proxy-cleanup-feedback`.
+- **Faculdade de ambição:** o escopo **NÃO TEM TETO**; quando o reativo óbvio seca, ORIGINA o próximo salto de grandeza (trabalho REAL provado, NUNCA fake). Ver `loop-ambition-faculty`.
+
+Fonte de verdade viva: memórias `loop-morto-autonomos-vivo`, `brain-seed-hub`, `loop-commits-scoped-main-not-merge`. `docs/loop-canonical-definition.md` descreve o ALVO/cadáver — ler com a lente "morto vs vivo".
 
 ### Governança de conhecimento
 
