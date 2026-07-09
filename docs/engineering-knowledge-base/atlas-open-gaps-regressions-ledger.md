@@ -100,6 +100,27 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 ### GAP-WIP-02 — 🟡 AutoMerge checa self-target só no target_path, commita o $changed inteiro · endurecimento
 - `AtlasLoopAutoMergeService:335` (check só target_path) vs `:658` (`git add -- $changed`). Proposta multi-arquivo tocando um pétreo + target legítimo escaparia o check. Marcado guardado-upstream, mas assimetria real. Fix opcional: iterar o $changed completo no check. (loop parado → baixo.)
 
+## 🟡 G. Cobertura de teste + wiring + races nos caminhos VIVOS (sweep wat0rur84)
+> Buracos de teste em gates VIVOS = onde o próximo cd018 passa silencioso. VERIFICADOS cobertos (sem buraco): `AtlasTaskScopedCommitter` (prova de NÃO-`add -A` + forbidden_self_target), `AtlasTaskCommitVerificationGate` (todos os ramos block/allow), `AtlasBrainSeedQualityGate` (~10 casos de refuse). Claim de lease é atômico (flock LOCK_EX fail-closed) — verificado sólido.
+
+### GAP-COV-01 — 🟠 `ProgrammingImplementationTruthGate`: ramo de BLOQUEIO (over-claim) tem ZERO teste
+- Gate R4 ATIVO (bootstrap/providers.php:10, QUALITY_GATES 'implementation-truth'). Se o glue drift→block quebrar, over-claims passam SILENCIOSOS → docs mentem `implementation_state` (corrompe a governança que o CLAUDE.md trata como fundação). Ramo tb estruturalmente inalcançável em teste (code index vazio → early-skip). `.../Gates/ProgrammingImplementationTruthGate.php:50-71`. Fix: unit test com stub `drift_count>0`. baixo.
+
+### GAP-COV-02 — 🟠 `AtlasBrainSeedCommand`: a fiação gate()→blocked (recusa packet-lixo) não tem teste de comando
+- Só os 4 gates isolados são testados; a fiação no comando (packet reprovado→`status=blocked`, NÃO enfileira) não. Refactor que inverta uma condição → lixo enfileirado no serving VIVO, workers implementam lixo, 0 teste vermelho. `AtlasBrainSeedCommand.php:128-135`. Fix: command test com packet proxy/forbidden asserindo `counts['blocked']>=1` + `enqueued==0`. baixo.
+
+### GAP-COV-03 — 🟡 `AtlasBrainSeedCommand`: regressão "dry-run não grava done-set" sem teste
+- Se um refactor reintroduzir `recordDone()` no ramo dry-run, todo pipeline dry-run→seed-real produz ZERO enqueues silenciosamente (cada seed real vira `skipped_done_set`). `:137-147`. Fix: teste dry-run-então-seed-real-do-mesmo-alvo. baixo.
+
+### GAP-RACE-01 — 🟡 `report()` commita no main ANTES de validar posse da lease (commit-before-validate)
+- `AtlasTaskServingService:537` (commitScope) antes de `:553` (ownership). Worker com lease expirada + task já re-servida a outro ainda LANDA commit no main compartilhado (mesma árvore/escopo). Fix: exigir lease ativa+dona (`agent==clientId`, `queue_status=='claimed'`) ANTES do commitScope.
+
+### GAP-WIR-01 — 🟡 Maestro closed-loop dead-fed: `AtlasMaestroOutcomeShapeLedger` 0 callers → learning inerte
+- Flag `atlas.maestro.closed_loop.feedback_enabled` + chain completo + testes verdes existem, mas `record()` nunca é chamado → ligar a flag produz saída VAZIA pra sempre (operador acha que o closed-loop aprende; não aprende). `:35`. Fix: chamar `record()` no report/markResolved/reportGiveBack do serving.
+
+### GAP-WIR-02 — 🟢 `AtlasBrainScopeFlagAuditor` (detector "cérebro roda cego") nunca invocado
+- Pegaria o GAP-06 (master ON + reflection OFF) se ligado. `Brain/AtlasBrainScopeFlagAuditor.php:21`. Fix: chamar `audit()` no `AtlasBrainHealthDoctorCommand`.
+
 ## Z. Refutados / falso-alarme (não re-abrir)
 - Maestro Exceptions (UnknownSchemaVersion/SchemaDowngradeRefused/InvalidProvider): `use` aponta pra path deletado MAS as classes foram INLINADAS nos survivors → maestro:schema/bid OK.
 - `AtlasEngineeringStringListNormalizer` em ProbeRunner: só import pendurado (0 uso no corpo) → não autoloaded, não fataliza.
