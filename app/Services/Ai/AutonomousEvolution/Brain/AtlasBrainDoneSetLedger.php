@@ -63,7 +63,25 @@ final class AtlasBrainDoneSetLedger
     }
 
     /**
-     * Has a packet already been originated for this target? STICKY dedup on a non-empty target_path.
+     * Statuses that burn a target for sticky dedup.
+     *
+     * `served` is intentionally excluded: brain `next` records a served proposal
+     * before `seed` enqueues it. Burning on served made next→seed return
+     * skipped_done_set and never enqueue (Elite Factory v2 P0-16).
+     *
+     * @var list<string>
+     */
+    public const BURNING_STATUSES = [
+        'seeded',
+        'already_done',
+        'forbidden_target',
+        'completed',
+        'resolved',
+    ];
+
+    /**
+     * Has a packet already been committed for this target?
+     * STICKY dedup on a non-empty target_path, but only for burning statuses.
      */
     public function isDone(string $targetPath): bool
     {
@@ -73,7 +91,11 @@ final class AtlasBrainDoneSetLedger
         }
 
         foreach (AppendOnlyJsonlStore::read($this->path()) as $row) {
-            if (trim((string) ($row['target_path'] ?? '')) === $target) {
+            if (trim((string) ($row['target_path'] ?? '')) !== $target) {
+                continue;
+            }
+            $status = strtolower(trim((string) ($row['status'] ?? '')));
+            if (in_array($status, self::BURNING_STATUSES, true)) {
                 return true;
             }
         }

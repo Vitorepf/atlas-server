@@ -212,11 +212,16 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
         if (app()->bound('atlas.self_construction.runtime_daemon.action_callbacks')) {
             $bound = app('atlas.self_construction.runtime_daemon.action_callbacks');
             if (is_array($bound)) {
-                return array_filter($bound, 'is_callable');
+                $filtered = array_filter($bound, 'is_callable');
+                if ($filtered !== []) {
+                    return $filtered;
+                }
             }
         }
 
-        return [];
+        // Productive default: Atlas-native Task Serving callbacks (not test doubles).
+        return app(\App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks::class)
+            ->forClient('atlas-self-construction-runtime-daemon');
     }
 
     /**

@@ -112,6 +112,21 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $claimCb = $options['claim_callback'] ?? null;
         $reportCb = $options['report_callback'] ?? null;
         $patchMaterializer = $options['patch_materializer'] ?? null;
+
+        // Explicit production bindings only (daemon / supervised runners). Never
+        // silently replace intentional missing-callback failure modes used by tests.
+        if (($options['use_production_callbacks'] ?? false) === true
+            && ! is_callable($claimCb)
+            && ! is_callable($reportCb)
+            && ! is_callable($patchMaterializer)) {
+            $production = app(AtlasNativeWorkerProductionCallbacks::class)->forClient(
+                (string) ($options['client_id'] ?? 'atlas-native-worker')
+            );
+            $claimCb = $production['claim_callback'];
+            $reportCb = $production['report_callback'];
+            $patchMaterializer = $production['patch_materializer'];
+        }
+
         // No verification supplied ⇒ NOT proven passed — never normalized into a silent success.
         $verification = is_array($options['verification'] ?? null) ? $options['verification'] : ['passed' => false];
         $commandPlan = is_array($options['command_plan'] ?? null) ? $options['command_plan'] : [];
