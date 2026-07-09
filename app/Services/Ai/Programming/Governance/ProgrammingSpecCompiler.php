@@ -255,7 +255,7 @@ class ProgrammingSpecCompiler
             'bugfix' => ['vendor/bin/phpunit (regression test for the original failure)'],
             'feature' => ['vendor/bin/phpunit (feature test exercising the new capability)'],
             'refactor' => ['vendor/bin/phpunit (existing suite must stay green)'],
-            'migration' => ['php artisan migrate:fresh --env=testing', 'vendor/bin/phpunit (post-migration suite)'],
+            'migration' => ['php artisan migrate --env=testing', 'vendor/bin/phpunit (post-migration suite)'],
             'docs' => ['php artisan atlas:engineering:knowledge docs-health --json'],
             default => ['vendor/bin/phpunit (proportional coverage)'],
         };

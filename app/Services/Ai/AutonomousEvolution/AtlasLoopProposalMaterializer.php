@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Models\AtlasLoopProposal;
-use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
+use App\Support\AtlasCloneDir;
 use Symfony\Component\Process\Process;
 
 /**
@@ -96,8 +96,9 @@ final class AtlasLoopProposalMaterializer
      * frozen judge auto-congela o arquivo referenciado pelos commands, então qualquer
      * mudança de implementação dá `frozen_path_tampered` e NADA mergeia. A re-prova do
      * merge-livre precisa de um workspace onde o teste-spec CONGELADO exercita a impl
-     * MUDADA. Este método clona o repo (hardlinks, barato), liga vendor/.env por symlink
-     * (não-rastreados, fora do clone) e aplica o diff normalizado.
+     * MUDADA. Este método clona o repo (hardlinks, barato), clona vendor com
+     * AtlasCloneDir (nunca symlink — wiper vector) e escreve um .env hermético
+     * de teste (nunca o .env vivo) antes de aplicar o diff normalizado.
      *
      * @return array{schema_version:string,materialized:bool,reason:?string,isolated_path:?string,target_path:?string,applied:bool,never_merged:bool,merge_to_source:bool}
      */
@@ -122,12 +123,28 @@ final class AtlasLoopProposalMaterializer
             return $this->refuse('clone_failed');
         }
 
-        // Liga os não-rastreados que o teste precisa (vendor/.env), sem copiá-los.
-        foreach (['vendor', '.env'] as $dep) {
-            $src = $baseDir.'/'.$dep;
-            if (file_exists($src) && ! file_exists($dir.'/'.$dep)) {
-                @symlink($src, $dir.'/'.$dep);
+        // Isolate non-tracked deps: clone vendor (never symlink — wiper vector)
+        // and write a hermetic testing .env (never the live secrets file).
+        $srcVendor = $baseDir.'/vendor';
+        if (is_dir($srcVendor) && ! file_exists($dir.'/vendor')) {
+            if (! AtlasCloneDir::copy($srcVendor, $dir.'/vendor')) {
+                (new Process(['rm', '-rf', $dir]))->run();
+
+                return $this->refuse('vendor_clone_failed');
             }
+        }
+        if (! file_exists($dir.'/.env')) {
+            file_put_contents($dir.'/.env', implode("\n", [
+                'APP_ENV=testing',
+                'APP_KEY=base64:dGVzdGluZy1oZXJtZXRpYy1rZXktbm90LXByb2Q=',
+                'DB_CONNECTION=sqlite',
+                'DB_DATABASE=:memory:',
+                "DB_URL=''",
+                'CACHE_STORE=array',
+                'SESSION_DRIVER=array',
+                'QUEUE_CONNECTION=sync',
+                '',
+            ]));
         }
 
         $normalized = $this->rewriteDiffToTarget($diff, $target);
@@ -378,7 +395,9 @@ final class AtlasLoopProposalMaterializer
      */
     private function git(string $cwd, array $argv): bool
     {
-        $p = GitSubprocess::run($cwd, $argv);
+        $p = new Process(array_merge(['git', '-C', $cwd], $argv));
+        $p->setTimeout(120.0);
+        $p->run();
 
         return $p->isSuccessful();
     }

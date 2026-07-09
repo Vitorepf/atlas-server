@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
+use App\Services\Ai\EngineeringKernel\Safety\DestructiveDatabaseCommandPolicy;
+
 /**
  * Deny-list for VerificationCommandRunner. Atlas Dev runs validation
  * commands defined in LightTaskContract.validation_commands; we still refuse
@@ -57,6 +59,11 @@ final class UnsafeCommandPolicy
 
     public static function reasonIfUnsafe(string $command): ?string
     {
+        $destructive = DestructiveDatabaseCommandPolicy::reasonIfDestructive($command);
+        if ($destructive !== null) {
+            return $destructive;
+        }
+
         // Normalise BEFORE matching so the token list cannot be bypassed by:
         //   - tab / newline / CR separators in place of spaces;
         //   - absolute paths to dangerous binaries (`/usr/bin/sudo`, etc.)

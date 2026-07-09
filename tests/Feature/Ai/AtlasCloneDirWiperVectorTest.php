@@ -85,10 +85,8 @@ final class AtlasCloneDirWiperVectorTest extends TestCase
      * (`symlink\([^)]*vendor`) frozen as a permanent regression gate, plus a positive check
      * that the clone helper is wired. A new provisioner MUST be added to this list.
      *
-     * NOTE — AtlasLoopProposalMaterializer.php also symlinks vendor but is a pétreo
-     * FORBIDDEN_SELF_TARGET (AtlasLoopHarnessGuard): the loop's scoped committer refuses
-     * to land it, so its clonefile fix must go through an operator-gated channel. It is
-     * deliberately excluded here rather than silently covered.
+     * Elite Factory v2: AtlasLoopProposalMaterializer is included — operator-gated
+     * channel closed the residual symlink path with AtlasCloneDir + hermetic .env.
      */
     #[DataProvider('vendorProvisioners')]
     public function test_no_provisioner_symlinks_vendor(string $relativePath): void
@@ -116,6 +114,7 @@ final class AtlasCloneDirWiperVectorTest extends TestCase
             'engineering-workspace' => ['app/Services/Engineering/EngineeringWorkspaceService.php'],
             'bench-suite-adapter' => ['app/Services/Ai/Rivals/Adapters/AtlasBenchSuiteAdapter.php'],
             'loop-framework-materializer' => ['app/Services/Ai/AutonomousEvolution/Framework/AtlasLoopFrameworkMaterializer.php'],
+            'loop-proposal-materializer' => ['app/Services/Ai/AutonomousEvolution/AtlasLoopProposalMaterializer.php'],
             'owner-sandbox-runtime' => ['app/Services/Ai/SoftwareCompanyStewardship/StewardshipEvolution/StewardshipOwnerSandboxRuntimeRunnerService.php'],
             'area-focus-branch-sandbox' => ['app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/AreaFocusBranchSandboxMaterializerService.php'],
         ];
