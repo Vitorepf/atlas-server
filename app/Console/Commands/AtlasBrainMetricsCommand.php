@@ -89,6 +89,10 @@ final class AtlasBrainMetricsCommand extends Command
             "atlas_brain_score_breakdown_entropy{$label}" => (int) $br['entropy'],
             "atlas_brain_score_breakdown_trend{$label}" => (int) $br['trend'],
             "atlas_brain_starved_paths{$label}" => count(app(AtlasBrainPathStarvationDetector::class)->detect($brief, app(AtlasBrainHintToPathTranslator::class))['starved']),
+            // O3 honestidade do gauge: entropy/evidence_age medem o reflection stream, que é
+            // no-op com reflection_enabled OFF (GAP-06) — sem este gauge, o flatline 0/-1
+            // parece medição real no Prometheus em vez de "produtor desligado".
+            "atlas_brain_reflection_enabled{$label}" => (bool) config('atlas.brain.reflection_enabled', false) ? 1 : 0,
         ];
 
         if ((string) $this->option('format') === 'json') {

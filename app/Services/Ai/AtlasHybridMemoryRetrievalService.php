@@ -72,9 +72,13 @@ class AtlasHybridMemoryRetrievalService
             'memory_recall_budget_chars' => $this->input->budgetChars($options['budget_chars'] ?? null),
             'memory_recall_item_chars' => $this->input->itemChars($options['item_chars'] ?? null),
         ], $compounding);
-        $usage = $this->usage->recordRecallUsages($query, $this->publicContext($context), $recall, [
-            'source' => is_scalar($options['requester'] ?? null) ? (string) $options['requester'] : 'atlas_memory_recall',
-        ]);
+        // O3 · peek: consulta exploratória ("será que lembro de X?") não deve mutar a
+        // estatística de recall/concentração — senão o próprio --never-recalled mente.
+        $usage = ($options['record_usage'] ?? true)
+            ? $this->usage->recordRecallUsages($query, $this->publicContext($context), $recall, [
+                'source' => is_scalar($options['requester'] ?? null) ? (string) $options['requester'] : 'atlas_memory_recall',
+            ])
+            : ['recorded_count' => 0, 'audit_id' => null, 'skipped' => 'peek_no_usage'];
 
         return [
             'query' => $query,

@@ -40,6 +40,7 @@ class AtlasAobgWorkspaceCommand extends Command
         {--cwd= : Caller working directory (the project dir) — resolved to a workspace id}
         {--workspace= : Workspace path or id (wins over cwd; defaults to the primary atlas-server)}
         {--force : For onboard/activate: re-run the index even when already indexed}
+        {--dry-run : For onboard/activate/activate-all: mostrar o estado sem escrever nada (delega pro status)}
         {--limit=12 : For map: maximum sample rows per section}
         {--detail=summary : For map: summary (default, no samples) or samples}
         {--json : Output the result envelope as JSON}';
@@ -53,6 +54,15 @@ class AtlasAobgWorkspaceCommand extends Command
             'cwd' => $this->stringOpt('cwd'),
             'workspace' => $this->stringOpt('workspace'),
         ], static fn ($v): bool => $v !== null);
+
+        // O3 · activate/onboard ESCREVEM (provider bootstrap + index + receipt) mas dividem a
+        // superfície com o status read-only; --dry-run dá a paridade segura sem serviço novo.
+        if ((bool) $this->option('dry-run') && in_array($action, ['activate', 'activate-all', 'activate_all', 'all', 'onboard'], true)) {
+            $result = ['dry_run' => true, 'would_run' => $action, 'writes_skipped' => ['provider_bootstrap', 'index', 'receipt'], 'status' => $service->status($opts)];
+            $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        }
 
         if (in_array($action, ['activate-all', 'activate_all', 'all'], true)) {
             $opts['force'] = (bool) $this->option('force');

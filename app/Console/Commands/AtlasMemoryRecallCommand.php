@@ -24,9 +24,13 @@ class AtlasMemoryRecallCommand extends Command
         {--no-registry : Exclude central registry}
         {--no-verbatim : Exclude verbatim recall}
         {--no-semantic : Exclude semantic notes}
+        {--peek : Consulta sem efeito colateral — NÃO grava recall usage/estatística}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Run provider-safe hybrid Atlas memory recall across registry, verbatim and semantic notes.';
+    // O3 · discoverability: "search" é o verbo que o operador digita; recall é a primitiva.
+    protected $aliases = ['atlas:memory:search'];
+
+    protected $description = 'Run provider-safe hybrid Atlas memory recall across registry, verbatim and semantic notes (alias: atlas:memory:search).';
 
     public function handle(AtlasHybridMemoryRetrievalService $retrieval): int
     {
@@ -49,6 +53,7 @@ class AtlasMemoryRecallCommand extends Command
                 'include_registry' => ! (bool) $this->option('no-registry'),
                 'include_verbatim' => ! (bool) $this->option('no-verbatim'),
                 'include_semantic' => ! (bool) $this->option('no-semantic'),
+                'record_usage' => ! (bool) $this->option('peek'),
             ],
         );
 
