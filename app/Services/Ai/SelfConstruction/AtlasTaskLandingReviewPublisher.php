@@ -139,6 +139,17 @@ final class AtlasTaskLandingReviewPublisher
     }
 
     /**
+     * Newest-first tail of valid resolved receipts. Public read-only feed — the cockpit
+     * lists recent landings through this without publishing anything.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function recentLandings(int $limit): array
+    {
+        return $this->latestReceipts(max(1, $limit));
+    }
+
+    /**
      * Newest-first tail of valid resolved receipts.
      *
      * @return list<array<string,mixed>>

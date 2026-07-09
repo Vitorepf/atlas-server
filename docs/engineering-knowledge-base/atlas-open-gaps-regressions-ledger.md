@@ -186,12 +186,12 @@ Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
 - **GAP-12..16** 🟡 ProofFirstTaskEmitter, LocalClientFailureRecoveryTaskEmitter, MaestroHealthGateSeedCreditBridge, AutonomyRegressionTaskEmitter, CortexCapabilityGapMemoryBridge — todos 0 callers, vivo-viáveis.
 - **GAP-COCKPIT-02** ✅ **FECHADO 09/07** — fallback default de `job_result` agora oferece `approve_job_result`/`reject_job_result` (handlers já existiam em `jobResultAction`; o `JobResultInboxEmitter` já os dava pra failed/high — o gap real era só o default). `job_status`/`completion` ficam read-only de propósito (nenhum handler de veredito aceita esses types; emitter vivo de `completion` não encontrado).
 - **GAP-COCKPIT-04** ✅ **FECHADO 09/07** — gerador entregue: `atlas:task:review:deep <sha|task_packet_id>` (`AtlasTaskLandingDeepReviewService`) PRODUZ findings determinísticos da landing: scope vs allowed_files (receipt), forbidden_self_target (pétreo), `php -l` do conteúdo COMMITADO, presença de teste. Read-only; blocking em p0/p1. Provado no vivo (landing real → `no_test_touched`). Teto honesto: checks mecânicos, não review semântico — o recorder `atlas:review:deep` continua sendo onde findings semânticos (de IA/humano) são registrados. Teste: `tests/Unit/Ai/SelfConstruction/AtlasTaskLandingDeepReviewServiceTest.php`.
-- **GAP-COCKPIT-03** agregação cross-surface (Dev+Forge+autônomo num feed).
+- **GAP-COCKPIT-03** ✅ **FECHADO 09/07** — feed cross-surface entregue dentro do `atlas:cli:cockpit` (seções: landings autônomas via receipts read-only + Dev jobs recentes + Forge obra ativa + review pendente com next-step).
 
 ## 🟡 E. Ergonomia CLI (situational awareness)
-- **GAP-CLI-01** 🟡 sem cockpit único do motor vivo (brain+fila+landings+saúde num comando; read-models já existem).
-- **GAP-CLI-02** 🟡 `atlas status`/dashboard cego pro motor autônomo (só AiJob/traces/chat).
-- **GAP-CLI-03** 🟢 `TerminalMarkdownRenderer` usado por 2 de 874 comandos.
+- **GAP-CLI-01** ✅ **FECHADO 09/07** — `atlas:cli:cockpit` (`AtlasCliCockpitCommand`): agregador read-only fail-open por seção (cérebro brain:summary, fila task:health, autonomia, landings recentes via `recentLandings()` do publisher, review pendente + next-step, Dev jobs, Forge obra), render `TerminalMarkdownRenderer`, `--json`. Provado no vivo (7/7 seções ok). Teste smoke: `AtlasCliCockpitCommandTest` (gotcha: Artisan::call aninhado sobrescreve o buffer do facade — usar BufferedOutput próprio).
+- **GAP-CLI-02** 🟡 `atlas status`/dashboard cego pro motor autônomo (mitigado: o cockpit acima É a visão do motor; dashboard segue sem as seções).
+- **GAP-CLI-03** 🟡→🟢 `TerminalMarkdownRenderer` agora em 3 comandos (cockpit adotou); adoção ampla segue opcional.
 
 ## ⏳ EM-FIX (outra sessão)
 - **REG-01** proof-family namespace (TerminalLoopHealthDigest/OperationalProof) fatal — `task_52704584`.
