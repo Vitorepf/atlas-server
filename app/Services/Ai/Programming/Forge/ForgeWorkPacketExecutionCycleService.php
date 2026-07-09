@@ -297,7 +297,8 @@ class ForgeWorkPacketExecutionCycleService
      *   - evidence_refs is non-empty;
      *   - evidence_refs are not simulation namespace refs;
      *   - gate_result is non-null;
-     *   - at least one gate inside gate_result.gates has status=passed.
+     *   - every applicable gate inside gate_result.gates has status=passed
+     *     AND gate_result.all_passed is true.
      *
      * On success: marks the packet `done`, advances the long-horizon state's
      * active→completed lists (if a state is bound), and computes the
@@ -336,15 +337,18 @@ class ForgeWorkPacketExecutionCycleService
         if (! isset($gateResult['gates']) && ! isset($gateResult['all_passed'])) {
             throw ForgeWorkPacketExecutionCycleException::completionWithoutGateResult($cycle->uuid);
         }
-        $anyPassed = false;
-        foreach ((array) ($gateResult['gates'] ?? []) as $g) {
-            if (is_array($g) && ($g['status'] ?? null) === ForgeLongHorizonStateCanon::GATE_STATUS_PASSED) {
-                $anyPassed = true;
-                break;
-            }
-        }
-        if (! $anyPassed && (bool) ($gateResult['all_passed'] ?? false) !== true) {
+        $gates = array_values(array_filter((array) ($gateResult['gates'] ?? []), 'is_array'));
+        $anyPassed = collect($gates)->contains(
+            static fn (array $g): bool => ($g['status'] ?? null) === ForgeLongHorizonStateCanon::GATE_STATUS_PASSED,
+        );
+        if (! $anyPassed) {
             throw ForgeWorkPacketExecutionCycleException::completionWithoutPassedGate($cycle->uuid);
+        }
+        $allGatesPassed = $gates !== [] && collect($gates)->every(
+            static fn (array $g): bool => ($g['status'] ?? null) === ForgeLongHorizonStateCanon::GATE_STATUS_PASSED,
+        );
+        if ((bool) ($gateResult['all_passed'] ?? false) !== true || ! $allGatesPassed) {
+            throw ForgeWorkPacketExecutionCycleException::completionWithoutAllGatesPassed($cycle->uuid);
         }
 
         $enforcing = $this->forgeExecutionGateEnforcing();

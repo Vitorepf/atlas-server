@@ -248,6 +248,31 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         ], $this->passingGate(), $state);
     }
 
+    public function test_complete_refuses_when_only_some_applicable_gates_pass(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $partialGate = [
+            'milestone_id' => ForgeIntakeCanon::MILESTONE_IMPLEMENTATION,
+            'gates' => [
+                ['gate_id' => 'work_packet_acceptance', 'status' => ForgeLongHorizonStateCanon::GATE_STATUS_PASSED, 'reason' => null],
+                ['gate_id' => 'verification_receipt', 'status' => 'failed', 'reason' => 'missing_verification'],
+            ],
+            'evidence_present' => ['work_packet_receipts'],
+            'evidence_missing' => ['verification_receipt'],
+            'all_passed' => false,
+            'failure_reasons' => ['verification_receipt:missing_verification'],
+        ];
+
+        $this->expectException(ForgeWorkPacketExecutionCycleException::class);
+        $this->expectExceptionMessage('not all gates are passed');
+        $this->cycles->complete($cycle, [['kind' => 'work_packet_receipts', 'ref' => 'wpr://x']], $partialGate, $state);
+    }
+
     public function test_fail_records_repair_hook_and_packet_blocker_in_state(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
