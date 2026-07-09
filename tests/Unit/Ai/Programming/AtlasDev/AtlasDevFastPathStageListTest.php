@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev;
 
+use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\EngineeringKernel\Spec\SpecAdversary;
+use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
+use App\Services\Ai\EngineeringKernel\Spec\SpecVerdict;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use ReflectionClass;
@@ -147,6 +153,31 @@ final class AtlasDevFastPathStageListTest extends TestCase
         $this->assertStringContainsString('simulated stage failure', $result['stage_errors'][0]['error']);
     }
 
+    public function test_mandatory_verification_stage_exception_blocks_plan(): void
+    {
+        $orchestrator = $this->makeOrchestrator(
+            specGate: new class implements SpecAdversary
+            {
+                public function contest(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): SpecVerdict
+                {
+                    throw new \RuntimeException('spec adversary crashed at /Users/operator/dev/atlas-secret');
+                }
+            },
+        );
+
+        $result = $orchestrator->planOnly(
+            surfaceId: 'atlas_cli_dev',
+            workspace: sys_get_temp_dir(),
+            rawIntent: 'Change app/Services/Foo/FooService.php to fix the failing test.',
+            userConstraints: ['allowed_files=app/Services/Foo/FooService.php'],
+            surfaceHints: [],
+        );
+
+        $this->assertSame(RoutingDecision::BLOCKED, $result->routing->kind);
+        $this->assertContains('mandatory_planning_stage_failed:verification_receipts', $result->routing->reasons);
+        $this->assertContains('mandatory_planning_stage_failed', $result->blockers);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     /**
@@ -163,7 +194,7 @@ final class AtlasDevFastPathStageListTest extends TestCase
         return $method->invoke($orchestrator);
     }
 
-    private function makeOrchestrator(): AtlasDevFastPathOrchestrator
+    private function makeOrchestrator(?SpecAdversary $specGate = null): AtlasDevFastPathOrchestrator
     {
         // Build with minimal constructor args (all nullable deps left null).
         // Use a fake Open Brain service that bypasses the real constructor.
@@ -196,6 +227,7 @@ final class AtlasDevFastPathStageListTest extends TestCase
             receiptStorage: new \App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage(
                 sys_get_temp_dir().'/atlas-dev-stage-test-'.bin2hex(random_bytes(4)),
             ),
+            specGate: $specGate,
         );
     }
 

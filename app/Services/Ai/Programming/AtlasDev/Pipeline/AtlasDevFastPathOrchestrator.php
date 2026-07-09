@@ -29,6 +29,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Contracts\AtlasDevSchemaContrac
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopAuditor;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
+use App\Support\AtlasSecurity;
 use Throwable;
 
 /**
@@ -356,10 +357,14 @@ class AtlasDevFastPathOrchestrator
             try {
                 $state = $callable($state);
             } catch (Throwable $e) {
-                // Fail-open: a stage exception is recorded but never kills
-                // the pipeline. The stage already guards its own boundary;
-                // this is a last-resort safety net.
-                $state['stage_errors'][] = ['stage' => $name, 'error' => $e->getMessage()];
+                $state['stage_errors'][] = [
+                    'stage' => $name,
+                    'error' => $this->redactStageError($e->getMessage()),
+                ];
+
+                if ($this->isMandatoryPlanningStage($name)) {
+                    $state = $this->blockRoutingForMandatoryStageFailure($state, $name);
+                }
             }
             $elapsed = (microtime(true) - $start) * 1000; // milliseconds
             $timings[$name] = round($elapsed, 2);
@@ -380,8 +385,62 @@ class AtlasDevFastPathOrchestrator
         } catch (Throwable) {
             // Best-effort: timing artifact is additive; failure is non-blocking.
         }
+        if (($state['stage_errors'] ?? []) !== []) {
+            try {
+                $state['persistedExtra']['fast_path_stage_errors.json'] = $this->receiptStorage->writeAtomic(
+                    (string) $state['envelope']->runId,
+                    'fast_path_stage_errors.json',
+                    [
+                        'schema' => 'atlas.dev.fast_path_stage_errors.v1',
+                        'errors' => array_values((array) $state['stage_errors']),
+                    ],
+                );
+            } catch (Throwable) {
+                // Best-effort audit artifact; routing already reflects mandatory failures.
+            }
+        }
 
         return $state;
+    }
+
+    private function isMandatoryPlanningStage(string $name): bool
+    {
+        return $name === 'verification_receipts';
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return array<string, mixed>
+     */
+    private function blockRoutingForMandatoryStageFailure(array $state, string $name): array
+    {
+        $routing = $state['routing'] ?? null;
+        if (! $routing instanceof RoutingDecision) {
+            return $state;
+        }
+
+        $state['routing'] = new RoutingDecision(
+            kind: RoutingDecision::BLOCKED,
+            reasons: AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge(
+                $routing->reasons,
+                ['mandatory_planning_stage_failed:'.$name],
+            )),
+            blockers: AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge(
+                $routing->blockers,
+                ['mandatory_planning_stage_failed'],
+            )),
+            delegation: $routing->delegation,
+        );
+
+        return $state;
+    }
+
+    private function redactStageError(string $message): string
+    {
+        $message = AtlasSecurity::redactString($message);
+        $redacted = preg_replace('#/(?:Users|private/var|var/folders|tmp)/[^\s"\']+#', '[path-redacted]', $message);
+
+        return is_string($redacted) ? $redacted : $message;
     }
 
     /**
