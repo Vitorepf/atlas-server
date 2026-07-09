@@ -78,11 +78,7 @@ class JobResultInboxEmitter
             'initiator' => 'job',
             'context_bundle_id' => $bundle->id,
             'dedupe_key' => 'job_result:'.$job->id,
-            'available_actions' => [
-                ['id' => 'view_trace', 'label' => 'Ver trace', 'style' => 'primary'],
-                ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
-                ['id' => 'dismiss', 'label' => 'Descartar', 'style' => 'default'],
-            ],
+            'available_actions' => $this->availableActions($status, $importance),
             'payload' => [
                 'job_id' => $job->id,
                 'trace_id' => $job->trace_id,
@@ -215,5 +211,28 @@ class JobResultInboxEmitter
         }
 
         return max(0, (int) $job->started_at->diffInMilliseconds($job->finished_at));
+    }
+
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    private function availableActions(string $status, string $importance): array
+    {
+        $actions = [
+            ['id' => 'view_trace', 'label' => 'Ver trace', 'style' => 'primary'],
+            ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
+            ['id' => 'dismiss', 'label' => 'Descartar', 'style' => 'default'],
+        ];
+
+        if (in_array($importance, ['high', 'critical'], true) || $status === 'failed') {
+            $actions[] = ['id' => 'approve_job_result', 'label' => 'Aprovar resultado', 'style' => 'success'];
+            $actions[] = ['id' => 'reject_job_result', 'label' => 'Rejeitar resultado', 'style' => 'danger'];
+        }
+
+        if ($status === 'failed' && $importance !== 'low') {
+            $actions[] = ['id' => 'rerun_job_result', 'label' => 'Solicitar rerun', 'style' => 'warning'];
+        }
+
+        return $actions;
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
+use App\Models\AiJob;
 use App\Models\AiMessage;
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiThread;
@@ -109,12 +110,13 @@ class InboxActionRegistry
                 'configure_provider_cost_rates' => $this->configureProviderCostRates($locked, $input),
                 'ignore_30d' => $this->ignoreThirtyDays($locked),
                 'acknowledge_recommendation', 'apply_recommendation', 'reject_recommendation' => $this->transitionRecommendation($locked, $actionId, $input),
+                'approve_job_result', 'reject_job_result', 'rerun_job_result' => $this->jobResultAction($locked, $actionId, $input),
                 default => throw ValidationException::withMessages(['action' => 'Action handler nao implementado.']),
             };
 
             $fresh = ($result['item'] ?? $locked)->refresh();
             $response = $fresh->response ?? [];
-            if (! in_array($actionId, ['dismiss', 'discard', 'snooze', 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny', 'ignore_30d'], true)) {
+            if (! in_array($actionId, ['dismiss', 'discard', 'snooze', 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny', 'ignore_30d', 'approve_job_result', 'reject_job_result', 'rerun_job_result'], true)) {
                 $fresh->update([
                     'response' => [
                         ...$response,
@@ -1329,6 +1331,56 @@ class InboxActionRegistry
         return [
             'item' => $item->refresh(),
             'ignored_until' => $until->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,job_result_action:string,job_id:string,trace_id:?string,reason:?string}
+     */
+    private function jobResultAction(AiInboxItem $item, string $actionId, array $input): array
+    {
+        if ($item->type !== 'job_result') {
+            throw ValidationException::withMessages(['action' => 'Job result action so pode ser usada em item job_result.']);
+        }
+
+        $payload = $item->payload ?? [];
+        $jobId = $this->string(data_get($payload, 'job_id'));
+        if ($jobId === null) {
+            throw ValidationException::withMessages(['job_id' => 'Item job_result sem job_id no payload.']);
+        }
+
+        $reason = $this->string($input['reason'] ?? null);
+        $job = AiJob::query()->find($jobId);
+
+        if ($actionId === 'rerun_job_result') {
+            if ($job === null) {
+                throw ValidationException::withMessages(['job' => 'Job original nao encontrado para rerun.']);
+            }
+            if (! in_array($job->status, ['failed', 'cancelled'], true)) {
+                throw ValidationException::withMessages(['job' => 'Rerun so disponivel para jobs failed/cancelled.']);
+            }
+        }
+
+        $item->update([
+            'status' => $actionId === 'approve_job_result' ? 'resolved' : ($item->status === 'unread' ? 'read' : $item->status),
+            'read_at' => $item->read_at ?? now(),
+            'resolved_at' => $actionId === 'approve_job_result' ? now() : $item->resolved_at,
+            'response' => [
+                'action' => $actionId,
+                'job_id' => $jobId,
+                'trace_id' => $this->string(data_get($payload, 'trace_id')),
+                'reason' => $reason,
+                'responded_at' => now()->toJSON(),
+            ],
+        ]);
+
+        return [
+            'item' => $item->refresh(),
+            'job_result_action' => $actionId,
+            'job_id' => $jobId,
+            'trace_id' => $this->string(data_get($payload, 'trace_id')),
+            'reason' => $reason,
         ];
     }
 
