@@ -51,19 +51,8 @@ class AtlasAutonomosGateAdapter implements AcceptanceGate
             'changed_files' => $evidence['changed_files'] ?? [],
             'changed_public_symbols' => $evidence['changed_public_symbols'] ?? [],
             'execution' => $evidence['execution'] ?? [],
-            'mutation_report' => [
-                'kill_ratio' => 0.0,
-                'mutants_generated' => 0,
-                'decision_surface_added' => false,
-            ],
-            'security_scan' => is_array($evidence['security_scan'] ?? null)
-                ? $evidence['security_scan']
-                : [
-                    'ran' => true,
-                    'secret_free' => true,
-                    'critical_sast' => 0,
-                    'critical_cve' => 0,
-                ],
+            'mutation_report' => is_array($evidence['mutation_report'] ?? null) ? $evidence['mutation_report'] : [],
+            'security_scan' => is_array($evidence['security_scan'] ?? null) ? $evidence['security_scan'] : [],
             'judges' => $evidence['judges'] ?? [],
             'context_sufficiency' => (int) ($evidence['context_sufficiency'] ?? 0),
             'non_functional' => isset($evidence['non_functional']) && is_array($evidence['non_functional'])

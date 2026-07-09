@@ -70,6 +70,17 @@ final class AtlasAutonomosGateAdapterTest extends TestCase
                 'selected_tests' => ['AtlasAemorCertificationTestExecutionTest'],
                 'artifacts' => [],
             ],
+            'mutation_report' => [
+                'kill_ratio' => 1.0,
+                'mutants_generated' => 2,
+                'decision_surface_added' => true,
+            ],
+            'security_scan' => [
+                'ran' => true,
+                'secret_free' => true,
+                'critical_sast' => 0,
+                'critical_cve' => 0,
+            ],
             'context_sufficiency' => 90,
             'judges' => [
                 ['name' => 'judge-1', 'provider_family' => 'anthropic', 'approved' => true],
@@ -82,5 +93,78 @@ final class AtlasAutonomosGateAdapterTest extends TestCase
 
         $this->assertTrue($verdict->promoted(), 'real-suite autonomos delivery must be promoted');
         $this->assertEmpty($verdict->blockers, 'no blockers for a real-suite delivery');
+    }
+
+    public function test_missing_security_scan_is_rejected_instead_of_fabricated_clean(): void
+    {
+        $criteria = ['test: missing security evidence'];
+        $frozenHash = CriteriaCanonicalizer::hash($criteria);
+
+        $verdict = $this->adapter->certifyAutonomosDelivery([
+            'criteria_hash' => $frozenHash,
+            'frozen_hash' => $frozenHash,
+            'changed_files' => ['app/Services/Ai/Aemor/AtlasAemorCertificationService.php'],
+            'execution' => [
+                'commands' => ['php artisan test tests/Feature/Ai/Aemor/AtlasAemorCertificationTestExecutionTest.php'],
+                'claimed_status' => 'passed',
+                'tests_run' => 5,
+                'assertions_executed' => 15,
+                'selected_tests' => ['AtlasAemorCertificationTestExecutionTest'],
+                'artifacts' => [],
+            ],
+            'mutation_report' => [
+                'kill_ratio' => 1.0,
+                'mutants_generated' => 2,
+                'decision_surface_added' => true,
+            ],
+            'context_sufficiency' => 90,
+            'judges' => [
+                ['name' => 'judge-1', 'provider_family' => 'anthropic', 'approved' => true],
+                ['name' => 'judge-2', 'provider_family' => 'google', 'approved' => true],
+            ],
+            'changed_public_symbols' => [
+                ['symbol' => 'AtlasAemorCertificationService', 'has_criterion' => true, 'has_test' => true],
+            ],
+        ]);
+
+        $this->assertFalse($verdict->promoted());
+        $this->assertContains('security_free', $verdict->blockers);
+    }
+
+    public function test_missing_mutation_report_is_rejected_instead_of_waived(): void
+    {
+        $criteria = ['test: missing mutation evidence'];
+        $frozenHash = CriteriaCanonicalizer::hash($criteria);
+
+        $verdict = $this->adapter->certifyAutonomosDelivery([
+            'criteria_hash' => $frozenHash,
+            'frozen_hash' => $frozenHash,
+            'changed_files' => ['app/Services/Ai/Aemor/AtlasAemorCertificationService.php'],
+            'execution' => [
+                'commands' => ['php artisan test tests/Feature/Ai/Aemor/AtlasAemorCertificationTestExecutionTest.php'],
+                'claimed_status' => 'passed',
+                'tests_run' => 5,
+                'assertions_executed' => 15,
+                'selected_tests' => ['AtlasAemorCertificationTestExecutionTest'],
+                'artifacts' => [],
+            ],
+            'security_scan' => [
+                'ran' => true,
+                'secret_free' => true,
+                'critical_sast' => 0,
+                'critical_cve' => 0,
+            ],
+            'context_sufficiency' => 90,
+            'judges' => [
+                ['name' => 'judge-1', 'provider_family' => 'anthropic', 'approved' => true],
+                ['name' => 'judge-2', 'provider_family' => 'google', 'approved' => true],
+            ],
+            'changed_public_symbols' => [
+                ['symbol' => 'AtlasAemorCertificationService', 'has_criterion' => true, 'has_test' => true],
+            ],
+        ]);
+
+        $this->assertFalse($verdict->promoted());
+        $this->assertContains('mutation_kill_ratio', $verdict->blockers);
     }
 }

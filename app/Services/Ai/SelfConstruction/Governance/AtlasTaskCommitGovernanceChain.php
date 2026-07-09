@@ -109,9 +109,14 @@ final class AtlasTaskCommitGovernanceChain
             $checks = is_array($verification['checks'] ?? null) ? $verification['checks'] : [];
 
             $organs = $this->touchedOrgans($changed);
-            $evidenceHash = (string) ($verification['evidence_hash'] ?? '') !== ''
-                ? (string) $verification['evidence_hash']
-                : $this->deterministicHash(['changed' => $changed, 'checks' => $checks, 'green' => $serverGreen]);
+            // Admission evidence must be explicit. The ledger still gets a stable
+            // "unknown evidence" hash so blocked/repair decisions are auditable,
+            // but that synthetic hash is never passed to AdmissionPolicy as proof.
+            $admissionEvidenceHash = trim((string) ($verification['evidence_hash'] ?? ''));
+            $ledgerEvidenceHash = $admissionEvidenceHash !== ''
+                ? $admissionEvidenceHash
+                : $this->deterministicHash(['unknown_evidence' => true, 'task_packet_id' => $taskId, 'changed' => $changed, 'checks' => $checks, 'green' => $serverGreen]);
+            $evidenceRefs = $this->evidenceRefs($verification, $taskId, $ledgerEvidenceHash, $admissionEvidenceHash !== '');
 
             $risk = ($this->riskClassifier ?? new AtlasMergeGovernorRiskClassifier)->classify([
                 'changed_files' => $changed,
@@ -120,14 +125,14 @@ final class AtlasTaskCommitGovernanceChain
                 'rollback_plan' => ['mode' => 'git_revert_scoped_commit'],
                 'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
                 'scope_deviations' => [],
-                'task_evidence_ref' => $taskId !== '' ? $taskId : $evidenceHash,
+                'task_evidence_ref' => $admissionEvidenceHash !== '' ? $admissionEvidenceHash : 'unknown_evidence',
             ]);
 
             $rollback = ($this->rollbackGate ?? new AtlasMergeGovernorRollbackPlanGate)->evaluate([
                 'affected_files' => $changed,
                 'restore_strategy' => 'git_revert_scoped_commit',
                 'restore_target' => $taskId !== '' ? 'git_revert:'.$taskId : 'git_revert:HEAD',
-                'pre_image_hash' => $evidenceHash,
+                'pre_image_hash' => $ledgerEvidenceHash,
                 'verification_command' => 'php artisan atlas:task test-suite',
                 'verification_after_rollback' => ['php -l', 'artisan about', 'task tests'],
                 'owner_scope' => $projectId,
@@ -185,7 +190,7 @@ final class AtlasTaskCommitGovernanceChain
                 'rollback_gate' => ['conformant' => (bool) $rollback['conformant'], 'blockers' => (array) $rollback['blockers']],
                 'verification_court' => [
                     'server_side_green' => $serverGreen,
-                    'evidence_hash' => $serverGreen ? $evidenceHash : '',
+                    'evidence_hash' => $serverGreen ? $admissionEvidenceHash : '',
                     'missing_rerun' => $missingRerun,
                     'project_id' => $projectId,
                 ],
@@ -219,7 +224,23 @@ final class AtlasTaskCommitGovernanceChain
                 $blockers = array_values(array_unique([...$blockers, 'false_green_replay_contradiction', ...$replayVerdict['reasons']]));
             }
 
-            $recorded = $this->record($taskId, $projectId, $decision, $blockers, $evidenceHash, $risk, $rollback, $changed, $checks, $planHash);
+            $recorded = $this->record($taskId, $projectId, $decision, $blockers, $ledgerEvidenceHash, $risk, $rollback, $changed, $checks, $planHash, $evidenceRefs);
+            $ledgerBlockers = $this->ledgerErrorBlockers($recorded);
+            if ($ledgerBlockers !== []) {
+                return $this->envelope(
+                    $mode,
+                    false,
+                    true,
+                    'governance_ledger_error_fail_closed',
+                    (string) ($risk['risk_level'] ?? ''),
+                    array_values(array_unique([...$blockers, ...$ledgerBlockers])),
+                    $recorded,
+                    null,
+                    $replayVerdict,
+                    $planHash,
+                    $missingRerun,
+                );
+            }
 
             $enforcedBlock = $mode === self::MODE_ENFORCE && ! $admitted;
 
@@ -241,11 +262,13 @@ final class AtlasTaskCommitGovernanceChain
                             (string) ($context['project_id'] ?? 'atlas-self-construction'),
                             'governance_error_fail_closed',
                             [$exceptionClass],
-                            '',
+                            $this->deterministicHash(['unknown_evidence' => true, 'task_packet_id' => $taskId, 'error' => $exceptionClass]),
                             ['reasons' => []],
                             [],
                             (array) ($context['changed_files'] ?? []),
                             [],
+                            null,
+                            ['unknown:governance_error'],
                         );
                     }
                 } catch (Throwable) {
@@ -269,9 +292,10 @@ final class AtlasTaskCommitGovernanceChain
      * @param  array<string,mixed>  $rollback
      * @param  list<string>  $changed
      * @param  array<string,string>  $checks
+     * @param  list<string>  $evidenceRefs
      * @return array{verdict_ledger:string, release_ledger:string}
      */
-    private function record(string $taskId, string $projectId, string $decision, array $blockers, string $evidenceHash, array $risk, array $rollback, array $changed, array $checks, ?string $gateReplayPlanHash = null): array
+    private function record(string $taskId, string $projectId, string $decision, array $blockers, string $evidenceHash, array $risk, array $rollback, array $changed, array $checks, ?string $gateReplayPlanHash = null, array $evidenceRefs = []): array
     {
         if ($taskId === '') {
             return ['verdict_ledger' => 'skipped_no_task_id', 'release_ledger' => 'skipped_no_task_id'];
@@ -300,8 +324,8 @@ final class AtlasTaskCommitGovernanceChain
                 'replay_outcome_hash' => $outcomeHash,
                 'decided_at' => $decidedAt,
             ])['status'] ?? 'error');
-        } catch (Throwable) {
-            $verdictStatus = 'error';
+        } catch (Throwable $e) {
+            $verdictStatus = 'error:'.$e::class;
         }
 
         $releaseStatus = 'error';
@@ -317,12 +341,72 @@ final class AtlasTaskCommitGovernanceChain
                 'changed_files_hash' => $this->deterministicHash($changed),
                 'project_lane' => ['project_id' => $projectId],
                 'decided_at' => $decidedAt,
+                'evidence_refs' => $evidenceRefs !== [] ? $evidenceRefs : ['unknown:evidence_refs_missing'],
+                'rollback_posture' => $this->rollbackPosture($rollback),
+                'rejected_alternatives' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? [] : ['release_without_governance_clearance'],
+                'post_release_learning_hooks' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? ['task_outcome_learning_candidate'] : [],
             ])['status'] ?? 'error');
-        } catch (Throwable) {
-            $releaseStatus = 'error';
+        } catch (Throwable $e) {
+            $releaseStatus = 'error:'.$e::class;
         }
 
         return ['verdict_ledger' => $verdictStatus, 'release_ledger' => $releaseStatus];
+    }
+
+    /**
+     * @param  array<string,mixed>  $verification
+     * @return list<string>
+     */
+    private function evidenceRefs(array $verification, string $taskId, string $ledgerEvidenceHash, bool $hasExplicitEvidenceHash): array
+    {
+        $refs = [];
+        foreach ((array) ($verification['evidence_refs'] ?? []) as $ref) {
+            $ref = trim((string) $ref);
+            if ($ref !== '') {
+                $refs[$ref] = true;
+            }
+        }
+        if ($hasExplicitEvidenceHash) {
+            $refs['verification_hash:'.$ledgerEvidenceHash] = true;
+        } else {
+            $refs['unknown:evidence_hash_missing'] = true;
+        }
+        if ($taskId !== '') {
+            $refs['task_packet:'.$taskId] = true;
+        }
+
+        return array_keys($refs);
+    }
+
+    /** @param array<string,mixed> $rollback */
+    private function rollbackPosture(array $rollback): string
+    {
+        if (($rollback['conformant'] ?? false) === true) {
+            $strategy = (string) ($rollback['facts']['restore_strategy'] ?? 'git_revert_scoped_commit');
+
+            return 'revertible:'.$strategy;
+        }
+
+        $blockers = array_values(array_map('strval', (array) ($rollback['blockers'] ?? [])));
+
+        return 'blocked:'.($blockers !== [] ? implode(',', $blockers) : 'rollback_not_conformant');
+    }
+
+    /**
+     * @param  array{verdict_ledger:string, release_ledger:string}  $recorded
+     * @return list<string>
+     */
+    private function ledgerErrorBlockers(array $recorded): array
+    {
+        $blockers = [];
+        foreach (['verdict_ledger', 'release_ledger'] as $key) {
+            $status = (string) ($recorded[$key] ?? 'error');
+            if ($status === 'error' || str_starts_with($status, 'error:')) {
+                $blockers[] = $key.'_error';
+            }
+        }
+
+        return $blockers;
     }
 
     /** The AdmissionPolicy decision space ⇒ the VerdictLedger's {passed,failed,blocked} enum. */

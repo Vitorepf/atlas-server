@@ -95,6 +95,9 @@ final class JsonlReceiptStore implements ReceiptLedger
     public function appendWith(callable $build, ?int $jsonFlags = null): ?string
     {
         $dir = \dirname($this->path);
+        if (file_exists($dir) && ! is_dir($dir)) {
+            throw new RuntimeException('jsonl_receipt_store_parent_not_directory:'.$dir);
+        }
         if (! is_dir($dir) && ! @mkdir($dir, 0o755, true) && ! is_dir($dir)) {
             throw new RuntimeException('jsonl_receipt_store_mkdir_failed:'.$dir);
         }

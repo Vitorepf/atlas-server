@@ -27,7 +27,9 @@ final class AtlasTaskCommitGovernanceChainTest extends TestCase
         if (file_exists($this->verdictLedgerPath)) {
             unlink($this->verdictLedgerPath);
         }
-        if (file_exists($this->releaseLedgerPath)) {
+        if (is_dir($this->releaseLedgerPath)) {
+            rmdir($this->releaseLedgerPath);
+        } elseif (file_exists($this->releaseLedgerPath)) {
             unlink($this->releaseLedgerPath);
         }
         parent::tearDown();
@@ -68,6 +70,50 @@ final class AtlasTaskCommitGovernanceChainTest extends TestCase
 
         $this->assertTrue($result['admitted']);
         $this->assertFalse($result['enforced_block']);
+        $this->assertSame(AtlasMergeGovernorReleaseDecisionLedger::STATUS_OK, $result['recorded']['release_ledger']);
+
+        $rows = (new AtlasMergeGovernorReleaseDecisionLedger($this->releaseLedgerPath))->all();
+        $this->assertCount(1, $rows);
+        $this->assertNotEmpty($rows[0]['evidence_refs']);
+        $this->assertSame('revertible:git_revert_scoped_commit', $rows[0]['rollback_posture']);
+    }
+
+    public function test_enforce_mode_blocks_green_without_evidence_hash(): void
+    {
+        $result = $this->chain(AtlasTaskCommitGovernanceChain::MODE_ENFORCE)->govern([
+            'task_packet_id' => 'task-missing-evidence',
+            'project_id' => 'atlas-self-construction',
+            'changed_files' => ['app/Services/Foo.php'],
+            'verification' => ['passed' => true],
+        ]);
+
+        $this->assertFalse($result['admitted']);
+        $this->assertTrue($result['enforced_block']);
+        $this->assertSame('repair_required', $result['decision']);
+        $this->assertContains('evidence_hash_missing', $result['blockers']);
+    }
+
+    public function test_enforce_mode_blocks_when_release_ledger_cannot_write(): void
+    {
+        $blockedParent = sys_get_temp_dir().'/atlas_commit_gov_release_blocker_'.uniqid('', true);
+        file_put_contents($blockedParent, 'not-a-directory');
+        $this->releaseLedgerPath = $blockedParent.'/release.jsonl';
+
+        try {
+            $result = $this->chain(AtlasTaskCommitGovernanceChain::MODE_ENFORCE)->govern([
+                'task_packet_id' => 'task-ledger-error',
+                'project_id' => 'atlas-self-construction',
+                'changed_files' => ['app/Services/Foo.php'],
+                'verification' => ['passed' => true, 'evidence_hash' => 'ev-ledger-error'],
+            ]);
+
+            $this->assertFalse($result['admitted']);
+            $this->assertTrue($result['enforced_block']);
+            $this->assertSame('governance_ledger_error_fail_closed', $result['decision']);
+            $this->assertContains('release_ledger_error', $result['blockers']);
+        } finally {
+            @unlink($blockedParent);
+        }
     }
 
     public function test_observe_mode_records_verdict_and_release_ledger_statuses_without_blocking(): void
