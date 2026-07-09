@@ -167,6 +167,12 @@ class AtlasHermesAcpRuntime
             return $this->fallback('acp_prompt_incomplete', $mission, $invocation, $permissionReceipts, $text, $sessionId);
         }
 
+        // GAP-HERMES-01 root fix: Hermes may still flush trailing agent_message_chunk
+        // notifications AFTER the session/prompt result frame; pump() has already returned
+        // by then, so the tail of the assistant text was silently lost ("count to twenty"
+        // came back without "twenty"). Drain them briefly before mapping the result.
+        $this->drainTrailingChunks($channel, $text, 0.5);
+
         $packet = $this->resultMapper->map(
             $text,
             $this->protocol->promptResultStopReason($promptMsg['message']),
@@ -233,6 +239,30 @@ class AtlasHermesAcpRuntime
         }
 
         return null;
+    }
+
+    /**
+     * GAP-HERMES-01 · post-result drain: keep reading for up to $budget seconds, with a
+     * short per-read wait, accumulating any late agent_message_chunk text. Stops early on
+     * the first quiet read. Everything else seen here (stray results, requests) is ignored
+     * on purpose — this runs between cycles, when no request is in flight.
+     */
+    private function drainTrailingChunks(HermesAcpChannel $channel, string &$text, float $budget): void
+    {
+        $deadline = microtime(true) + max(0.0, $budget);
+        while (microtime(true) < $deadline) {
+            $line = $channel->readLine(min(0.15, max(0.01, $deadline - microtime(true))));
+            if ($line === null) {
+                return; // quiet — nothing pending
+            }
+            $msg = $this->protocol->classify($line);
+            if (($msg['type'] ?? null) === 'notification' && $this->protocol->isAgentMessageChunk($msg['message'] ?? [])) {
+                $chunk = $this->protocol->agentMessageChunkText($msg['message'] ?? []);
+                if (is_string($chunk)) {
+                    $text .= $chunk;
+                }
+            }
+        }
     }
 
     /**

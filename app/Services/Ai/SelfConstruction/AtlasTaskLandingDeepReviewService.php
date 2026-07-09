@@ -135,7 +135,7 @@ final class AtlasTaskLandingDeepReviewService
                 'instruction' => $prompt,
                 'messages' => [['role' => 'user', 'content' => $prompt]],
             ], [
-                'timeout_seconds' => max(30, (int) config('atlas.brain.reviewer_timeout_seconds', 90)),
+                'timeout_seconds' => max(30, (int) config('atlas.brain.reviewer_timeout_seconds', (int) env('ATLAS_BRAIN_REVIEWER_TIMEOUT_SECONDS', 180))),
                 'max_output_chars' => 4000,
             ]);
             if (($result['provider_called'] ?? false) !== true) {

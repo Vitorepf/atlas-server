@@ -226,7 +226,11 @@ final class JsonlReceiptStore implements ReceiptLedger
             throw new RuntimeException('jsonl_receipt_store_mkdir_failed:'.$dir);
         }
 
-        $fp = fopen($this->path, 'wb');
+        // 'cb' (create, NO truncate): 'wb' truncava o arquivo ANTES do flock — um lock
+        // que falhasse (ou leitor concorrente na janela) via/deixava o ledger vazio.
+        // Truncamento agora só SOB o lock exclusivo. (Finding do review semântico
+        // glm-5.2 sobre a landing op-01kwvx937, confirmado no código.)
+        $fp = fopen($this->path, 'cb');
         if ($fp === false) {
             throw new RuntimeException('jsonl_receipt_store_open_failed:'.$this->path);
         }
@@ -237,6 +241,9 @@ final class JsonlReceiptStore implements ReceiptLedger
             if (! flock($fp, LOCK_EX)) {
                 throw new RuntimeException('jsonl_receipt_store_lock_failed:'.$this->path);
             }
+
+            ftruncate($fp, 0);
+            rewind($fp);
 
             foreach ($rows as $row) {
                 fwrite($fp, json_encode($row, $flags).PHP_EOL);
@@ -273,18 +280,25 @@ final class JsonlReceiptStore implements ReceiptLedger
         }
 
         try {
-            foreach ($rows as $row) {
-                fwrite($fp, json_encode($row, $flags).PHP_EOL);
+            try {
+                foreach ($rows as $row) {
+                    fwrite($fp, json_encode($row, $flags).PHP_EOL);
+                }
+                fflush($fp);
+                // Flush to physical disk before the rename so a power-loss can't leave a torn canonical file.
+                if (function_exists('fdatasync')) {
+                    @fdatasync($fp);
+                } elseif (function_exists('fsync')) {
+                    @fsync($fp);
+                }
+            } finally {
+                fclose($fp);
             }
-            fflush($fp);
-            // Flush to physical disk before the rename so a power-loss can't leave a torn canonical file.
-            if (function_exists('fdatasync')) {
-                @fdatasync($fp);
-            } elseif (function_exists('fsync')) {
-                @fsync($fp);
-            }
-        } finally {
-            fclose($fp);
+        } catch (\Throwable $e) {
+            // json_encode com JSON_THROW_ON_ERROR pode lançar mid-write: sem isto o
+            // .tmp ficava órfão pra sempre (finding p3 do review semântico glm-5.2).
+            @unlink($tmp);
+            throw $e;
         }
 
         if (! @rename($tmp, $this->path)) {
