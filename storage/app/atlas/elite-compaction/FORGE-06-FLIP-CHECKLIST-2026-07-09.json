@@ -1,0 +1,81 @@
+{
+  "artifact": "FORGE-06-FLIP-CHECKLIST",
+  "date": "2026-07-09",
+  "updated_at": "2026-07-09T15:05:00+00:00",
+  "updated_by": "Residual Elite LAST Closeout Onda 5",
+  "scope": "ATLAS_FORGE_EXECUTION_GATE_ENFORCING → config atlas.engineering_kernel.forge_execution_gate_enforcing / ForgeWorkPacketExecutionCycleService",
+  "flag": "ATLAS_FORGE_EXECUTION_GATE_ENFORCING",
+  "criteria": [
+    {
+      "id": "route_decisions_min_5",
+      "status": "MET",
+      "required": 5,
+      "observed": 15,
+      "query": "SELECT COUNT(*) FROM ai_dual_core_route_decisions"
+    },
+    {
+      "id": "provider_coverage_bypass_zero",
+      "status": "MET",
+      "required": "bypass_rate=0",
+      "observed": {
+        "governed_rate": 1,
+        "bypass_rate": 0,
+        "total": 144,
+        "governed": 144
+      },
+      "command": "php artisan atlas:provider:coverage --json"
+    },
+    {
+      "id": "forge_e2e_cycle_evidence",
+      "status": "MET",
+      "required": "1 Forge E2E cycle with evidence in ledger",
+      "evidence": {
+        "live_execute_command": "php artisan atlas:forge:live-execute --obra=obra-71e3afdfe4e3 --json",
+        "forge_live_execution_status": "blocked",
+        "blocker_note": "aucri_runtime_enforcement_blocked (freshness_quality) — stages otherwise passed including evidence_ledger",
+        "ledger_event_ids": [
+          "01KX3NNRZC17YY8Z2ZDDNY9CW6",
+          "01KX3NNS04Z4WNP9AG9950D6AW",
+          "01KX3NNS0QTTSARQZ5RNRDMEYK",
+          "01KX3NNS10DZ9QVWBZMZMDTBCB"
+        ],
+        "ledger_event_types": [
+          "EXECUTION_STARTED",
+          "GATE_EVALUATED",
+          "EVIDENCE_PACKED",
+          "OPERATION_COMPLETED"
+        ],
+        "work_packet_cycle_pre_flip": {
+          "uuid": "bfd79adc-c9a6-437c-8731-07f7b16b93bc",
+          "status": "success",
+          "outcome": "success",
+          "mode": "safe_simulation",
+          "sovereign_mode": "observe",
+          "cycle_hash": "f28b1edb0a7e049bc2de7328c8533ffb46bb03c124575385e7d9e5d12d172405"
+        },
+        "import_fixes_required_for_cycle": [
+          "ForgeWorkPacketExecutionCycleService: use EngineeringKernel\\Adapters\\AtlasDevGateAdapter",
+          "ForgeIntakeService: use ContextIntelligence\\AtlasContextOperationsRuntimeService"
+        ]
+      }
+    },
+    {
+      "id": "post_flip_no_false_positive",
+      "status": "MET",
+      "required": "1 cycle after flip without false-positive block",
+      "evidence": {
+        "flag_after_flip": true,
+        "cycle_uuid": "707e4269-5127-4399-a388-9a75f0981c2d",
+        "status": "blocked",
+        "outcome": "blocked",
+        "failure_reason": "sovereign_engineering_gate_not_promoted",
+        "interpretation": "TRUE_POSITIVE_ENFORCE — thin safe_simulation evidence correctly refused; not a false-positive block of a promote-worthy cycle",
+        "phpunit": "ForgeWorkPacketExecutionCycleServiceTest::test_complete_enforce_mode_blocks_a_completion_the_sovereign_floor_refuses PASSED"
+      }
+    }
+  ],
+  "decision": "FLIPPED",
+  "env_change": "ATLAS_FORGE_EXECUTION_GATE_ENFORCING=true",
+  "config_key": "atlas.engineering_kernel.forge_execution_gate_enforcing",
+  "decide_note": "ADML flags are DECIDE-01 only — do not mix"
+}

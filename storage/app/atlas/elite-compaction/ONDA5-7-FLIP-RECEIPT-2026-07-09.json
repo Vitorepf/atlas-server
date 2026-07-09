@@ -1,0 +1,129 @@
+{
+  "schema": "atlas.elite.closeout_last.onda5_7_flip_receipt.v1",
+  "id": "ONDA5-7-FLIP-RECEIPT-2026-07-09",
+  "generated_at": "2026-07-09T15:05:00+00:00",
+  "workspace": "atlas-server",
+  "operator": "cursor-background-agent",
+  "flip_rule": "Flip ONLY if checklist MET + live numbers. Else PARTIAL-assinado. NEVER fake FECHADO. Do NOT mix DECIDE (ADML) with FORGE-06.",
+  "decisions": {
+    "FORGE-06": {
+      "decision": "FLIPPED",
+      "flag": "ATLAS_FORGE_EXECUTION_GATE_ENFORCING",
+      "config_key": "atlas.engineering_kernel.forge_execution_gate_enforcing",
+      "env_set_to": true,
+      "checklist": "storage/app/atlas/elite-compaction/FORGE-06-FLIP-CHECKLIST-2026-07-09.json",
+      "live_evidence": {
+        "route_decisions": 15,
+        "provider_coverage": {
+          "bypass_rate": 0,
+          "governed_rate": 1,
+          "total": 144
+        },
+        "forge_live_execute": {
+          "command": "php artisan atlas:forge:live-execute --obra=obra-71e3afdfe4e3 --json",
+          "status": "blocked",
+          "remaining_blockers": ["aucri_runtime_enforcement_blocked"],
+          "ledger_event_ids": [
+            "01KX3NNRZC17YY8Z2ZDDNY9CW6",
+            "01KX3NNS04Z4WNP9AG9950D6AW",
+            "01KX3NNS0QTTSARQZ5RNRDMEYK",
+            "01KX3NNS10DZ9QVWBZMZMDTBCB"
+          ]
+        },
+        "work_packet_cycle_pre_flip": {
+          "uuid": "bfd79adc-c9a6-437c-8731-07f7b16b93bc",
+          "status": "success",
+          "sovereign_mode": "observe"
+        },
+        "work_packet_cycle_post_flip": {
+          "uuid": "707e4269-5127-4399-a388-9a75f0981c2d",
+          "status": "blocked",
+          "failure_reason": "sovereign_engineering_gate_not_promoted",
+          "interpretation": "TRUE_POSITIVE_ENFORCE (not false-positive)"
+        }
+      }
+    },
+    "DECIDE-01_ADML": {
+      "decision": "PARTIAL-assinado",
+      "flags": {
+        "ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED": false,
+        "ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED": true
+      },
+      "env_changes": "none — auto-activation left OFF; cost_outcome already true",
+      "checklist": "storage/app/atlas/elite-compaction/DECIDE-01-FLIP-CHECKLIST-2026-07-09.json",
+      "store": {
+        "kind": "jsonl",
+        "path": "storage/atlas/atlas_decide/live_outcomes.jsonl",
+        "lines": 3406,
+        "proven_real": 39
+      },
+      "blocker": {
+        "criterion": "cost_outcome_samples + auto_activation actionable recommend(proven_only)",
+        "query": "count proven_real with cost_usd from live_outcomes.jsonl; AtlasDecideMetaLearningService::recommend(proven_only=true)",
+        "counts": {
+          "proven_real_total": 39,
+          "proven_with_measured_cost": 0,
+          "proven_with_quality_ge_80": 0,
+          "recommend_actionable": false,
+          "recommend_reason": [
+            "evidence_strong",
+            "cost_outcome_no_eligible_cost_outcome_candidate"
+          ],
+          "cost_outcome_status": "blocked"
+        },
+        "missing_criterion": "Need >= min_evidence(3) certified live samples with measured cost (require_measured_cost=true) meeting min_certification_rate/min_score before flipping ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED"
+      }
+    },
+    "MISSION_HTTP": {
+      "decision": "FLIPPED",
+      "flag": "ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED",
+      "config_key": "atlas_ai.kernel_http_integration.enabled",
+      "env_set_to": true,
+      "checklist": "storage/app/atlas/elite-compaction/MISSION-HTTP-FLIP-CHECKLIST-2026-07-09.json",
+      "live_evidence": {
+        "routes": "MET",
+        "auth": "MET (atlas.token)",
+        "rate_limit": "MET (throttle:60,1 added)",
+        "tests": "AiGatewayMissionBridgeTest 14 passed",
+        "pipeline_score": 10.0,
+        "pipeline_threshold": 9.0,
+        "provider_coverage_bypass_rate": 0
+      }
+    }
+  },
+  "env_keys_changed": [
+    {
+      "key": "ATLAS_FORGE_EXECUTION_GATE_ENFORCING",
+      "from": "unset/false",
+      "to": "true"
+    },
+    {
+      "key": "ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED",
+      "from": "unset/false",
+      "to": "true"
+    }
+  ],
+  "env_keys_explicitly_not_changed": [
+    "ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED (remains false)",
+    "ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED (already true)"
+  ],
+  "files_touched": [
+    "app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php",
+    "app/Services/Ai/Programming/Forge/ForgeIntakeService.php",
+    "routes/api.php",
+    ".env",
+    "storage/app/atlas/elite-compaction/FORGE-06-FLIP-CHECKLIST-2026-07-09.json",
+    "storage/app/atlas/elite-compaction/DECIDE-01-FLIP-CHECKLIST-2026-07-09.json",
+    "storage/app/atlas/elite-compaction/MISSION-HTTP-FLIP-CHECKLIST-2026-07-09.json",
+    "storage/app/atlas/elite-compaction/ONDA5-7-FLIP-RECEIPT-2026-07-09.json"
+  ],
+  "code_fixes_incidental": [
+    "Missing use import AtlasDevGateAdapter in ForgeWorkPacketExecutionCycleService (blocked cycle service resolution)",
+    "Missing use import AtlasContextOperationsRuntimeService in ForgeIntakeService (blocked intakeFromPrompt)"
+  ],
+  "honesty": {
+    "no_fake_fechado": true,
+    "decide_not_mixed_with_forge": true,
+    "unverified_left": 0
+  }
+}

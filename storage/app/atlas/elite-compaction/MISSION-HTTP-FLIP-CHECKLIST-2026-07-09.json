@@ -1,0 +1,70 @@
+{
+  "schema_version": "atlas.elite_compaction.mission_http_flip_checklist.v1",
+  "checklist_id": "MISSION-HTTP-FLIP-CHECKLIST-2026-07-09",
+  "updated_at": "2026-07-09T15:05:00+00:00",
+  "updated_by": "Residual Elite LAST Closeout Onda 7",
+  "flag": "ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED",
+  "config_key": "atlas_ai.kernel_http_integration.enabled",
+  "current_state": "ON — ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED=true in .env",
+  "what_this_flag_controls": "When true, AiGatewayService::enqueueInteraction routes through AiGatewayMissionBridge (Mission Foundation kernel) instead of chat-only path. trivial_skips_kernel remains separate.",
+  "smoke_criteria": {
+    "kernel_http_routes_registered": {
+      "description": "Kernel/mission HTTP surfaces registered (corrected path: ai/missions + ai/kernel-pipeline/report, not atlas-kernel/http).",
+      "smoke_command": "php artisan route:list --path=ai/missions && php artisan route:list --path=ai/kernel",
+      "result": "6 mission routes + 2 kernel-pipeline/report routes registered",
+      "status": "MET"
+    },
+    "auth_middleware_present": {
+      "description": "Auth on kernel/mission HTTP endpoints (atlas.token equivalent to atlas_kernel_auth).",
+      "smoke_command": "php artisan route:list --path=ai/missions --json",
+      "result": "ai/missions* and ai/kernel-pipeline/report use middleware [api, atlas.token, throttle:60,1]",
+      "status": "MET"
+    },
+    "rate_limit_guard_present": {
+      "description": "Rate limit on kernel HTTP / mission bridge surface before enabling.",
+      "smoke_command": "php artisan route:list --path=ai/missions --json; route:list --path=ai/kernel-pipeline --json",
+      "result": "throttle:60,1 added surgically to ai/missions (POST/GET/GET{delivery}) and ai/kernel-pipeline/report in routes/api.php",
+      "status": "MET",
+      "fix": "routes/api.php middleware throttle:60,1"
+    },
+    "provider_governance_consulted_on_http_path": {
+      "description": "Provider governance coverage on spawn surfaces.",
+      "proof_command": "php artisan atlas:provider:coverage --json",
+      "current_governed_rate": 1.0,
+      "bypass_rate": 0,
+      "status": "MET"
+    },
+    "smoke_test_green": {
+      "description": "Feature tests for kernel HTTP / mission bridge path green.",
+      "smoke_command": "php artisan test tests/Feature/Ai/Kernel/AiGatewayMissionBridgeTest.php --compact",
+      "result": "14 passed (67 assertions)",
+      "note": "No separate KernelHttpIntegration class; AiGatewayMissionBridgeTest is the canonical suite",
+      "status": "MET"
+    },
+    "teos_acos_pipeline_score": {
+      "description": "Pipeline score >= 9.0 before enabling risky integrations.",
+      "current_score": 10.0,
+      "threshold": 9.0,
+      "recheck_command": "php artisan atlas:cognition:scorecard --json",
+      "observed": {
+        "overall_out_of_10": 10,
+        "pipeline_score_out_of_10": 10,
+        "code": 10,
+        "doc": 10
+      },
+      "status": "MET"
+    }
+  },
+  "flip_procedure": {
+    "step_1": "Onda 3/7: pipeline rechecked at 10.0 (>= 9.0)",
+    "step_2": "Added throttle:60,1 to ai/missions + kernel-pipeline routes",
+    "step_3": "Re-ran AiGatewayMissionBridgeTest — 14 passed",
+    "step_4": "Set ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED=true — ALL MET",
+    "step_5": "Recorded FLIPPED in ONDA5-7 receipt"
+  },
+  "decision": "FLIPPED",
+  "env_change": "ATLAS_AI_KERNEL_HTTP_INTEGRATION_ENABLED=true",
+  "reason": "All smoke criteria MET including rate_limit + pipeline 10.0. Zero UNVERIFIED.",
+  "provider_safe": true,
+  "raw_content_exposed": false
+}

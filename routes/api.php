@@ -460,7 +460,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/decision-receipts/report', AtlasAiDecisionReceiptReportController::class);
     Route::get('/ai/ledger/{envelope}', [AtlasAiLedgerController::class, 'show']);
     Route::get('/ai/inbox-actions/report', AtlasAiInboxActionReportController::class);
-    Route::get('/ai/kernel-pipeline/report', AtlasAiKernelPipelineReportController::class);
+    Route::get('/ai/kernel-pipeline/report', AtlasAiKernelPipelineReportController::class)
+        ->middleware('throttle:60,1');
     Route::post('/ai/pipeline', AtlasAiPipelineController::class);
     Route::get('/ai/provider-performance', AtlasAiProviderPerformanceController::class);
     Route::get('/ai/provider-release-sources', AtlasAiProviderReleaseSourcesController::class);
@@ -562,9 +563,12 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
 
     // G3 — mission request→exec→cert via HTTP: enfileira a cadeia completa do
     // AtlasMissionService (certificação + branch, nunca main) e expõe polling.
-    Route::post('/ai/missions', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'store']);
-    Route::get('/ai/missions', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'index']);
-    Route::get('/ai/missions/{delivery}', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'show']);
+    Route::post('/ai/missions', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'store'])
+        ->middleware('throttle:60,1');
+    Route::get('/ai/missions', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'index'])
+        ->middleware('throttle:60,1');
+    Route::get('/ai/missions/{delivery}', [\App\Http\Controllers\AtlasMissionDeliveryController::class, 'show'])
+        ->middleware('throttle:60,1');
     Route::post('/ai/attachments/search', AiAttachmentSearchController::class);
     Route::post('/ai/uploads/chunks/start', [AiChunkedUploadController::class, 'start']);
     Route::post('/ai/uploads/chunks/{upload}/chunk', [AiChunkedUploadController::class, 'chunk']);

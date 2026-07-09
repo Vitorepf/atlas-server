@@ -1,0 +1,96 @@
+{
+  "artifact": "DECIDE-01-FLIP-CHECKLIST",
+  "date": "2026-07-09",
+  "updated_at": "2026-07-09T15:05:00+00:00",
+  "updated_by": "Residual Elite LAST Closeout Onda 6",
+  "scope": "ADML only — ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED + ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED. NOT Forge gate.",
+  "flags": {
+    "adml_auto_activation": "ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED → config atlas.patamar4.adml_auto_activation_enabled",
+    "adml_cost_outcome": "ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED → config atlas.patamar4.adml_cost_outcome.enabled"
+  },
+  "evidence_store": {
+    "kind": "jsonl",
+    "live_outcomes_path": "storage/atlas/atlas_decide/live_outcomes.jsonl",
+    "routing_activations_path": "storage/atlas/atlas_decide/routing_activations.jsonl",
+    "live_outcomes_lines": 3406,
+    "proven_real_count": 39,
+    "routing_activations_lines": 1,
+    "sql_tables_required": false,
+    "note": "ADML persists via JsonlReceiptStore, not SQL tables."
+  },
+  "live_thresholds": {
+    "source": "config atlas.patamar4.adml_cost_outcome (+ .env)",
+    "cost_outcome_enabled": true,
+    "min_evidence": 3,
+    "min_certification_rate": 0.8,
+    "min_score": 80,
+    "max_score_drop": 3,
+    "require_measured_cost": true,
+    "min_cost_samples": 1,
+    "auto_activation_enabled": false,
+    "min_calls_for_signal": 5
+  },
+  "criteria": [
+    {
+      "id": "store_present",
+      "status": "MET",
+      "evidence": "live_outcomes.jsonl exists with 3406 lines; AtlasDecideLiveOutcomeFeedbackService + JsonlReceiptStore wired"
+    },
+    {
+      "id": "proven_real_volume",
+      "status": "PARTIAL",
+      "required": "Enough proven_real outcomes for autoActivateFromLiveEvidence (proven_only=true path) AND actionable recommend()",
+      "observed": {
+        "proven_real_count": 39,
+        "proven_scopes": {
+          "programming|runtime_verifier|atlas:land": 25,
+          "programming|boundary_wiring_guard|atlas:land": 14
+        },
+        "recommend_proven_only": {
+          "scope": "programming|runtime_verifier",
+          "actionable": false,
+          "confidence": "high",
+          "reason": [
+            "evidence_strong",
+            "cost_outcome_no_eligible_cost_outcome_candidate"
+          ],
+          "cost_outcome_status": "blocked"
+        }
+      },
+      "blocker": "proven_real volume exists (39) and windows >= MIN_CALLS_FOR_SIGNAL=5, but cost_outcome gate (enabled=true) forces actionable=false until eligible measured-cost candidates exist"
+    },
+    {
+      "id": "cost_outcome_samples",
+      "status": "UNMET",
+      "required": "atlas.patamar4.adml_cost_outcome.min_evidence certified samples with quality/cost thresholds",
+      "query": "python count proven_real with cost_usd + quality_score from storage/atlas/atlas_decide/live_outcomes.jsonl",
+      "observed": {
+        "proven_real_total": 39,
+        "proven_with_measured_cost": 0,
+        "proven_with_quality_ge_80": 0,
+        "require_measured_cost": true,
+        "min_evidence": 3,
+        "min_cost_samples": 1
+      },
+      "blocker": "0 proven_real rows carry measured cost_usd; cost router cannot certify candidates while require_measured_cost=true"
+    },
+    {
+      "id": "auto_activation_flag",
+      "status": "OFF",
+      "current": false,
+      "flip_allowed": false,
+      "reason": "autoActivateFromLiveEvidence requires actionable proven_only recommendations; live recommend returns actionable=false"
+    },
+    {
+      "id": "cost_outcome_flag",
+      "status": "ON_ALREADY",
+      "current": true,
+      "flip_allowed": false,
+      "note": ".env already had ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED=true; left as-is. Flag ON does not imply auto-activation."
+    }
+  ],
+  "decision": "PARTIAL-assinado",
+  "decision_detail": "Store MET; cost_outcome already ON; auto-activation NOT flipped. Blocker: proven_real=39 but proven_with_measured_cost=0 → cost_outcome_no_eligible_cost_outcome_candidate → recommend(proven_only).actionable=false.",
+  "env_change": "none (ATLAS_PATAMAR4_ADML_AUTO_ACTIVATION_ENABLED remains unset/false)",
+  "forge_gate_note": "ATLAS_FORGE_EXECUTION_GATE_ENFORCING lives in FORGE-06-FLIP-CHECKLIST — do not mix"
+}

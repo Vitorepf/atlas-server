@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Programming\Forge;
 
 use App\Models\AiForgeIntake;
+use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;

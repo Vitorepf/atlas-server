@@ -7,6 +7,7 @@ use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
