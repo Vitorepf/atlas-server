@@ -201,6 +201,9 @@ final class RunController extends Controller
                     'worker_pid' => $pid,
                 ]);
             } catch (Throwable $e) {
+                if ($tokenResult->tokenId !== null) {
+                    $this->tokens->releaseConsumed($tokenResult->tokenId);
+                }
                 $this->recordRunState($runId, 'failed', [
                     'error_code' => 'ATLAS_DEV_RUN_DISPATCH_FAILED',
                     'message' => $this->redactThrowableMessage($e->getMessage(), $token),

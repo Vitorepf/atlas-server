@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenKeyMissingExc
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
+use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
 use Throwable;
@@ -84,7 +85,7 @@ final class PlanController extends Controller
             return response()->json([
                 'error' => [
                     'code' => 'ATLAS_DEV_PLAN_FAILED',
-                    'message' => $e->getMessage(),
+                    'message' => $this->redactThrowableMessage($e->getMessage()),
                 ],
             ], 422);
         }
@@ -183,5 +184,13 @@ final class PlanController extends Controller
         }
 
         return $workspace;
+    }
+
+    private function redactThrowableMessage(string $message): string
+    {
+        $message = AtlasSecurity::redactString($message);
+        $redacted = preg_replace('#/(?:Users|private/var|var/folders|tmp)/[^\s"\']+#', '[path-redacted]', $message);
+
+        return is_string($redacted) ? $redacted : $message;
     }
 }

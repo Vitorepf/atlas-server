@@ -235,6 +235,13 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $this->assertSame('failed', $latestState['status']);
         $this->assertSame('ATLAS_DEV_RUN_DISPATCH_FAILED', $latestState['error_code']);
         $this->assertStringNotContainsString('/Users/operator', (string) ($latestState['message'] ?? ''));
+        $this->assertNull(
+            AtlasDevConfirmationToken::query()
+                ->where('run_id', $plan['run_id'])
+                ->firstOrFail()
+                ->used_at,
+            'A failed worker dispatch must not burn the operator confirmation lease.',
+        );
     }
 
     public function test_run_extends_php_execution_time_before_provider_call(): void

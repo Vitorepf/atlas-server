@@ -75,7 +75,7 @@ final class ShowEndpointTest extends AtlasDevHttpTestCase
         $this->assertSame($plan['hashes']['task_contract'], $response->json('data.task_contract_hash'));
     }
 
-    public function test_show_marks_stale_running_worker_as_failed_for_rest_fallback(): void
+    public function test_show_reports_stale_running_worker_health_for_rest_fallback(): void
     {
         config()->set('atlas_dev.run_worker.stale_after_seconds', 60);
 
@@ -98,22 +98,92 @@ final class ShowEndpointTest extends AtlasDevHttpTestCase
             ->get('/ai/interactions/atlas-dev/runs/'.$runId);
 
         $response->assertStatus(200);
-        $response->assertJsonPath('data.state', 'complete');
-        $response->assertJsonPath('data.completion_state', 'failed');
-        $response->assertJsonPath('data.run_execution.status', 'failed');
-        $response->assertJsonPath('data.run_execution.stale', true);
-        $response->assertJsonPath('data.run_execution.error_code', 'ATLAS_DEV_RUN_WORKER_STALE');
+        $response->assertJsonPath('data.state', 'executing');
+        $response->assertJsonPath('data.completion_state', null);
+        $response->assertJsonPath('data.run_execution.status', 'running');
+        $response->assertJsonPath('data.run_execution_health.status', 'running_slow');
 
         $storage = $this->app->make(ReceiptStorage::class);
-        $this->assertSame(2, $storage->latestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE));
+        $this->assertSame(1, $storage->latestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE));
         $persisted = $storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
         $this->assertIsArray($persisted);
-        $this->assertSame('failed', $persisted['status']);
-        $this->assertSame('running', $persisted['previous_status']);
+        $this->assertSame('running', $persisted['status']);
 
         $index = AtlasDevRunIndex::query()->find($runId);
         $this->assertNotNull($index);
-        $this->assertSame('failed', $index->completion_state);
+        $this->assertNull($index->completion_state);
+    }
+
+    public function test_show_reports_slow_running_worker_without_mutating_state(): void
+    {
+        config()->set('atlas_dev.run_worker.stale_after_seconds', 60);
+
+        $plan = $this->postPlan($this->defaultRepairPayload());
+        $runId = $plan['run_id'];
+
+        $this->app->make(ReceiptStorage::class)->writeMonotonic(
+            $runId,
+            ArtifactNames::RUN_EXECUTION_STATE_BASE,
+            [
+                'schema_version' => 'atlas.dev.run_execution_state.v1',
+                'run_id' => $runId,
+                'status' => 'running',
+                'recorded_at' => now()->subMinutes(5)->toISOString(),
+                'task_contract_hash' => $plan['hashes']['task_contract'],
+            ],
+        );
+
+        $response = $this->withHeaders($this->headers)
+            ->get('/ai/interactions/atlas-dev/runs/'.$runId);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.state', 'executing');
+        $response->assertJsonPath('data.completion_state', null);
+        $response->assertJsonPath('data.run_execution.status', 'running');
+        $response->assertJsonPath('data.run_execution_health.status', 'running_slow');
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $this->assertSame(1, $storage->latestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE));
+        $index = AtlasDevRunIndex::query()->find($runId);
+        $this->assertNotNull($index);
+        $this->assertNull($index->completion_state);
+    }
+
+    public function test_show_reports_dead_worker_without_mutating_state(): void
+    {
+        config()->set('atlas_dev.run_worker.stale_after_seconds', 60);
+
+        $plan = $this->postPlan($this->defaultRepairPayload());
+        $runId = $plan['run_id'];
+
+        $this->app->make(ReceiptStorage::class)->writeMonotonic(
+            $runId,
+            ArtifactNames::RUN_EXECUTION_STATE_BASE,
+            [
+                'schema_version' => 'atlas.dev.run_execution_state.v1',
+                'run_id' => $runId,
+                'status' => 'running',
+                'recorded_at' => now()->subMinutes(5)->toISOString(),
+                'worker_pid' => 99999999,
+                'task_contract_hash' => $plan['hashes']['task_contract'],
+            ],
+        );
+
+        $response = $this->withHeaders($this->headers)
+            ->get('/ai/interactions/atlas-dev/runs/'.$runId);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.state', 'complete');
+        $response->assertJsonPath('data.completion_state', 'failed');
+        $response->assertJsonPath('data.run_execution.status', 'running');
+        $response->assertJsonPath('data.run_execution_health.status', 'worker_dead');
+        $response->assertJsonPath('data.run_execution_health.error_code', 'ATLAS_DEV_RUN_WORKER_DEAD');
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $this->assertSame(1, $storage->latestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE));
+        $index = AtlasDevRunIndex::query()->find($runId);
+        $this->assertNotNull($index);
+        $this->assertNull($index->completion_state);
     }
 
     public function test_show_returns_full_receipt_for_rest_fallback(): void

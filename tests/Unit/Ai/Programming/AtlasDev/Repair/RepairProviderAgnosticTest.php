@@ -62,6 +62,7 @@ final class RepairProviderAgnosticTest extends TestCase
         // and the deterministic fast path, so the assertions observe repair
         // behavior only. E3 is already off by default.
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        config()->set('atlas.programming.strict_retrieval_gate', false);
         foreach (['e1', 'e2', 'e3', 'e4', 'e5', 'e6'] as $elevation) {
             config()->set("atlas_dev.elevations.{$elevation}.mode", 'off');
         }
@@ -405,6 +406,48 @@ final class RepairProviderAgnosticTest extends TestCase
         $this->assertContains('provider_exit_1', $result->providerCallSummary['error_codes']);
     }
 
+    public function test_distinct_failures_do_not_record_repair_attempts_above_cap(): void
+    {
+        $runId = 'dev-repair-distinct-cap-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId);
+        $this->seedProbeFile();
+
+        $gateway = new FakeClaudeCliGateway;
+        $gateway->queue($this->gatewayResponse(stdout: $this->probeDiff())); // original
+        $gateway->queue($this->gatewayResponse(stdout: $this->probeDiff())); // repair #1
+        $gateway->queue($this->gatewayResponse(stdout: $this->probeDiff())); // repair #2
+
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->defaultSuccess = false;
+        $commandRunner->queue($this->validationFailedWithStdout('FAIL first distinct failure'));
+        $commandRunner->queue($this->validationFailedWithStdout('FAIL second distinct failure'));
+        $commandRunner->queue($this->validationFailedWithStdout('FAIL third distinct failure'));
+
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope();
+        $repairPolicy = $this->repairPolicy(maxAttempts: 2);
+        $repairPolicy['abort_on_same_signature_twice'] = false;
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['src/AtlasDevRepairProbe.txt'],
+            'validation_commands' => [$this->validationCommand()],
+            'max_files_changed' => 1,
+            'repair_policy' => $repairPolicy,
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertNotSame('passed', $result->completionState);
+        $this->assertArrayHasKey('repair_attempts', $result->providerCallSummary, json_encode($result->providerCallSummary, JSON_PRETTY_PRINT));
+        $this->assertLessThanOrEqual(2, $result->providerCallSummary['repair_attempts'], json_encode($result->providerCallSummary, JSON_PRETTY_PRINT));
+        $this->assertCount(3, $gateway->requests, 'original call plus exactly two repairs');
+    }
+
     /**
      * VAL-M1-017 (driver-throws variant): a repair re-invocation whose driver
      * THROWS is caught and degrades honestly to `failed`, bounded by the cap,
@@ -562,10 +605,15 @@ DIFF;
 
     private function validationFailed(int $exitCode = 1): VerificationCommandResult
     {
+        return $this->validationFailedWithStdout('FAIL AtlasDevRepairProbeTest', $exitCode);
+    }
+
+    private function validationFailedWithStdout(string $stdout, int $exitCode = 1): VerificationCommandResult
+    {
         return new VerificationCommandResult(
             command: $this->validationCommand(),
             exitCode: $exitCode,
-            stdout: 'FAIL AtlasDevRepairProbeTest',
+            stdout: $stdout,
             stderr: '',
             durationMs: 9,
         );

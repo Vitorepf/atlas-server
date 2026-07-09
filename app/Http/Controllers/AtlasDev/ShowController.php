@@ -55,9 +55,7 @@ final class ShowController extends Controller
     public function __invoke(string $runId): JsonResponse
     {
         $runExecutionState = $this->storage->readLatestVersion($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE);
-        if ($this->isStaleRunningState($runExecutionState)) {
-            $runExecutionState = $this->persistStaleRunningFailure($runId, $runExecutionState);
-        }
+        $runExecutionHealth = $this->runExecutionHealth($runExecutionState);
 
         $artifactRefs = [];
         foreach (self::PERSISTED_LOOKUP as $key => $filename) {
@@ -101,6 +99,12 @@ final class ShowController extends Controller
         $completion = is_array($receipt) ? ($receipt['completion'] ?? null) : null;
         $completionState = is_array($completion) ? ($completion['status'] ?? null) : null;
         if (! is_string($completionState) || $completionState === '') {
+            $completionState = match ((string) ($runExecutionHealth['status'] ?? '')) {
+                'worker_dead' => 'failed',
+                default => null,
+            };
+        }
+        if (! is_string($completionState) || $completionState === '') {
             $completionState = match (is_array($runExecutionState) ? ($runExecutionState['status'] ?? null) : null) {
                 'failed' => 'failed',
                 'cancelled' => 'cancelled',
@@ -125,6 +129,7 @@ final class ShowController extends Controller
                 'state' => $this->phaseFromRunExecutionState($runExecutionState, $completionState),
                 'completion_state' => $completionState,
                 'run_execution' => is_array($runExecutionState) ? $runExecutionState : null,
+                'run_execution_health' => $runExecutionHealth,
                 'has_receipt' => $receipt !== null,
                 'has_scope_guard_receipt' => $scope !== null,
                 'has_plan' => $taskContract !== null,
@@ -187,51 +192,82 @@ final class ShowController extends Controller
 
     /**
      * @param  array<string, mixed>|null  $runExecutionState
+     * @return array<string, mixed>|null
      */
-    private function isStaleRunningState(?array $runExecutionState): bool
+    private function runExecutionHealth(?array $runExecutionState): ?array
     {
         if (! is_array($runExecutionState) || ($runExecutionState['status'] ?? null) !== 'running') {
-            return false;
-        }
-
-        $recordedAt = $runExecutionState['recorded_at'] ?? null;
-        if (! is_string($recordedAt) || trim($recordedAt) === '') {
-            return false;
-        }
-
-        $timestamp = strtotime($recordedAt);
-        if ($timestamp === false) {
-            return false;
+            return null;
         }
 
         $staleAfter = max(60, (int) $this->config->get('atlas_dev.run_worker.stale_after_seconds', 900));
 
-        return (time() - $timestamp) > $staleAfter;
+        $recordedAt = $runExecutionState['recorded_at'] ?? null;
+        if (! is_string($recordedAt) || trim($recordedAt) === '') {
+            return [
+                'status' => 'running_unknown',
+                'stale' => null,
+                'stale_after_seconds' => $staleAfter,
+            ];
+        }
+
+        $timestamp = strtotime($recordedAt);
+        if ($timestamp === false) {
+            return [
+                'status' => 'running_unknown',
+                'stale' => null,
+                'recorded_at' => $recordedAt,
+                'stale_after_seconds' => $staleAfter,
+            ];
+        }
+
+        $ageSeconds = max(0, time() - $timestamp);
+        if ($ageSeconds <= $staleAfter) {
+            return [
+                'status' => 'running',
+                'stale' => false,
+                'age_seconds' => $ageSeconds,
+                'stale_after_seconds' => $staleAfter,
+            ];
+        }
+
+        $workerPid = $this->positiveInt($runExecutionState['worker_pid'] ?? null);
+        if ($workerPid !== null && ! $this->processAppearsAlive($workerPid)) {
+            return [
+                'status' => 'worker_dead',
+                'stale' => true,
+                'age_seconds' => $ageSeconds,
+                'stale_after_seconds' => $staleAfter,
+                'worker_pid' => $workerPid,
+                'error_code' => 'ATLAS_DEV_RUN_WORKER_DEAD',
+            ];
+        }
+
+        return array_filter([
+            'status' => 'running_slow',
+            'stale' => true,
+            'age_seconds' => $ageSeconds,
+            'stale_after_seconds' => $staleAfter,
+            'worker_pid' => $workerPid,
+        ], static fn (mixed $value): bool => $value !== null);
     }
 
-    /**
-     * @param  array<string, mixed>  $runExecutionState
-     * @return array<string, mixed>
-     */
-    private function persistStaleRunningFailure(string $runId, array $runExecutionState): array
+    private function positiveInt(mixed $value): ?int
     {
-        $failed = array_filter([
-            'schema_version' => 'atlas.dev.run_execution_state.v1',
-            'run_id' => $runId,
-            'status' => 'failed',
-            'recorded_at' => now()->toISOString(),
-            'stale' => true,
-            'error_code' => 'ATLAS_DEV_RUN_WORKER_STALE',
-            'previous_status' => $runExecutionState['status'] ?? null,
-            'previous_recorded_at' => $runExecutionState['recorded_at'] ?? null,
-            'task_contract_hash' => $runExecutionState['task_contract_hash'] ?? null,
-            'worker_pid' => $runExecutionState['worker_pid'] ?? null,
-            'process_group_id' => $runExecutionState['process_group_id'] ?? null,
-        ], static fn (mixed $value): bool => $value !== null);
+        if (! is_numeric($value)) {
+            return null;
+        }
+        $int = (int) $value;
 
-        $this->storage->writeMonotonic($runId, ArtifactNames::RUN_EXECUTION_STATE_BASE, $failed);
-        $this->runIndex->updateCompletion($runId, 'failed');
+        return $int > 0 ? $int : null;
+    }
 
-        return $failed;
+    private function processAppearsAlive(int $pid): bool
+    {
+        if (function_exists('posix_kill')) {
+            return @posix_kill($pid, 0);
+        }
+
+        return true;
     }
 }

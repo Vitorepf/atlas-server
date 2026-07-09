@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliRequest;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliResponse;
@@ -197,5 +198,34 @@ final class PlanEndpointTest extends AtlasDevHttpTestCase
             ->postJson('/ai/interactions/atlas-dev/plan', $payload)
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'ATLAS_DEV_PLAN_FAILED');
+    }
+
+    public function test_plan_failure_redacts_external_error_details(): void
+    {
+        $this->app->instance(AtlasDevFastPathOrchestrator::class, new class extends AtlasDevFastPathOrchestrator
+        {
+            public function __construct() {}
+
+            public function planOnly(
+                string $surfaceId,
+                string $workspace,
+                string $rawIntent,
+                array $userConstraints = [],
+                array $surfaceHints = [],
+            ): \App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult {
+                throw new \RuntimeException('planner failed at /Users/operator/dev/Atlas/atlas-server/.env with api_key=sk-plan-secret');
+            }
+        });
+
+        $response = $this->withHeaders($this->headers)
+            ->postJson('/ai/interactions/atlas-dev/plan', $this->defaultRepairPayload());
+
+        $response->assertStatus(422)
+            ->assertJsonPath('error.code', 'ATLAS_DEV_PLAN_FAILED');
+
+        $body = (string) $response->getContent();
+        $this->assertStringNotContainsString('/Users/operator', $body);
+        $this->assertStringNotContainsString('/atlas-server/.env', $body);
+        $this->assertStringNotContainsString('sk-plan-secret', $body);
     }
 }

@@ -420,7 +420,6 @@ final class PipelineRunExecutor implements RunExecutor
                     break;
                 }
 
-                $repairAttempt++;
                 if ($verificationResult->aggregateStatus === VerificationGateResult::STATUS_FAILED) {
                     $sawFailedGate = true;
                 }
@@ -452,11 +451,12 @@ final class PipelineRunExecutor implements RunExecutor
                 }
                 $lastFailureSignature = $currentSignature;
 
-                if ($repairAttempt > $repairCap) {
+                if ($repairAttempt >= $repairCap) {
                     // Cap exhausted — anti-spin guarantee.
                     $abortReason = 'validation_failed_after_max_repairs';
                     break;
                 }
+                $repairAttempt++;
 
                 // M2: Build repair prompt with failure context fed forward.
                 // REUSES the armed RepairPromptComposer (listed in

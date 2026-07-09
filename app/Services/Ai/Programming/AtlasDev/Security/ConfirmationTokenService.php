@@ -137,6 +137,18 @@ class ConfirmationTokenService
         });
     }
 
+    public function releaseConsumed(string $tokenId): void
+    {
+        if ($tokenId === '') {
+            return;
+        }
+
+        AtlasDevConfirmationToken::query()
+            ->whereKey($tokenId)
+            ->whereNotNull('used_at')
+            ->update(['used_at' => null]);
+    }
+
     /**
      * Trim whitespace and treat empty / null as "no pin". Hashes are 64 hex
      * chars (sha256) or 128 (HMAC-SHA512); both fit within the 128-column.
