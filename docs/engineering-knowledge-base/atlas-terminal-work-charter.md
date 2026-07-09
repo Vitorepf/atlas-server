@@ -185,7 +185,7 @@ Um cockpit no terminal onde o operador **vê o que o autônomo/Dev/Forge fez + a
 ## 5. AS 3 FRENTES (com % pronto honesto — atualizado 09/07)
 1. **Cockpit de review — ✅ ENTREGUE.** Produtor (`atlas:task:review:publish` + cadência 10min default-OFF via `ATLAS_TERMINAL_REVIEW_PUBLISH_ENABLED`) + veredito (`task_landing_review_approve|reject`) + gerador (`atlas:task:review:deep`) + leitura (`atlas:cli:inbox`). Ciclo landing→inbox→veredito→(revert governado) fechado e provado no vivo.
 2. **Ergonomia CLI — ✅ agregador entregue.** `atlas:cli:cockpit`: cérebro+fila+autonomia+landings+review pendente+Dev+Forge, fail-open por seção, TerminalMarkdownRenderer, `--json`. Restam melhorias incrementais (dashboard legado segue cego; adoção ampla do renderer opcional).
-3. **Endurecer o contrato (L3) — EM VOO por outro worker (09/07):** mudanças uncommitted no `AiProviderManager` implementando coverage/`recordBypass`. NÃO tocar até landar (shared-main, leases disjuntos).
+3. **Endurecer o contrato (L3) — call-sites ✅ FECHADOS 09/07; medidor em voo.** Todo spawn direto de provider agora consulta o seam governado (`ProviderGovernanceConsult::consultBeforeSpawn`, advisory fail-open): triplo claude 3/3 (Forge/Dev pré-existentes + baseline runner novo) e lane SDK no choke `ProviderRuntimeProcessFactory::make`. Rede anti-reabertura: `ProviderSpawnGovernanceConsultTest`. A metade do MEDIDOR (`recordBypass` no `AiProviderManager` + CoverageLedger) segue em voo por OUTRO worker (arquivos sujos — não tocar até landar); enforce OFF é decisão do operador (GAP-GOV-01).
 
 ## 6. A PRIMEIRA FATIA (detalhada — maior destrave por esforço)
 **Ligar o produtor de review do autônomo vivo:** a cada landing de task, emitir um item no inbox com **diff + evidence-pack + approve/reject**.

@@ -76,6 +76,22 @@ class EngineeringClaudeCodeBaselineRunnerService
             ];
         }
 
+        // L3 governança — o 3º pé do triplo claude fora do AiProviderManager (Forge e Dev
+        // já consultam). Advisory + fail-open: grava a execução como CONSULTED no coverage
+        // ledger e NUNCA altera/bloqueia o spawn, então a medição do baseline segue idêntica.
+        try {
+            if (function_exists('app')) {
+                app(\App\Services\Ai\Governance\ProviderGovernanceConsult::class)->consultBeforeSpawn([
+                    'provider' => 'claude_cli',
+                    'surface' => 'engineering_claude_baseline',
+                    'prompt' => $prompt,
+                    'kind' => 'atlas_programming',
+                ]);
+            }
+        } catch (\Throwable) {
+            // fail-open: governança indisponível nunca derruba a captura
+        }
+
         $result = $this->runProcess($command, $prompt, $timeout, $workspace);
         $gate = $this->validationGate($runnerOptions, $workspace);
         $deterministicGatesPassed = $result->ok && (string) ($gate['status'] ?? '') === 'passed';

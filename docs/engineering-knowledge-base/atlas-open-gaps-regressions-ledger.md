@@ -175,7 +175,7 @@ Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
 - **GAP-07** 🟡 `causal_selector_enabled` OFF → seletor causal cai pro ordering puro (arco de aprendizado inerte).
 - **GAP-08** 🟡 `adml_auto_activation` OFF → auto-ativação do ADML (live evidence loop) inerte.
 - **GAP-GOV-01** 🟡 `enforce=OFF` (config:1168) + `cost_guard.hard_units=0` → `should_block` nunca dispara (governança mede, não governa).
-- **GAP-GOV-02** 🟡 ledger 0 records de músculo (66/66 ai_provider_manager) → bypass-rate não-provado.
+- **GAP-GOV-02** 🟡→🟢 **call-sites FECHADOS 09/07**: triplo claude 3/3 consultando (Forge base:417 ✅ pré, Dev PipelineRunExecutor:1389 ✅ pré, **baseline runner ✅ novo** — advisory fail-open, nunca altera o spawn/medição) + lane SDK fechada no choke `ProviderRuntimeProcessFactory::make` (cursor/minimax/antigravity, 1 lugar cobre os 3). Rede anti-reabertura: `tests/Feature/Architecture/ProviderSpawnGovernanceConsultTest.php`. Restante da frente: o MEDIDOR (`recordBypass`/coverage no `AiProviderManager`) está em voo por outro worker; enforce segue OFF (GAP-GOV-01, decisão do operador).
 
 ## 🟢 D. Dormentes VIVO-VIÁVEIS: bridges/spines 0-caller que fechariam o loop do autônomo (reuse, não construir)
 > Padrão "the MISSING SPINE": produtor construído, 0 callers, aponta pro vivo. LIGAR destrava.

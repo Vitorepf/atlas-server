@@ -14,6 +14,21 @@ final class ProviderRuntimeProcessFactory
      */
     public static function make(array $argv, ?string $cwd, array $env, int $timeout, ?callable $factory = null): Process
     {
+        // L3 governança — choke único da lane SDK (cursor/minimax/antigravity spawnam por
+        // aqui sem passar pelo AiProviderManager). Advisory + fail-open: grava CONSULTED no
+        // coverage ledger e nunca altera o Process construído.
+        try {
+            if (function_exists('app') && $argv !== []) {
+                app(\App\Services\Ai\Governance\ProviderGovernanceConsult::class)->consultBeforeSpawn([
+                    'provider' => basename((string) $argv[0]),
+                    'surface' => 'provider_runtime_process_factory',
+                    'kind' => 'atlas_programming',
+                ]);
+            }
+        } catch (\Throwable) {
+            // fail-open: governança indisponível nunca impede a construção do processo
+        }
+
         if ($factory !== null) {
             $product = call_user_func($factory, $argv, $cwd, $env, $timeout);
             if ($product instanceof Process) {
