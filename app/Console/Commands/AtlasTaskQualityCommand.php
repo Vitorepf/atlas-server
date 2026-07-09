@@ -146,7 +146,7 @@ final class AtlasTaskQualityCommand extends Command
         }
         $r = $this->app()->make(AtlasTaskWorkerInstructionLint::class)->lint($packet);
 
-        return ['status' => 'ok', 'lint' => $r];
+        return ['status' => ($r['accepted'] ?? false) ? 'ok' : 'lint_rejected', 'lint' => $r];
     }
 
     /**
