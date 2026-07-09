@@ -31,6 +31,7 @@ use App\Services\Ai\Programming\AtlasDev\Gate\ReceiptStorageAdapter;
 use App\Services\Ai\Programming\AtlasDev\Gate\ScopeGuard;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGate;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
+use App\Services\Ai\Programming\AtlasDev\Gate\WorktreeBaseline;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\PatchIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService;
@@ -71,6 +72,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GateOutcome;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopeFileDiff;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ScopePreExistingChange;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
@@ -143,6 +145,8 @@ final class PipelineRunExecutor implements RunExecutor
         if ($commandRunner === null) {
             return $this->blockedDueToUnwiredDrivers($envelope, false, true, $taskContract->providerLock->provider, $taskContract->providerLock->modelFamily);
         }
+
+        $workspaceBaseline = $this->captureWorkspaceBaseline($envelope->workspace, $taskContract->allowedFiles);
 
         // M2: Repair-to-green loop. When the verification gate fails,
         // re-invoke the SAME locked provider with failure context up to the cap.
@@ -271,6 +275,7 @@ final class PipelineRunExecutor implements RunExecutor
                 promptProjection: $promptProjection,
                 commandRunner: $commandRunner,
                 candidateCount: $bestOfNCandidateCount,
+                workspaceBaseline: $workspaceBaseline,
                 regressionBaseline: $regressionBaseline,
                 e5Config: $e5Config,
                 e4Config: $e4Config,
@@ -336,6 +341,7 @@ final class PipelineRunExecutor implements RunExecutor
                     envelope: $envelope,
                     taskContract: $taskContract,
                     diffResult: $diffResult,
+                    baseline: $workspaceBaseline['scope'],
                 );
 
                 $patchApplyResult = $this->applyPatchIfSafe(
@@ -506,8 +512,22 @@ final class PipelineRunExecutor implements RunExecutor
                     weakOutputHint: $weakOutputHint,
                 );
 
-                // Revert workspace changes before re-invoking provider.
-                $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+                // Restore the pre-run operator baseline before re-invoking the
+                // provider. Never check out from HEAD here: allowed_files may
+                // already contain operator WIP that the retry loop does not own.
+                $restoreError = $this->revertWorkspaceChanges(
+                    $envelope->workspace,
+                    $taskContract->allowedFiles,
+                    $workspaceBaseline,
+                );
+                if ($restoreError !== null) {
+                    $abortReason = 'workspace_baseline_restore_refused';
+                    $callResultForGates = $this->withProviderError(
+                        $callResultForGates,
+                        'workspace_baseline_restore_refused:'.$restoreError,
+                    );
+                    break;
+                }
 
                 // Reset for next iteration — provider will be called again.
                 $callResult = null;
@@ -1032,13 +1052,41 @@ final class PipelineRunExecutor implements RunExecutor
             );
         }
 
+        // OBRA #4 S1+S2 — evidence for a Dev repair delivery. Build this
+        // BEFORE the sovereign floor certifies the delivery so certification
+        // sees the replay proof / regression-lock ref instead of only a bare
+        // attempt count.
+        $repairEvidence = ['attempts' => $repairAttempt];
+        if ($repairAttempt > 0 && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
+            $devFailureSignature = (string) ($lastFailureSignature ?? '');
+            $repairEvidence['replay_proof'] = [
+                'original_failure_ref' => $devFailureSignature !== '' ? $devFailureSignature : 'verification_gate',
+                'replayed' => true,
+                'passed' => true,
+            ];
+            if ($devFailureSignature !== '') {
+                try {
+                    $lockLedger = new RegressionLockLedger;
+                    $lockEntry = $lockLedger->has($devFailureSignature) ?? $lockLedger->lock([
+                        'failure_signature' => $devFailureSignature,
+                        'origin' => 'atlas_dev_m2',
+                        'failing_case' => 'verification_gate',
+                        'locked_test_ref' => 'existing_suite_verification_commands',
+                    ]);
+                    $repairEvidence['regression_lock_ref'] = (string) ($lockEntry['lock_ref'] ?? '');
+                } catch (\Throwable) {
+                    // Best-effort: absence of the lock is charged by the floor.
+                }
+            }
+        }
+
         [$decision, $sovereignDevFloorReceipt] = $this->applySovereignDevFloor(
             $decision,
             $verificationResult,
             $scopeReceipt,
             $mutationTestingResult,
             $mutationScoreVerdict,
-            $repairAttempt,
+            $repairEvidence,
             $runId,
         );
 
@@ -1223,36 +1271,6 @@ final class PipelineRunExecutor implements RunExecutor
                 }
             } catch (\Throwable) {
                 // fail-open
-            }
-        }
-
-        // OBRA #4 S1+S2 — evidência de repair do caminho Dev. Um run que convergiu VIA o loop M2
-        // re-rodou os comandos de verificação que FALHARAM até ficarem verdes: replay-proof por
-        // construção do próprio loop. O regression-lock grava direto no ledger — o caso que falhou
-        // JÁ é teste da suíte (a sonda anti-flake 3× existe para impedir teste NOVO flaky de entrar;
-        // aqui nada novo entra, trancamos o binding assinatura-da-falha→suíte). Best-effort: erro de
-        // ledger nunca derruba o run; a cobrança fail-closed é do floor quando o bundle levar `repair`.
-        $repairEvidence = ['attempts' => $repairAttempt];
-        if ($repairAttempt > 0 && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED) {
-            $devFailureSignature = (string) ($lastFailureSignature ?? '');
-            $repairEvidence['replay_proof'] = [
-                'original_failure_ref' => $devFailureSignature !== '' ? $devFailureSignature : 'verification_gate',
-                'replayed' => true,
-                'passed' => true,
-            ];
-            if ($devFailureSignature !== '') {
-                try {
-                    $lockLedger = new RegressionLockLedger;
-                    $lockEntry = $lockLedger->has($devFailureSignature) ?? $lockLedger->lock([
-                        'failure_signature' => $devFailureSignature,
-                        'origin' => 'atlas_dev_m2',
-                        'failing_case' => 'verification_gate',
-                        'locked_test_ref' => 'existing_suite_verification_commands',
-                    ]);
-                    $repairEvidence['regression_lock_ref'] = (string) ($lockEntry['lock_ref'] ?? '');
-                } catch (\Throwable) {
-                    // best-effort — a ausência do lock é cobrada pelo floor, nunca engolida aqui
-                }
             }
         }
 
@@ -1912,11 +1930,11 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * candidates are still evaluated.
      *
      * Workspace handling: the hermes provider mutates the workspace directly,
-     * so between candidates the workspace is reverted (git checkout + clean)
-     * and each candidate's diff TEXT is captured. After selection, the
-     * workspace is reverted once more and the WINNER's diff is re-applied
-     * (git apply) so the persisted diff hash equals the selected candidate's
-     * (VAL-M4-008).
+     * so between candidates the workspace is restored to the captured
+     * operator-owned baseline and each candidate's diff TEXT is captured.
+     * After selection, the workspace is restored once more and the WINNER's
+     * diff is re-applied (git apply) so the persisted diff hash equals the
+     * selected candidate's (VAL-M4-008).
      *
      * @return array{
      *   callResult:ProviderCallResult,
@@ -1935,6 +1953,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         ProviderPromptProjection $promptProjection,
         VerificationCommandRunner $commandRunner,
         int $candidateCount,
+        array $workspaceBaseline,
         ?RegressionBaselineCache $regressionBaseline = null,
         ?ElevationConfig $e5Config = null,
         ?ElevationConfig $e4Config = null,
@@ -1957,7 +1976,20 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             // Revert any prior candidate's workspace mutation before the next
             // candidate runs, so each candidate's diff is independent.
             if ($i > 0) {
-                $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+                $restoreError = $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles, $workspaceBaseline);
+                if ($restoreError !== null) {
+                    return $this->bestOfNWorkspaceRestoreFailed(
+                        envelope: $envelope,
+                        promptProjection: $promptProjection,
+                        taskContract: $taskContract,
+                        candidateCount: $candidateCount,
+                        candidates: $candidates,
+                        providerCalls: $providerCalls,
+                        regressionBaseline: $regressionBaseline,
+                        e5Active: $e5Active,
+                        reason: $restoreError,
+                    );
+                }
             }
 
             try {
@@ -1983,7 +2015,20 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     'e5_regressions' => [],
                 ];
                 // Revert partial workspace mutation from the throwing candidate.
-                $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+                $restoreError = $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles, $workspaceBaseline);
+                if ($restoreError !== null) {
+                    return $this->bestOfNWorkspaceRestoreFailed(
+                        envelope: $envelope,
+                        promptProjection: $promptProjection,
+                        taskContract: $taskContract,
+                        candidateCount: $candidateCount,
+                        candidates: $candidates,
+                        providerCalls: $providerCalls,
+                        regressionBaseline: $regressionBaseline,
+                        e5Active: $e5Active,
+                        reason: $restoreError,
+                    );
+                }
 
                 continue;
             }
@@ -1993,6 +2038,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 envelope: $envelope,
                 taskContract: $taskContract,
                 diffResult: $diffResult,
+                baseline: $workspaceBaseline['scope'],
             );
             $patchApplyResult = $this->applyPatchIfSafe(
                 diffResult: $diffResult,
@@ -2085,6 +2131,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     envelope: $envelope,
                     taskContract: $taskContract,
                     diffResult: DiffParseResult::invalid(['best_of_n_no_candidate_produced']),
+                    baseline: $workspaceBaseline['scope'],
                 ),
                 'patchApplyResult' => new PatchApplyResult(
                     status: PatchApplyResult::STATUS_SKIPPED,
@@ -2117,7 +2164,20 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // Re-apply the winner's diff to the workspace so the persisted diff
         // hash equals the selected candidate's (VAL-M4-008). The workspace was
         // last mutated by the FINAL candidate; revert then re-apply winner.
-        $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles);
+        $restoreError = $this->revertWorkspaceChanges($envelope->workspace, $taskContract->allowedFiles, $workspaceBaseline);
+        if ($restoreError !== null) {
+            return $this->bestOfNWorkspaceRestoreFailed(
+                envelope: $envelope,
+                promptProjection: $promptProjection,
+                taskContract: $taskContract,
+                candidateCount: $candidateCount,
+                candidates: $candidates,
+                providerCalls: $providerCalls,
+                regressionBaseline: $regressionBaseline,
+                e5Active: $e5Active,
+                reason: $restoreError,
+            );
+        }
         $reapplyStderr = '';
         $reapplyOk = $this->reapplyCandidateDiff(
             workspace: $envelope->workspace,
@@ -2175,6 +2235,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     envelope: $envelope,
                     taskContract: $taskContract,
                     diffResult: DiffParseResult::invalid(['winner_reapply_failed']),
+                    baseline: $workspaceBaseline['scope'],
                 ),
                 'patchApplyResult' => $reapplyPatchApply,
                 'verificationResult' => $this->verificationFailedDueToPatchApply($reapplyPatchApply),
@@ -2272,6 +2333,69 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 regressionBaseline: $regressionBaseline,
                 e5Active: $e5Active,
                 e4Summary: $e4SummaryData,
+            ),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $candidates
+     * @return array{
+     *   callResult:ProviderCallResult,
+     *   diffResult:DiffParseResult,
+     *   scopeReceipt:ScopeGuardReceipt,
+     *   patchApplyResult:PatchApplyResult,
+     *   verificationResult:VerificationGateResult,
+     *   callResultForGates:ProviderCallResult,
+     *   providerCalls:int,
+     *   summary:array<string,mixed>,
+     * }
+     */
+    private function bestOfNWorkspaceRestoreFailed(
+        OperationEnvelope $envelope,
+        ProviderPromptProjection $promptProjection,
+        LightTaskContract $taskContract,
+        int $candidateCount,
+        array $candidates,
+        int $providerCalls,
+        ?RegressionBaselineCache $regressionBaseline,
+        bool $e5Active,
+        string $reason,
+    ): array {
+        $blocked = $this->blockedProviderCallResult(
+            runId: $promptProjection->runId,
+            provider: 'hermes_cli',
+            modelFamily: $taskContract->providerLock->modelFamily,
+            error: 'workspace_baseline_restore_refused',
+            stderr: 'Workspace baseline restore refused: '.$reason,
+        );
+        $patchApply = new PatchApplyResult(
+            status: PatchApplyResult::STATUS_FAILED,
+            exitCode: 1,
+            durationMs: 0,
+            stdout: '',
+            stderr: 'Workspace baseline restore refused: '.$reason,
+            reason: 'workspace_baseline_restore_refused',
+        );
+        $diffResult = DiffParseResult::invalid(['workspace_baseline_restore_refused']);
+
+        return [
+            'callResult' => $blocked,
+            'diffResult' => $diffResult,
+            'scopeReceipt' => (new ScopeGuard)->check(
+                envelope: $envelope,
+                taskContract: $taskContract,
+                diffResult: $diffResult,
+            ),
+            'patchApplyResult' => $patchApply,
+            'verificationResult' => $this->verificationFailedDueToPatchApply($patchApply),
+            'callResultForGates' => $blocked,
+            'providerCalls' => $providerCalls,
+            'summary' => $this->bestOfNSummary(
+                candidateCount: $candidateCount,
+                candidates: $candidates,
+                winnerIndex: -1,
+                regressionBaseline: $regressionBaseline,
+                e5Active: $e5Active,
             ),
         ];
     }
@@ -2885,48 +3009,206 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
     }
 
     /**
-     * M2: Revert workspace changes before a repair re-invocation.
-     *
-     * Checks out the allowed files from HEAD so the next provider
-     * invocation starts from a clean state.
+     * Capture the operator-owned allowed-file baseline before any provider
+     * mutation. Retries restore to this snapshot, never to HEAD.
      *
      * @param  list<string>  $allowedFiles
+     * @return array{
+     *   scope: WorktreeBaseline,
+     *   entries: array<string,array<string,mixed>>
+     * }
      */
-    private function revertWorkspaceChanges(string $workspace, array $allowedFiles): void
+    private function captureWorkspaceBaseline(string $workspace, array $allowedFiles): array
     {
-        if (! is_dir($workspace)) {
-            return;
+        $paths = $this->safeRelativePaths($allowedFiles);
+        if (! is_dir($workspace) || $paths === []) {
+            return ['scope' => WorktreeBaseline::clean(), 'entries' => []];
         }
 
-        // Scope the revert to the run's allowed_files (the only paths a
-        // compliant attempt may have touched). The former whole-workspace
-        // `git checkout . && git clean -fd` destroyed the OPERATOR's
-        // uncommitted changes outside the task's scope on every repair
-        // iteration — an operator-present runtime must never blast paths the
-        // task contract does not own. Out-of-scope provider writes are the
-        // ScopeGuard's job (the attempt fails scope), not this revert's.
-        $paths = [];
-        foreach ($allowedFiles as $file) {
-            if (is_string($file) && trim($file) !== '' && ! str_contains($file, '..')) {
-                $paths[] = trim($file);
+        $status = $this->gitOutput($workspace, ['git', 'status', '--porcelain=v1', '--', ...$paths]);
+        $diff = $this->gitOutput($workspace, ['git', 'diff', '--no-ext-diff', '--binary', '--', ...$paths]);
+        $cachedDiff = $this->gitOutput($workspace, ['git', 'diff', '--cached', '--no-ext-diff', '--binary', '--', ...$paths]);
+        $diffHash = ($diff === '' && $cachedDiff === '')
+            ? null
+            : hash('sha256', $diff."\0".$cachedDiff);
+
+        $preExisting = array_map(
+            static fn (string $path): ScopePreExistingChange => new ScopePreExistingChange($path, true),
+            $this->pathsFromPorcelainStatus($status, $paths),
+        );
+
+        $entries = [];
+        foreach ($paths as $path) {
+            $entries[$path] = $this->captureWorkspaceBaselineEntry($workspace, $path);
+        }
+
+        return [
+            'scope' => new WorktreeBaseline(
+                gitStatusBefore: $status,
+                gitDiffBeforeHash: $diffHash,
+                preExistingChanges: $preExisting,
+            ),
+            'entries' => $entries,
+        ];
+    }
+
+    /**
+     * M2/M4: restore allowed files to the captured operator baseline before a
+     * retry/reapply. Returns a refusal reason instead of silently wiping when
+     * the current path shape is ambiguous.
+     *
+     * @param  list<string>  $allowedFiles
+     * @param  array{entries?: array<string,array<string,mixed>>}  $baseline
+     */
+    private function revertWorkspaceChanges(string $workspace, array $allowedFiles, array $baseline): ?string
+    {
+        if (! is_dir($workspace)) {
+            return null;
+        }
+
+        $paths = $this->safeRelativePaths($allowedFiles);
+        if ($paths === []) {
+            return null;
+        }
+
+        $entries = $baseline['entries'] ?? null;
+        if (! is_array($entries)) {
+            return 'baseline_missing';
+        }
+
+        foreach ($paths as $path) {
+            $entry = $entries[$path] ?? ['kind' => 'missing'];
+            $error = $this->restoreWorkspaceBaselineEntry($workspace, $path, $entry);
+            if ($error !== null) {
+                return $path.':'.$error;
             }
         }
 
-        if ($paths === []) {
-            // No declared scope to revert — do NOT fall back to a
-            // whole-workspace wipe.
-            return;
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $argv
+     */
+    private function gitOutput(string $workspace, array $argv): string
+    {
+        $process = new Process($argv, $workspace, null, null, 15.0);
+        $process->run();
+
+        return $process->isSuccessful() || $process->getExitCode() === 1
+            ? (string) $process->getOutput()
+            : '';
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     * @return list<string>
+     */
+    private function pathsFromPorcelainStatus(string $status, array $allowedFiles): array
+    {
+        $allowed = array_flip($allowedFiles);
+        $paths = [];
+        foreach (explode("\n", $status) as $line) {
+            if (strlen($line) < 4) {
+                continue;
+            }
+            $payload = trim(substr($line, 3));
+            foreach (str_contains($payload, ' -> ') ? explode(' -> ', $payload) : [$payload] as $path) {
+                $path = trim($path, "\" \t\n\r\0\x0B");
+                if (isset($allowed[$path])) {
+                    $paths[] = $path;
+                }
+            }
         }
 
-        // Restore tracked allowed files to HEAD (tolerates paths that do not
-        // exist at HEAD — e.g. a provider-created file — hence per-path).
-        foreach ($paths as $path) {
-            (new Process(['git', 'checkout', '-q', '--', $path], $workspace))->run();
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function captureWorkspaceBaselineEntry(string $workspace, string $path): array
+    {
+        $absolute = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
+        if (is_link($absolute)) {
+            return [
+                'kind' => 'symlink',
+                'target' => (string) readlink($absolute),
+            ];
+        }
+        if (is_file($absolute)) {
+            return [
+                'kind' => 'file',
+                'contents' => (string) file_get_contents($absolute),
+                'mode' => @fileperms($absolute) !== false ? (@fileperms($absolute) & 0o777) : null,
+            ];
+        }
+        if (is_dir($absolute)) {
+            return ['kind' => 'directory'];
         }
 
-        // Remove untracked files the provider may have created, scoped to the
-        // allowed paths only.
-        (new Process(['git', 'clean', '-fd', '--', ...$paths], $workspace))->run();
+        return ['kind' => 'missing'];
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     */
+    private function restoreWorkspaceBaselineEntry(string $workspace, string $path, array $entry): ?string
+    {
+        $absolute = rtrim($workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.$path;
+        $kind = (string) ($entry['kind'] ?? 'missing');
+
+        if ($kind === 'missing') {
+            return $this->removeFileLikePath($absolute) ? null : 'path_type_changed_to_directory';
+        }
+
+        if ($kind === 'directory') {
+            return is_dir($absolute) || @mkdir($absolute, 0o755, true) ? null : 'directory_restore_failed';
+        }
+
+        if (is_dir($absolute) && ! is_link($absolute)) {
+            return 'path_type_changed_to_directory';
+        }
+        if (! $this->ensureParentDirectory(dirname($absolute))) {
+            return 'parent_directory_restore_failed';
+        }
+        if (! $this->removeFileLikePath($absolute)) {
+            return 'path_type_changed_to_directory';
+        }
+
+        if ($kind === 'symlink') {
+            return @symlink((string) ($entry['target'] ?? ''), $absolute) ? null : 'symlink_restore_failed';
+        }
+
+        if ($kind === 'file') {
+            if (@file_put_contents($absolute, (string) ($entry['contents'] ?? ''), LOCK_EX) === false) {
+                return 'file_restore_failed';
+            }
+            if (is_int($entry['mode'] ?? null)) {
+                @chmod($absolute, (int) $entry['mode']);
+            }
+
+            return null;
+        }
+
+        return 'unknown_baseline_entry';
+    }
+
+    private function removeFileLikePath(string $absolute): bool
+    {
+        if (is_dir($absolute) && ! is_link($absolute)) {
+            return false;
+        }
+        if (file_exists($absolute) || is_link($absolute)) {
+            return @unlink($absolute);
+        }
+
+        return true;
+    }
+
+    private function ensureParentDirectory(string $directory): bool
+    {
+        return is_dir($directory) || @mkdir($directory, 0o755, true);
     }
 
     private function blockedProviderCallResult(
@@ -4437,6 +4719,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
      * Observe-mode always records the verdict; enforce-mode downgrades passed completions
      * the floor refuses to promote.
      *
+     * @param  array<string,mixed>  $repairEvidence
      * @return array{0:CompletionDecision,1:?array<string,mixed>}
      */
     private function applySovereignDevFloor(
@@ -4445,7 +4728,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         ScopeGuardReceipt $scopeReceipt,
         ?MutationTestingResult $mutationTestingResult,
         ?MutationScoreVerdict $mutationScoreVerdict,
-        int $repairAttempt,
+        array $repairEvidence,
         string $runId,
     ): array {
         $enforcing = (bool) config('atlas.programming.sovereign_floor_enforced', true);
@@ -4469,7 +4752,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 'selected_tests' => $commands,
                 'artifacts' => ['verification_receipt:'.$runId],
             ],
-            'repair' => $repairAttempt > 0 ? ['attempts' => $repairAttempt] : [],
+            'repair' => (int) ($repairEvidence['attempts'] ?? 0) > 0 ? $repairEvidence : [],
         ];
         if ($mutationScoreVerdict instanceof MutationScoreVerdict) {
             $evidence['mutation_verdict'] = $mutationScoreVerdict;

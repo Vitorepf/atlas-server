@@ -338,6 +338,86 @@ DIFF;
         $this->assertSame(hash('sha256', $log['combined_output']), $log['output_hash']);
     }
 
+    public function test_repair_retry_restores_operator_wip_baseline_instead_of_checking_out_allowed_files(): void
+    {
+        config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
+        config()->set('atlas.programming.strict_retrieval_gate', false);
+
+        $runId = 'dev-wip-preserve-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        $this->initGitWorkspace();
+
+        $tracked = $this->tmpWorkspace.'/app/Foo.php';
+        $deleted = $this->tmpWorkspace.'/app/Deleted.php';
+        $renamedOld = $this->tmpWorkspace.'/app/RenamedOld.php';
+        $renamedNew = $this->tmpWorkspace.'/app/RenamedNew.php';
+        $untracked = $this->tmpWorkspace.'/tests/Unit/FooTest.php';
+        $binary = $this->tmpWorkspace.'/fixtures/blob.bin';
+
+        mkdir(dirname($tracked), 0o755, true);
+        mkdir(dirname($untracked), 0o755, true);
+        mkdir(dirname($binary), 0o755, true);
+        file_put_contents($tracked, "<?php\nfinal class Foo { public function value(): string { return 'clean'; } }\n");
+        file_put_contents($deleted, "<?php\n// clean tracked file\n");
+        file_put_contents($renamedOld, "<?php\n// clean rename source\n");
+        file_put_contents($binary, "clean-binary\0bytes");
+        $this->git(['add', 'app/Foo.php', 'app/Deleted.php', 'app/RenamedOld.php', 'fixtures/blob.bin']);
+        $this->git(['commit', '-m', 'fixture']);
+
+        $trackedWip = "<?php\nfinal class Foo { public function value(): string { return 'operator-wip'; } }\n";
+        $untrackedWip = "<?php\n// operator untracked test WIP\n";
+        $renamedWip = "<?php\n// operator rename destination WIP\n";
+        $binaryWip = "operator\0binary\0wip";
+        file_put_contents($tracked, $trackedWip);
+        unlink($deleted);
+        rename($renamedOld, $renamedNew);
+        file_put_contents($renamedNew, $renamedWip);
+        file_put_contents($untracked, $untrackedWip);
+        file_put_contents($binary, $binaryWip);
+
+        $gateway = new FakeClaudeCliGateway;
+        $gateway->queue($this->gatewayResponse(stdout: "no_patch_needed: true\nreason: first weak no-op\n"));
+        $gateway->queue($this->gatewayResponse(stdout: "no_patch_needed: true\nreason: repeated weak no-op\n"));
+
+        $commandRunner = new FakeCommandRunner;
+        $executor = $this->wireExecutor($storage, $gateway, $commandRunner);
+        $envelope = $this->envelope(intent: 'Repair app/Foo.php and keep existing operator work intact.');
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => [
+                'app/Foo.php',
+                'app/Deleted.php',
+                'app/RenamedOld.php',
+                'app/RenamedNew.php',
+                'tests/Unit/FooTest.php',
+                'fixtures/blob.bin',
+            ],
+            'validation_commands' => ['echo verified'],
+            'max_files_changed' => 6,
+            'repair_policy' => [
+                'max_attempts' => 1,
+                'abort_on_same_signature_twice' => true,
+                'requires_failed_gate_output' => true,
+                'same_provider' => true,
+            ],
+        ]);
+
+        $result = $executor->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertCount(2, $gateway->requests, 'no_patch on a write task should enter the retry path that restores the baseline: '.json_encode($result->providerCallSummary));
+        $this->assertSame($trackedWip, file_get_contents($tracked));
+        $this->assertFileDoesNotExist($deleted);
+        $this->assertFileDoesNotExist($renamedOld);
+        $this->assertSame($renamedWip, file_get_contents($renamedNew));
+        $this->assertSame($untrackedWip, file_get_contents($untracked));
+        $this->assertSame($binaryWip, file_get_contents($binary));
+    }
+
     public function test_completed_run_records_adml_live_outcome_for_route_learning(): void
     {
         // ADML write side: a completed run must append a live outcome in the SAME
