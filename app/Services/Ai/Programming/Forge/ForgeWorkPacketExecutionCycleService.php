@@ -53,11 +53,9 @@ use Illuminate\Support\Str;
  *  - rivals / benchmark;
  *  - sandboxed real execution mechanics.
  *
- * `safe_simulation` mode is the dry-run path: the cycle records that work
- * was simulated and requires the operator to attach an explicit
- * `simulation_log` evidence ref before completing. This lets the long
- * horizon state advance without burning provider tokens — and without
- * pretending a simulation is the same as a real run.
+ * `safe_simulation` mode is the dry-run path. Its evidence must stay in the
+ * simulation namespace and can never satisfy the productive `complete()`
+ * transition that marks packets, milestones or Obra state as done.
  */
 class ForgeWorkPacketExecutionCycleService
 {
@@ -294,9 +292,10 @@ class ForgeWorkPacketExecutionCycleService
     }
 
     /**
-     * Terminal `success` transition. Refuses unless:
-     *   - mode != blocked;
+     * Terminal productive `success` transition. Refuses unless:
+     *   - mode == real;
      *   - evidence_refs is non-empty;
+     *   - evidence_refs are not simulation namespace refs;
      *   - gate_result is non-null;
      *   - at least one gate inside gate_result.gates has status=passed.
      *
@@ -320,6 +319,9 @@ class ForgeWorkPacketExecutionCycleService
         if ($cycle->execution_mode === ForgeWorkPacketExecutionCycleCanon::MODE_BLOCKED) {
             throw ForgeWorkPacketExecutionCycleException::cycleAlreadyTerminal($cycle->uuid, $cycle->status);
         }
+        if ($cycle->execution_mode === ForgeWorkPacketExecutionCycleCanon::MODE_SAFE_SIMULATION) {
+            throw ForgeWorkPacketExecutionCycleException::simulationCannotCompleteProductiveCycle($cycle->uuid);
+        }
 
         $cleanEvidence = array_values(array_filter(
             $evidenceRefs,
@@ -327,6 +329,9 @@ class ForgeWorkPacketExecutionCycleService
         ));
         if ($cleanEvidence === []) {
             throw ForgeWorkPacketExecutionCycleException::completionWithoutEvidence($cycle->uuid);
+        }
+        if ($this->containsSimulationEvidence($cleanEvidence)) {
+            throw ForgeWorkPacketExecutionCycleException::simulationEvidenceCannotCompleteProductiveCycle($cycle->uuid);
         }
         if (! isset($gateResult['gates']) && ! isset($gateResult['all_passed'])) {
             throw ForgeWorkPacketExecutionCycleException::completionWithoutGateResult($cycle->uuid);
@@ -394,6 +399,22 @@ class ForgeWorkPacketExecutionCycleService
         }
 
         return $cycle;
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $evidenceRefs
+     */
+    private function containsSimulationEvidence(array $evidenceRefs): bool
+    {
+        foreach ($evidenceRefs as $ref) {
+            $uri = (string) ($ref['ref'] ?? '');
+            $source = (string) ($ref['source'] ?? '');
+            if (str_starts_with($uri, 'simulation://') || $source === 'safe_simulation') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

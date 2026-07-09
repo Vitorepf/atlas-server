@@ -113,7 +113,7 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertNull($cycle->gate_result);
     }
 
-    public function test_complete_safe_simulation_with_evidence_and_passing_gate_marks_packet_done_and_advances_state(): void
+    public function test_complete_refuses_safe_simulation_even_with_evidence_and_passing_gate(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
         $plan = $this->cycles->planExecution($packet);
@@ -126,33 +126,39 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         ];
         $gateResult = $this->passingGate();
 
-        $cycle = $this->cycles->complete($cycle, $evidenceRefs, $gateResult, $state);
+        try {
+            $this->cycles->complete($cycle, $evidenceRefs, $gateResult, $state);
+            $this->fail('safe_simulation must never satisfy productive completion');
+        } catch (ForgeWorkPacketExecutionCycleException $e) {
+            $this->assertStringContainsString('safe_simulation', $e->getMessage());
+        }
 
-        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_SUCCESS, $cycle->status);
-        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS, $cycle->outcome_status);
-        $this->assertNotNull($cycle->completed_at);
-        $this->assertCount(3, $cycle->evidence_refs);
+        $cycle->refresh();
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING, $cycle->status);
+        $this->assertNull($cycle->outcome_status);
+        $this->assertNull($cycle->completed_at);
 
-        // Packet status updated.
+        // Packet status is not advanced by simulation.
         $packet->refresh();
-        $this->assertSame(ForgeIntakeCanon::PACKET_STATUS_DONE, $packet->status);
+        $this->assertNotSame(ForgeIntakeCanon::PACKET_STATUS_DONE, $packet->status);
 
-        // Long-horizon state moved the packet from active → completed.
+        // Long-horizon productive state is untouched.
         $state->refresh();
-        $this->assertContains((string) $packet->packet_id, $state->completed_work_packets);
-        $this->assertNotContains((string) $packet->packet_id, $state->active_work_packets);
+        $this->assertNotContains((string) $packet->packet_id, $state->completed_work_packets);
+        $this->assertContains((string) $packet->packet_id, $state->active_work_packets);
     }
 
     public function test_complete_records_sovereign_gate_observe_verdict_without_blocking(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $cycle = $this->cycles->complete($cycle, [
             ['kind' => 'work_packet_receipts', 'ref' => 'wpr://1'],
             ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
-            ['kind' => 'simulation_log', 'ref' => 'sim://1'],
         ], $this->passingGate(), $state);
 
         // observe-mode: the cycle still completes (the library stays functional)...
@@ -174,13 +180,14 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         config()->set('atlas.engineering_kernel.forge_execution_gate_enforcing', true);
 
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $cycle = $this->cycles->complete($cycle, [
             ['kind' => 'work_packet_receipts', 'ref' => 'wpr://1'],
             ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
-            ['kind' => 'simulation_log', 'ref' => 'sim://1'],
         ], $this->passingGate(), $state);
 
         $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED, $cycle->status);
@@ -191,7 +198,9 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     public function test_complete_refuses_when_evidence_refs_is_empty(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $this->expectException(ForgeWorkPacketExecutionCycleException::class);
@@ -202,7 +211,9 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     public function test_complete_refuses_when_gate_result_has_no_passed_gate(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $failingGate = [
@@ -221,10 +232,28 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->cycles->complete($cycle, [['kind' => 'work_packet_receipts', 'ref' => 'wpr://x']], $failingGate, $state);
     }
 
+    public function test_complete_refuses_simulation_namespace_evidence_for_productive_completion(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $this->expectException(ForgeWorkPacketExecutionCycleException::class);
+        $this->expectExceptionMessage('simulation evidence');
+        $this->cycles->complete($cycle, [
+            ['kind' => 'work_packet_receipts', 'ref' => 'simulation://swp_1#work_packet_receipt'],
+            ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
+        ], $this->passingGate(), $state);
+    }
+
     public function test_fail_records_repair_hook_and_packet_blocker_in_state(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $cycle = $this->cycles->fail(
@@ -262,7 +291,9 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     public function test_block_terminal_transition_records_blocker_and_resolve_next_action(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $cycle = $this->cycles->block($cycle, 'external_dependency_unavailable', $state);
@@ -308,7 +339,9 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     public function test_complete_then_complete_again_throws_terminal_guard(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
         $cycle = $this->cycles->complete(
             $cycle,
@@ -339,7 +372,9 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     public function test_canonical_cycle_projection_is_stable_json(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
         $cycle = $this->cycles->complete(
             $cycle,
@@ -373,7 +408,9 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     public function test_successful_completion_emits_run_next_packet_action_when_more_remain(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
-        $plan = $this->cycles->planExecution($packet);
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
         $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
 
         $cycle = $this->cycles->complete(

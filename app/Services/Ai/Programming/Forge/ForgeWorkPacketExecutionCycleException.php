@@ -31,6 +31,16 @@ class ForgeWorkPacketExecutionCycleException extends RuntimeException
         return new self('atlas.forge.work_packet_execution_cycle: cannot mark cycle '.$cycleUuid.' success when no gate is passed');
     }
 
+    public static function simulationCannotCompleteProductiveCycle(string $cycleUuid): self
+    {
+        return new self('atlas.forge.work_packet_execution_cycle: safe_simulation cycle '.$cycleUuid.' cannot be marked as productive success');
+    }
+
+    public static function simulationEvidenceCannotCompleteProductiveCycle(string $cycleUuid): self
+    {
+        return new self('atlas.forge.work_packet_execution_cycle: simulation evidence cannot mark cycle '.$cycleUuid.' as productive success');
+    }
+
     public static function cycleAlreadyTerminal(string $cycleUuid, string $status): self
     {
         return new self('atlas.forge.work_packet_execution_cycle: cycle '.$cycleUuid.' is already in terminal status '.$status);
