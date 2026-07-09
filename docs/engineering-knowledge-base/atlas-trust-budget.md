@@ -4,11 +4,11 @@ type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Trust Budget
 slug: atlas-trust-budget
-status: building
-implementation_state: runtime_available
+status: active
+implementation_state: runtime_available_advisory_consult_check_only
 category: governance
 priority: 97
-summary: Tiered daily budget (low_risk/medium_risk/high_risk/critical × operator/autonomous_agent/external) com reset diário UTC, rollback explícito e receipt JSONL.
+summary: Tiered daily budget (low_risk/medium_risk/high_risk/critical x operator/autonomous_agent/external) com reset diario UTC, rollback explicito e receipt JSONL. Residual Elite Obra8: ProviderGovernanceConsult::consultBeforeSpawn chama check(low_risk, external) advisory; nunca consome no consult path; enforce so com atlas.ai.governance.enforce=true.
 tags: [atlas-ai, governance, trust, budget, rollback, patamar-4]
 capabilities: [tiered_budget, daily_reset, action_rollback, append_only_receipt, allow_deny_verdict]
 decisions:
@@ -33,7 +33,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-autonomy-admission
-graph_status: building
+graph_status: active
 graph_source: repo
 depends_on: [atlas-constitutional-kernel, atlas-autonomy-admission]
 flows_to: [atlas-autonomy-admission]
@@ -53,6 +53,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasTrustBudgetService
   - command: atlas:trust-budget
+  - test: AtlasTrustBudgetServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Governance/AtlasTrustBudgetServiceTest.php"
 next_actions:

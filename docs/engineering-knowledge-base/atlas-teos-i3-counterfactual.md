@@ -4,10 +4,10 @@ type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: TEOS-I3 Counterfactual Planning Runtime
 status: active
-implementation_state: runtime_scorecard_ready
+implementation_state: runtime_scorecard_ready_aurg_chained_gateway_shadow
 category: teos
 priority: 92
-summary: Runtime TEOS-I3 para branches contrafactuais, recomendacao de replan e separacao explicita entre fato observado e simulacao alternativa.
+summary: Runtime TEOS-I3 para branches contrafactuais. Residual Elite Obra8: AppServiceProvider setAurgForChaining(AURG Temporal); gateway preflight shadow fail-open — nunca bloqueia enqueue sozinho.
 tags: [atlas-ai, acos, teos, counterfactual, replanning]
 capabilities: [counterfactual_branching, replan_recommendation, divergence_scoring, counterfactual_replan_human_approval_gate]
 decisions:
@@ -52,6 +52,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasTeosI3CounterfactualService
   - command: atlas:teos:counterfactual:recommend
+  - test: AtlasTeosI3CounterfactualServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"
@@ -200,6 +201,10 @@ php artisan atlas:teos:counterfactual:recommend \
 - **TEOS-I4** — multi-step contrafactual chains; exige doc, service e teste proprios.
 - **Self-improvement integration** — counterfactual insights feed L7 ResultLedger somente com receipt e owner decision.
 - **Cross-domain counterfactual** — branch de `finance` cross-bridged into `engineering` through Cross-Domain Mesh, sem promover simulacao a fato.
+
+## Residual Elite Obra8
+
+AURG chaining via AppServiceProvider; gateway preflight shadow fail-open. Pipeline partial ate mint soak (GAP-RE-TEOS-ACOS). Evidence: OBRA8.
 
 ## Resumo
 

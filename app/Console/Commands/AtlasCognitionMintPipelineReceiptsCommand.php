@@ -63,8 +63,14 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
             $fqn = (string) ($sub['service_class'] ?? '');
             $short = class_basename($fqn);
             foreach ($resolver->ownerCapabilityIdsForFqn($fqn) as $capabilityId) {
-                $cap = $capabilityById[$capabilityId] ?? null;
-                if ($cap === null || $processed >= $limit) {
+                if ($processed >= $limit) {
+                    break;
+                }
+                // Owner docs often declare symbol/command without a `test:` evidence_ref —
+                // capabilityTestRefs() then omits them. Still mint via <Short>Test when the
+                // owner doc exists in docsWithEvidence (symbol-bound ownership).
+                $cap = $capabilityById[$capabilityId] ?? $this->syntheticCapFromDocs($truth, $capabilityId);
+                if ($cap === null) {
                     continue;
                 }
                 $candidateRefs = [$short.'Test'];
@@ -75,7 +81,7 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
                 }
                 foreach (array_values(array_unique($candidateRefs)) as $ref) {
                     if (isset($mintedKeys[$capabilityId.'|'.$ref])) {
-                        continue 2; // já cunhado neste passe (docs multi-subsistema)
+                        continue; // já tentado neste passe — tenta o próximo candidato
                     }
                     $hashes = $truth->freshnessHashes($cap['evidence_refs'], $ref);
                     $receipt = $execution->runAndRecord(
@@ -100,7 +106,11 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
                     ];
                     $mintedKeys[$capabilityId.'|'.$ref] = true;
                     $processed++;
-                    break; // um receipt por (subsistema, owner) por passe (bounded)
+                    // Verde fecha o (subsistema, owner). Vermelho: tenta o próximo
+                    // candidato declarado (ex.: GuardTest quebrado → HardeningTest vivo).
+                    if ($passed || $processed >= $limit) {
+                        break;
+                    }
                 }
             }
         }
@@ -165,5 +175,29 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
         $this->components->twoColumnDetail('Pipeline score', $result['pipeline_score_before'].' → '.$result['pipeline_score_after'].' (Δ '.($result['pipeline_lift'] >= 0 ? '+' : '').$result['pipeline_lift'].')');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * When an owner doc has symbol/command evidence but no `test:` refs, capabilityTestRefs()
+     * omits it. Rebuild a minimal cap from docsWithEvidence so mint can still run <Short>Test.
+     *
+     * @return array{capability_id:string, owner_doc:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array}|null
+     */
+    private function syntheticCapFromDocs(AtlasAaeosImplementationTruthService $truth, string $capabilityId): ?array
+    {
+        foreach ($truth->docsWithEvidence() as $doc) {
+            if ((string) ($doc['id'] ?? '') !== $capabilityId) {
+                continue;
+            }
+
+            return [
+                'capability_id' => $capabilityId,
+                'owner_doc' => (string) ($doc['path'] ?? ''),
+                'evidence_refs' => (array) ($doc['evidence_refs'] ?? []),
+                'test_refs' => [],
+            ];
+        }
+
+        return null;
     }
 }

@@ -50,6 +50,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasUnifiedRealityGraphTemporalService
   - command: atlas:aurg:temporal
+  - test: AtlasUnifiedRealityGraphTemporalServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"

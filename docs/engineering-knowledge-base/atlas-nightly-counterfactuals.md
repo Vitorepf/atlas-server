@@ -52,6 +52,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasNightlyCounterfactualsService
   - command: atlas:nightly:counterfactuals
+  - test: AtlasNightlyCounterfactualsServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Patamar4/AtlasNightlyCounterfactualsServiceTest.php"
 next_actions:

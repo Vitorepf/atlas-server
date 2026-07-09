@@ -56,6 +56,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasCognitiveMemoryFabricSchemaEvolutionService
   - command: atlas:acmf:schema-evolution
+  - test: AtlasCognitiveMemoryFabricSchemaEvolutionServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Cognition/AtlasCognitiveMemoryFabricSchemaEvolutionServiceTest.php"
   - "php artisan atlas:engineering:knowledge docs-health --json"

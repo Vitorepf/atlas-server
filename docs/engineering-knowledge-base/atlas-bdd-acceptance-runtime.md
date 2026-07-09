@@ -87,6 +87,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasBddAcceptanceRuntimeService
   - command: atlas:bdd
+  - test: AtlasBddAcceptanceRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter=AtlasBddAcceptanceRuntime"

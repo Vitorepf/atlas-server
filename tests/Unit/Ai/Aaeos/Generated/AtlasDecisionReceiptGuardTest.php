@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos\Generated;
 
-use App\Services\Ai\Aaeos\Generated\AtlasDecisionReceiptGuardService;
+use App\Services\Ai\Aaeos\Quarantine\AtlasDecisionReceiptGuardService;
 use Tests\TestCase;
 
 /**

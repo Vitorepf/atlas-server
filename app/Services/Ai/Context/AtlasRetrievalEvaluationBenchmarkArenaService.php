@@ -32,11 +32,15 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         $cases = $this->goldenCases((array) ($input['cases'] ?? []), $risk);
         $results = array_map(fn (array $case): array => $this->evaluateCase($case, $risk), $cases);
         $summary = $this->summary($results);
-        $regressions = $this->regressions($results, $summary, $risk);
+        // Content regressions only (cases + suite floors) — NEVER baseline-vs-disk.
+        // arena_hash must be deterministic for the same evaluation content; prior JSONL
+        // baselines are operator history and must not flip the hash between two evaluate()
+        // calls in one process (Obra6 persist + mint path-scoped suite).
+        $contentRegressions = $this->contentRegressions($results, $summary, $risk);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $this->status($regressions, $summary, $risk),
+            'status' => $this->status($contentRegressions, $summary, $risk),
             'generated_at' => Carbon::now()->toIso8601String(),
             'arena' => [
                 'name' => 'Atlas Context Arena',
@@ -67,13 +71,13 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
             'summary' => $summary,
             'regression_report' => [
                 'schema_version' => 'atlas.aucri.retrieval_regression_report.v1',
-                'status' => $regressions === [] ? 'pass' : 'blocked',
-                'regression_count' => count($regressions),
-                'regressions' => $regressions,
+                'status' => $contentRegressions === [] ? 'pass' : 'blocked',
+                'regression_count' => count($contentRegressions),
+                'regressions' => $contentRegressions,
             ],
             'promotion_gate' => [
-                'status' => $regressions === [] && (string) $summary['status'] === 'pass' ? 'pass' : 'blocked',
-                'operator_review_required' => $regressions !== [] || $risk !== 'low',
+                'status' => $contentRegressions === [] && (string) $summary['status'] === 'pass' ? 'pass' : 'blocked',
+                'operator_review_required' => $contentRegressions !== [] || $risk !== 'low',
                 'auto_promote_retrieval_changes' => false,
                 'minimum_required_source_recall' => $this->minimumRecall($risk),
                 'minimum_groundedness' => $this->minimumGroundedness($risk),
@@ -92,6 +96,21 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         $hashPayload = $payload;
         unset($hashPayload['generated_at']);
         $payload['arena_hash'] = MissionCanonicalHash::sha256($hashPayload);
+
+        // Baseline watch regressions are operator-facing only — applied AFTER arena_hash.
+        $baselineRegressions = $this->baselineRegressions($summary);
+        if ($baselineRegressions !== []) {
+            $allRegressions = array_values(array_merge($contentRegressions, $baselineRegressions));
+            $payload['regression_report'] = [
+                'schema_version' => 'atlas.aucri.retrieval_regression_report.v1',
+                'status' => $allRegressions === [] ? 'pass' : 'blocked',
+                'regression_count' => count($allRegressions),
+                'regressions' => $allRegressions,
+            ];
+            $payload['status'] = $this->status($allRegressions, $summary, $risk);
+            $payload['promotion_gate']['status'] = $allRegressions === [] && (string) $summary['status'] === 'pass' ? 'pass' : 'blocked';
+            $payload['promotion_gate']['operator_review_required'] = $allRegressions !== [] || $risk !== 'low';
+        }
 
         $shouldPersist = array_key_exists('persist', $input)
             ? (bool) $input['persist']
@@ -438,7 +457,12 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
      * @param  array<string,mixed>  $summary
      * @return array<int,array<string,mixed>>
      */
-    private function regressions(array $results, array $summary, string $risk): array
+    /**
+     * @param  array<int,array<string,mixed>>  $results
+     * @param  array<string,mixed>  $summary
+     * @return array<int,array<string,mixed>>
+     */
+    private function contentRegressions(array $results, array $summary, string $risk): array
     {
         $regressions = [];
         foreach ($results as $result) {
@@ -473,24 +497,36 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
             }
         }
 
+        return $regressions;
+    }
+
+    /**
+     * @param  array<string,mixed>  $summary
+     * @return array<int,array<string,mixed>>
+     */
+    private function baselineRegressions(array $summary): array
+    {
         $baseline = $this->latestPersistedBaseline();
-        if ($baseline !== null) {
-            foreach (['required_source_recall', 'groundedness', 'context_roi'] as $metric) {
-                $observed = (float) data_get($summary, 'metrics.'.$metric, 0.0);
-                $previous = (float) data_get($baseline, 'metrics.'.$metric, 0.0);
-                if ($previous > 0.0 && $observed + 0.02 < $previous) {
-                    $regressions[] = [
-                        'case_id' => 'baseline',
-                        'case_hash' => MissionCanonicalHash::sha256(['metric' => $metric, 'observed' => $observed, 'previous' => $previous]),
-                        'reason' => $metric.'_regressed_vs_baseline',
-                        'severity' => 'watch',
-                        'evidence' => [
-                            'observed' => round($observed, 4),
-                            'previous' => round($previous, 4),
-                            'baseline_run_hash' => (string) ($baseline['run_hash'] ?? ''),
-                        ],
-                    ];
-                }
+        if ($baseline === null) {
+            return [];
+        }
+
+        $regressions = [];
+        foreach (['required_source_recall', 'groundedness', 'context_roi'] as $metric) {
+            $observed = (float) data_get($summary, 'metrics.'.$metric, 0.0);
+            $previous = (float) data_get($baseline, 'metrics.'.$metric, 0.0);
+            if ($previous > 0.0 && $observed + 0.02 < $previous) {
+                $regressions[] = [
+                    'case_id' => 'baseline',
+                    'case_hash' => MissionCanonicalHash::sha256(['metric' => $metric, 'observed' => $observed, 'previous' => $previous]),
+                    'reason' => $metric.'_regressed_vs_baseline',
+                    'severity' => 'watch',
+                    'evidence' => [
+                        'observed' => round($observed, 4),
+                        'previous' => round($previous, 4),
+                        'baseline_run_hash' => (string) ($baseline['run_hash'] ?? ''),
+                    ],
+                ];
             }
         }
 

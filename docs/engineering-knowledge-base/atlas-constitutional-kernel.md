@@ -4,10 +4,10 @@ type: engineering_knowledge
 doc_schema: atlas_canonical_module_doc.v1
 title: Atlas Constitutional Kernel
 status: active
-implementation_state: runtime_available_integration_partial
+implementation_state: runtime_available_provider_governance_consult_wired
 category: governance
 priority: 99
-summary: Kernel constitucional local-first que valida mudancas autonomas contra invariantes petreos, bloqueia claims proibidos, exige aprovacao humana para scopes sensiveis e registra tickets append-only.
+summary: Kernel constitucional local-first que valida mudancas autonomas contra invariantes petreos, bloqueia claims proibidos, exige aprovacao humana para scopes sensiveis e registra tickets append-only. Residual Elite Obra8: AtlasDecideGatewayConsultationService::consult -> validateChange; ProviderGovernanceConsult expoe kernel_decision no envelope advisory.
 tags: [atlas-ai, governance, constitutional, self-construction, human-approval]
 capabilities: [invariant_validation, petreo_policy_gate, violation_ticket_log, kernel_hash, sensitive_scope_approval_gate]
 decisions:
@@ -70,6 +70,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasConstitutionalKernelService
   - command: atlas:constitutional:kernel
+  - test: AtlasConstitutionalKernelServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Governance/AtlasConstitutionalKernelServiceTest.php"
   - "php artisan atlas:constitutional:kernel --action=list-invariants --json"

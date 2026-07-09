@@ -56,6 +56,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasCrossDomainMeshService
   - command: atlas:cross-domain:topology
+  - test: AtlasCrossDomainMeshServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:cognition:scorecard --strict --json"

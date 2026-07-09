@@ -3,7 +3,8 @@ id: atlas-programming-cartography-publisher
 type: engineering_knowledge
 title: Atlas Programming Cartography Publisher
 slug: atlas-programming-cartography-publisher
-status: building
+status: active
+implementation_state: runtime_available_governance_gate_path
 risk_level: medium
 authority_class: read_model_publisher
 category: programming-governance
@@ -24,7 +25,7 @@ decisions:
   - Programming Cartography Publisher e read model focado em Programming Governance.
   - Nao substitui Vault Cartography nem Universal Reality Cartography.
   - Publisher nao muta work items, specs, tasks, evidence ou drift reports.
-  - Command atlas:programming:cartography existe, mas o fluxo permanece building ate integracao visual/consumer estar provada.
+  - Residual Elite Obra9: ProgrammingCartographyGate publica via AtlasProgrammingCartographyPublisherService no gate cartography-update; ACTG sweep no ProgrammingGovernanceService::verify (probe-only, nao auto-bloqueia completion).
 maintenance:
   - Atualizar quando ProgrammingCartographyGate, publisher service, command ou schema mudarem.
   - Nao adicionar mutacao neste publisher.
@@ -80,6 +81,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasProgrammingCartographyPublisherService
   - command: atlas:programming:cartography
+  - test: AtlasProgrammingCartographyPublisherServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan test --filter=AtlasProgrammingCartographyPublisherServiceTest"

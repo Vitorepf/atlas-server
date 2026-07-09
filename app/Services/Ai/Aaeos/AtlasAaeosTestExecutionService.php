@@ -175,6 +175,15 @@ class AtlasAaeosTestExecutionService
         // Class/Class::method is REFUSED (passed=false, reason=ambiguous_test_ref) so it
         // can never match a same-named method in a different class and bank a broad green.
         // An explicit fixture path bypasses index resolution (controlled proof runs).
+        //
+        // PATH-SCOPE (Onda 3 / Residual Elite): when the index knows the test file,
+        // pass it as a positional PHPUnit arg so the runner does NOT load the full
+        // configured testsuites. Full-suite discovery currently fatals on deleted
+        // ACDE-morto symbols (GAP-17 LoopExecutionDriver chain) still referenced by
+        // leftover AE tests — filter-only mint then exits 255 with tests_run=0 for
+        // every capability. Path-scoped collection keeps mint honest and greenable
+        // without restoring the dead loop. Explicit fixture paths still use the
+        // plain short-name filter (controlled proof runs outside the index).
         if ($explicitPath !== null && trim($explicitPath) !== '' && is_file($explicitPath)) {
             $filter = $this->plainFilterForTestRef($testRef);
             $run = $this->runFilter($filter, $explicitPath);
@@ -185,7 +194,8 @@ class AtlasAaeosTestExecutionService
                 $filter = $run['runner'];
             } else {
                 $filter = $this->anchoredFilter($fqn);
-                $run = $this->runFilter($filter, null);
+                $scopedPath = $this->absoluteTestPath($this->resolver->resolveTestFilePath($testRef));
+                $run = $this->runFilter($filter, $scopedPath);
             }
         }
 
@@ -370,6 +380,24 @@ class AtlasAaeosTestExecutionService
         }
 
         return null;
+    }
+
+    /**
+     * Turn an index-relative test file_path into an absolute path PHPUnit can collect.
+     * Null/blank/missing paths degrade to null (filter-only fallback) — never invent a path.
+     */
+    private function absoluteTestPath(?string $relativeOrAbsolute): ?string
+    {
+        $path = trim((string) $relativeOrAbsolute);
+        if ($path === '') {
+            return null;
+        }
+        if (is_file($path)) {
+            return $path;
+        }
+        $absolute = base_path($path);
+
+        return is_file($absolute) ? $absolute : null;
     }
 
     /**

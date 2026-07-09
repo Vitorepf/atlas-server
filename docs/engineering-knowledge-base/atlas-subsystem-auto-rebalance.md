@@ -51,6 +51,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasSubsystemAutoRebalanceService
   - command: atlas:self-construction:propose-subsystem
+  - test: AtlasSubsystemAutoRebalanceServiceTest
 required_tests:
   - "php artisan test tests/Unit/Ai/Patamar4/AtlasSubsystemAutoRebalanceServiceTest.php"
 next_actions:

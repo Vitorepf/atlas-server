@@ -57,6 +57,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasCognitiveMemoryFabricService
   - command: atlas:context:cognitive-memory
+  - test: AtlasCognitiveMemoryFabricServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context:cognitive-memory --json"

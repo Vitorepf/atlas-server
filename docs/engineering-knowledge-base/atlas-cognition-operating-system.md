@@ -24,7 +24,7 @@ decisions:
   - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 73 subsistemas estruturais no scorecard v3 e ~15 modulos profundos no v4.
   - ContextRuntime (`AtlasContextRuntime { compose, certify }`) e a unica porta de contexto dos tres executores elite; blocos AUCRI sao policies internas do gate, nao retrieval direto.
   - Boundary clara entre ACOS (cognicao) e consumidores (Forge, AWIS, Mission, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS). Quem consome ACOS nunca esta dentro de ACOS.
-  - ACOS 10/10 estrutural e o ALVO, definido por `atlas:cognition:scorecard --json`: code, doc e pipeline RESOLVIDOS-por-evidencia ready para os 73 subsistemas. Hoje, resolvido, esta em ~7.86 (code 10/10, doc 8.37, pipeline 5.22 — pipeline e a fraca: 0/73 com green-run receipt). Volume real de outcomes e dimensao operacional de uso, nao blocker estrutural.
+  - ACOS 10/10 estrutural e o ALVO, definido por `atlas:cognition:scorecard --json`. Closeout vivo Onda 3 Residual Elite 2026-07-09: overall **10/10** (code 10, doc 10, pipeline 10; 0/73 pipeline partial). Inventario historico dos partials fechados vive em `atlas-cognition-operating-system-pipeline-partials.md` (nao neste parent). Numeros vivos sempre via scorecard.
   - Pipeline canonico ACOS: Captura -> Quarentena (G0) -> Promotion Gates (G1-G8) -> Memory Registry (10 types x 9 scopes x 4 privacy) -> Embedding (ASEF) -> Retrieval (AHRI + AARF + AGRN + AURG) -> Ranking (ACRS) -> Freshness Gate (ACFQ) -> Privacy/Trust (ARPTL) -> Cost Governor (ARCLG) -> Compilation (ACCR + ACCCR + ATER + ACPFR) -> Working Memory (ACMF) -> Persistence (APCR) -> Injection (Open Brain) -> Outcome (AEMOR) -> Learning Signal -> Memory Candidate -> Promotion -> Compounding -> Self-Improvement L7.
   - Forge, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS estao FORA de ACOS — sao consumers que chamam ACOS via APIs canonicas (Open Brain MCP, AiContextPackBuilder, AtlasMemoryRegistryService, AtlasEvidenceLedger).
   - Nenhuma absorcao externa (claude-mem/engram/mem0) entra no Atlas sem AP por absorcao e sem passar pelos G0-G8 gates. As 4 absorcoes aprovadas em atlas-external-memory-pattern-absorptions-v1.md sao melhorias dentro de ACOS, nao novos subsistemas.
@@ -65,6 +65,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-context-compiler-runtime.md
   - docs/engineering-knowledge-base/atlas-context-pareto-frontier-runtime.md
   - docs/engineering-knowledge-base/atlas-context-quality-certification-gate.md
+  - docs/engineering-knowledge-base/atlas-cognition-operating-system-pipeline-partials.md
   - docs/engineering-knowledge-base/atlas-knowledge-ingestion-fabric.md
   - docs/engineering-knowledge-base/atlas-local-agent-memory-ingestion.md
   - docs/engineering-knowledge-base/atlas-long-horizon-intelligence-layer.md
@@ -247,16 +248,16 @@ por evidencia real (doc-owner canonico resolvivel + green-run receipt), nao mais
 declaradas na constante `SUBSYSTEMS` — so `code` ja era prova (`class_exists`).
 Estado atual resolvido (rode o comando para o numero vivo; muda com a evidencia):
 
-| Dimensao | Resultado | Como e resolvido |
+| Dimensao | Resultado (vivo 2026-07-09 Onda 3 scorecard) | Como e resolvido |
 |---|---:|---|
 | subsistemas | 73 | constante `SUBSYSTEMS` |
-| code | 10/10 | `class_exists` por service_class — 73/73 |
-| doc | 8.37/10 | doc-owner canonico resolvivel — 56/73 ready, 17 building |
-| pipeline | 5.22/10 | teste real + green-run receipt — 0/73 com receipt provado, 54 partial, 19 building |
-| **overall** | **7.86/10** | soma das 3 dimensoes / max — era 10/10 quando doc/pipeline eram self-declared |
+| code | 10/10 | `class_exists` — 73/73 |
+| doc | 10/10 | doc-owner canonico resolvivel |
+| pipeline | 10/10 | **73 ready** · 0 partial · 0 building |
+| **overall** | **10/10** | scorecard hash `sha256:5b1f7225…ed48` — re-rodar comando para numero vivo |
 
-O `--strict` agora FALHA de proposito (gate exige as 3 dimensoes ready; pipeline
-nao tem green-run receipt). 10/10 e o ALVO (definicao abaixo), nao o estado atual.
+O `--strict` passa com 0 pipeline partial. Inventario historico dos partials
+fechados: `atlas-cognition-operating-system-pipeline-partials.md`.
 
 Grupos canônicos: Cognitive Immune G0-G8, Memory Core, AUCRI/contexto, Atlas
 Decide, compounding, self-construction, cartography, governance, programming e
@@ -453,13 +454,13 @@ Evidencia adicional para volume organico:
 
 ### Score ACOS atual (scorecard v3)
 
-`php artisan atlas:cognition:scorecard --json` retorna, no estado resolvido atual,
-`overall_out_of_10=7.86`, `subsystem_count=73`, `code=10`, `doc=8.37`,
-`pipeline=5.22`, `external_rivals_certification_touched=false`,
+`php artisan atlas:cognition:scorecard --json` retorna, no closeout Onda 3 vivo,
+`overall_out_of_10=10`, `subsystem_count=73`, `code=10`, `doc=10`,
+`pipeline=10`, `external_rivals_certification_touched=false`,
 `cognitive_immune_law_enforced=true` e `must_keep_coverage_invariant=true`.
-doc e pipeline agora sao resolvidos por evidencia real, entao o numero MOVE com a
-evidencia — rode o comando para o valor vivo; `--strict` falha ate as 3 dimensoes
-ficarem ready. Isso e score estrutural ACOS, nao nota global do Atlas inteiro.
+doc e pipeline sao resolvidos por evidencia real, entao o numero MOVE com a
+evidencia — rode o comando para o valor vivo; `--strict` passa com as 3 dimensoes
+ready. Isso e score estrutural ACOS, nao nota global do Atlas inteiro.
 
 ## Proximas Acoes
 
