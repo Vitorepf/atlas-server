@@ -457,3 +457,16 @@ Schedule::command('atlas:engineering:knowledge index-code --prune --workspace='.
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/acos-index-code.log'))
     ->when(static fn (): bool => (bool) config('atlas.acos.cadence_enabled', true));
+
+// GAP-COCKPIT-01 cadência — toda landing do autônomo vivo vira item de review no inbox
+// sem ritual manual. Publisher pull-based idempotente (dedupe por commit sha), então a
+// cadência é sempre segura. Default OFF (pétreo switches-novos): ligar com
+// ATLAS_TERMINAL_REVIEW_PUBLISH_ENABLED=true (ou config atlas.terminal.review_publish_enabled).
+Schedule::command('atlas:task:review:publish --limit=20 --json')
+    ->everyTenMinutes()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/terminal-review-publish.log'))
+    ->when(static fn (): bool => (bool) config(
+        'atlas.terminal.review_publish_enabled',
+        (bool) env('ATLAS_TERMINAL_REVIEW_PUBLISH_ENABLED', false),
+    ));

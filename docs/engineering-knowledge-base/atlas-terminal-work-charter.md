@@ -182,10 +182,10 @@ Um cockpit no terminal onde o operador **vê o que o autônomo/Dev/Forge fez + a
 | GAP-CLI-02 | 🟡 | `atlas status`/`cli:dashboard` cego pro motor autônomo (só AiJob/traces/chat) | — |
 | GAP-CLI-03 | 🟢 | `TerminalMarkdownRenderer` subusado (2 de 874) | `app/Support/TerminalMarkdownRenderer.php` |
 
-## 5. AS 3 FRENTES (com % pronto honesto)
-1. **[RECOMENDADO] Cockpit de review no terminal — ~65% pronto.** Leitura (inbox) + veto (InboxActionRegistry/forge-review) já vivos; falta 1 produtor.
-2. **Ergonomia CLI / situational awareness — ~55%.** Read-models existem; falta o agregador "o que o Atlas faz AGORA".
-3. **Endurecer o contrato (L3) — fechar o bypass do `AiProviderManager`.** Fundacional, invisível.
+## 5. AS 3 FRENTES (com % pronto honesto — atualizado 09/07)
+1. **Cockpit de review — ✅ ENTREGUE.** Produtor (`atlas:task:review:publish` + cadência 10min default-OFF via `ATLAS_TERMINAL_REVIEW_PUBLISH_ENABLED`) + veredito (`task_landing_review_approve|reject`) + gerador (`atlas:task:review:deep`) + leitura (`atlas:cli:inbox`). Ciclo landing→inbox→veredito→(revert governado) fechado e provado no vivo.
+2. **Ergonomia CLI — ✅ agregador entregue.** `atlas:cli:cockpit`: cérebro+fila+autonomia+landings+review pendente+Dev+Forge, fail-open por seção, TerminalMarkdownRenderer, `--json`. Restam melhorias incrementais (dashboard legado segue cego; adoção ampla do renderer opcional).
+3. **Endurecer o contrato (L3) — EM VOO por outro worker (09/07):** mudanças uncommitted no `AiProviderManager` implementando coverage/`recordBypass`. NÃO tocar até landar (shared-main, leases disjuntos).
 
 ## 6. A PRIMEIRA FATIA (detalhada — maior destrave por esforço)
 **Ligar o produtor de review do autônomo vivo:** a cada landing de task, emitir um item no inbox com **diff + evidence-pack + approve/reject**.
@@ -197,6 +197,7 @@ Um cockpit no terminal onde o operador **vê o que o autônomo/Dev/Forge fez + a
 **Fatia 2 (paralela):** UM comando `atlas:*:cockpit` agregando `brain:summary` + `task:health` + `autonomy:status` + landings recentes por autor, renderizado com `TerminalMarkdownRenderer`. Responde "o que o Atlas faz agora".
 
 ## 7. MAPA DE ARQUIVOS (onde mexer)
+- **ENTREGUES 09/07:** `SelfConstruction/AtlasTaskLandingReviewPublisher.php` (produtor + `recentLandings()`), `SelfConstruction/AtlasTaskLandingDeepReviewService.php` (gerador), `Commands/AtlasTaskLandingReviewPublishCommand.php`, `Commands/AtlasTaskLandingDeepReviewCommand.php`, `Commands/AtlasCliCockpitCommand.php`, cadência em `routes/console.php` (default-OFF).
 - **Inbox/cockpit:** `app/Console/Commands/AtlasCliInboxCommand.php`, `app/Services/Ai/Mobile/InboxActionRegistry.php`, `app/Services/Ai/Mobile/AtlasInboxService.php` (:614 actions).
 - **Produtores:** `app/Services/Ai/**/JobResultInboxEmitter.php`, `ProposalInboxEmitter.php`; o publisher dormente `app/Services/Ai/AutonomousEvolution/AtlasLoopOperatorReviewMobilePublisher.php`.
 - **Review/verdict:** `AtlasReviewDeepCommand.php`, `AtlasCodeForgeReviewCommand.php` + `AtlasCodeForgeReviewCompletionService.php`, `AtlasCodeObraCommandCenterCommand.php`.
