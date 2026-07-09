@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
 
 /**
  * Compose the Dispatch Planner sub-services into a single batch plan

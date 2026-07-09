@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
 
 /**
  * Governance precheck for the Agent Dispatch Planner. Validates that a

@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use Carbon\CarbonImmutable;
+use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
 
 /**
  * Certify the Agent Dispatch Planner layer (candidate selector,

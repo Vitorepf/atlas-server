@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Throwable;
 use App\Services\Ai\SelfConstruction\Support\EncodesPayloadAsPrettyJson;
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
+use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
 
 /**
  * Build and persist local dry-run dispatch receipts.

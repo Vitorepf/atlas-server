@@ -4,6 +4,7 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
+use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
 
 /**
  * Detect scope conflicts between planned dispatches and active leases
