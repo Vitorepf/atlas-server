@@ -21,6 +21,7 @@ class AiPermissionEngineTest extends TestCase
                 'workspace' => base_path(),
                 'tool_permissions' => [
                     'mode' => 'write',
+                    'workspace_cert' => ['status' => 'available', 'mode' => 'write'],
                 ],
             ],
         ]), 'codex_cli');
@@ -45,6 +46,7 @@ class AiPermissionEngineTest extends TestCase
                 'workspace' => base_path(),
                 'tool_permissions' => [
                     'mode' => 'write',
+                    'workspace_cert' => ['status' => 'available', 'mode' => 'write'],
                 ],
             ],
         ]), 'claude_cli');
@@ -67,6 +69,7 @@ class AiPermissionEngineTest extends TestCase
                 'workspace' => base_path(),
                 'tool_permissions' => [
                     'mode' => 'danger',
+                    'workspace_cert' => ['status' => 'available', 'mode' => 'danger'],
                 ],
             ],
         ]), 'codex_cli');
@@ -91,6 +94,7 @@ class AiPermissionEngineTest extends TestCase
                 'tool_permissions' => [
                     'mode' => 'write',
                     'allow_unsandboxed_provider' => true,
+                    'workspace_cert' => ['status' => 'available', 'mode' => 'write'],
                 ],
             ],
         ]), 'gemini_cli');
