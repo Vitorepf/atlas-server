@@ -96,7 +96,7 @@ next_actions:
 
 | Obra | Status | Slices feitos | Prova do critério | Bloqueios |
 |---|---|---|---|---|
-| O1 | ⏳ não iniciada | — | — | provider interno precisa estar de pé pra prova-viva (Hermes GLM/Kimi, receita Fase 2) |
+| O1 | ✅ **PRONTA 09/07** | `--semantic` no `atlas:task:review:deep` (service `withSemantic` + parser markers `[[FINDING]]`/`[[NO_FINDINGS]]` + fallback-chain de provider + advisory-ceiling: IA nunca eleva pra blocking) | ⟦3 landings reais rodadas: op-01kwvxjz ok/0, op-01kwvx937 ok/**4 findings** (p1 rejected-count confirmado por leitura de código — mecânico não pega), op-01kwvxpw ok/0; fail-open coberto por teste (provider_unavailable)⟧ 8/8 testes | Descoberto GAP-HERMES-01 (transport perde chunk final do stdout — afeta o cérebro writer também); workaround markers-first+padding |
 | O2 | ⏳ não iniciada | — | — | — |
 | O3 | ⏳ não iniciada | — | — | — |
 | O4 | ⏳ não iniciada | — | — | — |

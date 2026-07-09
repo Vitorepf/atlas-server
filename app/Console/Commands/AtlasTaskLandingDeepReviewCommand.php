@@ -16,13 +16,14 @@ class AtlasTaskLandingDeepReviewCommand extends Command
 {
     protected $signature = 'atlas:task:review:deep
         {ref : Commit sha da landing OU task_packet_id (resolvido via receipts)}
+        {--semantic : Também pedir review semântico do diff ao provider governado (opt-in; fail-open)}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'Generate deterministic review findings for a landed atlas:task commit (scope/lint/pétreo/tests).';
+    protected $description = 'Generate deterministic review findings for a landed atlas:task commit (scope/lint/pétreo/tests; --semantic adiciona IA governada).';
 
     public function handle(AtlasTaskLandingDeepReviewService $service): int
     {
-        $packet = $service->review(trim((string) $this->argument('ref')));
+        $packet = $service->review(trim((string) $this->argument('ref')), (bool) $this->option('semantic'));
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -38,15 +39,29 @@ class AtlasTaskLandingDeepReviewCommand extends Command
         $this->components->twoColumnDetail('Checks', implode(', ', (array) $packet['checks_run']));
         $this->components->twoColumnDetail('Risk', (string) $packet['risk_level']);
         $this->components->twoColumnDetail('Recomendação', (string) $packet['recommendation']);
+        if (isset($packet['semantic'])) {
+            $sem = (array) $packet['semantic'];
+            $this->components->twoColumnDetail('Semântico', sprintf(
+                '%s · provider=%s%s · findings=%d',
+                (string) ($sem['status'] ?? ''),
+                (string) ($sem['provider'] ?? '-'),
+                ($sem['model'] ?? null) !== null ? '/'.(string) $sem['model'] : '',
+                (int) ($sem['findings_count'] ?? 0),
+            ));
+        }
 
         foreach ((array) $packet['findings'] as $finding) {
             $sev = (string) ($finding['severity'] ?? 'p3');
             $style = in_array($sev, ['p0', 'p1'], true) ? 'error' : 'comment';
+            $tag = ($finding['source'] ?? '') === 'semantic'
+                ? ' (IA'.(isset($finding['confidence']) && $finding['confidence'] !== null ? ' '.number_format((float) $finding['confidence'], 2) : '').')'
+                : '';
             $this->line(sprintf(
-                '<%s>[%s] %s</> %s',
+                '<%s>[%s] %s</>%s %s',
                 $style,
                 strtoupper($sev),
                 (string) ($finding['category'] ?? ''),
+                $tag,
                 (string) ($finding['title'] ?? ''),
             ));
         }

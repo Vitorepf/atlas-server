@@ -34,9 +34,16 @@ final class AtlasTaskLandingDeepReviewService
      * Generate findings for one landed commit. $ref is a commit sha (7-40 hex) or a
      * task_packet_id (resolved to its sha via the resolved-receipts ledger).
      *
+     * $semantic (opt-in, O1): additionally asks the GOVERNED internal brain provider
+     * (same router/config the live brain writer uses — Forge drivers consult governance)
+     * to read the actual diff and produce judgement findings the mechanical checks can't.
+     * Fail-open: provider off/parse failure only downgrades the semantic block, never the
+     * deterministic packet. A semantic finding NEVER escalates risk to blocking on its own
+     * (AI is advisory; only deterministic p0/p1 block) — it can raise clean → warning.
+     *
      * @return array<string,mixed>
      */
-    public function review(string $ref): array
+    public function review(string $ref, bool $semantic = false): array
     {
         $receipt = $this->findReceipt($ref);
         $sha = $this->isSha($ref) ? $ref : (string) ($receipt['commit_sha'] ?? '');
@@ -65,7 +72,186 @@ final class AtlasTaskLandingDeepReviewService
             ...$this->testPresenceFindings($changed),
         ];
 
-        return $this->packet($ref, $sha, $changed, $findings, receipt: $receipt);
+        $packet = $this->packet($ref, $sha, $changed, $findings, receipt: $receipt);
+        if ($semantic) {
+            $packet = $this->withSemantic($packet, $repo, $sha, $receipt);
+        }
+
+        return $packet;
+    }
+
+    /**
+     * O1 · semantic pass over the landed diff via the governed brain provider. Merges
+     * parsed findings (source=semantic, each with confidence) into the packet and records
+     * an honest status block; any failure is a status, never an exception.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  array<string,mixed>|null  $receipt
+     * @return array<string,mixed>
+     */
+    private function withSemantic(array $packet, string $repo, string $sha, ?array $receipt): array
+    {
+        $model = trim((string) config('atlas.brain.reviewer_model', (string) env('ATLAS_BRAIN_REVIEWER_MODEL', '')))
+            ?: (trim((string) config('atlas.brain.writer_model', '')) ?: null);
+
+        $semantic = ['status' => 'provider_unavailable', 'provider' => null, 'model' => $model, 'findings_count' => 0];
+        $packet['checks_run'][] = 'semantic_diff_review';
+
+        try {
+            if (! function_exists('app')) {
+                return $this->mergeSemantic($packet, $semantic, []);
+            }
+            $router = app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class);
+            // Fallback-chain honesto: brain_default primeiro; se o router não o tem
+            // configurado, cai pro provider default do motor vivo.
+            $candidates = array_values(array_unique(array_filter([
+                trim((string) config('atlas.provider_defaults.brain_default', '')),
+                trim((string) config('atlas.loop.default_provider', '')),
+            ], static fn (string $p): bool => $p !== '')));
+            $provider = null;
+            foreach ($candidates as $candidate) {
+                if ($router->isConfigured($candidate)) {
+                    $provider = $candidate;
+                    break;
+                }
+            }
+            if ($provider === null) {
+                $semantic['provider'] = $candidates[0] ?? null;
+
+                return $this->mergeSemantic($packet, $semantic, []);
+            }
+            $semantic['provider'] = $provider;
+
+            $diff = $this->git($repo, ['show', '--no-color', $sha]);
+            if ($diff === null) {
+                $semantic['status'] = 'diff_unavailable';
+
+                return $this->mergeSemantic($packet, $semantic, []);
+            }
+
+            $prompt = $this->semanticPrompt($receipt, mb_substr($diff, 0, 12000));
+            $result = $router->invoke($provider, $model, [
+                'text' => $prompt,
+                'instruction' => $prompt,
+                'messages' => [['role' => 'user', 'content' => $prompt]],
+            ], [
+                'timeout_seconds' => max(30, (int) config('atlas.brain.reviewer_timeout_seconds', 90)),
+                'max_output_chars' => 4000,
+            ]);
+            if (($result['provider_called'] ?? false) !== true) {
+                $semantic['status'] = 'provider_call_failed';
+
+                return $this->mergeSemantic($packet, $semantic, []);
+            }
+
+            $raw = (string) ($result['stdout'] ?? $result['output_excerpt'] ?? '');
+            $parsed = $this->parseSemanticFindings($raw);
+            if ($parsed === null) {
+                $semantic['status'] = 'parse_failed';
+                $semantic['raw_excerpt'] = mb_substr($raw, 0, 600);
+
+                return $this->mergeSemantic($packet, $semantic, []);
+            }
+
+            $semantic['status'] = 'ok';
+            $semantic['findings_count'] = count($parsed);
+
+            return $this->mergeSemantic($packet, $semantic, $parsed);
+        } catch (Throwable $e) {
+            $semantic['status'] = 'error';
+            $semantic['error'] = mb_substr($e->getMessage(), 0, 200);
+
+            return $this->mergeSemantic($packet, $semantic, []);
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @param  array<string,mixed>  $semantic
+     * @param  list<array<string,mixed>>  $semanticFindings
+     * @return array<string,mixed>
+     */
+    private function mergeSemantic(array $packet, array $semantic, array $semanticFindings): array
+    {
+        $packet['semantic'] = $semantic;
+        if ($semanticFindings !== []) {
+            $packet['findings'] = [...$packet['findings'], ...$semanticFindings];
+            $packet['findings_count'] = count($packet['findings']);
+            // Advisory ceiling: semantic findings raise clean → warning only; blocking
+            // stays exclusively deterministic (p0/p1 from the mechanical checks).
+            if ($packet['risk_level'] === 'clean') {
+                $packet['risk_level'] = 'warning';
+                $packet['recommendation'] = 'review';
+            }
+        }
+
+        return $packet;
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $receipt
+     */
+    private function semanticPrompt(?array $receipt, string $diff): string
+    {
+        $objective = is_array($receipt) ? (string) ($receipt['objective_excerpt'] ?? '') : '';
+        $allowed = is_array($receipt) ? implode(', ', array_map('strval', (array) ($receipt['allowed_files'] ?? []))) : '';
+
+        return implode("\n", [
+            'You are a senior code reviewer. Review ONLY the diff below (a commit landed on main by an autonomous worker).',
+            'You have NO tools, NO terminal, NO file access — do not try to read files or run commands. Judge from the diff text alone; if context is missing, lower your confidence instead of investigating.',
+            'STRICT OUTPUT FORMAT — your reply must contain NOTHING except marker lines: the VERY FIRST line of your reply must already be a marker line. No prose, no reasoning, no code blocks, before or between markers.',
+            'Task objective: '.($objective !== '' ? $objective : '(unknown)'),
+            'Declared scope: '.($allowed !== '' ? $allowed : '(unknown)'),
+            'Report ONLY real problems mechanical checks cannot catch: logic bugs, broken callers/contracts, silent behavior changes, security issues, wrong edge cases. Do NOT report style, formatting, or hypothetical concerns.',
+            'For EACH problem output exactly one line:',
+            '[[FINDING]]severity|confidence|category|title[[END]]',
+            'severity: p0 (breaks production) p1 (real bug) p2 (risky) p3 (minor). confidence: 0.0-1.0. category: one lowercase token. title: one sentence with file/line when possible.',
+            'If there are NO real problems output exactly: [[NO_FINDINGS]]',
+            // O transport do runtime perde o chunk final do stdout (GAP-HERMES-01):
+            // padding descartável empurra o conteúdo real pra fora do buffer perdido.
+            'After your last marker line, output three extra lines containing only a dot: . ',
+            'DIFF:',
+            $diff,
+        ]);
+    }
+
+    /**
+     * Strict marker parse. Returns [] for an explicit NO_FINDINGS, the findings list when
+     * at least one marker parses, or null when the output fits neither (parse failure).
+     *
+     * @return list<array<string,mixed>>|null
+     */
+    public function parseSemanticFindings(string $raw): ?array
+    {
+        if (str_contains($raw, '[[NO_FINDINGS]]')) {
+            return [];
+        }
+        if (preg_match_all('/\[\[FINDING\]\](.*?)\[\[END\]\]/s', $raw, $matches) < 1) {
+            return null;
+        }
+
+        $out = [];
+        foreach ($matches[1] as $line) {
+            $parts = array_map('trim', explode('|', (string) $line, 4));
+            if (count($parts) !== 4) {
+                continue;
+            }
+            [$severity, $confidence, $category, $title] = $parts;
+            if (! in_array($severity, ['p0', 'p1', 'p2', 'p3'], true) || $title === '') {
+                continue;
+            }
+            $out[] = [
+                'severity' => $severity,
+                'category' => preg_match('/^[a-z][a-z0-9_]*$/', $category) === 1 ? $category : 'semantic',
+                'title' => mb_substr($title, 0, 500),
+                'file_path' => null,
+                'status' => 'open',
+                'source' => 'semantic',
+                'confidence' => is_numeric($confidence) ? max(0.0, min(1.0, (float) $confidence)) : null,
+            ];
+        }
+
+        return $out === [] ? null : $out;
     }
 
     /**

@@ -90,6 +90,47 @@ class AtlasTaskLandingDeepReviewServiceTest extends TestCase
         $this->assertSame('unresolvable_ref', $packet['findings'][0]['category']);
     }
 
+    public function test_semantic_mode_is_failopen_when_provider_unconfigured(): void
+    {
+        config()->set('atlas.provider_defaults.brain_default', '');
+        config()->set('atlas.loop.default_provider', '');
+
+        File::put($this->repo.'/app/Solo.php', "<?php\n\nfinal class Solo {}\n");
+        $sha = $this->commitAll('semantic failopen');
+
+        $packet = $this->service([
+            'task_packet_id' => 'task-sem-01',
+            'commit_sha' => $sha,
+            'agent_id' => 'agent-3',
+            'allowed_files' => ['app/Solo.php', 'tests/SoloTest.php'],
+        ])->review($sha, semantic: true);
+
+        // Provider off ⇒ só o bloco semantic degrada; o packet determinístico fica intacto.
+        $this->assertSame('provider_unavailable', $packet['semantic']['status']);
+        $this->assertContains('semantic_diff_review', $packet['checks_run']);
+        $this->assertSame('warning', $packet['risk_level']); // no_test_touched (determinístico)
+    }
+
+    public function test_semantic_parser_accepts_markers_rejects_noise_and_honors_no_findings(): void
+    {
+        $service = $this->service(null);
+
+        $parsed = $service->parseSemanticFindings(
+            "blah\n[[FINDING]]p1|0.9|logic_bug|Caller X ignora retorno null em Foo.php:42[[END]]\n".
+            "[[FINDING]]px|0.9|bad|inválido[[END]]\n".
+            '[[FINDING]]p3|not-a-number|Style!|título ok[[END]]',
+        );
+        $this->assertCount(2, $parsed);
+        $this->assertSame('p1', $parsed[0]['severity']);
+        $this->assertSame(0.9, $parsed[0]['confidence']);
+        $this->assertSame('semantic', $parsed[0]['source']);
+        $this->assertSame('semantic', $parsed[1]['category']); // categoria inválida cai pro default
+        $this->assertNull($parsed[1]['confidence']);
+
+        $this->assertSame([], $service->parseSemanticFindings('texto [[NO_FINDINGS]] fim'));
+        $this->assertNull($service->parseSemanticFindings('resposta sem marcador nenhum'));
+    }
+
     /**
      * @param  array<string,mixed>|null  $receipt
      */
