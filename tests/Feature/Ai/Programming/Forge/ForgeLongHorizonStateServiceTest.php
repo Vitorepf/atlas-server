@@ -330,6 +330,24 @@ class ForgeLongHorizonStateServiceTest extends TestCase
         );
     }
 
+    public function test_certification_gate_green_requires_explicit_complete_obra_before_obra_completed_action(): void
+    {
+        $state = $this->walkAllMilestonesToCertification();
+
+        $result = $this->service->advanceMilestone($state);
+        $this->assertTrue($result['advanced']);
+
+        $state->refresh();
+        $this->assertNull($state->current_milestone);
+        $this->assertNotSame(ForgeLongHorizonStateCanon::STATUS_COMPLETED, $state->status);
+        $this->assertNull($state->completed_at);
+        $this->assertSame(
+            ForgeLongHorizonStateCanon::NEXT_ACTION_COMPLETE_OBRA,
+            $state->next_action['kind'],
+            'a null current milestone is not a completed Obra until completeObra() seals certification',
+        );
+    }
+
     public function test_complete_obra_twice_throws(): void
     {
         $state = $this->walkAllMilestonesToCertification();

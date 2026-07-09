@@ -94,9 +94,9 @@ class ForgeContinuationPackBuilder
     }
 
     /**
-     * Build the payload AND persist it as a new row. Idempotency is not
-     * guaranteed here — callers that need at-most-once emission should
-     * dedupe by `pack_hash` themselves.
+     * Build the payload and persist at most one row for the same canonical
+     * state projection. Re-emitting an unchanged state returns the existing
+     * pack so resume surfaces do not accumulate duplicate continuation packs.
      *
      * @param  array<string,mixed>  $options
      */
@@ -105,9 +105,16 @@ class ForgeContinuationPackBuilder
         $payload = $this->payload($state, $options);
         $packHash = AtlasLongHorizonContinuationPack::canonicalPackHash($payload);
 
-        return AtlasLongHorizonContinuationPack::query()->create(
-            array_merge($payload, ['pack_hash' => $packHash])
-        );
+        $existing = AtlasLongHorizonContinuationPack::query()
+            ->where('pack_hash', $packHash)
+            ->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        return AtlasLongHorizonContinuationPack::query()->create(array_merge($payload, [
+            'pack_hash' => $packHash,
+        ]));
     }
 
     private function resolveIntake(AiForgeLongHorizonState $state): ?AiForgeIntake

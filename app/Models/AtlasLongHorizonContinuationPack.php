@@ -76,15 +76,16 @@ class AtlasLongHorizonContinuationPack extends Model
 
     /**
      * Compute a deterministic pack_hash from the canonical payload. The hash
-     * intentionally excludes the volatile `id`, `pack_hash` and timestamps so
-     * the same content yields the same hash on replay or re-emission.
+     * intentionally excludes the volatile `id`, `uuid`, `pack_hash` and
+     * timestamps so the same content yields the same hash on replay or
+     * re-emission.
      *
      * @param  array<string,mixed>  $payload
      */
     public static function canonicalPackHash(array $payload): string
     {
         $payload['schema_version'] = AtlasLongHorizonCanon::CONTINUATION_PACK_SCHEMA_VERSION;
-        unset($payload['id'], $payload['pack_hash'], $payload['created_at'], $payload['updated_at']);
+        unset($payload['id'], $payload['uuid'], $payload['pack_hash'], $payload['created_at'], $payload['updated_at']);
 
         return MissionCanonicalHash::sha256($payload);
     }

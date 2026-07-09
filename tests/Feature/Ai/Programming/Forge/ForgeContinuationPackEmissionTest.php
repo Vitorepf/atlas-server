@@ -202,7 +202,7 @@ class ForgeContinuationPackEmissionTest extends TestCase
         $this->assertSame('obra_completed', $pack->next_safe_action);
     }
 
-    public function test_pack_hash_is_deterministic_for_equivalent_state(): void
+    public function test_emit_continuation_pack_is_idempotent_for_equivalent_state(): void
     {
         $intake = $this->readyIntake();
         $state = $this->service->initializeForIntake($intake);
@@ -210,15 +210,10 @@ class ForgeContinuationPackEmissionTest extends TestCase
         $pack1 = $this->service->emitContinuationPack($state);
         $pack2 = $this->service->emitContinuationPack($state);
 
-        // Two pack rows are created — different uuid + created_at — but the
-        // canonical pack_hash MUST be identical since the underlying state
-        // didn't change.
-        $payload1 = $this->canonicalProjection($pack1);
-        $payload2 = $this->canonicalProjection($pack2);
-        $this->assertSame(
-            AtlasLongHorizonContinuationPack::canonicalPackHash($payload1),
-            AtlasLongHorizonContinuationPack::canonicalPackHash($payload2),
-        );
+        $this->assertSame($pack1->id, $pack2->id);
+        $this->assertSame($pack1->uuid, $pack2->uuid);
+        $this->assertSame($pack1->pack_hash, $pack2->pack_hash);
+        $this->assertSame(1, AtlasLongHorizonContinuationPack::query()->count());
     }
 
     public function test_active_obra_with_no_blockers_yields_execute(): void

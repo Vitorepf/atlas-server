@@ -685,9 +685,9 @@ class ForgeLongHorizonStateService
 
         if ($currentId === null) {
             return [
-                'kind' => ForgeLongHorizonStateCanon::NEXT_ACTION_OBRA_COMPLETED,
+                'kind' => ForgeLongHorizonStateCanon::NEXT_ACTION_COMPLETE_OBRA,
                 'target' => $state->intake_id,
-                'reason' => 'no_current_milestone',
+                'reason' => 'certification_gate_passed_requires_complete_obra',
                 'due_at' => null,
             ];
         }
