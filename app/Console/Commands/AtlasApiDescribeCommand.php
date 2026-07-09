@@ -30,9 +30,12 @@ class AtlasApiDescribeCommand extends Command
      * version (null = unversioned payload, catalogued honestly). `run` is the artisan
      * invocation `--check` uses; null = not runnable without input/interaction.
      *
+     * PUBLIC: o harness de performance (atlas:api:perf) mede exatamente este catálogo —
+     * uma fonte, dois medidores (conformidade e latência).
+     *
      * @var array<int,array<string,mixed>>
      */
-    private const CATALOG = [
+    public const CATALOG = [
         ['area' => 'cockpit', 'command' => 'atlas:cli:cockpit', 'json_invocation' => 'atlas:cli:cockpit --json', 'version_key' => 'schema_version', 'known_schema' => 'atlas.cli.cockpit.v1', 'run' => ['atlas:cli:cockpit', ['--json' => true, '--landings' => 1]]],
         ['area' => 'inbox', 'command' => 'atlas:cli:inbox', 'json_invocation' => 'atlas:cli:inbox list --json', 'version_key' => null, 'known_schema' => null, 'run' => ['atlas:cli:inbox', ['action' => 'list', '--json' => true, '--limit' => 1]]],
         ['area' => 'review_publish', 'command' => 'atlas:task:review:publish', 'json_invocation' => 'atlas:task:review:publish --json', 'version_key' => 'schema_version', 'known_schema' => 'atlas.task_landing.review_publisher.v1', 'run' => null /* publica itens reais — não rodar em check */],
