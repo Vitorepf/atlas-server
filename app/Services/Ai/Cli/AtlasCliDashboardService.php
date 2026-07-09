@@ -9,9 +9,27 @@ use App\Models\AiQualityEvaluation;
 use App\Models\AiScheduledTask;
 use App\Models\AiThread;
 use App\Models\AiTrace;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer;
+use App\Services\Ai\Mobile\AiCriticalInboxReviewReadModel;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
+use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
+use Throwable;
 
 class AtlasCliDashboardService
 {
@@ -46,9 +64,13 @@ class AtlasCliDashboardService
                 'cache_key' => $profile->cacheKey,
             ],
             'atlas_ai' => $this->atlasAi($workspace),
+            'task_health' => $this->taskHealth(),
+            'brain' => $this->brainSummary(),
+            'inbox' => $this->inboxReview(),
             'providers' => $this->providers($limit),
             'runtime' => $this->runtime(),
             'recommended_commands' => $this->recommendedCommands($profile->dirtyFiles, $profile->testCommands),
+            'warnings' => $this->warnings,
         ];
     }
 
@@ -223,6 +245,139 @@ class AtlasCliDashboardService
             'failed' => AiQualityAction::query()->where('status', 'failed')->count(),
         ];
     }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function taskHealth(): array
+    {
+        try {
+            $snapshot = AtlasTaskServingStack::coordinationHealth()->snapshot();
+
+            return [
+                'available' => true,
+                'healthy' => (bool) ($snapshot['healthy'] ?? false),
+                'claimable_depth' => (int) ($snapshot['claimable_depth'] ?? 0),
+                'servable_now' => (int) ($snapshot['servable_now'] ?? 0),
+                'active_leases' => (int) ($snapshot['active_leases'] ?? 0),
+                'queue_pressure' => (string) ($snapshot['worker_drain_forecast']['queue_pressure'] ?? 'unknown'),
+                'replenish_recommendation' => $snapshot['worker_drain_forecast']['replenish_recommendation'] ?? 'unknown',
+                'flags' => (array) ($snapshot['health_flags'] ?? []),
+            ];
+        } catch (Throwable $e) {
+            $this->warnings[] = 'task_health_unavailable: '.$e->getMessage();
+
+            return ['available' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function brainSummary(): array
+    {
+        try {
+            $scopeOpt = trim((string) config('atlas.brain.default_scope', ''));
+            $scope = (string) app(AtlasBrainScopeRegistry::class)->resolve($scopeOpt)['slug'];
+
+            $master = AtlasBrainMasterSwitch::enabled() ? 'ON' : 'OFF';
+
+            $inspectorHoles = count(app(AtlasBrainGateAdversarialAuditor::class)->audit(new AtlasTaskPacketQualityInspector)['holes']);
+            $seedHoles = count(app(AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(AtlasBrainSeedQualityGate::class))['holes']);
+            $totalHoles = $inspectorHoles + $seedHoles;
+            $gates = $totalHoles === 0 ? 'AIRTIGHT' : "HOLES:{$totalHoles}";
+
+            $ledger = new AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
+            $served = 0;
+            $refused = 0;
+            foreach ($ledger->recentCycles(50) as $row) {
+                $status = (string) ($row['status'] ?? '');
+                if ($status === 'served' || $status === 'seeded') {
+                    $served++;
+                } elseif (in_array($status, ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'], true)) {
+                    $refused++;
+                }
+            }
+            $decisive = $served + $refused;
+            $ratio = $decisive > 0 ? (int) round(($served * 100) / $decisive) : 0;
+
+            $stream = app(AtlasBrainReflectionStream::class);
+            $tail = array_slice($stream->forScope($scope), -50);
+            $kind = app(AtlasBrainResultKindHistogram::class)->histogram($tail);
+            $brief = app(AtlasBrainBriefHistogram::class)->histogram($tail);
+            $entropy = app(AtlasBrainHintEntropy::class)->compute($brief);
+            $trend = app(AtlasBrainTrendAnalyzer::class)->starvation($stream->forScope($scope));
+            $starv = (int) $kind['starvation_pct'];
+            $entropyNorm = number_format((float) $entropy['normalized'], 2);
+            $direction = (string) $trend['direction'];
+
+            $score = app(AtlasBrainHealthScore::class)->compute(
+                $totalHoles === 0, $ratio, $starv, (float) $entropy['normalized'], $direction
+            )['score'];
+
+            $pathStarvation = app(AtlasBrainPathStarvationDetector::class)->detect($brief, app(AtlasBrainHintToPathTranslator::class));
+            $starvedPaths = count($pathStarvation['starved']);
+
+            return [
+                'available' => true,
+                'scope' => $scope,
+                'master' => $master,
+                'gates' => $gates,
+                'ratio_pct' => $ratio,
+                'decisive_count' => $decisive,
+                'starvation_pct' => $starv,
+                'entropy' => $entropyNorm,
+                'trend' => $direction,
+                'findings' => ['critical' => 0, 'warn' => 0, 'info' => 0],
+                'score' => $score,
+                'starved_paths' => $starvedPaths,
+            ];
+        } catch (Throwable $e) {
+            $this->warnings[] = 'brain_summary_unavailable: '.$e->getMessage();
+
+            return ['available' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function inboxReview(): array
+    {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
+            $this->warnings[] = 'inbox_unavailable: ai_inbox_items table missing';
+
+            return ['available' => false, 'error' => 'ai_inbox_items table missing'];
+        }
+
+        try {
+            $review = app(AiCriticalInboxReviewReadModel::class)->review('vitor', 50);
+            $criticalReview = (array) ($review['critical_review'] ?? []);
+
+            return [
+                'available' => true,
+                'active_critical_count' => (int) ($criticalReview['active_critical_count'] ?? 0),
+                'status' => (string) ($criticalReview['status'] ?? 'unknown'),
+                'operator_required' => (bool) ($criticalReview['operator_required'] ?? false),
+            ];
+        } catch (Throwable $e) {
+            $this->warnings[] = 'inbox_review_unavailable: '.$e->getMessage();
+
+            return ['available' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    private function parseBrainScore(string $line): ?int
+    {
+        if (preg_match('/score=(\d+)\/100/', $line, $m) === 1) {
+            return (int) $m[1];
+        }
+
+        return null;
+    }
+
+    /** @var array<int,string> */
+    private array $warnings = [];
 
     /**
      * @return array<int,array<string,mixed>>
