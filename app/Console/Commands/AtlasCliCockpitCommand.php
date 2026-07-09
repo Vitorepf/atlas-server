@@ -148,12 +148,17 @@ class AtlasCliCockpitCommand extends Command
             ->whereIn('status', ['unread', 'read'])
             ->count();
 
+        // O5: next-step EXECUTÁVEL por estado — do cockpit ao veredito em ≤2 comandos.
+        $next = match (true) {
+            $pending > 0 => 'php artisan atlas:task:review:decide <sha|task_id> [--reject] (lote OK; detalhes: atlas:cli:inbox show <id>)',
+            $jobResults > 0 => 'php artisan atlas:cli:inbox list',
+            default => 'php artisan atlas:task:review:publish',
+        };
+
         return [
             'landing_reviews_pending' => $pending,
             'job_results_pending' => $jobResults,
-            'next' => $pending > 0 || $jobResults > 0
-                ? 'php artisan atlas:cli:inbox list'
-                : 'php artisan atlas:task:review:publish',
+            'next' => $next,
         ];
     }
 

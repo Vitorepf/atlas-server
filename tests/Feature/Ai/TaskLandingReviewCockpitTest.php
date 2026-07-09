@@ -120,6 +120,33 @@ class TaskLandingReviewCockpitTest extends TestCase
         $this->assertSame('resolved', $item->status);
     }
 
+    public function test_batch_decide_command_approves_and_rejects_landings_in_one_call(): void
+    {
+        $approve = $this->publishedItem('dddd11d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'task-batch-approve');
+        $reject = $this->publishedItem('eeee22d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'task-batch-reject');
+
+        // O5: veredito em lote — 1 comando decide N landings (por sha e por task id).
+        $this->artisan('atlas:task:review:decide', [
+            'targets' => ['dddd11d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2'],
+            '--reason' => 'lote aprovado',
+        ])->assertExitCode(0);
+        $this->artisan('atlas:task:review:decide', [
+            'targets' => ['task-batch-reject'],
+            '--reject' => true,
+        ])->assertExitCode(0);
+
+        $approve->refresh();
+        $reject->refresh();
+        $this->assertSame('resolved', $approve->status);
+        $this->assertSame('approved', data_get($approve->response, 'result.payload.task_landing_review.verdict'));
+        $this->assertSame('resolved', $reject->status);
+        $this->assertSame('rejected', data_get($reject->response, 'result.payload.task_landing_review.verdict'));
+        $this->assertStringContainsString('atlas:task:revert', (string) data_get($reject->response, 'result.payload.task_landing_review.revert_command'));
+
+        // Alvo já decidido não re-resolve (sem item aberto) → exit 1, sem exceção.
+        $this->artisan('atlas:task:review:decide', ['targets' => ['task-batch-reject']])->assertExitCode(1);
+    }
+
     private function publishedItem(string $sha, string $taskPacketId): AiInboxItem
     {
         $receipts = $this->receiptsFile([
