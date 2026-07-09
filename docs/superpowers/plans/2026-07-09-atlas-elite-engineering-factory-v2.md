@@ -303,26 +303,26 @@ Cada linha começa `REVALIDATE`, porque main pode ter avançado. Se um teste já
 
 | ID | Finding | Owner | Teste-alvo | Estado |
 |---|---|---|---|---|
-| P0-01 | `vendor` symlink residual em sandbox | Foundation | `AtlasCloneDirWiperVectorTest` + Materializer | CONFIRMED_OPEN |
-| P0-02 | comandos destrutivos de DB permitidos/sugeridos | Foundation | destructive-command policy test | CONFIRMED_OPEN |
-| P0-03 | sete consumers de `RuntimeFlagsShared` sem import correto | SelfConstruction | focused ControlPlane suite | CONFIRMED_OPEN |
-| P0-04 | DecisionReceipt hash/canonicalização incompletos | Kernel | `DecisionReceiptRuntimeGuardTest` | REVALIDATE |
-| P0-05 | architecture route/onboarding/docs/schema blockers | Kernel | architecture validate/readiness | REVALIDATE |
-| P0-06 | Dev pode apagar WIP dentro do scope | Dev | `PipelineRunExecutorTest` | CONFIRMED_OPEN |
-| P0-07 | mandatory planning stages fail-open | Dev | fast-path stage/plan tests | CONFIRMED_OPEN |
-| P0-08 | certification ocorre antes do repair proof | Dev | sovereign floor/executor tests | CONFIRMED_OPEN |
-| P0-09 | GET mutativo, erro cru, lease e repair cap | Dev | HTTP/lease/repair tests | CONFIRMED_OPEN |
-| P0-10 | learning Dev fabrica scores/auto-promoção | Dev | outcome-memory tests | CONFIRMED_OPEN |
-| P0-11 | simulação Forge avança estado real | Forge | cycle service tests | CONFIRMED_OPEN |
-| P0-12 | Forge aceita apenas um gate aprovado | Forge | completion gate tests | CONFIRMED_OPEN |
-| P0-13 | conclusão prematura/reservation/continuation drift | Forge | long-horizon tests | CONFIRMED_OPEN |
-| P0-14 | dois ciclos Forge concorrentes/test double “Live” | Forge | caller and architecture tests | CONFIRMED_OPEN |
-| P0-15 | fila Autônomos oculta work acima de 500 | Autônomos | queue index tests | CONFIRMED_OPEN |
-| P0-16 | `served` queima alvo no done-set | Autônomos | brain next→seed tests | CONFIRMED_OPEN |
-| P0-17 | verdict pós-commit ignorado | Autônomos | serving service tests | CONFIRMED_OPEN |
-| P0-18 | release ledger incompleto/defaults favoráveis | Shared | commit-governance tests | CONFIRMED_OPEN |
-| P0-19 | native worker/daemon continuam dry-run ou callbacks | Autônomos | native worker/daemon tests | CONFIRMED_OPEN |
-| P0-20 | bypass coverage e hard-stop pré-Merge ausentes | Kernel | coverage/pre-land tests | CONFIRMED_OPEN |
+| P0-01 | `vendor` symlink residual em sandbox | Foundation | `AtlasCloneDirWiperVectorTest` + Materializer | CLOSED |
+| P0-02 | comandos destrutivos de DB permitidos/sugeridos | Foundation | destructive-command policy test | CLOSED |
+| P0-03 | sete consumers de `RuntimeFlagsShared` sem import correto | SelfConstruction | focused ControlPlane suite | CLOSED |
+| P0-04 | DecisionReceipt hash/canonicalização incompletos | Kernel | `DecisionReceiptRuntimeGuardTest` | RESOLVED_ON_BASELINE |
+| P0-05 | architecture route/onboarding/docs/schema blockers | Kernel | architecture validate/readiness | RESOLVED_ON_BASELINE |
+| P0-06 | Dev pode apagar WIP dentro do scope | Dev | `PipelineRunExecutorTest` | CLOSED |
+| P0-07 | mandatory planning stages fail-open | Dev | fast-path stage/plan tests | CLOSED |
+| P0-08 | certification ocorre antes do repair proof | Dev | sovereign floor/executor tests | CLOSED |
+| P0-09 | GET mutativo, erro cru, lease e repair cap | Dev | HTTP/lease/repair tests | CLOSED |
+| P0-10 | learning Dev fabrica scores/auto-promoção | Dev | outcome-memory tests | CLOSED |
+| P0-11 | simulação Forge avança estado real | Forge | cycle service tests | CLOSED |
+| P0-12 | Forge aceita apenas um gate aprovado | Forge | completion gate tests | CLOSED |
+| P0-13 | conclusão prematura/reservation/continuation drift | Forge | long-horizon tests | PARTIAL |
+| P0-14 | dois ciclos Forge concorrentes/test double “Live” | Forge | caller and architecture tests | CLOSED |
+| P0-15 | fila Autônomos oculta work acima de 500 | Autônomos | queue index tests | CLOSED |
+| P0-16 | `served` queima alvo no done-set | Autônomos | brain next→seed tests | CLOSED |
+| P0-17 | verdict pós-commit ignorado | Autônomos | serving service tests | CLOSED |
+| P0-18 | release ledger incompleto/defaults favoráveis | Shared | commit-governance tests | CLOSED |
+| P0-19 | native worker/daemon continuam dry-run ou callbacks | Autônomos | native worker/daemon tests | PARTIAL |
+| P0-20 | bypass coverage e hard-stop pré-Merge ausentes | Kernel | coverage/pre-land tests | CLOSED |
 
 ### Task 0 baseline evidence (2026-07-09, HEAD `3da23625f1`, main ahead origin by 3)
 
@@ -388,7 +388,7 @@ Depois da seam Kernel estável, Dev, Forge e Autônomos podem avançar em packet
 - [x] Rodar `git status`, migration status, route list e testes de baseline. *(partial: status + focused P0 probes; arch-validate still running)*
 - [x] Atualizar cada P0 para `CONFIRMED_OPEN`, `RESOLVED_ON_BASELINE` ou `BLOCKED`. *(P0-04/05 still REVALIDATE pending test/arch output)*
 - [x] Registrar resultados exatos no plano.
-- [ ] Commitar somente o plano e baseline:
+- [x] Commitar somente o plano e baseline:
 
 ```bash
 git add docs/superpowers/plans/2026-07-09-atlas-elite-engineering-factory-v2.md
@@ -974,7 +974,7 @@ Use estados precisos:
 
 ### Packet: Task 0 — baseline + plan materialization
 
-Commit: *(pending)*
+Commit: b2229786ca
 Files: `docs/superpowers/plans/2026-07-09-atlas-elite-engineering-factory-v2.md`
 Red test: n/a (docs-only packet)
 Green tests: `AtlasCloneDirWiperVectorTest` 9 passed (does not cover Materializer symlink)
@@ -982,3 +982,12 @@ Architecture/docs/schema gates: bootstrap/placement `gate_status=blocked` (dupli
 Evidence refs: HEAD `3da23625f1`; main ahead origin `3 0`; Materializer L126–130 symlink; RuntimeFlagsShared wrong namespace; MergeActuator revert-only
 Remaining blockers: 18+ P0 `CONFIRMED_OPEN`; P0-04/05 still REVALIDATE
 Next packet: Task 1 (Coverage v2) after Task 0 commit — then Task 2/3 P0 fixes; **no Task 8 until zero CONFIRMED_OPEN**
+
+
+### Packet: progress through Task 7 (local main override)
+
+Commits: see `git log b2229786ca..HEAD`
+Closed: P0-01..12,14..18,20; P0-04/05 resolved on baseline; P0-13/19 partial
+Architecture validate: status=ok
+Remaining blockers before Task 8: P0-13 residual reservation proof; P0-19 full native apply path without pre-existing suite failures; plan checkbox sync
+Next packet: finish P0-13/19 residuals OR begin Task 8 only after zero CONFIRMED_OPEN/PARTIAL treated as blockers
