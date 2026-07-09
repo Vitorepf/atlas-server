@@ -195,6 +195,8 @@ Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
 
 ## ⏳ EM-FIX (outra sessão)
 - **REG-01** proof-family namespace (TerminalLoopHealthDigest/OperationalProof) fatal — `task_52704584`.
+- **REG-02** (constatado 09/07, pré-existente) `MobileGatewayTest` 7 falhas: 3× sheet 202→422 (chat/thread policy), 1× health `disabled`, 1× cursor flaky, 2× approve end-to-end da fila do loop MORTO retorna `read` (não-merged) — estas 2 antes nem rodavam (fatal `BroaderRegressionGateContract not found` até a restauração de 09/07; a restauração destapou a quebra seguinte do caminho morto). Testes de contrato do inbox vivos: 22/22 verdes.
+- **NOTA 09/07:** L3/bypass do `AiProviderManager` está EM VOO por outro worker (uncommitted: `recordBypass` + coverage por surface) — não abrir trabalho paralelo ali até landar.
 
 ## 🔴 F. Wiper / Secrets / Sandbox-floor (sweep w81pifwtp — maioria GUARDADA; 2 abertos reais)
 > Verificado guardado (NÃO são gaps): RefreshDatabase/migrate:fresh (phpunit.xml force sqlite + TestCase kill-switch + process-env pin = 3 camadas); `git reset --hard` main (merge-lock exclusivo + working-tree-clean); rm-rf/deleteDirectory (todos tmp/worktree/sandbox); DELETE/TRUNCATE (read-models regeneráveis dentro de transação ou escopados por workspace/mission/plan-id).
