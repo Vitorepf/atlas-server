@@ -23,9 +23,9 @@ maintenance:
   - Update when the runtime gap matrix shape, closure pack hash inputs or persistence path change.
 related_paths:
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionEndgameService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionEndgameVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService.php
 owner: atlas-ai
 layer: 0.8-self-construction
 line_limit: 320
@@ -54,9 +54,9 @@ canonical_source: docs/engineering-knowledge-base/self-construction/runtime-prom
 
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/runtime-promotion-endgame-v1.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionEndgameService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionEndgameVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterService.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionEndgameVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRuntimePromotionOperatorRunbookExporterTest.php

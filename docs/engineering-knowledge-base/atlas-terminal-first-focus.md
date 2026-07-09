@@ -35,13 +35,118 @@ related_paths:
   - app/Support/TerminalMarkdownRenderer.php
   - app/Services/Ai/SelfConstruction/TerminalLoopProof
   - app/Services/Ai/AiProviderManager.php
+graph_id: atlas-terminal-first-focus
+graph_title: Atlas Terminal-First Focus
+graph_world: atlas
+graph_kind: policy
+graph_parent: atlas-ai-canonical-architecture-index
+graph_status: active
+graph_source: repo
+owner: atlas-ai
+human_name: Atlas Terminal-First Focus
+canonical_name: Atlas Terminal-First Focus
+technical_name: atlas-terminal-first-focus
+cartography_type: policy
+canonical_source: docs/engineering-knowledge-base/atlas-terminal-first-focus.md
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-terminal-first-focus.md
+  - docs/engineering-knowledge-base/atlas-terminal-work-charter.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Console/Commands/AtlasReviewDeepCommand.php
+  - app/Support/TerminalMarkdownRenderer.php
+allowed_changes:
+  - Atualizar frentes/moat quando a decisao de casca ou inventario CLI mudar.
+forbidden_changes:
+  - Propor casca propria do Atlas como plataforma.
+  - Tratar edicao inline/IDE como moat primario.
+depends_on:
+  - atlas-ai-knowledge-governance-system
+  - atlas-autonomos-live-system
+flows_to:
+  - atlas-terminal-work-charter
+  - atlas-open-gaps-regressions-ledger
+unlocks:
+  - terminal-review-cockpit-focus
+governs:
+  - terminal-first-strategy
+  - verification-moat-focus
+evidence:
+  - app/Console/Commands/AtlasReviewDeepCommand.php
+  - docs/engineering-knowledge-base/atlas-terminal-work-charter.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Investir em review/verification no terminal; nao construir shell propria.
 ---
+
 # Atlas — FOCO ESTRATÉGICO: Terminal-First, Casca e o Moat de Verificação
 
 > **⚠️ LEIA ISTO ANTES de propor/implementar qualquer coisa de casca, shell, UI, "app", superfície,
 > IDE-integration ou terminal do Atlas.** Este doc é o north-star dessa área. Divergir dele = retrabalho.
 > Fonte viva: memórias `terminal-first-strategy-validated`, `atlas-shell-independence-verdict`,
 > `maestri-cockpit-adoption`. Validado por pesquisa web (08/07) + veredito multi-agente.
+
+## Resumo
+
+North-star: Atlas nao constroi casca propria; roda em terminal neutro; moat = verificacao/review. Detalhe nas secoes numeradas abaixo. Glossary: `docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md` (Dev/Forge).
+
+## Papel no Atlas
+
+Politica de produto para casca/terminal/UI — leia antes de qualquer trabalho nessa area.
+
+## Onde Se Encaixa
+
+Estrategia → charter de sessao (`atlas-terminal-work-charter.md`) → gaps no ledger → implementacao CLI/review.
+
+## Contratos
+
+| Decisao | Regra |
+|---|---|
+| Casca | must_build_own_shell=false |
+| Moat | verificacao/review |
+| Camadas | L1 alugar / L2 CLI investir / L3 seams = M |
+
+## Fluxo
+
+1. Ler este north-star.
+2. Abrir charter de sessao.
+3. Census reuse-first do que ja existe.
+4. Fechar gaps de review/CLI sem construir shell.
+
+## Regras para IA
+
+- Nao propor shell propria.
+- Nao priorizar edicao inline sobre review.
+- Endurecer contrato (AiProviderManager) em vez de UI.
+
+## Escopo de Implementacao
+
+Inclui estrategia terminal-first e foco de verificacao. Nao inclui app shell nova como pai da CLI.
+
+## Dependencias
+
+- CLI Atlas (comandos/rotas)
+- Review/inbox surfaces existentes
+- Hosts neutros (Maestri/iTerm/tmux)
+
+## Evidencias
+
+Veredito multi-agente de casca; inventario CLI; comandos de review citados em related_paths.
+
+## Riscos
+
+Retrabalho por construir casca; confundir harness commodity com produto Atlas.
+
+## Exemplos
+
+Sessao focada: ler este doc + `atlas-terminal-work-charter.md`, depois ligar produtor de review dormente.
+
+## Proximas Acoes
+
+- Seguir as 3 frentes do corpo do doc.
+- Manter alinhado ao ledger de gaps.
 
 ## 0. O foco em uma frase
 

@@ -34,13 +34,106 @@ related_paths:
   - app/Console/Commands/AtlasBrainNextCommand.php
   - app/Console/Commands/AtlasBrainSeedCommand.php
   - app/Console/Commands/AtlasTaskCommand.php
+graph_id: atlas-autonomos-live-system
+graph_title: Atlas Autonomos Live System
+graph_world: atlas
+graph_kind: system
+graph_parent: atlas-ai-canonical-architecture-index
+graph_status: active
+graph_source: repo
+owner: atlas-ai
+human_name: Atlas Autonomos Live System
+canonical_name: Atlas Autonomos Live System
+technical_name: atlas-autonomos-live-system
+cartography_type: system
+canonical_source: docs/engineering-knowledge-base/atlas-autonomos-live-system.md
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-autonomos-live-system.md
+  - app/Services/Ai/SelfConstruction/AtlasTaskScopedCommitter.php
+  - app/Console/Commands/AtlasBrainNextCommand.php
+  - app/Console/Commands/AtlasBrainSeedCommand.php
+  - app/Console/Commands/AtlasTaskCommand.php
+allowed_changes:
+  - Atualizar keep-list quando uma classe AtlasLoop* passar a ser consumida pelo vivo.
+  - Atualizar comandos vivos brain/task e switches quando o codigo mudar.
+forbidden_changes:
+  - Tratar o Loop/ACDE morto como motor vivo 24/7.
+  - Deletar AtlasLoop* pelo prefixo sem rg --no-ignore.
+  - Introduzir git add -A ou merge no caminho comum do musculo.
+depends_on:
+  - atlas-ai-self-construction-os
+  - atlas-ai-knowledge-governance-system
+flows_to:
+  - atlas-open-gaps-regressions-ledger
+  - atlas-terminal-first-focus
+unlocks:
+  - external-brain-task-origination
+  - scoped-commit-on-main
+governs:
+  - autonomos-live-runtime
+  - atlasloop-live-keeplist
+evidence:
+  - app/Services/Ai/SelfConstruction/AtlasTaskScopedCommitter.php
+  - app/Console/Commands/AtlasBrainNextCommand.php
+  - app/Console/Commands/AtlasTaskCommand.php
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: critical
+next_actions:
+  - Manter keep-list sincronizado com consumidores vivos.
+  - Preferir atlas:brain:* / atlas:task:* em qualquer trabalho de autonomia.
 ---
+
 # Atlas Autônomos — o sistema VIVO (cérebro + músculo)
 
 > **⚰️ Correção pétrea:** o "Loop" (`app/Services/Ai/AutonomousEvolution/` raiz, ACDE) **MORREU** — foi
 > o MVP fracassado. O sistema **VIVO** de auto-evolução do Atlas é o **AUTÔNOMOS** descrito aqui.
 > Se um doc antigo (`atlas-evolution-loop-*.md`, `atlas-autonomous-evolution-loop.md`, etc.) apresenta o
 > loop como motor vivo 24/7, ele está desatualizado — este doc + `loop-canonical-definition.md` governam.
+
+## Onde Se Encaixa
+
+Autonomos e o caminho vivo de auto-evolucao: Brain origina/seed → Task Serving implementa → commit escopado na main. Docs de Loop/ACDE sao legado; este doc governa o vivo. Ver tambem `docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md`.
+
+## Contratos
+
+| Contrato | Produtor | Consumidor |
+|---|---|---|
+| `atlas:brain:next` / `atlas:brain:seed` | Brain | Task Serving |
+| `atlas:task next` + scoped commit | SelfConstruction | main local |
+| Keep-list AtlasLoop* | este doc | qualquer limpeza AutonomousEvolution |
+
+## Fluxo
+
+1. Brain origina e projeta spec (`atlas:brain:next`).
+2. Seed gate-and-enqueue (`atlas:brain:seed`; ~50% refuse).
+3. Musculo puxa task (`atlas:task next`) e implementa no escopo.
+4. Commit escopado na main via `AtlasTaskScopedCommitter` (`git add -- <files>`).
+
+## Escopo de Implementacao
+
+Inclui: Brain vivo, Task Serving, scoped committer, keep-list das 26 classes AtlasLoop* reusadas.
+Nao inclui: religar ACDE/`atlas:loop:*`, mass-delete por prefixo, auto-merge.
+
+## Dependencias
+
+- `app/Services/Ai/AutonomousEvolution/Brain`
+- `app/Services/Ai/SelfConstruction`
+- switches Autonomos/Brain/Task Serving
+
+## Exemplos
+
+```bash
+php artisan atlas:brain:next --json
+php artisan atlas:brain:seed --json
+php artisan atlas:task next --json
+```
+
+## Proximas Acoes
+
+- Atualizar keep-list quando o grafo de consumidores mudar.
+- Nao reabrir o Loop morto como meta operacional.
 
 ## Resumo
 

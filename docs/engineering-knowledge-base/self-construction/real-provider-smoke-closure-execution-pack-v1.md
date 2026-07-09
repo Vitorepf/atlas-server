@@ -46,9 +46,9 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/self-construction/real-provider-smoke-closure-execution-pack-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/real-provider-smoke-closure-execution-pack-v1.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorChecklistService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeOperatorChecklistService.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorChecklistTest.php
@@ -189,9 +189,9 @@ does_not_sign_for_operator
 ## Verification Commands
 
 ```
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService.php
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService.php
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorChecklistService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeClosureExecutionPackService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokePreSubmissionVerifierService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeOperatorChecklistService.php
 php artisan test --filter='RealProviderSmokeClosureExecutionPack|RealProviderSmokePreSubmissionVerifier|RealProviderSmokeOperatorChecklist'
 php -d memory_limit=512M ./vendor/bin/pint <touched files>
 php artisan atlas:engineering:knowledge docs-health --json

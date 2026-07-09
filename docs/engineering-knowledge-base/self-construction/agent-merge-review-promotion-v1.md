@@ -29,13 +29,13 @@ maintenance:
   - Não wire em routes/api.php nem em CLI mutating até que o promotion gate runtime esteja certificado.
   - Rodar `php artisan atlas:engineering:knowledge docs-health --json` após qualquer edição neste doc.
 related_paths:
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewPacketBuilder.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewScopeVerifier.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewRiskScorer.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewHumanApprovalPlanner.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewPromotionDryRun.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewRollbackVerifier.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewCertificationService.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewPacketBuilder.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewScopeVerifier.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewRiskScorer.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewHumanApprovalPlanner.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewPromotionDryRun.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewRollbackVerifier.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewCertificationService.php
   - tests/Feature/Ai/SelfConstruction/AgentMergeReviewPacketBuilderTest.php
   - tests/Feature/Ai/SelfConstruction/AgentMergeReviewScopeVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AgentMergeReviewRiskScorerTest.php
@@ -59,13 +59,13 @@ cartography_type: contract
 canonical_source: docs/engineering-knowledge-base/self-construction/agent-merge-review-promotion-v1.md
 owner: atlas-self-construction-os
 repo_paths:
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewPacketBuilder.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewScopeVerifier.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewRiskScorer.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewHumanApprovalPlanner.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewPromotionDryRun.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewRollbackVerifier.php
-  - app/Services/Ai/SelfConstruction/AgentMergeReviewCertificationService.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewPacketBuilder.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewScopeVerifier.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewRiskScorer.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewHumanApprovalPlanner.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewPromotionDryRun.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewRollbackVerifier.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentMergeReviewCertificationService.php
 allowed_changes:
   - Refinar tabela de risk factors quando observar drift em multi-Claude.
   - Adicionar invariant novo ao certification grid quando contrato canônico mudar.
@@ -283,7 +283,7 @@ Execuções em 2026-05-14:
 ### Cenário limpo
 
 ```php
-$svc = new App\Services\Ai\SelfConstruction\AgentMergeReviewCertificationService;
+$svc = new App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewCertificationService;
 $diff = [
     'source' => 'synthetic_diff_manifest',
     'base_revision' => 'baseline-x',

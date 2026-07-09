@@ -24,9 +24,9 @@ maintenance:
   - Atualizar quando os contratos canônicos do human completion receipt mudarem.
   - Não tocar `AtlasSelfConstructionReadinessService.php`, `AtlasAiSelfConstructionCommand.php` ou `agent-control-plane-contract.md` a partir deste pack.
 related_paths:
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionCompletionFinalizationGateService.php
   - docs/engineering-knowledge-base/self-construction/agent-control-plane-contract.md
   - docs/engineering-knowledge-base/self-construction/atlas-self-construction-os-completion-roadmap-v1.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -45,9 +45,9 @@ technical_name: atlas-self-construction-human-completion-receipt-closure-executi
 cartography_type: module
 canonical_source: docs/engineering-knowledge-base/self-construction/atlas-self-construction-human-completion-receipt-closure-execution-pack-v1.md
 repo_paths:
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionCompletionFinalizationGateService.php
   - docs/engineering-knowledge-base/self-construction/atlas-self-construction-human-completion-receipt-closure-execution-pack-v1.md
 allowed_changes:
   - Atualizar a pack quando os contratos canônicos do human completion receipt mudarem.
@@ -68,9 +68,9 @@ unlocks:
 governs:
   - human_signed_os_complete_receipt_corridor
 evidence:
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionCompletionFinalizationGateService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionCompletionFinalizationGateService.php
 evidence_refs:
   - symbol: AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService
   - command: atlas:self-construction:closure-execution-pack

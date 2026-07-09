@@ -1,5 +1,3 @@
-> **⚰️ LEGADO ACDE (Obra 1):** esta wiki descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Canon: `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. AAEL / Stewardship Loop / TerminalLoop = outros produtos — não confundir.
-
 ---
 id: atlas-evolution-loop-runtime
 type: engineering_knowledge
@@ -35,7 +33,7 @@ related_paths:
   - app/Services/Ai/AutonomousEvolution/TimeBoundedLoopExecutionDriver.php
   - app/Services/Ai/AutonomousEvolution/Campaign/AtlasLoopCampaignSupervisor.php
   - app/Services/Ai/AutonomousEvolution/Persistence/AtlasLoopStore.php
-  - app/Console/Commands/AtlasLoopCampaignCommand.php
+  - app/Services/Ai/AutonomousEvolution/Campaign/AtlasLoopCampaignSupervisor.php
   - app/Console/Commands/AtlasLoopGrindTaskCommand.php
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 owner: atlas-ai
@@ -56,7 +54,7 @@ canonical_source: docs/engineering-knowledge-base/atlas-evolution-loop-runtime.m
 repo_paths:
   - docs/engineering-knowledge-base/atlas-evolution-loop-runtime.md
   - app/Services/Ai/AutonomousEvolution
-  - app/Console/Commands/AtlasLoopCampaignCommand.php
+  - app/Services/Ai/AutonomousEvolution/Campaign/AtlasLoopCampaignSupervisor.php
 allowed_changes:
   - Extend the acceptance contract or drivers when a new generator/domain needs it, keeping the guards intact.
   - Add new loop domains by supplying a base_workspace + acceptance (no engine fork).
@@ -89,6 +87,8 @@ next_actions:
   - Soak-test a multi-hour campaign; exercise non-hermes providers through the driver.
   - Finish framework-coupled (materialized) target grinding; then DB-stateful targets.
 ---
+
+> **⚰️ LEGADO ACDE (Obra 1):** esta wiki descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Canon: `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. AAEL / Stewardship Loop / TerminalLoop = outros produtos — não confundir.
 
 > ⚠️ **DEFINIÇÃO CANÔNICA DO LOOP — leia primeiro: `docs/loop-canonical-definition.md` e `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`.** Este doc descreve IMPLEMENTAÇÃO / ESTADO / HISTÓRICO; parte do framing aqui (refactor / ciclomática / landing-rate / best-of-N / proxy) é o **ALVO ERRADO**. Na arquitetura final, o Loop é o **Autopoiesis / Evolution Engine** dentro do `Atlas Autonomous Engineering Government`, não o OS inteiro. O alvo 24/7 é o Government evoluir Atlas e project lanes via Task Fabric, Maestro, Verification Court, Merge Governor, Receipts e Knowledge Sync.
 
@@ -237,10 +237,10 @@ For unattended runs the engine is wrapped in a durable supervisor (`atlas:loop:c
 
 ```bash
 # durable autonomous campaign (engineering targets)
-php artisan atlas:loop:campaign --base-workspace="$(pwd)" --max-seconds=3600 --scenarios=6  # runs to budget/kill
-php artisan atlas:loop:campaign:status --json
-php artisan atlas:loop:campaign:stop                 # graceful kill-switch ( --pause to pause )
-php artisan atlas:loop:grind-task --task-id=<id> --json   # one durable task, standalone
+`atlas:loop:campaign` (ACDE-MORTO — superficie removida; nao executar) --base-workspace="$(pwd)" --max-seconds=3600 --scenarios=6  # runs to budget/kill
+`atlas:loop:campaign:status` (ACDE-MORTO — superficie removida; nao executar) --json
+`atlas:loop:campaign:stop` (ACDE-MORTO — superficie removida; nao executar)                 # graceful kill-switch ( --pause to pause )
+`atlas:loop:grind-task` (ACDE-MORTO — superficie removida; nao executar) --task-id=<id> --json   # one durable task, standalone
 # atlas:loop:evolve runs ONE explore-N-scenarios pass without the durable campaign
 
 # finance instance (see its own doc) — fast pure-code generator:

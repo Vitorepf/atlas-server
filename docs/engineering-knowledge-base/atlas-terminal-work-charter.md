@@ -22,12 +22,117 @@ related_paths:
   - app/Console/Commands/AtlasCliInboxCommand.php
   - app/Services/Ai/Mobile/InboxActionRegistry.php
   - app/Console/Commands/AtlasReviewDeepCommand.php
+graph_id: atlas-terminal-work-charter
+graph_title: Atlas Terminal Work Charter
+graph_world: atlas
+graph_kind: runbook
+graph_parent: atlas-terminal-first-focus
+graph_status: active
+graph_source: repo
+owner: atlas-ai
+human_name: Atlas Terminal Work Charter
+canonical_name: Atlas Terminal Work Charter
+technical_name: atlas-terminal-work-charter
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-terminal-work-charter.md
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-terminal-work-charter.md
+  - docs/engineering-knowledge-base/atlas-terminal-first-focus.md
+  - docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+  - app/Console/Commands/AtlasCliInboxCommand.php
+  - app/Services/Ai/Mobile/InboxActionRegistry.php
+  - app/Console/Commands/AtlasReviewDeepCommand.php
+allowed_changes:
+  - Atualizar estado/gaps/mapa de arquivos quando o cockpit de review evoluir.
+forbidden_changes:
+  - Reconstruir cockpit greenfield quando o gap e ligar produtor dormente.
+  - Editar AtlasLoopMergeActuator para emitir review item.
+depends_on:
+  - atlas-terminal-first-focus
+  - atlas-open-gaps-regressions-ledger
+flows_to:
+  - atlas-autonomos-live-system
+unlocks:
+  - focused-terminal-session
+governs:
+  - terminal-session-charter
+evidence:
+  - app/Console/Commands/AtlasCliInboxCommand.php
+  - app/Services/Ai/Mobile/InboxActionRegistry.php
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: medium
+next_actions:
+  - Ligar landings do autonomo vivo ao inbox de review (1 produtor).
 ---
+
 # Atlas no Terminal — CHARTER da Sessão Focada
 
 > **Como usar:** abra a sessão focada, leia (1) o north-star `atlas-terminal-first-focus.md` (a estratégia/decisões)
 > e (2) este charter (estado + gaps + roadmap + arquivos). Trabalhe SÓ neste escopo. Reuse-first: quase tudo é
 > **ligar dormente**, não construir. Antes de construir qualquer coisa, faça o census read-only do que já existe (§3).
+
+## Resumo
+
+Charter auto-suficiente para sessao focada em Atlas no Terminal: decisoes, estado, gaps, frentes e mapa de arquivos. Companion de `atlas-terminal-first-focus.md`. Glossary: `docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md`.
+
+## Papel no Atlas
+
+Runbook de sessao — operacionaliza o north-star terminal-first sem expandir escopo.
+
+## Onde Se Encaixa
+
+North-star → este charter → ledger de gaps → patches reuse-first no cockpit/CLI.
+
+## Contratos
+
+| Item | Regra |
+|---|---|
+| Escopo | so terminal/review/CLI |
+| Postura | reuse-first |
+| Emissao review | fora do MergeActuator |
+
+## Fluxo
+
+1. Bootstrap da sessao (§9 no corpo).
+2. Census do estado atual.
+3. Fechar primeira fatia (produtor inbox).
+4. Atualizar charter/ledger.
+
+## Regras para IA
+
+- Nao construir casca.
+- Nao greenfield do cockpit.
+- Nao tocar MergeActuator petreo para emitir review.
+
+## Escopo de Implementacao
+
+Inclui ligar surfaces de review/CLI. Nao inclui shell propria nem rebuild do inbox.
+
+## Dependencias
+
+- `atlas-terminal-first-focus.md`
+- Inbox/review commands
+- Ledger de gaps
+
+## Evidencias
+
+Census e mapa de arquivos no corpo; comandos inbox/review em repo_paths.
+
+## Riscos
+
+Reconstruir o que ja existe; expandir escopo para app shell.
+
+## Exemplos
+
+Primeira fatia: emitir item de review a partir do caminho atlas:task / pos-commit, consumido por `atlas:cli:inbox`.
+
+## Proximas Acoes
+
+- Executar primeira fatia do corpo do charter.
+- Manter % pronto honesto nas 3 frentes.
 
 ## 1. A DECISÃO (resumo — detalhe no north-star)
 - **Atlas NÃO constrói casca própria.** Roda com poder cheio em host de terminal NEUTRO (Maestri/iTerm/tmux) porque é dirigível por CLI. Veredito 6-agentes: `must_build_own_shell=false`. A alavanca é o CONTRATO, não UI.

@@ -17,11 +17,112 @@ decisions:
 maintenance:
   - Apendar por sweep; marcar status (ABERTO/EM-FIX/FECHADO+commit); nunca remover entrada fechada.
 related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, docs/engineering-knowledge-base/atlas-autonomos-live-system.md]
+graph_id: atlas-open-gaps-regressions-ledger
+graph_title: Atlas Open Gaps Regressions Ledger
+graph_world: atlas
+graph_kind: runbook
+graph_parent: atlas-ai-knowledge-governance-system
+graph_status: active
+graph_source: repo
+owner: atlas-ai
+human_name: Atlas Open Gaps Regressions Ledger
+canonical_name: Atlas Open Gaps Regressions Ledger
+technical_name: atlas-open-gaps-regressions-ledger
+cartography_type: runbook
+canonical_source: docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
+  - docs/engineering-knowledge-base/atlas-terminal-first-focus.md
+  - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
+allowed_changes:
+  - Apendar gaps com prova; marcar ABERTO/EM-FIX/FECHADO+commit.
+forbidden_changes:
+  - Remover entrada fechada.
+  - Entrar gap sem prova (broken_now exige evidencia).
+depends_on:
+  - atlas-ai-knowledge-governance-system
+  - atlas-autonomos-live-system
+flows_to:
+  - atlas-terminal-work-charter
+  - atlas-residual-elite-documentation-promotion-2026-07
+unlocks:
+  - implementation-ready-gap-queue
+governs:
+  - open-gap-tracking
+  - regression-ledger
+evidence:
+  - docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
+required_tests:
+  - php artisan atlas:engineering:knowledge docs-health --json
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Seguir FIX-ORDER; fechar broken_now vivos antes de dead-loop cruft.
 ---
+
 # Atlas — Ledger de Gaps, Regressões e Falhas Abertas
 
 > **Propósito:** caçar+documentar com PROVA todo gap/erro/falha antes da hora de corrigir, pra implementação sair lisa.
 > Status: **ABERTO** · **EM-FIX** · **FECHADO**(commit). Fonte: sweeps do gap-hunt (IDs citados). Companion: `atlas-terminal-first-focus.md`.
+
+## Resumo
+
+Ledger vivo de gaps/regressoes/falhas abertas com prova por entrada, severity e fix-order. Companion de `atlas-terminal-first-focus.md`. Naming: ver `docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md` (Dev/Forge).
+
+## Papel no Atlas
+
+Fonte operacional para corrigir com prova — nao e SoT de arquitetura; aponta owners e evidencia.
+
+## Onde Se Encaixa
+
+Knowledge governance → gap hunt → implementacao. Alimenta sessoes focadas (terminal charter) e Residual Elite residuals.
+
+## Contratos
+
+| Contrato | Regra |
+|---|---|
+| Entrada | so com prova |
+| Status | ABERTO / EM-FIX / FECHADO+commit |
+| Fix-order | broken_now vivo → honesty gates → alto destrave |
+
+## Fluxo
+
+1. Sweep encontra gap.
+2. Entrada com prova + severity.
+3. Fix por-caso.
+4. Marcar FECHADO com commit; nunca apagar.
+
+## Regras para IA
+
+- Nao mass-restore o loop morto.
+- Nao inventar gap sem evidencia.
+- Preferir restore pontual de codigo VIVO vs finish-delete de dead-loop.
+
+## Escopo de Implementacao
+
+Inclui tracking e priorizacao de gaps. Nao inclui reimplementar ACDE ou promover mapa operacional a SoT.
+
+## Dependencias
+
+- Docs canonicos owners
+- Evidence/runtime proofs citados por entrada
+
+## Evidencias
+
+Entradas com file:line / runtime proof nos sweeps citados no corpo do ledger.
+
+## Riscos
+
+Falso-alarme; confundir dead-loop com vivo; apagar historico fechado.
+
+## Exemplos
+
+Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
+
+## Proximas Acoes
+
+- Executar FIX-ORDER item a item com prova.
+- Atualizar Residual Elite residuals quando status mudar.
 
 ## 🎯 FIX-ORDER DEFINITIVO (quando a hora de corrigir chegar)
 1. **🔴 VOCÊ, urgente:** `GAP-SEC-01` — rotacionar chaves `.env` (Binance→ElevenLabs→Cursor→YouTube→ATLAS_TOKEN) + purgar histórico (filter-repo/BFG) + force-push.
@@ -172,10 +273,41 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 ### GAP-MEM-03 — 🟢 projeção provider-safe não filtra entradas 'thin' (title==summary); classificador existe mas não aplicado
 - `AtlasProviderProjectionService:729/840`. Consome o orçamento de linhas com duplicatas. Fix: pular thin em `providerSafeEntries`. baixo.
 
+## Residual Elite 2026-07-08 — residuals após Obras 4–9 (docs promovidos 2026-07-09)
+
+> Source material: `storage/app/atlas/elite-compaction/OBRA{4..9}-FINAL-RECEIPT-*.json`.
+> Promoção canônica: `atlas-residual-elite-documentation-promotion-2026-07.md`.
+> Não reabrir como “não implementado” o que os receipts marcam DONE; estes IDs são o que ficou PARTIAL/OPEN/deferred.
+
+| ID | Sev | Status | O quê | Owner / prova |
+|---|---|---|---|---|
+| **GAP-RE-MEM-03** | 🟡 | FECHADO | thin `title==summary` filtrado em `providerSafeEntries` | memory-core-runbook · CLOSEOUT-100 |
+| **GAP-RE-MEM-06** | 🟡 | FECHADO | govern scan backfill + auto-relation code-path peers (`related`) | memory-core-runbook · CLOSEOUT-100 |
+| **GAP-RE-MEM-07** | 🟡 | FECHADO | `MemoryHealthCompositePolicy` pesos recalibrados (honesty/rationale/density ↑) | AHRI + memory quality · CLOSEOUT-100 |
+| **GAP-RE-DEV-06** | 🟡 | FECHADO | `AtlasContextRuntime::compose()` no gateway path antes do certify | programming-governance · CLOSEOUT-100 |
+| **GAP-RE-DEV-09** | 🟡 | FECHADO | MissionCertification: `evidence_non_trivial` + `claim_aligned_with_work_orders` | mission-foundation · CLOSEOUT-100 |
+| **GAP-RE-DEV-10** | 🟡 | FECHADO | repair contract promovido p/ `Programming\Repair`; AiWorker/Dev/Forge consomem | programming-governance · CLOSEOUT-100 |
+| **GAP-RE-FORGE-04** | 🟡 | FECHADO | Forge HTTP entry points gravam `route_decision` via recorder/DualCore | programming-forge-flow · CLOSEOUT-100 |
+| **GAP-RE-FORGE-06** | 🟡 | FECHADO | `engineering_kernel.forge_execution_gate_enforcing` declarado (default OFF) | programming-forge-flow · CLOSEOUT-100 |
+| **GAP-RE-AUT-08..10** | 🟢 | DEFERRED | ACDE clustered corpses (~630) — keep-list safe, OUT do closeout | evolution-loop-acde-runtime · OBRA6/7 |
+| **GAP-RE-RAG-07** | 🟡 | FECHADO | `indexStaleFraction()` + probe KIND_AGRN_REINDEX | ASEF/AHRI · CLOSEOUT-100 |
+| **GAP-RE-RAG-08** | 🟡 | FECHADO | freshness_tick linker bounded no AURG sync | AURG · CLOSEOUT-100 |
+| **GAP-RE-RAG-09** | 🟡 | FECHADO | deep memory adapter path em AHRI `report()` | AHRI · CLOSEOUT-100 |
+| **GAP-RE-RAG-10** | 🟡 | FECHADO | AKIF `normalize()` → packet registry + `claims.indexed` | AKIF · CLOSEOUT-100 |
+| **GAP-RE-OB-03** | 🟢 | FECHADO | MCP tier tools `_brief` / `_timeline` / `_get_full` físicos | open-brain-mcp · CLOSEOUT-100 |
+| **GAP-RE-OB-05** | 🟢 | OUT | ATER/ACRS injection em app/mobile — fora do escopo closeout | open-brain-context-injection |
+| **GAP-RE-SC-05/06** | 🟡 | FECHADO | CodexSection `setMother`/`__call` + Schema import + teste invocável | self-construction-os · CLOSEOUT-100 |
+| **GAP-RE-DECIDE-01** | 🟡 | PARTIAL | checklist escrito; flags OFF até live_outcomes ≥ critério | decide-meta-learning · DECIDE-01-FLIP-CHECKLIST |
+| **GAP-RE-GOV-MUSCLE** | 🟡 | FECHADO | provider coverage 138/138 governed, bypass 0 | constitutional-kernel · CLOSEOUT-100 |
+| **GAP-RE-TEOS-ACOS** | 🟡 | PARTIAL | mint soak ran; pipeline_score~8.68; green receipts 0/30 | ACOS + TEOS · CLOSEOUT-100 |
+| **GAP-RE-MCP-02** | 🟢 | PARTIAL | CLI SoT 67 tools; Cursor native transport = restart operador | open-brain-mcp · CLOSEOUT-100 |
+| **GAP-RE-HERMES** | 🟢 | INVENTORY | Hermes mesh/kanban full OS fora de escopo (OUT) | hermes-executive-runtime · OBRA9 |
+| **GAP-RE-MISSION-HTTP** | 🟢 | PARTIAL | checklist escrito; `kernel_http_integration` permanece OFF | mission-foundation · MISSION-HTTP-FLIP-CHECKLIST |
+
 ## Z. Refutados / falso-alarme (não re-abrir)
 - Maestro Exceptions (UnknownSchemaVersion/SchemaDowngradeRefused/InvalidProvider): `use` aponta pra path deletado MAS as classes foram INLINADAS nos survivors → maestro:schema/bid OK.
 - `AtlasEngineeringStringListNormalizer` em ProbeRunner: só import pendurado (0 uso no corpo) → não autoloaded, não fataliza.
-- `App\Models\User` em auth.php/seeder: nunca existiu no git, não é regressão do cd018c6b3f (`::class` string compile-time).
+- `User` model class (auth.php/seeder) em auth.php/seeder: nunca existiu no git, não é regressão do cd018c6b3f (`::class` string compile-time).
 - Binds rescue()-wrapped (AppServiceProvider 574/592/594/617/618/629/636/638): resolvem classe deletada MAS degradam pra null, NÃO fatalizam.
 - `EmitsAcdeLoopDeprecation` em EliteCompactionWavePruner:386: dentro de template string (codegen), sem trait real.
 

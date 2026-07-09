@@ -48,10 +48,10 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/self-construction/real-provider-smoke-endgame-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/real-provider-smoke-endgame-v1.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameVerifierService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService.php
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEndgameService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEndgameVerifierService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameVerifierTest.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightTest.php
@@ -206,10 +206,10 @@ does_not_sign_for_operator
 ## Verification Commands
 
 ```
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameService.php
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEndgameVerifierService.php
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService.php
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEndgameService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEndgameVerifierService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService.php
 php artisan test --filter='RealProviderSmokeEndgame|RealProviderSmokeEvidenceLedgerPreflight|RealProviderSmokeOperatorRunbookExporter'
 php -d memory_limit=512M ./vendor/bin/pint <touched files>
 php artisan atlas:engineering:knowledge docs-health --json

@@ -46,7 +46,7 @@ cartography_type: module
 canonical_source: docs/engineering-knowledge-base/self-construction/operator-evidence-receipt-fixture-lab-v1.md
 repo_paths:
   - docs/engineering-knowledge-base/self-construction/operator-evidence-receipt-fixture-lab-v1.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
   - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
 allowed_changes:
   - Adicionar campos novos de diagnostico quando os verifiers reais mudarem.
@@ -209,10 +209,10 @@ These map one-to-one to absent code paths. The lab uses the existing verifiers i
 ## Verification Commands
 
 ```
-php -l app/Services/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
+php -l app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
 php -l tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
 php artisan test tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
-php -d memory_limit=512M ./vendor/bin/pint app/Services/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
+php -d memory_limit=512M ./vendor/bin/pint app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
 php artisan atlas:engineering:knowledge docs-health --json
 php artisan atlas:ai:architecture-validate --json
 ```
@@ -254,7 +254,7 @@ Nao usar fixture sintetica como evidencia real. Nao tratar verifier_passed do la
 ## Escopo de Implementacao
 
 Apenas estes tres arquivos:
-- app/Services/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
+- app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabService.php
 - tests/Feature/Ai/SelfConstruction/AtlasSelfConstructionOperatorEvidenceReceiptFixtureLabTest.php
 - docs/engineering-knowledge-base/self-construction/operator-evidence-receipt-fixture-lab-v1.md
 

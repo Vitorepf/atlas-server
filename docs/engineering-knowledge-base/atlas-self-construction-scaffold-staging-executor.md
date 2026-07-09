@@ -43,14 +43,14 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-self-construction-subsystem-builder.md
   - docs/engineering-knowledge-base/atlas-constitutional-kernel.md
   - docs/engineering-knowledge-base/atlas-autonomy-admission.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionScaffoldStagingExecutorService.php
   - app/Console/Commands/AtlasScaffoldStageCommand.php
   - tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorServiceTest.php
 repo_paths:
   - docs/engineering-knowledge-base/atlas-self-construction-scaffold-staging-executor.md
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionScaffoldStagingExecutorService.php
 evidence:
-  - app/Services/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorService.php
+  - app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionScaffoldStagingExecutorService.php
   - app/Console/Commands/AtlasScaffoldStageCommand.php
   - tests/Unit/Ai/SelfConstruction/AtlasSelfConstructionScaffoldStagingExecutorServiceTest.php
 evidence_refs:

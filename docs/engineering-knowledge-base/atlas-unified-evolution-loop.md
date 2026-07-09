@@ -1,5 +1,3 @@
-> **⚰️ LEGADO ACDE (Obra 1):** esta wiki descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Canon: `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. AAEL / Stewardship Loop / TerminalLoop = outros produtos — não confundir.
-
 ---
 id: atlas-unified-evolution-loop
 type: engineering_knowledge
@@ -92,6 +90,8 @@ next_actions:
 owner: atlas-ai
 updated: 2026-06-09
 ---
+
+> **⚰️ LEGADO ACDE (Obra 1):** esta wiki descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Canon: `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. AAEL / Stewardship Loop / TerminalLoop = outros produtos — não confundir.
 
 > ⚠️ **ARQUITETURA FINAL:** leia primeiro
 > `docs/engineering-knowledge-base/atlas-autonomous-engineering-government.md`
@@ -368,20 +368,20 @@ Verification Court e Merge / Release Governor.
 ## Exemplos
 
 ```
-php artisan atlas:loop:unified --once --modes=deadcode,docs_structure
-php artisan atlas:loop:unified --run-id=run-YYYY --max-seconds=86400 --provider=hermes_cli
-php artisan atlas:loop:unified:report
-php artisan atlas:loop:unified:supervisor --run=run-YYYY --json
-php artisan atlas:loop:unified:install-launchd --run=run-YYYY --dry-run --json
-php artisan atlas:loop:verify-proposals --run=run-YYYY --json
-php artisan atlas:loop:compile-verifier --intent='Add method foo() returns "ok".' --target=app/Foo.php --method=foo --returns=ok --strict --json
-php artisan atlas:loop:compile-verifier --intent='Command foo should output ok' --target=app/Console/Commands/FooCommand.php --command='php artisan foo' --output-contains=ok --strict --json
-php artisan atlas:loop:compile-verifier --intent='GET /foo returns ok' --target=app/Http/Controllers/FooController.php --http-path=/foo --http-status=200 --http-body-contains=ok --strict --json
-php artisan atlas:loop:compile-verifier --intent='foo dispatches event' --target=app/Foo.php --method=foo --event-class=atlas.foo.ready --strict --json
-php artisan atlas:loop:compile-verifier --intent='foo dispatches job' --target=app/Foo.php --method=foo --job-class='App\Jobs\FlushBatchedMobilePushes' --strict --json
-php artisan atlas:loop:compile-verifier --intent='foo writes row' --target=app/Foo.php --method=foo --db-table=foo_records --db-setup-sql='CREATE TABLE foo_records (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)' --db-where-json='{"marker":"ok"}' --db-count=1 --db-count-operator='>=' --strict --json
-php artisan atlas:loop:certify-implementation --workspace=/tmp/candidate --acceptance-file=/tmp/acceptance.json --refuter-command='php refute.php' --refuters=1 --json
-php artisan atlas:loop:review-feedback --run=run-YYYY --path=app/Foo.php --mode=coverage_gap --action=approved --json
+`atlas:loop:unified` (ACDE-MORTO — superficie removida; nao executar) --once --modes=deadcode,docs_structure
+`atlas:loop:unified` (ACDE-MORTO — superficie removida; nao executar) --run-id=run-YYYY --max-seconds=86400 --provider=hermes_cli
+`atlas:loop:unified:report` (ACDE-MORTO — superficie removida; nao executar)
+`atlas:loop:unified:supervisor` (ACDE-MORTO — superficie removida; nao executar) --run=run-YYYY --json
+`atlas:loop:unified:install-launchd` (ACDE-MORTO — superficie removida; nao executar) --run=run-YYYY --dry-run --json
+`atlas:loop:verify-proposals` (ACDE-MORTO — superficie removida; nao executar) --run=run-YYYY --json
+`atlas:loop:compile-verifier` (ACDE-MORTO — superficie removida; nao executar) --intent='Add method foo() returns "ok".' --target=app/Foo.php --method=foo --returns=ok --strict --json
+`atlas:loop:compile-verifier` (ACDE-MORTO — superficie removida; nao executar) --intent='Command foo should output ok' --target=app/Console/Commands/FooCommand.php --command='php artisan foo' --output-contains=ok --strict --json
+`atlas:loop:compile-verifier` (ACDE-MORTO — superficie removida; nao executar) --intent='GET /foo returns ok' --target=app/Http/Controllers/FooController.php --http-path=/foo --http-status=200 --http-body-contains=ok --strict --json
+`atlas:loop:compile-verifier` (ACDE-MORTO — superficie removida; nao executar) --intent='foo dispatches event' --target=app/Foo.php --method=foo --event-class=atlas.foo.ready --strict --json
+`atlas:loop:compile-verifier` (ACDE-MORTO — superficie removida; nao executar) --intent='foo dispatches job' --target=app/Foo.php --method=foo --job-class='App\Jobs\FlushBatchedMobilePushes' --strict --json
+`atlas:loop:compile-verifier` (ACDE-MORTO — superficie removida; nao executar) --intent='foo writes row' --target=app/Foo.php --method=foo --db-table=foo_records --db-setup-sql='CREATE TABLE foo_records (id INTEGER PRIMARY KEY AUTOINCREMENT, marker TEXT NOT NULL)' --db-where-json='{"marker":"ok"}' --db-count=1 --db-count-operator='>=' --strict --json
+`atlas:loop:certify-implementation` (ACDE-MORTO — superficie removida; nao executar) --workspace=/tmp/candidate --acceptance-file=/tmp/acceptance.json --refuter-command='php refute.php' --refuters=1 --json
+`atlas:loop:review-feedback` (ACDE-MORTO — superficie removida; nao executar) --run=run-YYYY --path=app/Foo.php --mode=coverage_gap --action=approved --json
 touch storage/atlas/loop/unified/STOP   # kill-switch
 ```
 
