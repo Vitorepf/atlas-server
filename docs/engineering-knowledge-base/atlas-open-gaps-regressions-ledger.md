@@ -23,6 +23,15 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 > **Propósito:** caçar+documentar com PROVA todo gap/erro/falha antes da hora de corrigir, pra implementação sair lisa.
 > Status: **ABERTO** · **EM-FIX** · **FECHADO**(commit). Fonte: sweeps do gap-hunt (IDs citados). Companion: `atlas-terminal-first-focus.md`.
 
+## 🎯 FIX-ORDER DEFINITIVO (quando a hora de corrigir chegar)
+1. **🔴 VOCÊ, urgente:** `GAP-SEC-01` — rotacionar chaves `.env` (Binance→ElevenLabs→Cursor→YouTube→ATLAS_TOKEN) + purgar histórico (filter-repo/BFG) + force-push.
+2. **🔴 cd018 restores VIVOS** (git checkout, trivial, un-quebra a main de uma vez): `GAP-01` GitSubprocess (+24 callers, +8 SoftwareCompany GAP-DOM-02), `GAP-02` AtlasDeadCodeAnalyzer (→ HonestyGate+deadcode-check), `GAP-DOM-01` PressureLayerGuards/AtlasLoopWiredCallerService (→ pressure:*+`atlas:land`), `GAP-05` remover import venenoso Maestro (1 linha), `GAP-03` ScenarioExplorer (→ finance), `GAP-04` AAEL.
+3. **🟠 Segurança/dinheiro/soberania** (baixo esforço): `GAP-SOV-01` sensitivity no gateway (local-first), `GAP-CYBER-01` rotear ofensivo fail-closed, `GAP-FIN-01` spot honrar o canônico, `GAP-MKT-03` PolicyComplianceGate no composer.
+4. **🟠 Honesty/coverage** (evita o próximo cd018 silencioso): `GAP-30/31/32` fake-pass gates, `GAP-COV-01/02` teste do ramo de bloqueio, `GAP-WIP-01` vendor clonefile.
+5. **🟡 Latente:** `GAP-RACE-01`, `GAP-WIR-01/02`, `GAP-MEM-01/02/03`, flags `GAP-06/07/08/GOV-01`.
+6. **Decisão estrutural:** cd018 dead-loop (`GAP-17-23`) → **finish-delete** (não restaurar o cadáver).
+7. **Oportunidade:** ligar bridges dormentes (cockpit `GAP-COCKPIT-01` + `GAP-09-16`).
+
 ## 🔴 A. Regressão-raiz `cd018c6b3f` "defatoração grok 4.5" — deletou 771 classes, deixou consumers VIVOS pendurados
 > Outra sessão (grok 4.5) tentou de-bloatar o loop morto por DELEÇÃO em massa — mas pegou código VIVO/shipado junto e deixou 152 arquivos com refs penduradas. **Deletou inclusive o meu fix do LIMPA-BOA (AtlasDeadCodeAnalyzer, a817e22a22) 2 commits depois.** Valida a tese: de-confusão = MARCAR, não mass-delete. **Decisão do operador: restore por-caso (vivo) vs finish-delete (dead-loop).**
 
@@ -124,8 +133,10 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 ## 🔴 H. Domínios shipados + soberania cross-domain (sweep ww6c3iein — widen)
 > Verificado ok: 48 superfícies de comando de domínio, ZERO fatal no --help; domínios shipados (Marketing/VentureFoundry) roteiam via AiProviderManager (governança coberta). Mas 2 gaps NOVOS de dinheiro/soberania:
 
-### GAP-FIN-01 — 🔴 spot-exec (Binance LIVE) IGNORA o kill-switch canônico de live-trading · **MONEY-SAFETY**
-- `Finance/SpotExec/SpotExecGate.php:40` (+ `AtlasFinanceSpotExecCommand:44`) NÃO checa `FinanceDomainCanon::liveTradingBlocked()` — mas `PolyExecGate:42` e o paper-trader checam. Operador vê "Live trading hard-blocked" + readiness `live_trading_blocked_default:true` e presume que `ATLAS_FINANCE_LIVE_TRADING_ALLOWED` protege o spot — **mas ordens Binance REAIS podem executar**. Fix: 1-linha espelhando `PolyExecGate:42`. **Prioridade alta — dinheiro real.** baixo.
+### GAP-FIN-01 — 🟡 spot-exec não honra o kill-switch CANÔNICO (defesa-em-profundidade) · **CORRIGIDO de 🔴 (over-claim meu, verify-the-verifier)**
+- **Sweep 5 disse "ordem Binance passa desprotegida" — FALSO, eu exagerei.** Verifiquei na fonte: `SpotExecGate::checkOrder` (SpotExecGate.php:36-74) é robustamente fail-closed — 7 condições AND: `ATLAS_SPOT_EXEC_LIVE_ENABLED` + `ATLAS_SPOT_EXEC_ARMED` + `--confirm` + arquivo STOP ausente + allowlist(BTC/ETH) + `max_order_usd` + `daily_cap_usd`. **Nenhuma ordem passa sem o spot ter sido explicitamente armado.**
+- **Gap REAL (menor):** o spot usa switches PRÓPRIOS e NÃO checa o canônico `FinanceDomainCanon::liveTradingBlocked()` (= `atlas.finance.live_trading_allowed===false`, default blocked) que só o poly honra (`PolyExecGate:42`). Logo desligar o canônico NÃO é master-kill universal: o spot continua se seus próprios switches estiverem ON. Cenário: emergency-stop no canônico esperando travar tudo, mas o spot tem switch próprio.
+- Fix: adicionar `FinanceDomainCanon::liveTradingBlocked()` ao SpotExecGate (1-linha) → canônico vira master-kill dos 2 paths. **Severity real: 🟡 (consistência de kill-switch), não 🔴.** baixo.
 
 ### GAP-SOV-01 — 🟠 soberania: dado private/sensitive (saúde/finanças) pode ir pra IA externa · viola local-first pétreo
 - `external_ai_policy=block_private_sensitive` (config:419-436/397-414) p/ domínios 'saude'(sensitive)/'financas'/'blackink'/'atlas'(private) **NÃO é aplicada no funil de chat/IA** quando `payload.privacy` está ausente. `AiGatewayService.php:2638`. Fix: derivar sensitivity no gateway (o funil) antes de `guardPrivacyAllowsAi`. **Viola "sensitive/secret/cyber não saem da máquina".** medio-alto.
@@ -139,6 +150,27 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 ### GAP-DOM-02 — 🟡 GitSubprocess blast no domínio SoftwareCompany (8 serviços stewardship crasham) — mesmo root GAP-01
 - `n-company-stewardship:*` fatalizam em `GitSubprocess::run()`. O fix único de GAP-01 (restaurar GitSubprocess) conserta os 24 consumidores (8 domínio + 16 core).
 ### GAP-MKT-01/02 — 🟢 `marketing:spy` nome engana (lê HTML local, não busca); `keyword-os` exit-0 com feed caído (fail-soft mascara erro real)
+
+## 🟠 I. Enforcement observe-only + integridade da memória (sweep wsvmqb58l)
+> VERIFICADO enforce-correto (NÃO são gaps): UnsafeCommandPolicy (exit 126), SpotExecGate (ver FIN-01), PolyExecGate, HermesAcpPermissionGate (default-deny), AtlasOrganismActuationGate (propose-only selado), CanonicalWorktreeWriteGuard, VoxExecutionGate, AuthorizedBugBountyIntakeService, BridgePagePolicyGuard — todos fail-closed e wired.
+
+### GAP-CYBER-01 — 🟠 matriz de recusa ofensiva do domínio Cyber é CÓDIGO MORTO + readiness certifica por string-match
+- `Cyber/CyberRuntimeService.php:27-66` (FORBIDDEN_OFFENSIVE_VERBS/refuseOffensive/isForbiddenOffensive) NUNCA é invocado em `driveDefensiveReview`; `CyberReadinessService:116` certifica com `str_contains($source,...)`. Domínio dual-use: a blocklist de capacidade destrutiva é só telemetria; `forbidden_techniques` da RoE nunca enforced. **Cert-theater / falsa segurança.** Fix: rotear ações por `isForbiddenOffensive()` fail-closed no entrypoint + trocar o check da readiness por teste de COMPORTAMENTO. medio.
+
+### GAP-MKT-03 — 🟡 `PolicyComplianceGate` (risco suspensão Google Ads) tem ZERO callers — copy afiliada publica sem ele
+- `MarketingDomain/Content/PolicyComplianceGate.php` (termos Rx, endosso celebridade, cura-milagre) só é usado em teste. O pipeline vivo `BridgePageComposerService` roda `BridgePagePolicyGuard` que NÃO cobre esses gatilhos. Domínio afiliado ATIVO. Fix: chamar `PolicyComplianceGate::scan` no composer/VSL, bloquear `suspension_risk`. baixo.
+
+### GAP-PERM-02 — 🟡 `AtlasLoopPermissionLevelEnforcer` ("único chokepoint" documentado) não é chamado por nenhum actuator
+- `AutonomousEvolution/Permissions/AtlasLoopPermissionLevelEnforcer.php` promete pin-to-READ com master OFF, mas nenhum merge/write actuator chama `assert()`. Dead-safety-claim (loop morto → exposição limitada, mas a claim mente). Fix: chamar no actuator OU corrigir o docstring.
+
+### GAP-MEM-01 — 🟡 projeção umbrella `CLAUDE.md` é FOTO VELHA — injeta decisão ARQUIVADA 'smoke test' como [decision][global]
+- `Atlas/CLAUDE.md:27` (gerador `AtlasProviderProjectionService:723`). Todo provider lê como canônico (confirmado: está no system prompt desta sessão). Fix: rodar o detector stale (`atlas memory projection inspect --stale`) em hook pós-mudança de memória.
+
+### GAP-MEM-02 — 🟡 recall() braço VERBATIM seleciona candidatos CEGO à query (mesmo bug obra17, não corrigido no verbatim)
+- `AtlasHybridMemoryRetrievalService:248` — o fix WO-17 (query-aware) foi só no braço registry; o verbatim é só escopo+`orderByDesc(recorded_at)`. Fix: espelhar WO-17 no verbatim (`relevantForContext` lê `context['query']`). (braço registry verificado OK.)
+
+### GAP-MEM-03 — 🟢 projeção provider-safe não filtra entradas 'thin' (title==summary); classificador existe mas não aplicado
+- `AtlasProviderProjectionService:729/840`. Consome o orçamento de linhas com duplicatas. Fix: pular thin em `providerSafeEntries`. baixo.
 
 ## Z. Refutados / falso-alarme (não re-abrir)
 - Maestro Exceptions (UnknownSchemaVersion/SchemaDowngradeRefused/InvalidProvider): `use` aponta pra path deletado MAS as classes foram INLINADAS nos survivors → maestro:schema/bid OK.
