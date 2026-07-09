@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Atlas Loop — Engineering Handoff (make the loop perfect at its OWN scope)
 
 > Handoff written 2026-06-21 by the previous Claude. You are taking over the **engineering of the Atlas Loop**.

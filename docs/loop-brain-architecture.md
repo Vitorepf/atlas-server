@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Loop Brain Architecture v2 — Compreensão Onipresente (Parte 1) + Motor que Nunca Seca (Parte 2)
 
 > Status: ARQUITETURA v2 (v1 + teardown de 18 must-fixes integrados, cada um verificado contra o código real read-only). Escopo: o CÉREBRO DO LOOP dentro do `atlas-server`.

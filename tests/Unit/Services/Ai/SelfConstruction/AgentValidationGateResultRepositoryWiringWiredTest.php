@@ -19,7 +19,9 @@ class AgentValidationGateResultRepositoryWiringWiredTest extends TestCase
         parent::setUp();
         // Singleton binding so the command-resolved instance is the SAME instance the test queries.
         app()->singleton(AgentValidationGateResultRepository::class);
-        config()->set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
         \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::$envPathOverride = null;
         $envFile = sys_get_temp_dir().'/atlas-anj-env-'.bin2hex(random_bytes(5)).'.env';
         file_put_contents($envFile, "ATLAS_LOOP_MASTER_ENABLED=true\n");

@@ -177,6 +177,6 @@ final class AtlasCortexFsLocalityReporter
         // Canonical master switch (config, default OFF). The raw getenv() guard this
         // replaces defaulted ON when the var was unset, so any context without the
         // .env line (hermetic tests, cron) ran the unbounded O(n²) neighbor scan.
-        return (bool) config('atlas.loop.master_enabled', false);
+        return \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
     }
 }

@@ -300,6 +300,28 @@ class AtlasForgeLiveExecutionService
         $presentCount = collect($rankedRefs)->where('evidence_marker', 'present')->count();
         $totalCount = count($rankedRefs);
 
+        // Obra 2 / CTX-01: live compose via AtlasContextRuntime (canonical refs remain evidence floor).
+        $composed = null;
+        $composeStatus = 'skipped';
+        try {
+            $input = 'Forge Live Execution obra='.$obraId.' plan='.$planId;
+            $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($input, [
+                'agent_slug' => 'forge',
+                'provider' => 'local',
+                'source_type' => 'forge_live',
+                'payload' => ['obra_id' => $obraId, 'plan_id' => $planId],
+            ], ['agent' => 'forge', 'intent' => 'programming']);
+            $packContract = $this->contextRuntime->compose($input, $task, [
+                'workspace' => $repoRoot,
+                'flow_id' => 'atlas_forge',
+            ]);
+            $composed = method_exists($packContract, 'toArray') ? $packContract->toArray() : ['schema' => AtlasContextRuntime::SCHEMA_VERSION];
+            $composeStatus = 'composed';
+        } catch (\Throwable $e) {
+            $composeStatus = 'degraded';
+            $composed = ['error' => $e->getMessage()];
+        }
+
         $contextPack = [
             'schema_version' => self::CONTEXT_PACK_SCHEMA,
             'context_pack_id' => (string) Str::ulid(),
@@ -307,6 +329,7 @@ class AtlasForgeLiveExecutionService
                 'plan_id' => $planId,
                 'obra_id' => $obraId,
                 'ranked_refs' => $rankedRefs,
+                'compose_status' => $composeStatus,
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
             'provider_safe' => true,
             'ranked_refs' => $rankedRefs,
@@ -314,6 +337,9 @@ class AtlasForgeLiveExecutionService
             'present_ref_count' => $presentCount,
             'changed_files' => [],
             'context_completeness' => $presentCount === $totalCount ? 'canonical_minimum' : 'canonical_minimum_partial',
+            'runtime_compose' => $composed,
+            'runtime_compose_status' => $composeStatus,
+            'runtime_schema' => AtlasContextRuntime::SCHEMA_VERSION,
         ];
 
         $retrievalPlan = [
@@ -329,9 +355,14 @@ class AtlasForgeLiveExecutionService
             ],
         ];
 
+        $status = $presentCount === $totalCount ? 'passed' : 'degraded';
+        if ($composeStatus === 'degraded' && $status === 'passed') {
+            $status = 'degraded';
+        }
+
         return [
             'name' => 'context_pack',
-            'status' => $presentCount === $totalCount ? 'passed' : 'degraded',
+            'status' => $status,
             'blocker' => $presentCount === $totalCount ? null : 'context_pack_canonical_refs_missing',
             'context_pack' => $contextPack,
             'retrieval_plan' => $retrievalPlan,
@@ -386,6 +417,7 @@ class AtlasForgeLiveExecutionService
                 ],
             ],
             'task' => 'forge_live_execution',
+            'strict_retrieval_gate' => (bool) config('atlas.programming.strict_retrieval_gate', true),
         ]);
 
         return [

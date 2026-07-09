@@ -30,7 +30,7 @@ final class AtlasLoopPermissionLevelReceiptLedger
                 return false;
             }
 
-            return (bool) config('atlas.loop.master_enabled', false);
+            return \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
         };
     }
 

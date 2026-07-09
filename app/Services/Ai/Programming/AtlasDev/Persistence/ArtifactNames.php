@@ -66,5 +66,7 @@ final class ArtifactNames
 
     public const AUCRI_RUNTIME_ENFORCEMENT = 'aucri_runtime_enforcement.json';
 
+    public const SOVEREIGN_DEV_FLOOR_RECEIPT = 'sovereign_dev_floor_receipt.json';
+
     private function __construct() {}
 }

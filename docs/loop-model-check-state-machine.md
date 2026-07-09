@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Atlas Loop Cycle — Model-Check State Machine
 
 The Atlas Loop cycle is modeled as a finite state machine extracted by

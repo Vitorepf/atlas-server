@@ -1,3 +1,5 @@
+> **⚰️ LEGADO ACDE (Obra 1):** esta wiki descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Canon: `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. AAEL / Stewardship Loop / TerminalLoop = outros produtos — não confundir.
+
 # Autonomous Evolution Loop
 
 The Autonomous Evolution Loop (a.k.a. **ACDE / Autopoiesis-Evolution Engine**) is Atlas's crown-jewel organ. Given a **scope** (e.g. "Atlas Dev", the loop itself, the memory subsystem) it grinds 24/7 to evolve that scope to its maximum level, exponentially. The unit of work is a strict, sequential **8-phase cycle** (orient, comprehend, decide-leverage, architect, decompose, implement, certify, close-on-main). The human reviewer is replaced by a frozen out-of-process judge, a diff-earned anti-farm floor, cross-model triangulation, mutation testing, and a fail-closed merge gate. An immutable FORBIDDEN core stops the loop from editing the gates that judge it.

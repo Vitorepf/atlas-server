@@ -106,10 +106,41 @@ final class AtlasTaskServingStack
         return new AgentControlPlaneClaimLeaseRepository(self::disk());
     }
 
-    /** The serving service the contract front door + MCP resolve. Committer defaults to the REAL repo (base_path). */
+    /**
+     * The serving service the contract front door + MCP resolve.
+     * Obra 2 / AUT-05: inject EliteExecutorKernel + AtlasContextRuntime so Autônomos
+     * honesty/context gates are live (not null seams).
+     */
     public static function servingService(): AtlasTaskServingService
     {
-        return new AtlasTaskServingService(self::orchestrator());
+        $kernel = null;
+        $contextRuntime = null;
+        try {
+            $kernel = app(\App\Services\Ai\EngineeringKernel\EliteExecutorKernel::class);
+        } catch (\Throwable) {
+            // fail-open: serving still works without elite kernel
+        }
+        try {
+            $contextRuntime = app(\App\Services\Ai\Context\AtlasContextRuntime::class);
+        } catch (\Throwable) {
+            // fail-open: serving still works without context runtime
+        }
+
+        return new AtlasTaskServingService(
+            self::orchestrator(),
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $kernel,
+            $contextRuntime,
+        );
     }
 
     public static function replenisher(): AtlasTaskBrainReplenisher

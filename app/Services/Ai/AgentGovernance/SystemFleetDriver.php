@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgentGovernance;
 
-use App\Support\AtlasPhpBinary;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -35,11 +34,8 @@ final class SystemFleetDriver implements FleetDriver
     private function fingerprint(string $agentKey): ?array
     {
         return match ($agentKey) {
-            AtlasFleetCatalog::LOOP => [
-                'pgrep' => 'atlas:loop:campaign',
-                'command_substr' => 'artisan atlas:loop:campaign',
-                'launchd' => null,
-            ],
+            // Autônomos is a master-gate agent only — no ACDE campaign process to spawn/pgrep.
+            AtlasFleetCatalog::AUTONOMOS => null,
             AtlasFleetCatalog::AI_WORKER_CODEX => [
                 'pgrep' => 'atlas:ai:work.*codex',
                 'command_substr' => 'artisan atlas:ai:work',
@@ -137,11 +133,6 @@ final class SystemFleetDriver implements FleetDriver
         }
 
         try {
-            if ($agentKey === AtlasFleetCatalog::LOOP) {
-                $this->startLoopCampaign($targetRef);
-
-                return;
-            }
             // launchd-managed agents: bootstrap (load) the job so launchd starts + keeps it.
             if ($fp['launchd'] !== null) {
                 $plist = $this->plistPath($fp['launchd']);
@@ -178,22 +169,6 @@ final class SystemFleetDriver implements FleetDriver
         } catch (Throwable) {
             // best-effort; the next tick re-checks liveness
         }
-    }
-
-    private function startLoopCampaign(?string $targetRef): void
-    {
-        $php = AtlasPhpBinary::path();
-        $artisan = base_path('artisan');
-        $log = storage_path('logs/agent-reconciler-loop.log');
-        $campaignArg = $targetRef !== null && $targetRef !== '' ? ' --campaign-id='.escapeshellarg($targetRef) : '';
-        $cmd = sprintf(
-            'nohup %s -d memory_limit=4096M %s atlas:loop:campaign%s --sleep-seconds=5 >> %s 2>&1 &',
-            escapeshellarg($php),
-            escapeshellarg($artisan),
-            $campaignArg,
-            escapeshellarg($log),
-        );
-        (new Process(['bash', '-lc', $cmd], base_path(), null, null, 30.0))->run();
     }
 
     private function plistPath(string $label): ?string

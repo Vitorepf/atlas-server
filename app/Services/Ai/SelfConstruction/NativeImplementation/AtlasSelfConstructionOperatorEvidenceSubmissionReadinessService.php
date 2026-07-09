@@ -21,6 +21,7 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopH
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceDraftHashFinalizationSummarizer;
 use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceSubmissionCommandSurfaceCollector;
+use App\Services\Ai\SelfConstruction\Support\OperatorEvidenceSubmissionInputLoader;
 
 final class AtlasSelfConstructionOperatorEvidenceSubmissionReadinessService
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AutonomousEvolution\Cortex\Spatial;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Spatial\AtlasCortexFsLocalityReporter;
 use Illuminate\Support\Facades\File;
@@ -41,7 +41,9 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
     public function test_reports_neighbors_per_file_and_depth_deterministically(): void
     {
-        config()->set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
         $reporter = new AtlasCortexFsLocalityReporter($this->scopeRoot, $this->sandbox.'/storage', [1, 2]);
 
         $a = $reporter->report()->toArray();
@@ -61,7 +63,9 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
     public function test_master_off_writes_zero_bytes_and_returns_empty_collection(): void
     {
-        config()->set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
         $reporter = new AtlasCortexFsLocalityReporter($this->scopeRoot, $this->sandbox.'/storage');
 
         $out = $reporter->report();
@@ -73,7 +77,9 @@ final class AtlasCortexFsLocalityReporterTest extends TestCase
 
     public function test_scope_outside_allowed_boundary_throws_runtime_exception(): void
     {
-        config()->set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
         // Build a different tree outside the AutonomousEvolution scope.
         $bad = $this->sandbox.'/app/Services/Ai/MarketingDomain';
         @mkdir($bad, 0o755, true);

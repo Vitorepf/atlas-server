@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Unified Receipt Chain
 
 The unified receipt chain composes every Loop sub-ledger receipt into a single append-only, hash-chained

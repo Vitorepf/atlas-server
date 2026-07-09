@@ -13,8 +13,8 @@ use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGa
  * Mirrors the structured-envelope-then-write-file pattern of
  * {@see \App\Services\Ai\AutonomousEvolution\AtlasLoopAutoArchitectureProposalService::writeReceipt()}.
  *
- * The journal file lives at docs/loop-evolution-journal/<scopeSlug>.md and is
- * appended-to (created if missing). Each section records the cycle fields:
+ * The journal file lives at docs/autonomos-evolution-journal/<scopeSlug>.md
+ * (symlink: docs/loop-evolution-journal/) and is appended-to (created if missing). Each section records:
  * {cycle_n, objective, how, why, value, class, magnitude, cited_symbols,
  * evidence, seeded_packet_ids}. After writing, the grounding gate is re-run
  * on the cited_symbols against the optional inventory (or empty set).
@@ -33,7 +33,7 @@ final class AtlasBrainEvolutionDocAuthor
      * @param  string  $journalRoot  override the journal directory (for testing)
      * @return string  the journal file path
      */
-    public function append(string $scopeSlug, array $cycle, array $inventory = [], string $journalRoot = 'docs/loop-evolution-journal'): string
+    public function append(string $scopeSlug, array $cycle, array $inventory = [], string $journalRoot = 'docs/autonomos-evolution-journal'): string
     {
         $scopeSlug = trim($scopeSlug);
         if ($scopeSlug === '') {

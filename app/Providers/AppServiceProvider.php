@@ -12,7 +12,7 @@ use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleRecei
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityClarifierProposer;
-use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentResolverBindings;
+use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasAutonomosIntentResolverBindings;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityFollowUpScheduler;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentResolver\AtlasLoopIntentAmbiguityResolutionLedger;
 use Illuminate\Support\Facades\Artisan;
@@ -1490,9 +1490,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Intent ambiguity resolver loop wiring. Data source (intents) is a callable bound under
         // INTENTS_SOURCE_BINDING; tests / future producers override it. Default = no intents.
-        if (! $this->app->bound(AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING)) {
+        if (! $this->app->bound(AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING)) {
             $this->app->instance(
-                AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING,
+                AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING,
                 static fn (): array => [],
             );
         }
@@ -1500,7 +1500,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(AtlasLoopIntentAmbiguityClarifierProposer::class);
 
         $this->app->singleton(AtlasLoopIntentAmbiguityResolutionLedger::class, function ($app) {
-            $intentsSource = $app->make(AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING);
+            $intentsSource = $app->make(AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING);
             $proposer = $app->make(AtlasLoopIntentAmbiguityClarifierProposer::class);
             $path = (string) config(
                 'atlas.loop.intent_resolver.ledger_path',
@@ -1542,7 +1542,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(AtlasLoopIntentAmbiguityFollowUpScheduler::class, function ($app) {
-            $intentsSource = $app->make(AtlasLoopIntentResolverBindings::INTENTS_SOURCE_BINDING);
+            $intentsSource = $app->make(AtlasAutonomosIntentResolverBindings::INTENTS_SOURCE_BINDING);
             $ledgerPath = (string) config(
                 'atlas.loop.intent_resolver.ledger_path',
                 storage_path('app/atlas/loop/intent-resolver/ledger.jsonl'),

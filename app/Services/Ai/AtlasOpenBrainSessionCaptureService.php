@@ -136,6 +136,10 @@ class AtlasOpenBrainSessionCaptureService
                     'id' => $sessionId,
                     'request' => $distilled['request'],
                     'files' => $distilled['files'],
+                    'evidence_refs' => array_map(
+                        static fn (string $path): string => 'file:'.$path,
+                        $distilled['files'],
+                    ),
                     'branch' => $this->string($opts['branch'] ?? null) ?? '',
                     'provider' => $provider,
                     'delivered' => $distilled['result']['delivered'] ?? false,

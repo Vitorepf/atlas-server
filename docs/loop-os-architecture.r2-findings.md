@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Round 2 — adversarial hardening findings (build on these; verified in code)
 
 **Verdict:** needs-another-round

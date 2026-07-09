@@ -4,6 +4,9 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+use App\Services\Ai\SelfConstruction\TerminalLoopProof\TerminalLoopProofCanonicalizer;
+use App\Services\Ai\SelfConstruction\TerminalLoopProof\TerminalLoopProofDigestInterpreter;
+use App\Services\Ai\SelfConstruction\TerminalLoopProof\TerminalLoopProofReadinessMatrixBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -686,7 +689,7 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
      */
     private function operationalReadinessMatrix(array $invariants, array $hashes): array
     {
-        return TerminalLoopProof\TerminalLoopProofReadinessMatrixBuilder::operationalReadinessMatrix($invariants, $hashes);
+        return TerminalLoopProofReadinessMatrixBuilder::operationalReadinessMatrix($invariants, $hashes);
     }
 
     /**
@@ -697,7 +700,7 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
      */
     private function matrixRow(string $id, array $requiredInvariants, array $invariants, array $evidenceHashes): array
     {
-        return TerminalLoopProof\TerminalLoopProofReadinessMatrixBuilder::matrixRow($id, $requiredInvariants, $invariants, $evidenceHashes);
+        return TerminalLoopProofReadinessMatrixBuilder::matrixRow($id, $requiredInvariants, $invariants, $evidenceHashes);
     }
 
     /**
@@ -1152,18 +1155,18 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
     /** @param array<string, mixed> $digest */
     private function digestSummary(array $digest): array
     {
-        return TerminalLoopProof\TerminalLoopProofDigestInterpreter::digestSummary($digest);
+        return TerminalLoopProofDigestInterpreter::digestSummary($digest);
     }
 
     /** @param array<string, mixed> $completion */
     private function runtimeSafetyAllFalse(array $completion, array $digest): bool
     {
-        return TerminalLoopProof\TerminalLoopProofDigestInterpreter::runtimeSafetyAllFalse($completion, $digest);
+        return TerminalLoopProofDigestInterpreter::runtimeSafetyAllFalse($completion, $digest);
     }
 
     private function safeToken(string $value, string $fallback): string
     {
-        return TerminalLoopProof\TerminalLoopProofCanonicalizer::safeToken($value, $fallback);
+        return TerminalLoopProofCanonicalizer::safeToken($value, $fallback);
     }
 
     /**
@@ -1172,13 +1175,13 @@ final class AgentControlPlaneTerminalLoopOperationalProofService
      */
     private function stringList(array $values): array
     {
-        return TerminalLoopProof\TerminalLoopProofCanonicalizer::stringList($values);
+        return TerminalLoopProofCanonicalizer::stringList($values);
     }
 
     /** @param array<string, mixed> $payload */
     private function stableHash(array $payload): string
     {
-        return TerminalLoopProof\TerminalLoopProofCanonicalizer::stableHash($payload);
+        return TerminalLoopProofCanonicalizer::stableHash($payload);
     }
 
     /** @param array<string, mixed> $value */

@@ -125,6 +125,14 @@ final class OpenBrainProjectionAdapter
      */
     private function callOpenBrain(OperationEnvelope $envelope, CompactSdd $compactSdd): ?array
     {
+        // Obra 2 / CTX-01: optional compose path (config-gated); legacy contextPack remains fallback.
+        if ((bool) config('atlas.programming.context_compose_enabled', true)) {
+            $composed = $this->callComposeRuntime($envelope, $compactSdd);
+            if ($composed !== null) {
+                return $composed;
+            }
+        }
+
         try {
             $result = $this->openBrain->contextPack([
                 'objective' => $envelope->normalizedIntent,
@@ -151,6 +159,42 @@ final class OpenBrainProjectionAdapter
         }
 
         return $result;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function callComposeRuntime(OperationEnvelope $envelope, CompactSdd $compactSdd): ?array
+    {
+        try {
+            $runtime = app(\App\Services\Ai\Context\AtlasContextRuntime::class);
+            $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($envelope->normalizedIntent, [
+                'agent_slug' => 'atlas_dev',
+                'provider' => 'local',
+                'source_type' => 'atlas_dev_discovery',
+                'payload' => [
+                    'surface_id' => $envelope->surfaceId,
+                    'risk_level' => $compactSdd->riskLevel,
+                    'task_kind' => $compactSdd->taskKind,
+                ],
+            ], ['agent' => 'atlas_dev', 'intent' => 'memory_context_export']);
+            $contract = $runtime->compose($envelope->normalizedIntent, $task, [
+                'workspace' => $envelope->workspace,
+                'flow_id' => 'atlas_dev',
+            ]);
+            $array = method_exists($contract, 'toArray') ? $contract->toArray() : [];
+            $injection = (array) ($array['open_brain_injection'] ?? $array['pack']['open_brain_injection'] ?? []);
+            $contextRefs = (array) ($injection['context_refs'] ?? data_get($array, 'context_pack.context_refs', []));
+
+            return [
+                'ok' => true,
+                'context_refs' => $contextRefs,
+                'summary' => (string) ($injection['summary'] ?? 'runtime_compose'),
+                'runtime_compose' => true,
+            ];
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

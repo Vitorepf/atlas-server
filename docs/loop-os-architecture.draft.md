@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # THE ATLAS LOOP AS A LIVING OS — Final Frontier Architecture (Build Spec)
 
 **Status:** Projection phase closed (synthesizer pass, folding 3 adversarial critiques). This is the build spec.

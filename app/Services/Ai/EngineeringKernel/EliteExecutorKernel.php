@@ -49,6 +49,30 @@ final class EliteExecutorKernel
         return $this->outcomeProof;
     }
 
+    public function honestyFloor(): SovereignHonestyFloor
+    {
+        return $this->honestyFloor;
+    }
+
+    /**
+     * Obra 2 / DEV-02: single honesty contract — OutcomeProofGate and SovereignHonestyFloor
+     * share FalseClaimInvariant so fake-green cannot drift between thin assert and full certify.
+     *
+     * @return array<string,mixed>
+     */
+    public function unifiedHonestyContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.elite_kernel.unified_honesty.v1',
+            'outcome_proof' => OutcomeProofGate::class,
+            'sovereign_floor' => SovereignHonestyFloor::class,
+            'shared_invariant' => FalseClaimInvariant::class,
+            'rule' => 'fake_green_blocked_identically',
+            'assert_path' => 'assertHonestOutcome',
+            'certify_path' => 'devGate|forgeGate|autonomosGate -> SovereignHonestyFloor::certify',
+        ];
+    }
+
     public function repairDiagnosis(): RepairDiagnosisStage
     {
         return $this->repairDiagnosis;

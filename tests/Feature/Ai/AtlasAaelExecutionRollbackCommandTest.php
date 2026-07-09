@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 
 use App\Console\Commands\AtlasAaelExecutionRollbackCommand;
 use App\Console\Commands\AtlasAaelExecutionRollbackOperatorPort;
@@ -21,7 +21,9 @@ class AtlasAaelExecutionRollbackCommandTest extends TestCase
         parent::setUp();
         $this->port = new FakeRollbackOperatorPort();
         app()->instance(AtlasAaelExecutionRollbackOperatorPort::class, $this->port);
-        config()->set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
     }
 
     private function runCmd(array $params): array
@@ -98,7 +100,9 @@ class AtlasAaelExecutionRollbackCommandTest extends TestCase
 
     public function test_execute_refused_when_master_switch_off_inspect_and_history_still_work(): void
     {
-        config()->set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
 
         $rE = $this->runCmd([
             'action' => 'execute',

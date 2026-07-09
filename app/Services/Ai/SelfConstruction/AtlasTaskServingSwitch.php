@@ -8,18 +8,15 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Throwable;
 
 /**
- * PART 2 — the DEDICATED task-serving gate, decoupled from the autonomous-loop master switch.
+ * PART 2 — the DEDICATED task-serving gate, decoupled from the Autônomos master switch.
  *
- * WHY SEPARATE: the {@see AtlasLoopMasterSwitch} arms the whole AUTONOMOUS evolution loop (campaign launch,
- * keepalive respawn, auto-merge schedules) — turning it on can burn tokens with no operator request. But the
- * operator may want to serve tasks to EXTERNAL AIs (Claude Code/Codex/Cursor pulling `atlas:task next` and
- * committing their own work) WITHOUT arming that autonomous farm. This switch enables exactly that surface and
- * nothing else.
+ * WHY SEPARATE: the {@see AtlasLoopMasterSwitch} (Autônomos master) arms the Autônomos farm. Turning it on
+ * can burn tokens with no operator request. The operator may want to serve tasks to EXTERNAL AIs
+ * (Claude Code/Codex/Cursor pulling `atlas:task next`) WITHOUT arming that farm. This switch enables exactly
+ * that surface and nothing else.
  *
  * FAIL-CLOSED, same .env-line discipline as the master switch (robust under config:cache). Serving is enabled
- * iff THIS flag is truthy OR the master switch is on (so a fully-armed loop also serves). The operator flips it
- * with {@see on}/{@see off} (atlas:task:serving). It is NOT pétreo — it governs an external-facing surface the
- * operator owns, not the self-modifying loop.
+ * iff THIS flag is truthy OR the Autônomos master is on. Flip via atlas:task:serving.
  */
 final class AtlasTaskServingSwitch
 {

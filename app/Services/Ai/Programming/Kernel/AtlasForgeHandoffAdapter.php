@@ -12,6 +12,7 @@ use App\Services\Ai\DualCore\DualCoreRouteDecisionCanon;
 use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
 use App\Services\Ai\Mission\MissionLifecycleService;
 use App\Services\Ai\Programming\AtlasDev\Schemas\EscalationPacket;
+use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
@@ -38,6 +39,7 @@ class AtlasForgeHandoffAdapter
         private readonly MissionLifecycleService $lifecycle,
         private readonly ProgrammingDomainManifestSeeder $seeder,
         private readonly DualCoreRouteDecisionService $routeDecisions,
+        private readonly ?ForgeIntakeService $forgeIntake = null,
     ) {}
 
     /**
@@ -117,6 +119,9 @@ class AtlasForgeHandoffAdapter
         $packet = $this->buildEscalationPacket($mission, $workOrder, $reason, $contextPack);
         $routeDecisionMeta = $this->recordRouteDecision($mission, $workOrder, $reason);
 
+        // Obra 3 / FORGE-01…05: converge Dev→Forge handoff into canonical ForgeIntakeService.
+        $forgeIntakeMeta = $this->recordCanonicalForgeIntake($packet, $mission, $workOrder, $extra);
+
         $this->lifecycle->recordEvent(
             $mission,
             'programming.adapter.forge_handoff',
@@ -128,6 +133,7 @@ class AtlasForgeHandoffAdapter
                 'work_order_id' => $workOrder->id,
                 'escalation_packet_v1' => $packet,
                 'route_decision_v1' => $routeDecisionMeta,
+                'forge_intake_v1' => $forgeIntakeMeta,
             ],
             null,
             $mission->status,
@@ -138,6 +144,7 @@ class AtlasForgeHandoffAdapter
             'handoff' => $handoff,
             'escalation_packet_v1' => $packet,
             'route_decision_v1' => $routeDecisionMeta,
+            'forge_intake_v1' => $forgeIntakeMeta,
         ];
     }
 
@@ -153,6 +160,49 @@ class AtlasForgeHandoffAdapter
         }
 
         return ProgrammingDomainKernelCanon::shouldEscalateToForge($prompt, $mission->mission_type);
+    }
+
+    /**
+     * Obra 3 / FORGE: materialize AiForgeIntake from the escalation packet (fail-open).
+     *
+     * @param  array<string,mixed>|null  $packet
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function recordCanonicalForgeIntake(
+        ?array $packet,
+        AiMission $mission,
+        AiWorkOrder $workOrder,
+        array $extra = [],
+    ): array {
+        if ($packet === null) {
+            return ['status' => 'skipped', 'reason' => 'no_escalation_packet'];
+        }
+
+        try {
+            $intake = ($this->forgeIntake ?? app(ForgeIntakeService::class))
+                ->intakeFromEscalationPacket(
+                    EscalationPacket::fromArray($packet),
+                    [
+                        'mission_id' => $mission->id,
+                        'work_order_id' => $workOrder->id,
+                        'workspace_slug' => (string) ($extra['workspace'] ?? 'atlas-server'),
+                        'actor_type' => 'dev_to_forge_handoff',
+                    ],
+                );
+
+            return [
+                'status' => 'recorded',
+                'intake_id' => $intake->id ?? null,
+                'intake_hash' => $intake->intake_hash ?? null,
+                'intake_status' => $intake->status ?? null,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'status' => 'degraded',
+                'reason' => $e->getMessage(),
+            ];
+        }
     }
 
     /**

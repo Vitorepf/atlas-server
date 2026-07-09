@@ -5,22 +5,42 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgentGovernance;
 
 /**
- * THE FLEET — the catalog of every autonomous provider-consumer Atlas can run. This is the inventory the
- * operator discovered the hard way: Atlas is not "one loop" — it's a fleet, several of them launchd-respawned
- * 24/7, all drawing the same small provider quotas with nothing in the apps showing it.
+ * THE FLEET — the catalog of every autonomous provider-consumer Atlas can run.
  *
- * The catalog is the SET of things that exist; whether each is allowed to run is the operator's
- * desired-state ({@see AtlasAgentDesiredStateStore}), default OFF. Adding a new autonomous agent = add it
- * here, and it is automatically governed (status, on/off, history, reconciler) — nothing runs unless the
- * operator explicitly turns it on.
+ * Autônomos (brain+task) is the live self-evolution surface. The legacy agent key
+ * `loop` is accepted as an alias of `autonomos` for one migration period
+ * ({@see normalizeKey()}).
  */
 final class AtlasFleetCatalog
 {
-    public const LOOP = 'loop';
+    /** Live Autônomos master-gate agent (brain+task). No ACDE campaign process. */
+    public const AUTONOMOS = 'autonomos';
+
+    /**
+     * @deprecated Use AUTONOMOS. Same value — kept so callers/tests using LOOP keep compiling.
+     */
+    public const LOOP = self::AUTONOMOS;
+
     public const AI_WORKER_CODEX = 'ai-worker.codex';
     public const AI_WORKER_CLAUDE = 'ai-worker.claude';
     public const FINANCE_STRATEGY_LOOP = 'finance.strategy-loop';
     public const MAC_AGENT = 'mac-agent';
+
+    /** Legacy desired-state / CLI key accepted for one period. */
+    public const LEGACY_LOOP_ALIAS = 'loop';
+
+    /**
+     * Map operator/CLI keys onto the catalog key (alias `loop` → `autonomos`).
+     */
+    public static function normalizeKey(string $key): string
+    {
+        $key = trim($key);
+        if ($key === self::LEGACY_LOOP_ALIAS) {
+            return self::AUTONOMOS;
+        }
+
+        return $key;
+    }
 
     /**
      * @return array<string,FleetAgentDefinition> keyed by agent key
@@ -29,10 +49,10 @@ final class AtlasFleetCatalog
     {
         $defs = [
             new FleetAgentDefinition(
-                key: self::LOOP,
-                label: 'Atlas Loop (auto-evolução)',
+                key: self::AUTONOMOS,
+                label: 'Atlas Autônomos (brain + task)',
                 account: 'GLM 5.2 / MiniMax-M3 (via Hermes)',
-                kind: FleetAgentDefinition::KIND_LOOP,
+                kind: FleetAgentDefinition::KIND_AUTONOMOS,
                 providerSpending: true,
             ),
             new FleetAgentDefinition(
@@ -81,11 +101,18 @@ final class AtlasFleetCatalog
 
     public static function get(string $key): ?FleetAgentDefinition
     {
-        return self::all()[$key] ?? null;
+        return self::all()[self::normalizeKey($key)] ?? null;
     }
 
     public static function has(string $key): bool
     {
-        return isset(self::all()[$key]);
+        $normalized = self::normalizeKey($key);
+
+        return isset(self::all()[$normalized]);
+    }
+
+    public static function isAutonomosKey(string $key): bool
+    {
+        return self::normalizeKey($key) === self::AUTONOMOS;
     }
 }

@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Loop Brain — ESTADO VIVO (maturidade por eixo + o que falta + o que originei)
 
 > O estado de onde EU CONTINUO. Não reconstruo o que já existe; parto daqui.

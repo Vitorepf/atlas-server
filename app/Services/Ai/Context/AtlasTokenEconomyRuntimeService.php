@@ -56,6 +56,13 @@ final class AtlasTokenEconomyRuntimeService
         $providerSelection = $this->providerSelection($risk, $provider, (int) $compression['input_tokens_after'], $local);
         $quality = $this->qualityCheck($compression, $compiled, $input);
         $status = (string) $quality['quality_gate_status'] === 'passed' ? 'ready' : 'blocked';
+        $enforcement = $this->enforcementReceipt($status, $quality);
+        if ($enforcement['mode'] === 'enforce' && $enforcement['would_block']) {
+            $status = 'blocked';
+        } elseif ($enforcement['mode'] === 'shadow' && $enforcement['would_block']) {
+            // Shadow computes blockers without changing runtime status (fail-open).
+            $status = (string) $quality['quality_gate_status'] === 'passed' ? 'ready' : 'blocked';
+        }
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -68,6 +75,7 @@ final class AtlasTokenEconomyRuntimeService
             'local_prereasoning' => $local,
             'provider_model_selection' => $providerSelection,
             'quality_check' => $quality,
+            'enforcement' => $enforcement,
             'compiled_ref' => [
                 'schema_version' => AtlasContextCompilerRuntimeService::SCHEMA_VERSION,
                 'status' => (string) ($compiled['status'] ?? 'unknown'),
@@ -602,6 +610,33 @@ final class AtlasTokenEconomyRuntimeService
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+    /**
+     * Obra 7 / OPT-08: ATER enforcement mode (observe default, shadow/enforce opt-in).
+     *
+     * @param  array<string,mixed>  $quality
+     * @return array<string,mixed>
+     */
+    private function enforcementReceipt(string $status, array $quality): array
+    {
+        $mode = $this->enforcementMode();
+        $wouldBlock = $status === 'blocked' || (string) ($quality['quality_gate_status'] ?? '') === 'blocked';
+
+        return [
+            'schema_version' => 'atlas.token_economy.enforcement.v1',
+            'mode' => $mode,
+            'would_block' => $wouldBlock,
+            'applied' => $mode === 'enforce' && $wouldBlock,
+            'blockers' => $wouldBlock ? (array) ($quality['blockers'] ?? []) : [],
+        ];
+    }
+
+    private function enforcementMode(): string
+    {
+        $mode = strtolower(trim((string) config('atlas.token_economy.enforcement_mode', 'observe')));
+
+        return in_array($mode, ['observe', 'shadow', 'enforce'], true) ? $mode : 'observe';
+    }
+
     private function qualityCheck(array $compression, array $compiled, array $input): array
     {
         $risk = $this->risk((string) ($input['risk_level'] ?? data_get($compiled, 'compiler_input.risk_level', 'low')));

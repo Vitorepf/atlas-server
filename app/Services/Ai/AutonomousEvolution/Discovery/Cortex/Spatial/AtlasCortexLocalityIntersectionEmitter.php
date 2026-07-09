@@ -34,7 +34,7 @@ final class AtlasCortexLocalityIntersectionEmitter
         // Canonical master switch (config, default OFF); the old getenv() fallback was
         // dead inside Laravel and defaulted ON when the var was unset.
         $this->masterSwitch = $masterSwitch
-            ?? static fn (): bool => (bool) config('atlas.loop.master_enabled', false);
+            ?? static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
         $dir = dirname($this->outputJsonlPath);
         if (! is_dir($dir)) {
             @mkdir($dir, 0o755, true);

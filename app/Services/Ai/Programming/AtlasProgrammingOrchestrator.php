@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
@@ -43,6 +44,7 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         private readonly ProgrammingRepairExecutor $repairExecutor,
         private readonly ?AtlasContextOperationsRuntimeService $contextOperations = null,
         private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
+        private readonly ?AtlasContextRuntime $contextRuntime = null,
     ) {}
 
     /**
@@ -160,6 +162,8 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
                 'previous_stage_receipts' => $previousReceipts,
             ],
         );
+        // Obra 3 / RAG-11 + OPT-02: ARCLG on programming hot path (via ContextRuntime certify).
+        $plan['arclg_enforcement'] = $this->arclgEnforcementForPlan($plan, $options);
         $plan['stage_receipt_plan'] = [
             'schema_version' => 'atlas.programming.stage_receipt_plan.v1',
             'expected_receipts' => $this->stageReceipts->expectedReceipts(
@@ -200,7 +204,91 @@ class AtlasProgrammingOrchestrator implements AtlasDomainOrchestrator
         }
         $plan['repair_execution_contract'] = $this->repairExecutionContract($plan);
 
+        // Obra 2 / RAG: surface provider_execution_allowed from context sufficiency gate.
+        $ragGate = (array) data_get($plan, 'agentic_rag_plan.context_sufficiency_gate', []);
+        $blocksRag = ($ragGate['blocks_execution'] ?? false) === true;
+        $plan['agentic_rag_plan']['provider_execution_allowed'] = ! $blocksRag;
+
+        $enforceRag = (bool) ($options['enforce_rag_gate'] ?? config('atlas.programming.enforce_rag_gate', true));
+        if ($enforceRag && $blocksRag) {
+            $this->assertAgenticRagAllowsExecution($plan);
+        }
+
         return $plan;
+    }
+
+    /**
+     * Obra 3 / RAG-11: ARCLG via AtlasContextRuntime (AUCRI block 11) on programming sessionPlan.
+     * Fail-open: never blocks planning when runtime is unavailable; surfaces receipt on the plan.
+     *
+     * @param  array<string,mixed>  $plan
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function arclgEnforcementForPlan(array $plan, array $options): array
+    {
+        $started = microtime(true);
+        try {
+            $runtime = $this->contextRuntime ?? app(AtlasContextRuntime::class);
+            $sources = array_values(array_filter(array_map(
+                static fn (mixed $s): string => is_scalar($s) ? (string) $s : '',
+                (array) data_get($plan, 'agentic_rag_plan.retrieval_receipt.sources', data_get($plan, 'agentic_rag_plan.sources', [])),
+            )));
+            $observedMs = (int) round((microtime(true) - $started) * 1000);
+            if ($observedMs < 1) {
+                $observedMs = (int) ($options['observed_latency_ms'] ?? 50);
+            }
+
+            return $runtime->certifyEnforcement([
+                'workspace' => (string) data_get($plan, 'workspace', $options['workspace'] ?? 'atlas-server'),
+                'flow' => (string) data_get($plan, 'programming_flow', 'programming.dev'),
+                'required_sources' => $sources,
+                'observed_latency_ms' => $observedMs,
+                'max_refs' => (int) ($options['arclg_max_refs'] ?? 24),
+                'segments' => (array) data_get($plan, 'agentic_rag_plan.segments', []),
+            ]);
+        } catch (Throwable $e) {
+            return [
+                'schema_version' => 'atlas.arclg.enforcement.degraded.v1',
+                'status' => 'degraded',
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Fail-closed when planner marks context_sufficiency_gate.blocks_execution on strict flows.
+     *
+     * @param  array<string,mixed>  $plan
+     */
+    private function assertAgenticRagAllowsExecution(array $plan): void
+    {
+        $gate = (array) data_get($plan, 'agentic_rag_plan.context_sufficiency_gate', []);
+        if (($gate['blocks_execution'] ?? false) !== true) {
+            return;
+        }
+
+        $flow = (string) data_get($plan, 'programming_flow', data_get($plan, 'agentic_rag_plan.flow', 'programming.dev'));
+        $canonical = ProgrammingFlowNames::canonical($flow);
+        $strictFlows = [
+            'programming.repair',
+            'programming.forge',
+            'programming.frontend',
+            'programming.security',
+            'programming.database',
+        ];
+        $qualityRequired = (bool) data_get($plan, 'execution_profile.quality_required', false);
+        if (! in_array($canonical, $strictFlows, true) && ! $qualityRequired) {
+            return;
+        }
+
+        $reasons = array_values(array_filter(array_map(
+            static fn (mixed $r): string => is_scalar($r) ? (string) $r : '',
+            (array) ($gate['reasons'] ?? []),
+        )));
+
+        throw new ProgrammingRagGateException($reasons);
     }
 
     public function executeWithHarness(ProgrammingExecutionRequest $request): ProgrammingExecutionResult

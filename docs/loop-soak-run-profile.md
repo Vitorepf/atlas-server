@@ -1,3 +1,6 @@
+> **⚰️ LEGADO ACDE (Obra 1):** isto descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Ver `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. Operar: `atlas:agents:on|off autonomos` (alias `loop`).
+
+
 # Atlas Loop — Soak Run Profile (how to run a watched soak)
 
 The loop ships **OFF** (master switch `ATLAS_LOOP_MASTER_ENABLED=false`, fail-closed). Nothing runs or

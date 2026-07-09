@@ -7,6 +7,7 @@ use App\Models\AiJobAttempt;
 use App\Models\AiMission;
 use App\Models\AiQualityAction;
 use App\Models\AiTrace;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasSwarmAutoFailoverService;
 use App\Services\Ai\Cli\AtlasCliQualityService;
@@ -346,6 +347,7 @@ class AiWorker
         $job = $this->applyExpiredAtlasScoutDependency($job);
         $job = $this->applySemanticFlowArbiter($job);
         $job = $this->applyProgrammingProviderPolicyRuntime($job);
+        $job = $this->certifyProgrammingGatewayContext($job);
         $job = $this->refreshReadyYouTubePrompt($job);
         if ($violation = $this->decisionReceipts->violationForJob($job, $providerKey, $job->model)) {
             if ($violation->errorCode === 'decision_receipt_expired') {
@@ -648,14 +650,35 @@ class AiWorker
         if ($this->eliteKernel === null) {
             return;
         }
+
+        $payload = is_array($job->payload) ? $job->payload : [];
+        if (($payload['elite_kernel_honesty'] ?? 'auto') === 'skip') {
+            return;
+        }
+
+        $execution = (array) data_get($payload, 'execution', data_get($payload, 'programming_completion.execution', []));
+        // Trivial / thin success claims without execution evidence are unproven, not fake-green.
+        if ($execution === [] && ($payload['elite_kernel_honesty'] ?? '') !== 'require') {
+            return;
+        }
+
         try {
-            $payload = is_array($job->payload) ? $job->payload : [];
             $this->eliteKernel->assertHonestOutcome([
                 'status' => 'success',
-                'execution' => (array) data_get($payload, 'execution', data_get($payload, 'programming_completion.execution', [])),
+                'execution' => $execution,
             ], 'dev');
         } catch (\Throwable $e) {
-            $this->logger->event('elite_kernel_fake_green_blocked', $e->getMessage(), 'warning', $attempt->provider, $job, $attempt);
+            // Obra 5 / DEV-09: fail-closed by default; emergency escape hatch local-only.
+            if (app()->environment('local')
+                && ((bool) env('ATLAS_ELITE_KERNEL_HONESTY_FAIL_OPEN', false)
+                    || (bool) config('atlas.elite_kernel.honesty_fail_open', false))) {
+                $this->logger->event('elite_kernel_fake_green_blocked', $e->getMessage(), 'warning', $attempt->provider, $job, $attempt);
+
+                return;
+            }
+
+            $this->logger->event('elite_kernel_fake_green_fail_closed', $e->getMessage(), 'error', $attempt->provider, $job, $attempt);
+            throw $e;
         }
     }
 
@@ -1247,12 +1270,77 @@ class AiWorker
     }
 
     /**
+     * Obra 5 / DEV-05 — AtlasContextRuntime certify on ai_gateway_provider dispatch.
+     * Fail-open: stamps enforcement on the job; blocks only when certify fails closed.
+     */
+    private function certifyProgrammingGatewayContext(AiJob $job): AiJob
+    {
+        if (! $this->isProgrammingProviderDispatch($job)) {
+            return $job;
+        }
+
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $metadata = is_array($job->metadata) ? $job->metadata : [];
+        $task = trim((string) ($payload['prompt'] ?? $payload['message'] ?? $job->prompt ?? ''));
+        if ($task === '') {
+            return $job;
+        }
+
+        try {
+            $runtime = app(AtlasContextRuntime::class);
+            $workspace = (string) data_get($payload, 'workspace', data_get($payload, 'programming_dispatch.workspace', base_path()));
+            $enforcement = $runtime->certifyEnforcement([
+                'flow_id' => (string) data_get($payload, 'programming_dispatch.flow', 'programming.dev'),
+                'domain' => 'programming',
+                'task_type' => (string) data_get($payload, 'programming_dispatch.task_kind', 'dev'),
+                'provider' => (string) ($job->provider ?? 'ai_gateway'),
+                'provider_target' => 'external',
+                'objective' => $task,
+                'workspace' => $workspace,
+                'strict_retrieval_gate' => (bool) config('atlas.programming.strict_retrieval_gate', true),
+            ]);
+            $payload['programming_context_runtime_enforcement'] = $enforcement;
+            $metadata['programming_context_runtime_enforcement'] = $enforcement;
+
+            if (($enforcement['status'] ?? 'passed') === 'blocked'
+                && (bool) config('atlas.programming.context_runtime_fail_closed', true)) {
+                $payload['programming_context_runtime_blocked'] = true;
+            }
+
+            $job->forceFill(['payload' => $payload, 'metadata' => $metadata])->save();
+        } catch (\Throwable $e) {
+            $payload['programming_context_runtime_enforcement'] = [
+                'status' => 'degraded',
+                'error' => $e->getMessage(),
+            ];
+            $job->forceFill(['payload' => $payload])->save();
+        }
+
+        return $job->refresh()->load('trace');
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     private function programmingProviderPolicyViolation(AiJob $job): ?array
     {
         if (! $this->isProgrammingProviderDispatch($job)) {
             return null;
+        }
+
+        if ((bool) data_get($job->payload, 'programming_context_runtime_blocked', false)) {
+            $enforcement = (array) data_get($job->payload, 'programming_context_runtime_enforcement', []);
+
+            return array_filter([
+                'schema_version' => 1,
+                'source' => 'atlas_context_runtime',
+                'scope' => 'provider_execution',
+                'context_runtime_enforced' => true,
+                'blocked_reason' => 'context_runtime_certify_blocked',
+                'message' => 'Programming provider execution blocked: AtlasContextRuntime certify failed closed.',
+                'enforcement' => $enforcement,
+                'enforced_at' => now()->toJSON(),
+            ], fn (mixed $value): bool => $value !== null && $value !== []);
         }
 
         $gateContract = $this->programmingProviderGateContract($job);

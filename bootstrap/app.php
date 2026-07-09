@@ -163,8 +163,6 @@ use App\Console\Commands\AtlasStrategicOperatingSystemCommand;
 use App\Console\Commands\AtlasSwarmExecuteArmCommand;
 use App\Console\Commands\AtlasToolsCommand;
 use App\Console\Commands\AtlasTrustLadderCommand;
-use App\Console\Commands\AtlasUnifiedLoopInstallLaunchdCommand;
-use App\Console\Commands\AtlasUnifiedLoopSupervisorCommand;
 use App\Console\Commands\AtlasVaultCommand;
 use App\Console\Commands\HealthRepairCommand;
 use App\Console\Commands\RizeInspectCommand;
@@ -295,8 +293,6 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
-        AtlasUnifiedLoopInstallLaunchdCommand::class,
-        AtlasUnifiedLoopSupervisorCommand::class,
         AtlasMemoryCurateCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,

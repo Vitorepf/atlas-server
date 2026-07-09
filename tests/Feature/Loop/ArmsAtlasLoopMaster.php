@@ -9,7 +9,7 @@ use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 /**
  * Test support: arm the §0 master switch ON for tests that exercise the loop's ACTIVE path (keepalive
  * revive/reap, campaign launch, etc.). Since the master switch defaults FAIL-CLOSED (OFF), any test that
- * proves the loop DOES something must explicitly enable it — mirroring the operator running `atlas:loop:on`.
+ * proves Autônomos DOES something must explicitly enable it — mirroring `atlas:agents:on autonomos`.
  * Points the switch at a throwaway .env so the real .env is never touched.
  */
 trait ArmsAtlasLoopMaster

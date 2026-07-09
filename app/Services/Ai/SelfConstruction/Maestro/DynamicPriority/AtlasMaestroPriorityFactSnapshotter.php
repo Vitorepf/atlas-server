@@ -120,7 +120,7 @@ final class AtlasMaestroPriorityFactSnapshotter
     {
         // Canonical master switch (config, default OFF); the old getenv() fallback was
         // dead inside Laravel and defaulted ON when the var was unset.
-        return (bool) config('atlas.loop.master_enabled', false);
+        return \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
     }
 
     /**

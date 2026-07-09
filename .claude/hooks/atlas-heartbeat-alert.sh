@@ -36,7 +36,7 @@ touch "$MARK" 2>/dev/null || true
 
 DAYS=$(( AGE / 86400 ))
 HOURS=$(( (AGE % 86400) / 3600 ))
-MSG="⚠️ Atlas scheduler heartbeat STALE há ~${DAYS}d${HOURS}h (storage/atlas/scheduler/heartbeat.jsonl). O loop autônomo pode estar morto — cheque launchd (print-disabled) e o master switch (atlas:loop status)."
+MSG="⚠️ Atlas scheduler heartbeat STALE há ~${DAYS}d${HOURS}h (storage/atlas/scheduler/heartbeat.jsonl). Autônomos pode estar parado — cheque launchd (print-disabled) e o master (atlas:agents:on|off autonomos; alias loop)."
 
 if command -v jq >/dev/null 2>&1; then
     jq -cn --arg m "$MSG" '{hookSpecificOutput:{hookEventName:"UserPromptSubmit",additionalContext:$m}}' 2>/dev/null || exit 0

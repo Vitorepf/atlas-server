@@ -595,8 +595,8 @@ final class AtlasFableFinalCaptureService
                         'current_certified' => (bool) data_get($operatorGatedExternalProofs, 'l4_10.certified', false),
                     ],
                     'commands_next' => [
-                        'prove_l4_6_digest' => '/opt/homebrew/bin/php artisan atlas:loop:morning-digest --json',
-                        'run_real_obra_when_operator_authorizes_spend' => '/opt/homebrew/bin/php artisan atlas:obra:run <obra-plan-id> --provider=hermes_cli --integrated-check="/opt/homebrew/bin/php artisan atlas:loop:morning-digest --json" --json',
+                        'prove_l4_6_digest' => '/opt/homebrew/bin/php artisan atlas:brain:summary --compact',
+                        'run_real_obra_when_operator_authorizes_spend' => '/opt/homebrew/bin/php artisan atlas:obra:run <obra-plan-id> --provider=hermes_cli --integrated-check="/opt/homebrew/bin/php artisan atlas:brain:summary --compact" --json',
                         'certify_real_receipt' => '/opt/homebrew/bin/php artisan atlas:forge:l4-10-proof --evidence=<receipt.json> --json --strict',
                     ],
                     'claim_policy' => [

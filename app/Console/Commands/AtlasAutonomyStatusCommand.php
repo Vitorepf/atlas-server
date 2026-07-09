@@ -15,7 +15,7 @@ class AtlasAutonomyStatusCommand extends Command
 {
     protected $signature = 'atlas:autonomy:status {--json : Emit JSON}';
 
-    protected $description = 'Atlas Loop autonomy tier status: active tier per registered area + promotion chain readiness. Read-only.';
+    protected $description = 'Atlas Autônomos autonomy tier status: active tier per registered area + promotion chain readiness. Read-only.';
 
     public function handle(AtlasLoopTierPromotionChainService $chain, AtlasNightShiftAreaFocusContractRegistry $registry): int
     {

@@ -42,8 +42,8 @@ use Throwable;
  * platform (no `if cursor/codex/claude`). Inbound filters are WHITELISTED to a neutral set, so a client can
  * never smuggle an engine-typed field that changes serving. The type signature IS the proof.
  *
- * MASTER-SWITCH GATED: with the loop master switch OFF, `next`/`report` are inert (a `disabled` envelope) —
- * the serving surface never dispatches while the loop is off, and the loop never reanimates itself.
+ * MASTER-SWITCH GATED: with the Autônomos master / serving switch OFF, `next`/`report` are inert (a `disabled` envelope) —
+ * the serving surface never dispatches while Autônomos is off, and Autônomos never reanimates itself.
  *
  * It builds on the HARDENED canonical Stack A ({@see AgentControlPlaneTaskQueueOrchestrator}): the claim is
  * flock-atomic + CAS single-winner (A1/A2), conflict-free prefix-aware (A4/A5), with dead-agent pre-sweep
@@ -517,6 +517,23 @@ final class AtlasTaskServingService
                 }
             }
 
+            // Obra 2: AUCRI/context + honesty BEFORE scoped commit (fail-closed — no false land).
+            $eliteGate = $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, [
+                'commit_sha' => '',
+                'files_committed' => [],
+                'pre_commit' => true,
+            ]);
+            if (($eliteGate['ok'] ?? true) !== true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => (string) ($eliteGate['reason'] ?? 'elite_autonomos_gate_blocked'),
+                    'elite_gate' => $eliteGate,
+                ]);
+            }
+
             $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
 
             if (($commit['committed'] ?? false) !== true) {
@@ -530,6 +547,7 @@ final class AtlasTaskServingService
                 ]);
             }
 
+            // Post-commit honesty with real commit evidence (compose already ran pre-commit).
             $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, $commit);
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
@@ -1303,35 +1321,85 @@ final class AtlasTaskServingService
     }
 
     /**
+     * Compose + certify + honesty for Autônomos task commits (Obra 2).
+     *
      * @param  array<string, mixed>  $scope
      * @param  array<string, mixed>  $commit
+     * @return array{ok:bool,reason?:string,compose?:array<string,mixed>,certify?:array<string,mixed>}
      */
-    private function eliteAutonomosContextAndOutcome(string $taskPacketId, array $scope, array $commit): void
+    private function eliteAutonomosContextAndOutcome(string $taskPacketId, array $scope, array $commit): array
     {
+        $objective = (string) ($scope['objective'] ?? 'task commit');
+        $allowedFiles = array_values(array_map('strval', (array) ($scope['allowed_files'] ?? [])));
+        $preCommit = ($commit['pre_commit'] ?? false) === true;
+
         if ($this->contextRuntime !== null) {
-            $this->contextRuntime->certifyEnforcement([
+            try {
+                $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($objective, [
+                    'agent_slug' => 'autonomos',
+                    'provider' => 'local',
+                    'source_type' => 'task_serving',
+                    'payload' => [
+                        'task_packet_id' => $taskPacketId,
+                        'allowed_files' => $allowedFiles,
+                    ],
+                ], ['agent' => 'autonomos', 'intent' => 'self_construction']);
+                $pack = $this->contextRuntime->compose($objective, $task, [
+                    'workspace' => base_path(),
+                    'flow_id' => 'atlas_autonomos',
+                    'changed_files' => $allowedFiles,
+                ]);
+                $composeAudit = method_exists($pack, 'toArray') ? $pack->toArray() : ['schema' => 'composed'];
+            } catch (\Throwable $e) {
+                // Compose is best-effort on Autônomos (AOBG-style); certify still fail-closes.
+                $composeAudit = ['error' => $e->getMessage()];
+            }
+
+            $verdict = $this->contextRuntime->certify([
                 'flow_id' => 'atlas_autonomos',
                 'domain' => 'self_construction',
                 'task_type' => 'task_serving_commit',
                 'risk_level' => 'high',
                 'provider' => 'local',
                 'provider_target' => 'local',
-                'objective' => (string) ($scope['objective'] ?? 'task commit'),
+                'objective' => $objective,
                 'source_refs' => array_map(
                     static fn (string $ref): array => ['ref' => $ref],
-                    array_values(array_map('strval', (array) ($scope['allowed_files'] ?? []))),
+                    $allowedFiles,
                 ),
                 'task_packet_id' => $taskPacketId,
+                'strict_retrieval_gate' => (bool) config('atlas.programming.strict_retrieval_gate', true),
             ]);
+            if (! $verdict->passed()) {
+                return [
+                    'ok' => false,
+                    'reason' => 'aucri_context_blocked',
+                    'compose' => $composeAudit ?? [],
+                    'certify' => $verdict->audit,
+                    'blockers' => $verdict->blockers,
+                ];
+            }
         }
 
-        $this->eliteKernel?->assertHonestOutcome([
-            'status' => 'success',
-            'execution' => [
-                'task_packet_id' => $taskPacketId,
-                'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
-                'files_committed' => (array) ($commit['files_committed'] ?? []),
-            ],
-        ], 'autonomos');
+        if ($this->eliteKernel !== null && ! $preCommit) {
+            try {
+                $this->eliteKernel->assertHonestOutcome([
+                    'status' => 'success',
+                    'execution' => [
+                        'task_packet_id' => $taskPacketId,
+                        'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
+                        'files_committed' => (array) ($commit['files_committed'] ?? []),
+                    ],
+                ], 'autonomos');
+            } catch (\Throwable $e) {
+                return [
+                    'ok' => false,
+                    'reason' => 'elite_kernel_fake_green',
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return ['ok' => true, 'compose' => $composeAudit ?? []];
     }
 }

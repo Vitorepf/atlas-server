@@ -449,6 +449,11 @@ class AtlasRealityGraphIngestionService
                 'receipt' => $receipt,
                 'never_merged' => true,
                 'touched_paths' => array_slice($files, 0, self::MAX_META_PATHS),
+                'evidence_refs' => ($evidenceRefMeta = array_slice(
+                    array_values(array_filter((array) ($outcome['evidence_refs'] ?? []), 'is_string')),
+                    0,
+                    12,
+                )) !== [] ? $evidenceRefMeta : null,
                 // Provenance marker: a mission minted from an EXTERNAL session record
                 // (AOBG write-back) carries its origin so render surfaces can refuse to
                 // present its raw request label as an operator "decision" (session echo).

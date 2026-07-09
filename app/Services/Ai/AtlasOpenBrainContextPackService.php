@@ -6,6 +6,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -156,11 +157,18 @@ class AtlasOpenBrainContextPackService
         $workspaceId = $this->resolveWorkspaceId($opts);
         $requestedTotalBudget = $this->intOpt($opts, 'budget', (int) config('atlas.aobg.budget_chars', 6000));
         $totalBudget = $requestedTotalBudget;
-        $codeBudget = $this->intOpt($opts, 'code_budget', (int) config('atlas.aobg.code_budget_chars', 2500));
+        $codeBudget = $this->intOpt(
+            $opts,
+            'code_budget',
+            (int) config('atlas.aobg.e3_symbol_budget_chars', (int) config('atlas.aobg.code_budget_chars', 2500)),
+        );
         $memoryBudget = $this->intOpt($opts, 'memory_budget', (int) config('atlas.aobg.memory_budget_chars', 2000));
         $changedFiles = $this->stringList($opts['changed_files'] ?? []);
         $contextDeliveryPolicy = $this->contextDeliveryPolicy($opts);
-        $opts['_demote_context_refs'] = $this->stringList($contextDeliveryPolicy['demote_context_refs'] ?? []);
+        $opts['_demote_context_refs'] = array_values(array_unique(array_merge(
+            $this->stringList($contextDeliveryPolicy['demote_context_refs'] ?? []),
+            $this->concentrationDemoteContextRefs(),
+        )));
         $budgetMultiplier = (float) ($contextDeliveryPolicy['initial_context_budget_multiplier'] ?? 1.0);
         if ((bool) ($contextDeliveryPolicy['applied_to_initial_budget'] ?? false) && $budgetMultiplier > 0 && $budgetMultiplier < 1.0) {
             $totalBudget = $this->scaledBudget($totalBudget, $budgetMultiplier);
@@ -263,6 +271,53 @@ class AtlasOpenBrainContextPackService
         $pack['context_feedback_request'] = $this->contextFeedbackRequest($pack, $opts);
         $pack['generated_at'] = now()->toJSON();
         $pack['markdown'] = $this->renderMarkdown($pack);
+
+        // Obra 2 / OB-01: optional AtlasContextRuntime::compose sidecar (fail-open).
+        // Default OFF so AOBG CLI/MCP stay byte-identical; elite callers may opt in.
+        if (($opts['include_runtime_compose'] ?? false) === true
+            || (bool) config('atlas.aobg.include_runtime_compose', false)) {
+            $pack = $this->attachRuntimeCompose($pack, $task, $opts, $workspaceId);
+        }
+
+        if ((bool) config('atlas.aobg.progressive_disclosure_enabled', true)) {
+            $pack['progressive_disclosure'] = $this->progressiveDisclosureManifest();
+        }
+
+        return $pack;
+    }
+
+    /**
+     * Thin adapter: attach executor-bound compose without replacing AOBG fused pack.
+     *
+     * @param  array<string,mixed>  $pack
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>
+     */
+    private function attachRuntimeCompose(array $pack, string $task, array $opts, string $workspaceId): array
+    {
+        try {
+            $runtime = app(\App\Services\Ai\Context\AtlasContextRuntime::class);
+            $taskRequest = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($task, [
+                'agent_slug' => 'aobg',
+                'provider' => 'local',
+                'source_type' => 'aobg_context_pack',
+                'payload' => [
+                    'workspace' => $workspaceId,
+                    'changed_files' => $this->stringList($opts['changed_files'] ?? []),
+                ],
+            ], ['agent' => 'aobg', 'intent' => 'context_pack']);
+            $contract = $runtime->compose($task, $taskRequest, [
+                'workspace' => (string) ($opts['workspace'] ?? $opts['cwd'] ?? base_path()),
+                'flow_id' => (string) ($opts['flow_id'] ?? 'atlas_aobg'),
+                'changed_files' => $this->stringList($opts['changed_files'] ?? []),
+            ]);
+            $pack['runtime_compose'] = method_exists($contract, 'toArray') ? $contract->toArray() : ['schema' => 'composed'];
+            $pack['runtime_compose_status'] = 'ok';
+        } catch (Throwable $e) {
+            $pack['runtime_compose'] = null;
+            $pack['runtime_compose_status'] = 'degraded';
+            $pack['runtime_compose_error'] = $e->getMessage();
+        }
 
         return $pack;
     }
@@ -424,6 +479,7 @@ class AtlasOpenBrainContextPackService
                 'if_feature_missing' => 'restart_provider_client_or_use_cli_fallback',
                 'required_probe' => 'atlas_mcp_self_check',
                 'cli_fallback' => 'php artisan atlas:context-pack "<task>" --workspace="<path>" --json',
+                'mcp_restart' => 'bin/atlas open-brain mcp --describe --json then restart Cursor/Claude MCP client',
             ],
             'policy' => [
                 'provider_safe' => true,
@@ -431,6 +487,30 @@ class AtlasOpenBrainContextPackService
                 'raw_conversation_exposed' => false,
             ],
         ];
+    }
+
+    /**
+     * Obra 7 / OB-03: Absorcao 4 phase-1 tier manifest (discovery → context → detail).
+     *
+     * @return array<string,mixed>
+     */
+    private function progressiveDisclosureManifest(): array
+    {
+        try {
+            $tier = app(\App\Services\Ai\Mcp\AtlasMcpTierService::class);
+
+            return [
+                'schema_version' => 'atlas.mcp.tier.v1',
+                'workflow' => 'search_brief → timeline → get_full',
+                'manifest' => $tier->tierManifest(),
+                'savings_estimate' => $tier->estimateSavings(5),
+            ];
+        } catch (Throwable) {
+            return [
+                'schema_version' => 'atlas.mcp.tier.v1',
+                'status' => 'unavailable',
+            ];
+        }
     }
 
     /**
@@ -765,7 +845,10 @@ class AtlasOpenBrainContextPackService
             'actions' => $actions,
             'expand_source_types' => $expandSourceTypes,
             'deferred_source_types' => $this->uniqueStrings(array_merge($expandSourceTypes, $deferSections)),
-            'demote_context_refs' => array_slice($demoteContextRefs, 0, 12),
+            'demote_context_refs' => array_slice(array_values(array_unique(array_merge(
+                $demoteContextRefs,
+                $this->concentrationDemoteContextRefs(),
+            ))), 0, 12),
             'on_demand_handles' => $this->expansionHandles($expandSourceTypes),
             'source_selection_policy' => $sourceSelectionPolicy,
             'evidence' => [
@@ -933,6 +1016,20 @@ class AtlasOpenBrainContextPackService
         $explicit = $this->stringOpt($opts, 'flow_id');
         if ($explicit !== null) {
             return $explicit;
+        }
+
+        // Obra 7 / OPT-04: programming surfaces pass flow_id for ARFL→ACRS repromote.
+        if ((bool) config('atlas.context.programming_flow_repromote_enabled', true)) {
+            $programmingFlow = $this->stringOpt($opts, 'programming_flow')
+                ?? $this->stringOpt($opts, 'programming_profile');
+            if ($programmingFlow !== null) {
+                return match ($programmingFlow) {
+                    'forge' => 'atlas_forge',
+                    'repair', 'debug' => 'atlas_debug',
+                    'review' => 'atlas_review',
+                    default => 'atlas_dev',
+                };
+            }
         }
 
         $domain = $this->stringOpt($opts, 'domain');
@@ -2666,6 +2763,22 @@ class AtlasOpenBrainContextPackService
         $raw = trim((string) $raw);
 
         return $raw !== '' ? $raw : null;
+    }
+
+    /**
+     * Obra 5 / MEM-04 + OPT-01 — demote dominant-memory refs on the initial AOBG pack.
+     *
+     * @return array<int,string>
+     */
+    private function concentrationDemoteContextRefs(): array
+    {
+        try {
+            $demotion = new AtlasMemoryRecallConcentrationDemotion;
+
+            return $demotion->demoteContextRefsForEntries($demotion->dominantEntryIds());
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**

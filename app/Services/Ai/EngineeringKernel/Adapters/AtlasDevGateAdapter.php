@@ -9,6 +9,7 @@ use App\Services\Ai\EngineeringKernel\AcceptanceGate;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\NonFunctional\ArchitectureRegressionProbe;
 use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
+use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreVerdict;
@@ -35,6 +36,7 @@ final class AtlasDevGateAdapter implements AcceptanceGate
 
     public function __construct(
         private readonly SovereignHonestyFloor $floor = new SovereignHonestyFloor,
+        private readonly OutcomeProofGate $outcomeProof = new OutcomeProofGate,
     ) {}
 
     /** Pass-through so the adapter itself can be bound as the AcceptanceGate for a surface. */
@@ -50,6 +52,23 @@ final class AtlasDevGateAdapter implements AcceptanceGate
      */
     public function certifyDevDelivery(array $evidence, TrustLevel $trust = TrustLevel::Dev): CertVerdict
     {
+        // Obra 2 / DEV-02: OutcomeProofGate pre-check shares FalseClaimInvariant with the floor.
+        $execution = (array) ($evidence['execution'] ?? []);
+        if ($execution !== []) {
+            $status = (string) ($evidence['status'] ?? 'success');
+            $proof = $this->outcomeProof->assess($status, $execution);
+            if (($proof['fake_green'] ?? false) === true) {
+                $evidence['judges'] = array_values(array_merge(
+                    (array) ($evidence['judges'] ?? []),
+                    [[
+                        'family' => 'outcome_proof',
+                        'verdict' => 'fake_green',
+                        'reason' => (string) ($proof['reason'] ?? 'fake_green'),
+                    ]],
+                ));
+            }
+        }
+
         return $this->certify($this->bundleFromDevEvidence($evidence), $trust);
     }
 

@@ -47,8 +47,9 @@ desired-state ⇒ **0 respawns**.
 
 ```bash
 # Loop (keeps its §0 master switch; on/off now also drive desired-state)
-php artisan atlas:loop:on  --ttl=7200 --reason="manual run"   # master ON + desired ON + FREIO 2h
-php artisan atlas:loop:off                                    # master OFF + desired cleared
+php artisan atlas:agents:on autonomos  --ttl=7200 --reason="manual run"   # master ON + desired ON + FREIO 2h
+php artisan atlas:agents:off autonomos                                    # master OFF + desired cleared
+# alias (1 período): atlas:agents:on|off loop → autonomos
 
 # Any fleet agent (declarative — the babá then runs/stops it)
 php artisan atlas:agents:on  finance.strategy-loop --ttl=3600

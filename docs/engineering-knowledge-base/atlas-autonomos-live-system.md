@@ -47,6 +47,17 @@ related_paths:
 O Autônomos é a arquitetura **cérebro externo + músculo externo** que evolui o Atlas de forma autônoma e
 **já entregou 4.841 landings** na main. Não é aspiração: roda hoje.
 
+
+## Três switches (Obra 1)
+
+| Switch | Env | Papel |
+|---|---|---|
+| Autônomos master (`AtlasLoopMasterSwitch` / alias `AtlasAutonomosMasterSwitch`) | `ATLAS_AUTONOMOS_MASTER_ENABLED` (preferido) + fallback `ATLAS_LOOP_MASTER_ENABLED` | Kill global Autônomos; `atlas:agents:on|off autonomos` (alias `loop`) |
+| Brain master (`AtlasBrainMasterSwitch`) | `ATLAS_BRAIN_MASTER_ENABLED` | Cérebro |
+| Task serving (`AtlasTaskServingSwitch`) | `ATLAS_TASK_SERVING_ENABLED` | Músculo (serve tasks sem armar o farm) |
+
+Schedules de task-serving (`sweep-malformed`, `repair-blocked`, `servable-heartbeat`, `acp:reap-leases`) disparam quando **serving OR Autônomos master** está ON.
+
 ## Papel no Atlas
 
 Originar trabalho de evolução de alto valor (cérebro) e implementá-lo com prova (músculo), commitando na
@@ -81,6 +92,9 @@ main local de forma escopada, sem depender do operador no caminho normal.
 | Comandos vivos | `atlas:brain:*`, `atlas:task:*` | **VIVO** |
 | Loop ACDE | `app/Services/Ai/AutonomousEvolution/` **raiz** (~600 `AtlasLoop*`/`AtlasEvolution*`) | **MORTO** — exceto o keep-list abaixo |
 | Superfície de comando ACDE | 335 comandos `atlas:loop:*` | **MORTO** — os comandos VIVOS são `atlas:brain:*` / `atlas:task:*` |
+
+
+**Aliases Obra 1 (preferidos, sem quebrar callers):** `AtlasAutonomosMasterSwitch` → `AtlasLoopMasterSwitch`; `AtlasBrainQueueReplenisher` → `AtlasLoopQueueRefiller`; `AtlasBrainScopeComprehension*` / `AtlasBrainOriginationPipeline` → keep-list `AtlasLoop*`; `AtlasAutonomosIntentResolverBindings` (rename_now).
 
 ## Keep-list: 26 classes `AtlasLoop*` VIVAS (NÃO aposentar pelo prefixo)
 

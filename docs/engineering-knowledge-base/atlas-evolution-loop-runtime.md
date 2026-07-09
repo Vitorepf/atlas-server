@@ -1,3 +1,5 @@
+> **⚰️ LEGADO ACDE (Obra 1):** esta wiki descreve o Loop/ACDE **morto**. Sistema vivo = **Autônomos** (`atlas:brain:*` + `atlas:task:*`). Canon: `docs/engineering-knowledge-base/atlas-autonomos-live-system.md`. AAEL / Stewardship Loop / TerminalLoop = outros produtos — não confundir.
+
 ---
 id: atlas-evolution-loop-runtime
 type: engineering_knowledge

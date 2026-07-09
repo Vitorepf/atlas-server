@@ -38,7 +38,9 @@ use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionInput;
 use App\Services\Ai\Programming\AtlasDev\Intelligence\TestSelectionIntelligenceService;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasMinimaxFirstWorkerService;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreGate;
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreVerdict;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationTestingAdapter;
+use App\Services\Ai\Programming\AtlasDev\Mutation\MutationTestingResult;
 use App\Services\Ai\Programming\AtlasDev\Mutation\SymfonyMutationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
@@ -56,7 +58,9 @@ use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
 use App\Services\Ai\Programming\AtlasDev\Regression\VerificationRegressionBaselineRunner;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
@@ -730,15 +734,18 @@ final class PipelineRunExecutor implements RunExecutor
         // patch with no touched test files (or a skipped result) is a
         // documented no-op (VAL-E3-008) — never a false fail.
         $e3Config = $this->resolveE3Config();
+        $mutationTestingResult = null;
+        $mutationScoreVerdict = null;
         if (! $e3Config->isOff()) {
             $adapter = $this->resolveMutationTestingAdapter($envelope->workspace);
             $touchedFiles = array_map(
                 static fn (ScopeFileDiff $diff): string => $diff->path,
                 $scopeReceipt->observed->fileDiffs,
             );
-            $mutationResult = $adapter->run($runId, $touchedFiles);
+            $mutationTestingResult = $adapter->run($runId, $touchedFiles);
             $gate = MutationScoreGate::fromConfig($e3Config);
-            $verdict = $gate->evaluate($mutationResult);
+            $mutationScoreVerdict = $gate->evaluate($mutationTestingResult);
+            $verdict = $mutationScoreVerdict;
 
             if ($verdict->tripped) {
                 $verificationResult = $this->routeElevationVerdict($verificationResult, $e3Config, $verdict->honestyFlags);
@@ -1025,6 +1032,16 @@ final class PipelineRunExecutor implements RunExecutor
             );
         }
 
+        [$decision, $sovereignDevFloorReceipt] = $this->applySovereignDevFloor(
+            $decision,
+            $verificationResult,
+            $scopeReceipt,
+            $mutationTestingResult,
+            $mutationScoreVerdict,
+            $repairAttempt,
+            $runId,
+        );
+
         $receipt = (new ReceiptComposer)->compose(
             envelope: $envelope,
             taskContract: $taskContract,
@@ -1055,6 +1072,13 @@ final class PipelineRunExecutor implements RunExecutor
             ArtifactNames::VERIFICATION_RECEIPT,
             $receipt->toCanonicalArray(),
         );
+        if ($sovereignDevFloorReceipt !== null) {
+            $persisted[ArtifactNames::SOVEREIGN_DEV_FLOOR_RECEIPT] = $this->storage->writeAtomic(
+                $runId,
+                ArtifactNames::SOVEREIGN_DEV_FLOOR_RECEIPT,
+                $sovereignDevFloorReceipt,
+            );
+        }
 
         // Patch/Test Intelligence — derives risk, blast radius, focused tests
         // and rollback hints from the scope-guard observation. Strictly
@@ -3647,6 +3671,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             ],
             'segments' => $segments,
             'task' => 'execute_provider_patch',
+            'strict_retrieval_gate' => (bool) config('atlas.programming.strict_retrieval_gate', true),
         ]);
 
         $this->storage->writeAtomic($runId, ArtifactNames::AUCRI_RUNTIME_ENFORCEMENT, $enforcement);
@@ -4405,5 +4430,98 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 'e6: spec constitution evaluation errored: '.$e->getMessage(),
             );
         }
+    }
+
+    /**
+     * Obra 5 / DEV-04 — sovereign honesty floor over a completed Dev delivery.
+     * Observe-mode always records the verdict; enforce-mode downgrades passed completions
+     * the floor refuses to promote.
+     *
+     * @return array{0:CompletionDecision,1:?array<string,mixed>}
+     */
+    private function applySovereignDevFloor(
+        CompletionDecision $decision,
+        VerificationGateResult $verificationResult,
+        ScopeGuardReceipt $scopeReceipt,
+        ?MutationTestingResult $mutationTestingResult,
+        ?MutationScoreVerdict $mutationScoreVerdict,
+        int $repairAttempt,
+        string $runId,
+    ): array {
+        $enforcing = (bool) config('atlas.programming.sovereign_floor_enforced', true);
+        $changedFiles = array_map(
+            static fn (ScopeFileDiff $diff): string => $diff->path,
+            $scopeReceipt->observed->fileDiffs,
+        );
+        $commands = [];
+        foreach ($verificationResult->tests as $test) {
+            $commands[] = $test->command;
+        }
+
+        $evidence = [
+            'changed_files' => $changedFiles,
+            'status' => $decision->status === CompletionSummary::STATUS_PASSED ? 'success' : 'failed',
+            'execution' => [
+                'commands' => $commands,
+                'claimed_status' => $verificationResult->aggregateStatus,
+                'tests_run' => count($verificationResult->tests),
+                'assertions_executed' => 0,
+                'selected_tests' => $commands,
+                'artifacts' => ['verification_receipt:'.$runId],
+            ],
+            'repair' => $repairAttempt > 0 ? ['attempts' => $repairAttempt] : [],
+        ];
+        if ($mutationScoreVerdict instanceof MutationScoreVerdict) {
+            $evidence['mutation_verdict'] = $mutationScoreVerdict;
+            $evidence['mutants_generated'] = (int) ($mutationTestingResult?->rawCounts['totalMutantsCount'] ?? 0);
+        }
+
+        try {
+            $adapter = $this->container->bound(AtlasDevGateAdapter::class)
+                ? $this->container->make(AtlasDevGateAdapter::class)
+                : new AtlasDevGateAdapter;
+            $verdict = $adapter->certifyDevDelivery($evidence, TrustLevel::Dev);
+        } catch (\Throwable $e) {
+            $receipt = [
+                'schema_version' => 'atlas.dev.sovereign_floor.v1',
+                'mode' => $enforcing ? 'enforce' : 'observe',
+                'promoted' => false,
+                'error' => $e->getMessage(),
+            ];
+
+            return [$decision, $receipt];
+        }
+
+        $receipt = [
+            'schema_version' => 'atlas.dev.sovereign_floor.v1',
+            'mode' => $enforcing ? 'enforce' : 'observe',
+            'promoted' => $verdict->promoted(),
+            'status' => $verdict->status,
+            'blockers' => $verdict->blockers,
+            'receipt_ref' => $verdict->receiptRef,
+        ];
+
+        if ($enforcing
+            && $decision->status === CompletionSummary::STATUS_PASSED
+            && ! $verdict->promoted()) {
+            $flags = array_values(array_unique(array_merge(
+                $decision->honestyFlags,
+                array_map(static fn (string $b): string => 'sovereign_floor:'.$b, $verdict->blockers),
+            )));
+            $decision = new CompletionDecision(
+                status: CompletionSummary::STATUS_NEEDS_REVIEW,
+                honestyFlags: $flags,
+                residualRisks: array_values(array_unique(array_merge(
+                    $decision->residualRisks,
+                    ['sovereign_floor_not_promoted'],
+                ))),
+                reasons: array_values(array_merge(
+                    $decision->reasons,
+                    ['sovereign_floor:delivery_not_promoted'],
+                )),
+            );
+        }
+
+        return [$decision, $receipt];
     }
 }

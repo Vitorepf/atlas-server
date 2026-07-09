@@ -9,6 +9,7 @@ use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\Caching\AiCallCostGuard;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Governance\AtlasTrustBudgetService;
 use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Programming\AtlasForgeProviderProcessRunner;
@@ -40,12 +41,15 @@ final class ProviderGovernanceConsultTest extends TestCase
 
     private string $admlPath;
 
+    private string $trustBudgetPath;
+
     protected function setUp(): void
     {
         parent::setUp();
         $u = uniqid('', true);
         $this->coveragePath = sys_get_temp_dir()."/atlas_gov_consult_{$u}/coverage.jsonl";
         $this->admlPath = sys_get_temp_dir()."/atlas_gov_consult_{$u}/adml.jsonl";
+        $this->trustBudgetPath = sys_get_temp_dir()."/atlas_gov_consult_{$u}/trust_budget.jsonl";
         // Default OFF unless a test flips it; a hard threshold so enforce CAN bite.
         config(['atlas.ai.governance.enforce' => false]);
         config(['atlas.ai.cache.cost_guard' => ['soft_units' => 0.0, 'hard_units' => 0.0]]);
@@ -55,6 +59,7 @@ final class ProviderGovernanceConsultTest extends TestCase
     {
         @unlink($this->coveragePath);
         @unlink($this->admlPath);
+        @unlink($this->trustBudgetPath);
         @rmdir(dirname($this->coveragePath));
         parent::tearDown();
     }
@@ -74,11 +79,14 @@ final class ProviderGovernanceConsultTest extends TestCase
         $admission = new AtlasAutonomyAdmissionService($kernel);
         $adml = new AtlasDecideGatewayConsultationService(new StubAdmlForConsult, $kernel, $admission);
         $adml->setLogPathForTesting($this->admlPath);
+        $trustBudget = new AtlasTrustBudgetService;
+        $trustBudget->setLogPathForTesting($this->trustBudgetPath);
 
         return new ProviderGovernanceConsult(
             $adml,
             new AiCallCostGuard(new AtlasTokenEconomyBudgetPolicyService),
             $coverage,
+            $trustBudget,
         );
     }
 
@@ -94,6 +102,8 @@ final class ProviderGovernanceConsultTest extends TestCase
         // The seam actually consulted cost-guard + ADML.
         self::assertNotSame('', $advisory['adml_verdict']);
         self::assertArrayHasKey('pre_cost_units', $advisory['cost']);
+        self::assertArrayHasKey('verdict', $advisory['trust_budget']);
+        self::assertNotSame('', $advisory['kernel_decision']);
 
         $summary = $coverage->summary();
         self::assertSame(1, $summary['consulted']);

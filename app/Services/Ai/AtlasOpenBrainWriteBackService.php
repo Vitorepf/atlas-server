@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiLearningProposal;
+use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldRegistryGovernance;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Support\AtlasSecurity;
@@ -132,6 +134,13 @@ class AtlasOpenBrainWriteBackService
                 return $this->reject(self::ACTION_RECORD_OUTCOME, self::REJECT_OVERSIZED, 'too_many_touched_files', $input);
             }
             $memoryRefs = $this->boundedStringList($input['memory_refs'] ?? [], $caps['max_memory_refs']) ?? [];
+            $evidenceRefs = $this->boundedStringList($input['evidence_refs'] ?? [], $caps['max_evidence_refs']) ?? [];
+            if ($evidenceRefs === [] && $files !== []) {
+                $evidenceRefs = array_map(static fn (string $path): string => 'file:'.$path, $files);
+            }
+            if ((bool) config('atlas.aobg.write_back.require_evidence_refs', true) && $evidenceRefs === []) {
+                return $this->reject(self::ACTION_RECORD_OUTCOME, self::REJECT_INVALID, 'evidence_refs_required', $input);
+            }
 
             $workspaceId = $this->resolveWorkspaceId($input);
             $result = $this->normalizeResult($input['result'] ?? []);
@@ -156,6 +165,7 @@ class AtlasOpenBrainWriteBackService
                 'files' => $files,
                 'measure' => $result,
                 'memory_refs' => $memoryRefs,
+                'evidence_refs' => $evidenceRefs,
             ]);
 
             $ok = (bool) ($recorded['recorded'] ?? false);
@@ -166,6 +176,7 @@ class AtlasOpenBrainWriteBackService
                 'workspace' => $workspaceId,
                 // NEVER a merge — make the contract explicit in the response.
                 'merged' => false,
+                'registry_governance' => $this->registryGovernanceEnvelope(self::ACTION_RECORD_OUTCOME),
                 'mission_node' => $recorded['mission_node'] ?? null,
                 'evidence_node' => $recorded['evidence_node'] ?? null,
                 'edges' => (int) ($recorded['edges'] ?? 0),
@@ -176,6 +187,7 @@ class AtlasOpenBrainWriteBackService
                 'id' => $id,
                 'files' => count($files),
                 'memory_refs' => count($memoryRefs),
+                'evidence_refs' => count($evidenceRefs),
             ]);
 
             return $envelope;
@@ -232,6 +244,12 @@ class AtlasOpenBrainWriteBackService
             }
 
             $workspaceId = $this->resolveWorkspaceId($input);
+
+            // Obra 2 / MEM-01/02: G0–G8 promotion gate evaluator (fail-closed when blocked).
+            $immuneBlock = $this->cognitiveImmunePromotionBlock($kind, $summary, $evidenceRefs, $input);
+            if ($immuneBlock !== null) {
+                return $immuneBlock;
+            }
 
             // Delegate to the canonical admission pipeline. It runs the capture quality
             // gate (rejects noise + dedups) and ALWAYS lands status='proposed' — it throws
@@ -333,6 +351,7 @@ class AtlasOpenBrainWriteBackService
             'applied' => false,
             'auto_promoted' => false,
             'requires_human_review' => true,
+            'registry_governance' => $this->registryGovernanceEnvelope(self::ACTION_PROPOSE_LEARNING),
             'proposal_id' => $persisted ? (string) $proposal->id : null,
             'status' => $gateRejected ? self::REJECT_QUALITY : 'pending_review',
             'kind' => (string) ($proposal->kind ?? ''),
@@ -372,6 +391,56 @@ class AtlasOpenBrainWriteBackService
         ]);
 
         return $envelope;
+    }
+
+    /**
+     * Obra 2 / MEM-01/02: run G0–G8 promotion evaluator when enabled.
+     * Only hard-blocks when promotion_status=blocked (safety/contradiction).
+     * Pending/candidate still allow propose (never auto-promote).
+     *
+     * @param  list<string>  $evidenceRefs
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>|null
+     */
+    private function cognitiveImmunePromotionBlock(string $kind, string $summary, array $evidenceRefs, array $input): ?array
+    {
+        try {
+            $kernel = app(AtlasMemoryCognitiveImmuneLearningKernelService::class);
+            $signals = array_merge([
+                'atomic_claim_present' => $summary !== '',
+                'claim_type' => $kind,
+                'claim_source_present' => $evidenceRefs !== [],
+                'scope' => $this->string($input['scope'] ?? null) ?? 'global',
+                'consent_granted' => true,
+                'retention_ok' => true,
+                'privacy_class' => $this->string($input['privacy_class'] ?? null) ?? 'normal',
+                'provider_safe' => true,
+                'contains_secret' => false,
+                'contains_sensitive_unnecessary' => false,
+                'future_utility' => true,
+                'novelty' => true,
+                'outcome_validated' => false,
+                'promotion_mode_hint' => 'human_review',
+                'on_probation' => false,
+            ], is_array($input['immune_signals'] ?? null) ? $input['immune_signals'] : []);
+
+            $verdict = $kernel->evaluatePromotionGates($signals);
+            if ($verdict === null) {
+                return null;
+            }
+            if (($verdict['promotion_status'] ?? '') === 'blocked') {
+                return $this->reject(
+                    self::ACTION_PROPOSE_LEARNING,
+                    self::REJECT_QUALITY,
+                    'cognitive_immune_promotion_blocked:'.implode(',', (array) ($verdict['blocking_gate_ids'] ?? [])),
+                    $input,
+                );
+            }
+        } catch (Throwable) {
+            // Fail-open on evaluator infra — capture quality gate still runs.
+        }
+
+        return null;
     }
 
     private function failOpen(string $action, Throwable $e): array
@@ -418,6 +487,23 @@ class AtlasOpenBrainWriteBackService
     // ------------------------------------------------------------------
     // caps + helpers
     // ------------------------------------------------------------------
+
+    /**
+     * Obra 7 / OB-04: explicit registry alignment — write-back never bypasses scaffold registry.
+     *
+     * @return array<string,mixed>
+     */
+    private function registryGovernanceEnvelope(string $action): array
+    {
+        return [
+            'schema' => AtlasExternalBrainScaffoldRegistryGovernance::SCHEMA,
+            'write_back_action' => $action,
+            'registry_bypass' => false,
+            'default_action' => AtlasExternalBrainScaffoldRegistryGovernance::ACTION_HOLD,
+            'human_review_required' => true,
+            'auto_promote' => false,
+        ];
+    }
 
     /**
      * @return array{max_request_chars:int,max_id_chars:int,max_summary_chars:int,max_files:int,max_memory_refs:int,max_evidence_refs:int,max_state_keys:int}

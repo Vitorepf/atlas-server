@@ -12,6 +12,7 @@ use App\Models\AiThread;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -128,6 +129,15 @@ class AiCompactionService
                 'last_compaction_id' => $compaction->id,
                 'last_compaction_reason' => $compaction->reason,
                 'last_compaction_at' => $compaction->created_at?->toJSON(),
+                'post_compaction_hook' => $this->runPostCompactionHooks(
+                    AtlasLongHorizonCanon::SCOPE_TYPE_THREAD,
+                    (string) $thread->id,
+                    [
+                        'compaction_id' => $compaction->id,
+                        'reason' => $compaction->reason,
+                        'session_id' => $session?->id,
+                    ],
+                ),
             ]),
         ]);
 
@@ -439,6 +449,12 @@ class AiCompactionService
 
         $row = AtlasLongHorizonCompactionReceipt::query()->create($payload);
 
+        $postCompactionHook = $this->runPostCompactionHooks($scopeType, $scopeId, [
+            'compaction_receipt_id' => $row->id,
+            'receipt_uuid' => $row->uuid,
+            'write_allowed' => $writeAllowed,
+        ]);
+
         return [
             'schema_version' => AtlasLongHorizonCanon::COMPACTION_RECEIPT_SCHEMA_VERSION,
             'compaction_receipt_id' => $row->id,
@@ -463,6 +479,7 @@ class AiCompactionService
             'quality_score' => $qualityScore,
             'write_allowed' => $writeAllowed,
             'actor_alias' => $actorAlias,
+            'post_compaction_hook' => $postCompactionHook,
             'created_at' => Carbon::now()->toIso8601String(),
         ];
     }
@@ -686,5 +703,50 @@ class AiCompactionService
         }
 
         return $value;
+    }
+
+    /**
+     * Obra 7 / CMP-01: emit a post-compaction marker and optionally append a
+     * continuity-inject hint for Open Brain / TEOS consumers. Fail-open.
+     *
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function runPostCompactionHooks(string $scopeType, ?string $scopeId, array $context = []): array
+    {
+        $cfg = (array) config('atlas.long_horizon.post_compaction_hooks', []);
+        if (! (bool) ($cfg['enabled'] ?? false)) {
+            return [
+                'schema_version' => 'atlas.long_horizon.post_compaction_marker.v1',
+                'status' => 'disabled',
+            ];
+        }
+
+        $marker = [
+            'schema_version' => 'atlas.long_horizon.post_compaction_marker.v1',
+            'status' => 'emitted',
+            'scope_type' => $scopeType,
+            'scope_id' => $scopeId,
+            'compacted_at' => Carbon::now()->toIso8601String(),
+            'continuity_inject' => (bool) ($cfg['continuity_inject'] ?? false),
+            'context' => $context,
+        ];
+
+        if (! ($marker['continuity_inject'] ?? false)) {
+            return $marker;
+        }
+
+        try {
+            AppendOnlyJsonlStore::append(
+                (string) ($cfg['marker_receipt_path'] ?? storage_path('app/atlas/evidence/post-compaction-markers.jsonl')),
+                $marker,
+            );
+            $marker['continuity_inject_status'] = 'appended';
+        } catch (\Throwable $e) {
+            $marker['continuity_inject_status'] = 'failed_open';
+            $marker['continuity_inject_error'] = $e->getMessage();
+        }
+
+        return $marker;
     }
 }

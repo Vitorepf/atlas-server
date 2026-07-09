@@ -2442,11 +2442,46 @@ class AtlasOpenBrainMcpService
                 'version' => self::SERVER_VERSION,
             ],
             'runtime' => $this->runtimeProfile(),
+            'progressive_disclosure' => $this->progressiveDisclosureCapabilities(),
             'tools' => $this->tools(),
             'transport' => 'stdio',
             'remote_capable' => false,
             'generated_at' => now()->toJSON(),
         ];
+    }
+
+    /**
+     * Obra 7 / OB-03: Absorcao 4 phase-1 progressive disclosure manifest for MCP capabilities.
+     *
+     * @return array<string,mixed>
+     */
+    private function progressiveDisclosureCapabilities(): array
+    {
+        if (! (bool) config('atlas.aobg.progressive_disclosure_enabled', true)) {
+            return [
+                'enabled' => false,
+                'phase' => 1,
+            ];
+        }
+
+        try {
+            $tier = app(\App\Services\Ai\Mcp\AtlasMcpTierService::class);
+
+            return [
+                'enabled' => true,
+                'phase' => 1,
+                'schema_version' => 'atlas.mcp.tier.v1',
+                'workflow' => 'search_brief → timeline → get_full',
+                'manifest' => $tier->tierManifest(),
+                'savings_estimate' => $tier->estimateSavings(5),
+            ];
+        } catch (Throwable) {
+            return [
+                'enabled' => true,
+                'phase' => 1,
+                'status' => 'unavailable',
+            ];
+        }
     }
 
     /**
@@ -2484,6 +2519,8 @@ class AtlasOpenBrainMcpService
                 'restart_required_when_feature_missing' => true,
                 'restart_required_when_fingerprint_differs_from_fresh_cli' => true,
                 'fallback_when_native_tool_unavailable' => 'run /opt/homebrew/bin/php artisan atlas:open-brain:mcp --once from atlas-server',
+                'describe_command' => 'bin/atlas open-brain mcp --describe --json',
+                'cli_context_fallback' => 'php artisan atlas:context-pack "<task>" --workspace="<path>" --json',
             ],
             'provider_safe' => true,
             'raw_prompt_exposed' => false,

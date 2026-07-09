@@ -4,216 +4,195 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeDraftService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeEndgameService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeEndgameVerifierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeEvidenceDossierService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeOfflineHarnessService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeRunbookService;
+use App\Models\AtlasSelfConstructionAgentCostEvent;
+use App\Models\AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization;
+use App\Models\AtlasSelfConstructionAgentDispatchReceipt;
+use App\Models\AtlasSelfConstructionAgentHeartbeat;
+use App\Models\AtlasSelfConstructionAgentRun;
+use App\Models\AtlasSelfConstructionAgentSandboxBinding;
+use App\Models\AtlasSelfConstructionAgentWakeupItem;
+use App\Models\AtlasSelfConstructionAgentWorkProduct;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Closure;
+use Illuminate\Support\Str;
 
 /**
- * ATLAS SELF-CONSTRUCTION REAL PROVIDER SMOKE projection section, extracted
- * from the god-class {@see AtlasSelfConstructionReadinessService}.
- *
- * Owns every public atlasSelfConstructionRealProviderSmoke* method (32).
- * The runtime service delegates each method to this collaborator through
- * thin byte-identical delegators. The collaborator also holds the
- * dependency on the `stableHash` closure the original kept in the runtime
- * service.
+ * ReadinessProjectionRealProviderSmokeSection — Residual Elite Obra4.
  */
 final class ReadinessProjectionRealProviderSmokeSection
 {
-    /**
-     * @param  Closure(array<string,mixed>): string  $stableHash
-     */
-    public function __construct(
-        private readonly Closure $stableHash,
-    ) {}
+    private ?AtlasSelfConstructionReadinessService $mother = null;
 
-public function atlasSelfConstructionRealProviderSmokeEvidenceDossierContract(array $options = []): array
+    /** @param Closure(array<string,mixed>): string $stableHash */
+    public function __construct(private readonly Closure $stableHash) {}
+
+    public function setMother(AtlasSelfConstructionReadinessService $mother): self
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceDossierContract($options);
+        $this->mother = $mother;
+        return $this;
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceDossierPreflight(array $options = []): array
+    public function __call(string $name, array $arguments): mixed
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceDossierPreflight($options);
+        if ($this->mother === null) {
+            throw new \RuntimeException("ReadinessProjectionRealProviderSmokeSection mother not bound for {$name}.");
+        }
+        $method = new \ReflectionMethod($this->mother, $name);
+        return $method->invokeArgs($this->mother, $arguments);
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceDossierImplementationPacket(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeDraftContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceDossierImplementationPacket($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_draft', 'Atlas Self-Construction Real Provider Smoke Draft', AtlasSelfConstructionRealProviderSmokeDraftService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeDraftService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceDossierStatus(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeDraftImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceDossierStatus($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_draft', 'Atlas Self-Construction Real Provider Smoke Draft', AtlasSelfConstructionRealProviderSmokeDraftService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeDraftService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeRunbookContract(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeDraftPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeRunbookContract($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_draft', 'Atlas Self-Construction Real Provider Smoke Draft', AtlasSelfConstructionRealProviderSmokeDraftService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeDraftService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeRunbookPreflight(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEndgameContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeRunbookPreflight($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame', 'Atlas Self-Construction Real Provider Smoke Endgame', AtlasSelfConstructionRealProviderSmokeEndgameService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEndgameImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame', 'Atlas Self-Construction Real Provider Smoke Endgame', AtlasSelfConstructionRealProviderSmokeEndgameService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeRunbookStatus(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEndgamePreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeRunbookStatus($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame', 'Atlas Self-Construction Real Provider Smoke Endgame', AtlasSelfConstructionRealProviderSmokeEndgameService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeOfflineHarnessContract(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOfflineHarnessContract($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame_verifier', 'Atlas Self-Construction Real Provider Smoke Endgame Verifier', AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeOfflineHarnessPreflight(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOfflineHarnessPreflight($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame_verifier', 'Atlas Self-Construction Real Provider Smoke Endgame Verifier', AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeOfflineHarnessImplementationPacket(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEndgameVerifierPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOfflineHarnessImplementationPacket($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_endgame_verifier', 'Atlas Self-Construction Real Provider Smoke Endgame Verifier', AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEndgameVerifierService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeOfflineHarnessStatus(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOfflineHarnessStatus($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_dossier', 'Atlas Self-Construction Real Provider Smoke Evidence Dossier', AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeDraftContract(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeDraftContract($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_dossier', 'Atlas Self-Construction Real Provider Smoke Evidence Dossier', AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeDraftPreflight(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceDossierPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeDraftPreflight($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_dossier', 'Atlas Self-Construction Real Provider Smoke Evidence Dossier', AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceDossierService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeDraftImplementationPacket(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeDraftImplementationPacket($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_ledger_preflight', 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight', AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeDraftStatus(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeDraftStatus($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_ledger_preflight', 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight', AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameContract(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameContract($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_evidence_ledger_preflight', 'Atlas Self-Construction Real Provider Smoke Evidence Ledger Preflight', AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgamePreflight(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeOfflineHarnessContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgamePreflight($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_offline_harness', 'Atlas Self-Construction Real Provider Smoke Offline Harness', AtlasSelfConstructionRealProviderSmokeOfflineHarnessService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOfflineHarnessService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameImplementationPacket(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeOfflineHarnessImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameImplementationPacket($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_offline_harness', 'Atlas Self-Construction Real Provider Smoke Offline Harness', AtlasSelfConstructionRealProviderSmokeOfflineHarnessService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOfflineHarnessService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameStatus(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeOfflineHarnessPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameStatus($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_offline_harness', 'Atlas Self-Construction Real Provider Smoke Offline Harness', AtlasSelfConstructionRealProviderSmokeOfflineHarnessService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOfflineHarnessService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameVerifierContract(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameVerifierContract($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_operator_runbook_exporter', 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter', AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameVerifierPreflight(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameVerifierPreflight($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_operator_runbook_exporter', 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter', AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameVerifierImplementationPacket(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameVerifierImplementationPacket($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_operator_runbook_exporter', 'Atlas Self-Construction Real Provider Smoke Operator Runbook Exporter', AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeOperatorRunbookExporterService::class, 'preflight');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEndgameVerifierStatus(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeRunbookContract(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEndgameVerifierStatus($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_runbook', 'Atlas Self-Construction Real Provider Smoke Runbook', AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeRunbookService::class, 'contract');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightContract(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeRunbookImplementationPacket(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightContract($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_runbook', 'Atlas Self-Construction Real Provider Smoke Runbook', AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeRunbookService::class, 'implementation_packet');
     }
 
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightPreflight(array $options = []): array
+    /** @param array<string,mixed> $options @return array<string,mixed> */
+    public function atlasSelfConstructionRealProviderSmokeRunbookPreflight(array $options = []): array
     {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightPreflight($options);
+        return $this->buildCertificationWorkbenchQuartet('atlas_self_construction_real_provider_smoke_runbook', 'Atlas Self-Construction Real Provider Smoke Runbook', AtlasSelfConstructionRealProviderSmokeRunbookService::SCHEMA_VERSION, AtlasSelfConstructionRealProviderSmokeRunbookService::class, 'preflight');
     }
-
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightImplementationPacket(array $options = []): array
-    {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightImplementationPacket($options);
-    }
-
-
-public function atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightStatus(array $options = []): array
-    {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeEvidenceLedgerPreflightStatus($options);
-    }
-
-
-public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterContract(array $options = []): array
-    {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterContract($options);
-    }
-
-
-public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterPreflight(array $options = []): array
-    {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterPreflight($options);
-    }
-
-
-public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterImplementationPacket(array $options = []): array
-    {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterImplementationPacket($options);
-    }
-
-
-public function atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterStatus(array $options = []): array
-    {
-        return $this->realProviderSmokeSection()->atlasSelfConstructionRealProviderSmokeOperatorRunbookExporterStatus($options);
-    }
-
 }

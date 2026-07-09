@@ -66,7 +66,32 @@ PHP;
     public function pruneAcdeDeadCluster(bool $dryRun = false, int $limit = 200): array
     {
         $inventory = app(EliteCompactionInventoryService::class)->inventoryAcde();
-        $keepList = config('atlas_elite_compaction.acde_keep_list', []);
+        $keepList = array_values(array_map('strval', (array) config('atlas_elite_compaction.acde_keep_list', [])));
+
+        // Obra 3 / AUT-06: fail-closed before any delete when inventory is unsafe.
+        $keepInDead = (array) ($inventory['keep_list_in_dead_sample'] ?? []);
+        $mismatches = (array) ($inventory['basename_body_mismatches'] ?? []);
+        if ($keepInDead !== [] || $mismatches !== [] || ($inventory['fail_closed'] ?? true) !== true) {
+            return [
+                'schema' => 'atlas.elite_compaction.prune_acde.v1',
+                'dry_run' => $dryRun,
+                'limit' => $limit,
+                'deleted_count' => 0,
+                'failed_count' => 0,
+                'skipped_keep_list' => 0,
+                'deleted' => [],
+                'failed' => [],
+                'blocked' => true,
+                'block_reason' => $keepInDead !== []
+                    ? 'keep_list_in_dead_sample'
+                    : ($mismatches !== [] ? 'basename_body_mismatch' : 'inventory_fail_closed'),
+                'keep_list_in_dead_sample' => $keepInDead,
+                'basename_body_mismatches' => $mismatches,
+                'remaining_dead_estimate' => (int) ($inventory['dead_candidates_rg0'] ?? 0),
+                'note' => 'ELITE-01/AUT-06 fail-closed: refuse prune until inventory is safe.',
+            ];
+        }
+
         $candidates = $inventory['dead_sample'] ?? [];
         $candidates = array_slice($candidates, 0, max(1, $limit));
         $deleted = [];
@@ -75,23 +100,33 @@ PHP;
 
         foreach ($candidates as $row) {
             $class = (string) ($row['class'] ?? '');
+            $fileRel = (string) ($row['file'] ?? '');
+            $basename = $fileRel !== '' ? basename($fileRel, '.php') : $class;
             if ($class !== '' && in_array($class, $keepList, true)) {
-                $skipped[] = $row['file'] ?? $class;
+                $skipped[] = $fileRel !== '' ? $fileRel : $class;
                 continue;
             }
-            $path = base_path((string) ($row['file'] ?? ''));
+            if ($basename !== '' && in_array($basename, $keepList, true)) {
+                $skipped[] = $fileRel !== '' ? $fileRel : $basename;
+                continue;
+            }
+            if ($class !== '' && $basename !== '' && $class !== $basename) {
+                $failed[] = ['file' => $fileRel, 'error' => 'basename_class_mismatch'];
+                continue;
+            }
+            $path = base_path($fileRel);
             if (! is_file($path) || str_contains($path, '/Brain/')) {
                 continue;
             }
             if ($dryRun) {
-                $deleted[] = $row['file'];
+                $deleted[] = $fileRel;
                 continue;
             }
             try {
                 File::delete($path);
-                $deleted[] = $row['file'];
+                $deleted[] = $fileRel;
             } catch (\Throwable $e) {
-                $failed[] = ['file' => $row['file'], 'error' => $e->getMessage()];
+                $failed[] = ['file' => $fileRel, 'error' => $e->getMessage()];
             }
         }
 
@@ -104,6 +139,7 @@ PHP;
             'skipped_keep_list' => count($skipped),
             'deleted' => $deleted,
             'failed' => $failed,
+            'blocked' => false,
             'remaining_dead_estimate' => max(0, (int) ($inventory['dead_candidates_rg0'] ?? 0) - count($deleted)),
             'note' => 'rg<=1 dead cluster pruned in waves; keep-list + Brain/** intocáveis.',
         ];
@@ -256,12 +292,18 @@ PHP;
         $commandsDeleted = [];
         $failed = [];
 
+        $allowlist = array_values(array_map('strval', (array) config('atlas_elite_compaction.generated.allowlist', [])));
+
         foreach (glob($root.'/*.php') ?: [] as $file) {
             $src = File::get($file);
             // Basename is authoritative — Generated bodies often contain nested
             // `class foo` tokens that would poison a naive first-match regex.
             $class = pathinfo($file, PATHINFO_FILENAME);
             if ($class === '' || ! preg_match('/\bclass\s+'.preg_quote($class, '/').'\b/', $src)) {
+                continue;
+            }
+            // Obra 3 / AAEOS-01: never quarantine allowlisted Generated services.
+            if (in_array($class, $allowlist, true)) {
                 continue;
             }
             $callers = $this->listClassCallerFiles($class);

@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
+use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\SemanticSearchService;
@@ -41,6 +42,7 @@ class AtlasHybridMemoryRetrievalService
         private readonly MemoryRecallInput $input,
         private readonly AtlasMemoryUsageService $usage,
         private readonly AtlasMemoryVectorSearchService $vectorSearch,
+        private readonly AtlasMemoryRecallConcentrationDemotion $concentrationDemotion = new AtlasMemoryRecallConcentrationDemotion,
     ) {}
 
     /**
@@ -58,6 +60,7 @@ class AtlasHybridMemoryRetrievalService
         $semanticLimit = $this->input->semanticCandidateLimit($options['semantic_limit'] ?? null, $limit);
 
         $registry = $this->registryItems($query, $context, $filters, $registryLimit, (bool) ($options['include_registry'] ?? true));
+        $dominantRecallCount = collect($registry)->filter(fn (array $item): bool => ($item['concentration_demoted'] ?? false) === true)->count();
         $verbatim = $this->verbatimItems($query, $context, $filters, $verbatimLimit, (bool) ($options['include_verbatim'] ?? true));
         $semantic = $this->semanticItems($query, $filters, $semanticLimit, (bool) ($options['include_semantic'] ?? true));
         // ACDE #3 — compounding-recall arm. Flag-gated default-OFF => [] => the 4th source is absent and the
@@ -87,6 +90,7 @@ class AtlasHybridMemoryRetrievalService
                 'budget_chars' => collect($recall)->sum(fn (array $item): int => (int) ($item['estimated_chars'] ?? 0)),
                 'redacted_ref_count' => collect($recall)->filter(fn (array $item): bool => data_get($item, 'audit_trail.redacted_hash') !== null)->count(),
                 'raw_content_persisted_count' => collect($recall)->filter(fn (array $item): bool => data_get($item, 'audit_trail.raw_content_persisted') === true)->count(),
+                'concentration_demoted_count' => $dominantRecallCount,
                 'policy' => 'provider_safe_only',
             ],
             'recall' => $recall,
@@ -196,8 +200,31 @@ class AtlasHybridMemoryRetrievalService
             $entries->map(fn (AtlasMemoryEntry $entry): string => (string) $entry->id)->all(),
         );
 
+        $entryIds = $entries->map(fn (AtlasMemoryEntry $entry): string => (string) $entry->id)->all();
+        $dominantIds = $this->concentrationDemotion->dominantEntryIds();
+        $supersededIds = array_flip($this->concentrationDemotion->supersededEntryIds($entryIds));
+        $feedbackStats = $this->concentrationDemotion->feedbackStatsForEntries($entryIds);
+        $relatedConflicts = $this->concentrationDemotion->relatedConflictsForEntries($entryIds);
+
         return $entries
-            ->map(fn (AtlasMemoryEntry $entry): array => [
+            ->map(function (AtlasMemoryEntry $entry) use ($query, $dominantIds, $supersededIds, $feedbackStats, $relatedConflicts): ?array {
+                $entryId = (string) $entry->id;
+                if ($entryId !== '' && isset($supersededIds[$entryId])) {
+                    return null;
+                }
+
+                $stats = $feedbackStats[$entryId] ?? [];
+                $hybridScore = $this->blendedScore(
+                    $this->entryVectorScores[$entryId] ?? null,
+                    $this->lexicalScore($query, [
+                        $entry->title,
+                        $entry->summary,
+                        $this->privacy->providerBody($entry),
+                        $entry->source_type,
+                    ]),
+                ) * $this->concentrationDemotion->scoreMultiplier($entryId, $dominantIds);
+
+                return [
                 'id' => $entry->id,
                 'type' => $entry->memory_type,
                 'scope' => $entry->scope_id ? $entry->scope_type.':'.$entry->scope_id : $entry->scope_type,
@@ -220,16 +247,17 @@ class AtlasHybridMemoryRetrievalService
                 'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
                 'privacy_reviewed_at' => $entry->privacy_reviewed_at?->toJSON(),
                 'reason' => $this->reasonForRegistry($entry, $query),
-                'hybrid_score' => $this->blendedScore(
-                    $this->entryVectorScores[(string) $entry->id] ?? null,
-                    $this->lexicalScore($query, [
-                        $entry->title,
-                        $entry->summary,
-                        $this->privacy->providerBody($entry),
-                        $entry->source_type,
-                    ]),
-                ),
-            ])
+                'hybrid_score' => round($hybridScore, 4),
+                'positive_count' => (int) ($stats['positive_count'] ?? 0),
+                'negative_count' => (int) ($stats['negative_count'] ?? 0),
+                'wrong_context_count' => (int) ($stats['wrong_context_count'] ?? 0),
+                'stale_count' => (int) ($stats['stale_count'] ?? 0),
+                'recall_eval_hit_rate' => $stats['recall_eval_hit_rate'] ?? null,
+                'concentration_demoted' => in_array($entryId, $dominantIds, true),
+                'related_conflicts' => array_values($relatedConflicts[$entryId] ?? []),
+            ];
+            })
+            ->filter(fn (?array $item): bool => $item !== null)
             ->values()
             ->all();
     }

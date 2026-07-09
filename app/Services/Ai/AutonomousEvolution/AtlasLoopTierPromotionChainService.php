@@ -215,7 +215,7 @@ class AtlasLoopTierPromotionChainService
 
     /**
      * The runtime kill switch: loop master OFF (the default, fail-closed)
-     * counts as kill switch ACTIVE. Only the operator flips it via atlas:loop:on.
+     * counts as kill switch ACTIVE. Only the operator flips it via atlas:agents:on autonomos.
      */
     private function killSwitchActive(): bool
     {

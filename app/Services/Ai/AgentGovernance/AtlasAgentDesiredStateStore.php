@@ -40,14 +40,19 @@ final class AtlasAgentDesiredStateStore
     /** Full desired-state record, or null when absent/unreadable. */
     public function record(string $key): ?AgentDesiredState
     {
+        $normalized = AtlasFleetCatalog::normalizeKey($key);
         try {
-            $row = DB::table('atlas_agent_desired_state')->where('agent_key', $key)->first();
+            $row = DB::table('atlas_agent_desired_state')->where('agent_key', $normalized)->first();
+            // Migration period: Autônomos may still have a legacy `loop` desired-state row.
+            if ($row === null && $normalized === AtlasFleetCatalog::AUTONOMOS) {
+                $row = DB::table('atlas_agent_desired_state')->where('agent_key', AtlasFleetCatalog::LEGACY_LOOP_ALIAS)->first();
+            }
             if ($row === null) {
                 return null;
             }
 
             return new AgentDesiredState(
-                agentKey: (string) $row->agent_key,
+                agentKey: $normalized,
                 on: (bool) $row->desired,
                 setBy: $row->set_by !== null ? (string) $row->set_by : null,
                 setAtEpoch: $row->set_at !== null ? strtotime((string) $row->set_at) : null,
@@ -87,7 +92,7 @@ final class AtlasAgentDesiredStateStore
      */
     public function authorizesCampaign(string $campaignId, ?int $campaignLaunchedAtEpoch = null, float $spentUsd = 0.0): bool
     {
-        $record = $this->record(AtlasFleetCatalog::LOOP);
+        $record = $this->record(AtlasFleetCatalog::AUTONOMOS);
         if ($record === null || ! $record->effectivelyOn(now()->timestamp, $spentUsd)) {
             return false;
         }

@@ -86,15 +86,13 @@ class AtlasLoopFanOutProducerTest extends TestCase
         $this->assertNull($result['plan']);
     }
 
-    public function test_command_invokes_the_producer_and_reports_gated_result(): void
+    public function test_producer_service_is_invokable_without_dead_loop_cli(): void
     {
-        $file = tempnam(sys_get_temp_dir(), 'decomp').'.json';
-        file_put_contents($file, (string) json_encode($this->readyDecomposition()));
+        // atlas:loop:fanout was removed (Obra 1). Producer remains callable as a service.
+        $result = app(AtlasLoopFanOutProducer::class)
+            ->planFanOut('Refatorar billing', $this->readyDecomposition());
 
-        // Default-off path through the real Loop-invocable command surface.
-        $this->artisan('atlas:loop:fanout', ['--goal' => 'Refatorar billing', '--file' => $file, '--json' => true])
-            ->assertExitCode(0);
-
-        @unlink($file);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('fanned_out', $result);
     }
 }

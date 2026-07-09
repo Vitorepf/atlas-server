@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\SelfConstruction;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use Illuminate\Support\Facades\Config;
@@ -16,7 +16,9 @@ class AtlasMaestroPriorityFactSnapshotterTest extends TestCase
     {
         parent::setUp();
         $this->snapshotsPath = sys_get_temp_dir().'/atlas-priority-snap-'.bin2hex(random_bytes(6)).'.jsonl';
-        Config::set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
     }
 
     protected function tearDown(): void
@@ -47,7 +49,9 @@ class AtlasMaestroPriorityFactSnapshotterTest extends TestCase
 
     public function test_master_switch_off_returns_disabled_marker_and_writes_zero_rows(): void
     {
-        Config::set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
         $before = $this->rowCount();
         $verdict = $this->snapshotter([['task_packet_id' => 'x', 'tags' => ['a'], 'depends_on' => []]])->snapshot();
         $after = $this->rowCount();
@@ -144,7 +148,9 @@ class AtlasMaestroPriorityFactSnapshotterTest extends TestCase
 
     public function test_master_switch_off_returns_disabled_and_does_not_write(): void
     {
-        Config::set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
         $packets = [['task_packet_id' => 'x', 'tags' => ['a'], 'depends_on' => []]];
         $before = $this->rowCount();
         $verdict = $this->snapshotter($packets)->snapshot();

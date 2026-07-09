@@ -8,6 +8,7 @@ use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelRankingQuery;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Programming\ProgrammingProfessionalReranker;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
@@ -709,6 +710,7 @@ final class AtlasContextRankingSystemService
             $global['repromote_source_types'] !== []
             || $global['demote_source_types'] !== []
             || $global['demote_source_hashes'] !== []
+            || ($global['demote_context_refs'] ?? []) !== []
         );
         $event = $flowRequested && DatabaseTableAvailability::has('ai_rag_feedback_events')
             ? AiRagFeedbackEvent::query()
@@ -746,6 +748,8 @@ final class AtlasContextRankingSystemService
         $demoteContextRefs = $this->hintStrings(
             $explicit['demote_context_refs'] ?? [],
             data_get($eventPayload, 'payload.next_context_policy.demote_context_refs', []),
+            $global['demote_context_refs'] ?? [],
+            $this->concentrationDemoteContextRefs(),
         );
 
         $active = $repromoteSourceTypes !== []
@@ -854,7 +858,22 @@ final class AtlasContextRankingSystemService
             'repromote_source_types' => $recurring($repromote),
             'demote_source_types' => $recurring($demoteTypes),
             'demote_source_hashes' => $recurring($demoteHashes),
+            'demote_context_refs' => $this->concentrationDemoteContextRefs(),
         ];
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function concentrationDemoteContextRefs(): array
+    {
+        try {
+            return (new AtlasMemoryRecallConcentrationDemotion)->demoteContextRefsForEntries(
+                (new AtlasMemoryRecallConcentrationDemotion)->dominantEntryIds(),
+            );
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     /**

@@ -93,7 +93,81 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         unset($hashPayload['generated_at']);
         $payload['arena_hash'] = MissionCanonicalHash::sha256($hashPayload);
 
+        $shouldPersist = array_key_exists('persist', $input)
+            ? (bool) $input['persist']
+            : (bool) config('atlas.aucri.arena_persist_runs', true);
+        $payload['persistence'] = $this->persistRunSummary($payload, $shouldPersist);
+
         return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function persistRunSummary(array $payload, bool $persist): array
+    {
+        if (! $persist) {
+            return ['recorded' => false, 'reason' => 'arena_persist_disabled'];
+        }
+
+        $summary = [
+            'schema_version' => 'atlas.aucri.retrieval_eval_run.v1',
+            'recorded_at' => Carbon::now()->toIso8601String(),
+            'arena_hash' => (string) ($payload['arena_hash'] ?? ''),
+            'status' => (string) ($payload['status'] ?? 'unknown'),
+            'risk_level' => (string) data_get($payload, 'arena.risk_level', 'low'),
+            'case_count' => (int) data_get($payload, 'summary.case_count', 0),
+            'passed' => (int) data_get($payload, 'summary.passed', 0),
+            'metrics' => (array) data_get($payload, 'summary.metrics', []),
+            'regression_count' => (int) data_get($payload, 'regression_report.regression_count', 0),
+        ];
+        $summary['run_hash'] = MissionCanonicalHash::sha256($summary);
+
+        $dir = storage_path('app/atlas/aucri/arena-runs');
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $path = $dir.'/'.Carbon::now()->format('Y-m-d').'.jsonl';
+        $written = @file_put_contents(
+            $path,
+            json_encode($summary, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)."\n",
+            FILE_APPEND | LOCK_EX,
+        );
+
+        return [
+            'recorded' => $written !== false,
+            'path' => $path,
+            'run_hash' => $summary['run_hash'],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function latestPersistedBaseline(): ?array
+    {
+        $dir = storage_path('app/atlas/aucri/arena-runs');
+        if (! is_dir($dir)) {
+            return null;
+        }
+        $files = glob($dir.'/*.jsonl') ?: [];
+        if ($files === []) {
+            return null;
+        }
+        rsort($files);
+        foreach ($files as $file) {
+            $lines = @file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if (! is_array($lines) || $lines === []) {
+                continue;
+            }
+            $decoded = json_decode((string) end($lines), true);
+            if (is_array($decoded) && ($decoded['schema_version'] ?? '') === 'atlas.aucri.retrieval_eval_run.v1') {
+                return $decoded;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -396,6 +470,27 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
                         'floor' => $floor,
                     ],
                 ];
+            }
+        }
+
+        $baseline = $this->latestPersistedBaseline();
+        if ($baseline !== null) {
+            foreach (['required_source_recall', 'groundedness', 'context_roi'] as $metric) {
+                $observed = (float) data_get($summary, 'metrics.'.$metric, 0.0);
+                $previous = (float) data_get($baseline, 'metrics.'.$metric, 0.0);
+                if ($previous > 0.0 && $observed + 0.02 < $previous) {
+                    $regressions[] = [
+                        'case_id' => 'baseline',
+                        'case_hash' => MissionCanonicalHash::sha256(['metric' => $metric, 'observed' => $observed, 'previous' => $previous]),
+                        'reason' => $metric.'_regressed_vs_baseline',
+                        'severity' => 'watch',
+                        'evidence' => [
+                            'observed' => round($observed, 4),
+                            'previous' => round($previous, 4),
+                            'baseline_run_hash' => (string) ($baseline['run_hash'] ?? ''),
+                        ],
+                    ];
+                }
             }
         }
 

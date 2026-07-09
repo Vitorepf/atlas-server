@@ -40,7 +40,7 @@ final class AtlasLoopCycleModelCheckCli
                 return false;
             }
 
-            return (bool) config('atlas.loop.master_enabled', false);
+            return \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
         };
         $this->clock = $clock ?? static fn (): string => gmdate('Y-m-d\TH:i:s\Z');
     }

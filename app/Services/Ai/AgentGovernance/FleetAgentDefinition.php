@@ -11,13 +11,17 @@ namespace App\Services\Ai\AgentGovernance;
  */
 final readonly class FleetAgentDefinition
 {
-    public const KIND_LOOP = 'loop';
+    public const KIND_AUTONOMOS = 'autonomos';
+
+    /** @deprecated Use KIND_AUTONOMOS */
+    public const KIND_LOOP = self::KIND_AUTONOMOS;
+
     public const KIND_AI_WORKER = 'ai-worker';
     public const KIND_FINANCE = 'finance';
     public const KIND_HOST_AGENT = 'host-agent';
 
     public function __construct(
-        /** Stable key — used in desired-state, events, commands, API (e.g. 'loop', 'ai-worker.codex'). */
+        /** Stable key — used in desired-state, events, commands, API (e.g. 'autonomos', 'ai-worker.codex'). */
         public string $key,
         /** Human label for the apps. */
         public string $label,

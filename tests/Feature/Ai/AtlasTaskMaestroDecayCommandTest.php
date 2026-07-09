@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Ai;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 
 use App\Console\Commands\AtlasTaskMaestroDecayCommand;
 use App\Services\Ai\SelfConstruction\Maestro\Decay\AtlasMaestroPacketAgeFactReporter;
@@ -19,7 +19,9 @@ class AtlasTaskMaestroDecayCommandTest extends TestCase
         parent::setUp();
         $this->historyPath = storage_path(AtlasTaskMaestroDecayCommand::HISTORY_REL);
         @unlink($this->historyPath);
-        config()->set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
 
         // Bind reporter/policy with a controlled packet source.
         $packetSource = fn (): array => [
@@ -112,7 +114,9 @@ class AtlasTaskMaestroDecayCommandTest extends TestCase
 
     public function test_master_off_emits_notice_and_writes_no_history(): void
     {
-        config()->set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
         // inspect bypasses the master switch — only propose and history are gated.
         foreach (['propose', 'history'] as $mode) {
             $r = $this->runCmd(['mode' => $mode]);
@@ -124,7 +128,9 @@ class AtlasTaskMaestroDecayCommandTest extends TestCase
 
     public function test_inspect_bypasses_master_switch_and_emits_packet_facts(): void
     {
-        config()->set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
         $r = $this->runCmd(['mode' => 'inspect', '--json' => true]);
         self::assertSame(0, $r['exit']);
         $payload = json_decode(trim($r['output']), true);

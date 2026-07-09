@@ -121,6 +121,12 @@ class AtlasEliteCompactionCommand extends Command
         );
         $this->emit($result);
 
+        if (($result['blocked'] ?? false) === true) {
+            $this->error('prune-acde blocked: '.(string) ($result['block_reason'] ?? 'inventory_unsafe'));
+
+            return self::FAILURE;
+        }
+
         return self::SUCCESS;
     }
 
@@ -154,6 +160,10 @@ class AtlasEliteCompactionCommand extends Command
             return self::SUCCESS;
         }
         $result = $organizer->organize(false);
+        // Obra 3 / ELITE-02: always run FQCN repair after organize (and when already organized).
+        $repair = $organizer->repairMovedFqcnImports(false);
+        $result['fqcn_repair'] = $repair;
+        $result['import_updates'] = (int) ($result['import_updates'] ?? 0) + (int) ($repair['import_updates'] ?? 0);
         $this->emit($result);
 
         return ($result['failed_count'] ?? 0) > 0 ? self::FAILURE : self::SUCCESS;
@@ -239,8 +249,12 @@ class AtlasEliteCompactionCommand extends Command
             'ok' => ((int) trim((string) $legacyDocs)) === 0,
             'detail' => trim((string) $legacyDocs).' legacy hits',
         ];
+        $freezeActive = (bool) config('atlas_elite_compaction.freeze.active', false);
+        $freezeEndedAt = trim((string) config('atlas_elite_compaction.freeze.ended_at', ''));
         $checks['freeze_active'] = [
-            'ok' => (bool) config('atlas_elite_compaction.freeze.active', false),
+            // Obra 3 / AUT-01: freeze ON during obra; after final-dod lift, ended_at proves intentional lift.
+            'ok' => $freezeActive || $freezeEndedAt !== '',
+            'detail' => $freezeActive ? 'on' : ($freezeEndedAt !== '' ? 'lifted:'.$freezeEndedAt : 'missing'),
         ];
         $checks['generated_quarantine'] = [
             'ok' => ! (bool) config('atlas_elite_compaction.generated.hot_path_enabled', false),

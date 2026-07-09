@@ -176,6 +176,7 @@ class AtlasOpenBrainMcpCommand extends Command
                     ],
                 ],
             ],
+            'mcp_restart' => data_get($runtime, 'restart_policy', []),
         ];
 
         if ((bool) $this->option('json')) {

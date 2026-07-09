@@ -130,8 +130,8 @@ final class AtlasForgeMultiNodeL410ProofService
                 'completion_claim_allowed' => $certified,
             ],
             'commands_next' => [
-                'prove_l4_6_digest' => 'php artisan atlas:loop:morning-digest --json',
-                'run_real_obra_when_operator_authorizes_spend' => 'php artisan atlas:obra:run <obra-plan-id> --provider=hermes_cli --integrated-check="/opt/homebrew/bin/php artisan atlas:loop:morning-digest --json" --json',
+                'prove_l4_6_digest' => 'php artisan atlas:brain:summary --compact',
+                'run_real_obra_when_operator_authorizes_spend' => 'php artisan atlas:obra:run <obra-plan-id> --provider=hermes_cli --integrated-check="/opt/homebrew/bin/php artisan atlas:brain:summary --compact" --json',
                 'certify_real_receipt' => 'php artisan atlas:forge:l4-10-proof --evidence=<receipt.json> --json --strict',
             ],
         ];
@@ -738,7 +738,14 @@ final class AtlasForgeMultiNodeL410ProofService
 
     private function isMorningDigestCommand(?string $command): bool
     {
-        return $command !== null && str_contains($command, 'atlas:loop:morning-digest');
+        if ($command === null) {
+            return false;
+        }
+
+        // Live Autônomos health probe (Obra 1). Legacy morning-digest string accepted for old receipts.
+        return str_contains($command, 'atlas:brain:summary')
+            || str_contains($command, 'atlas:task:serving')
+            || str_contains($command, 'atlas:loop:morning-digest');
     }
 
     /**

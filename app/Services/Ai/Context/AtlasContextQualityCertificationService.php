@@ -63,7 +63,7 @@ final class AtlasContextQualityCertificationService
             'provider' => 'gpt',
             'objective' => 'certificar contexto memoria retrieval graph replay adversarial e token economy',
             'raw_context' => 'synthetic-context-quality-certification',
-            'strict_retrieval_gate' => false,
+            'strict_retrieval_gate' => (bool) config('atlas.programming.strict_retrieval_gate', true),
             'segments' => $this->aucriSegments(),
             'required_sources' => ['memory_signals', 'code_intelligence', 'evidence_replay'],
             'context_refs' => ['memory_signals', 'code_intelligence', 'evidence_replay'],

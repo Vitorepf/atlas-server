@@ -38,7 +38,7 @@ final class AtlasBrainWorkerPromptCommand extends Command
     {
         $client = trim((string) ($this->option('client') ?? '')) ?: 'brain-'.Str::lower((string) Str::ulid());
         $php = $this->phpCommand((string) $this->option('php'));
-        $scope = trim((string) ($this->option('scope') ?? '')) ?: 'loop';
+        $scope = trim((string) ($this->option('scope') ?? '')) ?: 'autonomous';
         $mode = trim((string) ($this->option('mode') ?? '')) === 'drive' ? 'drive' : 'originate';
         $targetSeeds = max(0, (int) ($this->option('target-seeds') ?? 0));
         $baselineOption = $this->option('baseline-seeded');
@@ -119,7 +119,7 @@ THE LOOP:
    - `disabled` → the brain master switch is OFF. Do NOT enable it. Continue offline/scout/spec-hardening; real enqueue waits for ATLAS_BRAIN_MASTER_ENABLED.
    - `refused` / `abstain` / `already_done` / `forbidden_target` / `prepare_blocked` → a non-origination cycle was recorded for you. Go back to 1 (the dry-probe converges over these). Never fake work.
 2. COMPREHEND: objective concrete, target real, acceptance runnable. Do NOT implement.
-3. DOCUMENT: optionally append one how/why line to docs/loop-evolution-journal/{$scope}.md — docs only.
+3. DOCUMENT: optionally append one how/why line to docs/autonomos-evolution-journal/{$scope}.md — docs only.
 4. WRITE the spec to a temp JSON file (NOT under storage/app/atlas/task-serving or storage/ledgers), e.g.:
    `printf '%s' '{"packets":[<the served packet spec>]}' > {$tempSpecsArg}`
 5. DRY-RUN the gates (zero enqueue): `{$php} artisan atlas:brain:seed --specs={$tempSpecsArg} --scope={$scopeArg} --actor={$clientArg} --require-actor --dry-run --json`

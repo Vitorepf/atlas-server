@@ -59,6 +59,7 @@ class AtlasAiMissionFoundationCommand extends Command
                 'certify' => $this->renderCertify($certification),
                 'control-plane' => $this->renderControlPlane($controlPlane),
                 'smoke' => $this->renderSmoke(
+                    $readiness,
                     $factory,
                     $decomposer,
                     $workOrders,
@@ -269,6 +270,7 @@ class AtlasAiMissionFoundationCommand extends Command
     }
 
     private function renderSmoke(
+        MissionReadinessService $readiness,
         MissionFactoryService $factory,
         ObjectiveDecomposerService $decomposer,
         WorkOrderFactoryService $workOrders,
@@ -277,6 +279,19 @@ class AtlasAiMissionFoundationCommand extends Command
         MissionCertificationService $certification,
         MissionControlPlaneService $controlPlane,
     ): int {
+        $tableRepair = $readiness->ensureKernelTablesReady();
+        if (! $tableRepair['ok']) {
+            $payload = [
+                'ok' => false,
+                'action' => 'smoke',
+                'error' => 'kernel_tables_unavailable',
+                'table_repair' => $tableRepair,
+            ];
+            $this->line($this->encodeOrEmptyObject($payload));
+
+            return self::FAILURE;
+        }
+
         $prompt = $this->stringOption('prompt')
             ?? 'Atlas Kernel Mission Foundation smoke: validate end-to-end mission lifecycle and certification.';
 
@@ -312,6 +327,7 @@ class AtlasAiMissionFoundationCommand extends Command
             'ok' => $certificationRecord->status === MissionCertificationService::STATUS_PASSED
                 && $mission->refresh()->status === MissionLifecycleService::STATUS_COMPLETED,
             'action' => 'smoke',
+            'table_repair' => $tableRepair['repaired'] ? $tableRepair : null,
             'mission' => $this->serializeMission($mission),
             'objective_count' => $objectives->count(),
             'work_order_count' => $createdWorkOrders->count(),

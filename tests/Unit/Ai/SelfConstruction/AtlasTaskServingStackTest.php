@@ -91,4 +91,26 @@ final class AtlasTaskServingStackTest extends TestCase
         AtlasTaskServingStack::assertServingDiskConfigured();
         $this->assertTrue(true);
     }
+
+    public function test_serving_service_injects_elite_kernel_and_context_runtime(): void
+    {
+        config()->set('atlas.task_serving.queue_disk', 'atlas_serving');
+
+        $service = AtlasTaskServingStack::servingService();
+        $ref = new \ReflectionClass($service);
+
+        $kernelProp = $ref->getProperty('eliteKernel');
+        $kernelProp->setAccessible(true);
+        $runtimeProp = $ref->getProperty('contextRuntime');
+        $runtimeProp->setAccessible(true);
+
+        $this->assertInstanceOf(
+            \App\Services\Ai\EngineeringKernel\EliteExecutorKernel::class,
+            $kernelProp->getValue($service),
+        );
+        $this->assertInstanceOf(
+            \App\Services\Ai\Context\AtlasContextRuntime::class,
+            $runtimeProp->getValue($service),
+        );
+    }
 }

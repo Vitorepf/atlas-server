@@ -22,7 +22,7 @@ class AtlasAutonomyPromoteCommand extends Command
         {--receipt= : Path to the operator decision receipt JSON}
         {--json : Emit JSON}';
 
-    protected $description = 'Atlas Loop autonomy tier promotion (S49): evaluate an operator-signed receipt and persist the promotion. No receipt = honest block. Never invokes a provider.';
+    protected $description = 'Atlas Autônomos autonomy tier promotion (S49): evaluate an operator-signed receipt and persist the promotion. No receipt = honest block. Never invokes a provider.';
 
     public function handle(AtlasLoopTierPromotionChainService $chain): int
     {

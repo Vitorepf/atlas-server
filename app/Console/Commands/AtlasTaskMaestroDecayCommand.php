@@ -16,7 +16,7 @@ use Illuminate\Console\Command;
  *
  * All three modes are read-only and provider-free. The CLI never mutates the queue —
  * `propose` only prints the policy's proposed park list; `history` is append-only audit.
- * Master OFF (config atlas.loop.master_enabled=false) → one-line notice + exit 0 + empty payload.
+ * Master OFF (AtlasLoopMasterSwitch / Autônomos master) → one-line notice + exit 0 + empty payload.
  *
  * Signature uses colon-only form to avoid the space-as-command-separator collision with the
  * `atlas:task` worker entrypoint (memory: maestro-cost-cmd auto-cure).
@@ -128,14 +128,7 @@ final class AtlasTaskMaestroDecayCommand extends Command
 
     private function masterEnabled(): bool
     {
-        if (function_exists('config')) {
-            $v = config('atlas.loop.master_enabled');
-            if ($v !== null) {
-                return (bool) $v;
-            }
-        }
-
-        return (bool) env('ATLAS_LOOP_MASTER_ENABLED', false);
+        return \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled();
     }
 
     private function historyPath(): string

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\SelfConstruction\Maestro\DynamicPriority;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use Illuminate\Support\Facades\Config;
@@ -16,7 +16,9 @@ class AtlasMaestroPriorityFactSnapshotterTest extends TestCase
     {
         parent::setUp();
         $this->snapshotsPath = sys_get_temp_dir().'/atlas-priority-fact-snap-'.bin2hex(random_bytes(6)).'.jsonl';
-        Config::set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
     }
 
     protected function tearDown(): void

@@ -380,7 +380,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function normalizeOverrideChain(array $rawOverride): array
     {
-        return ChainIntegrity\AgentControlPlaneDeepChainCatalog::normalizeOverrideChain($rawOverride);
+        return \App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneDeepChainCatalog::normalizeOverrideChain($rawOverride);
     }
 
     /**
@@ -483,7 +483,7 @@ final class AgentControlPlaneChainIntegrityAuditService
 
     private function deriveActivateKeyFromRuntime(string $runtimeKey): string
     {
-        return ChainIntegrity\AgentControlPlaneDeepChainCatalog::deriveActivateKeyFromRuntime($runtimeKey);
+        return \App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneDeepChainCatalog::deriveActivateKeyFromRuntime($runtimeKey);
     }
 
     /**
@@ -855,7 +855,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function capabilityGaps(array $deepChain, array $sliceReports): array
     {
-        return ChainIntegrity\AgentControlPlaneGapCollector::capabilityGaps($deepChain, $sliceReports);
+        return \App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneGapCollector::capabilityGaps($deepChain, $sliceReports);
     }
 
     /**
@@ -864,7 +864,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function collectInvokerGaps(array $sliceReports): array
     {
-        return ChainIntegrity\AgentControlPlaneGapCollector::collectInvokerGaps($sliceReports);
+        return \App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneGapCollector::collectInvokerGaps($sliceReports);
     }
 
     /**
@@ -970,7 +970,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function cycleIntegrity(array $deepChain, string $currentNextRequiredSlice): array
     {
-        return ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity($deepChain, $currentNextRequiredSlice);
+        return \App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer::cycleIntegrity($deepChain, $currentNextRequiredSlice);
     }
 
     /**
@@ -980,7 +980,7 @@ final class AgentControlPlaneChainIntegrityAuditService
      */
     private function terminalHorizonAnalysis(array $deepChain, string $currentNextRequiredSlice, array $cycleIntegrity): array
     {
-        return ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
+        return \App\Services\Ai\SelfConstruction\ChainIntegrity\AgentControlPlaneCycleHorizonAnalyzer::terminalHorizonAnalysis($deepChain, $currentNextRequiredSlice, $cycleIntegrity);
     }
 
     /**

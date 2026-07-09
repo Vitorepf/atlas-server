@@ -1449,7 +1449,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function recordQueueTags(array $item): array
     {
-        return ControlPlane\TerminalLoopHealthDigestQueueReader::recordQueueTags($item);
+        return TerminalLoopHealthDigestQueueReader::recordQueueTags($item);
     }
 
     /**
@@ -1457,7 +1457,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function countQueueRecords(AgentControlPlaneTaskPacketQueueRepository $queue, string $status, array $queueTags): int
     {
-        return ControlPlane\TerminalLoopHealthDigestQueueReader::countQueueRecords($queue, $status, $queueTags);
+        return TerminalLoopHealthDigestQueueReader::countQueueRecords($queue, $status, $queueTags);
     }
 
     /**
@@ -1466,7 +1466,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function listQueueRecords(AgentControlPlaneTaskPacketQueueRepository $queue, string $status, array $queueTags): array
     {
-        return ControlPlane\TerminalLoopHealthDigestQueueReader::listQueueRecords($queue, $status, $queueTags);
+        return TerminalLoopHealthDigestQueueReader::listQueueRecords($queue, $status, $queueTags);
     }
 
     /**
@@ -1553,7 +1553,7 @@ final class AgentControlPlaneTerminalLoopHealthDigestService
      */
     private function classificationCount(array $classifications, string $classification, array $queueTags): int
     {
-        return ControlPlane\TerminalLoopHealthDigestQueueReader::classificationCount($classifications, $classification, $queueTags);
+        return TerminalLoopHealthDigestQueueReader::classificationCount($classifications, $classification, $queueTags);
     }
 
     /**

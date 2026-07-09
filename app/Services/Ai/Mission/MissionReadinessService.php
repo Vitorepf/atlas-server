@@ -10,6 +10,8 @@ use App\Models\AiObjective;
 use App\Models\AiWorkOrder;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 class MissionReadinessService
 {
@@ -26,6 +28,8 @@ class MissionReadinessService
         'ai_mission_evidence_refs',
         'ai_mission_certifications',
     ];
+
+    private const KERNEL_MIGRATION = '2026_05_17_900000_create_ai_mission_foundation_tables';
 
     private const REQUIRED_MODELS = [
         AiMission::class,
@@ -85,6 +89,55 @@ class MissionReadinessService
     /**
      * @return array<string,mixed>
      */
+    /**
+     * Repair migration drift when the mission-foundation migration is recorded
+     * but kernel tables were dropped (common after partial DB wipes).
+     *
+     * @return array{ok:bool,repaired:bool,missing:list<string>,action?:string,hint?:string}
+     */
+    public function ensureKernelTablesReady(): array
+    {
+        $missing = array_values(array_filter(
+            self::requiredTables(),
+            static fn (string $table): bool => ! DatabaseTableAvailability::has($table),
+        ));
+
+        if ($missing === []) {
+            return ['ok' => true, 'repaired' => false, 'missing' => []];
+        }
+
+        $migrationRecorded = DB::table('migrations')
+            ->where('migration', self::KERNEL_MIGRATION)
+            ->exists();
+
+        if ($migrationRecorded && ! DatabaseTableAvailability::has('ai_missions')) {
+            DB::table('migrations')->where('migration', self::KERNEL_MIGRATION)->delete();
+            Artisan::call('migrate', [
+                '--path' => 'database/migrations/'.self::KERNEL_MIGRATION.'.php',
+                '--force' => true,
+            ]);
+
+            $stillMissing = array_values(array_filter(
+                self::requiredTables(),
+                static fn (string $table): bool => ! DatabaseTableAvailability::has($table),
+            ));
+
+            return [
+                'ok' => $stillMissing === [],
+                'repaired' => true,
+                'action' => 'migration_rerun',
+                'missing' => $stillMissing,
+            ];
+        }
+
+        return [
+            'ok' => false,
+            'repaired' => false,
+            'missing' => $missing,
+            'hint' => 'run php artisan migrate',
+        ];
+    }
+
     public function report(): array
     {
         $checks = [];

@@ -5,8 +5,11 @@ namespace App\Services\Ai\RouterRuntime;
 use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
+use App\Services\Ai\DualCore\DualCoreRouteDecisionService;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class FlowRouterService
 {
@@ -27,7 +30,7 @@ class FlowRouterService
         $requiredGates = $this->requiredGates($decision);
         $fallbackFlows = $this->fallbackFlows($flowId, $decision->primary_domain);
 
-        return AiAtlasFlowRoute::query()->create([
+        $route = AiAtlasFlowRoute::query()->create([
             'uuid' => (string) Str::uuid(),
             'router_decision_id' => $decision->id,
             'flow_id' => $flowId,
@@ -38,6 +41,32 @@ class FlowRouterService
             'fallback_flows' => $fallbackFlows,
             'status' => 'ready',
         ]);
+
+        // Obra 2 / DC-02: dual-core route_decision receipt on programming flows (fail-open).
+        $this->recordDualCoreFromFlow($route, $decision, $intent);
+
+        return $route;
+    }
+
+    private function recordDualCoreFromFlow(
+        AiAtlasFlowRoute $route,
+        AiAtlasRouterDecision $decision,
+        AiAtlasIntentClassification $intent,
+    ): void {
+        if ((string) $decision->primary_domain !== 'programming') {
+            return;
+        }
+
+        try {
+            app(DualCoreRouteDecisionService::class)->recordFromFlowRoute($route, $decision, $intent, [
+                'actor_type' => 'flow_router_service',
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('atlas.dual_core.flow_router_record_failed', [
+                'flow_id' => $route->flow_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

@@ -182,6 +182,91 @@ final class EliteCompactionSelfConstructionOrganizer
         return $updated;
     }
 
+    /**
+     * Obra 3 / ELITE-02: repair stale root FQCNs for classes already under subdirs.
+     * Also rewrites relative `Readiness\Foo` inside the Readiness namespace.
+     *
+     * @return array{schema: string, import_updates: int, files_touched: int}
+     */
+    public function repairMovedFqcnImports(bool $dryRun = false): array
+    {
+        $root = base_path('app/Services/Ai/SelfConstruction');
+        $map = [];
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
+        foreach ($iterator as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $path = $file->getPathname();
+            $rel = ltrim(str_replace($root.'/', '', $path), '/');
+            $parts = explode('/', $rel);
+            $class = basename((string) array_pop($parts), '.php');
+            $subdir = $parts === [] ? '' : implode('\\', $parts);
+            $fqcn = 'App\\Services\\Ai\\SelfConstruction'.($subdir !== '' ? '\\'.$subdir : '').'\\'.$class;
+            $old = 'App\\Services\\Ai\\SelfConstruction\\'.$class;
+            if ($old !== $fqcn) {
+                $map[$old] = $fqcn;
+            }
+        }
+
+        $filesTouched = 0;
+        $importUpdates = 0;
+        $scanRoots = [
+            base_path('app'),
+            base_path('bootstrap'),
+            base_path('config'),
+            base_path('routes'),
+            base_path('tests'),
+            base_path('database'),
+        ];
+        foreach ($scanRoots as $scanRoot) {
+            if (! is_dir($scanRoot)) {
+                continue;
+            }
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($scanRoot));
+            foreach ($it as $file) {
+                if (! $file->isFile() || $file->getExtension() !== 'php') {
+                    continue;
+                }
+                $path = $file->getPathname();
+                $content = File::get($path);
+                $newContent = $content;
+                foreach ($map as $old => $fqcn) {
+                    if (str_contains($newContent, $old)) {
+                        $newContent = str_replace($old, $fqcn, $newContent);
+                        $importUpdates++;
+                    }
+                }
+                // Mother in Readiness\: relative Readiness\X → X
+                if (str_contains($path, '/SelfConstruction/Readiness/') && str_contains($newContent, 'Readiness\\')) {
+                    $rewritten = preg_replace(
+                        '/(?<![\\\\A-Za-z0-9_])Readiness\\\\(Readiness[A-Za-z0-9_]+)/',
+                        '$1',
+                        $newContent
+                    );
+                    if (is_string($rewritten) && $rewritten !== $newContent) {
+                        $newContent = $rewritten;
+                        $importUpdates++;
+                    }
+                }
+                if ($newContent !== $content) {
+                    $filesTouched++;
+                    if (! $dryRun) {
+                        File::put($path, $newContent);
+                    }
+                }
+            }
+        }
+
+        return [
+            'schema' => 'atlas.elite_compaction.sc_fqcn_repair.v1',
+            'dry_run' => $dryRun,
+            'import_updates' => $importUpdates,
+            'files_touched' => $filesTouched,
+            'mapped_classes' => count($map),
+        ];
+    }
+
     private function rel(string $path): string
     {
         return ltrim(str_replace(base_path().'/', '', $path), '/');

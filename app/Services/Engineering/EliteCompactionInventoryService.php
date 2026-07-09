@@ -40,16 +40,34 @@ final class EliteCompactionInventoryService
 
     public function inventoryAcde(): array
     {
-        $keepList = config('atlas_elite_compaction.acde_keep_list', []);
+        $keepList = array_values(array_map('strval', (array) config('atlas_elite_compaction.acde_keep_list', [])));
         $root = base_path('app/Services/Ai/AutonomousEvolution');
         $files = $this->listPhpFiles($root, excludeBrain: true);
+        // Obra 3 / ELITE-01: key by basename (stable path identity), never the first
+        // `class` token in the body — that bug marked keep-list files as dead (§7).
         $classes = [];
+        $mismatches = [];
         foreach ($files as $file) {
+            $basenameClass = basename($file, '.php');
             $src = File::get($file);
-            if (! preg_match('/\bclass\s+(\w+)/', $src, $m)) {
-                continue;
+            $bodyClass = null;
+            // Match real declarations only (PascalCase). Prefer the class that
+            // matches the basename (files may declare Exception helpers first).
+            // Prose like "class is NOT…" must never count (Obra 3 ELITE-01).
+            if (preg_match_all('/^\s*(?:final\s+|abstract\s+)?class\s+([A-Z]\w*)\b/m', $src, $mm)) {
+                $declared = $mm[1];
+                $bodyClass = in_array($basenameClass, $declared, true)
+                    ? $basenameClass
+                    : ($declared[0] ?? null);
             }
-            $classes[$m[1]] = $file;
+            if ($bodyClass !== null && $bodyClass !== $basenameClass) {
+                $mismatches[] = [
+                    'file' => $this->rel($file),
+                    'basename' => $basenameClass,
+                    'body_class' => $bodyClass,
+                ];
+            }
+            $classes[$basenameClass] = $file;
         }
 
         $refCounts = $this->bulkReferenceCounts(array_keys($classes));
@@ -68,13 +86,22 @@ final class EliteCompactionInventoryService
             }
         }
 
+        $deadSample = array_slice($dead, 0, max(50, (int) config('atlas_elite_compaction.prune.acde_sample_limit', 200)));
+        $keepListInDead = array_values(array_intersect(
+            $keepList,
+            array_column($deadSample, 'class'),
+        ));
+
         return [
             'schema' => 'atlas.elite_compaction.acde_inventory.v1',
             'total_outside_brain' => count($files),
             'keep_list_count' => count($keepList),
             'dead_candidates_rg0' => count($dead),
             'live_or_clustered' => count($live),
-            'dead_sample' => array_slice($dead, 0, max(50, (int) config('atlas_elite_compaction.prune.acde_sample_limit', 200))),
+            'dead_sample' => $deadSample,
+            'basename_body_mismatches' => $mismatches,
+            'keep_list_in_dead_sample' => $keepListInDead,
+            'fail_closed' => $keepListInDead === [] && $mismatches === [],
         ];
     }
 

@@ -37,7 +37,7 @@ return [
     // queue, never app/, never commit/merge). Default OFF / fail-closed; flip via the operator-only switch.
     'brain' => [
         'master_enabled' => env('ATLAS_BRAIN_MASTER_ENABLED', false),
-        'journal_root' => 'docs/loop-evolution-journal',
+        'journal_root' => 'docs/autonomos-evolution-journal',
         'done_set_root' => storage_path('app/atlas/brain/done-set'),
         // CYCLE CAPSULE — replayable per-cycle external record (prompt/receipt, spec, decision, provider,
         // files, evidence, validation, metrics, failures, learning). One JSONL per scope. The substrate the
@@ -52,11 +52,11 @@ return [
         'writer_model' => trim((string) env('ATLAS_BRAIN_WRITER_MODEL', '')),
 
         // The scope the brain evolves when none is named. The brain has ONE defined scope today: the whole
-        // autonomous block (brain + loop engine + muscle). Add cortex/maestro/… here as DATA — no code change.
+        // Autônomos block (brain + muscle). Add cortex/maestro/… here as DATA — no code change.
         'default_scope' => env('ATLAS_BRAIN_DEFAULT_SCOPE', 'autonomous'),
         'scopes' => [
             'autonomous' => [
-                'label' => 'The Atlas autonomous block — brain + loop engine + muscle.',
+                'label' => 'The Atlas Autônomos block — brain + muscle (Autônomos).',
                 // Both halves of the autonomous block. AutonomousEvolution is harness-gated (the engine the
                 // brain runs on); SelfConstruction is the muscle. meta_harness ON lets the brain evolve the
                 // engine half too — the pétreo FORBIDDEN_SELF_TARGETS floor still protects judge/gates/switch.
@@ -261,7 +261,37 @@ return [
     | the operator activates the kernel later via env/flag.
     */
     'cognitive_immune' => [
-        'promotion_gate_evaluator_enabled' => (bool) env('ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED', false),
+        // Obra 2 / MEM-02: ON with write-back consumer wired (byte-safe when signals empty).
+        'promotion_gate_evaluator_enabled' => (bool) env('ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Elite kernel honesty (AiWorker)
+    |--------------------------------------------------------------------------
+    | Obra 2 / DEV-01: assertEliteKernelHonestOutcome fails closed by default.
+    | Emergency escape: ATLAS_ELITE_KERNEL_HONESTY_FAIL_OPEN=true (advisory only).
+    */
+    'elite_kernel' => [
+        'honesty_fail_open' => (bool) env('ATLAS_ELITE_KERNEL_HONESTY_FAIL_OPEN', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Programming orchestrator RAG gate
+    |--------------------------------------------------------------------------
+    | Obra 2 / RAG: honor context_sufficiency_gate.blocks_execution on strict flows.
+    */
+    'programming' => [
+        'enforce_rag_gate' => (bool) env('ATLAS_PROGRAMMING_ENFORCE_RAG_GATE', true),
+        // Obra 2 / CTX-01: Dev discovery prefers AtlasContextRuntime::compose (legacy fallback).
+        'context_compose_enabled' => (bool) env('ATLAS_PROGRAMMING_CONTEXT_COMPOSE_ENABLED', true),
+        // Obra 4 / CTX-04: ACFQ freshness blockers hard-fail AUCRI on elite Dev/Forge/TaskServing paths.
+        'strict_retrieval_gate' => (bool) env('ATLAS_ELITE_STRICT_RETRIEVAL_GATE', true),
+        // Obra 5 / DEV-04: sovereign floor on PipelineRunExecutor completion receipts.
+        'sovereign_floor_enforced' => (bool) env('ATLAS_PROGRAMMING_SOVEREIGN_FLOOR_ENFORCED', true),
+        // Obra 5 / DEV-05: fail-closed when AtlasContextRuntime certify blocks gateway dispatch.
+        'context_runtime_fail_closed' => (bool) env('ATLAS_PROGRAMMING_CONTEXT_RUNTIME_FAIL_CLOSED', true),
     ],
 
     /*
@@ -317,6 +347,20 @@ return [
     */
     'context' => [
         'feedback_global_hints' => (bool) env('ATLAS_CONTEXT_FEEDBACK_GLOBAL_HINTS', true),
+        // Obra 7 / OPT-04: ARFL→ACRS repromote on programming flow_ids (atlas_dev, atlas_forge, …).
+        'programming_flow_repromote_enabled' => (bool) env('ATLAS_CONTEXT_PROGRAMMING_FLOW_REPROMOTE', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Token economy (ATER) — Obra 7 / OPT-08
+    |--------------------------------------------------------------------------
+    | observe = advisory receipts only (default, fail-open).
+    | shadow  = compute enforce decisions without blocking callers.
+    | enforce = block provider calls when budget policy says so (elite-safe only).
+    */
+    'token_economy' => [
+        'enforcement_mode' => (string) env('ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE', 'observe'),
     ],
 
     'semantic_memory' => [
@@ -341,6 +385,12 @@ return [
         'compounding_recall_enabled' => (bool) env('ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING', false),
         'compounding_recall_limit' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_LIMIT', 6)),
         'compounding_recall_min_confidence' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_MIN_CONFIDENCE', 0)),
+        // Obra 5 / MEM-04 + OPT-01: demote dominant recall entries on the live hybrid path.
+        'recall_concentration_demotion_enabled' => (bool) env('ATLAS_MEMORY_RECALL_CONCENTRATION_DEMOTION', true),
+        'recall_concentration_window_days' => max(1, (int) env('ATLAS_MEMORY_RECALL_CONCENTRATION_WINDOW_DAYS', 45)),
+        'recall_concentration_demote_ratio' => (float) env('ATLAS_MEMORY_RECALL_CONCENTRATION_DEMOTE_RATIO', 0.35),
+        'recall_concentration_min_recalls' => max(10, (int) env('ATLAS_MEMORY_RECALL_CONCENTRATION_MIN_RECALLS', 100)),
+        'recall_concentration_score_factor' => (float) env('ATLAS_MEMORY_RECALL_CONCENTRATION_SCORE_FACTOR', 0.35),
         'max_embedding_chars' => (int) env('ATLAS_SEMANTIC_MAX_EMBEDDING_CHARS', 12000),
         'activation_daily_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_DAILY_LIMIT', 2),
         'activation_pending_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_PENDING_LIMIT', 4),
@@ -365,6 +415,10 @@ return [
         // placeholder (score_hint 0.60, channel `manifest_pending_embedding`)
         // passes through UNTOUCHED — honest degrade, never a fabricated score.
         'local_semantic_scoring' => (bool) env('ATLAS_AUCRI_LOCAL_SEMANTIC_SCORING', true),
+        // Obra 6 / RAG-05: elite Dev/Forge/TaskServing paths prefer full ASEF→AHRI depth.
+        'elite_semantic_depth' => (bool) env('ATLAS_AUCRI_ELITE_SEMANTIC_DEPTH', true),
+        // Obra 6 / RAG-06: persist AREBA run summaries for regression baseline (JSONL).
+        'arena_persist_runs' => (bool) env('ATLAS_AUCRI_ARENA_PERSIST_RUNS', true),
     ],
 
     'domains' => [
@@ -1893,6 +1947,16 @@ return [
         // read-only, fail-closed and never fabricates elapsed time / recall
         // events / lift — every age derives from the real persisted created_at.
         // It auto-greens the instant real >=3-week-old recall data exists.
+        // Obra 7 / CMP-01: post-compaction marker → optional continuity inject (fail-open).
+        'post_compaction_hooks' => [
+            'enabled' => (bool) env('ATLAS_LONG_HORIZON_POST_COMPACTION_HOOKS_ENABLED', true),
+            'continuity_inject' => (bool) env('ATLAS_LONG_HORIZON_POST_COMPACTION_CONTINUITY_INJECT', true),
+            'marker_receipt_path' => (string) env(
+                'ATLAS_LONG_HORIZON_POST_COMPACTION_MARKER_PATH',
+                storage_path('app/atlas/evidence/post-compaction-markers.jsonl'),
+            ),
+        ],
+
         'cross_week_recall_lift_gate' => [
             'enabled' => (bool) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_ENABLED', true),
             'schedule_enabled' => (bool) env('ATLAS_LONG_HORIZON_CROSS_WEEK_RECALL_LIFT_GATE_SCHEDULE_ENABLED', true),
@@ -4097,6 +4161,8 @@ return [
     | honest empty independently — the pack is a curated top-K, never omniscience.
     */
     'aobg' => [
+        // Obra 2 / OB-01: attach AtlasContextRuntime::compose as sidecar on packFor (fail-open).
+        'include_runtime_compose' => (bool) env('ATLAS_AOBG_INCLUDE_RUNTIME_COMPOSE', false),
         // L3-6: rerank semântico da seção de memória do context pack via o engine local
         // real (embeddings sobre os itens recuperados). Default OFF; fail-open sem venv.
         'semantic_retrieval' => (bool) env('ATLAS_AOBG_SEMANTIC_RETRIEVAL', false),
@@ -4106,6 +4172,10 @@ return [
         // token budget at ~4 chars/token for CodeGraphContextRetriever).
         'code_budget_chars' => (int) env('ATLAS_AOBG_CODE_BUDGET_CHARS', 2500),
         'memory_budget_chars' => (int) env('ATLAS_AOBG_MEMORY_BUDGET_CHARS', 2000),
+        // Obra 7 / OPT-05: E-3 symbol budget alias (chars→~tokens at packFor; zero provider spend).
+        'e3_symbol_budget_chars' => (int) env('ATLAS_AOBG_E3_SYMBOL_BUDGET_CHARS', (int) env('ATLAS_AOBG_CODE_BUDGET_CHARS', 2500)),
+        // Obra 7 / OB-03: progressive disclosure manifest (Absorcao 4 phase 1).
+        'progressive_disclosure_enabled' => (bool) env('ATLAS_AOBG_PROGRESSIVE_DISCLOSURE', true),
 
         // N1.F3 — multi-project AUTO-ONBOARDING gate. The gateway works in ANY
         // project (auto-scoped from `cwd`/`workspace`); when a project is NOT yet
@@ -4134,6 +4204,8 @@ return [
             'max_memory_refs' => (int) env('ATLAS_AOBG_WB_MAX_MEMORY_REFS', 25),
             'max_evidence_refs' => (int) env('ATLAS_AOBG_WB_MAX_EVIDENCE_REFS', 25),
             'max_state_keys' => (int) env('ATLAS_AOBG_WB_MAX_STATE_KEYS', 50),
+            // Obra 5 / EV-01: require evidence_refs on governed write-back (derive from files when absent).
+            'require_evidence_refs' => (bool) env('ATLAS_AOBG_WB_REQUIRE_EVIDENCE_REFS', true),
         ],
 
         // N2.F1 — the ACTIVE brain: context that FOLLOWS the task (PostToolUse).

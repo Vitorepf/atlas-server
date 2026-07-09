@@ -112,7 +112,7 @@ final class AtlasBrainStateCommand extends Command
             'scope_signal_digest_enabled' => (bool) config('atlas.brain.scope_signal_digest_enabled', false),
             'reflection_enabled' => (bool) config('atlas.brain.reflection_enabled', false),
             'causal_selector_enabled' => (bool) config('atlas.brain.causal_selector_enabled', false),
-            'default_scope' => (string) config('atlas.brain.default_scope', 'loop'),
+            'default_scope' => (string) config('atlas.brain.default_scope', 'autonomous'),
             'scope' => [
                 'slug' => $scope,
                 'meta_harness' => (bool) $scopeDef['meta_harness'],

@@ -89,6 +89,7 @@ final class AtlasAucriRuntimeEnforcementService
 
         $hybrid = $this->hybridRetrieval->report($baseInput + [
             'context_refs' => (array) ($input['context_refs'] ?? ['memory_signals', 'code_intelligence', 'evidence_replay']),
+            'strict_retrieval_gate' => (bool) ($input['strict_retrieval_gate'] ?? false),
         ]);
 
         $agentic = $this->agenticRag->plan($baseInput);

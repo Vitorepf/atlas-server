@@ -7,6 +7,7 @@ namespace App\Services\Ai\Governance;
 use App\Models\AiJob;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Caching\AiCallCostGuard;
+use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 
 /**
  * Shared governance consult — the SAME cost/route governance the manager runs,
@@ -16,8 +17,10 @@ use App\Services\Ai\Caching\AiCallCostGuard;
  * one governance primitive, consulted everywhere, not manager-locked.
  *
  * It DELEGATES to the existing primitives — it does NOT reimplement them:
- *   - ADML route recommendation: {@see AtlasDecideGatewayConsultationService::consult()};
- *   - per-call pre-cost verdict:  {@see AiCallCostGuard::evaluate()}.
+ *   - ADML route recommendation: {@see AtlasDecideGatewayConsultationService::consult()}
+ *     (includes Constitutional Kernel + Autonomy Admission via ADGW);
+ *   - per-call pre-cost verdict:  {@see AiCallCostGuard::evaluate()};
+ *   - trust-budget advisory:      {@see AtlasTrustBudgetService::check()} (never consumes).
  *
  * SOBERANIA — advisory-first. By default it only MEASURES what the manager
  * would have routed/charged and records the muscle execution as CONSULTED
@@ -37,6 +40,7 @@ final class ProviderGovernanceConsult
         private readonly AtlasDecideGatewayConsultationService $adml,
         private readonly AiCallCostGuard $costGuard,
         private readonly ProviderGovernanceCoverageLedger $coverage,
+        private readonly AtlasTrustBudgetService $trustBudget,
     ) {}
 
     /**
@@ -50,7 +54,9 @@ final class ProviderGovernanceConsult
      * }  $ctx
      * @return array{
      *   provider:string, surface:string, adml_verdict:string, adml_route:?string,
-     *   cost:array<string,mixed>, enforce:bool, should_block:bool, reason:?string
+     *   kernel_decision:string, admission_decision:string,
+     *   trust_budget:array<string,mixed>, cost:array<string,mixed>,
+     *   enforce:bool, should_block:bool, reason:?string
      * }
      */
     public function consultBeforeSpawn(array $ctx): array
@@ -63,6 +69,8 @@ final class ProviderGovernanceConsult
         //    provider through the manager and mis-count this as COVERED.
         $admlVerdict = 'no_consultation';
         $admlRoute = null;
+        $kernelDecision = 'no_consultation';
+        $admissionDecision = 'no_consultation';
         try {
             $rec = $this->adml->consult([
                 'task_category' => (string) ($ctx['task_category'] ?? 'programming'),
@@ -74,6 +82,8 @@ final class ProviderGovernanceConsult
             $admlVerdict = (string) ($rec['verdict'] ?? 'no_consultation');
             $route = is_array($rec['active_route'] ?? null) ? ($rec['active_route']['provider'] ?? null) : null;
             $admlRoute = is_string($route) ? $route : null;
+            $kernelDecision = (string) ($rec['kernel_decision'] ?? 'no_consultation');
+            $admissionDecision = (string) ($rec['admission_decision'] ?? 'no_consultation');
         } catch (\Throwable) {
             $admlVerdict = 'consultation_error';
         }
@@ -95,11 +105,31 @@ final class ProviderGovernanceConsult
             $cost = [];
         }
 
+        // 3. Trust-budget advisory (ACK/ATBS seam). Muscle spawns are external
+        //    low-risk consults — check only, never consume in this path.
+        $trustBudget = [];
+        try {
+            $trustBudget = $this->trustBudget->check(
+                AtlasTrustBudgetService::TIER_LOW,
+                AtlasTrustBudgetService::CLASS_EXTERNAL,
+            );
+        } catch (\Throwable) {
+            $trustBudget = [];
+        }
+
         $enforce = (bool) (function_exists('config') ? config('atlas.ai.governance.enforce', false) : false);
         $hardExceeded = ($cost['hard_exceeded'] ?? false) === true;
-        $shouldBlock = $enforce && $hardExceeded;
+        $trustDenied = ($trustBudget['verdict'] ?? '') === AtlasTrustBudgetService::VERDICT_DENY_BUDGET_EXCEEDED;
+        $kernelBlocked = $kernelDecision === AtlasConstitutionalKernelService::DECISION_BLOCK;
+        $shouldBlock = $enforce && ($hardExceeded || $trustDenied || $kernelBlocked);
+        $reason = match (true) {
+            $enforce && $kernelBlocked => 'constitutional_kernel_block',
+            $enforce && $trustDenied => 'trust_budget_exceeded',
+            $enforce && $hardExceeded => 'cost_guard_hard_exceeded',
+            default => null,
+        };
 
-        // 3. Record the muscle execution as CONSULTED (governed via the shared
+        // 4. Record the muscle execution as CONSULTED (governed via the shared
         //    seam) so the bypass rate falls honestly. The advisory is captured
         //    for audit; recording NEVER blocks the spawn.
         $this->coverage->recordConsulted($provider, $surface, [
@@ -107,6 +137,8 @@ final class ProviderGovernanceConsult
             'adml_route' => $admlRoute,
             'cost_soft_warn' => (bool) ($cost['soft_warn'] ?? false),
             'cost_hard_exceeded' => $hardExceeded,
+            'kernel_decision' => $kernelDecision,
+            'trust_budget_verdict' => (string) ($trustBudget['verdict'] ?? ''),
             'enforce' => $enforce,
             'blocked' => $shouldBlock,
         ]);
@@ -116,10 +148,13 @@ final class ProviderGovernanceConsult
             'surface' => $surface,
             'adml_verdict' => $admlVerdict,
             'adml_route' => $admlRoute,
+            'kernel_decision' => $kernelDecision,
+            'admission_decision' => $admissionDecision,
+            'trust_budget' => $trustBudget,
             'cost' => $cost,
             'enforce' => $enforce,
             'should_block' => $shouldBlock,
-            'reason' => $shouldBlock ? 'cost_guard_hard_exceeded' : null,
+            'reason' => $reason,
         ];
     }
 

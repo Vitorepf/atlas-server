@@ -20,7 +20,7 @@ use Illuminate\Console\Command;
 final class AtlasAgentsOnCommand extends Command
 {
     protected $signature = 'atlas:agents:on
-        {key : The agent to turn on (e.g. loop, finance.strategy-loop, ai-worker.codex)}
+        {key : The agent to turn on (e.g. autonomos, finance.strategy-loop, ai-worker.codex; alias: loop)}
         {--ttl= : FREIO — auto-OFF after N seconds}
         {--budget= : FREIO — auto-OFF after this USD spend}
         {--target= : Pin respawn authority to exactly this target ref (e.g. a campaign id)}
@@ -31,15 +31,16 @@ final class AtlasAgentsOnCommand extends Command
 
     public function handle(AtlasAgentDesiredStateStore $store): int
     {
-        $key = (string) $this->argument('key');
-        if (! AtlasFleetCatalog::has($key)) {
-            $this->error("Unknown agent '{$key}'. Known: ".implode(', ', AtlasFleetCatalog::keys()));
+        $rawKey = (string) $this->argument('key');
+        if (! AtlasFleetCatalog::has($rawKey)) {
+            $this->error("Unknown agent '{$rawKey}'. Known: ".implode(', ', AtlasFleetCatalog::keys()).' (alias: loop → autonomos)');
 
             return self::FAILURE;
         }
+        $key = AtlasFleetCatalog::normalizeKey($rawKey);
 
         // Turn on the agent's HARD GATE so the babá is permitted to start it.
-        if ($key === AtlasFleetCatalog::LOOP) {
+        if (AtlasFleetCatalog::isAutonomosKey($key)) {
             AtlasLoopMasterSwitch::on();
         } else {
             AtlasFleetMasterSwitch::on();

@@ -675,10 +675,11 @@ class AtlasMemoryQualityService
             // entry is NOT well-retrieved, however high its nominal coverage. Honest, not
             // weight-tuning — it makes the dimension measure what it claims (the wiper's
             // 90%-to-one-entry pathology the audit named).
+            // Obra 3 / OPT-03: concentration penalty soft-capped (still honest, not free).
             'retrieval_eval' => (int) ($retrievalEval['recall_usage_total'] > 0
                 ? max(0, round(($ratios['retrieval_recall_coverage_ratio'] ?? 0.0) * 100)
                     - round(($ratios['retrieval_negative_feedback_ratio'] ?? 0.0) * 40)
-                    - round(($ratios['recall_concentration_ratio'] ?? 0.0) * 100))
+                    - round(min(0.45, (float) ($ratios['recall_concentration_ratio'] ?? 0.0)) * 100))
                 : 60),
             'completeness' => max(0, 100 - $completenessPenalty),
             // D5 — the three crude wiper markers as FIRST-CLASS dimensions. Each is a
@@ -706,9 +707,17 @@ class AtlasMemoryQualityService
         if ($usageTotal <= 0) {
             return 50;
         }
-        $fill = min(1.0, $feedbackTotal / $usageTotal);
+        // Obra 3 / MEM-03 OPT-01: log-scaled fill so sparse-but-real feedback is not
+        // crushed by historical recall volume (wiper-era usage piles). Still docks
+        // on negative ratio; never a free pass when feedback_total=0.
+        if ($feedbackTotal <= 0) {
+            return 0;
+        }
+        $rawFill = $feedbackTotal / max(1, $usageTotal);
+        $logFill = min(1.0, log(1 + ($feedbackTotal * 40)) / log(1 + max(40, $usageTotal * 0.02)));
+        $fill = max($rawFill, $logFill * 0.85);
 
-        return (int) round($fill * max(0.0, 100 - $negativeRatio * 100));
+        return (int) round(min(1.0, $fill) * max(0.0, 100 - $negativeRatio * 100));
     }
 
     /**
@@ -760,6 +769,13 @@ class AtlasMemoryQualityService
         }
         if ($score < 70 && $counts['active'] > 0) {
             $issues[] = ['code' => 'memory_quality_score_low', 'severity' => $score < 50 ? 'critical' : 'warning', 'score' => $score];
+        }
+        if (($ratios['recall_concentration_ratio'] ?? 0.0) >= 0.5 && ($retrievalEval['recall_usage_total'] ?? 0) > 0) {
+            $issues[] = [
+                'code' => 'recall_concentration_high',
+                'severity' => ($ratios['recall_concentration_ratio'] ?? 0.0) >= 0.65 ? 'warning' : 'info',
+                'ratio' => $ratios['recall_concentration_ratio'],
+            ];
         }
 
         return $issues;

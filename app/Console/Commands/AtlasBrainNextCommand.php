@@ -71,7 +71,7 @@ final class AtlasBrainNextCommand extends Command
 
     public function handle(): int
     {
-        $scope = trim((string) $this->argument('scope')) ?: 'loop';
+        $scope = trim((string) $this->argument('scope')) ?: 'autonomous';
         $this->heartbeatScope = $scope;
         $this->heartbeatActor = trim((string) ($this->option('actor') ?? ''));
         $this->forceScopeSignals = (bool) $this->option('scope-signals');
@@ -219,7 +219,7 @@ final class AtlasBrainNextCommand extends Command
             'cited_symbols' => [$targetPath],
             'evidence' => array_values((array) $spec['evidence_requirements']),
             'seeded_packet_ids' => [(string) $spec['task_packet_id']],
-        ], $model->inventory, (string) config('atlas.brain.journal_root', 'docs/loop-evolution-journal'));
+        ], $model->inventory, (string) config('atlas.brain.journal_root', 'docs/autonomos-evolution-journal'));
 
         $ledger->record([
             'snapshot_id' => $model->snapshotId,

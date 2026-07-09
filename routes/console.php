@@ -371,56 +371,47 @@ Schedule::command('atlas:agents:reconcile --json')
 // REMOVED atlas:loop schedule (elite hard-delete)
 
 // PART 2 · A3/MF-05 — reap expired Agent Control Plane leases every minute so a dead client's task returns
-// to claimable (R2 dead-agent recovery). Gated by the loop MASTER SWITCH => OFF = never fires (byte-identical
-// no-op; the loop never reanimates itself). Read-only-safe: only releases stranded work, never dispatches.
+// to claimable (R2 dead-agent recovery). Gated by task-serving OR Autônomos master (Obra 1: not "Loop"-named).
 Schedule::command('atlas:acp:reap-leases --json')
     ->everyMinute()
     ->withoutOverlapping()
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.loop.acp_reaper_enabled', true));
+    ->when(static fn (): bool => (
+        \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
+        || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+    ) && (bool) config('atlas.loop.acp_reaper_enabled', true));
 
-// govA — task-serving queue SELF-MAINTENANCE on a schedule. Replaces the manual sweep/repair the
-// operator did by hand. BOTH entries follow the same idiom as 'atlas:loop:automerge' above:
-// withoutOverlapping (a long run never doubles up) + §0 MASTER SWITCH gate (OFF ⇒ byte-identical
-// no-op, the loop never repairs itself behind the operator's back).
+// govA — task-serving queue SELF-MAINTENANCE on a schedule.
 Schedule::command('atlas:task:sweep-malformed --json')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
-    // §0 MASTER SWITCH — OFF ⇒ never quarantine, never write the queue.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+    ->when(static fn (): bool => \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
+        || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
 
 Schedule::command('atlas:task:repair-blocked --json')
     ->hourly()
     ->withoutOverlapping()
-    // §0 MASTER SWITCH — OFF ⇒ never reopen, never retire, never write the queue.
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+    ->when(static fn (): bool => \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
+        || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
 
-// govA-servable-heartbeat — every 5 minutes read servability and auto-fire the 3 recovery
-// commands (reap-leases → sweep-malformed → repair-blocked) when the queue is jammed
-// (servable_now=0 while claimable_depth>0). §0 MASTER SWITCH gate; withoutOverlapping(5) so
-// a slow tick never doubles up.
+// govA-servable-heartbeat — every 5 minutes read servability and auto-fire recovery when jammed.
 Schedule::command('atlas:task:servable-heartbeat --json')
     ->everyFiveMinutes()
     ->withoutOverlapping(5)
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
+    ->when(static fn (): bool => \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
+        || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
 
-// govA-cortex-cadence — daily Cortex scope-comprehension snapshot rebuild. Outcome-triggered
-// invalidation (give_back/failed) lives in AtlasTaskServingService::report; this schedule keeps
-// the snapshot fresh on a guaranteed cadence. §0 MASTER SWITCH gate (OFF ⇒ byte-identical
-// no-op) + withoutOverlapping (a slow build never doubles up) + appendOutputTo so build
-// failures hit storage/logs/cortex-comprehension-build.log instead of dying silent.
+// govA-cortex-cadence — daily Cortex scope-comprehension snapshot rebuild.
 // REMOVED atlas:loop schedule (elite hard-delete)
 
-// fable-M S23 — cadência da AUTO-ATIVAÇÃO de rota por evidência (S8/S12/S13): com a flag ON,
-// o sweep ativa rotas cujo ledger live sustenta a recomendação (o sweep de DEGRADAÇÃO/desativação
-// já roda agendado como autonomous_feedback_loop — este é o arco de ativação que faltava).
-// Flag default OFF ⇒ byte-idêntico a hoje. §0 MASTER SWITCH também exigido.
+// fable-M S23 — cadência da AUTO-ATIVAÇÃO de rota por evidência (S8/S12/S13).
 Schedule::command('atlas:atlas-decide:live-feedback --action=activate-sweep --actor=scheduled_live_evidence --json')
     ->hourly()
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/adml-activate-sweep.log'))
-    ->when(static fn (): bool => \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
-        && (bool) config('atlas.patamar4.adml_auto_activation_enabled', false));
+    ->when(static fn (): bool => (
+        \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
+        || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+    ) && (bool) config('atlas.patamar4.adml_auto_activation_enabled', false));
 
 // ── Obra #14 H2.1 — órgãos da inteligência em cadência (o motor launchd foi religado
 // em 06/07; delta-series/mint/long-horizon JÁ estavam agendados acima — aqui entram só

@@ -46,7 +46,8 @@ final class AtlasAgentReconciler
         $report = [
             'schema_version' => 'atlas.agents.reconcile.v1',
             'fleet_master' => AtlasFleetMasterSwitch::state(),
-            'loop_master' => AtlasLoopMasterSwitch::state(),
+            'autonomos_master' => AtlasLoopMasterSwitch::state(),
+            'loop_master' => AtlasLoopMasterSwitch::state(), // legacy alias field
             'checked' => 0,
             'started' => [],
             'stopped' => [],
@@ -106,7 +107,7 @@ final class AtlasAgentReconciler
      */
     private function hardGateEnabled(string $key): bool
     {
-        if ($key === AtlasFleetCatalog::LOOP) {
+        if (AtlasFleetCatalog::isAutonomosKey($key)) {
             return AtlasLoopMasterSwitch::enabled();
         }
 

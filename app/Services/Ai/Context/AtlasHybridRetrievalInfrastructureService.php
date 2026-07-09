@@ -70,7 +70,11 @@ final class AtlasHybridRetrievalInfrastructureService
 
         $candidates = $this->dedupeCandidates(array_merge(
             $this->candidatesFromPlan($plan),
-            $this->applyLocalSemanticScores($this->candidatesFromAsef($asef), $objective),
+            $this->applyLocalSemanticScores(
+                $this->candidatesFromAsef($asef),
+                $objective,
+                (bool) ($input['strict_retrieval_gate'] ?? false),
+            ),
             $this->candidatesFromContextRefs((array) ($input['context_refs'] ?? [])),
         ));
         $misses = $this->misses($plan, $asef);
@@ -200,13 +204,17 @@ final class AtlasHybridRetrievalInfrastructureService
      * @param  array<int,array<string,mixed>>  $candidates
      * @return array<int,array<string,mixed>>
      */
-    private function applyLocalSemanticScores(array $candidates, string $objective): array
+    private function applyLocalSemanticScores(array $candidates, string $objective, bool $elitePath = false): array
     {
         if ($candidates === [] || $objective === '') {
             return $candidates;
         }
 
         if (! (bool) config('atlas.aucri.local_semantic_scoring', true)) {
+            return $candidates;
+        }
+
+        if ($elitePath && ! (bool) config('atlas.aucri.elite_semantic_depth', true)) {
             return $candidates;
         }
 

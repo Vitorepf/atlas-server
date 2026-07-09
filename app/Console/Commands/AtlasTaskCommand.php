@@ -24,7 +24,7 @@ use Throwable;
  *                     [--evidence=<json|->] [--json]
  *
  * `--client` is the ONLY client parameter and is OPAQUE — any AI passes its own id; the server never branches
- * on platform. Delegates 1:1 to {@see AtlasTaskServingService}. Gated by the loop master switch.
+ * on platform. Delegates 1:1 to {@see AtlasTaskServingService}. Gated by Autônomos master / serving switch.
  */
 class AtlasTaskCommand extends Command
 {

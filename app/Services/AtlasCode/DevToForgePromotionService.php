@@ -632,6 +632,7 @@ final class DevToForgePromotionService
 
         $candidate = $this->attachCanonicalEscalationPacket($candidate, $target);
         $candidate['route_decision_v1'] = $this->recordCanonicalRouteDecision($candidate, $target);
+        $candidate = $this->intakeForgeFromEscalationPacket($candidate, $target);
 
         $this->persist($candidate);
 

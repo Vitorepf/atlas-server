@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Governance;
 
 use App\Models\AtlasProgrammingReview;
 use App\Models\AtlasProgrammingWorkItem;
+use App\Services\Ai\Cartography\CartographyTruthGuardService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -180,6 +181,11 @@ class ProgrammingGovernanceService
             'strict' => $strict,
         ]);
 
+        $gateNames = $gates ?? ProgrammingScopeMode::from($workItem->scope_mode)->requiredGates();
+        if (in_array('cartography-update', $gateNames, true)) {
+            $payload['cartography_truth_guard'] = $this->runCartographyTruthGuard();
+        }
+
         return $payload;
     }
 
@@ -298,7 +304,7 @@ class ProgrammingGovernanceService
     {
         return [
             ['name' => 'plan_autogeneration', 'reason' => 'spec_to_plan_compiler_not_implemented_yet', 'recorded_at' => now()->toJSON()],
-            ['name' => 'cartography_publishing', 'reason' => 'cartographic_knowledge_os_not_implemented_yet', 'recorded_at' => now()->toJSON()],
+            ['name' => 'cartography_publishing', 'reason' => 'advisory_gap_until_cartography_gate_runs', 'recorded_at' => now()->toJSON()],
             ['name' => 'learning_loop_automation', 'reason' => 'drift_detector_not_implemented_yet', 'recorded_at' => now()->toJSON()],
         ];
     }
@@ -374,6 +380,22 @@ class ProgrammingGovernanceService
     {
         if (in_array($workItem->status, self::STAGES_AFTER_EXECUTION, true) && $workItem->status !== 'blocked') {
             throw new RuntimeException("retroactive_spec_rejected:status={$workItem->status}");
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function runCartographyTruthGuard(): array
+    {
+        try {
+            if (! class_exists(CartographyTruthGuardService::class)) {
+                return ['status' => 'skipped', 'reason' => 'truth_guard_unavailable'];
+            }
+
+            return app(CartographyTruthGuardService::class)->sweep('programming_governance_verify');
+        } catch (Throwable $e) {
+            return ['status' => 'failed', 'reason' => $e->getMessage()];
         }
     }
 

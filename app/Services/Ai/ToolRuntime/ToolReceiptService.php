@@ -246,6 +246,10 @@ class ToolReceiptService
 
     private function configStrict(): bool
     {
-        return (bool) config('atlas_ai.tool_runtime.strict_mode', false);
+        if (! app()->environment('local', 'testing')) {
+            return true;
+        }
+
+        return (bool) config('atlas_ai.tool_runtime.strict_mode', true);
     }
 }

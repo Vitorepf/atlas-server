@@ -12,6 +12,7 @@ use App\Models\AtlasProject;
 use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
 use App\Services\Ai\Programming\AtlasForgeGovernedExecutionService;
 use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
+use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +35,7 @@ final class AtlasCodeForgeExecutionController extends Controller
         AtlasProject $project,
         AtlasForgeLiveExecutionService $service,
         ForgeIntakeRouteDecisionRecorder $routeDecisionRecorder,
+        ForgeIntakeService $forgeIntake,
     ): JsonResponse {
         $data = $request->validate([
             'simulate_failure' => ['nullable', 'boolean'],
@@ -63,6 +65,22 @@ final class AtlasCodeForgeExecutionController extends Controller
                 'expected_duration' => 'hours',
             ],
         );
+
+        // Obra 3 / FORGE / DC-04: HTTP Forge entry also materializes canonical intake (fail-open).
+        try {
+            $prompt = trim((string) ($project->title ?? $project->name ?? ''));
+            if ($prompt === '') {
+                $prompt = 'Atlas Code Forge live execution for project '.(string) $project->getKey();
+            }
+            $forgeIntake->intakeFromPrompt($prompt, [
+                'workspace_slug' => (string) ($project->slug ?? 'atlas-server'),
+                'actor_type' => 'http_forge_live_execution',
+                'mission_id' => null,
+                'promotion_reason' => 'http_direct_forge_intake',
+            ]);
+        } catch (Throwable) {
+            // fail-open: route_decision already recorded; live execution continues
+        }
 
         // Cockpit real-invocation wiring (flag: atlas.forge.cockpit_real_invocation_enabled).
         // When ON, the product cockpit routes through the REAL governed chain

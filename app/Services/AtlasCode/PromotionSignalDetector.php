@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\AtlasCode;
 
+use App\Services\Ai\Programming\Kernel\ProgrammingDomainKernelCanon;
+
 /**
  * Atlas Code · Dev-to-Forge Promotion · Signal Detector.
  *
@@ -257,6 +259,23 @@ final class PromotionSignalDetector
         if ($operatorPromotionAt !== null) {
             $score += 4;
             $reasons[] = 'operator_promotion_request';
+        }
+
+        // FORGE-05: shared kernel heuristic — same trigger vocabulary as
+        // AtlasForgeHandoffAdapter::shouldPromote() / AtlasDevMissionAdapter.
+        $kernelEscalation = ProgrammingDomainKernelCanon::shouldEscalateToForge($body);
+        if ($kernelEscalation !== null) {
+            $score += 3;
+            $reasons[] = 'kernel_should_escalate_to_forge:'.$kernelEscalation;
+            $signals['kernel_escalation'] = [
+                'detected' => true,
+                'trigger' => $kernelEscalation,
+            ];
+        } else {
+            $signals['kernel_escalation'] = [
+                'detected' => false,
+                'trigger' => null,
+            ];
         }
 
         $target = self::TARGET_NONE;

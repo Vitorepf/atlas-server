@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit\Ai\AutonomousEvolution;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 
 use App\Services\Ai\AutonomousEvolution\WeeklyDigest\AtlasLoopWeeklyDigestComposer;
 use Illuminate\Support\Facades\Config;
@@ -26,7 +26,9 @@ class AtlasLoopWeeklyDigestComposerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Config::set('atlas.loop.master_enabled', true);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=true
+ATLAS_LOOP_MASTER_ENABLED=true
+"); return $p; })();
     }
 
     public function test_compose_is_byte_identical_across_two_consecutive_runs_over_same_window(): void
@@ -41,7 +43,9 @@ class AtlasLoopWeeklyDigestComposerTest extends TestCase
 
     public function test_master_switch_off_returns_empty_snapshot(): void
     {
-        Config::set('atlas.loop.master_enabled', false);
+        AtlasLoopMasterSwitch::$envPathOverride = (static function () { $p = sys_get_temp_dir().'/atlas-mst-'.bin2hex(random_bytes(4)).'.env'; file_put_contents($p, "ATLAS_AUTONOMOS_MASTER_ENABLED=false
+ATLAS_LOOP_MASTER_ENABLED=false
+"); return $p; })();
         $composer = new AtlasLoopWeeklyDigestComposer($this->sources());
         $verdict = $composer->compose('2026-06-20T00:00:00Z', '2026-06-27T00:00:00Z');
 
