@@ -174,6 +174,24 @@ class TaskQueueRegistryIndexStoreTest extends TestCase
         self::assertCount(3, $result['entries']);
     }
 
+    public function test_cap_registry_never_hides_live_entries_above_hard_cap(): void
+    {
+        $store = $this->store();
+        $entries = [];
+        for ($i = 1; $i <= TaskQueueRegistryIndexStore::HARD_CAP + 25; $i++) {
+            $entries[] = ['status' => 'queued', 'id' => $i];
+        }
+        for ($i = 1; $i <= 30; $i++) {
+            $entries[] = ['status' => 'completed_dry_run', 'id' => 'done-'.$i];
+        }
+
+        $result = $store->capRegistry(['entries' => $entries], 200);
+
+        self::assertCount(TaskQueueRegistryIndexStore::HARD_CAP + 25, $result['entries']);
+        self::assertSame(1, $result['entries'][0]['id']);
+        self::assertSame(TaskQueueRegistryIndexStore::HARD_CAP + 25, $result['entries'][TaskQueueRegistryIndexStore::HARD_CAP + 24]['id']);
+    }
+
     public function test_cap_registry_no_op_under_cap(): void
     {
         $store = $this->store();

@@ -21,9 +21,9 @@ final class TaskQueueRegistryIndexStore
     public const REGISTRY_PATH = 'atlas/self-construction/task-packet-queue-registry.json';
 
     /**
-     * Hard ceiling for the registry index.
-     * The registry is an index — evicted entries remain on disk and can be
-     * re-indexed via rebuildRegistryFromLeaseFiles(). Keeps the newest entries.
+     * Terminal history ceiling for the registry index.
+     * Live work must never be hidden by the index cap; only terminal history is
+     * trimmed. Evicted terminal entries remain on disk and can be re-indexed.
      */
     public const HARD_CAP = 500;
 
@@ -132,13 +132,11 @@ final class TaskQueueRegistryIndexStore
         }
         $raw = (string) $this->disk->get(self::REGISTRY_PATH);
 
-        // Bounded path: avoid a full json_decode() on a very large file — decoding
-        // a 3 MB JSON registry into a PHP array can use 50–100 MB and OOM under
-        // constrained limits.  Instead extract only the last HARD_CAP entry objects
-        // using a character-level scanner, save the trimmed file (self-heal), and
-        // return the small result.
+        // Bounded path: avoid a full json_decode() on a very large file. Preserve
+        // every live entry and trim only terminal history, so self-heal never
+        // hides claimable work above the terminal-history cap.
         if (strlen($raw) > self::MAX_REGISTRY_BYTES) {
-            $entries = $this->extractLastEntriesRaw($raw, self::HARD_CAP);
+            $entries = $this->extractLiveEntriesAndTerminalHistoryRaw($raw, self::HARD_CAP);
             $trimmed = ['entries' => $entries];
             $this->saveRegistry($trimmed);
 
@@ -168,9 +166,8 @@ final class TaskQueueRegistryIndexStore
     /**
      * Bound the registry in two tiers:
      *   1. Soft cap ($cap): evict oldest TERMINAL entries first.
-     *   2. Hard cap (HARD_CAP): if live work alone still exceeds the absolute
-     *      ceiling, evict oldest live entries too — the index is truncated, not
-     *      the task files on disk.
+     *   2. Terminal hard cap (HARD_CAP): if the caller's cap is larger, terminal
+     *      history is still bounded. Live entries are never evicted by caps.
      *
      * @param  array<string, mixed>  $registry
      * @return array<string, mixed>
@@ -189,13 +186,9 @@ final class TaskQueueRegistryIndexStore
                     $live[] = $entry;
                 }
             }
-            $roomForTerminal = max(0, $cap - count($live));
+            $roomForTerminal = max(0, min($cap, self::HARD_CAP) - count($live));
             $done = $roomForTerminal > 0 ? array_slice($done, -$roomForTerminal) : [];
             $entries = array_merge($live, $done);
-        }
-        // Hard ceiling: evict oldest entries beyond the absolute max.
-        if (count($entries) > self::HARD_CAP) {
-            $entries = array_slice($entries, -self::HARD_CAP);
         }
         $registry['entries'] = $entries;
         unset($registry['corrupt']);
@@ -208,21 +201,22 @@ final class TaskQueueRegistryIndexStore
      *
      * Scans the raw pretty-printed JSON character by character, tracking brace
      * depth and string boundaries to locate entry object boundaries without
-     * calling json_decode() on the full file.  Individual entry objects
-     * (~450 bytes each) are json_decoded one at a time, so peak memory is
-     * proportional to $keep entries, not to the total file size.
+     * calling json_decode() on the full file. Individual entry objects are
+     * decoded one at a time. All live entries are kept; terminal entries are
+     * bounded to $terminalKeep.
      *
      * @return array<int, array<string, mixed>>
      */
-    private function extractLastEntriesRaw(string $raw, int $keep): array
+    private function extractLiveEntriesAndTerminalHistoryRaw(string $raw, int $terminalKeep): array
     {
         $len = strlen($raw);
-        $entries = [];
+        $live = [];
+        $terminal = [];
         $depth = 0;
         $entryStart = -1;
         $inEntriesArray = false;
         $inString = false;
-        $keepBuffer = $keep * 2; // intermediate bound; sliced to $keep at the end
+        $terminalBuffer = $terminalKeep * 2; // intermediate bound; sliced to $terminalKeep at the end
 
         // Jump straight to the "entries" key to skip the outer wrapper.
         $seekPos = strpos($raw, '"entries"');
@@ -271,10 +265,13 @@ final class TaskQueueRegistryIndexStore
                     try {
                         $entry = json_decode($entryJson, true, flags: JSON_THROW_ON_ERROR);
                         if (is_array($entry)) {
-                            $entries[] = $entry;
-                            if (count($entries) > $keepBuffer) {
-                                // Periodic trim keeps $entries bounded in memory.
-                                $entries = array_slice($entries, -$keep);
+                            if ($this->isTerminalEntry($entry)) {
+                                $terminal[] = $entry;
+                                if (count($terminal) > $terminalBuffer) {
+                                    $terminal = array_slice($terminal, -$terminalKeep);
+                                }
+                            } else {
+                                $live[] = $entry;
                             }
                         }
                     } catch (Throwable) {
@@ -287,6 +284,12 @@ final class TaskQueueRegistryIndexStore
             }
         }
 
-        return array_slice($entries, -$keep);
+        return array_merge($live, array_slice($terminal, -$terminalKeep));
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function isTerminalEntry(array $entry): bool
+    {
+        return in_array((string) ($entry['status'] ?? ''), ['completed_dry_run', 'cancelled'], true);
     }
 }
