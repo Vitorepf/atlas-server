@@ -102,6 +102,7 @@ class InboxActionRegistry
                 'approve_once', 'approve_session', 'approve_workspace_1h', 'deny' => $this->resolveApproval($locked, $actionId, $input),
                 'view_trace', 'review_patch' => $this->readOnlyResult($locked, $actionId),
                 'loop_operator_review_approve', 'loop_operator_review_reject' => $this->loopOperatorReviewDecision($locked, $actionId, $input, $actor),
+                'task_landing_review_approve', 'task_landing_review_reject' => $this->taskLandingReviewDecision($locked, $actionId, $input, $actor),
                 'create_proposal' => $this->createProposal($locked),
                 'run_ledger_projection' => $this->runLedgerProjection($locked, $input),
                 'review_retrieval_regression' => $this->reviewRetrievalRegression($locked, $input),
@@ -569,6 +570,55 @@ class InboxActionRegistry
                     'resolved' => $resolved,
                 ],
                 'decision' => $decision,
+            ],
+        ];
+    }
+
+    /**
+     * GAP-COCKPIT-01 verdict · post-commit review of a LIVE autonomous landing
+     * (item emitted by {@see \App\Services\Ai\SelfConstruction\AtlasTaskLandingReviewPublisher}).
+     *
+     * The commit already landed on main via the scoped committer, so this verdict NEVER
+     * touches git: approve certifies the landing; reject records the operator verdict and
+     * hands back the governed revert command (`atlas:task:revert`, dry-run by default) —
+     * the revert itself stays an explicit operator action.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array{item:AiInboxItem,payload:array<string,mixed>}
+     */
+    private function taskLandingReviewDecision(AiInboxItem $item, string $actionId, array $input, ?AtlasMobileDevice $actor): array
+    {
+        $review = $this->array(data_get($item->payload ?? [], 'task_landing_review'));
+        $sha = $this->string(data_get($review, 'sha'));
+        $taskPacketId = $this->string(data_get($review, 'task_packet_id')) ?? $this->string($item->source_id);
+        if ($sha === null || $taskPacketId === null) {
+            throw ValidationException::withMessages(['action' => 'Item sem task_landing_review (sha/task_packet_id) no payload.']);
+        }
+
+        $approved = $actionId === 'task_landing_review_approve';
+        $reason = $this->string($input['reason'] ?? null)
+            ?? ($approved ? 'operator approved landed task commit' : 'operator rejected landed task commit');
+        $operator = $actor?->id !== null ? 'mobile_device:'.$actor->id : 'operator_cli';
+
+        $item->forceFill([
+            'status' => 'resolved',
+            'read_at' => $item->read_at ?? now(),
+            'resolved_at' => now(),
+        ])->save();
+
+        return [
+            'item' => $item->refresh(),
+            'payload' => [
+                'action' => $actionId,
+                'task_landing_review' => [
+                    'schema_version' => 'atlas.task_landing.review_decision.v1',
+                    'task_packet_id' => $taskPacketId,
+                    'sha' => $sha,
+                    'verdict' => $approved ? 'approved' : 'rejected',
+                    'reason' => $reason,
+                    'operator' => $operator,
+                    'revert_command' => $approved ? null : 'php artisan atlas:task:revert --task='.$taskPacketId,
+                ],
             ],
         ];
     }

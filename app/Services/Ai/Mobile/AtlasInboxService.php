@@ -611,7 +611,16 @@ class AtlasInboxService
                 ['id' => 'discuss', 'label' => 'Discutir com Atlas', 'style' => 'default'],
                 ['id' => 'discard', 'label' => 'Descartar', 'style' => 'destructive', 'requires_confirm' => true],
             ],
-            'job_result', 'job_status', 'completion' => [
+            // GAP-COCKPIT-02: job_result items get a real operator verdict by default —
+            // the approve/reject handlers already exist in InboxActionRegistry::jobResultAction.
+            // job_status/completion stay read-only (no verdict handler accepts those types).
+            'job_result' => [
+                ['id' => 'view_trace', 'label' => 'Ver trace', 'style' => 'primary'],
+                ['id' => 'approve_job_result', 'label' => 'Aprovar resultado', 'style' => 'default'],
+                ['id' => 'reject_job_result', 'label' => 'Rejeitar resultado', 'style' => 'destructive', 'requires_confirm' => true],
+                ['id' => 'dismiss', 'label' => 'Descartar', 'style' => 'default'],
+            ],
+            'job_status', 'completion' => [
                 ['id' => 'view_trace', 'label' => 'Ver trace', 'style' => 'primary'],
                 ['id' => 'dismiss', 'label' => 'Descartar', 'style' => 'default'],
             ],

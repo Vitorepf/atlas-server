@@ -179,12 +179,13 @@ Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
 
 ## 🟢 D. Dormentes VIVO-VIÁVEIS: bridges/spines 0-caller que fechariam o loop do autônomo (reuse, não construir)
 > Padrão "the MISSING SPINE": produtor construído, 0 callers, aponta pro vivo. LIGAR destrava.
-- **GAP-COCKPIT-01** 🟠 landings do autônomo não emitem item de review (o produtor; publisher `AtlasLoopOperatorReviewMobilePublisher` existe, 0 callers, aponta pro morto → repontar). *Maior destrave.*
+- **GAP-COCKPIT-01** ✅ **FECHADO 09/07** — produtor ligado: `AtlasTaskLandingReviewPublisher` (SelfConstruction/, pull-based sobre os receipts `.resolved.jsonl` do markResolved, dedupe por commit sha) + comando `atlas:task:review:publish` + veredito `task_landing_review_approve|reject` no `InboxActionRegistry` (reject NUNCA reverte; devolve `atlas:task:revert --task=...`). Provado no vivo: 3 landings reais viraram itens com diff_stat; idempotente; visível no `atlas:cli:inbox`. Teste: `tests/Feature/Ai/TaskLandingReviewCockpitTest.php`. O publisher dormente `AtlasLoopOperatorReviewMobilePublisher` foi SUPERSEDED (design espelhado; ficou acoplado à fila morta — candidato a sair com o morto). Bônus: restaurada a interface `Contracts/BroaderRegressionGateContract` (cd018 deletou com 4 consumidores vivos — QUALQUER inbox action fatalava ao resolver o registry).
 - **GAP-09** 🟠 `AtlasExternalBrainToTaskFabricBridge` — espinha proposta-do-cérebro→task-pronta 0 callers.
 - **GAP-10** 🟠 `AtlasExternalBrainOutcomeLearningToMaestroBridge` — fecha o Learning Loop (outcome→roteamento) 0 callers.
 - **GAP-11** 🟠 `AtlasExternalBrainAutonomousSpine` — snapshot único de 6 órgãos + next_action, 0 callers.
 - **GAP-12..16** 🟡 ProofFirstTaskEmitter, LocalClientFailureRecoveryTaskEmitter, MaestroHealthGateSeedCreditBridge, AutonomyRegressionTaskEmitter, CortexCapabilityGapMemoryBridge — todos 0 callers, vivo-viáveis.
-- **GAP-COCKPIT-02/03/04** approve/reject nos itens do músculo (`AtlasInboxService.php:614`); agregação cross-surface; `atlas:review:deep` recorder→gerador.
+- **GAP-COCKPIT-02** ✅ **FECHADO 09/07** — fallback default de `job_result` agora oferece `approve_job_result`/`reject_job_result` (handlers já existiam em `jobResultAction`; o `JobResultInboxEmitter` já os dava pra failed/high — o gap real era só o default). `job_status`/`completion` ficam read-only de propósito (nenhum handler de veredito aceita esses types; emitter vivo de `completion` não encontrado).
+- **GAP-COCKPIT-03/04** agregação cross-surface; `atlas:review:deep` recorder→gerador.
 
 ## 🟡 E. Ergonomia CLI (situational awareness)
 - **GAP-CLI-01** 🟡 sem cockpit único do motor vivo (brain+fila+landings+saúde num comando; read-models já existem).

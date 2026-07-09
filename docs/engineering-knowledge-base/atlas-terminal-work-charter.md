@@ -157,10 +157,14 @@ Um cockpit no terminal onde o operador **vê o que o autônomo/Dev/Forge fez + a
 | **Padrão de fila de review** | `AtlasMemoryReviewQueueCommand` (`atlas:memory:review-queue`) | fila unificada priority/kind/scope/target/reason/action_hint (mas de MEMÓRIA, não código — prova que o padrão existe) |
 | **Render rico no terminal** | `app/Support/TerminalMarkdownRenderer.php` | usado por `AtlasCliStartCommand:178` + `AiChatCommand` (só 2 de 874 comandos — subusado) |
 
+### ✅ ENTREGUE 09/07 (fatia 1 — o produtor)
+- **`AtlasTaskLandingReviewPublisher`** (`app/Services/Ai/SelfConstruction/`) + comando **`atlas:task:review:publish`** — pull-based sobre os receipts `.resolved.jsonl` do `markResolved`; 1 item de review idempotente por landing (dedupe = commit sha) com diff_stat + arquivos + agente; veredito **`task_landing_review_approve|reject`** no `InboxActionRegistry` (reject NUNCA reverte — devolve `atlas:task:revert --task=...`). Provado no vivo (3 landings reais no inbox). Teste: `tests/Feature/Ai/TaskLandingReviewCockpitTest.php`.
+- Itens `job_result` default agora com `approve_job_result`/`reject_job_result` (GAP-COCKPIT-02).
+- Restaurada `AutonomousEvolution/Contracts/BroaderRegressionGateContract` (cd018 tinha deletado; sem ela QUALQUER inbox action fatalava).
+
 ### 🟡 DORMENTE (built-but-unwired — LIGAR, não reescrever)
-- **`AtlasLoopOperatorReviewMobilePublisher`** (`app/Services/Ai/AutonomousEvolution/`) — self-titled *"the MISSING SPINE"*, emite item proposal com botões Aprovar/Rejeitar. **0 callers** e aponta pro loop MORTO. → **repontar pros task-workers vivos.**
+- **`AtlasLoopOperatorReviewMobilePublisher`** — SUPERSEDED pelo publisher vivo acima (ficou acoplado à fila do morto; candidato a sair com o morto).
 - `atlas:ai:self-construction:merge-review` — stub que só imprime `shell_ready`.
-- Itens `job_result`/`completion` no inbox: só `view_trace`+`dismiss` (`AtlasInboxService.php:614`), **sem approve/reject**.
 
 ### 🔴 QUEBRADO no HEAD (não usar até consertar)
 - Família **`TerminalLoopProof*`/`TerminalLoopHealthDigest*`** (`SelfConstruction/TerminalLoopProof/`, `.../ControlPlane/`): substância real (lê fila/leases, roda cenários) MAS **fatal por regressão de namespace** (`cd018c6b3f`, `task_52704584` em conserto em outra sessão) + só roda por ritual manual + lê `AgentControlPlaneTaskPacketQueue` (fila do loop-morto), não o `atlas:task`/`atlas:brain` vivo.
@@ -170,8 +174,8 @@ Um cockpit no terminal onde o operador **vê o que o autônomo/Dev/Forge fez + a
 
 | ID | Sev | O quê | Onde |
 |---|---|---|---|
-| **GAP-COCKPIT-01** | 🟠 **(o destrave)** | landings do autônomo vivo NÃO emitem item de review (~4.841 passam fora do cockpit); o publisher feito pra isso está 0-caller+aponta pro morto | caminho `atlas:task`/`MergeActuator` |
-| GAP-COCKPIT-02 | 🟡 | itens job_result/completion sem approve/reject | `AtlasInboxService.php:614` |
+| **GAP-COCKPIT-01** | ✅ FECHADO 09/07 | produtor ligado (`AtlasTaskLandingReviewPublisher` + `atlas:task:review:publish` + veredito no registry); provado no vivo | `SelfConstruction/` |
+| GAP-COCKPIT-02 | ✅ FECHADO 09/07 | `job_result` default com approve/reject (handlers já existiam) | `AtlasInboxService.php:614` |
 | GAP-COCKPIT-03 | 🟡 | sem agregação cross-surface (Dev+Forge+autônomo num feed) | — |
 | GAP-COCKPIT-04 | 🟡 | `atlas:review:deep` é recorder, não gerador ("rode deep sobre esta landing") | `AtlasReviewDeepCommand` |
 | GAP-CLI-01 | 🟡 | sem cockpit ÚNICO do motor vivo (brain+fila+landings+saúde) — read-models já existem: `brain:summary`, `brain:metrics`, `task:health`, `autonomy:status` | — |
