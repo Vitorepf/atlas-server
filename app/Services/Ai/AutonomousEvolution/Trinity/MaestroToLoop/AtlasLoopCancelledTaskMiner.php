@@ -9,6 +9,11 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Throwable;
 
+/**
+ * Mines cancelled task records for avoidable failure patterns.
+ *
+ * @unwired-until 2026-07-16
+ */
 final class AtlasLoopCancelledTaskMiner
 {
     public function __construct(
