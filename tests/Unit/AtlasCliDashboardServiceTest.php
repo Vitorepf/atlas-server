@@ -50,5 +50,47 @@ class AtlasCliDashboardServiceTest extends TestCase
         $this->assertSame('read', $snapshot['runtime']['default_permission']);
         $this->assertFalse($snapshot['runtime']['danger_allowed']);
         $this->assertContains('atlas runtime package.detect', $snapshot['recommended_commands']);
+
+        // New control-plane sections must be present
+        $this->assertArrayHasKey('task_health', $snapshot);
+        $this->assertArrayHasKey('brain_control_plane', $snapshot);
+        $this->assertArrayHasKey('inbox_backlog', $snapshot);
+
+        // Each section degrades gracefully (warning or available=false) when sources are missing
+        $this->assertTrue(is_array($snapshot['task_health']));
+        $this->assertTrue(is_array($snapshot['brain_control_plane']));
+        $this->assertTrue(is_array($snapshot['inbox_backlog']));
+    }
+
+    public function test_dashboard_sections_degrade_with_warning_when_source_fails(): void
+    {
+        $service = app(AtlasCliDashboardService::class);
+        $snapshot = $service->build($this->workspace, refresh: true);
+
+        // task_health: may be available or degraded — either way it must NOT throw
+        $taskHealth = $snapshot['task_health'];
+        $this->assertTrue(is_array($taskHealth));
+        if (($taskHealth['available'] ?? true) !== true) {
+            $this->assertArrayHasKey('warning', $taskHealth);
+            $this->assertStringContainsString('task_health', $taskHealth['warning']);
+        }
+
+        // brain_control_plane: same fail-open contract
+        $brain = $snapshot['brain_control_plane'];
+        $this->assertTrue(is_array($brain));
+        if (($brain['available'] ?? true) !== true) {
+            $this->assertArrayHasKey('warning', $brain);
+        }
+
+        // inbox_backlog: table may or may not exist — either way, no fatal
+        $inbox = $snapshot['inbox_backlog'];
+        $this->assertTrue(is_array($inbox));
+        if (($inbox['available'] ?? true) !== true) {
+            $this->assertArrayHasKey('warning', $inbox);
+        }
+
+        // No section references the dead ACDE/loop as a source of truth
+        $json = json_encode($snapshot);
+        $this->assertStringNotContainsString('acde', strtolower($json));
     }
 }

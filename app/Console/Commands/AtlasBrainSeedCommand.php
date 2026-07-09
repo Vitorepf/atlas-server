@@ -15,6 +15,7 @@ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecRepairHints;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Engineering\EliteCompactionFreezeGuard;
 use Illuminate\Console\Command;
 use Throwable;

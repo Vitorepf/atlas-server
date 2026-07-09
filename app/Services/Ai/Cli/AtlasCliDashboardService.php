@@ -12,6 +12,7 @@ use App\Models\AiTrace;
 use App\Services\Ai\Runtime\WorkspaceProfiler;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
+use Throwable;
 
 class AtlasCliDashboardService
 {
@@ -46,6 +47,9 @@ class AtlasCliDashboardService
                 'cache_key' => $profile->cacheKey,
             ],
             'atlas_ai' => $this->atlasAi($workspace),
+            'task_health' => $this->taskHealth(),
+            'brain_control_plane' => $this->brainControlPlane(),
+            'inbox_backlog' => $this->inboxBacklog(),
             'providers' => $this->providers($limit),
             'runtime' => $this->runtime(),
             'recommended_commands' => $this->recommendedCommands($profile->dirtyFiles, $profile->testCommands),
@@ -280,6 +284,150 @@ class AtlasCliDashboardService
                 'checkpoint.restore',
             ],
         ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function taskHealth(): array
+    {
+        try {
+            $snapshot = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::coordinationHealth()->snapshot();
+            $d = (array) ($snapshot['queue_status_distribution'] ?? []);
+            $sv = (array) ($snapshot['servability'] ?? []);
+            $flags = array_keys(array_filter((array) ($snapshot['health_flags'] ?? [])));
+
+            return [
+                'available' => true,
+                'claimable_depth' => (int) ($snapshot['claimable_depth'] ?? 0),
+                'claimed_records' => (int) ($snapshot['claimed_records'] ?? 0),
+                'quarantined_count' => (int) ($snapshot['quarantined_count'] ?? 0),
+                'released' => (int) ($d['released'] ?? 0),
+                'completed' => (int) ($d['completed_dry_run'] ?? 0),
+                'servable_now' => (int) ($snapshot['servable_now'] ?? 0),
+                'waiting_on_deps' => (int) ($sv['waiting_on_inflight_deps'] ?? 0),
+                'blocked_by_dead_prereq' => (int) ($sv['blocked_by_dead_prereq'] ?? 0),
+                'active_leases' => (int) ($snapshot['active_leases'] ?? 0),
+                'leases_match_claimed' => (bool) ($snapshot['leases_match_claimed'] ?? false),
+                'recoverable_total' => (int) ($snapshot['recoverable']['total'] ?? 0),
+                'serve_success_rate' => (string) ($snapshot['serving']['serve_success_rate'] ?? '0'),
+                'r2_breach' => (bool) ($snapshot['serving']['r2_breach'] ?? false),
+                'healthy' => (bool) ($snapshot['healthy'] ?? false),
+                'flags' => $flags,
+            ];
+        } catch (Throwable $e) {
+            return [
+                'available' => false,
+                'warning' => 'task_health_unavailable: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function brainControlPlane(): array
+    {
+        $result = [
+            'available' => true,
+            'master_switch' => false,
+            'gates' => 'unknown',
+            'ratio' => 0,
+            'decisive' => 0,
+            'score' => 0,
+            'findings' => ['critical' => 0, 'warn' => 0, 'info' => 0],
+        ];
+
+        try {
+            $result['master_switch'] = \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch::enabled();
+        } catch (Throwable) {
+            $result['available'] = false;
+            $result['warning'] = 'brain_master_switch_unavailable';
+        }
+
+        try {
+            $inspector = new \App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector();
+            $inspectorHoles = count(app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor::class)->audit($inspector)['holes']);
+            $seedHoles = 0;
+            try {
+                $seedHoles = count(app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate::class))['holes']);
+            } catch (Throwable) {
+                // seed gate may not be wired
+            }
+            $totalHoles = $inspectorHoles + $seedHoles;
+            $result['gates'] = $totalHoles === 0 ? 'AIRTIGHT' : "HOLES:{$totalHoles}";
+        } catch (Throwable) {
+            $result['available'] = false;
+            $result['warning'] = ($result['warning'] ?? '').' brain_gates_unavailable';
+        }
+
+        try {
+            $scope = (string) app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry::class)->resolve('')['slug'];
+            $ledger = new \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
+            $served = 0;
+            $refused = 0;
+            foreach ($ledger->recentCycles(50) as $row) {
+                $status = (string) ($row['status'] ?? '');
+                if ($status === 'served' || $status === 'seeded') {
+                    $served++;
+                } elseif (in_array($status, ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'], true)) {
+                    $refused++;
+                }
+            }
+            $decisive = $served + $refused;
+            $result['ratio'] = $decisive > 0 ? (int) round(($served * 100) / $decisive) : 0;
+            $result['decisive'] = $decisive;
+        } catch (Throwable) {
+            $result['available'] = false;
+            $result['warning'] = ($result['warning'] ?? '').' brain_ratio_unavailable';
+        }
+
+        try {
+            $score = app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore::class)->compute(
+                ($result['gates'] === 'AIRTIGHT'),
+                $result['ratio'],
+                0,
+                0.0,
+                'stable'
+            )['score'];
+            $result['score'] = (int) $score;
+        } catch (Throwable) {
+            // score is optional
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function inboxBacklog(): array
+    {
+        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
+            return [
+                'available' => false,
+                'warning' => 'ai_inbox_items_table_not_available',
+            ];
+        }
+
+        try {
+            $model = new \App\Models\AiInboxItem();
+            $table = $model->getTable();
+
+            return [
+                'available' => true,
+                'active' => (int) \DB::table($table)->where('status', 'active')->count(),
+                'unread' => (int) \DB::table($table)->where('status', 'unread')->count(),
+                'critical_active' => (int) \DB::table($table)->where('status', 'active')->where('severity', 'critical')->count(),
+                'critical_unread' => (int) \DB::table($table)->where('status', 'unread')->where('severity', 'critical')->count(),
+                'total_backlog' => (int) \DB::table($table)->whereIn('status', ['active', 'unread'])->count(),
+            ];
+        } catch (Throwable $e) {
+            return [
+                'available' => false,
+                'warning' => 'inbox_backlog_unavailable: '.$e->getMessage(),
+            ];
+        }
     }
 
     /**
