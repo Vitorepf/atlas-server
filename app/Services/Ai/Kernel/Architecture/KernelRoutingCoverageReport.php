@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Kernel\Architecture;
 
 use App\Models\AiTrace;
+use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionCoverage;
 use Illuminate\Support\Carbon;
 
 /**
@@ -29,6 +30,10 @@ use Illuminate\Support\Carbon;
  *
  * Reading the tracer field set by `AiGatewayMissionBridge` (Gap1.F2),
  * this closes the loop from "tracer emitted" to "gate enforces tracer".
+ *
+ * Routing coverage is intentionally narrower than engineering execution
+ * coverage: `kernel_routed=true` proves entry through the kernel, while
+ * {@see EngineeringExecutionCoverage} requires correlated execution receipts.
  */
 final class KernelRoutingCoverageReport
 {
@@ -43,6 +48,11 @@ final class KernelRoutingCoverageReport
     public const REQUIRED_COVERAGE_PCT = 100.0;
 
     public const DEFAULT_WINDOW_DAYS = 7;
+
+    public function engineeringExecutionCoverageSchema(): string
+    {
+        return EngineeringExecutionCoverage::SCHEMA_VERSION;
+    }
 
     /**
      * @return array{
