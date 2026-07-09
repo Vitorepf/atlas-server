@@ -106,5 +106,12 @@ next_actions:
 **Pré-campanha (09/07, obra do cockpit):** produtor+verdict+gerador+cockpit+cadência+L3 call-sites entregues (commits `0d6bdff4b6`→`c8c7222015`); medidor L3 em voo por outro worker (monitor armado). Ver `atlas-terminal-work-charter.md` §5.
 
 ## Decisões que ficam com o operador
-- Ligar `enforce` da governança (GAP-GOV-01) e a cadência do publisher (`ATLAS_TERMINAL_REVIEW_PUBLISH_ENABLED=true`).
+- ~~Ligar `enforce` + cadência do publisher~~ ✅ LIGADOS 09/07 à noite (autorizado; ver ledger "SWITCHES LIGADOS").
 - Push dos commits da campanha.
+- **Promover o retrieval unificado** (destrave do P0 do pack; gates já passam): `atlas:intelligence:rollout-promote unified_retrieval --to=shadow --apply` → observar → canary → default. Idem `fusion`.
+- `hermes update` (218 commits atrás) e re-testar qwen3.6-27b.
+- Veredito das landings reais pendentes: `atlas:task:review:decide <sha> [--reject]`.
+
+## Re-medições pós-worker (09/07 noite)
+- L3 ponta-a-ponta ✅: `bypass=0` provado no coverage summary (medidor do worker + call-sites da campanha).
+- Farol do pack: `memory=0` esperado (retrieval default offline); promover = alavanca acima.
