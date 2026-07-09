@@ -185,7 +185,8 @@ Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
 - **GAP-11** 🟠 `AtlasExternalBrainAutonomousSpine` — snapshot único de 6 órgãos + next_action, 0 callers.
 - **GAP-12..16** 🟡 ProofFirstTaskEmitter, LocalClientFailureRecoveryTaskEmitter, MaestroHealthGateSeedCreditBridge, AutonomyRegressionTaskEmitter, CortexCapabilityGapMemoryBridge — todos 0 callers, vivo-viáveis.
 - **GAP-COCKPIT-02** ✅ **FECHADO 09/07** — fallback default de `job_result` agora oferece `approve_job_result`/`reject_job_result` (handlers já existiam em `jobResultAction`; o `JobResultInboxEmitter` já os dava pra failed/high — o gap real era só o default). `job_status`/`completion` ficam read-only de propósito (nenhum handler de veredito aceita esses types; emitter vivo de `completion` não encontrado).
-- **GAP-COCKPIT-03/04** agregação cross-surface; `atlas:review:deep` recorder→gerador.
+- **GAP-COCKPIT-04** ✅ **FECHADO 09/07** — gerador entregue: `atlas:task:review:deep <sha|task_packet_id>` (`AtlasTaskLandingDeepReviewService`) PRODUZ findings determinísticos da landing: scope vs allowed_files (receipt), forbidden_self_target (pétreo), `php -l` do conteúdo COMMITADO, presença de teste. Read-only; blocking em p0/p1. Provado no vivo (landing real → `no_test_touched`). Teto honesto: checks mecânicos, não review semântico — o recorder `atlas:review:deep` continua sendo onde findings semânticos (de IA/humano) são registrados. Teste: `tests/Unit/Ai/SelfConstruction/AtlasTaskLandingDeepReviewServiceTest.php`.
+- **GAP-COCKPIT-03** agregação cross-surface (Dev+Forge+autônomo num feed).
 
 ## 🟡 E. Ergonomia CLI (situational awareness)
 - **GAP-CLI-01** 🟡 sem cockpit único do motor vivo (brain+fila+landings+saúde num comando; read-models já existem).
