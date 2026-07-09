@@ -121,6 +121,25 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 ### GAP-WIR-02 — 🟢 `AtlasBrainScopeFlagAuditor` (detector "cérebro roda cego") nunca invocado
 - Pegaria o GAP-06 (master ON + reflection OFF) se ligado. `Brain/AtlasBrainScopeFlagAuditor.php:21`. Fix: chamar `audit()` no `AtlasBrainHealthDoctorCommand`.
 
+## 🔴 H. Domínios shipados + soberania cross-domain (sweep ww6c3iein — widen)
+> Verificado ok: 48 superfícies de comando de domínio, ZERO fatal no --help; domínios shipados (Marketing/VentureFoundry) roteiam via AiProviderManager (governança coberta). Mas 2 gaps NOVOS de dinheiro/soberania:
+
+### GAP-FIN-01 — 🔴 spot-exec (Binance LIVE) IGNORA o kill-switch canônico de live-trading · **MONEY-SAFETY**
+- `Finance/SpotExec/SpotExecGate.php:40` (+ `AtlasFinanceSpotExecCommand:44`) NÃO checa `FinanceDomainCanon::liveTradingBlocked()` — mas `PolyExecGate:42` e o paper-trader checam. Operador vê "Live trading hard-blocked" + readiness `live_trading_blocked_default:true` e presume que `ATLAS_FINANCE_LIVE_TRADING_ALLOWED` protege o spot — **mas ordens Binance REAIS podem executar**. Fix: 1-linha espelhando `PolyExecGate:42`. **Prioridade alta — dinheiro real.** baixo.
+
+### GAP-SOV-01 — 🟠 soberania: dado private/sensitive (saúde/finanças) pode ir pra IA externa · viola local-first pétreo
+- `external_ai_policy=block_private_sensitive` (config:419-436/397-414) p/ domínios 'saude'(sensitive)/'financas'/'blackink'/'atlas'(private) **NÃO é aplicada no funil de chat/IA** quando `payload.privacy` está ausente. `AiGatewayService.php:2638`. Fix: derivar sensitivity no gateway (o funil) antes de `guardPrivacyAllowsAi`. **Viola "sensitive/secret/cyber não saem da máquina".** medio-alto.
+
+### GAP-DOM-01 — 🟠 cd018 quebrou a Pressure Layer: pressure:guard/preland FATAL + `atlas:land` producer SILENCIOSAMENTE morto
+- Root único: `EngineeringKernel/PressureLayerGuards.php:65` ctor injeta `AtlasLoopWiredCallerService` (deletada cd018, non-nullable). `atlas:pressure:guard`+`atlas:pressure:preland` fatalizam 100%. **PIOR:** `AtlasLandCommand.php:84` (autoridade de landing) chama `observeLandedSlice()` dentro de `try/catch(Throwable)` → grava ZERO no outcome ledger a CADA land, gate Goal 4 faminto, **sem erro visível** (feature Goal 3.5 silenciosamente morta no caminho load-bearing). Fix: nullable + rescue bind (padrão AppServiceProvider:574). baixo.
+
+### GAP-PERM-01 — 🟡 `AiPermissionEngine` observe-only: workspace-cert + write/danger não bloqueiam
+- `AiPermissionEngineSupport.php:347` sempre `allowed:true`; job write/danger fora das allowedRoots ou provider não-codex sem sandbox = só 'observation'. Fix: se é enforcement, `allowed=false` fora das roots em write/danger. medio.
+
+### GAP-DOM-02 — 🟡 GitSubprocess blast no domínio SoftwareCompany (8 serviços stewardship crasham) — mesmo root GAP-01
+- `n-company-stewardship:*` fatalizam em `GitSubprocess::run()`. O fix único de GAP-01 (restaurar GitSubprocess) conserta os 24 consumidores (8 domínio + 16 core).
+### GAP-MKT-01/02 — 🟢 `marketing:spy` nome engana (lê HTML local, não busca); `keyword-os` exit-0 com feed caído (fail-soft mascara erro real)
+
 ## Z. Refutados / falso-alarme (não re-abrir)
 - Maestro Exceptions (UnknownSchemaVersion/SchemaDowngradeRefused/InvalidProvider): `use` aponta pra path deletado MAS as classes foram INLINADAS nos survivors → maestro:schema/bid OK.
 - `AtlasEngineeringStringListNormalizer` em ProbeRunner: só import pendurado (0 uso no corpo) → não autoloaded, não fataliza.
