@@ -547,8 +547,21 @@ final class AtlasTaskServingService
                 ]);
             }
 
-            // Post-commit honesty with real commit evidence (compose already ran pre-commit).
-            $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, $commit);
+            // Post-commit honesty with real commit evidence. A red post-commit verdict means the
+            // commit landed but the task is NOT settled; keep the lease open so the worker/operator
+            // can repair or revert explicitly instead of marking fake-green work resolved.
+            $postCommitEliteGate = $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, $commit);
+            if (($postCommitEliteGate['ok'] ?? true) !== true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => (string) ($postCommitEliteGate['reason'] ?? 'elite_autonomos_gate_blocked'),
+                    'elite_gate' => $postCommitEliteGate,
+                    'commit' => $commit,
+                ]);
+            }
 
             $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
 
