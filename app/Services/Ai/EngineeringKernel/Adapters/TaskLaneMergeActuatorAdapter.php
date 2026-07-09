@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\Adapters;
 
+use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\EngineeringKernel\MergeActuator;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 
@@ -16,6 +17,14 @@ use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 final class TaskLaneMergeActuatorAdapter implements MergeActuator
 {
     public function __construct(private readonly AtlasTaskMergeActuator $actuator) {}
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function act(AuthorizedMergeAction $action): array
+    {
+        return $this->actuator->act($action);
+    }
 
     /**
      * @return array<string,mixed>

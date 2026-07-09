@@ -53,10 +53,10 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
         }
     }
 
-    public function test_merge_actuator_remains_revert_only_until_landing_and_canary_tasks_ship(): void
+    public function test_merge_actuator_requires_authorized_actuation_with_v1_revert_translator(): void
     {
-        $this->assertSame(['revert'], $this->publicMethodNames(MergeActuator::class));
-        $this->assertSame(['revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
+        $this->assertSame(['act', 'revert'], $this->publicMethodNames(MergeActuator::class));
+        $this->assertSame(['act', 'revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
     }
 
     /**

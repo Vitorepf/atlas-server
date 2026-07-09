@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\Governance;
 
+use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use Illuminate\Support\Facades\File;
@@ -55,9 +56,9 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         return trim($this->git(['rev-parse', 'HEAD'])['out']);
     }
 
-    private function actuator(array $allowedFilesByTask): AtlasTaskMergeActuator
+    private function actuator(array $allowedFilesByTask, ?string $ledgerPath = null): AtlasTaskMergeActuator
     {
-        $ledger = new AtlasMergeGovernorReleaseDecisionLedger($this->ledgerPath);
+        $ledger = new AtlasMergeGovernorReleaseDecisionLedger($ledgerPath ?? $this->ledgerPath);
         $resolver = static fn (string $taskPacketId): array => $allowedFilesByTask[$taskPacketId] ?? [];
 
         return new AtlasTaskMergeActuator(null, $this->repo, $ledger, $resolver);
@@ -176,6 +177,105 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         $this->assertSame($forbidden, $r['path']);
 
         $this->assertLedgerHasRejectedReason('task-petreo', AtlasTaskMergeActuator::REASON_FORBIDDEN_SELF_TARGET);
+    }
+
+    public function test_ledger_unavailable_before_authority_produces_zero_effect(): void
+    {
+        $sha = $this->landScopedCommit('task-ledger-down', ['app/Ledger/Down.php' => "<?php // down\n"]);
+        $headBefore = trim($this->git(['rev-parse', 'HEAD'])['out']);
+        $blockedParent = sys_get_temp_dir().'/atlas-release-ledger-blocker-'.bin2hex(random_bytes(4));
+        file_put_contents($blockedParent, 'not-a-directory');
+
+        try {
+            $r = $this->actuator(
+                ['task-ledger-down' => ['app/Ledger/Down.php']],
+                $blockedParent.'/release.jsonl',
+            )->revert('task-ledger-down', dryRun: false);
+
+            $this->assertTrue($r['zero_effect']);
+            $this->assertFalse($r['reverted']);
+            $this->assertSame(AtlasTaskMergeActuator::REASON_RELEASE_LEDGER_UNAVAILABLE, $r['reason']);
+            $this->assertSame($sha, trim($this->git(['rev-parse', 'HEAD'])['out']));
+            $this->assertSame($headBefore, trim($this->git(['rev-parse', 'HEAD'])['out']));
+        } finally {
+            @unlink($blockedParent);
+        }
+    }
+
+    public function test_stale_and_revoked_authorities_produce_zero_effect(): void
+    {
+        $sha = $this->landScopedCommit('task-stale', ['app/Stale/File.php' => "<?php // stale\n"]);
+        $actuator = $this->actuator(['task-stale' => ['app/Stale/File.php']]);
+        $prepared = $actuator->prepareAuthorizedRevert('task-stale', dryRun: false);
+        $action = AuthorizedMergeAction::fromArray($prepared['authorized_merge_action']);
+
+        $stale = $actuator->act($action->withExpiresAt('2000-01-01T00:00:00+00:00'));
+        $this->assertTrue($stale['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_STALE, $stale['reason']);
+        $this->assertSame($sha, trim($this->git(['rev-parse', 'HEAD'])['out']));
+
+        $revoked = $actuator->act($action->withRevoked());
+        $this->assertTrue($revoked['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_REVOKED, $revoked['reason']);
+        $this->assertSame($sha, trim($this->git(['rev-parse', 'HEAD'])['out']));
+    }
+
+    public function test_candidate_hash_tamper_produces_zero_effect(): void
+    {
+        $sha = $this->landScopedCommit('task-tamper', ['app/Tamper/File.php' => "<?php // tamper\n"]);
+        $actuator = $this->actuator(['task-tamper' => ['app/Tamper/File.php']]);
+        $prepared = $actuator->prepareAuthorizedRevert('task-tamper', dryRun: false);
+        $payload = $prepared['authorized_merge_action'];
+        $payload['candidate_hash'] = str_repeat('a', 64);
+        $payload['authority_hash'] = '';
+
+        $r = $actuator->act(AuthorizedMergeAction::fromArray($payload));
+
+        $this->assertTrue($r['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_CANDIDATE_HASH_TAMPERED, $r['reason']);
+        $this->assertSame($sha, trim($this->git(['rev-parse', 'HEAD'])['out']));
+    }
+
+    public function test_missing_rollback_posture_produces_zero_effect(): void
+    {
+        $sha = $this->landScopedCommit('task-rollback-missing', ['app/Rollback/File.php' => "<?php // rollback\n"]);
+        $actuator = $this->actuator(['task-rollback-missing' => ['app/Rollback/File.php']]);
+        $prepared = $actuator->prepareAuthorizedRevert('task-rollback-missing', dryRun: false);
+
+        $rows = (new AtlasMergeGovernorReleaseDecisionLedger($this->ledgerPath))->all();
+        unset($rows[0]['rollback_posture']);
+        file_put_contents($this->ledgerPath, json_encode($rows[0], JSON_UNESCAPED_SLASHES).PHP_EOL);
+
+        $r = $actuator->act(AuthorizedMergeAction::fromArray($prepared['authorized_merge_action']));
+
+        $this->assertTrue($r['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_ROLLBACK_POSTURE_MISSING, $r['reason']);
+        $this->assertSame($sha, trim($this->git(['rev-parse', 'HEAD'])['out']));
+    }
+
+    public function test_post_effect_persistence_failure_returns_release_uncertain_and_never_resolved(): void
+    {
+        $this->landScopedCommit('task-uncertain', ['app/Uncertain/File.php' => "<?php // uncertain\n"]);
+        $actuator = $this->actuator(['task-uncertain' => ['app/Uncertain/File.php']]);
+        $prepared = $actuator->prepareAuthorizedRevert('task-uncertain', dryRun: false);
+
+        $blockedParent = sys_get_temp_dir().'/atlas-settlement-ledger-blocker-'.bin2hex(random_bytes(4));
+        file_put_contents($blockedParent, 'not-a-directory');
+
+        try {
+            $action = AuthorizedMergeAction::fromArray($prepared['authorized_merge_action'])
+                ->withSettlementLedgerPath($blockedParent.'/settle.jsonl');
+
+            $r = $actuator->act($action);
+
+            $this->assertTrue($r['reverted']);
+            $this->assertTrue($r['release_uncertain']);
+            $this->assertFalse($r['resolved']);
+            $this->assertSame(AtlasTaskMergeActuator::REASON_POST_EFFECT_PERSISTENCE_FAILED, $r['reason']);
+            $this->assertFileDoesNotExist($this->repo.'/app/Uncertain/File.php');
+        } finally {
+            @unlink($blockedParent);
+        }
     }
 
     private function assertLedgerHasRejectedReason(string $taskPacketId, string $reason): void

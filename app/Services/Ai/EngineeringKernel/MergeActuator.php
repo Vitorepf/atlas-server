@@ -17,5 +17,10 @@ interface MergeActuator
     /**
      * @return array<string,mixed>
      */
+    public function act(AuthorizedMergeAction $action): array;
+
+    /**
+     * @return array<string,mixed>
+     */
     public function revert(string $taskPacketId, bool $dryRun = true): array;
 }

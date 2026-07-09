@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Governance;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPolicy;
@@ -53,6 +54,26 @@ final class AtlasTaskMergeActuator
 
     public const REASON_REVERT_FAILED = 'git_revert_failed';
 
+    public const REASON_RELEASE_LEDGER_UNAVAILABLE = 'release_ledger_unavailable';
+
+    public const REASON_AUTHORITY_NOT_PERSISTED = 'authority_not_persisted';
+
+    public const REASON_AUTHORITY_STALE = 'authority_stale';
+
+    public const REASON_AUTHORITY_REVOKED = 'authority_revoked';
+
+    public const REASON_AUTHORITY_TAMPERED = 'authority_tampered';
+
+    public const REASON_CANDIDATE_HASH_TAMPERED = 'candidate_hash_tampered';
+
+    public const REASON_ROLLBACK_POSTURE_MISSING = 'rollback_posture_missing';
+
+    public const REASON_ROLLBACK_POSTURE_NOT_REVERTIBLE = 'rollback_posture_not_revertible';
+
+    public const REASON_POST_EFFECT_PERSISTENCE_FAILED = 'post_effect_persistence_failed';
+
+    public const ACTION_REVERT_TASK = 'revert_task';
+
     private const LOCK_TIMEOUT_SECONDS = 15.0;
 
     private const LOCK_POLL_MICROSECONDS = 50_000;
@@ -73,6 +94,22 @@ final class AtlasTaskMergeActuator
      * @return array<string, mixed>
      */
     public function revert(string $taskPacketId, bool $dryRun = true): array
+    {
+        $prepared = $this->prepareAuthorizedRevert($taskPacketId, $dryRun);
+        if (($prepared['authorized'] ?? false) !== true || ! is_array($prepared['authorized_merge_action'] ?? null)) {
+            return $prepared;
+        }
+
+        return $this->act(AuthorizedMergeAction::fromArray($prepared['authorized_merge_action']));
+    }
+
+    /**
+     * V1 translator: perform the old revert preflight, persist Governor authority,
+     * and return a capability the kernel act() seam can consume.
+     *
+     * @return array<string, mixed>
+     */
+    public function prepareAuthorizedRevert(string $taskPacketId, bool $dryRun = true, int $ttlSeconds = 300): array
     {
         $repo = $this->repoRoot();
         if ($taskPacketId === '') {
@@ -108,28 +145,85 @@ final class AtlasTaskMergeActuator
             return $this->refuse($taskPacketId, $dryRun, self::REASON_DIRTY_WORKING_TREE_FILE, ['sha' => $sha, 'files' => $dirty]);
         }
 
-        if ($dryRun) {
-            $result = [
+        try {
+            $row = $this->appendReleaseDecision(
+                $taskPacketId,
+                $sha,
+                $files,
+                AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED,
+                [],
+                $dryRun ? 'low' : 'medium',
+                'revertible:git_revert_scoped_commit',
+            );
+        } catch (Throwable $e) {
+            return $this->zeroEffect($taskPacketId, $dryRun, self::REASON_RELEASE_LEDGER_UNAVAILABLE, [
+                'sha' => $sha,
+                'files' => $files,
+                'error' => $e::class,
+            ]);
+        }
+
+        $action = AuthorizedMergeAction::fromReleaseDecisionRow(
+            row: $row,
+            action: self::ACTION_REVERT_TASK,
+            releaseLedgerPath: $this->ledger()->path(),
+            targetSha: $sha,
+            files: $files,
+            ttlSeconds: $ttlSeconds,
+            metadata: ['dry_run' => $dryRun],
+        );
+
+        return [
+            'schema' => self::SCHEMA,
+            'task_packet_id' => $taskPacketId,
+            'dry_run' => $dryRun,
+            'authorized' => true,
+            'sha' => $sha,
+            'files' => $files,
+            'authorized_merge_action' => $action->toArray(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function act(AuthorizedMergeAction $action): array
+    {
+        if ($action->action !== self::ACTION_REVERT_TASK) {
+            return $this->zeroEffect($action->taskPacketId, $action->dryRun(), 'unsupported_action', [
+                'action' => $action->action,
+            ]);
+        }
+
+        $validated = $this->validateAuthority($action);
+        if (($validated['ok'] ?? false) !== true) {
+            return $this->zeroEffect($action->taskPacketId, $action->dryRun(), (string) ($validated['reason'] ?? self::REASON_AUTHORITY_NOT_PERSISTED), $validated);
+        }
+
+        $repo = $this->repoRoot();
+        $sha = (string) $validated['sha'];
+        $files = array_values(array_map('strval', (array) $validated['files']));
+
+        if ($action->dryRun()) {
+            return [
                 'schema' => self::SCHEMA,
-                'task_packet_id' => $taskPacketId,
+                'task_packet_id' => $action->taskPacketId,
                 'dry_run' => true,
                 'would_revert' => true,
                 'sha' => $sha,
                 'files' => $files,
+                'authorized_merge_action' => $action->toArray(),
             ];
-            $this->recordDecision($taskPacketId, $sha, $files, AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED, [], 'low');
-
-            return $result;
         }
 
-        return $this->withCommitLock($repo, function () use ($repo, $taskPacketId, $sha, $files): array {
+        return $this->withCommitLock($repo, function () use ($repo, $action, $sha, $files): array {
             $revert = $this->git($repo, ['revert', '--no-edit', $sha]);
             if ($revert['code'] !== 0) {
-                $this->recordDecision($taskPacketId, $sha, $files, AtlasMergeGovernorAdmissionPolicy::DECISION_REJECTED, [self::REASON_REVERT_FAILED], 'high');
+                $this->recordDecision($action->taskPacketId, $sha, $files, AtlasMergeGovernorAdmissionPolicy::DECISION_REJECTED, [self::REASON_REVERT_FAILED], 'high');
 
                 return [
                     'schema' => self::SCHEMA,
-                    'task_packet_id' => $taskPacketId,
+                    'task_packet_id' => $action->taskPacketId,
                     'dry_run' => false,
                     'reverted' => false,
                     'refused' => true,
@@ -141,16 +235,35 @@ final class AtlasTaskMergeActuator
             }
 
             $revertSha = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
-            $this->recordDecision($taskPacketId, $sha, $files, AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED, [], 'medium');
+            try {
+                $settlement = $this->recordEffectSettlement($action, $revertSha, $files);
+            } catch (Throwable $e) {
+                return [
+                    'schema' => self::SCHEMA,
+                    'task_packet_id' => $action->taskPacketId,
+                    'dry_run' => false,
+                    'reverted' => true,
+                    'release_uncertain' => true,
+                    'resolved' => false,
+                    'reason' => self::REASON_POST_EFFECT_PERSISTENCE_FAILED,
+                    'sha' => $sha,
+                    'revert_sha' => $revertSha,
+                    'files' => $files,
+                    'settlement_error' => $e::class,
+                ];
+            }
 
             return [
                 'schema' => self::SCHEMA,
-                'task_packet_id' => $taskPacketId,
+                'task_packet_id' => $action->taskPacketId,
                 'dry_run' => false,
                 'reverted' => true,
+                'resolved' => true,
+                'status' => 'settled',
                 'sha' => $sha,
                 'revert_sha' => $revertSha,
                 'files' => $files,
+                'settlement' => $settlement,
             ];
         });
     }
@@ -165,13 +278,111 @@ final class AtlasTaskMergeActuator
         $files = (array) ($extra['files'] ?? []);
         $this->recordDecision($taskPacketId, $sha, $files, AtlasMergeGovernorAdmissionPolicy::DECISION_REJECTED, [$reason], 'high');
 
+        return $this->zeroEffect($taskPacketId, $dryRun, $reason, $extra);
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function zeroEffect(string $taskPacketId, bool $dryRun, string $reason, array $extra = []): array
+    {
         return array_merge([
             'schema' => self::SCHEMA,
             'task_packet_id' => $taskPacketId,
             'dry_run' => $dryRun,
             'refused' => true,
+            'reverted' => false,
+            'zero_effect' => true,
             'reason' => $reason,
         ], $extra);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function validateAuthority(AuthorizedMergeAction $action): array
+    {
+        if (! $action->authorityHashValid()) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED];
+        }
+        if ($action->revoked) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_REVOKED];
+        }
+        if ($action->expiresAt === '' || strtotime($action->expiresAt) === false || strtotime($action->expiresAt) <= time()) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_STALE];
+        }
+
+        $row = $this->authorityLedgerRow($action);
+        if ($row === null) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_NOT_PERSISTED];
+        }
+
+        if ((string) ($row['decision'] ?? '') !== AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_REVOKED];
+        }
+        if (! hash_equals((string) ($row['candidate_hash'] ?? ''), $action->candidateHash)) {
+            return ['ok' => false, 'reason' => self::REASON_CANDIDATE_HASH_TAMPERED];
+        }
+        if (! hash_equals((string) ($row['decision_hash'] ?? ''), $action->decisionHash)) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED];
+        }
+
+        $rollbackPosture = trim((string) ($row['rollback_posture'] ?? ''));
+        if ($rollbackPosture === '') {
+            return ['ok' => false, 'reason' => self::REASON_ROLLBACK_POSTURE_MISSING];
+        }
+        if (! str_starts_with($rollbackPosture, 'revertible:')) {
+            return ['ok' => false, 'reason' => self::REASON_ROLLBACK_POSTURE_NOT_REVERTIBLE];
+        }
+
+        $repo = $this->repoRoot();
+        $candidates = $this->resolveLandedCommits($repo, $action->taskPacketId);
+        if (count($candidates) !== 1) {
+            return ['ok' => false, 'reason' => self::REASON_AMBIGUOUS_SHA, 'candidate_count' => count($candidates), 'candidates' => $candidates];
+        }
+        $sha = $candidates[0];
+        if ($action->targetSha !== '' && ! hash_equals($action->targetSha, $sha)) {
+            return ['ok' => false, 'reason' => self::REASON_CANDIDATE_HASH_TAMPERED, 'sha' => $sha];
+        }
+
+        $files = $this->changedFiles($repo, $sha);
+        $actionFiles = $action->files;
+        sort($actionFiles, SORT_STRING);
+        if ($actionFiles !== [] && $actionFiles !== $files) {
+            return ['ok' => false, 'reason' => self::REASON_CANDIDATE_HASH_TAMPERED, 'sha' => $sha, 'files' => $files];
+        }
+
+        $expectedCandidateHash = $this->candidateHash($action->taskPacketId, $sha, $files);
+        if (! hash_equals($expectedCandidateHash, $action->candidateHash)) {
+            return ['ok' => false, 'reason' => self::REASON_CANDIDATE_HASH_TAMPERED, 'sha' => $sha, 'files' => $files];
+        }
+        $expectedChangedFilesHash = $this->changedFilesHash($files);
+        if ((string) ($row['changed_files_hash'] ?? '') !== '' && ! hash_equals((string) $row['changed_files_hash'], $expectedChangedFilesHash)) {
+            return ['ok' => false, 'reason' => self::REASON_CANDIDATE_HASH_TAMPERED, 'sha' => $sha, 'files' => $files];
+        }
+
+        $dirty = $this->dirtyFiles($repo, $files);
+        if ($dirty !== []) {
+            return ['ok' => false, 'reason' => self::REASON_DIRTY_WORKING_TREE_FILE, 'sha' => $sha, 'files' => $dirty];
+        }
+
+        return ['ok' => true, 'sha' => $sha, 'files' => $files, 'row' => $row];
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function authorityLedgerRow(AuthorizedMergeAction $action): ?array
+    {
+        $ledger = new AtlasMergeGovernorReleaseDecisionLedger($action->releaseLedgerPath);
+        foreach ($ledger->all() as $row) {
+            if ((string) ($row['decision_hash'] ?? '') === $action->decisionHash) {
+                return $row;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -180,27 +391,99 @@ final class AtlasTaskMergeActuator
      */
     private function recordDecision(string $taskPacketId, string $sha, array $files, string $decision, array $reasons, string $riskLevel): void
     {
-        $sortedFiles = $files;
-        sort($sortedFiles, SORT_STRING);
-
-        $ledger = $this->ledger();
         try {
-            $ledger->append([
-                'task_packet_id' => $taskPacketId !== '' ? $taskPacketId : 'unknown',
-                'candidate_hash' => hash('sha256', 'revert:'.$taskPacketId.':'.$sha),
-                'decision' => $decision,
-                'reasons' => $reasons,
-                'risk_level' => $riskLevel,
-                'verification_hash' => hash('sha256', $sha !== '' ? $sha : 'unresolved:'.$taskPacketId),
-                'rollback_hash' => hash('sha256', 'revert_of:'.$sha),
-                'changed_files_hash' => hash('sha256', implode(',', $sortedFiles)),
-                'project_lane' => ['project_id' => 'atlas-server'],
-                'decided_at' => date(DATE_ATOM),
-            ]);
+            $this->appendReleaseDecision($taskPacketId, $sha, $files, $decision, $reasons, $riskLevel, $sha !== '' ? 'revertible:git_revert_scoped_commit' : 'blocked:unresolved_target');
         } catch (Throwable) {
             // Receipt-writing is best-effort audit trail; a ledger failure must never
             // block the fail-closed safety decision already made above.
         }
+    }
+
+    /**
+     * @param  list<string>  $files
+     * @param  list<string>  $reasons
+     * @return array<string,mixed>
+     */
+    private function appendReleaseDecision(string $taskPacketId, string $sha, array $files, string $decision, array $reasons, string $riskLevel, string $rollbackPosture): array
+    {
+        $ledger = $this->ledger();
+        $append = $ledger->append([
+            'task_packet_id' => $taskPacketId !== '' ? $taskPacketId : 'unknown',
+            'candidate_hash' => $this->candidateHash($taskPacketId, $sha, $files),
+            'decision' => $decision,
+            'reasons' => array_values(array_map('strval', $reasons)),
+            'risk_level' => $riskLevel !== '' ? $riskLevel : 'unknown',
+            'verification_hash' => hash('sha256', $sha !== '' ? $sha : 'unresolved:'.$taskPacketId),
+            'rollback_hash' => $this->rollbackHash($sha),
+            'changed_files_hash' => $this->changedFilesHash($files),
+            'project_lane' => ['project_id' => 'atlas-server'],
+            'decided_at' => date(DATE_ATOM),
+            'evidence_refs' => [$sha !== '' ? 'git_commit:'.$sha : 'git_commit:unresolved'],
+            'rollback_posture' => $rollbackPosture,
+            'rejected_alternatives' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? [] : ['act_without_authorized_merge_action'],
+            'post_release_learning_hooks' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? ['merge_actuator_effect_settlement_required'] : [],
+        ]);
+
+        return is_array($append['row'] ?? null) ? $append['row'] : [];
+    }
+
+    /**
+     * @param  list<string>  $files
+     * @return array<string,mixed>
+     */
+    private function recordEffectSettlement(AuthorizedMergeAction $action, string $effectSha, array $files): array
+    {
+        $ledger = new AtlasMergeGovernorReleaseDecisionLedger($action->settlementLedgerPath());
+        $append = $ledger->append([
+            'task_packet_id' => $action->taskPacketId,
+            'candidate_hash' => hash('sha256', 'settle:'.$action->candidateHash.':'.$effectSha),
+            'decision' => AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED,
+            'reasons' => ['effect_settled'],
+            'risk_level' => $action->riskLevel !== '' ? $action->riskLevel : 'medium',
+            'verification_hash' => hash('sha256', 'post_effect:'.$effectSha),
+            'rollback_hash' => $action->rollbackHash !== '' ? $action->rollbackHash : $this->rollbackHash($action->targetSha),
+            'changed_files_hash' => $action->changedFilesHash !== '' ? $action->changedFilesHash : $this->changedFilesHash($files),
+            'project_lane' => ['project_id' => 'atlas-server'],
+            'decided_at' => date(DATE_ATOM),
+            'evidence_refs' => ['authority:'.$action->decisionHash, 'effect:'.$effectSha],
+            'rollback_posture' => 'settled:revert_commit',
+            'rejected_alternatives' => [],
+            'post_release_learning_hooks' => ['release_effect_observed'],
+        ]);
+
+        return [
+            'status' => (string) ($append['status'] ?? 'error'),
+            'decision_hash' => (string) data_get($append, 'row.decision_hash', ''),
+            'ledger_path' => $ledger->path(),
+        ];
+    }
+
+    /** @param  list<string>  $files */
+    private function candidateHash(string $taskPacketId, string $sha, array $files): string
+    {
+        $sortedFiles = $files;
+        sort($sortedFiles, SORT_STRING);
+
+        return hash('sha256', (string) json_encode([
+            'action' => self::ACTION_REVERT_TASK,
+            'task_packet_id' => $taskPacketId,
+            'sha' => $sha,
+            'files' => $sortedFiles,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    /** @param  list<string>  $files */
+    private function changedFilesHash(array $files): string
+    {
+        $sortedFiles = $files;
+        sort($sortedFiles, SORT_STRING);
+
+        return hash('sha256', implode(',', $sortedFiles));
+    }
+
+    private function rollbackHash(string $sha): string
+    {
+        return hash('sha256', 'revert_of:'.($sha !== '' ? $sha : 'unresolved'));
     }
 
     private function ledger(): AtlasMergeGovernorReleaseDecisionLedger

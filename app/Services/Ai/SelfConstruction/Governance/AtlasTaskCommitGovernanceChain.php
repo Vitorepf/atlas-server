@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Governance;
 
+use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPolicy;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRiskClassifier;
@@ -89,7 +90,8 @@ final class AtlasTaskCommitGovernanceChain
      *     task_packet_id?:string,
      *     project_id?:string,
      *     changed_files?:list<string>,
-     *     verification?:array{passed?:bool, evidence_hash?:string, checks?:array<string,string>}
+     *     verification?:array{passed?:bool, evidence_hash?:string, checks?:array<string,string>},
+     *     budget_posture?:string
      * }  $context
      * @return array<string,mixed>
      */
@@ -105,6 +107,7 @@ final class AtlasTaskCommitGovernanceChain
             $projectId = (string) ($context['project_id'] ?? 'atlas-self-construction');
             $changed = $this->normalizeFiles((array) ($context['changed_files'] ?? []));
             $verification = is_array($context['verification'] ?? null) ? $context['verification'] : [];
+            $budgetPosture = trim((string) ($context['budget_posture'] ?? ''));
             $serverGreen = (bool) ($verification['passed'] ?? false);
             $checks = is_array($verification['checks'] ?? null) ? $verification['checks'] : [];
 
@@ -239,12 +242,14 @@ final class AtlasTaskCommitGovernanceChain
                     $replayVerdict,
                     $planHash,
                     $missingRerun,
+                    null,
                 );
             }
 
             $enforcedBlock = $mode === self::MODE_ENFORCE && ! $admitted;
+            $authority = $admitted ? $this->authorizedActionFromRecorded($recorded, $changed, $budgetPosture) : null;
 
-            return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict, $planHash, $missingRerun);
+            return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict, $planHash, $missingRerun, $authority);
         } catch (Throwable $e) {
             // Failure posture depends on the resolved mode: observe/off can NEVER wedge a bootstrap
             // worker over a governance-internal bug (fail-open, admit, record nothing but the error) —
@@ -329,8 +334,10 @@ final class AtlasTaskCommitGovernanceChain
         }
 
         $releaseStatus = 'error';
+        $releaseRow = null;
+        $releaseLedger = $this->releaseLedger ?? $this->defaultReleaseLedger();
         try {
-            $releaseStatus = (string) (($this->releaseLedger ?? $this->defaultReleaseLedger())->append([
+            $releaseAppend = $releaseLedger->append([
                 'task_packet_id' => $taskId,
                 'candidate_hash' => $candidateHash,
                 'decision' => $decision,
@@ -345,12 +352,46 @@ final class AtlasTaskCommitGovernanceChain
                 'rollback_posture' => $this->rollbackPosture($rollback),
                 'rejected_alternatives' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? [] : ['release_without_governance_clearance'],
                 'post_release_learning_hooks' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? ['task_outcome_learning_candidate'] : [],
-            ])['status'] ?? 'error');
+            ]);
+            $releaseStatus = (string) ($releaseAppend['status'] ?? 'error');
+            $releaseRow = is_array($releaseAppend['row'] ?? null) ? $releaseAppend['row'] : null;
         } catch (Throwable $e) {
             $releaseStatus = 'error:'.$e::class;
         }
 
-        return ['verdict_ledger' => $verdictStatus, 'release_ledger' => $releaseStatus];
+        return [
+            'verdict_ledger' => $verdictStatus,
+            'release_ledger' => $releaseStatus,
+            'release_receipt' => is_array($releaseRow) ? (string) ($releaseRow['decision_hash'] ?? '') : '',
+            'release_ledger_path' => $releaseLedger->path(),
+            'release_row' => $releaseRow,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $recorded
+     * @param  list<string>  $changed
+     * @return array<string,mixed>|null
+     */
+    private function authorizedActionFromRecorded(array $recorded, array $changed, string $budgetPosture): ?array
+    {
+        $row = is_array($recorded['release_row'] ?? null) ? $recorded['release_row'] : null;
+        $ledgerPath = trim((string) ($recorded['release_ledger_path'] ?? ''));
+        if ($row === null || $ledgerPath === '') {
+            return null;
+        }
+
+        return AuthorizedMergeAction::fromReleaseDecisionRow(
+            row: $row,
+            action: 'commit',
+            releaseLedgerPath: $ledgerPath,
+            files: $changed,
+            metadata: [
+                // This posture may buy more verification work upstream, but never a broader
+                // authority class, longer TTL, or wider MergeActuator permission.
+                'budget_posture' => $budgetPosture !== '' ? $budgetPosture : 'default',
+            ],
+        )->toArray();
     }
 
     /**
@@ -393,7 +434,7 @@ final class AtlasTaskCommitGovernanceChain
     }
 
     /**
-     * @param  array{verdict_ledger:string, release_ledger:string}  $recorded
+     * @param  array<string,mixed>  $recorded
      * @return list<string>
      */
     private function ledgerErrorBlockers(array $recorded): array
@@ -566,11 +607,11 @@ final class AtlasTaskCommitGovernanceChain
 
     /**
      * @param  list<string>  $blockers
-     * @param  array{verdict_ledger:string, release_ledger:string}  $recorded
+     * @param  array<string,mixed>  $recorded
      * @return array<string,mixed>
      */
     /** @param  list<string>|null  $missingRerun */
-    private function envelope(string $mode, bool $admitted, bool $enforcedBlock, string $decision, string $riskLevel, array $blockers, array $recorded, ?string $error = null, ?array $replayVerdict = null, ?string $gateReplayPlanHash = null, ?array $missingRerun = null): array
+    private function envelope(string $mode, bool $admitted, bool $enforcedBlock, string $decision, string $riskLevel, array $blockers, array $recorded, ?string $error = null, ?array $replayVerdict = null, ?string $gateReplayPlanHash = null, ?array $missingRerun = null, ?array $authorizedMergeAction = null): array
     {
         return [
             'schema' => self::SCHEMA,
@@ -585,6 +626,7 @@ final class AtlasTaskCommitGovernanceChain
             'replay_verdict' => $replayVerdict,
             'gate_replay_plan_hash' => $gateReplayPlanHash,
             'missing_rerun' => $missingRerun ?? [],
+            'authorized_merge_action' => $authorizedMergeAction,
             'error' => $error,
         ];
     }

@@ -7,8 +7,12 @@ namespace Tests\Feature\Ai\EngineeringKernel;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate;
+use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use App\Services\Ai\Obra\AtlasBlastRadiusService;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
+use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
+use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
 use Tests\TestCase;
 
 /**
@@ -174,5 +178,33 @@ final class PreLandSeamTest extends TestCase
             '--objective' => 'reuse the pressure guards',
             '--json' => true,
         ])->assertExitCode(0);
+    }
+
+    public function test_prepare_phase_persists_authorized_action_without_budget_posture_escalation(): void
+    {
+        $chain = new AtlasTaskCommitGovernanceChain(
+            verdictLedger: new AtlasVerificationCourtVerdictLedger($this->tmp.'/verdict.jsonl'),
+            releaseLedger: new AtlasMergeGovernorReleaseDecisionLedger($this->tmp.'/release.jsonl'),
+            clock: static fn (): string => '2026-01-01T00:00:00+00:00',
+            modeOverride: AtlasTaskCommitGovernanceChain::MODE_ENFORCE,
+        );
+
+        $out = $chain->govern([
+            'task_packet_id' => 'task-authority',
+            'project_id' => 'atlas-self-construction',
+            'changed_files' => ['app/Services/Ai/EngineeringKernel/MergeActuator.php'],
+            'verification' => ['passed' => true, 'evidence_hash' => 'ev-authority'],
+            'budget_posture' => 'unbounded_quality_first',
+        ]);
+
+        $this->assertTrue($out['admitted']);
+        $this->assertFalse($out['enforced_block']);
+        $this->assertIsArray($out['authorized_merge_action']);
+
+        $action = AuthorizedMergeAction::fromArray($out['authorized_merge_action']);
+        $this->assertSame('commit', $action->action);
+        $this->assertSame('unbounded_quality_first', $action->metadata['budget_posture']);
+        $this->assertSame(['app/Services/Ai/EngineeringKernel/MergeActuator.php'], $action->files);
+        $this->assertNotEmpty((new AtlasMergeGovernorReleaseDecisionLedger($this->tmp.'/release.jsonl'))->all());
     }
 }

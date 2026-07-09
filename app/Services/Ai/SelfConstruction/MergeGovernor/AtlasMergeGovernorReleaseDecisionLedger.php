@@ -36,6 +36,11 @@ final class AtlasMergeGovernorReleaseDecisionLedger
 
     public function __construct(private readonly string $ledgerPath) {}
 
+    public function path(): string
+    {
+        return $this->ledgerPath;
+    }
+
     /**
      * @param  array{
      *     task_packet_id:string,
@@ -131,10 +136,13 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             'post_release_learning_hooks' => $postReleaseLearningHooks,
         ];
 
+        $duplicate = null;
         // Idempotency check runs INSIDE the store's write lock; null return aborts the append.
-        $written = $this->store()->appendWith(function (?string $lastLine) use ($decisionHash, $row): ?array {
+        $written = $this->store()->appendWith(function (?string $lastLine) use ($decisionHash, $row, &$duplicate): ?array {
             foreach ($this->all() as $r) {
                 if ((string) ($r['decision_hash'] ?? '') === $decisionHash) {
+                    $duplicate = $r;
+
                     return null;
                 }
             }
@@ -142,7 +150,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             return $row;
         });
 
-        return $written === null ? ['status' => self::STATUS_ALREADY] : ['status' => self::STATUS_OK, 'row' => $row];
+        return $written === null ? ['status' => self::STATUS_ALREADY, 'row' => $duplicate ?? $row] : ['status' => self::STATUS_OK, 'row' => $row];
     }
 
     /**
