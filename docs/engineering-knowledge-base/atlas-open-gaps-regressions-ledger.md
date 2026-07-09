@@ -84,6 +84,22 @@ related_paths: [docs/engineering-knowledge-base/atlas-terminal-first-focus.md, d
 ## ⏳ EM-FIX (outra sessão)
 - **REG-01** proof-family namespace (TerminalLoopHealthDigest/OperationalProof) fatal — `task_52704584`.
 
+## 🔴 F. Wiper / Secrets / Sandbox-floor (sweep w81pifwtp — maioria GUARDADA; 2 abertos reais)
+> Verificado guardado (NÃO são gaps): RefreshDatabase/migrate:fresh (phpunit.xml force sqlite + TestCase kill-switch + process-env pin = 3 camadas); `git reset --hard` main (merge-lock exclusivo + working-tree-clean); rm-rf/deleteDirectory (todos tmp/worktree/sandbox); DELETE/TRUNCATE (read-models regeneráveis dentro de transação ou escopados por workspace/mission/plan-id).
+
+### GAP-SEC-01 — 🔴 .env backups vazados em origin/main; chaves FINANCEIRAS não rotacionadas · ABERTO · **AÇÃO #1**
+- **7 arquivos** `.env.bak-*`/`.env.*-backup-*` foram commitados **E PUSHADOS** pra origin/main (privado). Untrack só tirou do HEAD; blobs recuperáveis via `git show <sha>:<file>` (commits `b9e6719357`, `e60e560fbe`).
+- **Chaves expostas: Binance (FINANCEIRA), ElevenLabs, Cursor, YouTube, ATLAS_TOKEN — NÃO rotacionadas.**
+- Fix (é TEU — não posso rotacionar/force-push): (1) **ROTACIONAR já, Binance primeiro**; (2) purgar histórico (`git filter-repo`/BFG) + force-push; (3) confirmar. Casa com memória `github-main-env-bak-secret-leak`.
+
+### GAP-WIP-01 — 🟠 vendor-symlink wiper vector residual (8º/último provisioner) · ABERTO
+- `AtlasLoopProposalMaterializer::materializeFull:129` **symlinka o vendor VIVO** no clone de re-prova do auto-merge (caminho autônomo 24/7). Se um passo rodar `composer dump-autoload`, envenena o `vendor/autoload.php` VIVO — o incidente Frankenstein.
+- Único provisioner não-clonefile (os 7 irmãos usam `AtlasCloneDir::copy`; `linkRuntimeDeps:668` tem o comentário-aviso). Loop parado agora → armado, não disparando.
+- Fix: 1-linha `if ($dep==='vendor') AtlasCloneDir::copy(...)`. **Arquivo pétreo (forbidden-self-target)** → via canal operador/git escopado, não pelo autônomo. Casa com `wiper-vector-vendor-clonefile` (o "1 PENDENTE").
+
+### GAP-WIP-02 — 🟡 AutoMerge checa self-target só no target_path, commita o $changed inteiro · endurecimento
+- `AtlasLoopAutoMergeService:335` (check só target_path) vs `:658` (`git add -- $changed`). Proposta multi-arquivo tocando um pétreo + target legítimo escaparia o check. Marcado guardado-upstream, mas assimetria real. Fix opcional: iterar o $changed completo no check. (loop parado → baixo.)
+
 ## Z. Refutados / falso-alarme (não re-abrir)
 - Maestro Exceptions (UnknownSchemaVersion/SchemaDowngradeRefused/InvalidProvider): `use` aponta pra path deletado MAS as classes foram INLINADAS nos survivors → maestro:schema/bid OK.
 - `AtlasEngineeringStringListNormalizer` em ProbeRunner: só import pendurado (0 uso no corpo) → não autoloaded, não fataliza.
