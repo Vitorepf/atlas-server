@@ -134,3 +134,17 @@ Dev · Forge · Autônomos = três executores de engenharia elite (mesma barra).
 
 Provider target: `AGENTS.md`.
 <!-- atlas:aobg:auto-bootstrap:end -->
+
+## Cursor Cloud specific instructions
+
+Scope: this repo is a single Laravel 13 / PHP 8.4 API backend ("Atlas Server"), backed by PostgreSQL 16 + `pgvector`. It is header-token auth (`X-Atlas-Token`); only `GET /health` is public. Standard commands live in `README.md` and `composer.json` scripts — the notes below are only the non-obvious cloud caveats.
+
+- Base image already has PHP 8.4 (+ `pdo_pgsql`, `pdo_sqlite`, `pcntl`, `opcache`), Composer, and PostgreSQL 16 + `pgvector`. The startup update script only runs `composer install` — it does NOT install system packages or start services.
+- PostgreSQL is a service and is NOT auto-started. Start it each session before `migrate`/`serve`: `sudo pg_ctlcluster 16 main start`. The dev role/db are `atlas` / `atlas` (password `atlas_local_2026`) with the `vector` extension enabled. Recreate if missing: `sudo -u postgres psql -c "CREATE ROLE atlas LOGIN PASSWORD 'atlas_local_2026'"; sudo -u postgres createdb -O atlas atlas; sudo -u postgres psql -d atlas -c "CREATE EXTENSION IF NOT EXISTS vector; ALTER SCHEMA public OWNER TO atlas;"`.
+- `.env` (gitignored) for host-local dev: copy `.env.example`, then set `DB_PORT=5432`. Gotcha: `.env.example` ships `DB_PORT=5433` — that is the Docker host port MAPPING, not the port a host-local PostgreSQL listens on (5432); leaving 5433 causes connection-refused. Also set a writable `ATLAS_STORAGE_PATH` (e.g. `storage/atlas`) since the default `/var/atlas/storage` needs root, set `ATLAS_TOKEN`, then `php artisan key:generate`.
+- Run the app: `php artisan migrate --force` then `php artisan serve --host=0.0.0.0 --port=3737`. Smoke: `curl localhost:3737/health` (public); protected routes need `-H "X-Atlas-Token: <token>"`.
+- Tests: `php artisan test` uses SQLite `:memory:` — `phpunit.xml` FORCES `DB_CONNECTION=sqlite` (`force="true"`), so tests do NOT touch PostgreSQL even though CI sets pgsql env. Postgres is only needed for the running dev server, not the test suite. The suite is very large; scope with a path or `--filter` for quick runs.
+- Lint: `vendor/bin/pint --test` walks the whole repo (incl. `tests/Fixtures/`) and takes ~10 min; `vendor/bin/phpstan analyse` uses `phpstan-baseline.neon`. `main` currently has pre-existing pint/phpstan findings, so a non-zero exit is expected repo state, not an environment failure.
+- `pgvector` migrations are pgsql-only and no-op on SQLite (see `add_embedding_to_atlas_memory_tables`), so the SQLite test DB never needs the extension.
+- Optional binaries `whisper-cli` (transcription) and `yt-dlp` (YouTube ingestion) exist only in the Docker image, so `/health` reports them missing on host-local dev. That is expected and does not block the core API.
+- Dependency note: `composer.json`/`composer.lock` had a broken dev entry (`composer-unused/composer-unused`, a 404 package name, plus a lock stale since the `scribe`/`composer-unused` additions), which made `composer install` fail on a clean clone. This branch fixes it to `icanhazstring/composer-unused` and re-syncs the lock; if that fix is not merged, `composer install` (the update script) will fail on future runs.

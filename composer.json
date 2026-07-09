@@ -13,7 +13,7 @@
     },
     "require-dev": {
         "brianium/paratest": "^7.20",
-        "composer-unused/composer-unused": "^0.8",
+        "icanhazstring/composer-unused": "^0.9",
         "fakerphp/faker": "^1.23",
         "infection/infection": "^0.33.2",
         "knuckleswtf/scribe": "^5.0",
