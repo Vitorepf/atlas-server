@@ -9,7 +9,7 @@ use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\RunRequest;
-use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
+use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
@@ -337,11 +337,11 @@ final class RunController extends Controller
         RunExecutionResult $result,
         array $seniorLoopExecution,
     ): array {
-        if (! $this->compoundingTablesReady()) {
+        if (! $this->learningProposalTableReady()) {
             return [
                 'schema_version' => 'atlas.ai.compounding.atlas_dev_bridge.v1',
                 'status' => 'skipped',
-                'reason' => 'compounding_tables_missing',
+                'reason' => 'learning_proposals_table_missing',
                 'writes' => false,
             ];
         }
@@ -352,50 +352,37 @@ final class RunController extends Controller
             $result->diffHash ? 'diff:'.$result->diffHash : null,
             'run:'.$envelope->runId,
         ]));
-        $passed = in_array($result->completionState, ['complete', 'completed', 'passed'], true)
-            || data_get($seniorLoopExecution, 'completion_state') === 'complete';
-
         try {
-            $record = app(AtlasCompoundingRuntimeService::class)->recordExecution([
-                'run_id' => 'atlas_dev:'.$envelope->runId,
+            $proposal = app(AtlasLearningProposalService::class)->propose([
+                'kind' => $result->completionState === 'passed' ? 'memory' : 'failure_pattern',
+                'scope' => 'atlas-server',
                 'flow_id' => 'atlas_dev',
-                'outcome_status' => $passed ? 'passed' : (string) $result->completionState,
-                'source_type' => 'atlas_dev_run',
-                'flow_quality' => $passed ? 86 : 58,
-                'retrieval_quality' => 72,
-                'execution_quality' => $passed ? 88 : 55,
-                'evidence_quality' => $evidenceRefs === [] ? 0 : 88,
-                'learning_required' => true,
-                'missed_signals' => $passed ? [] : ['atlas_dev_completion_not_passed'],
+                'summary' => 'Atlas Dev run outcome is available for human-reviewed learning; do not auto-promote runtime memory.',
+                'current_state' => [
+                    'completion_state' => $result->completionState,
+                    'senior_loop_status' => data_get($seniorLoopExecution, 'status'),
+                ],
+                'proposed_state' => [
+                    'review_learning_for_future_dev_routing' => true,
+                    'auto_promote' => false,
+                    'quality_scores_fabricated' => false,
+                ],
                 'evidence_refs' => $evidenceRefs,
-                'learning_signal' => [
-                    'claim' => 'Atlas Dev run outcomes must feed future programming routing, verification and repair behavior.',
-                    'memory_type' => 'debug_memory',
-                    'scope' => 'atlas-server',
-                    'confidence' => $evidenceRefs === [] ? 0 : 78,
-                    'flow_id' => 'atlas_dev',
-                    'evidence_refs' => $evidenceRefs,
+                'payload' => [
+                    'run_id' => $envelope->runId,
+                    'source_type' => 'atlas_dev_run',
+                    'completion_state' => $result->completionState,
                     'task_contract_hash' => $taskContract->taskContractHash,
                     'allowed_tools' => $taskContract->allowedTools,
-                ],
-                'rag_feedback' => [
-                    'retrieval_receipt_id' => $result->verificationReceiptHash ?: $envelope->runId,
-                    'included_sources' => count($result->persistedReceiptPaths),
-                    'used_sources' => count(array_filter([$result->verificationReceiptHash, $result->scopeGuardReceiptHash, $result->diffHash])),
-                    'noise_sources' => 0,
-                    'missed_required_sources' => [],
-                    'context_sufficiency' => $evidenceRefs === [] ? 30 : 74,
-                    'post_execution_utility' => $passed ? 82 : 68,
-                    'source_utility' => [
-                        'atlas_dev_receipts' => 'execution_evidence',
+                    'receipt_hashes' => [
+                        'verification' => $result->verificationReceiptHash,
+                        'scope_guard' => $result->scopeGuardReceiptHash,
+                        'diff' => $result->diffHash,
                     ],
-                ],
-                'benchmark_case' => [
-                    'force' => ! $passed,
-                    'source' => 'real_user_run',
-                    'expected_flow' => 'atlas_dev',
-                    'required_evidence' => $evidenceRefs,
-                    'rivals' => ['claude_code', 'codex'],
+                    'promotion_policy' => [
+                        'auto_promote' => false,
+                        'operator_review_required' => true,
+                    ],
                 ],
             ]);
         } catch (Throwable $exception) {
@@ -410,19 +397,21 @@ final class RunController extends Controller
 
         return [
             'schema_version' => 'atlas.ai.compounding.atlas_dev_bridge.v1',
-            'status' => 'recorded',
-            'outcome_hash' => data_get($record, 'outcome.outcome_hash'),
+            'status' => 'proposal_only',
+            'proposal_id' => $proposal->id,
+            'proposal_hash' => $proposal->proposal_hash,
+            'promotion_policy' => [
+                'auto_promote' => false,
+                'operator_review_required' => true,
+            ],
+            'quality_scores_fabricated' => false,
             'writes' => true,
         ];
     }
 
-    private function compoundingTablesReady(): bool
+    private function learningProposalTableReady(): bool
     {
-        return DatabaseTableAvailability::has('ai_run_outcomes')
-            && DatabaseTableAvailability::has('ai_learning_candidates')
-            && DatabaseTableAvailability::has('ai_compounding_memories')
-            && DatabaseTableAvailability::has('ai_rag_feedback_events')
-            && DatabaseTableAvailability::has('ai_temporal_certifications');
+        return DatabaseTableAvailability::has('ai_learning_proposals');
     }
 
     /**

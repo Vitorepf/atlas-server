@@ -4,6 +4,9 @@ namespace Tests\Feature\Ai\Programming\AtlasDev\Http;
 
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
+use App\Models\AiCompoundingMemory;
+use App\Models\AiLearningProposal;
+use App\Models\AiRunOutcome;
 use App\Models\AtlasDevConfirmationToken;
 use App\Models\AtlasWorkspaceProfile;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
@@ -13,9 +16,12 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as Op
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use Illuminate\Support\Carbon;
+use Tests\Concerns\BootsCompoundingSchema;
 
 final class RunEndpointTest extends AtlasDevHttpTestCase
 {
+    use BootsCompoundingSchema;
+
     private FakeRunExecutor $fakeExecutor;
 
     protected function setUp(): void
@@ -145,6 +151,37 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $capsule = $storage->read($plan['run_id'], ArtifactNames::FAILURE_CAPSULE_BASE.'.0.json');
         $this->assertIsArray($capsule);
         $this->assertSame('verification_gate', $capsule['gate']);
+    }
+
+    public function test_run_learning_signal_is_proposal_only_without_fabricated_scores_or_memory_promotion(): void
+    {
+        $this->bootCompoundingSchema();
+
+        try {
+            $plan = $this->plan();
+
+            $response = $this->withHeaders($this->headers)
+                ->postJson('/ai/interactions/atlas-dev/run', [
+                    'run_id' => $plan['run_id'],
+                    'task_contract_hash' => $plan['task_contract_hash'],
+                    'confirmation_token' => $plan['confirmation_token'],
+                    'operator_confirmed' => true,
+                ]);
+
+            $response->assertStatus(200);
+            $response->assertJsonPath('data.compounding_learning_signal.status', 'proposal_only');
+            $response->assertJsonPath('data.compounding_learning_signal.promotion_policy.auto_promote', false);
+            $response->assertJsonPath('data.compounding_learning_signal.quality_scores_fabricated', false);
+
+            $this->assertSame(0, AiRunOutcome::query()->count(), 'Dev bridge must not persist scored run outcomes.');
+            $this->assertSame(0, AiCompoundingMemory::query()->count(), 'Dev bridge must not auto-promote active memory.');
+            $this->assertSame(1, AiLearningProposal::query()->count(), 'Dev bridge should materialise a review proposal only.');
+            $proposal = AiLearningProposal::query()->firstOrFail();
+            $this->assertSame('proposed', $proposal->status);
+            $this->assertTrue($proposal->requires_human_review);
+        } finally {
+            $this->dropCompoundingSchema();
+        }
     }
 
     public function test_run_after_response_mode_accepts_without_inline_completion_payload(): void
