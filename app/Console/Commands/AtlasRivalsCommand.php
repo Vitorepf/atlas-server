@@ -11,6 +11,7 @@ use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\AtlasUpliftRunner;
 use App\Services\Ai\Rivals\Core\BundleManifest;
 use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\EnterpriseReportBuilder;
 use App\Services\Ai\Rivals\Core\FaseAClosureReceipt;
 use App\Services\Ai\Rivals\Core\ModelRegistry;
 use App\Services\Ai\Rivals\Core\NativeExecutionBundleImporter;
@@ -39,7 +40,7 @@ class AtlasRivalsCommand extends Command
     protected $aliases = ['atlas:rivals2'];
 
     protected $signature = 'atlas:rivals
-        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|bundle|verify-bundle|closure|ledger}
+        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|report-enterprise|uplift|bundle|verify-bundle|closure|ledger}
         {--repo= : (benchmark-smoke) repo_id do registry (vazio = todos)}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
@@ -71,7 +72,7 @@ class AtlasRivalsCommand extends Command
     {
         $action = $this->argument('action');
         $enabled = (bool) config('atlas_rivals.enabled', false);
-        $mutating = ! in_array($action, ['doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status', 'verify-bundle', 'report', 'report-all'], true);
+        $mutating = ! in_array($action, ['doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status', 'verify-bundle', 'report', 'report-all', 'report-enterprise'], true);
         if (! $enabled && $mutating) {
             $payload = [
                 'status' => 'error',
@@ -131,6 +132,7 @@ class AtlasRivalsCommand extends Command
                 return $report;
             }, lock: true),
             'report-all' => (new ReportBuilder)->buildAll(),
+            'report-enterprise' => (new EnterpriseReportBuilder)->build(),
             'uplift' => $this->withRun(function ($runId) {
                 (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::ADJUDICATED);
                 $model = (string) $this->option('model');

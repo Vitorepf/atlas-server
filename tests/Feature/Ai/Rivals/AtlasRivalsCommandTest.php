@@ -97,6 +97,21 @@ class AtlasRivalsCommandTest extends TestCase
             ->assertExitCode(0);
     }
 
+    public function test_report_enterprise_is_read_only_and_emits_ten_suite_rows(): void
+    {
+        config()->set('atlas_rivals.enabled', false);
+        $exit = $this->withoutMockingConsoleOutput()
+            ->artisan('atlas:rivals', ['action' => 'report-enterprise', '--json' => true]);
+        $this->assertSame(0, $exit);
+        $this->assertFileExists(RunPaths::enterpriseReportPath());
+        $this->assertFileExists(RunPaths::enterpriseMarkdownPath());
+        $this->assertFileExists(RunPaths::enterpriseCsvPath());
+        $payload = json_decode((string) file_get_contents(RunPaths::enterpriseReportPath()), true);
+        $this->assertSame('atlas.rivals2.enterprise_report.v1', $payload['schema_version']);
+        $this->assertFalse($payload['claim_allowed']);
+        $this->assertCount(10, $payload['suite_rows']);
+    }
+
     public function test_legacy_suite_alias_rejected_for_new_plans(): void
     {
         $this->artisan('atlas:rivals plan --suite=tau2_bfcl --json')

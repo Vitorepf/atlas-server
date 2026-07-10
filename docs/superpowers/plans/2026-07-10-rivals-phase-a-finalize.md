@@ -438,8 +438,8 @@ Se `php` ausente no ambiente: instalar PHP 8.4+ antes de marcar wave verde; não
 
 | Wave | Status |
 |---|---|
-| 1 Enterprise report | ⬜ pending Build |
-| 2 Per-run + config | ⬜ |
+| 1 Enterprise report | ✅ done (schema + builder + CLI + doc + tests) |
+| 2 Per-run + config | ⬜ next |
 | 3 Usage capture | ⬜ |
 | 4 Battery dry-run | ⬜ |
 | 5 Faces wiring | ⬜ |

@@ -114,6 +114,26 @@ class RunPaths
         return self::root().'/fase_a_closure_receipt.json';
     }
 
+    public static function enterpriseDir(): string
+    {
+        return self::root().'/enterprise';
+    }
+
+    public static function enterpriseReportPath(): string
+    {
+        return self::enterpriseDir().'/report.json';
+    }
+
+    public static function enterpriseMarkdownPath(): string
+    {
+        return self::enterpriseDir().'/report.md';
+    }
+
+    public static function enterpriseCsvPath(): string
+    {
+        return self::enterpriseDir().'/report.csv';
+    }
+
     public static function eventsPath(string $runId): string
     {
         return self::runDir($runId).'/events.jsonl';

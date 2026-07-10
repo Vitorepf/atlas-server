@@ -34,6 +34,8 @@ class SchemaContract
 
     public const REPORT = 'atlas.rivals2.report.v2';
 
+    public const ENTERPRISE_REPORT = 'atlas.rivals2.enterprise_report.v1';
+
     private const REQUIRED = [
         self::RUN_PLAN_V1 => [
             'schema_version', 'run_id', 'suite_id', 'case_ids', 'arms',
@@ -88,6 +90,11 @@ class SchemaContract
             'claim_allowed', 'claim_blockers', 'claim_scope', 'statistical_analysis',
             'missing_data_policy', 'report_hash', 'built_at',
         ],
+        self::ENTERPRISE_REPORT => [
+            'schema_version', 'built_at', 'report_hash', 'claim_allowed', 'claim_blockers',
+            'executive_summary', 'suite_rows', 'model_matrix', 'atlas_uplift', 'gaps',
+            'included_run_ids', 'excluded_run_ids',
+        ],
     ];
 
     private const RECEIPT_STATUSES = ['success', 'failure', 'error', 'timeout'];
@@ -133,8 +140,41 @@ class SchemaContract
                 }
             }
         }
+        if ($schemaId === self::ENTERPRISE_REPORT) {
+            $violations = array_merge($violations, self::validateEnterpriseReport($payload));
+        }
 
         return array_values(array_unique($violations));
+    }
+
+    /** @return list<string> */
+    private static function validateEnterpriseReport(array $payload): array
+    {
+        $violations = [];
+        if (array_key_exists('claim_allowed', $payload) && $payload['claim_allowed'] !== false) {
+            $violations[] = 'enterprise_claim_allowed_must_be_false';
+        }
+        if (array_key_exists('suite_rows', $payload)) {
+            if (! is_array($payload['suite_rows'])) {
+                $violations[] = 'invalid_array:suite_rows';
+            } else {
+                $count = count($payload['suite_rows']);
+                $expected = count((array) config('atlas_rivals.benchmarks.repos', []));
+                if ($expected <= 0) {
+                    $expected = 10;
+                }
+                if ($count !== $expected) {
+                    $violations[] = "enterprise_suite_rows_count:{$count}";
+                }
+            }
+        }
+        foreach (['executive_summary', 'model_matrix', 'atlas_uplift', 'gaps', 'claim_blockers', 'included_run_ids', 'excluded_run_ids'] as $field) {
+            if (array_key_exists($field, $payload) && ! is_array($payload[$field])) {
+                $violations[] = "invalid_array:{$field}";
+            }
+        }
+
+        return $violations;
     }
 
     /** @return list<string> */

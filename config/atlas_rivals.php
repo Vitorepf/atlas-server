@@ -48,6 +48,15 @@ return [
 
     'runtimes' => ['bare', 'atlas_dev', 'forge', 'loop', 'autonomous'],
 
+    // Fase A battery defaults (enterprise report + orchestrator). Spend still
+    // requires ATLAS_RIVALS2_PROVIDER_SPEND + --approve-provider-spend.
+    'fase_a' => [
+        'primary_model' => env('ATLAS_RIVALS2_FASE_A_MODEL', 'verboo_kimi_k2_7'),
+        'allowed_providers' => ['hermes'],
+        'default_repetitions' => 3,
+        'min_distinct_cases' => 3,
+    ],
+
     // Régua de dificuldade (decisão do operador 02/07): frontier deve pontuar
     // ~20-30% em braço bare. Acima disso a SUITE é acusada de fácil demais —
     // o report levanta difficulty_flags em vez de celebrar o número.
