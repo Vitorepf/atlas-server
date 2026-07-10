@@ -4,10 +4,27 @@ namespace Tests\Feature\Ai\Rivals;
 
 use App\Services\Ai\Rivals\Core\FaseABatteryOrchestrator;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
+use App\Services\Ai\Rivals\Support\RunPaths;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class FaseABatteryOrchestratorTest extends TestCase
 {
+    private string $storage;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->storage = sys_get_temp_dir().'/rivals_fase_a_battery_'.uniqid();
+        config()->set('atlas_rivals.storage_root', $this->storage);
+    }
+
+    protected function tearDown(): void
+    {
+        File::deleteDirectory($this->storage);
+        parent::tearDown();
+    }
+
     public function test_dry_run_bare_lists_ten_suites_with_case_packs(): void
     {
         $payload = (new FaseABatteryOrchestrator)->dryRun('bare');
@@ -47,16 +64,23 @@ class FaseABatteryOrchestratorTest extends TestCase
         $this->assertSame(0, $exit);
     }
 
-    public function test_prepare_requires_flags_and_emits_steps(): void
+    public function test_prepare_persists_real_plans_and_manifests(): void
     {
         config()->set('atlas_rivals.enabled', true);
         config()->set('atlas_rivals.provider_spend_allowed', true);
         $payload = (new FaseABatteryOrchestrator)->prepare('bare', true);
         $this->assertSame('atlas.rivals2.fase_a_battery_prepare.v1', $payload['schema_version']);
-        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('ok', $payload['status'], json_encode($payload['errors'] ?? []));
+        $this->assertSame([], $payload['errors']);
         $this->assertCount(10, $payload['prepared']);
-        $this->assertSame('import-cases', $payload['prepared'][0]['import_cases']['action']);
-        $this->assertSame('plan', $payload['prepared'][0]['plan']['action']);
+        foreach ($payload['prepared'] as $row) {
+            $this->assertNotEmpty($row['run_id'], $row['suite_id']);
+            $this->assertSame('done', $row['import_cases']['status']);
+            $this->assertSame('done', $row['plan']['status']);
+            $this->assertFileExists(RunPaths::planPath($row['run_id']));
+            $this->assertFileExists(RunPaths::nativeManifestPath($row['run_id']));
+            $this->assertSame('ok', $row['preflight']['status'], $row['suite_id']);
+        }
     }
 
     public function test_prepare_fails_closed_without_approve(): void
@@ -74,9 +98,10 @@ class FaseABatteryOrchestratorTest extends TestCase
         config()->set('atlas_rivals.provider_spend_allowed', true);
         $payload = (new FaseABatteryOrchestrator)->prepare('uplift', true);
         $this->assertSame('uplift', $payload['mode']);
-        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('ok', $payload['status'], json_encode($payload['errors'] ?? []));
         $this->assertCount(5, $payload['prepared']);
         $this->assertStringContainsString('atlas_dev', $payload['prepared'][0]['plan']['arms']);
+        $this->assertFileExists(RunPaths::nativeManifestPath($payload['prepared'][0]['run_id']));
 
         $signature = (new \ReflectionClass(\App\Console\Commands\AtlasRivalsCommand::class))
             ->getProperty('signature')

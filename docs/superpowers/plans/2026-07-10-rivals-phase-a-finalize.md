@@ -441,12 +441,12 @@ Se `php` ausente no ambiente: instalar PHP 8.4+ antes de marcar wave verde; não
 | 1 Enterprise report | ✅ feito (schema/CLI/builder/tests) |
 | 2 Per-run + config | ✅ feito (MD/CSV + case_packs 10/10) |
 | 3 Usage capture | ✅ código fail-closed (UsageCaptureContract + Adjudicator + `reconcileFieldPresence` no adapter base + LCB/TB/BFCL/inspect); captura nativa real ainda é Mac |
-| 4 Battery | ✅ dry-run + prepare (emite steps) + execute Mac-only stub — **prepare não invoca artisan import/plan** (só payload) |
+| 4 Battery | ✅ dry-run + **prepare real** (import-cases + plan + soft preflight + manifests) + execute Mac-only stub |
 | 5 Faces wiring | ✅ model_vs_model real + uplift 5 families no enterprise report |
 | 6 Closure + docs | ✅ gate `enterprise_report_present` + runbook + structure drift; docs-health sync no Mac |
-| 7 Mac execute | ⬜ **NÃO feito** — 10 benches Hermes+Verboo + uplift 5/5 + closure `fase_a_100_percent_authorized=true` |
+| 7 Mac execute | ⬜ **NÃO feito e NÃO fazível neste cloud** — 10 benches Hermes+Verboo + uplift 5/5 + closure `fase_a_100_percent_authorized=true` |
 
-**Auditoria rigorosa 2026-07-10 (revisão):** Waves 1–6 = código+testes cloud. **Fase A produto NÃO terminou** — DoD-10 / Wave 7 exige Mac. Não declarar “100%” sem receipt autorizado.
+**Auditoria final 2026-07-10 (confiança):** Waves 1–6 = código+testes cloud **completos**. **Fase A produto NÃO está completa** — DoD-10 / Wave 7 exige Mac do operador. Qualquer claim de “Fase A 100%” sem receipt autorizado é mentira.
 
 ---
 
