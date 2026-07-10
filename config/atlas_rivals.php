@@ -58,6 +58,9 @@ return [
         // Soft budget ceiling stamped on prepared plans (native runner still
         // requires dual approve flags; this is honesty + per-entry max_usd).
         'budget_usd_cap' => (float) env('ATLAS_RIVALS2_FASE_A_BUDGET_USD', 50),
+        // Real native execute (Hermes spend). Default: Darwin only.
+        // Set ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE=true only on the operator Mac.
+        'allow_execute' => (bool) env('ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE', false),
         // Claim packs (≥3 cases) sourced from tests/Fixtures/Rivals/cases.
         'case_packs' => [
             'tau2_bench' => ['airline_task_012', 'airline_task_013', 'airline_task_014'],

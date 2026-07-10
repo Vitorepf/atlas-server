@@ -299,6 +299,289 @@ class FaseABatteryOrchestrator
     }
 
     /**
+     * Run the 10 (or 5 uplift) prepared suites via rivals-native-runner, then
+     * import → verify → adjudicate → report per run, then consolidate enterprise.
+     *
+     * Real spend: Mac (Darwin) or ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE=true.
+     * --dry-run: emit/validate unit commands without provider spend (safe in CI).
+     *
+     * @return array<string, mixed>
+     */
+    public function execute(
+        string $mode = 'bare',
+        bool $approveProviderSpend = false,
+        bool $unitsDryRun = false,
+    ): array {
+        $this->assertExecuteAllowed($unitsDryRun);
+
+        if (! (bool) config('atlas_rivals.enabled', false)) {
+            throw new RuntimeException('atlas_rivals_disabled');
+        }
+        if (! $approveProviderSpend) {
+            throw new RuntimeException('rivals_battery_execute_requires_approve_provider_spend');
+        }
+        if (! $unitsDryRun && ! (bool) config('atlas_rivals.provider_spend_allowed', false)) {
+            throw new RuntimeException('rivals_provider_spend_not_allowed');
+        }
+        if (! $unitsDryRun && ! (new VerbooEnvironment)->available()) {
+            throw new RuntimeException('rivals_battery_execute_verboo_credentials_missing');
+        }
+
+        $smokeGate = $unitsDryRun
+            ? ['required_suites' => [], 'running' => 0, 'blocked' => [], 'note' => 'smoke skipped for --dry-run']
+            : $this->assertSmokesReady($mode);
+        $prepared = $this->prepare($mode, $approveProviderSpend);
+        if (($prepared['status'] ?? null) !== 'ok') {
+            return $prepared + [
+                'schema_version' => 'atlas.rivals2.fase_a_battery_execute.v1',
+                'execute_phase' => 'prepare_failed',
+            ];
+        }
+
+        $suiteResults = [];
+        $errors = [];
+        foreach ($prepared['prepared'] as $row) {
+            try {
+                $suiteResults[] = $this->executePreparedSuite($row, $unitsDryRun);
+            } catch (\Throwable $e) {
+                $errors[] = [
+                    'suite_id' => $row['suite_id'] ?? null,
+                    'run_id' => $row['run_id'] ?? null,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        $enterprise = null;
+        if (! $unitsDryRun && $errors === []) {
+            $enterprise = (new EnterpriseReportBuilder)->build();
+        }
+
+        return [
+            'schema_version' => 'atlas.rivals2.fase_a_battery_execute.v1',
+            'mode' => $mode,
+            'units_dry_run' => $unitsDryRun,
+            'execute_allowed_here' => ! $unitsDryRun,
+            'smoke' => $smokeGate,
+            'prepared' => $prepared,
+            'suite_results' => $suiteResults,
+            'errors' => $errors,
+            'enterprise_report' => $enterprise === null ? null : [
+                'path' => RunPaths::enterpriseReportPath(),
+                'report_hash' => $enterprise['report_hash'] ?? null,
+                'suites_ok' => $enterprise['executive_summary']['suites_ok'] ?? null,
+                'suites_not_run' => $enterprise['executive_summary']['suites_not_run'] ?? null,
+                'claim_allowed' => false,
+            ],
+            'status' => $errors === [] ? 'ok' : 'error',
+            'hint' => $unitsDryRun
+                ? 'dry-run only — no provider spend; re-run without --dry-run on Mac to execute'
+                : 'native units executed; see suite_results + enterprise_report',
+        ];
+    }
+
+    private function assertExecuteAllowed(bool $unitsDryRun): void
+    {
+        if ($unitsDryRun) {
+            return;
+        }
+        $allow = (bool) config('atlas_rivals.fase_a.allow_execute', false)
+            || PHP_OS_FAMILY === 'Darwin';
+        if (! $allow) {
+            throw new RuntimeException('rivals_battery_execute_mac_only');
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function assertSmokesReady(string $mode): array
+    {
+        $repos = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status();
+        $needed = $mode === 'uplift'
+            ? array_values(array_unique(array_values((array) config('atlas_rivals.uplift_families', []))))
+            : (new SuiteRegistry)->externalSuiteIds();
+        $byId = [];
+        foreach ((array) ($repos['repos'] ?? []) as $row) {
+            $byId[(string) ($row['repo_id'] ?? '')] = $row;
+        }
+        $blocked = [];
+        foreach ($needed as $suiteId) {
+            $status = (string) ($byId[$suiteId]['status'] ?? 'blocked');
+            if ($status !== 'running') {
+                $blocked[] = [
+                    'suite_id' => $suiteId,
+                    'status' => $status,
+                    'error' => $byId[$suiteId]['error'] ?? 'smoke_not_running',
+                ];
+            }
+        }
+        if ($blocked !== []) {
+            throw new RuntimeException(
+                'rivals_battery_execute_smoke_not_ready:'.implode(',', array_column($blocked, 'suite_id'))
+            );
+        }
+
+        return [
+            'required_suites' => $needed,
+            'running' => count($needed),
+            'blocked' => [],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $preparedRow
+     * @return array<string, mixed>
+     */
+    private function executePreparedSuite(array $preparedRow, bool $unitsDryRun): array
+    {
+        $suiteId = (string) $preparedRow['suite_id'];
+        $runId = (string) $preparedRow['run_id'];
+        $manifestPath = RunPaths::nativeManifestPath($runId);
+        if (! is_file($manifestPath)) {
+            throw new RuntimeException("rivals_battery_execute_manifest_missing:{$runId}");
+        }
+        $cwd = rtrim((string) config('atlas_rivals.benchmarks.root'), '/').'/'.$suiteId;
+        $manifest = NativeExecutionManifest::load($runId);
+        (new RunStateMachine)->mark($runId, RunStateMachine::NATIVE_RUNNING, [
+            'source' => 'fase_a_battery_execute',
+            'units_dry_run' => $unitsDryRun,
+        ]);
+
+        $unitResults = [];
+        foreach ($manifest->entries() as $entry) {
+            $argv = [
+                PHP_BINARY,
+                base_path('scripts/rivals-native-runner.php'),
+                '--manifest='.$manifestPath,
+                '--cwd='.$cwd,
+                '--execution-id='.$entry['execution_id'],
+            ];
+            if ($unitsDryRun) {
+                $argv[] = '--dry-run';
+                // Dry-run = command plan only (no clone/process required in CI/cloud).
+                $unitResults[] = [
+                    'execution_id' => $entry['execution_id'],
+                    'status' => 'ok',
+                    'exit_code' => 0,
+                    'dry_run' => true,
+                    'argv' => $argv,
+                    'stderr_tail' => '',
+                ];
+
+                continue;
+            }
+            $argv[] = '--approve-provider-spend';
+            $unitResults[] = $this->runNativeUnit($argv, $entry['execution_id'], false);
+        }
+
+        if ($unitsDryRun) {
+            return [
+                'suite_id' => $suiteId,
+                'run_id' => $runId,
+                'status' => 'dry_run',
+                'clone_cwd' => $cwd,
+                'clone_present' => is_dir($cwd.'/.git') || is_dir($cwd),
+                'units' => $unitResults,
+            ];
+        }
+
+        if (! is_dir($cwd.'/.git') && ! is_dir($cwd)) {
+            throw new RuntimeException("rivals_battery_execute_clone_missing:{$suiteId}:{$cwd}");
+        }
+
+        $failedUnits = array_values(array_filter(
+            $unitResults,
+            fn (array $u): bool => ($u['status'] ?? null) !== 'ok',
+        ));
+        if ($failedUnits !== []) {
+            throw new RuntimeException(
+                "rivals_battery_execute_units_failed:{$suiteId}:".count($failedUnits)
+            );
+        }
+
+        $pipeline = $this->finishRunPipeline($runId, $suiteId);
+
+        return [
+            'suite_id' => $suiteId,
+            'run_id' => $runId,
+            'status' => 'ok',
+            'units' => $unitResults,
+            'pipeline' => $pipeline,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $argv
+     * @return array<string, mixed>
+     */
+    private function runNativeUnit(array $argv, string $executionId, bool $unitsDryRun): array
+    {
+        $process = new \Symfony\Component\Process\Process($argv, base_path());
+        $process->setTimeout(null);
+        $process->run();
+        $ok = $process->getExitCode() === 0;
+
+        return [
+            'execution_id' => $executionId,
+            'status' => $ok ? 'ok' : 'error',
+            'exit_code' => $process->getExitCode(),
+            'dry_run' => $unitsDryRun,
+            'argv' => $argv,
+            'stderr_tail' => mb_substr(trim($process->getErrorOutput()), -500),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function finishRunPipeline(string $runId, string $suiteId): array
+    {
+        $adapter = $this->suites->adapterFor($suiteId, allowLegacyAlias: false);
+        $states = new RunStateMachine;
+        $import = (new NativeExecutionBundleImporter)->import(
+            $runId,
+            $suiteId,
+            RunPaths::runDir($runId),
+        );
+        $receipts = $adapter->ingestResults(RunPaths::runDir($runId));
+        foreach ($receipts as $receipt) {
+            $receipt->append();
+        }
+        $states->mark($runId, RunStateMachine::RESULTS_IMPORTED, [
+            'receipts' => count($receipts),
+            'import' => $import,
+        ]);
+        (new EvidencePackBuilder)->build($runId);
+        $states->mark($runId, RunStateMachine::EVIDENCE_BUILT);
+        $verify = (new ReplayVerifier)->verify($runId);
+        if (($verify['verified'] ?? false) !== true) {
+            throw new RuntimeException('rivals_battery_execute_verify_failed:'.$runId);
+        }
+        $states->mark($runId, RunStateMachine::VERIFIED, $verify);
+        $adjudication = (new Adjudicator)->adjudicate($runId);
+        $states->mark($runId, RunStateMachine::ADJUDICATED, [
+            'pipeline_valid' => (bool) ($adjudication['pipeline_valid'] ?? false),
+            'internal_claim_allowed' => (bool) ($adjudication['internal_claim_allowed'] ?? false),
+        ]);
+        (new ResultLedger)->append($runId, $adjudication);
+        $report = (new ReportBuilder)->build($runId);
+        $states->mark($runId, RunStateMachine::REPORTED, [
+            'claim_allowed' => (bool) ($report['claim_allowed'] ?? false),
+        ]);
+        (new ResultLedger)->appendReport($runId, $report);
+
+        return [
+            'import' => $import,
+            'receipts' => count($receipts),
+            'verified' => true,
+            'pipeline_valid' => (bool) ($adjudication['pipeline_valid'] ?? false),
+            'internal_claim_allowed' => (bool) ($adjudication['internal_claim_allowed'] ?? false),
+            'report_hash' => $report['report_hash'] ?? null,
+        ];
+    }
+
+    /**
      * Soft preflight: validates plan/manifest/storage. Smoke is advisory
      * (required for Mac execute, not for prepare itself).
      *

@@ -140,4 +140,33 @@ class FaseABatteryOrchestratorTest extends TestCase
             ->expectsOutputToContain('atlas_rivals_disabled')
             ->assertExitCode(1);
     }
+
+    public function test_execute_blocked_off_mac_without_allow(): void
+    {
+        config()->set('atlas_rivals.enabled', true);
+        config()->set('atlas_rivals.provider_spend_allowed', true);
+        config()->set('atlas_rivals.fase_a.allow_execute', false);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('rivals_battery_execute_mac_only');
+        (new FaseABatteryOrchestrator)->execute('bare', true, false);
+    }
+
+    public function test_execute_dry_run_prepares_and_lists_units_without_spend(): void
+    {
+        config()->set('atlas_rivals.enabled', true);
+        config()->set('atlas_rivals.provider_spend_allowed', true);
+        // Fake smoke running so prepare path is unchanged; dry-run skips smoke gate.
+        $payload = (new FaseABatteryOrchestrator)->execute('bare', true, true);
+        $this->assertSame('atlas.rivals2.fase_a_battery_execute.v1', $payload['schema_version']);
+        $this->assertTrue($payload['units_dry_run']);
+        $this->assertSame('ok', $payload['status'], json_encode($payload['errors'] ?? []));
+        $this->assertCount(10, $payload['suite_results']);
+        $this->assertSame('dry_run', $payload['suite_results'][0]['status']);
+        $this->assertNotEmpty($payload['suite_results'][0]['units']);
+        $this->assertStringContainsString(
+            'rivals-native-runner.php',
+            implode(' ', $payload['suite_results'][0]['units'][0]['argv']),
+        );
+        $this->assertNull($payload['enterprise_report']);
+    }
 }

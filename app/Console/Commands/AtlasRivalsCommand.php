@@ -57,6 +57,7 @@ class AtlasRivalsCommand extends Command
         {--budget= : (plan) budget USD}
         {--max-minutes= : (plan) hard wall-clock cap per native execution}
         {--approve-provider-spend : (plan) aprovação explícita de spend}
+        {--dry-run : (battery execute) lista/valida units sem gastar provider}
         {--replace-import : (import-results) substitui receipts/evidence anteriores}
         {--strict : falha se smoke blocked / uplift unsupported}
         {--run= : run_id (default: run mais recente)}
@@ -191,11 +192,19 @@ class AtlasRivalsCommand extends Command
             return $orchestrator->status();
         }
         if ($mode === 'execute') {
-            return [
-                'status' => 'error',
-                'error' => 'rivals_battery_execute_mac_only',
-                'hint' => 'Native spend execute is Mac-only with Hermes+Verboo. Use battery --mode=prepare for import/plan/preflight steps, then rivals-native-runner per unit.',
-            ];
+            try {
+                return $orchestrator->execute(
+                    (string) ($this->option('kind') ?: 'bare'),
+                    (bool) $this->option('approve-provider-spend'),
+                    (bool) $this->option('dry-run'),
+                );
+            } catch (\Throwable $e) {
+                return [
+                    'status' => 'error',
+                    'error' => $e->getMessage(),
+                    'hint' => 'Fase A execute = smoke 10/10 + prepare + rivals-native-runner (Hermes+Verboo) + report-enterprise. Cloud never spends.',
+                ];
+            }
         }
         if ($mode === 'prepare') {
             try {

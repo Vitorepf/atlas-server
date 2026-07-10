@@ -446,7 +446,7 @@ Se `php` ausente no ambiente: instalar PHP 8.4+ antes de marcar wave verde; não
 | 6 Closure + docs | ✅ gate `enterprise_report_present` + runbook + structure drift; docs-health sync no Mac |
 | 7 Mac execute | ⬜ **NÃO feito e NÃO fazível neste cloud** — 10 benches Hermes+Verboo + uplift 5/5 + closure `fase_a_100_percent_authorized=true` |
 
-**Auditoria final 2026-07-10 (confiança):** Waves 1–6 = código+testes cloud **completos**. **Fase A produto NÃO está completa** — DoD-10 / Wave 7 exige Mac do operador. Qualquer claim de “Fase A 100%” sem receipt autorizado é mentira.
+**Auditoria final 2026-07-10 (confiança):** Waves 1–6 = código+testes cloud **completos + harden de segurança** (prepare mutating gate, budget cap, hermes-only arms, fixture allowlist, case-pack floor, native runner exige Verboo creds). **Fase A produto NÃO está completa** — DoD-10 / Wave 7 exige Mac. Qualquer claim de “vai funcionar 100% nos 10 benches” sem smoke+execute no Mac é overclaim: o código está fail-closed e testado; o ambiente Mac/Hermes/repos é risco residual.
 
 ---
 
