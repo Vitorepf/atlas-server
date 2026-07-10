@@ -157,8 +157,16 @@ final class NativeResultNormalizer
                 'tokens_out' => $tokensOut,
                 'cost_usd' => 0.0,
                 'field_presence' => [
+                    'tokens_in' => [
+                        'present' => $tokensIn > 0,
+                        'reason' => $tokensIn > 0 ? null : 'bfcl_usage_not_reported',
+                    ],
+                    'tokens_out' => [
+                        'present' => $tokensOut > 0,
+                        'reason' => $tokensOut > 0 ? null : 'bfcl_usage_not_reported',
+                    ],
                     'cost_usd' => [
-                        'present' => $isVerboo,
+                        'present' => $isVerboo && ($tokensIn + $tokensOut) > 0,
                         'reason' => $isVerboo
                             ? 'verboo_subscription_marginal'
                             : 'bfcl_native_cost_not_reported',
@@ -367,12 +375,22 @@ final class NativeResultNormalizer
         $row['question_id'] = $entry['case_id'];
         $row['repetition'] = $entry['repetition'];
         $usagePath = (string) data_get($entry, 'normalization.scratch_dir').'/provider_usage.json';
-        if (is_file($usagePath)) {
+        $usagePresent = is_file($usagePath);
+        if ($usagePresent) {
             $usage = $this->json($usagePath);
             $row['tokens_in'] = (int) ($usage['input_tokens'] ?? 0);
             $row['tokens_out'] = (int) ($usage['output_tokens'] ?? 0);
             $row['cost_usd'] = 0.0;
             $row['duration_sec'] = (float) ($usage['duration_sec'] ?? 0);
+            $row['usage_capture'] = [
+                'present' => true,
+                'path' => 'provider_usage.json',
+            ];
+        } else {
+            $row['usage_capture'] = [
+                'present' => false,
+                'reason' => 'lcb_provider_usage_json_missing',
+            ];
         }
 
         return [

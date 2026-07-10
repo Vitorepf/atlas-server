@@ -11,6 +11,8 @@ use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\AtlasUpliftRunner;
 use App\Services\Ai\Rivals\Core\BundleManifest;
 use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\EnterpriseReportBuilder;
+use App\Services\Ai\Rivals\Core\FaseABatteryOrchestrator;
 use App\Services\Ai\Rivals\Core\FaseAClosureReceipt;
 use App\Services\Ai\Rivals\Core\ModelRegistry;
 use App\Services\Ai\Rivals\Core\NativeExecutionBundleImporter;
@@ -39,12 +41,14 @@ class AtlasRivalsCommand extends Command
     protected $aliases = ['atlas:rivals2'];
 
     protected $signature = 'atlas:rivals
-        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|bundle|verify-bundle|closure|ledger}
+        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|report-enterprise|battery|uplift|bundle|verify-bundle|closure|ledger}
         {--repo= : (benchmark-smoke) repo_id do registry (vazio = todos)}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
         {--atlas-runtime=atlas_dev}
         {--suite=local_fake}
+        {--mode=bare : (battery) bare|uplift|model_matrix|status|prepare|execute}
+        {--kind=bare : (battery prepare) bare|uplift|model_matrix}
         {--cases= : (plan) comma-separated case ids; default all imported cases}
         {--limit=5 : (mine) máximo de cases a minerar}
         {--file= : (import-cases/import-results) arquivo ou diretório de origem}
@@ -53,6 +57,7 @@ class AtlasRivalsCommand extends Command
         {--budget= : (plan) budget USD}
         {--max-minutes= : (plan) hard wall-clock cap per native execution}
         {--approve-provider-spend : (plan) aprovação explícita de spend}
+        {--dry-run : (battery execute) lista/valida units sem gastar provider}
         {--replace-import : (import-results) substitui receipts/evidence anteriores}
         {--strict : falha se smoke blocked / uplift unsupported}
         {--run= : run_id (default: run mais recente)}
@@ -71,7 +76,14 @@ class AtlasRivalsCommand extends Command
     {
         $action = $this->argument('action');
         $enabled = (bool) config('atlas_rivals.enabled', false);
-        $mutating = ! in_array($action, ['doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status', 'verify-bundle', 'report', 'report-all'], true);
+        $batteryMode = $action === 'battery' ? (string) ($this->option('mode') ?: 'bare') : '';
+        // prepare mutates disk (import+plan); execute is blocked but still gated.
+        $batteryMutating = $action === 'battery'
+            && in_array($batteryMode, ['prepare', 'execute'], true);
+        $mutating = $batteryMutating || ! in_array($action, [
+            'doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status',
+            'verify-bundle', 'report', 'report-all', 'report-enterprise', 'battery',
+        ], true);
         if (! $enabled && $mutating) {
             $payload = [
                 'status' => 'error',
@@ -131,6 +143,8 @@ class AtlasRivalsCommand extends Command
                 return $report;
             }, lock: true),
             'report-all' => (new ReportBuilder)->buildAll(),
+            'report-enterprise' => (new EnterpriseReportBuilder)->build(),
+            'battery' => $this->runBattery(),
             'uplift' => $this->withRun(function ($runId) {
                 (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::ADJUDICATED);
                 $model = (string) $this->option('model');
@@ -168,6 +182,46 @@ class AtlasRivalsCommand extends Command
         }
 
         return $isError ? self::FAILURE : self::SUCCESS;
+    }
+
+    private function runBattery(): array
+    {
+        $mode = (string) ($this->option('mode') ?: 'bare');
+        $orchestrator = new FaseABatteryOrchestrator;
+        if ($mode === 'status') {
+            return $orchestrator->status();
+        }
+        if ($mode === 'execute') {
+            try {
+                return $orchestrator->execute(
+                    (string) ($this->option('kind') ?: 'bare'),
+                    (bool) $this->option('approve-provider-spend'),
+                    (bool) $this->option('dry-run'),
+                );
+            } catch (\Throwable $e) {
+                return [
+                    'status' => 'error',
+                    'error' => $e->getMessage(),
+                    'hint' => 'Fase A execute = smoke 10/10 + prepare + rivals-native-runner (Hermes+Verboo) + report-enterprise. Cloud never spends.',
+                ];
+            }
+        }
+        if ($mode === 'prepare') {
+            try {
+                return $orchestrator->prepare(
+                    (string) ($this->option('kind') ?: 'bare'),
+                    (bool) $this->option('approve-provider-spend'),
+                );
+            } catch (\Throwable $e) {
+                return ['status' => 'error', 'error' => $e->getMessage()];
+            }
+        }
+
+        try {
+            return $orchestrator->dryRun($mode) + ['status' => 'ok'];
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'error' => $e->getMessage()];
+        }
     }
 
     private function doctor(): array

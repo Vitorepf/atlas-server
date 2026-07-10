@@ -22,15 +22,18 @@ decisions:
   - Todo claim e escopado; nunca best overall nem score unico colapsado.
   - Media global dos adapters e non-claim dashboard only.
   - Relatorio deve expor resolucao, custo, custo/tarefa, tokens, tempo, estabilidade e uplift quando suportado.
+  - Relatorio empresarial consolidado Fase A vive em atlas-rivals-phase-a-enterprise-report-v1 (agregado nunca claim).
 maintenance:
   - Sincronizar gates com Adjudicator e config atlas_rivals.claim.
 related_paths:
   - app/Services/Ai/Rivals/Core/Adjudicator.php
   - app/Services/Ai/Rivals/Core/ReportBuilder.php
+  - app/Services/Ai/Rivals/Core/EnterpriseReportBuilder.php
   - app/Services/Ai/Rivals/Core/EvidencePackBuilder.php
   - app/Services/Ai/Rivals/Core/ReplayVerifier.php
   - app/Services/Ai/Rivals/Core/ResultLedger.php
   - app/Services/Ai/Rivals/Core/AtlasUpliftRunner.php
+  - docs/engineering-knowledge-base/atlas-rivals-phase-a-enterprise-report-v1.md
   - docs/engineering-knowledge-base/thesis/rivals-validation.md
   - config/atlas_rivals.php
 doc_schema: atlas_canonical_module_doc.v1

@@ -48,6 +48,34 @@ return [
 
     'runtimes' => ['bare', 'atlas_dev', 'forge', 'loop', 'autonomous'],
 
+    // Fase A battery defaults (enterprise report + orchestrator). Spend still
+    // requires ATLAS_RIVALS2_PROVIDER_SPEND + --approve-provider-spend.
+    'fase_a' => [
+        'primary_model' => env('ATLAS_RIVALS2_FASE_A_MODEL', 'verboo_kimi_k2_7'),
+        'allowed_providers' => ['hermes'],
+        'default_repetitions' => 3,
+        'min_distinct_cases' => 3,
+        // Soft budget ceiling stamped on prepared plans (native runner still
+        // requires dual approve flags; this is honesty + per-entry max_usd).
+        'budget_usd_cap' => (float) env('ATLAS_RIVALS2_FASE_A_BUDGET_USD', 50),
+        // Real native execute (Hermes spend). Default: Darwin only.
+        // Set ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE=true only on the operator Mac.
+        'allow_execute' => (bool) env('ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE', false),
+        // Claim packs (≥3 cases) sourced from tests/Fixtures/Rivals/cases.
+        'case_packs' => [
+            'tau2_bench' => ['airline_task_012', 'airline_task_013', 'airline_task_014'],
+            'bfcl' => ['simple', 'multiple', 'parallel'],
+            'terminal_bench' => ['tb_hello', 'tb_fix_git', 'tb_git-bisect'],
+            'senior_swe_bench' => ['ssb_0007', 'ssb_0021', 'ssb_0033'],
+            'swe_bench_live' => ['geopandas__geopandas-3132', 'reata__sqllineage-524', 'conan-io__conan-15377'],
+            'live_code_bench' => ['1873_A', '1873_B', '1873_D'],
+            'inspect_evals' => ['gsm8k_af9bef9a', 'gsm8k_f088f6c6', 'gsm8k_4b7e54d8'],
+            'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
+            'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
+            'swe_marathon' => ['slack-clone', 'nextjs-vite-rewrite', 'embedding-eval'],
+        ],
+    ],
+
     // Régua de dificuldade (decisão do operador 02/07): frontier deve pontuar
     // ~20-30% em braço bare. Acima disso a SUITE é acusada de fácil demais —
     // o report levanta difficulty_flags em vez de celebrar o número.

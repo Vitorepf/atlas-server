@@ -28,6 +28,7 @@ related_paths:
   - docs/engineering-knowledge-base/atlas-rivals-internal-corpus-v1.md
   - docs/engineering-knowledge-base/atlas-rivals-claims-and-reporting-v1.md
   - docs/engineering-knowledge-base/atlas-rivals-operator-runbook-v1.md
+  - docs/engineering-knowledge-base/atlas-rivals-phase-a-enterprise-report-v1.md
   - docs/engineering-knowledge-base/atlas-rivals2-rebuild-map-v1.md
   - docs/engineering-knowledge-base/thesis/rivals-validation.md
   - config/atlas_rivals.php

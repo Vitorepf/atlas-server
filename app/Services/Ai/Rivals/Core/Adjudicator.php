@@ -97,6 +97,13 @@ class Adjudicator
                 if (((int) $receipt->data['tokens_in'] + (int) $receipt->data['tokens_out']) <= 0) {
                     $internalBlockers[] = 'provider_usage_empty:'.$receipt->key();
                 }
+                $provider = (string) ($model['provider'] ?? '');
+                if ($provider === 'hermes') {
+                    foreach ((new \App\Services\Ai\Rivals\Support\UsageCaptureContract)
+                        ->validate($receipt->data, 'hermes') as $usageBlocker) {
+                        $internalBlockers[] = $usageBlocker.':'.$receipt->key();
+                    }
+                }
             }
         }
 

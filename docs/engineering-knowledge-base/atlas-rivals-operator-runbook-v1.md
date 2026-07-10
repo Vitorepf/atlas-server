@@ -104,6 +104,8 @@ Schemas internos `atlas.rivals2.*` e env `ATLAS_RIVALS2_*` sao formato preservad
 | `verify` | ReplayVerifier |
 | `adjudicate` | Hard gates + append ledger |
 | `report` / `report-all` | Relatorio escopado (report-all nunca claim_allowed) |
+| `report-enterprise` | Relatorio empresarial consolidado Fase A (sempre 10 suites; agregado never claim) |
+| `battery` | Dry-run da bateria Fase A (`--mode=bare|uplift|status`); prepare/execute so no Mac |
 | `uplift` | bare vs atlas_* (`--model=` obrigatorio; `--strict` falha se unsupported) |
 | `bundle` / `verify-bundle` | Bundle portatil e verificacao read-only |
 | `closure` | Reexecuta gates e gera closure receipt; `--strict` exige 100%; `--verify` detecta edicao |
@@ -176,8 +178,50 @@ php artisan atlas:rivals benchmark-smoke --repo=tau2_bench --json
 php artisan atlas:rivals run-fake --json
 php artisan atlas:rivals adjudicate --json
 php artisan atlas:rivals report --json
+php artisan atlas:rivals report-enterprise --json
+php artisan atlas:rivals battery --mode=bare --json
 php artisan atlas:rivals ledger --verify --json
 ```
+
+### Fase A — o produto em 4 comandos (Mac + Hermes + Verboo)
+
+Os 10 benches já têm repo + adapter + docs. Atlas só precisa **rodar** e **consolidar**.
+
+```bash
+# 0) flags no .env do atlas-server
+# ATLAS_RIVALS2_ENABLED=true
+# ATLAS_RIVALS2_PROVIDER_SPEND=true
+# (opcional se não for Darwin) ATLAS_RIVALS2_FASE_A_ALLOW_EXECUTE=true
+
+# 1) smoke dos 10 (clone/install/smoke — sem gastar provider)
+php artisan atlas:rivals benchmark-smoke --json
+
+# 2) dry-run do execute (valida prepare + argv do native-runner — sem spend)
+php artisan atlas:rivals battery --mode=execute --kind=bare --approve-provider-spend --dry-run --json
+
+# 3) EXECUTE real nos 10 (Hermes+Verboo) + pipeline + enterprise report
+php artisan atlas:rivals battery --mode=execute --kind=bare --approve-provider-spend --json
+
+# 4) uplift Atlas × modelo (5 famílias) + consolidar de novo
+php artisan atlas:rivals battery --mode=execute --kind=uplift --approve-provider-spend --json
+php artisan atlas:rivals report-enterprise --json
+php artisan atlas:rivals closure --verify --json
+```
+
+Saída do passo 3: `suite_results[]` por bench + `enterprise_report` em
+`storage/atlas/rivals/enterprise/`. Agregado dos 10 **nunca** é claim.
+
+Cloud agents **nao** chamam execute sem `--dry-run`.
+
+### Fase A finalize (legado / detalhe)
+
+```bash
+php artisan atlas:rivals battery --mode=bare --json
+php artisan atlas:rivals battery --mode=prepare --kind=bare --approve-provider-spend --json
+php artisan atlas:rivals battery --mode=prepare --kind=uplift --approve-provider-spend --json
+```
+
+Cloud agents **nao** chamam `--mode=execute` sem `--dry-run` / native spend.
 
 ## Regras para IA
 
