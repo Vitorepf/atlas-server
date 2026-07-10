@@ -14,7 +14,7 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        return 'inspect eval {task_ref} --model {cli_model} --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
+        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 -M responses_api=false --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
     }
 
     protected function mapResults(array $native): array
@@ -44,8 +44,11 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 $first = reset($usage);
                 $usage = is_array($first) ? $first : [];
             }
-            $costPresent = array_key_exists('cost_usd', $usage)
+            $isVerboo = str_contains($model, 'kimi-k2.7');
+            $costPresent = $isVerboo
+                || array_key_exists('cost_usd', $usage)
                 || array_key_exists('total_cost', $usage);
+            $tokensPresent = isset($usage['input_tokens'], $usage['output_tokens']);
             $harnessOnly = str_starts_with($model, 'mockllm')
                 || (($native['harness_note'] ?? null) !== null);
             $receipts[] = [
@@ -62,7 +65,17 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 'field_presence' => [
                     'cost_usd' => [
                         'present' => $costPresent,
-                        'reason' => $costPresent ? null : 'inspect_logs_omit_usd',
+                        'reason' => $isVerboo
+                            ? 'verboo_subscription_marginal'
+                            : ($costPresent ? null : 'inspect_logs_omit_usd'),
+                    ],
+                    'tokens_in' => [
+                        'present' => $tokensPresent,
+                        'reason' => $tokensPresent ? null : 'inspect_logs_omit_usage',
+                    ],
+                    'tokens_out' => [
+                        'present' => $tokensPresent,
+                        'reason' => $tokensPresent ? null : 'inspect_logs_omit_usage',
                     ],
                 ],
                 'started_at' => $sample['started_at'] ?? null,

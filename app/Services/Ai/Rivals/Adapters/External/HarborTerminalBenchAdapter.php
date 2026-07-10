@@ -20,6 +20,10 @@ class HarborTerminalBenchAdapter extends AbstractExternalSuiteAdapter
     protected function commandTemplateForArm(array $binding): string
     {
         if (($binding['model_id'] ?? null) === 'verboo_kimi_k2_7') {
+            if (($binding['runtime'] ?? null) === 'atlas_dev') {
+                return 'tb run --dataset terminal-bench-core==0.1.1 --task-id {native_task_id} --agent-import-path rivals_tb_atlas_agent:AtlasDevAgent --model {cli_model} --output-path {output_parent} --run-id {run_name} --n-attempts 1 --n-concurrent 1';
+            }
+
             return 'tb run --dataset terminal-bench-core==0.1.1 --task-id {native_task_id} --agent-import-path rivals_tb_verboo_agent:VerbooAiderAgent --model {cli_model} --output-path {output_parent} --run-id {run_name} --n-attempts 1 --n-concurrent 1';
         }
 

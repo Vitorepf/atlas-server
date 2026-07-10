@@ -287,8 +287,9 @@ return [
                 ],
                 'smoke' => 'python benchmark/benchmark.py --help',
             ],
-            // Ultra-long-horizon SWE (https://www.swe-marathon.org/) — Harbor tasks;
-            // trials reais pedem Modal + provider; smoke aqui é só presença de tasks + harbor CLI.
+            // Ultra-long-horizon SWE (https://www.swe-marathon.org/) — Harbor tasks.
+            // Runtime default é Docker para tasks CPU; Modal só é obrigatório quando
+            // ATLAS_RIVALS2_MARATHON_ENV=modal (por exemplo tasks GPU).
             'swe_marathon' => [
                 'url' => 'https://github.com/abundant-ai/swe-marathon.git',
                 'adapter' => 'swe_marathon',

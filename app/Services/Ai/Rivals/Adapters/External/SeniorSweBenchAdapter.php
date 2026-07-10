@@ -19,7 +19,7 @@ class SeniorSweBenchAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        return 'harbor run --path tasks --include-task-name {native_task_id} --agent-import-path rivals_harbor_hermes_agent:VerbooHermes --model {cli_model} --allow-agent-host code.verboo.ai --n-attempts 1 --n-concurrent 1 --jobs-dir {jobs_dir} --job-name {run_name} --yes';
+        return 'harbor run --path tasks --include-task-name {native_task_id} --agent-import-path rivals_harbor_hermes_agent:VerbooHermes --model {cli_model} --allow-agent-host code.verboo.ai --verifier-env OPENAI_BASE_URL=https://code.verboo.ai/router/v1 --verifier-env OPENAI_API_BASE=https://code.verboo.ai/router/v1 --n-attempts 1 --n-concurrent 1 --jobs-dir {jobs_dir} --job-name {run_name} --yes';
     }
 
     protected function mapResults(array $native): array

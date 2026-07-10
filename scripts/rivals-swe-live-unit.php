@@ -13,15 +13,18 @@ $options = getopt('', [
     'case-file:',
     'instance:',
     'model:',
+    'runtime:',
     'scratch:',
     'timeout::',
 ]);
 $caseFile = realpath((string) ($options['case-file'] ?? ''));
 $instanceId = trim((string) ($options['instance'] ?? ''));
 $model = trim((string) ($options['model'] ?? ''));
+$runtime = trim((string) ($options['runtime'] ?? 'bare'));
 $scratch = (string) ($options['scratch'] ?? '');
 $timeout = max(300, min(7200, (int) ($options['timeout'] ?? 3600)));
-if ($caseFile === false || $instanceId === '' || $model === '' || $scratch === '') {
+if ($caseFile === false || $instanceId === '' || $model === '' || $scratch === ''
+    || ! in_array($runtime, ['bare', 'atlas_dev'], true)) {
     fwrite(STDERR, "rivals_swe_live_invalid_arguments\n");
     exit(2);
 }
@@ -69,9 +72,12 @@ $prompt = "Solve this issue in the checked-out repository. Make the smallest pro
     .$case['problem_statement'];
 $promptFile = $workspace.'/.rivals_task.md';
 file_put_contents($promptFile, $prompt);
+$solverScript = $runtime === 'atlas_dev'
+    ? 'scripts/rivals-atlas-dev-bridge.php'
+    : 'scripts/rivals-hermes-bare.php';
 $solver = new Process([
     PHP_BINARY,
-    base_path('scripts/rivals-hermes-bare.php'),
+    base_path($solverScript),
     '--workspace='.$workspace,
     '--prompt-file='.$promptFile,
     '--model='.$model,
@@ -91,10 +97,17 @@ file_put_contents(
     $predictionsPath,
     json_encode($predictions, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
 );
+$providerReceiptName = $runtime === 'atlas_dev'
+    ? '.rivals_atlas_dev_bridge.json'
+    : '.rivals_bare_provider.json';
 $providerReceipt = json_decode(
-    (string) file_get_contents($workspace.'/.rivals_bare_provider.json'),
+    (string) file_get_contents($workspace.'/'.$providerReceiptName),
     true,
 ) ?? [];
+if (($providerReceipt['real_provider'] ?? false) !== true) {
+    fwrite(STDERR, "rivals_swe_live_provider_proof_invalid\n");
+    exit(1);
+}
 file_put_contents($scratch.'/predictions.usage.json', json_encode([
     'duration_sec' => ((float) ($providerReceipt['wall_ms'] ?? 0)) / 1000,
     'usage' => $providerReceipt['usage'] ?? null,

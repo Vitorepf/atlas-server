@@ -77,7 +77,8 @@ class VerbooHermes(Hermes):
         )
         run_cmd = (
             'export PATH="$HOME/.local/bin:$PATH" && '
-            'hermes --yolo chat -q "$HARBOR_INSTRUCTION" -Q '
+            "hermes --usage-file /logs/agent/hermes-usage.json --yolo chat "
+            '-q "$HARBOR_INSTRUCTION" -Q '
             f"--provider verboo --model {shlex.quote(model)} "
             "2>&1 | stdbuf -oL tee /logs/agent/hermes.txt"
         )

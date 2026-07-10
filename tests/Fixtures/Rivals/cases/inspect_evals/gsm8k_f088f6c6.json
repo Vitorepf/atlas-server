@@ -1,0 +1,9 @@
+{
+  "case_id": "gsm8k_f088f6c6",
+  "task_ref": "inspect_evals/gsm8k",
+  "sample_id": "gsm8k_f088f6c6",
+  "task_type": "tool_use_function_calling",
+  "title": "GSM8K native sample 3",
+  "suite_id": "inspect_evals",
+  "source_repo": "inspect_evals"
+}

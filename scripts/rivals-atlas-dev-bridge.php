@@ -91,33 +91,61 @@ if (array_key_exists('dry-run', $options)) {
 $startedAt = now();
 $process = new Process($argv, base_path(), [
     'ATLAS_DEV_DETERMINISTIC_FAST_PATH_ENABLED' => 'false',
+    'ATLAS_DEV_HERMES_EXECUTION_TRANSPORT' => 'cli',
+    'ATLAS_DEV_PROVIDER_CONSULT_DECIDE' => 'false',
+    'ATLAS_AI_HERMES_MODEL' => $model,
+    'ATLAS_AI_HERMES_MODEL_IDENTITY' => $model,
+    'ATLAS_AI_HERMES_PROVIDER' => 'verboo',
+    'ATLAS_AI_HERMES_TIMEOUT_SECONDS' => (string) $timeout,
 ]);
 $process->setTimeout((float) $timeout);
 $process->run();
 $finishedAt = now();
 $outputPayload = json_decode(trim($process->getOutput()), true);
-$inputTokens = is_array($outputPayload)
-    ? firstNumericValue($outputPayload, ['input_tokens', 'tokens_in', 'prompt_tokens'])
+$providerCall = is_array($outputPayload)
+    ? (array) data_get($outputPayload, 'run.provider_call', [])
+    : [];
+$actualProvider = (string) ($providerCall['provider'] ?? '');
+$actualModel = (string) ($providerCall['model_family'] ?? '');
+$providerCalls = (int) ($providerCall['provider_calls'] ?? 0);
+$providerExitCode = is_numeric($providerCall['exit_code'] ?? null)
+    ? (int) $providerCall['exit_code']
     : null;
-$outputTokens = is_array($outputPayload)
-    ? firstNumericValue($outputPayload, ['output_tokens', 'tokens_out', 'completion_tokens'])
+$providerErrors = array_values(array_filter((array) ($providerCall['error_codes'] ?? [])));
+$providerLockVerified = $actualProvider === 'hermes_cli'
+    && $actualModel === $model
+    && $providerCalls > 0
+    && $providerExitCode === 0
+    && $providerErrors === [];
+$inputTokens = is_numeric($providerCall['tokens_in'] ?? null)
+    ? (int) $providerCall['tokens_in']
     : null;
-$costUsd = is_array($outputPayload)
-    ? firstNumericValue($outputPayload, ['cost_usd', 'total_cost_usd'])
+$outputTokens = is_numeric($providerCall['tokens_out'] ?? null)
+    ? (int) $providerCall['tokens_out']
+    : null;
+$costUsd = is_numeric($providerCall['estimated_cost_usd'] ?? null)
+    ? (float) $providerCall['estimated_cost_usd']
     : null;
 $receipt = [
     'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
-    'status' => $process->isSuccessful() ? 'passed' : 'failed',
-    'real_provider' => true,
+    'status' => $providerLockVerified ? 'passed' : 'failed',
+    'real_provider' => $providerLockVerified,
     'workspace' => $workspace,
-    'model' => $model,
-    'provider' => $provider,
+    'model' => $actualModel !== '' ? $actualModel : $model,
+    'expected_model' => $model,
+    'provider' => $actualProvider !== '' ? $actualProvider : $provider,
     'ai' => $ai,
     'fair_mode' => [
-        'single_provider' => true,
-        'decide_disabled' => true,
-        'fallback_disabled' => true,
+        'single_provider' => $providerLockVerified,
+        'decide_disabled' => $providerLockVerified,
+        'fallback_disabled' => $providerLockVerified,
         'deterministic_fast_path_disabled' => true,
+    ],
+    'provider_call' => [
+        'provider_calls' => $providerCalls,
+        'exit_code' => $providerExitCode,
+        'duration_ms' => $providerCall['duration_ms'] ?? null,
+        'error_codes' => $providerErrors,
     ],
     'argv_hash' => hash('sha256', json_encode($argv, JSON_UNESCAPED_SLASHES)),
     'exit_code' => $process->getExitCode(),
@@ -138,28 +166,8 @@ file_put_contents(
     json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
 );
 echo $process->getOutput();
-if (! $process->isSuccessful()) {
+if (! $providerLockVerified) {
     fwrite(STDERR, $process->getErrorOutput());
     exit(1);
 }
 exit(0);
-
-function firstNumericValue(array $payload, array $keys): int|float|null
-{
-    foreach ($keys as $key) {
-        if (array_key_exists($key, $payload) && is_numeric($payload[$key])) {
-            return $payload[$key] + 0;
-        }
-    }
-    foreach ($payload as $value) {
-        if (! is_array($value)) {
-            continue;
-        }
-        $found = firstNumericValue($value, $keys);
-        if ($found !== null) {
-            return $found;
-        }
-    }
-
-    return null;
-}

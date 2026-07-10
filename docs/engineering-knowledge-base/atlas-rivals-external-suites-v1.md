@@ -81,6 +81,8 @@ Fase A de `atlas-rivals-structure-v1`. Codigo: `BenchmarkRepoManager` + `Adapter
 - Sem receipt de smoke exit 0 ⇒ `status=blocked` (nunca "pronto por presuncao").
 - Nenhum smoke gasta provider.
 - Website/leaderboard externo nunca vira claim local.
+- Bateria provider real Fase A usa `verboo_kimi_k2_7`; chave vem do Hermes e
+  nunca entra em manifest, argv, report ou ledger.
 
 ### Catalogo (espelho do config)
 
@@ -110,13 +112,31 @@ hash-pinado; fixture agregada e somente harness/legado.
 
 - tau2: `--save-to`, `--num-trials 1`, seed por rep; Results nativo.
 - BFCL: generate por category + evaluate; result/score JSONL.
-- terminal_bench: binary `tb`, `--output-path`, run id e attempt unicos.
+- terminal_bench: binary `tb`, `--output-path`, run id e attempt unicos;
+  agente Verboo preserva `openai/kimi-k2.7` + base URL e captura usage.
 - senior_swe_bench / swe_marathon: Harbor jobs-dir/job-name e TrialResult.
 - swe_bench_live: predictions + evaluation (`--patch_dir`/`--output_dir`).
 - live_code_bench: `--evaluate --n 1`; extracao do `_eval_all.json`.
-- inspect_evals: `--sample-id --epochs 1 --log-dir`; leitura `.eval`.
+- inspect_evals: `--sample-id --epochs 1 --log-dir`; OpenAI-compatible força
+  `responses_api=false`; leitura `.eval`.
 - hal_harness: agent dir/function/name, task id e `_UPLOAD.json`.
 - aider_polyglot: reps sao runs `--new`; `--tries` continua interno ao aider.
+
+### Solver swap para uplift
+
+As cinco familias configuradas (`hal_harness`, `swe_bench_live`,
+`terminal_bench`, `bfcl`, `aider_polyglot`) preservam o grader nativo, mas
+trocam somente o solver:
+
+| runtime | prova obrigatoria |
+|---|---|
+| `bare` | native receipt `success`/`mode=execute`, modelo binding exato e usage non-zero; projeta `metadata.direct_provider` |
+| `atlas_dev` | bridge Atlas Dev real no workspace, `hermes_cli` + Kimi exato + fair-mode + usage; projeta `metadata.runtime_bridge` |
+
+O manifest path (nao o model string) vincula cada unit result ao arm canonico.
+Isso evita que dois arms com o mesmo native model sejam remapeados para o
+mesmo runtime. Se bare e Atlas gerarem o mesmo argv/solver path, o contrato e
+invalido e closure nao conta o uplift.
 
 ## Fluxo
 

@@ -1,9 +1,9 @@
 {
-  "case_id": "polyglot_001",
-  "native_task_id": "acronym",
+  "case_id": "polyglot_002",
+  "native_task_id": "accumulate",
   "language": "rust",
   "task_type": "coding_patch",
-  "title": "polyglot_001",
+  "title": "Rust accumulate exercise",
   "suite_id": "aider_polyglot",
   "source_repo": "aider_polyglot"
 }

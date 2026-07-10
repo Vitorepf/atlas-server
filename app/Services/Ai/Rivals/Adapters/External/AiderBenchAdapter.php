@@ -17,6 +17,15 @@ class AiderBenchAdapter extends AbstractExternalSuiteAdapter
         return 'benchmark/benchmark.py {run_name} --new --model {cli_model} --edit-format diff --tries 2 --keywords {native_task_id} --num-tests 1 --threads 1 --exercises-dir polyglot-benchmark';
     }
 
+    protected function commandTemplateForArm(array $binding): string
+    {
+        if (($binding['runtime'] ?? null) === 'atlas_dev') {
+            return 'php {atlas_root}/scripts/rivals-aider-polyglot-unit.php --case-file={case_file} --model={atlas_cli_model} --scratch={eval_scratch_dir}';
+        }
+
+        return parent::commandTemplateForArm($binding);
+    }
+
     protected function mapResults(array $native): array
     {
         $model = $native['model'] ?? throw new RuntimeException('aider_polyglot_model_missing');

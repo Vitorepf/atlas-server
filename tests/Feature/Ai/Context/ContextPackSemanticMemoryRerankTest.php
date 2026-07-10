@@ -23,11 +23,17 @@ use Tests\TestCase;
  */
 final class ContextPackSemanticMemoryRerankTest extends TestCase
 {
-    /** @var array<int,array<string,string>> recall order: auth, crop, cache */
+    /**
+     * Recall order: crop, auth, cache. Fidelidade ao runtime: o recall híbrido REAL sempre
+     * entrega `score` — e é o score que autoriza a entrega pelo floor de relevância do pack
+     * (item sem score cai no floor lexical; ver AtlasOpenBrainContextPackService).
+     *
+     * @var array<int,array<string,mixed>>
+     */
     private const RECALL = [
-        ['title' => 'crop note', 'summary' => 'autumn wheat harvest revenue forecast', 'body' => '', 'type' => 'technical_context', 'scope' => 'global', 'source_type' => 'memory_entry', 'content_hash' => 'h_crop', 'privacy_class' => 'normal'],
-        ['title' => 'auth note', 'summary' => 'validate user login session and credential token', 'body' => '', 'type' => 'decision', 'scope' => 'global', 'source_type' => 'memory_entry', 'content_hash' => 'h_auth', 'privacy_class' => 'normal'],
-        ['title' => 'cache note', 'summary' => 'evict stale entries from the lookup cache', 'body' => '', 'type' => 'technical_context', 'scope' => 'global', 'source_type' => 'memory_entry', 'content_hash' => 'h_cache', 'privacy_class' => 'normal'],
+        ['title' => 'crop note', 'summary' => 'autumn wheat harvest revenue forecast', 'body' => '', 'type' => 'technical_context', 'scope' => 'global', 'source_type' => 'memory_entry', 'content_hash' => 'h_crop', 'privacy_class' => 'normal', 'score' => 12.5],
+        ['title' => 'auth note', 'summary' => 'validate user login session and credential token', 'body' => '', 'type' => 'decision', 'scope' => 'global', 'source_type' => 'memory_entry', 'content_hash' => 'h_auth', 'privacy_class' => 'normal', 'score' => 11.0],
+        ['title' => 'cache note', 'summary' => 'evict stale entries from the lookup cache', 'body' => '', 'type' => 'technical_context', 'scope' => 'global', 'source_type' => 'memory_entry', 'content_hash' => 'h_cache', 'privacy_class' => 'normal', 'score' => 9.75],
     ];
 
     private function bindMemory(): void

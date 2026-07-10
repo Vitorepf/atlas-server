@@ -61,6 +61,7 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         // and force STATUS_FAILED independently of the behavior under test.
         // These tests cover the hermes provider branch, not E4. (m2-e4-hard)
         config()->set('atlas_dev.elevations.e4.mode', 'off');
+        config()->set('atlas.programming.strict_retrieval_gate', false);
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-hermes-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
@@ -130,7 +131,14 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
                     stderr: '',
                     errorCode: null,
                     errorMessage: null,
-                    metadata: ['hermes_runtime' => ['role' => 'executive_runtime']],
+                    metadata: [
+                        'hermes_runtime' => ['role' => 'executive_runtime'],
+                        'hermes_usage' => [
+                            'input_tokens' => 1234,
+                            'output_tokens' => 321,
+                            'estimated_cost_usd' => 0.0,
+                        ],
+                    ],
                 );
             }
 
@@ -173,7 +181,7 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
             'validation_commands' => ['php -l app/Foo.php'],
             'provider_lock' => [
                 'provider' => 'hermes_cli',
-                'model_family' => 'minimax-m3',
+                'model_family' => 'kimi-k2.7',
                 'fallback_allowed' => false,
             ],
         ]);
@@ -188,8 +196,16 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         // Routed to the hermes branch, not to Claude and not to the default
         // unsupported_provider_lock arm.
         $this->assertSame([], $gateway->requests, 'hermes_cli provider lock must NOT dispatch ClaudeCliGateway.');
-        $this->assertSame('hermes_cli', $result->providerCallSummary['provider']);
-        $this->assertSame('minimax-m3', $result->providerCallSummary['model_family']);
+        $this->assertSame(
+            'hermes_cli',
+            $result->providerCallSummary['provider'],
+            json_encode([
+                'provider_call' => $result->providerCallSummary,
+                'reasons' => $result->reasons,
+                'completion' => $result->completionState,
+            ], JSON_PRETTY_PRINT),
+        );
+        $this->assertSame('kimi-k2.7', $result->providerCallSummary['model_family']);
         $this->assertSame(1, $result->providerCallSummary['provider_calls'], 'fake Hermes provider must have been invoked exactly once');
         $this->assertNotContains(
             'unsupported_provider_lock:hermes_cli',
@@ -205,6 +221,9 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
 
         // Result mapping: duration came from the AiProviderResult.
         $this->assertSame(4242, $result->providerCallSummary['duration_ms']);
+        $this->assertSame(1234, $result->providerCallSummary['tokens_in']);
+        $this->assertSame(321, $result->providerCallSummary['tokens_out']);
+        $this->assertSame(0.0, $result->providerCallSummary['estimated_cost_usd']);
 
         // The fake (standing in for Hermes) mutated the workspace and Atlas
         // derived the diff from it.
@@ -225,13 +244,9 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
         $this->assertSame('cli', data_get($job->getAttribute('payload'), 'hermes.execution_transport'));
         $this->assertSame(1, data_get($job->getAttribute('payload'), 'hermes.max_turns'));
         $this->assertSame('hermes_cli', $job->getAttribute('provider'));
-        // Atlas defers sub-model selection to Hermes' own executive runtime: the
-        // job carries the Hermes default sentinel (config
-        // atlas.ai.providers.hermes_cli.model), NOT the Atlas-Decide-locked family,
-        // so Hermes is never handed a non-Hermes model (e.g. 'sonnet'/'minimax-m3')
-        // that its CLI rejects with cli_error. The locked family is still recorded
-        // in the receipt (asserted above at providerCallSummary['model_family']).
-        $this->assertSame('hermes_cli_default', $job->getAttribute('model'));
+        // An explicit provider lock must reach Hermes byte-for-byte; benchmark
+        // fairness cannot rely on the operator's mutable default model.
+        $this->assertSame('kimi-k2.7', $job->getAttribute('model'));
 
         // Hermes is treated as a workspace mutator — the diff is NOT re-applied.
         $apply = $storage->read($runId, ArtifactNames::PATCH_APPLY_RESULT);

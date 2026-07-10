@@ -33,6 +33,7 @@ final class VerbooEnvironment
             'WANDB_MODE' => 'offline',
             'WANDB_SILENT' => 'true',
             'WEAVE_DISABLED' => 'true',
+            'ATLAS_RIVALS_ROOT' => base_path(),
         ]);
     }
 

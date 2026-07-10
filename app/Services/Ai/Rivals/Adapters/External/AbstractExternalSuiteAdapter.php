@@ -10,6 +10,7 @@ use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
 use App\Services\Ai\Rivals\Core\RunPlan;
 use App\Services\Ai\Rivals\Core\RunReceipt;
 use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\RuntimeProofAttacher;
 use App\Services\Ai\Rivals\Support\SchemaContract;
 use RuntimeException;
 
@@ -265,6 +266,14 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
         if (! is_array($native)) {
             throw new RuntimeException($this->suiteId().'_results_unparseable:'.$path);
         }
+        $executionReceipt = collect(NativeExecutionReceipt::loadAll($runId))->first(
+            fn (NativeExecutionReceipt $receipt): bool => $receipt->data['expected_result_path'] === $rel,
+        );
+        $manifestEntry = is_file(RunPaths::nativeManifestPath($runId))
+            ? collect(NativeExecutionManifest::load($runId)->entries())->first(
+                fn (array $entry): bool => $entry['expected_result_path'] === $rel,
+            )
+            : null;
         $base = [
             'schema_version' => SchemaContract::RUN_RECEIPT,
             'run_id' => $runId,
@@ -294,8 +303,31 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                 $base['field_presence'],
                 (array) ($overrides['field_presence'] ?? [])
             );
+            if ((int) $merged['wall_ms'] <= 0 && $executionReceipt instanceof NativeExecutionReceipt) {
+                $merged['wall_ms'] = (int) $executionReceipt->data['wall_ms'];
+                $merged['started_at'] ??= $executionReceipt->data['started_at'];
+                $merged['finished_at'] ??= $executionReceipt->data['finished_at'];
+                $merged['field_presence']['wall_ms'] = [
+                    'present' => true,
+                    'reason' => 'native_execution_receipt',
+                ];
+            }
             if ($plan !== null) {
-                $merged = $this->remapToCanonicalArm($merged, $plan, $bindings);
+                $merged = $this->remapToCanonicalArm(
+                    $merged,
+                    $plan,
+                    $bindings,
+                    is_array($manifestEntry) ? (string) $manifestEntry['arm_id'] : null,
+                );
+                $binding = data_get($merged, 'metadata.canonical_arm');
+                if (is_array($binding)) {
+                    $merged = (new RuntimeProofAttacher)->attach(
+                        $merged,
+                        $binding,
+                        $runId,
+                        $rel,
+                    );
+                }
             }
             if (! array_key_exists('failure_class', $overrides)) {
                 $merged['failure_class'] = RunReceipt::defaultFailureClass((string) $merged['status']);
@@ -326,7 +358,10 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             ?? $cliModel);
         $nativeAgent = (string) ($arm['native_agent'] ?? $this->defaultNativeAgent());
         $sourceRepo = (string) ($arm['source_repo'] ?? $this->suiteId());
-        $nativeBindingId = (string) ($arm['native_binding_id'] ?? "{$nativeModel}|{$nativeAgent}|{$sourceRepo}");
+        $nativeBindingId = (string) (
+            $arm['native_binding_id']
+            ?? "{$nativeModel}|{$nativeAgent}|{$sourceRepo}|{$runtime}"
+        );
 
         return [
             'arm_id' => $armId,
@@ -370,8 +405,12 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
     }
 
     /** @param array<string, mixed> $receipt */
-    private function remapToCanonicalArm(array $receipt, RunPlan $plan, array $bindings): array
-    {
+    private function remapToCanonicalArm(
+        array $receipt,
+        RunPlan $plan,
+        array $bindings,
+        ?string $manifestArmId = null,
+    ): array {
         $native = (array) (($receipt['metadata']['native'] ?? []) ?: []);
         $cliModel = (string) ($native['cli_model'] ?? '');
         $nativeAgent = (string) ($native['native_agent'] ?? $this->defaultNativeAgent());
@@ -382,14 +421,32 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             $cliModel,
         ];
         $binding = null;
-        foreach ($candidates as $key) {
-            if ($key !== '' && isset($bindings[$key])) {
-                $binding = $bindings[$key];
-                break;
+        if ($manifestArmId !== null) {
+            $models = new ModelRegistry;
+            foreach ($plan->data['arms'] as $arm) {
+                $candidate = $this->enrichArmBinding($arm, $models);
+                if ($candidate['arm_id'] === $manifestArmId) {
+                    $binding = $candidate;
+                    break;
+                }
+            }
+        } else {
+            foreach ($candidates as $key) {
+                if ($key !== '' && isset($bindings[$key])) {
+                    $binding = $bindings[$key];
+                    break;
+                }
             }
         }
         if ($binding === null) {
             throw new RuntimeException($this->suiteId().'_native_binding_unresolved:'.$cliModel.'@'.$nativeAgent);
+        }
+        if ($cliModel !== '' && ! in_array(
+            $cliModel,
+            [$binding['cli_model'], $binding['native_model']],
+            true,
+        )) {
+            throw new RuntimeException($this->suiteId().'_native_model_binding_mismatch:'.$cliModel);
         }
         if (! in_array($receipt['case_id'], $plan->data['case_ids'], true)) {
             throw new RuntimeException($this->suiteId().'_case_not_in_plan:'.$receipt['case_id']);

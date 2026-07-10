@@ -75,6 +75,17 @@ final class BundleManifest
                 $failures[] = "bundle_file_hash_mismatch:{$relative}";
             }
         }
+        $evidencePath = rtrim($bundleDirectory, '/').'/evidence_pack.json';
+        $evidence = is_file($evidencePath)
+            ? (json_decode((string) file_get_contents($evidencePath), true) ?? [])
+            : [];
+        if (($manifest['evidence_hash'] ?? null) !== null
+            && ! hash_equals(
+                (string) $manifest['evidence_hash'],
+                (string) ($evidence['evidence_hash'] ?? ''),
+            )) {
+            $failures[] = 'bundle_evidence_hash_mismatch';
+        }
 
         return [
             'verified' => $failures === [],

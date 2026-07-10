@@ -2012,6 +2012,9 @@ class AtlasOpenBrainContextPackService
             $summary = (string) ($row['summary'] ?? '');
             $body = (string) ($row['body'] ?? ($row['snippet'] ?? ($row['excerpt'] ?? '')));
             $candidates[] = [
+                // Interno ao floor (removido antes de servir): score do ranker híbrido —
+                // é o que autoriza o rank-escape do floor lexical (P0 do pack).
+                '_recall_score' => (float) ($row['score'] ?? 0),
                 // T4-S5: the recalled entry id (provider-safe provenance) so the dialectic
                 // engine can look up OPEN conflict relations among the delivered memories.
                 'id' => (string) ($row['source_ref_id'] ?? ($row['id'] ?? '')),
@@ -2037,6 +2040,7 @@ class AtlasOpenBrainContextPackService
         $items = [];
         $chars = 0;
         foreach ($candidates as $item) {
+            unset($item['_recall_score']); // interno ao floor — nunca servido
             $entryChars = strlen($item['title'].$item['summary'].$item['body']);
             if ($chars + $entryChars > $budgetChars && $items !== []) {
                 break; // respect the sub-budget; keep at least the top hit
@@ -2114,6 +2118,16 @@ class AtlasOpenBrainContextPackService
 
         if ($this->looksLikeWiperIncidentMemory($text)) {
             return $this->taskAllowsWiperMemory($task);
+        }
+
+        // P0 do pack (09/07): overlap lexical NÃO separa sinal de lixo neste corpus —
+        // títulos EN vs queries PT dão 0 overlap no sinal real, e o floor zerava a seção
+        // memory em TODA query natural. Autoridade de relevância = o SCORE do ranker
+        // híbrido (lexical+semântico+recência): item que o ranker PONTUOU é entregue
+        // (demotion por feedback e o wiper-guard acima continuam valendo); o floor
+        // lexical >=2 fica como rede só pra itens que chegaram SEM pontuação.
+        if ((float) ($item['_recall_score'] ?? 0) > 0) {
+            return true;
         }
 
         $memoryTokens = $this->relevanceTokens($text);

@@ -180,6 +180,39 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
         $this->assertSame('question', $envelope['command_intent'] ?? null);
     }
 
+    public function test_efficient_hermes_flags_lock_provider_and_model_in_task_contract(): void
+    {
+        $this->bindFakeRunExecutor();
+
+        $output = $this->captureJsonRun([
+            'task' => ['corrigir o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php'],
+            '--workspace' => $this->tmpWorkspace,
+            '--efficient' => true,
+            '--ai' => 'hermes',
+            '--model' => 'kimi-k2.7',
+            '--single-provider' => true,
+            '--no-decide' => true,
+            '--fallback-disabled' => true,
+            '--json' => true,
+        ]);
+        $payload = json_decode($output, true);
+        $runId = (string) ($payload['run_id'] ?? '');
+        $this->assertNotSame('', $runId);
+
+        $storage = $this->app->make(ReceiptStorage::class);
+        $envelope = $storage->read($runId, 'operation_envelope.json');
+        $contract = $storage->read($runId, 'task_contract.json');
+
+        $this->assertSame('hermes', data_get($envelope, 'surface_context.provider_choice'));
+        $this->assertContains('composer_model=kimi-k2.7', $envelope['user_constraints']);
+        $this->assertContains('single_provider=true', $envelope['user_constraints']);
+        $this->assertContains('decide_disabled=true', $envelope['user_constraints']);
+        $this->assertContains('fallback_disabled=true', $envelope['user_constraints']);
+        $this->assertSame('hermes_cli', data_get($contract, 'provider_lock.provider'));
+        $this->assertSame('kimi-k2.7', data_get($contract, 'provider_lock.model_family'));
+        $this->assertFalse((bool) data_get($contract, 'provider_lock.fallback_allowed'));
+    }
+
     public function test_efficient_review_route_returns_deterministic_diff_finding(): void
     {
         $this->bindFakeRunExecutor();
@@ -658,7 +691,6 @@ PHP);
 
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
     }
-
 }
 
 final class FakeCliRunExecutor implements RunExecutor

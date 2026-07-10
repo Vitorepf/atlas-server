@@ -1,9 +1,9 @@
 {
-  "case_id": "polyglot_001",
-  "native_task_id": "acronym",
+  "case_id": "polyglot_003",
+  "native_task_id": "alphametics",
   "language": "rust",
   "task_type": "coding_patch",
-  "title": "polyglot_001",
+  "title": "Rust alphametics exercise",
   "suite_id": "aider_polyglot",
   "source_repo": "aider_polyglot"
 }

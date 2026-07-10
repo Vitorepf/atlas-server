@@ -97,7 +97,7 @@ Schemas internos `atlas.rivals2.*` e env `ATLAS_RIVALS2_*` sao formato preservad
 | `mine` | AtlasBench mine (`--limit=`) |
 | `import-cases` | Importa cases externos (`--suite=` canônico, `--file=`, `--source-repo=`) |
 | `import-results` | Importa resultado nativo (`--run=`, `--file=`; `--replace-import` para reimport) |
-| `plan` | Plano sem spend (`--suite=` canônico; aliases legados proibidos; `--budget` + `--approve-provider-spend`) |
+| `plan` | Plano sem spend (`--suite=` canônico; `--cases=` exato; `--budget`, `--max-minutes` + `--approve-provider-spend`) |
 | `preflight` | Valida manifest, smoke, commit e storage antes da execução |
 | `status` / `resume` / `cancel` | Lifecycle explícito por run (`cancel --reason=` obrigatório) |
 | `run` / `run-fake` / `run-bench` | Execucao interna (fake = sem provider). Suites externas: `suite_runs_externally` |
@@ -116,6 +116,22 @@ Loop externo tipico: `import-cases` → `plan` → executar comandos nativos for
 manifest-bound com unit result + native execution receipt por
 `case×arm×rep`; JSON agregado permanece harness/legado non-claim.
 
+Modelo real homologado para as baterias Fase A: `verboo_kimi_k2_7`
+(`cli_model=kimi-k2.7`). O runner carrega `VERBOO_API_KEY` do Hermes sem
+serializar a credencial e registra `runner.mode=execute`. `--dry-run`,
+`--normalize-only`, receipt sem tokens e native receipt non-success podem
+provar/debugar o harness, mas nunca autorizam claim.
+
+Execucao de uma unidade:
+
+```bash
+php scripts/rivals-native-runner.php \
+  --manifest=storage/atlas/rivals/runs/<run>/native_execution_manifest.json \
+  --cwd=tools/rivals/benchmarks/<suite> \
+  --execution-id=<id> \
+  --approve-provider-spend
+```
+
 ### Isolamento
 
 - Worktrees / clones em `tools/rivals/benchmarks/` com venv proprio.
@@ -124,6 +140,10 @@ manifest-bound com unit result + native execution receipt por
 ### Uplift
 
 `runtime_commands` (`atlas_dev`, `forge`, `loop`, `autonomous`) precisam estar setados; senao uplift reporta `uplift_supported=false`.
+Nos cinco uplifts Fase A, bare e `atlas_dev` usam o mesmo Kimi/Verboo e
+**solver paths diferentes**. O braço Atlas só é aceito com
+`.rivals_atlas_dev_bridge.json` provando `hermes_cli`, modelo exato,
+single-provider, Decide desabilitado, fallback desabilitado e usage real.
 
 `local_fake` / `mockllm` so produzem `harness_uplift` / receipts `harness_only=true` — nunca claim de mercado.
 
@@ -140,7 +160,12 @@ Receipt vivo: `storage/atlas/rivals/fase_a_closure_receipt.json`. Smoke 10/10 e 
 O receipt e gerado exclusivamente por `atlas:rivals closure`; a verificacao
 recalcula `closure_hash`. Closure exige 10 bundles nativos, cinco
 `real_uplift` claim-ready, ledger semantico, tests/docs, workspace clean e
-prerequisitos Docker/Modal/CLIs.
+prerequisitos Docker/Modal/CLIs. Cada suite contada precisa de claim interno
+vivo, sample policy adequada (default: >=3 cases distintos × >=3 reps),
+replay/report/bundle validos, native receipts `success`, modo `execute`, usage
+non-zero para provider remoto e zero environment failures. `closure` retorna
+erro enquanto nao autorizado; `closure --verify` revalida os gates atuais,
+nao apenas o hash historico.
 
 ## Fluxo
 

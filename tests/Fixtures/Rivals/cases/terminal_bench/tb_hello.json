@@ -1,0 +1,8 @@
+{
+  "case_id": "tb_hello",
+  "native_task_id": "hello-world",
+  "task_type": "terminal_agent",
+  "title": "Terminal-Bench hello-world",
+  "suite_id": "terminal_bench",
+  "source_repo": "terminal_bench"
+}

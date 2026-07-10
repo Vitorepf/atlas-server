@@ -8,11 +8,14 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\Governance\ProviderGovernanceConsult;
-use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\Governance\ProviderGovernanceConsult;
+use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Programming\AtlasDev\Differential\CandidateDivergenceGate;
 use App\Services\Ai\Programming\AtlasDev\Differential\DifferentialTestingService;
@@ -49,6 +52,7 @@ use App\Services\Ai\Programming\AtlasDev\Probe\IntentCoverageProbe;
 use App\Services\Ai\Programming\AtlasDev\Probe\IntentFalsificationProbe;
 use App\Services\Ai\Programming\AtlasDev\Probe\SpecConstitutionVerdict;
 use App\Services\Ai\Programming\AtlasDev\Probe\SpecDrivenConstitutionGate;
+use App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParser;
 use App\Services\Ai\Programming\AtlasDev\Provider\DiffParseResult;
@@ -59,9 +63,6 @@ use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineCache;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineGate;
 use App\Services\Ai\Programming\AtlasDev\Regression\RegressionBaselineService;
 use App\Services\Ai\Programming\AtlasDev\Regression\VerificationRegressionBaselineRunner;
-use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
-use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
-use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureCapsuleBuilder;
 use App\Services\Ai\Programming\AtlasDev\Repair\FailureSignatureHasher;
 use App\Services\Ai\Programming\AtlasDev\Repair\RepairPromptComposer;
@@ -589,7 +590,7 @@ final class PipelineRunExecutor implements RunExecutor
         // verde (suite + lint escopado) É a testemunha do intent; exigir AC
         // comportamental aqui false-failava todo refactor perfeito (fire test
         // 03/07 no repo real). Objetivos não-transformação seguem sob E2 pleno.
-        $transformationWitnessed = \App\Services\Ai\Programming\AtlasDev\PromptProjection\ProviderPromptBuilder::isTransformationObjective($envelope->normalizedIntent)
+        $transformationWitnessed = ProviderPromptBuilder::isTransformationObjective($envelope->normalizedIntent)
             && $verificationResult->aggregateStatus === VerificationGateResult::STATUS_PASSED
             && $diffResult->hasPatch();
 
@@ -1777,13 +1778,12 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         // workdirForJob() reads tool_permissions.workspace || workspace ||
         // config('atlas.ai.workdir'). Pin both so Hermes runs IN the Dev
         // worktree ($envelope->workspace) and edits files there.
+        $usageFile = tempnam(sys_get_temp_dir(), 'atlas-dev-hermes-');
         $job = new AiJob([
             'trace_id' => 'atlas-dev:'.$promptProjection->runId,
             'kind' => 'atlas_dev_run',
             'provider' => 'hermes_cli',
-            // Hermes self-selects its sub-model; the _default sentinel makes its
-            // CLI omit --model. Single-sourced so Dev/Forge can't diverge.
-            'model' => HermesWorkspaceDefaults::model(),
+            'model' => $this->hermesModelForContract($taskContract),
             'prompt' => $promptText,
             'input_text' => $promptText,
             'timeout_seconds' => $timeoutSeconds,
@@ -1798,7 +1798,9 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                     'task_contract_hash' => $taskContract->taskContractHash,
                     'prompt_projection_hash' => $promptProjection->promptProjectionHash,
                 ],
-                'hermes' => $hermesOverrides,
+                'hermes' => array_merge($hermesOverrides, array_filter([
+                    'usage_file' => is_string($usageFile) ? $usageFile : null,
+                ])),
             ],
         ]);
 
@@ -1810,6 +1812,10 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         try {
             $result = $provider->run($job, $promptText);
         } catch (\Throwable $e) {
+            if (is_string($usageFile)) {
+                @unlink($usageFile);
+            }
+
             return [
                 ProviderCallResult::fromStdout(
                     runId: $promptProjection->runId,
@@ -1832,6 +1838,10 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $errors = $result->ok ? [] : array_values(array_filter([
             is_string($result->errorCode) && $result->errorCode !== '' ? $result->errorCode : null,
         ]));
+        $usage = (array) data_get($result->metadata, 'hermes_usage', []);
+        if (is_string($usageFile)) {
+            @unlink($usageFile);
+        }
 
         // Hermes mutated the workspace directly — derive diff like the
         // Codex/Cursor/MiniMax providers and let scope/verification gate it.
@@ -1869,9 +1879,15 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
                 stdout: $stdout,
                 stderr: '',
                 durationMs: (int) $result->durationMs,
-                tokensIn: null,
-                tokensOut: null,
-                costEstimateUsd: null,
+                tokensIn: is_numeric($usage['input_tokens'] ?? null)
+                    ? (int) $usage['input_tokens']
+                    : null,
+                tokensOut: is_numeric($usage['output_tokens'] ?? null)
+                    ? (int) $usage['output_tokens']
+                    : null,
+                costEstimateUsd: is_numeric($usage['estimated_cost_usd'] ?? null)
+                    ? (float) $usage['estimated_cost_usd']
+                    : 0.0,
                 providerSafe: true,
                 errors: array_values(array_unique($errors)),
             ),
@@ -1907,6 +1923,15 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return $overrides;
+    }
+
+    private function hermesModelForContract(LightTaskContract $taskContract): string
+    {
+        $model = trim($taskContract->providerLock->modelFamily);
+
+        return $model === '' || $model === 'hermes_cli_default'
+            ? HermesWorkspaceDefaults::model()
+            : $model;
     }
 
     /**

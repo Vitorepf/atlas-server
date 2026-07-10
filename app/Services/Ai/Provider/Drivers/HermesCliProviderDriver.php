@@ -13,7 +13,21 @@ class HermesCliProviderDriver extends AbstractCliProviderDriver
 
     public function supportedModels(): array
     {
-        return ['hermes_cli_default', 'hermes_selected_by_atlas_decide'];
+        $models = [
+            'hermes_cli_default',
+            'hermes_selected_by_atlas_decide',
+            config('atlas.ai.providers.hermes_cli.model'),
+        ];
+        foreach ((array) config('atlas_rivals.models', []) as $spec) {
+            if (($spec['provider'] ?? null) === 'hermes') {
+                $models[] = $spec['cli_model'] ?? null;
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            $models,
+            fn (mixed $model): bool => is_string($model) && trim($model) !== '',
+        )));
     }
 
     public function legacyProviderClass(): string

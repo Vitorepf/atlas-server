@@ -120,12 +120,65 @@ final class FaseAClosureReceipt
             (string) ($receipt['closure_hash'] ?? ''),
             self::hashPayload($receipt),
         );
+        $registry = new SuiteRegistry;
+        $registryOk = true;
+        try {
+            $registry->assertComplete();
+        } catch (\Throwable) {
+            $registryOk = false;
+        }
+        $benchmarks = (new BenchmarkRepoManager)->status();
+        $smoke = $this->smokeFresh($benchmarks['repos'] ?? []);
+        $native = $this->nativeRuns($registry->externalSuiteIds());
+        $uplifts = $this->upliftRuns((array) config('atlas_rivals.uplift_families', []));
+        $ledger = (new ResultLedger)->verifySemantic();
+        $operational = $this->operationalPrerequisites();
+        $workspace = $this->workspaceState();
+        $currentConfigHash = hash('sha256', json_encode(
+            config('atlas_rivals'),
+            JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+        ));
+        $liveGates = [
+            'registry_10_of_10' => $registryOk,
+            'smoke_10_of_10' => ($benchmarks['running'] ?? 0) === 10
+                && ($benchmarks['blocked'] ?? 1) === 0
+                && $smoke['fresh'],
+            'native_run_10_of_10' => count($native['completed']) === 10,
+            'uplift_families_5_of_5' => count($uplifts['completed']) === 5,
+            'tests_green' => ($receipt['code_gates']['tests']['passed'] ?? false) === true,
+            'docs_health_green' => ($receipt['code_gates']['docs_health']['passed'] ?? false) === true,
+            'ledger_verified' => $ledger['verified'],
+            'workspace_clean' => $workspace['clean'],
+            'operational_prerequisites' => $operational['ready'],
+            'generator_git_head_current' => hash_equals(
+                (string) ($receipt['generator_git_head'] ?? ''),
+                (string) $workspace['git_head'],
+            ),
+            'config_current' => hash_equals(
+                (string) ($receipt['config_hash'] ?? ''),
+                $currentConfigHash,
+            ),
+        ];
+        $liveFailures = array_map(
+            fn (string $gate): string => 'live_gate_failed:'.$gate,
+            array_keys(array_filter($liveGates, fn (bool $passed): bool => ! $passed)),
+        );
+        $failures = array_values(array_unique(array_merge(
+            $validHash ? [] : ['closure_hash_mismatch'],
+            $liveFailures,
+            $smoke['blockers'],
+            $native['blockers'],
+            $uplifts['blockers'],
+            $ledger['failures'],
+            $operational['blockers'],
+        )));
 
         return [
             'verified' => $validHash,
             'authorized' => $validHash
-                && ($receipt['fase_a_100_percent_authorized'] ?? false) === true,
-            'failures' => $validHash ? [] : ['closure_hash_mismatch'],
+                && ($receipt['fase_a_100_percent_authorized'] ?? false) === true
+                && $failures === [],
+            'failures' => $failures,
             'closure_hash' => $receipt['closure_hash'] ?? null,
         ];
     }
@@ -172,6 +225,10 @@ final class FaseAClosureReceipt
                 continue;
             }
             $report = json_decode((string) file_get_contents($reportPath), true) ?? [];
+            $adjudicationPath = RunPaths::adjudicationPath($runId);
+            $adjudication = is_file($adjudicationPath)
+                ? (json_decode((string) file_get_contents($adjudicationPath), true) ?? [])
+                : [];
             $bundle = (new BundleManifest)->verify(RunPaths::runDir($runId));
             $manifest = NativeExecutionManifest::load($runId);
             $nativeReceipts = NativeExecutionReceipt::loadAll($runId);
@@ -182,12 +239,24 @@ final class FaseAClosureReceipt
             $hasEnvironmentFailure = collect($runReceipts)->contains(
                 fn (RunReceipt $receipt): bool => $receipt->data['failure_class'] === 'environment_failure',
             );
+            $nativeExecutionIsReal = collect($nativeReceipts)->every(
+                fn (NativeExecutionReceipt $receipt): bool => $receipt->data['status'] === 'success'
+                    && ($receipt->data['runner']['mode'] ?? null) === 'execute',
+            );
+            $replayVerified = (new ReplayVerifier)->verify($runId)['verified'];
+            $reportHashValid = ($report['report_hash'] ?? null) === ReportBuilder::hashPayload($report);
             if (($report['pipeline_valid'] ?? false) !== true
+                || ($report['internal_claim_allowed'] ?? false) !== true
+                || ($adjudication['internal_claim_allowed'] ?? false) !== true
+                || ($adjudication['statistical_analysis']['adequate'] ?? false) !== true
                 || ! $bundle['verified']
+                || ! $reportHashValid
+                || ! $replayVerified
                 || $manifest->data['claim_tier'] === ClaimTier::HARNESS
                 || (int) $plan->data['repetitions'] < (int) config('atlas_rivals.claim.min_repetitions', 3)
                 || ! $commandsAreIndependent
                 || $hasEnvironmentFailure
+                || ! $nativeExecutionIsReal
                 || count($nativeReceipts) !== count($manifest->entries())) {
                 continue;
             }
@@ -218,14 +287,30 @@ final class FaseAClosureReceipt
                 continue;
             }
             $uplift = json_decode((string) file_get_contents($path), true) ?? [];
-            if (($uplift['uplift_kind'] ?? null) !== 'real_uplift'
-                || ($uplift['internal_claim_allowed'] ?? false) !== true
-                || ($uplift['stop_the_line'] ?? true) === true) {
+            $modelId = (string) ($uplift['model_id'] ?? '');
+            if ($modelId === '') {
                 continue;
             }
             try {
-                $suite = RunPlan::load($runId)->data['suite_id'];
+                $plan = RunPlan::load($runId);
+                $suite = $plan->data['suite_id'];
+                $freshUplift = (new AtlasUpliftRunner)->compare($runId, $modelId);
+                $adjudication = json_decode(
+                    (string) file_get_contents(RunPaths::adjudicationPath($runId)),
+                    true,
+                ) ?? [];
             } catch (\Throwable) {
+                continue;
+            }
+            if (($freshUplift['uplift_kind'] ?? null) !== 'real_uplift'
+                || ($freshUplift['internal_claim_allowed'] ?? false) !== true
+                || ($freshUplift['stop_the_line'] ?? true) === true
+                || ($adjudication['internal_claim_allowed'] ?? false) !== true
+                || ($adjudication['statistical_analysis']['adequate'] ?? false) !== true
+                || count(array_unique($plan->data['case_ids'])) < (int) config(
+                    'atlas_rivals.claim.min_distinct_cases_internal',
+                    3,
+                )) {
                 continue;
             }
             foreach ($families as $family => $requiredSuite) {

@@ -17,7 +17,7 @@ class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        return 'php {atlas_root}/scripts/rivals-swe-live-unit.php --case-file={case_file} --instance={native_task_id} --model={atlas_cli_model} --scratch={eval_scratch_dir}';
+        return 'php {atlas_root}/scripts/rivals-swe-live-unit.php --case-file={case_file} --instance={native_task_id} --model={atlas_cli_model} --runtime={runtime} --scratch={eval_scratch_dir}';
     }
 
     protected function mapResults(array $native): array

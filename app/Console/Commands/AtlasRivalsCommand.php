@@ -936,7 +936,7 @@ class AtlasRivalsCommand extends Command
 
         return [
             'schema_version' => 'atlas.rivals2.fase_a_closure_action.v1',
-            'status' => $authorized || ! $this->option('strict') ? 'ok' : 'error',
+            'status' => $authorized ? 'ok' : 'error',
             'authorized' => $authorized,
             'closure_path' => RunPaths::closureReceiptPath(),
             'closure_hash' => $receipt['closure_hash'],

@@ -1,0 +1,8 @@
+{
+  "case_id": "tb_fix_git",
+  "native_task_id": "fix-git",
+  "task_type": "terminal_agent",
+  "title": "Terminal-Bench fix-git",
+  "suite_id": "terminal_bench",
+  "source_repo": "terminal_bench"
+}

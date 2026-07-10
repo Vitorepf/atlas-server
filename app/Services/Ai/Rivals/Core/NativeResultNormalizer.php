@@ -186,9 +186,29 @@ final class NativeResultNormalizer
         }
         $row = $matches[0];
         $failureMode = (string) ($row['failure_mode'] ?? 'none');
+        $inputTokens = (int) ($row['total_input_tokens'] ?? 0);
+        $outputTokens = (int) ($row['total_output_tokens'] ?? 0);
+        $agentLogs = $this->recursiveFiles($scratch, 'agent.log');
+        $agentLog = count($agentLogs) === 1
+            ? (string) file_get_contents($agentLogs[0])
+            : '';
+        if (($inputTokens + $outputTokens) === 0
+            && preg_match(
+                '/Tokens:\s*([\d.]+)([kKmM]?)\s+sent,\s*([\d.]+)([kKmM]?)\s+received/',
+                $agentLog,
+                $tokenMatch,
+            ) === 1) {
+            $inputTokens = $this->tokenQuantity($tokenMatch[1], $tokenMatch[2]);
+            $outputTokens = $this->tokenQuantity($tokenMatch[3], $tokenMatch[4]);
+        }
+        $environmentFailure = preg_match(
+            '/(?:AuthenticationError|BadRequestError|LLM Provider NOT provided|HTTP 401|invalid or expired token)/i',
+            $agentLog,
+        ) === 1;
         $isVerboo = ((new ModelRegistry)->get((string) ($entry['model_id'] ?? ''))['provider'] ?? null)
             === 'hermes';
         $exitStatus = match (true) {
+            $environmentFailure => 'error',
             str_contains($failureMode, 'timeout') => 'timeout',
             ($row['is_resolved'] ?? null) === true => 'completed',
             ($row['is_resolved'] ?? null) === false => 'failed',
@@ -208,8 +228,8 @@ final class NativeResultNormalizer
                     $row['trial_started_at'] ?? null,
                     $row['trial_ended_at'] ?? null,
                 ),
-                'input_tokens' => (int) ($row['total_input_tokens'] ?? 0),
-                'output_tokens' => (int) ($row['total_output_tokens'] ?? 0),
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
                 'cost_usd' => 0.0,
                 'field_presence' => [
                     'cost_usd' => [
@@ -217,6 +237,14 @@ final class NativeResultNormalizer
                         'reason' => $isVerboo
                             ? 'verboo_subscription_marginal'
                             : 'tb_native_no_cost_field',
+                    ],
+                    'tokens_in' => [
+                        'present' => $inputTokens > 0,
+                        'reason' => $inputTokens > 0 ? null : 'tb_agent_usage_not_reported',
+                    ],
+                    'tokens_out' => [
+                        'present' => $outputTokens > 0,
+                        'reason' => $outputTokens > 0 ? null : 'tb_agent_usage_not_reported',
                     ],
                 ],
                 'started_at' => $row['trial_started_at'] ?? null,
@@ -238,7 +266,7 @@ final class NativeResultNormalizer
             'investigate', 'bug' => 'bug',
             default => str_contains((string) $entry['case_id'], 'feat-') ? 'feature' : 'bug',
         };
-        $usage = $this->harborUsage($trial);
+        $usage = $this->harborUsage($trial, $entry);
 
         return [
             'coverage' => 'public_50_only',
@@ -405,8 +433,10 @@ final class NativeResultNormalizer
         $taskId = (string) (data_get($entry, 'normalization.case.task_id')
             ?? $entry['case_id']);
         $raw = (array) data_get($upload, "raw_eval_results.{$taskId}", []);
+        $metrics = (array) data_get($upload, "task_metrics.{$taskId}", []);
         $cost = data_get($upload, "task_costs.{$taskId}.total_cost")
             ?? data_get($upload, "results.task_costs.{$taskId}")
+            ?? ($metrics['estimated_cost'] ?? null)
             ?? null;
         $latency = data_get($upload, "wall_clock_times.{$taskId}")
             ?? data_get($upload, "results.latencies.{$taskId}.total_time")
@@ -423,8 +453,17 @@ final class NativeResultNormalizer
                 'success' => (float) ($raw['score'] ?? $raw['reward'] ?? 0) > 0,
                 'total_cost_usd' => (float) $cost,
                 'latency_sec' => (float) $latency,
-                'input_tokens' => (int) data_get($upload, 'total_usage.input_tokens', 0),
-                'output_tokens' => (int) data_get($upload, 'total_usage.output_tokens', 0),
+                'input_tokens' => (int) (
+                    $metrics['total_input_tokens']
+                    ?? data_get($upload, 'total_usage.input_tokens', 0)
+                ),
+                'output_tokens' => (int) (
+                    $metrics['total_output_tokens']
+                    ?? data_get($upload, 'total_usage.output_tokens', 0)
+                ),
+                'runtime_bridge' => is_array($metrics['runtime_bridge'] ?? null)
+                    ? $metrics['runtime_bridge']
+                    : null,
                 'model' => $entry['cli_model'],
                 'agent' => $entry['native_agent'],
                 'started_at' => null,
@@ -436,10 +475,16 @@ final class NativeResultNormalizer
     private function aider(array $entry, string $root): array
     {
         $runName = (string) data_get($entry, 'normalization.run_name');
-        $files = array_values(array_filter(
-            $this->recursiveFiles($root.'/tmp.benchmarks', '.aider.results.json'),
-            fn (string $path): bool => str_contains($path, $runName),
-        ));
+        $files = $this->recursiveFiles(
+            (string) data_get($entry, 'normalization.scratch_dir'),
+            '.aider.results.json',
+        );
+        if ($files === []) {
+            $files = array_values(array_filter(
+                $this->recursiveFiles($root.'/tmp.benchmarks', '.aider.results.json'),
+                fn (string $path): bool => str_contains($path, $runName),
+            ));
+        }
         $nativeTask = (string) (data_get($entry, 'normalization.case.native_task_id')
             ?? $entry['case_id']);
         $files = array_values(array_filter(
@@ -476,7 +521,7 @@ final class NativeResultNormalizer
         $rewards = (array) data_get($trial, 'verifier_result.rewards', []);
         $exception = (array) ($trial['exception_info'] ?? []);
         $reward = $rewards['reward'] ?? $rewards['default'] ?? null;
-        $usage = $this->harborUsage($trial);
+        $usage = $this->harborUsage($trial, $entry);
 
         return [
             'tasks' => [[
@@ -529,7 +574,7 @@ final class NativeResultNormalizer
     }
 
     /** @return array{input_tokens:int, output_tokens:int, cost_usd:float} */
-    private function harborUsage(array $trial): array
+    private function harborUsage(array $trial, array $entry): array
     {
         $contexts = [];
         if (is_array($trial['agent_result'] ?? null)) {
@@ -541,7 +586,7 @@ final class NativeResultNormalizer
             }
         }
 
-        return [
+        $usage = [
             'input_tokens' => (int) array_sum(array_map(
                 fn (array $ctx): int => (int) ($ctx['n_input_tokens'] ?? 0),
                 $contexts,
@@ -555,6 +600,22 @@ final class NativeResultNormalizer
                 $contexts,
             )),
         ];
+        if (($usage['input_tokens'] + $usage['output_tokens']) === 0) {
+            $files = $this->recursiveFiles(
+                (string) data_get($entry, 'normalization.scratch_dir'),
+                'hermes-usage.json',
+            );
+            if (count($files) === 1) {
+                $sidecar = $this->json($files[0]);
+                $usage = [
+                    'input_tokens' => (int) ($sidecar['input_tokens'] ?? 0),
+                    'output_tokens' => (int) ($sidecar['output_tokens'] ?? 0),
+                    'cost_usd' => 0.0,
+                ];
+            }
+        }
+
+        return $usage;
     }
 
     /** @return array<string, int> */
@@ -602,6 +663,17 @@ final class NativeResultNormalizer
         }
 
         return array_sum(array_map($this->sumNumeric(...), $value));
+    }
+
+    private function tokenQuantity(string $number, string $suffix): int
+    {
+        $multiplier = match (strtolower($suffix)) {
+            'k' => 1_000,
+            'm' => 1_000_000,
+            default => 1,
+        };
+
+        return (int) round((float) $number * $multiplier);
     }
 
     /** @return array<string, mixed> */

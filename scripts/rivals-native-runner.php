@@ -86,25 +86,42 @@ try {
 
         $timedOut = false;
         $exitCode = 0;
+        $model = (new ModelRegistry)->get((string) ($entry['model_id'] ?? '')) ?? [];
         if (! array_key_exists('normalize-only', $options)) {
-            $model = (new ModelRegistry)->get((string) ($entry['model_id'] ?? ''));
             $childEnvironment = ($model['provider'] ?? null) === 'hermes'
                 ? (new VerbooEnvironment)->processEnvironment()
                 : null;
+            $path = (string) (($childEnvironment['PATH'] ?? null) ?: (getenv('PATH') ?: '/usr/bin:/bin'));
+            $toolPaths = [];
+            if (is_dir($cwd.'/.atlas-venv/bin')) {
+                $toolPaths[] = $cwd.'/.atlas-venv/bin';
+            }
+            if (is_dir($cwd.'/.miniforge/bin')) {
+                $toolPaths[] = $cwd.'/.miniforge/bin';
+            }
+            // Prefer Homebrew python3 on macOS when suite templates still say `python`.
+            if (is_dir('/opt/homebrew/bin')) {
+                $toolPaths[] = '/opt/homebrew/bin';
+            }
+            if ($toolPaths !== []) {
+                $path = implode(PATH_SEPARATOR, $toolPaths).PATH_SEPARATOR.$path;
+            }
             if ($childEnvironment !== null) {
-                $toolPaths = [$cwd.'/.atlas-venv/bin'];
-                if (is_dir($cwd.'/.miniforge/bin')) {
-                    $toolPaths[] = $cwd.'/.miniforge/bin';
+                $childEnvironment['PATH'] = $path;
+            }
+            if (! str_contains((string) $argv[0], DIRECTORY_SEPARATOR)) {
+                $binaries = [(string) $argv[0]];
+                // macOS Homebrew often ships python3 without a `python` shim.
+                if ($argv[0] === 'python') {
+                    $binaries[] = 'python3';
                 }
-                $childEnvironment['PATH'] = implode(PATH_SEPARATOR, $toolPaths)
-                    .PATH_SEPARATOR.($childEnvironment['PATH'] ?? '');
-                if (! str_contains((string) $argv[0], DIRECTORY_SEPARATOR)) {
-                    foreach (explode(PATH_SEPARATOR, $childEnvironment['PATH']) as $directory) {
+                foreach ($binaries as $binary) {
+                    foreach (explode(PATH_SEPARATOR, $path) as $directory) {
                         $candidate = rtrim($directory, DIRECTORY_SEPARATOR)
-                            .DIRECTORY_SEPARATOR.$argv[0];
+                            .DIRECTORY_SEPARATOR.$binary;
                         if (is_executable($candidate)) {
                             $argv[0] = $candidate;
-                            break;
+                            break 2;
                         }
                     }
                 }
@@ -208,9 +225,19 @@ try {
             ],
             'runner' => [
                 'version' => 'rivals-native-runner-v1',
+                'mode' => array_key_exists('normalize-only', $options) ? 'normalize_only' : 'execute',
                 'php' => PHP_VERSION,
                 'cwd' => realpath($cwd) ?: $cwd,
             ],
+            'provider_binding' => ($model['provider'] ?? null) === 'hermes'
+                ? [
+                    'provider' => 'verboo',
+                    'model_id' => $entry['model_id'],
+                    'atlas_cli_model' => $entry['atlas_cli_model'] ?? null,
+                    'native_model' => $entry['native_model'] ?? null,
+                    'base_url_sha256' => hash('sha256', VerbooEnvironment::BASE_URL),
+                ]
+                : null,
         ]);
         $receiptPath = $receipt->persist();
         EventStream::append($runId, 'native_execution_finished', [

@@ -17,6 +17,15 @@ class BfclAdapter extends AbstractExternalSuiteAdapter
         return 'python {atlas_root}/scripts/rivals_bfcl_verboo.py --rivals-test-id={native_test_id} --rivals-category={native_category} generate --model {cli_model} --run-ids --allow-overwrite --num-threads 1 --result-dir {output_parent}/result';
     }
 
+    protected function commandTemplateForArm(array $binding): string
+    {
+        if (($binding['runtime'] ?? null) === 'atlas_dev') {
+            return 'php {atlas_root}/scripts/rivals-bfcl-atlas-unit.php --case-file={case_file} --model={atlas_cli_model} --registry-model={cli_model} --scratch={eval_scratch_dir}';
+        }
+
+        return parent::commandTemplateForArm($binding);
+    }
+
     protected function mapResults(array $native): array
     {
         $model = $native['model'] ?? throw new RuntimeException('bfcl_model_missing');

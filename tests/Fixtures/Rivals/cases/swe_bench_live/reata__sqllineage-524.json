@@ -1,0 +1,11 @@
+{
+  "case_id": "reata__sqllineage-524",
+  "native_task_id": "reata__sqllineage-524",
+  "repo": "reata/sqllineage",
+  "base_commit": "4adcc8f46fe9c5f919c9d942e1e1a0cf7d342cc2",
+  "problem_statement": "Implement column-lineage support for SQL UPDATE statements that assign target columns from a joined source table through a FROM and WHERE clause.",
+  "task_type": "repair_regression_fixing",
+  "title": "UPDATE statement column lineage",
+  "suite_id": "swe_bench_live",
+  "source_repo": "swe_bench_live"
+}

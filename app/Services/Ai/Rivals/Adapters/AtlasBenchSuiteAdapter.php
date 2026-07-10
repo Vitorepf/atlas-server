@@ -495,9 +495,12 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             if (! is_array($bridge)
                 || ($bridge['status'] ?? null) !== 'passed'
                 || ($bridge['real_provider'] ?? false) !== true
+                || ($bridge['provider'] ?? null) !== 'hermes_cli'
+                || ($bridge['model'] ?? null) !== ($model['cli_model'] ?? $modelId)
                 || data_get($bridge, 'fair_mode.single_provider') !== true
                 || data_get($bridge, 'fair_mode.decide_disabled') !== true
-                || data_get($bridge, 'fair_mode.fallback_disabled') !== true) {
+                || data_get($bridge, 'fair_mode.fallback_disabled') !== true
+                || data_get($bridge, 'usage.present') !== true) {
                 throw new RuntimeException('atlasbench_runtime_bridge_receipt_invalid:'.$modelId);
             }
         } elseif (($model['provider'] ?? null) === 'hermes') {
@@ -509,7 +512,8 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 || ! in_array(($bare['status'] ?? null), ['passed', 'incomplete'], true)
                 || ($bare['real_provider'] ?? false) !== true
                 || ($bare['provider'] ?? null) !== 'verboo'
-                || ($bare['model'] ?? null) !== ($model['cli_model'] ?? $modelId)) {
+                || ($bare['model'] ?? null) !== ($model['cli_model'] ?? $modelId)
+                || data_get($bare, 'usage.present') !== true) {
                 throw new RuntimeException('atlasbench_bare_provider_receipt_invalid:'.$modelId);
             }
         }

@@ -869,13 +869,21 @@ class AtlasCliDevCommand extends Command
             return 64;
         }
 
+        $model = $this->efficientStringOption('model');
+        $userConstraints = array_values(array_filter([
+            $model !== null ? 'composer_model='.$model : null,
+            $this->option('single-provider') ? 'single_provider=true' : null,
+            $this->option('no-decide') ? 'decide_disabled=true' : null,
+            $this->option('fallback-disabled') ? 'fallback_disabled=true' : null,
+        ]));
         $input = [
             'workspace' => $workspace,
             'raw_intent' => $task,
-            'user_constraints' => [],
+            'user_constraints' => $userConstraints,
             'operator_confirmed' => (bool) $this->option('yes'),
             'flow_origin' => $this->efficientStringOption('flow-origin'),
             'command_intent' => $this->efficientStringOption('command-intent'),
+            'provider_choice' => $this->efficientStringOption('ai'),
         ];
 
         $outcome = $handler->run(array_filter($input, fn ($v) => $v !== null && $v !== ''));

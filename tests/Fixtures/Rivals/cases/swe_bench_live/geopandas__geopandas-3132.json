@@ -1,0 +1,11 @@
+{
+  "case_id": "geopandas__geopandas-3132",
+  "native_task_id": "geopandas__geopandas-3132",
+  "repo": "geopandas/geopandas",
+  "base_commit": "fed9e57a0033dee6c18ce9da40dcd49e1211f876",
+  "problem_statement": "Make GeoDataFrame._to_geo public so callers can obtain the dictionary representation used internally by to_json, with compatibility and tests.",
+  "task_type": "repair_regression_fixing",
+  "title": "Make GeoDataFrame to-geo conversion public",
+  "suite_id": "swe_bench_live",
+  "source_repo": "swe_bench_live"
+}

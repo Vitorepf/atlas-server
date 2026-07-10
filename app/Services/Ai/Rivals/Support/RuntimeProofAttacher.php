@@ -1,0 +1,123 @@
+<?php
+
+namespace App\Services\Ai\Rivals\Support;
+
+use App\Services\Ai\Rivals\Core\ModelRegistry;
+use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
+use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
+
+/** Binds external-suite receipts to the solver runtime that actually executed. */
+final class RuntimeProofAttacher
+{
+    /**
+     * @param  array<string, mixed>  $receipt
+     * @param  array<string, mixed>  $binding
+     * @return array<string, mixed>
+     */
+    public function attach(array $receipt, array $binding, string $runId, string $resultPath): array
+    {
+        $model = (new ModelRegistry)->get((string) ($binding['model_id'] ?? '')) ?? [];
+        if (($model['provider'] ?? null) !== 'hermes'
+            || ! is_file(RunPaths::nativeManifestPath($runId))) {
+            return $receipt;
+        }
+        $entry = collect(NativeExecutionManifest::load($runId)->entries())->first(
+            fn (array $candidate): bool => $candidate['expected_result_path'] === $resultPath,
+        );
+        $nativeReceipt = collect(NativeExecutionReceipt::loadAll($runId))->first(
+            fn (NativeExecutionReceipt $candidate): bool => $candidate->data['expected_result_path'] === $resultPath,
+        );
+        $metadata = (array) ($receipt['metadata'] ?? []);
+        $runtime = (string) ($binding['runtime'] ?? '');
+        if ($runtime === 'bare') {
+            $tokensIn = (int) ($receipt['tokens_in'] ?? 0);
+            $tokensOut = (int) ($receipt['tokens_out'] ?? 0);
+            $providerBinding = $nativeReceipt instanceof NativeExecutionReceipt
+                ? (array) ($nativeReceipt->data['provider_binding'] ?? [])
+                : [];
+            $real = is_array($entry)
+                && $nativeReceipt instanceof NativeExecutionReceipt
+                && $nativeReceipt->data['status'] === 'success'
+                && ($nativeReceipt->data['runner']['mode'] ?? null) === 'execute'
+                && ($providerBinding['provider'] ?? null) === 'verboo'
+                && ($providerBinding['model_id'] ?? null) === ($binding['model_id'] ?? null)
+                && ($providerBinding['atlas_cli_model'] ?? null) === ($binding['cli_model'] ?? null)
+                && ($providerBinding['native_model'] ?? null) === ($binding['native_model'] ?? null)
+                && ($providerBinding['base_url_sha256'] ?? null) === hash(
+                    'sha256',
+                    \App\Services\Ai\Rivals\Core\VerbooEnvironment::BASE_URL,
+                )
+                && ($tokensIn + $tokensOut) > 0;
+            $metadata['direct_provider'] = [
+                'schema_version' => 'atlas.rivals2.direct_provider_proof.v1',
+                'real_provider' => $real,
+                'provider' => 'verboo',
+                'model' => (string) ($binding['cli_model'] ?? ''),
+                'native_model' => (string) ($binding['native_model'] ?? ''),
+                'execution_id' => $entry['execution_id'] ?? null,
+                'command_hash' => $nativeReceipt?->data['command_hash'] ?? null,
+                'result_sha256' => $nativeReceipt?->data['result_sha256'] ?? null,
+                'usage' => [
+                    'input_tokens' => $tokensIn,
+                    'output_tokens' => $tokensOut,
+                    'cost_usd' => (float) ($receipt['cost_usd'] ?? 0),
+                    'present' => ($tokensIn + $tokensOut) > 0,
+                ],
+                'reason' => $real ? null : 'native_provider_execution_not_proven',
+            ];
+        } elseif ($runtime === 'atlas_dev') {
+            $proof = is_array(data_get($receipt, 'metadata.runtime_bridge'))
+                ? data_get($receipt, 'metadata.runtime_bridge')
+                : (is_array($entry)
+                    ? $this->atlasProof((string) data_get($entry, 'normalization.scratch_dir'))
+                    : null);
+            $valid = is_array($proof)
+                && ($proof['status'] ?? null) === 'passed'
+                && ($proof['real_provider'] ?? false) === true
+                && ($proof['provider'] ?? null) === 'hermes_cli'
+                && ($proof['model'] ?? null) === ($binding['cli_model'] ?? null)
+                && data_get($proof, 'fair_mode.single_provider') === true
+                && data_get($proof, 'fair_mode.decide_disabled') === true
+                && data_get($proof, 'fair_mode.fallback_disabled') === true
+                && data_get($proof, 'usage.present') === true;
+            $metadata['runtime_bridge'] = $valid
+                ? $proof
+                : [
+                    'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
+                    'status' => 'failed',
+                    'real_provider' => false,
+                    'model' => (string) ($binding['cli_model'] ?? ''),
+                    'reason' => 'atlas_dev_runtime_proof_missing_or_invalid',
+                ];
+        }
+        $receipt['metadata'] = $metadata;
+
+        return $receipt;
+    }
+
+    /** @return array<string, mixed>|null */
+    private function atlasProof(string $scratch): ?array
+    {
+        if ($scratch === '' || ! is_dir($scratch)) {
+            return null;
+        }
+        $direct = $scratch.'/.rivals_atlas_dev_bridge.json';
+        if (is_file($direct)) {
+            $proof = json_decode((string) file_get_contents($direct), true);
+
+            return is_array($proof) ? $proof : null;
+        }
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($scratch, \RecursiveDirectoryIterator::SKIP_DOTS),
+        );
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getFilename() === '.rivals_atlas_dev_bridge.json') {
+                $proof = json_decode((string) file_get_contents($file->getPathname()), true);
+
+                return is_array($proof) ? $proof : null;
+            }
+        }
+
+        return null;
+    }
+}

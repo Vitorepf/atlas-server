@@ -1,0 +1,8 @@
+{
+  "case_id": "nextjs-vite-rewrite",
+  "native_task_id": "nextjs-vite-rewrite",
+  "task_type": "long_horizon_engineering",
+  "title": "SWE-Marathon Next.js to Vite rewrite",
+  "suite_id": "swe_marathon",
+  "source_repo": "swe_marathon"
+}

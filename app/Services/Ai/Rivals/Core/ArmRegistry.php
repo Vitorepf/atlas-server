@@ -60,7 +60,7 @@ class ArmRegistry
         }
         $source = $sourceRepo ?? $suiteId;
         $bindingId = ($suiteId !== null && $agent !== null)
-            ? "{$nativeModel}|{$agent}|{$source}"
+            ? "{$nativeModel}|{$agent}|{$source}|{$runtime}"
             : null;
 
         return [

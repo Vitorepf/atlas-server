@@ -165,7 +165,13 @@ class HermesCliProvider implements AiProvider
         // the top-level one-shot parser has no `--source` flag.
         $source = $this->cleanString(data_get($job->payload, 'hermes.source') ?: ($provider['source'] ?? 'tool')) ?: 'tool';
 
-        if ($this->useCliOneShot($job, $provider)) {
+        $cliOneShot = $this->useCliOneShot($job, $provider);
+        $usageFile = $cliOneShot ? $this->usageFileForJob($job) : null;
+        if ($usageFile !== null) {
+            $args = $this->withArgValue($args, '--usage-file', $usageFile);
+        }
+
+        if ($cliOneShot) {
             $command = $this->buildOneShotCommand($binary, $args, $prompt);
         } else {
             $args = $this->withArgValue($args, '--source', $source);
@@ -237,6 +243,7 @@ class HermesCliProvider implements AiProvider
                 $this->hookBridge->revoke($job, $hookSessionContext);
             }
         }
+        $usage = $this->consumeUsageFile($usageFile);
         $resultPacket = $this->resultPackets->build($job, $result, $mission, $invocation);
         $memoryAdapterReceipt = $this->memoryAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $memoryPolicy);
         $scheduleAdapterReceipt = $this->scheduleAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $schedulePolicy);
@@ -258,6 +265,7 @@ class HermesCliProvider implements AiProvider
                 // reason records WHY ACP was not used, so a silent CLI fallback is never
                 // invisible — both are auditable in ai_job_attempts.metadata.
                 'hermes_transport' => $this->cleanString($result->metadata['hermes_transport'] ?? null) ?? 'cli',
+                'hermes_usage' => $usage,
                 'hermes_acp_fallback_reason' => $this->lastAcpFallbackReason,
                 'executive_mission' => $mission,
                 'cli_invocation' => $invocation,
@@ -418,6 +426,36 @@ class HermesCliProvider implements AiProvider
         }
 
         return array_values(array_merge([$binary, '-z', $prompt], $clean));
+    }
+
+    private function usageFileForJob(AiJob $job): ?string
+    {
+        $path = data_get($job->payload, 'hermes.usage_file');
+        if (! is_string($path) || trim($path) === '' || str_contains($path, "\0")) {
+            return null;
+        }
+        $path = trim($path);
+        $directory = realpath(dirname($path));
+        if ($directory === false || ! is_writable($directory)) {
+            return null;
+        }
+
+        return $directory.DIRECTORY_SEPARATOR.basename($path);
+    }
+
+    /** @return array<string, mixed> */
+    private function consumeUsageFile(?string $path): array
+    {
+        if ($path === null || ! is_file($path)) {
+            return [];
+        }
+        try {
+            $usage = json_decode((string) file_get_contents($path), true);
+
+            return is_array($usage) ? $usage : [];
+        } finally {
+            @unlink($path);
+        }
     }
 
     /**

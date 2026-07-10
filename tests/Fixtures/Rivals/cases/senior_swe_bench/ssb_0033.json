@@ -1,0 +1,9 @@
+{
+  "case_id": "ssb_0033",
+  "native_task_id": "harbor-add-agent-file-retention",
+  "segment": "feature",
+  "task_type": "feature_under_specified",
+  "title": "ssb_0033",
+  "suite_id": "senior_swe_bench",
+  "source_repo": "senior_swe_bench"
+}

@@ -115,4 +115,36 @@ class ExternalCommandContractTest extends TestCase
         $this->assertContains('docker', $commands['swe_marathon']);
         $this->assertContains('--jobs-dir', $commands['swe_marathon']);
     }
+
+    public function test_five_uplift_families_use_distinct_bare_and_atlas_solver_paths(): void
+    {
+        $registry = new SuiteRegistry;
+        foreach ((array) config('atlas_rivals.uplift_families') as $family => $suiteId) {
+            $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
+            $case = $adapter->listCases()[0];
+            $plan = RunPlan::make(
+                $suiteId,
+                [$case['case_id']],
+                [
+                    (new ArmRegistry)->parse('verboo_kimi_k2_7@bare', $suiteId),
+                    (new ArmRegistry)->parse('verboo_kimi_k2_7@atlas_dev', $suiteId),
+                ],
+                1,
+                ['max_usd' => 0.0, 'max_minutes' => 120],
+                42,
+            );
+            $commands = $adapter->planCommands($plan);
+
+            $this->assertCount(2, $commands, $family);
+            $byArm = collect($commands)->keyBy('arm_id');
+            $bare = $byArm['verboo_kimi_k2_7@bare']['argv'];
+            $atlas = $byArm['verboo_kimi_k2_7@atlas_dev']['argv'];
+            $this->assertNotSame($bare, $atlas, "{$family}: atlas_dev relabels bare argv");
+            $this->assertStringContainsString(
+                'atlas',
+                strtolower(implode(' ', $atlas)),
+                "{$family}: Atlas solver absent",
+            );
+        }
+    }
 }

@@ -10,6 +10,7 @@ use App\Models\HermesSkillCandidate;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\CodexCliProvider;
 use App\Services\Ai\GeminiCliProvider;
+use App\Services\Ai\Hermes\ManagedHermesHome;
 use App\Services\Ai\HermesCliProvider;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
@@ -305,6 +306,35 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         $this->assertSame('openrouter', $result->command[array_search('--provider', $result->command, true) + 1]);
         $this->assertSame('shell,filesystem', $result->command[array_search('--toolsets', $result->command, true) + 1]);
         $this->assertSame('glm-5.2', $result->command[array_search('--model', $result->command, true) + 1]);
+    }
+
+    public function test_hermes_oneshot_captures_and_removes_usage_file(): void
+    {
+        $binary = $this->fakeHermesBinary();
+        $usageFile = sys_get_temp_dir().'/hermes-usage-'.bin2hex(random_bytes(4)).'.json';
+        config([
+            'atlas.ai.providers.hermes_cli.binary' => $binary,
+            'atlas.ai.providers.hermes_cli.args' => ['chat', '--quiet'],
+            'atlas.ai.providers.hermes_cli.execution_transport' => 'cli',
+        ]);
+        $job = $this->job([
+            'forge_provider_invocation' => ['role' => 'primary_builder'],
+            'forge_provider_invocation_env' => ['ATLAS_FORGE_TEST' => '1'],
+            'hermes' => [
+                'provider' => 'verboo',
+                'usage_file' => $usageFile,
+            ],
+        ]);
+        $job->provider = 'hermes_cli';
+        $job->model = 'kimi-k2.7';
+
+        $result = app(HermesCliProvider::class)->runStreaming($job, 'capture usage');
+
+        $this->assertTrue($result->ok);
+        $this->assertContains('--usage-file', $result->command);
+        $this->assertSame(1234, data_get($result->metadata, 'hermes_usage.input_tokens'));
+        $this->assertSame(321, data_get($result->metadata, 'hermes_usage.output_tokens'));
+        $this->assertFileDoesNotExist($usageFile);
     }
 
     /**
@@ -630,7 +660,7 @@ class AiCliProviderRuntimeArgsTest extends TestCase
         (require database_path('migrations/2026_06_02_000100_create_hermes_capability_manifests_table.php'))->up();
 
         $traceId = (string) Str::uuid();
-        $managedHome = app(\App\Services\Ai\Hermes\ManagedHermesHome::class);
+        $managedHome = app(ManagedHermesHome::class);
         $homePath = $managedHome->path('home', $traceId);
 
         try {
@@ -1672,6 +1702,13 @@ Usage: hermes chat [options]
 HELP
   exit 0
 fi
+previous=""
+for argument in "$@"; do
+  if [ "$previous" = "--usage-file" ]; then
+    printf '{"input_tokens":1234,"output_tokens":321,"estimated_cost_usd":0.0,"completed":true}' > "$argument"
+  fi
+  previous="$argument"
+done
 cat <<'OUT'
 hermes ok
 ```json

@@ -70,6 +70,7 @@ class Adjudicator
             $internalBlockers[] = "claim_tier_not_production:{$claimTier}";
         }
 
+        $models = new ModelRegistry;
         foreach ($receipts as $receipt) {
             if (! is_numeric($receipt->data['cost_usd']) || ! is_numeric($receipt->data['wall_ms'])) {
                 $internalBlockers[] = 'cost_or_time_missing:'.$receipt->key();
@@ -83,8 +84,41 @@ class Adjudicator
                 $internalBlockers[] = 'harness_only_receipt:'.$receipt->key();
             }
             $modelId = explode('@', (string) $receipt->data['arm_id'], 2)[0];
-            if ((new ModelRegistry)->isHarnessOnly($modelId)) {
+            if ($models->isHarnessOnly($modelId)) {
                 $internalBlockers[] = 'harness_only_model:'.$receipt->key();
+            }
+            $model = $models->get($modelId) ?? [];
+            if (($model['local'] ?? false) !== true && ! $models->isHarnessOnly($modelId)) {
+                foreach (['tokens_in', 'tokens_out'] as $field) {
+                    if ((($receipt->data['field_presence'][$field] ?? [])['present'] ?? false) !== true) {
+                        $internalBlockers[] = "field_not_present:{$field}:".$receipt->key();
+                    }
+                }
+                if (((int) $receipt->data['tokens_in'] + (int) $receipt->data['tokens_out']) <= 0) {
+                    $internalBlockers[] = 'provider_usage_empty:'.$receipt->key();
+                }
+            }
+        }
+
+        if (is_file(RunPaths::nativeManifestPath($runId))) {
+            try {
+                $nativeManifest = NativeExecutionManifest::load($runId);
+                $nativeReceipts = NativeExecutionReceipt::loadAll($runId);
+                if (count($nativeReceipts) !== count($nativeManifest->entries())) {
+                    $internalBlockers[] = 'native_receipts_incomplete';
+                }
+                foreach ($nativeReceipts as $nativeReceipt) {
+                    if ($nativeReceipt->data['status'] !== 'success') {
+                        $internalBlockers[] = 'native_receipt_not_success:'
+                            .$nativeReceipt->data['execution_id'];
+                    }
+                    if (($nativeReceipt->data['runner']['mode'] ?? null) !== 'execute') {
+                        $internalBlockers[] = 'native_runner_mode_not_execute:'
+                            .$nativeReceipt->data['execution_id'];
+                    }
+                }
+            } catch (\Throwable $e) {
+                $internalBlockers[] = 'native_execution_evidence_invalid:'.$e->getMessage();
             }
         }
 

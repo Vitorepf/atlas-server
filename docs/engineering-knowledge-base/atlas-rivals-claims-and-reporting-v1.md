@@ -107,7 +107,7 @@ Claim interno true so com todos:
 2. Receipts completos para cada case×arm×rep planejado
 3. Artifacts verificados (evidence pack; nenhum `present:false` critico)
 4. `repetitions >= claim.min_repetitions` (config, default 3)
-5. Custo e tempo numericos em todo receipt
+5. Custo, tempo e tokens com presenca provada em todo receipt remoto
 6. Replay verificado (quando exigido)
 7. Claim **escopado**
 8. `judge_config` pinned quando o plan declara juiz
@@ -115,6 +115,9 @@ Claim interno true so com todos:
 10. Tier `production|public`; zero fixture/mock/harness model/receipt
 11. Presenca real (nao zero inventado) de custo/tempo
 12. Sample policy pre-registrada e adequada
+13. Native execution receipt `status=success`, `runner.mode=execute` e
+    cardinalidade igual ao manifest; fixture/normalize-only nunca promove
+14. Zero `environment_failure`; erro de provider/verifier nao vira model failure
 
 ### Preregistration e inferencia
 
@@ -158,6 +161,18 @@ Permitida apenas como **dashboard non-claim** (exploratorio). Nunca alimenta `cl
 ### Uplift
 
 Mesmo `model_id` nos dois bracos. Sem wrapper em `runtime_commands` ⇒ nao simular.
+Para provider remoto, bare exige `metadata.direct_provider.real_provider=true`;
+Atlas exige `metadata.runtime_bridge.real_provider=true`, provider/model
+observados iguais ao lock, fair-mode verdadeiro e usage presente. O proof e
+derivado do caminho executado; nunca e inferido do nome do arm.
+
+### Closure
+
+Fase A nao conta apenas `pipeline_valid`. Cada suite precisa de
+`internal_claim_allowed=true`, `statistical_analysis.adequate=true`, report hash,
+bundle e replay validos, comandos independentes e workspace evidence clean.
+`closure --verify` recomputa gates vivos; um receipt historicamente valido nao
+continua autorizado depois de smoke/ledger/workspace/runtime degradarem.
 
 ### Enterprise claim gate (thesis)
 

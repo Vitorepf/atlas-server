@@ -145,9 +145,13 @@ class ExternalTenSuitePipelineTest extends TestCase
             $states->mark($plan->runId(), RunStateMachine::VERIFIED);
             $decision = (new Adjudicator)->adjudicate($plan->runId());
             $this->assertTrue($decision['pipeline_valid'], implode(',', $decision['pipeline_blockers']));
-            $this->assertTrue(
+            $this->assertFalse(
                 $decision['internal_claim_allowed'],
-                $suiteId.': '.implode(',', $decision['internal_claim_blockers']),
+                "{$suiteId}: fixture runner must never authorize a production claim",
+            );
+            $this->assertStringContainsString(
+                'native_runner_mode_not_execute:',
+                implode(',', $decision['internal_claim_blockers']),
             );
             $report = (new ReportBuilder)->build($plan->runId());
             $this->assertTrue($report['pipeline_valid']);
