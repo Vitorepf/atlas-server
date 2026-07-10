@@ -55,6 +55,9 @@ return [
         'allowed_providers' => ['hermes'],
         'default_repetitions' => 3,
         'min_distinct_cases' => 3,
+        // Soft budget ceiling stamped on prepared plans (native runner still
+        // requires dual approve flags; this is honesty + per-entry max_usd).
+        'budget_usd_cap' => (float) env('ATLAS_RIVALS2_FASE_A_BUDGET_USD', 50),
         // Claim packs (≥3 cases) sourced from tests/Fixtures/Rivals/cases.
         'case_packs' => [
             'tau2_bench' => ['airline_task_012', 'airline_task_013', 'airline_task_014'],

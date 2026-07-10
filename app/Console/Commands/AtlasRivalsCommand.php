@@ -75,7 +75,14 @@ class AtlasRivalsCommand extends Command
     {
         $action = $this->argument('action');
         $enabled = (bool) config('atlas_rivals.enabled', false);
-        $mutating = ! in_array($action, ['doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status', 'verify-bundle', 'report', 'report-all', 'report-enterprise', 'battery'], true);
+        $batteryMode = $action === 'battery' ? (string) ($this->option('mode') ?: 'bare') : '';
+        // prepare mutates disk (import+plan); execute is blocked but still gated.
+        $batteryMutating = $action === 'battery'
+            && in_array($batteryMode, ['prepare', 'execute'], true);
+        $mutating = $batteryMutating || ! in_array($action, [
+            'doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status',
+            'verify-bundle', 'report', 'report-all', 'report-enterprise', 'battery',
+        ], true);
         if (! $enabled && $mutating) {
             $payload = [
                 'status' => 'error',

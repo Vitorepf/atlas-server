@@ -102,10 +102,42 @@ class FaseABatteryOrchestratorTest extends TestCase
         $this->assertCount(5, $payload['prepared']);
         $this->assertStringContainsString('atlas_dev', $payload['prepared'][0]['plan']['arms']);
         $this->assertFileExists(RunPaths::nativeManifestPath($payload['prepared'][0]['run_id']));
+        $this->assertGreaterThan(0, $payload['prepared'][0]['budget_usd_cap']);
+        $this->assertTrue($payload['prepared'][0]['preflight']['checks']['hermes_arms_only']);
+        $this->assertTrue($payload['prepared'][0]['preflight']['checks']['provider_spend_approved']);
 
         $signature = (new \ReflectionClass(\App\Console\Commands\AtlasRivalsCommand::class))
             ->getProperty('signature')
             ->getValue(new \App\Console\Commands\AtlasRivalsCommand);
         $this->assertStringContainsString('{--kind=bare', (string) $signature);
+    }
+
+    public function test_model_matrix_mode_fails_closed(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('rivals_battery_model_matrix_not_supported');
+        (new FaseABatteryOrchestrator)->dryRun('model_matrix');
+    }
+
+    public function test_case_pack_too_small_fails_closed(): void
+    {
+        config()->set('atlas_rivals.fase_a.case_packs.tau2_bench', ['only_one']);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('rivals_battery_case_pack_too_small:tau2_bench');
+        (new FaseABatteryOrchestrator)->dryRun('bare');
+    }
+
+    public function test_prepare_cli_requires_rivals_enabled(): void
+    {
+        config()->set('atlas_rivals.enabled', false);
+        $this->artisan('atlas:rivals', [
+            'action' => 'battery',
+            '--mode' => 'prepare',
+            '--kind' => 'bare',
+            '--approve-provider-spend' => true,
+            '--json' => true,
+        ])
+            ->expectsOutputToContain('atlas_rivals_disabled')
+            ->assertExitCode(1);
     }
 }

@@ -22,6 +22,11 @@ class FaseABatteryOrchestrator
     public function dryRun(string $mode = 'bare'): array
     {
         $mode = $this->assertMode($mode);
+        if ($mode === 'model_matrix') {
+            throw new InvalidArgumentException(
+                'rivals_battery_model_matrix_not_supported_use_bare_or_uplift'
+            );
+        }
         $primary = (string) config('atlas_rivals.fase_a.primary_model', 'verboo_kimi_k2_7');
         $this->assertHermesModel($primary);
 
@@ -31,9 +36,15 @@ class FaseABatteryOrchestrator
 
         $casePacks = (array) config('atlas_rivals.fase_a.case_packs', []);
         $repetitions = (int) config('atlas_rivals.fase_a.default_repetitions', 3);
+        $minCases = (int) config('atlas_rivals.fase_a.min_distinct_cases', 3);
         $plans = [];
         foreach ($suites as $suiteId) {
-            $cases = array_values((array) ($casePacks[$suiteId] ?? []));
+            $cases = array_values(array_unique(array_map('strval', (array) ($casePacks[$suiteId] ?? []))));
+            if (count($cases) < $minCases) {
+                throw new RuntimeException(
+                    "rivals_battery_case_pack_too_small:{$suiteId}:".count($cases)."<{$minCases}"
+                );
+            }
             $arms = $mode === 'uplift'
                 ? ["{$primary}@bare", "{$primary}@atlas_dev"]
                 : ["{$primary}@bare"];
@@ -110,16 +121,12 @@ class FaseABatteryOrchestrator
     private function prepareOneSuite(array $planSpec, bool $approveProviderSpend): array
     {
         $suiteId = (string) $planSpec['suite_id'];
-        $fixtureRoot = base_path((string) $planSpec['fixture_root']);
-        if (! is_dir($fixtureRoot)) {
-            throw new RuntimeException("rivals_battery_fixture_root_missing:{$suiteId}");
-        }
+        $fixtureRoot = $this->assertFixtureRoot((string) $planSpec['fixture_root']);
 
         $import = $this->importFixtureCases($suiteId, $fixtureRoot);
         $caseIds = array_values((array) $planSpec['cases']);
         $missing = array_values(array_diff($caseIds, $import['imported']));
         if ($missing !== []) {
-            // Cases may already exist from a prior import; verify on disk.
             $onDisk = [];
             foreach ($caseIds as $caseId) {
                 if (is_file(RunPaths::root()."/external/{$suiteId}/cases/{$caseId}.json")) {
@@ -140,6 +147,9 @@ class FaseABatteryOrchestrator
             fn (string $arm): array => $armRegistry->parse($arm, $suiteId),
             array_values((array) $planSpec['arms']),
         );
+        foreach ($arms as $arm) {
+            $this->assertHermesModel((string) ($arm['model_id'] ?? ''));
+        }
 
         $judgeConfig = null;
         if ($suiteId === 'senior_swe_bench') {
@@ -153,13 +163,14 @@ class FaseABatteryOrchestrator
             }
         }
 
+        $budgetCap = max(0.01, (float) config('atlas_rivals.fase_a.budget_usd_cap', 50.0));
         $plan = RunPlan::make(
             $suiteId,
             $caseIds,
             $arms,
             (int) $planSpec['repetitions'],
             [
-                'max_usd' => 0.0,
+                'max_usd' => $budgetCap,
                 'max_minutes' => (int) config(
                     "atlas_rivals.benchmarks.repos.{$suiteId}.native_timeout_minutes",
                     30
@@ -171,6 +182,7 @@ class FaseABatteryOrchestrator
         $data = $plan->data;
         $data['environment']['source_repo'] = $suiteId;
         $data['environment']['approve_provider_spend'] = $approveProviderSpend;
+        $data['environment']['fase_a_battery'] = true;
         $data['environment']['adapter_hash'] = hash(
             'sha256',
             $adapter::class.'|'.(string) config('atlas_rivals.version', '2.0')
@@ -190,6 +202,9 @@ class FaseABatteryOrchestrator
         ]);
 
         $commands = $adapter->planCommands($plan);
+        if ($commands === []) {
+            throw new RuntimeException("rivals_battery_plan_commands_empty:{$suiteId}");
+        }
         $manifest = NativeExecutionManifest::fromPlan($plan, $adapter, $commands);
         $manifest->persist();
 
@@ -201,6 +216,7 @@ class FaseABatteryOrchestrator
             'run_id' => $runId,
             'imported_cases' => $import['imported'],
             'units_expected' => $planSpec['units_expected'],
+            'budget_usd_cap' => $budgetCap,
             'native_manifest_path' => RunPaths::nativeManifestPath($runId),
             'native_manifest_hash' => $manifest->hash(),
             'preflight' => $preflight,
@@ -221,6 +237,20 @@ class FaseABatteryOrchestrator
                 'run_id' => $runId,
             ],
         ];
+    }
+
+    private function assertFixtureRoot(string $relativeRoot): string
+    {
+        RunPaths::assertRelativePath($relativeRoot);
+        if (! str_starts_with($relativeRoot, 'tests/Fixtures/Rivals/cases/')) {
+            throw new RuntimeException('rivals_battery_fixture_root_outside_allowlist:'.$relativeRoot);
+        }
+        $resolved = RunPaths::resolveContained(base_path(), $relativeRoot, mustExist: true);
+        if (! is_dir($resolved)) {
+            throw new RuntimeException('rivals_battery_fixture_root_missing:'.$relativeRoot);
+        }
+
+        return $resolved;
     }
 
     /**
@@ -280,10 +310,21 @@ class FaseABatteryOrchestrator
             'plan_valid' => is_file(RunPaths::planPath($runId)),
             'storage_writable' => is_writable(RunPaths::runDir($runId)),
             'manifest_valid' => false,
+            'provider_spend_approved' => false,
+            'hermes_arms_only' => true,
         ];
         try {
             $manifest = NativeExecutionManifest::load($runId);
             $checks['manifest_valid'] = $manifest->data['run_id'] === $runId;
+            $checks['provider_spend_approved'] = ($manifest->data['provider_spend_approved'] ?? false) === true;
+            foreach ($manifest->entries() as $entry) {
+                $modelId = (string) ($entry['model_id'] ?? '');
+                $provider = (string) ((new ModelRegistry)->get($modelId)['provider'] ?? '');
+                if ($provider !== 'hermes') {
+                    $checks['hermes_arms_only'] = false;
+                    break;
+                }
+            }
         } catch (\Throwable) {
             $checks['manifest_valid'] = false;
         }
@@ -292,10 +333,13 @@ class FaseABatteryOrchestrator
             $checks['plan_valid'],
             $checks['storage_writable'],
             $checks['manifest_valid'],
+            $checks['provider_spend_approved'],
+            $checks['hermes_arms_only'],
         ], true);
 
         $checks['benchmark_smoke_running'] = 'advisory_mac_only';
-        $checks['note'] = 'prepare does not require live smoke; Mac execute does';
+        $checks['verboo_credentials_present'] = (new VerbooEnvironment)->available();
+        $checks['note'] = 'prepare does not require live smoke; Mac execute does. Credentials never serialized.';
 
         if ($hardOk) {
             $state = (new RunStateMachine)->current($runId);
@@ -334,6 +378,10 @@ class FaseABatteryOrchestrator
             'enterprise_report_present' => is_array($enterprise),
             'enterprise_suites_ok' => (int) ($enterprise['executive_summary']['suites_ok'] ?? 0),
             'enterprise_suites_not_run' => (int) ($enterprise['executive_summary']['suites_not_run'] ?? 10),
+            'verboo_credentials_present' => (new VerbooEnvironment)->available(),
+            'provider_spend_allowed' => (bool) config('atlas_rivals.provider_spend_allowed', false),
+            'rivals_enabled' => (bool) config('atlas_rivals.enabled', false),
+            'execute_allowed_here' => false,
         ];
     }
 
@@ -351,8 +399,11 @@ class FaseABatteryOrchestrator
         $models = (array) config('atlas_rivals.models', []);
         $provider = (string) ($models[$modelId]['provider'] ?? '');
         $allowed = (array) config('atlas_rivals.fase_a.allowed_providers', ['hermes']);
-        if ($provider === '' || ! in_array($provider, $allowed, true)) {
+        if ($modelId === '' || $provider === '' || ! in_array($provider, $allowed, true)) {
             throw new RuntimeException("rivals_battery_model_not_hermes_verboo:{$modelId}");
+        }
+        if (($models[$modelId]['enabled'] ?? true) !== true) {
+            throw new RuntimeException("rivals_battery_model_disabled:{$modelId}");
         }
     }
 }

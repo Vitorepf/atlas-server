@@ -87,6 +87,14 @@ try {
         $timedOut = false;
         $exitCode = 0;
         $model = (new ModelRegistry)->get((string) ($entry['model_id'] ?? '')) ?? [];
+        if (! array_key_exists('normalize-only', $options)
+            && ! array_key_exists('dry-run', $options)
+            && ($model['provider'] ?? null) === 'hermes'
+            && ! (new VerbooEnvironment)->available()) {
+            throw new RuntimeException(
+                'rivals_native_runner_verboo_credentials_missing:'.$executionId
+            );
+        }
         if (! array_key_exists('normalize-only', $options)) {
             $childEnvironment = ($model['provider'] ?? null) === 'hermes'
                 ? (new VerbooEnvironment)->processEnvironment()

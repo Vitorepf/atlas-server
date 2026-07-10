@@ -49,7 +49,7 @@
 - [x] **DoD-2** `atlas:rivals report-enterprise` → JSON + MD + CSV *(código)*
 - [x] **DoD-3** Capa + 10 suites + 2 faces + gaps honestos *(código; faces vazias até Wave 7)*
 - [x] **DoD-4** Sem células críticas silenciosas *(código: reconcile fail-closed + enterprise missing_data)*
-- [x] **DoD-5** `atlas:rivals battery` dry-run (CI) / execute (Mac only) *(dry-run+prepare código; execute = Mac stub)*
+- [x] **DoD-5** `atlas:rivals battery` dry-run (CI) / execute (Mac only) *(dry-run+prepare real import/plan; execute = Mac stub)*
 - [x] **DoD-6** 5 uplift families com proof paths distintos *(surface no report; proof real = Wave 7)*
 - [x] **DoD-7** Usage capture fail-closed nas 10 suites *(contract + adapter reconcile; captura nativa real = Mac)*
 - [x] **DoD-8** Testes CI verdes (sem spend) *(suite Rivals Fase A path-scoped)*
