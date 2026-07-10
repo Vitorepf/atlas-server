@@ -187,8 +187,10 @@ php artisan atlas:rivals ledger --verify --json
 
 ```bash
 php artisan atlas:rivals battery --mode=bare --json
-php artisan atlas:rivals battery --mode=prepare --approve-provider-spend --json
+php artisan atlas:rivals battery --mode=prepare --kind=bare --approve-provider-spend --json
+php artisan atlas:rivals battery --mode=prepare --kind=uplift --approve-provider-spend --json
 # seguir prepared[].import_cases / plan / preflight por suite
+# native execute: rivals-native-runner no Mac (Hermes+Verboo) — nunca neste cloud
 # depois native runner unit-a-unit no Mac (NUNCA no cloud)
 php artisan atlas:rivals report-enterprise --json
 php artisan atlas:rivals closure --json

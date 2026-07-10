@@ -67,4 +67,20 @@ class FaseABatteryOrchestratorTest extends TestCase
         $this->expectExceptionMessage('rivals_battery_prepare_requires_approve_provider_spend');
         (new FaseABatteryOrchestrator)->prepare('bare', false);
     }
+
+    public function test_prepare_kind_uplift_emits_five_dual_arm_steps(): void
+    {
+        config()->set('atlas_rivals.enabled', true);
+        config()->set('atlas_rivals.provider_spend_allowed', true);
+        $payload = (new FaseABatteryOrchestrator)->prepare('uplift', true);
+        $this->assertSame('uplift', $payload['mode']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertCount(5, $payload['prepared']);
+        $this->assertStringContainsString('atlas_dev', $payload['prepared'][0]['plan']['arms']);
+
+        $signature = (new \ReflectionClass(\App\Console\Commands\AtlasRivalsCommand::class))
+            ->getProperty('signature')
+            ->getValue(new \App\Console\Commands\AtlasRivalsCommand);
+        $this->assertStringContainsString('{--kind=bare', (string) $signature);
+    }
 }

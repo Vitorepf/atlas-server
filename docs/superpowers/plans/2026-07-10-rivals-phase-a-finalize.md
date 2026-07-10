@@ -45,16 +45,16 @@
 
 ### Definition of Done (produto)
 
-- [ ] **DoD-1** Schema `atlas.rivals2.enterprise_report.v1` + doc canônico
-- [ ] **DoD-2** `atlas:rivals report-enterprise` → JSON + MD + CSV
-- [ ] **DoD-3** Capa + 10 suites + 2 faces + gaps honestos
-- [ ] **DoD-4** Sem células críticas silenciosas
-- [ ] **DoD-5** `atlas:rivals battery` dry-run (CI) / execute (Mac only)
-- [ ] **DoD-6** 5 uplift families com proof paths distintos
-- [ ] **DoD-7** Usage capture fail-closed nas 10 suites
-- [ ] **DoD-8** Testes CI verdes (sem spend)
-- [ ] **DoD-9** Runbook Mac copy-paste
-- [ ] **DoD-10** Mac: battery real + report legível + closure honesto
+- [x] **DoD-1** Schema `atlas.rivals2.enterprise_report.v1` + doc canônico *(código)*
+- [x] **DoD-2** `atlas:rivals report-enterprise` → JSON + MD + CSV *(código)*
+- [x] **DoD-3** Capa + 10 suites + 2 faces + gaps honestos *(código; faces vazias até Wave 7)*
+- [x] **DoD-4** Sem células críticas silenciosas *(código: reconcile fail-closed + enterprise missing_data)*
+- [x] **DoD-5** `atlas:rivals battery` dry-run (CI) / execute (Mac only) *(dry-run+prepare código; execute = Mac stub)*
+- [x] **DoD-6** 5 uplift families com proof paths distintos *(surface no report; proof real = Wave 7)*
+- [x] **DoD-7** Usage capture fail-closed nas 10 suites *(contract + adapter reconcile; captura nativa real = Mac)*
+- [x] **DoD-8** Testes CI verdes (sem spend) *(suite Rivals Fase A path-scoped)*
+- [x] **DoD-9** Runbook Mac copy-paste
+- [ ] **DoD-10** Mac: battery real + report legível + closure honesto **← NÃO FEITO (requer Mac+Hermes+Verboo)**
 
 ---
 
@@ -439,14 +439,14 @@ Se `php` ausente no ambiente: instalar PHP 8.4+ antes de marcar wave verde; não
 | Wave | Status |
 |---|---|
 | 1 Enterprise report | ✅ feito (schema/CLI/builder/tests) |
-| 2 Per-run + config | ✅ feito (MD/CSV + case_packs) |
-| 3 Usage capture | 🟡 parcial — contract wired no Adjudicator + LCB field_presence; ainda faltam fixes suite-a-suite (TB/inspect/Harbor) no Mac |
-| 4 Battery | 🟡 parcial — dry-run + prepare steps; execute ainda Mac-only stub |
-| 5 Faces wiring | ✅ feito (model_vs_model real + uplift 5 families) |
-| 6 Closure + docs | ✅ parcial — gate `enterprise_report_present` + structure drift corrigido; docs-health sync no Mac |
-| 7 Mac execute | ⬜ **NÃO feito** — notebook/viagem; 10 benches reais + closure 100% |
+| 2 Per-run + config | ✅ feito (MD/CSV + case_packs 10/10) |
+| 3 Usage capture | ✅ código fail-closed (UsageCaptureContract + Adjudicator + `reconcileFieldPresence` no adapter base + LCB/TB/BFCL/inspect); captura nativa real ainda é Mac |
+| 4 Battery | ✅ dry-run + prepare (emite steps) + execute Mac-only stub — **prepare não invoca artisan import/plan** (só payload) |
+| 5 Faces wiring | ✅ model_vs_model real + uplift 5 families no enterprise report |
+| 6 Closure + docs | ✅ gate `enterprise_report_present` + runbook + structure drift; docs-health sync no Mac |
+| 7 Mac execute | ⬜ **NÃO feito** — 10 benches Hermes+Verboo + uplift 5/5 + closure `fase_a_100_percent_authorized=true` |
 
-**Auditoria 2026-07-10 (pós-correção):** código cloud das Waves 1–6 avançou; **Fase A produto NÃO está finalizada** sem Wave 7 no Mac.
+**Auditoria rigorosa 2026-07-10 (revisão):** Waves 1–6 = código+testes cloud. **Fase A produto NÃO terminou** — DoD-10 / Wave 7 exige Mac. Não declarar “100%” sem receipt autorizado.
 
 ---
 

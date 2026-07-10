@@ -274,6 +274,7 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                 fn (array $entry): bool => $entry['expected_result_path'] === $rel,
             )
             : null;
+        // Fail-closed defaults: never claim usage present until reconcile proves it.
         $base = [
             'schema_version' => SchemaContract::RUN_RECEIPT,
             'run_id' => $runId,
@@ -284,10 +285,10 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             'cost_usd' => 0.0,
             'failure_class' => null,
             'field_presence' => [
-                'wall_ms' => ['present' => true, 'reason' => null],
-                'tokens_in' => ['present' => true, 'reason' => null],
-                'tokens_out' => ['present' => true, 'reason' => null],
-                'cost_usd' => ['present' => true, 'reason' => null],
+                'wall_ms' => ['present' => false, 'reason' => 'undeclared'],
+                'tokens_in' => ['present' => false, 'reason' => 'undeclared'],
+                'tokens_out' => ['present' => false, 'reason' => 'undeclared'],
+                'cost_usd' => ['present' => false, 'reason' => 'undeclared'],
             ],
             'claim_tier' => (string) ($plan?->data['claim_tier'] ?? ClaimTier::PRODUCTION),
             'artifacts' => [['path' => $rel, 'sha256' => hash_file('sha256', $path)]],
@@ -339,10 +340,80 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             if ($harnessOnly) {
                 $merged['claim_tier'] = ClaimTier::HARNESS;
             }
+            $provider = (string) ($models->get($modelId)['provider'] ?? '');
+            $merged = $this->reconcileFieldPresence($merged, $provider);
             $receipts[] = RunReceipt::fromArray($merged);
         }
 
         return $receipts;
+    }
+
+    /**
+     * Fail-closed usage honesty: never leave present=true with empty tokens/cost lies.
+     *
+     * @param  array<string, mixed>  $merged
+     * @return array<string, mixed>
+     */
+    protected function reconcileFieldPresence(array $merged, string $provider = ''): array
+    {
+        $fp = (array) ($merged['field_presence'] ?? []);
+
+        foreach (['tokens_in', 'tokens_out'] as $field) {
+            $value = (int) ($merged[$field] ?? 0);
+            $entry = is_array($fp[$field] ?? null) ? $fp[$field] : [];
+            $reason = (string) ($entry['reason'] ?? 'usage_not_reported');
+            if ($value <= 0) {
+                $fp[$field] = [
+                    'present' => false,
+                    'reason' => $reason === 'undeclared' ? 'usage_not_reported' : $reason,
+                ];
+            } else {
+                $fp[$field] = [
+                    'present' => true,
+                    'reason' => (($entry['present'] ?? null) === true && ($entry['reason'] ?? null) !== null)
+                        ? $entry['reason']
+                        : null,
+                ];
+            }
+        }
+
+        $wall = (int) ($merged['wall_ms'] ?? 0);
+        $wallEntry = is_array($fp['wall_ms'] ?? null) ? $fp['wall_ms'] : [];
+        $wallReason = (string) ($wallEntry['reason'] ?? 'wall_ms_not_reported');
+        if ($wallReason === 'native_execution_receipt' && $wall >= 0) {
+            $fp['wall_ms'] = ['present' => true, 'reason' => 'native_execution_receipt'];
+        } elseif ($wall > 0) {
+            $fp['wall_ms'] = ['present' => true, 'reason' => null];
+        } else {
+            $fp['wall_ms'] = [
+                'present' => false,
+                'reason' => $wallReason === 'undeclared' ? 'wall_ms_not_reported' : $wallReason,
+            ];
+        }
+
+        $cost = (float) ($merged['cost_usd'] ?? 0.0);
+        $costEntry = is_array($fp['cost_usd'] ?? null) ? $fp['cost_usd'] : [];
+        $costReason = (string) ($costEntry['reason'] ?? '');
+        $tokensOk = (($fp['tokens_in']['present'] ?? false) === true)
+            && (($fp['tokens_out']['present'] ?? false) === true);
+        if ($cost > 0.0) {
+            $fp['cost_usd'] = ['present' => true, 'reason' => null];
+        } elseif ($costReason === 'verboo_subscription_marginal' && $tokensOk) {
+            $fp['cost_usd'] = ['present' => true, 'reason' => 'verboo_subscription_marginal'];
+        } elseif ($provider === 'hermes' && $tokensOk) {
+            $fp['cost_usd'] = ['present' => true, 'reason' => 'verboo_subscription_marginal'];
+        } else {
+            $fp['cost_usd'] = [
+                'present' => false,
+                'reason' => ($costReason !== '' && $costReason !== 'undeclared')
+                    ? $costReason
+                    : 'cost_not_reported',
+            ];
+        }
+
+        $merged['field_presence'] = $fp;
+
+        return $merged;
     }
 
     /** @param array<string, mixed> $arm */

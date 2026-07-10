@@ -47,7 +47,8 @@ class AtlasRivalsCommand extends Command
         {--base-runtime=bare}
         {--atlas-runtime=atlas_dev}
         {--suite=local_fake}
-        {--mode=bare : (battery) bare|uplift|model_matrix|status}
+        {--mode=bare : (battery) bare|uplift|model_matrix|status|prepare|execute}
+        {--kind=bare : (battery prepare) bare|uplift|model_matrix}
         {--cases= : (plan) comma-separated case ids; default all imported cases}
         {--limit=5 : (mine) máximo de cases a minerar}
         {--file= : (import-cases/import-results) arquivo ou diretório de origem}
@@ -192,7 +193,7 @@ class AtlasRivalsCommand extends Command
         if ($mode === 'prepare') {
             try {
                 return $orchestrator->prepare(
-                    'bare',
+                    (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
                 );
             } catch (\Throwable $e) {

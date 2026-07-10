@@ -157,8 +157,16 @@ final class NativeResultNormalizer
                 'tokens_out' => $tokensOut,
                 'cost_usd' => 0.0,
                 'field_presence' => [
+                    'tokens_in' => [
+                        'present' => $tokensIn > 0,
+                        'reason' => $tokensIn > 0 ? null : 'bfcl_usage_not_reported',
+                    ],
+                    'tokens_out' => [
+                        'present' => $tokensOut > 0,
+                        'reason' => $tokensOut > 0 ? null : 'bfcl_usage_not_reported',
+                    ],
                     'cost_usd' => [
-                        'present' => $isVerboo,
+                        'present' => $isVerboo && ($tokensIn + $tokensOut) > 0,
                         'reason' => $isVerboo
                             ? 'verboo_subscription_marginal'
                             : 'bfcl_native_cost_not_reported',
