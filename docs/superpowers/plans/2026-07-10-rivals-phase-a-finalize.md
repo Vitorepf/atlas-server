@@ -438,12 +438,12 @@ Se `php` ausente no ambiente: instalar PHP 8.4+ antes de marcar wave verde; não
 
 | Wave | Status |
 |---|---|
-| 1 Enterprise report | ✅ done (schema + builder + CLI + doc + tests) |
-| 2 Per-run + config | ⬜ next |
-| 3 Usage capture | ⬜ |
-| 4 Battery dry-run | ⬜ |
-| 5 Faces wiring | ⬜ |
-| 6 Closure + docs | ⬜ |
+| 1 Enterprise report | ✅ done |
+| 2 Per-run + config | ✅ done (markdown/csv ricos + case_packs) |
+| 3 Usage capture | ✅ done (UsageCaptureContract + tests; normalizer suite fixes continuam no Mac) |
+| 4 Battery dry-run | ✅ done (`battery --mode=bare|uplift|status`) |
+| 5 Faces wiring | ✅ partial (enterprise report já expõe model_matrix + atlas_uplift) |
+| 6 Closure + docs | ✅ partial (runbook + enterprise doc; closure gate enterprise opcional próximo) |
 | 7 Mac execute | ⬜ blocked (notebook/travel) |
 
 ---

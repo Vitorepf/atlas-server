@@ -104,6 +104,8 @@ Schemas internos `atlas.rivals2.*` e env `ATLAS_RIVALS2_*` sao formato preservad
 | `verify` | ReplayVerifier |
 | `adjudicate` | Hard gates + append ledger |
 | `report` / `report-all` | Relatorio escopado (report-all nunca claim_allowed) |
+| `report-enterprise` | Relatorio empresarial consolidado Fase A (sempre 10 suites; agregado never claim) |
+| `battery` | Dry-run da bateria Fase A (`--mode=bare|uplift|status`); prepare/execute so no Mac |
 | `uplift` | bare vs atlas_* (`--model=` obrigatorio; `--strict` falha se unsupported) |
 | `bundle` / `verify-bundle` | Bundle portatil e verificacao read-only |
 | `closure` | Reexecuta gates e gera closure receipt; `--strict` exige 100%; `--verify` detecta edicao |
@@ -176,8 +178,23 @@ php artisan atlas:rivals benchmark-smoke --repo=tau2_bench --json
 php artisan atlas:rivals run-fake --json
 php artisan atlas:rivals adjudicate --json
 php artisan atlas:rivals report --json
+php artisan atlas:rivals report-enterprise --json
+php artisan atlas:rivals battery --mode=bare --json
 php artisan atlas:rivals ledger --verify --json
 ```
+
+### Fase A finalize (Mac + Hermes + Verboo only)
+
+```bash
+php artisan atlas:rivals battery --mode=bare --json          # dry-run (CI/cloud ok)
+# no Mac, apos smoke + flags:
+# php artisan atlas:rivals battery --mode=prepare --approve-provider-spend --json
+# php artisan atlas:rivals battery --mode=execute --approve-provider-spend --json
+php artisan atlas:rivals report-enterprise --json
+php artisan atlas:rivals closure --json
+```
+
+Cloud agents **nao** chamam prepare/execute.
 
 ## Regras para IA
 

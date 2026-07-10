@@ -110,6 +110,12 @@ class ReportBuilderV2Test extends TestCase
         $second = (new ReportBuilder)->build($runId);
         $this->assertSame($firstHash, $second['report_hash']);
         $this->assertStringContainsString('NOT READY FOR PRODUCTION CLAIM', file_get_contents(RunPaths::reportMarkdownPath($runId)));
+        $markdown = (string) file_get_contents(RunPaths::reportMarkdownPath($runId));
+        $this->assertStringContainsString('## Statistical analysis', $markdown);
+        $this->assertStringContainsString('tokens_cov_in/out', $markdown);
+        $csv = (string) file_get_contents(RunPaths::reportCsvPath($runId));
+        $this->assertStringContainsString('tokens_coverage_in', $csv);
+        $this->assertStringContainsString('internal_claim_allowed', $csv);
 
         $all = (new ReportBuilder)->buildAll();
         $this->assertFalse($all['claim_allowed']);

@@ -433,18 +433,51 @@ class ReportBuilder
         $md .= 'statistical_adequacy: '.(($report['statistical_analysis']['adequate'] ?? false) ? 'true' : 'false')."\n";
         $md .= 'difficulty_band: '.($report['difficulty_band'] ?? 'uncalibrated')."\n";
         $md .= 'claim_allowed: '.($report['claim_allowed'] ? 'true' : 'false')."\n";
+        if (($report['not_ready_reasons'] ?? []) !== []) {
+            $md .= "not_ready_reasons:\n".implode("\n", array_map(
+                fn ($b) => '- '.$b,
+                (array) $report['not_ready_reasons'],
+            ))."\n";
+        }
         if ($report['claim_blockers'] !== []) {
             $md .= "claim_blockers:\n".implode("\n", array_map(fn ($b) => "- {$b}", $report['claim_blockers']))."\n";
         }
+        if (($report['difficulty_flags'] ?? []) !== []) {
+            $md .= 'difficulty_flags: '.json_encode($report['difficulty_flags'], JSON_UNESCAPED_SLASHES)."\n";
+        }
         $md .= "\nMissing-data policy: `".json_encode($report['missing_data_policy'], JSON_UNESCAPED_SLASHES)."`\n";
-        $md .= "\n| task_type | arm | planned | observed | success_itt | Wilson95 | valid_success | cost/task | median_ms | p95_ms | env_fail | stability |\n";
-        $md .= "|---|---|---|---|---|---|---|---|---|---|---|---|\n";
+
+        $stats = (array) ($report['statistical_analysis'] ?? []);
+        $md .= "\n## Statistical analysis\n\n";
+        $md .= '- adequate: '.(($stats['adequate'] ?? false) ? 'true' : 'false')."\n";
+        if (($stats['blockers'] ?? []) !== []) {
+            $md .= '- blockers: '.implode(', ', (array) $stats['blockers'])."\n";
+        }
+        if (($stats['segments'] ?? []) !== []) {
+            $md .= '- segments: '.count((array) $stats['segments'])."\n";
+        }
+
+        if (is_array($report['uplift'] ?? null)) {
+            $uplift = $report['uplift'];
+            $md .= "\n## Uplift\n\n";
+            $md .= '- uplift_supported: '.(($uplift['uplift_supported'] ?? false) ? 'true' : 'false')."\n";
+            $md .= '- uplift_kind: '.($uplift['uplift_kind'] ?? 'n/a')."\n";
+            $md .= '- model_id: '.($uplift['model_id'] ?? 'n/a')."\n";
+            if (($uplift['claim_blockers'] ?? []) !== []) {
+                $md .= '- claim_blockers: '.implode(', ', (array) $uplift['claim_blockers'])."\n";
+            }
+        }
+
+        $md .= "\n| task_type | arm | planned | observed | success_itt | Wilson95 | valid_success | cost/task | median_ms | p95_ms | tokens_cov_in/out | env_fail | stability |\n";
+        $md .= "|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
         foreach ($report['rows'] as $row) {
             $ci = $row['success_rate_wilson_95'];
+            $cov = (array) ($row['tokens_coverage'] ?? []);
+            $covLabel = ($cov['in'] ?? 0).'/'.($cov['n'] ?? 0).' · '.($cov['out'] ?? 0).'/'.($cov['n'] ?? 0);
             $md .= "| {$row['task_type']} | {$row['arm_id']} | {$row['planned_attempts']} | {$row['observed_attempts']} | "
                 ."{$row['success_rate_itt']} | [{$ci['low']}, {$ci['high']}] | {$row['success_rate_valid_results']} | "
                 .($row['cost_per_task'] ?? 'n/a').' | '.($row['median_wall_ms'] ?? 'n/a')
-                .' | '.($row['p95_wall_ms'] ?? 'n/a')." | {$row['environment_failure_rate']} | {$row['stability']} |\n";
+                .' | '.($row['p95_wall_ms'] ?? 'n/a')." | {$covLabel} | {$row['environment_failure_rate']} | {$row['stability']} |\n";
         }
 
         return $md."\nEscopo do claim: ".json_encode($report['claim_scope'], JSON_UNESCAPED_SLASHES)."\n";
@@ -456,6 +489,9 @@ class ReportBuilder
         fputcsv($handle, [
             'run_id',
             'claim_tier',
+            'pipeline_valid',
+            'internal_claim_allowed',
+            'public_claim_allowed',
             'task_type',
             'arm_id',
             'planned_attempts',
@@ -468,14 +504,22 @@ class ReportBuilder
             'cost_per_task',
             'median_wall_ms',
             'p95_wall_ms',
+            'tokens_coverage_in',
+            'tokens_coverage_out',
+            'tokens_coverage_n',
             'environment_failure_rate',
+            'stability',
             'failure_classes',
             'dimensions',
         ]);
         foreach ($report['rows'] as $row) {
+            $cov = (array) ($row['tokens_coverage'] ?? []);
             fputcsv($handle, [
                 $report['run_id'],
                 $report['claim_tier'],
+                ($report['pipeline_valid'] ?? false) ? 'true' : 'false',
+                ($report['internal_claim_allowed'] ?? false) ? 'true' : 'false',
+                ($report['public_claim_allowed'] ?? false) ? 'true' : 'false',
                 $row['task_type'],
                 $row['arm_id'],
                 $row['planned_attempts'],
@@ -488,7 +532,11 @@ class ReportBuilder
                 $row['cost_per_task'],
                 $row['median_wall_ms'],
                 $row['p95_wall_ms'],
+                $cov['in'] ?? null,
+                $cov['out'] ?? null,
+                $cov['n'] ?? null,
                 $row['environment_failure_rate'],
+                $row['stability'] ?? null,
                 json_encode($row['failure_classes'], JSON_UNESCAPED_SLASHES),
                 json_encode($row['dimensions'], JSON_UNESCAPED_SLASHES),
             ]);
