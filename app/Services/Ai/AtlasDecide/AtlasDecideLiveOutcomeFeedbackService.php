@@ -148,6 +148,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $tokensUsed = ($inputTokens ?? 0) + ($outputTokens ?? 0);
         }
         $actor = (string) ($input['actor'] ?? 'ai_gateway');
+        $language = $this->labelOrNull($input['language'] ?? null);
+        $riskLevel = $this->labelOrNull($input['risk_level'] ?? null);
+        $contextMode = $this->labelOrNull($input['context_mode'] ?? null);
+        $toolProfile = $this->labelOrNull($input['tool_profile'] ?? null);
+        $repairCount = $this->nonNegativeIntOrNull($input['repair_count'] ?? null);
+        $contextTokens = $this->positiveIntOrNull($input['context_tokens'] ?? null);
         // proven_real (Goal 2): this success is backed by a REAL gate verdict (passed the
         // OutcomeProofGate / sovereign floor), not a fake-green. Absent ⇒ false (an unmarked
         // outcome is NOT proven). This is the ONLY signal the Learning Loop's activation regime
@@ -172,6 +178,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'tokens_used' => $tokensUsed,
             'input_tokens' => $inputTokens,
             'output_tokens' => $outputTokens,
+            'language' => $language,
+            'risk_level' => $riskLevel,
+            'context_mode' => $contextMode,
+            'tool_profile' => $toolProfile,
+            'repair_count' => $repairCount,
+            'context_tokens' => $contextTokens,
             'actor' => $actor,
         ];
         $entry['entry_hash'] = 'sha256:'.hash('sha256', json_encode([
@@ -185,6 +197,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'cost_usd' => $costUsd,
             'tokens_used' => $tokensUsed,
             'quality_score' => $quality,
+            'language' => $language,
+            'risk_level' => $riskLevel,
+            'context_mode' => $contextMode,
+            'tool_profile' => $toolProfile,
+            'repair_count' => $repairCount,
+            'context_tokens' => $contextTokens,
             'actor' => $actor,
         ], JSON_THROW_ON_ERROR));
 
@@ -245,9 +263,37 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $tokenSum = 0;
             $tokenCount = 0;
             $lastModel = null;
+            $languageCounts = [];
+            $riskLevelCounts = [];
+            $contextModeCounts = [];
+            $toolProfileCounts = [];
+            $repairSum = 0;
+            $repairSamples = 0;
+            $contextTokenSum = 0;
+            $contextTokenSamples = 0;
             foreach ($window as $w) {
                 if (isset($w['model']) && is_string($w['model']) && $w['model'] !== '') {
                     $lastModel = $w['model'];
+                }
+                foreach ([
+                    'language' => &$languageCounts,
+                    'risk_level' => &$riskLevelCounts,
+                    'context_mode' => &$contextModeCounts,
+                    'tool_profile' => &$toolProfileCounts,
+                ] as $field => &$counts) {
+                    $label = is_string($w[$field] ?? null) ? trim((string) $w[$field]) : '';
+                    if ($label !== '') {
+                        $counts[$label] = ($counts[$label] ?? 0) + 1;
+                    }
+                }
+                unset($counts);
+                if (isset($w['repair_count']) && is_numeric($w['repair_count']) && (int) $w['repair_count'] >= 0) {
+                    $repairSum += (int) $w['repair_count'];
+                    $repairSamples++;
+                }
+                if (isset($w['context_tokens']) && is_numeric($w['context_tokens']) && (int) $w['context_tokens'] > 0) {
+                    $contextTokenSum += (int) $w['context_tokens'];
+                    $contextTokenSamples++;
                 }
                 $r = (string) ($w['result'] ?? '');
                 match ($r) {
@@ -281,6 +327,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
                     $tokenCount++;
                 }
             }
+            ksort($languageCounts);
+            ksort($riskLevelCounts);
+            ksort($contextModeCounts);
+            ksort($toolProfileCounts);
             $successRate = $n > 0 ? round($success / $n, 4) : null;
             $provenSuccessRate = $n > 0 ? round($provenSuccess / $n, 4) : null;
             $providers[$p] = [
@@ -299,6 +349,16 @@ final class AtlasDecideLiveOutcomeFeedbackService
                 'avg_tokens_used' => $tokenCount > 0 ? (int) round($tokenSum / $tokenCount) : null,
                 'token_sample_count' => $tokenCount,
                 'last_model' => $lastModel,
+                'capability_profile' => [
+                    'language_counts' => $languageCounts,
+                    'risk_level_counts' => $riskLevelCounts,
+                    'context_mode_counts' => $contextModeCounts,
+                    'tool_profile_counts' => $toolProfileCounts,
+                    'avg_repair_count' => $repairSamples > 0 ? round($repairSum / $repairSamples, 2) : null,
+                    'repair_sample_count' => $repairSamples,
+                    'avg_context_tokens' => $contextTokenSamples > 0 ? (int) round($contextTokenSum / $contextTokenSamples) : null,
+                    'context_token_sample_count' => $contextTokenSamples,
+                ],
             ];
         }
         ksort($providers);
@@ -404,6 +464,25 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $int = (int) $value;
 
         return $int > 0 ? $int : null;
+    }
+
+    private function nonNegativeIntOrNull(mixed $value): ?int
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return max(0, (int) $value);
+    }
+
+    private function labelOrNull(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+        $label = strtolower(trim((string) $value));
+
+        return $label !== '' ? mb_substr($label, 0, 80) : null;
     }
 
     /**

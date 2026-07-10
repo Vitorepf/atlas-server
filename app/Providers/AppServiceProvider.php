@@ -5,9 +5,6 @@ namespace App\Providers;
 use App\Console\Commands\AtlasTaskMaestroCostCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexOrphanAgeReporter;
-use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexSymbolAgeReporter;
-use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Temporal\AtlasCortexTemporalAxisQueryService;
 use App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleReceiptLedger;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
@@ -41,9 +38,6 @@ use App\Services\Ai\AutonomousEvolution\AtlasEvolutionTaskGenerator;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopNetDiffCertReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentIngest\AtlasLoopOperatorIntentSchemaRegistry;
-use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCallGraphLens;
-use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry;
-use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptSigner;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBenchmarkHarness;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate;
@@ -352,22 +346,6 @@ class AppServiceProvider extends ServiceProvider
         );
         // §W40-S6 substrate-receipt ledger — single shared append-only journal across supervisor + keepalive.
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\AtlasLoopSubstrateReceiptLedger::class);
-        // Trinity anti-decoupling contract emitter — single canonical source enforcing recursive coupling.
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling\AtlasLoopTrinityContractEmitter::class);
-        // Cortex Council — single registry shared by lens packets + the triangulator, pre-populated with the 5
-        // built-in lenses (callgraph, dataflow, githistory, testcoverage, docintent). Triangulator + CLI are
-        // gated upstream by config('atlas.cortex.council.enabled') — see AtlasLoopCortexCouncilCommand.
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry::class, function (): \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry {
-            $registry = new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexLensRegistry;
-            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCallGraphLens);
-            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexDataFlowLens);
-            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexGitHistoryLens);
-            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexTestCoverageLens);
-            $registry->register(new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexDocIntentLens);
-
-            return $registry;
-        });
-        $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Council\AtlasCortexCouncilTriangulator::class);
         // Cortex v+infinity universal contract — the portable interface every backend implements. The default
         // binding is an inline adapter that delegates to AtlasLoopScopeComprehensionModelBuilder so the
         // returned FACTS array is byte-identical to the existing model's toArray() output.
@@ -407,34 +385,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleSpawner::class);
         // LOOP-CYCLE-NEST W1160 P2 — child-outcome FACT merger (refuses scalar score/grade/rank/rating/quality_score).
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\LiveCycle\Nesting\AtlasLoopSubCycleResultMerger::class);
-        // W1260 P4 — Cortex MultiLang language registry, seeded with php/typescript/yaml.
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexLanguageRegistry::class,
-            function () {
-                $registry = new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexLanguageRegistry();
-                $registry->register('php', [
-                    'parser_class' => 'native_reflection',
-                    'extractor_class' => \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\ApiDiff\AtlasCortexApiSurfaceExtractor::class,
-                    'extensions' => ['php'],
-                    'namespace_roots' => ['App\\'],
-                ]);
-                (new \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexTypeScriptParserFacts([base_path('app'), base_path('tests'), base_path('docs'), base_path('config')]))->registerInto($registry);
-                \App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MultiLang\AtlasCortexYamlConfigFactExtractor::registerInto($registry);
-
-                return $registry;
-            },
-        );
-        // W1240 — Loop cycle model-check CLI service (extract|deadlock|history orchestrator).
-        $this->app->singleton(
-            \App\Services\Ai\AutonomousEvolution\ModelCheck\AtlasLoopCycleModelCheckCli::class,
-            function ($app) {
-                return new \App\Services\Ai\AutonomousEvolution\ModelCheck\AtlasLoopCycleModelCheckCli(
-                    $app->make(\App\Services\Ai\AutonomousEvolution\ModelCheck\AtlasLoopCycleStateMachineExtractor::class),
-                    $app->make(\App\Services\Ai\AutonomousEvolution\ModelCheck\AtlasLoopCycleDeadlockChecker::class),
-                    storage_path('atlas/model-check'),
-                );
-            },
-        );
         // W1210 P2 — Loop permission-gradient enforcer (single chokepoint above the pétreo sandbox floor).
         $this->app->singleton(\App\Services\Ai\AutonomousEvolution\Permissions\AtlasLoopPermissionLevelEnforcer::class);
         // W1190 — AAEL rollback CLI operator port (snapshotter+executor+ledger wired by default).
@@ -486,9 +436,8 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopAmbitionFacultyStore::class,
             \App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopFileAmbitionFacultyStore::class,
         );
-        // Cycle-receipt chain — singletons so the CLI + any callers share one ledger/signer pair.
+        // Cycle-receipt chain — singletons so the CLI + any callers share one signer.
         $this->app->singleton(AtlasLoopCycleReceiptSigner::class);
-        $this->app->singleton(AtlasLoopCycleReceiptLedger::class);
         $this->app->singleton(AtlasLoopProviderContextOptimizer::class);
         $this->app->singleton(AtlasLoopAdversarialVerifierPool::class);
         $this->app->singleton(AtlasLoopCrossModelTriangulator::class);
@@ -1447,13 +1396,6 @@ class AppServiceProvider extends ServiceProvider
 
             return new AtlasMaestroPriorityReshaper($path);
         });
-
-        $this->app->singleton(AtlasCortexSymbolAgeReporter::class);
-        $this->app->singleton(AtlasCortexOrphanAgeReporter::class);
-        $this->app->singleton(AtlasCortexTemporalAxisQueryService::class, fn ($app) => new AtlasCortexTemporalAxisQueryService(
-            symbolReporter: $app->make(AtlasCortexSymbolAgeReporter::class),
-            orphanReporter: $app->make(AtlasCortexOrphanAgeReporter::class),
-        ));
 
         $this->app->singleton(AtlasMaestroPriorityFactSnapshotter::class, function () {
             $emptySource = static fn (): array => [];

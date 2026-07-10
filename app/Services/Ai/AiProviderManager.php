@@ -96,7 +96,7 @@ class AiProviderManager
         $this->registerConfiguredDrivers();
     }
 
-    public function get(?string $provider = null): AiProvider
+    public function get(?string $provider = null, bool $skipCoverage = false): AiProvider
     {
         $provider = $provider ?: $this->runtimeSettings->defaultProvider();
 
@@ -113,7 +113,9 @@ class AiProviderManager
         // SLICE 1 — the governed resolution is the COVERED half of the bypass
         // meter. Muscle paths that skip this method record BYPASS. Opt-in +
         // fail-open (the ledger swallows), so unwired construction is unchanged.
-        $this->coverageLedger?->recordCovered($provider, ProviderGovernanceCoverageLedger::SURFACE_MANAGER);
+        if (! $skipCoverage) {
+            $this->coverageLedger?->recordCovered($provider, ProviderGovernanceCoverageLedger::SURFACE_MANAGER);
+        }
 
         // Compression is wrapped INNERMOST (it transforms the prompt the real
         // provider sees), response-cache OUTERMOST (it keys on the logical prompt
@@ -315,13 +317,31 @@ class AiProviderManager
             }
         }
 
-        return [
-            'provider' => $this->get($chosenKey),
+        $resolution = [
+            'provider' => $this->get($chosenKey, true),
             'key' => $chosenKey,
             'verdict' => $verdict,
             'consulted' => $consultation !== null,
             'consultation' => $consultation,
         ];
+
+        $this->coverageLedger?->recordCovered(
+            $chosenKey,
+            ProviderGovernanceCoverageLedger::SURFACE_RECOMMENDATION,
+        );
+
+        return $resolution;
+    }
+
+    /**
+     * Record a bypass — i.e. a provider resolution that happened OUTSIDE this
+     * manager (a muscle path, a CLI shortcut). Always exposed so terminal code
+     * can declare it; the ledger swallows so unwired construction is unchanged.
+     */
+    public function recordBypass(string $provider, string $surface, ?string $reason = null): void
+    {
+        $context = $reason !== null ? ['reason' => $reason] : [];
+        $this->coverageLedger?->recordBypass($provider, $surface, $context);
     }
 
     /**

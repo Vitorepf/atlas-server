@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Rivals\Adapters;
 
 use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
+use App\Services\Ai\Rivals\Core\ClaimTier;
 use App\Services\Ai\Rivals\Core\RunPlan;
 use App\Services\Ai\Rivals\Core\RunReceipt;
 use App\Services\Ai\Rivals\Support\EventStream;
@@ -90,10 +91,19 @@ class LocalFakeSuiteAdapter implements BenchmarkSuiteAdapter
                 'arm_id' => $cmd['arm_id'],
                 'repetition' => $cmd['repetition'],
                 'status' => $status,
+                'failure_class' => RunReceipt::defaultFailureClass($status),
                 'wall_ms' => $status === 'timeout' ? 5000 : $wallMs,
                 'tokens_in' => 1000,
                 'tokens_out' => 200,
                 'cost_usd' => 0.0,
+                'field_presence' => [
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                    'tokens_in' => ['present' => true, 'reason' => null],
+                    'tokens_out' => ['present' => true, 'reason' => null],
+                    'cost_usd' => ['present' => true, 'reason' => null],
+                ],
+                'claim_tier' => ClaimTier::HARNESS,
+                'harness_only' => true,
                 'artifacts' => [[
                     'path' => $artifactRel,
                     'sha256' => hash_file('sha256', $artifactAbs),

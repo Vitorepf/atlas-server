@@ -280,6 +280,8 @@ final class AtlasTaskServingContractTest extends TestCase
             // scope (path or basename) — a generic proof command no longer counts.
             'commands_run' => ['php artisan test --filter='.$packetId.': passed'],
             'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Implemented the packet acceptance contract inside the allowed file.',
+            'capability_delta' => 'The scoped capability now satisfies its declared acceptance check.',
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
             'git_diff_check_result' => 'clean',
         ], $overrides);

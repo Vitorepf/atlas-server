@@ -2,8 +2,10 @@
 
 namespace App\Services\Ai\Rivals\Benchmarks;
 
+use App\Services\Ai\Rivals\Core\SuiteRegistry;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use RuntimeException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -63,6 +65,15 @@ class BenchmarkRepoManager
 
         if (! is_dir($dir.'/.git')) {
             RunPaths::ensureDir($this->root());
+            // Partial/non-git checkout (e.g. archive extract) blocks clone into existing path.
+            // Remove and reclone so smoke can recover honestly instead of looping on "already exists".
+            if (is_dir($dir) || is_file($dir)) {
+                $rm = $this->exec(['rm', '-rf', $dir], $this->root(), 120);
+                $steps[] = ['step' => 'reclone_cleanup', 'command' => 'rm -rf '.$dir, 'exit_code' => $rm['exit_code']];
+                if ($rm['exit_code'] !== 0) {
+                    return $this->receipt($id, $spec, 'blocked', $steps, 'reclone_cleanup_failed: '.$rm['tail'], $startedAt, $t0);
+                }
+            }
             $clone = $this->exec(['git', 'clone', '--depth', '1', $spec['url'], $dir], $this->root(), 600);
             $steps[] = ['step' => 'clone', 'command' => 'git clone --depth 1 '.$spec['url'], 'exit_code' => $clone['exit_code']];
             if ($clone['exit_code'] !== 0) {
@@ -100,11 +111,26 @@ class BenchmarkRepoManager
         $dir = $this->root().'/'.$id;
         $cloned = is_dir($dir.'/.git');
         $latest = $this->latestReceipt($id);
+        $suiteId = $id;
+        $adapterResolves = false;
+        $adapterClass = null;
+        try {
+            $registry = new SuiteRegistry;
+            $suiteId = $registry->canonicalize($id, allowLegacyAlias: true);
+            $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
+            $adapterResolves = $adapter->suiteId() === $suiteId;
+            $adapterClass = $adapter::class;
+        } catch (\Throwable) {
+            $adapterResolves = false;
+        }
 
         return [
             'repo_id' => $id,
+            'suite_id' => $suiteId,
             'url' => $spec['url'],
-            'adapter' => $spec['adapter'],
+            'adapter' => $spec['adapter'] ?? $suiteId,
+            'adapter_class' => $adapterClass,
+            'adapter_resolves' => $adapterResolves,
             'cloned' => $cloned,
             'commit' => $cloned ? trim($this->exec(['git', 'rev-parse', 'HEAD'], $dir, 30)['stdout']) : null,
             'installed' => is_file($dir.'/.atlas-venv/.atlas-install-ok'),
@@ -175,7 +201,7 @@ class BenchmarkRepoManager
         $p = new Process(['/bin/bash', '-c', $cmd], $cwd, $env, null, (float) $timeout);
         try {
             $p->run();
-        } catch (\Symfony\Component\Process\Exception\ProcessTimedOutException) {
+        } catch (ProcessTimedOutException) {
             return ['exit_code' => 124, 'stdout' => $p->getOutput(), 'stderr' => $p->getErrorOutput()."\ntimeout_after_{$timeout}s", 'tail' => "timeout_after_{$timeout}s"];
         }
 

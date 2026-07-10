@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Aael\Execution\TraceReplay;
 
 use App\Services\Ai\AutonomousEvolution\Support\GitSubprocess;
+use App\Services\Ai\AutonomousEvolution\Support\NowTrait;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Closure;
 use RuntimeException;
 
 final class AtlasAaelExecutionTraceRecorder
 {
+    use NowTrait;
     use \App\Services\Ai\AutonomousEvolution\Concerns\SortsReceiptPayloadsCanonically;
 
     private ?string $traceId = null;
@@ -187,9 +189,9 @@ final class AtlasAaelExecutionTraceRecorder
 
     private function now(): string
     {
-        return $this->clock !== null
-            ? ($this->clock)()
-            : date(DATE_ATOM);
+        $clock = is_callable($this->clock) ? Closure::fromCallable($this->clock) : null;
+
+        return $this->nowAsString($clock);
     }
 
     /**

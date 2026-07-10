@@ -214,6 +214,14 @@ exemplos ✓/✗ · aliases ok/proibidos.
 - ✓ "Forge orquestra refatoracao de 14 arquivos". ✗ "Forge executa patch do Dev".
 - Aliases: ok={Atlas Forge, Forge OS}; proibido={Dev pesado, Atlas Code Forge = Atlas Forge}.
 
+### Rivals
+
+- `active`. Benchmark interno rigoroso do Atlas (versao **2.0**): model-vs-model e Atlas uplift (bare vs runtime Atlas), local, fail-closed, claims escopados.
+- Use: medicao de qualidade/custo/custo-por-tarefa/tempo/estabilidade; adapters externos + corpus AtlasBench/Elite. Nao use: como arena ForgeRivals 1.0, score unico, media dos N benches como claim, nem avaliacao per-delivery.
+- Relacao: produto em `atlas-rivals-product-v1`; estrutura em `atlas-rivals-structure-v1`; CLI `atlas:rivals`; config `config/atlas_rivals.php`. Kill-map do 1.0: `atlas-rivals2-rebuild-map-v1`.
+- ✓ "`atlas:rivals report` com claim escopado". ✗ "media dos 10 benches = vencedor" / "atlas:forge:rivals".
+- Aliases: ok={Rivals, Rivals 2.0, atlas:rivals}; proibido={Rivals2 como nome de produto publico, ForgeRivals runtime, best overall}.
+
 ### Atlas Code
 
 - `active`. Superficie/UX dentro do Atlas Desktop dedicada a programacao. Cabine operacional. NAO e runtime.
@@ -485,6 +493,9 @@ Os termos TEOS/Long-Horizon vivem em `docs/engineering-knowledge-base/atlas-cano
 | `DailyMission` confundido com `Mission` | modelos disjuntos | nunca usar como sinonimos |
 | `Cockpit` solto | marketing sem definicao | painel especifico (Obra Command Center, ...) |
 | `Hyperflow` como runtime atual | ainda planned | "Operacao Atlas Hyperflow" (projeto) |
+| `ForgeRivals` / `atlas:forge:rivals` / `atlas-forge-rivals-*` como runtime | Rivals 1.0 morto; docs legado = superseded | Rivals 2.0: `atlas:rivals` + `atlas-rivals-product-v1.md` |
+| `Rivals2` como nome de produto publico | versao interna, nao marca | **Rivals** (versao 2.0); ids `atlas.rivals2.*` / `ATLAS_RIVALS2_*` so internos |
+| `best overall` / media dos N benches como claim | Goodhart / score theater | claims escopados multi-eixo; media so dashboard non-claim |
 
 ## Regras para IA
 

@@ -5,9 +5,8 @@ namespace App\Services\Ai\Rivals\Adapters\External;
 use RuntimeException;
 
 /**
- * SWE-bench-Live: instâncias frescas de issues reais. Default honesto de
- * task_type = repair_regression_fixing (issue-fixing); case importado pode
- * sobrescrever para coding_patch.
+ * SWE-bench-Live: predictions.jsonl (agente) + evaluation (harness).
+ * Tokens/custo do agente devem vir do predictions stage quando disponíveis.
  */
 class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
 {
@@ -18,8 +17,7 @@ class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        // entrypoint atual do repo (main, multi-lang); swebench.harness era só do branch python-only antigo
-        return 'python -m evaluation.evaluation --dataset SWE-bench-Live/SWE-bench-Live --instance_ids {case_id} --predictions_path predictions.jsonl --run_id {rep}';
+        return 'php {atlas_root}/scripts/rivals-swe-live-unit.php --case-file={case_file} --instance={native_task_id} --model={atlas_cli_model} --scratch={eval_scratch_dir}';
     }
 
     protected function mapResults(array $native): array
@@ -27,19 +25,42 @@ class SweBenchLiveAdapter extends AbstractExternalSuiteAdapter
         $receipts = [];
         foreach ($native['instances'] ?? [] as $inst) {
             $instanceId = $inst['instance_id'] ?? throw new RuntimeException('swe_bench_live_instance_id_missing');
+            $model = $inst['model_name_or_path'] ?? throw new RuntimeException('swe_bench_live_model_missing');
+            $status = match (true) {
+                ($inst['eval_status'] ?? null) === 'error' => 'error',
+                ($inst['resolved'] ?? null) === true => 'success',
+                ($inst['resolved'] ?? null) === false => 'failure',
+                default => 'error',
+            };
+            $hasTokens = isset($inst['usage']['input_tokens'], $inst['usage']['output_tokens'], $inst['usage']['cost_usd']);
             $receipts[] = [
                 'case_id' => $instanceId,
                 'task_type' => $this->caseTaskType($instanceId) ?? 'repair_regression_fixing',
-                'arm_id' => ($inst['model_name_or_path'] ?? 'unknown').'@swebench',
-                'repetition' => 1,
-                'status' => isset($inst['resolved']) ? ($inst['resolved'] ? 'success' : 'failure') : 'error',
+                'arm_id' => $model.'@bare',
+                'repetition' => (int) ($inst['repetition'] ?? 1),
+                'status' => $status,
+                'failure_class' => match ($status) {
+                    'success' => null,
+                    'failure' => 'model_failure',
+                    default => 'environment_failure',
+                },
                 'wall_ms' => (int) round((float) ($inst['duration_sec'] ?? 0) * 1000),
-                // o harness de avaliação SWE-bench não reporta tokens/custo do agente; 0 honesto
-                'tokens_in' => 0,
-                'tokens_out' => 0,
-                'cost_usd' => 0.0,
+                'tokens_in' => (int) ($inst['usage']['input_tokens'] ?? 0),
+                'tokens_out' => (int) ($inst['usage']['output_tokens'] ?? 0),
+                'cost_usd' => (float) ($inst['usage']['cost_usd'] ?? 0.0),
+                'field_presence' => [
+                    'tokens_in' => ['present' => $hasTokens, 'reason' => $hasTokens ? null : 'eval_harness_omits_agent_usage'],
+                    'tokens_out' => ['present' => $hasTokens, 'reason' => $hasTokens ? null : 'eval_harness_omits_agent_usage'],
+                    'cost_usd' => ['present' => $hasTokens, 'reason' => $hasTokens ? null : 'eval_harness_omits_agent_usage'],
+                ],
                 'started_at' => $inst['started_at'] ?? null,
                 'finished_at' => $inst['finished_at'] ?? null,
+                'metadata' => ['native' => [
+                    'cli_model' => $model,
+                    'native_agent' => 'swe_bench_live',
+                    'source_repo' => 'swe_bench_live',
+                    'pipeline' => 'predictions_then_evaluation',
+                ]],
             ];
         }
 

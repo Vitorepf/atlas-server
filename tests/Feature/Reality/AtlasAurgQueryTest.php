@@ -58,6 +58,7 @@ final class AtlasAurgQueryTest extends TestCase
         $migration = require database_path('migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php');
         $migration->down();
         $migration->up();
+        (require database_path('migrations/2026_07_07_181500_add_temporal_truth_to_atlas_aurg_edges.php'))->up();
 
         config()->set('atlas.aurg.enabled', true);
 
@@ -183,6 +184,43 @@ final class AtlasAurgQueryTest extends TestCase
         $unsafeSeedQuery = $this->service()->query('vault rotation', ['provider_bound' => true]);
         $this->assertSame([], $unsafeSeedQuery['seeds']);
         $this->assertSame([], $unsafeSeedQuery['nodes']);
+    }
+
+    public function test_workspace_scope_excludes_foreign_code_nodes_but_keeps_global_brain_nodes(): void
+    {
+        $foreign = 'code:module:other-workspace/embedding-decision';
+        AtlasAurgNode::query()->create([
+            'id' => $foreign,
+            'kind' => 'module',
+            'source_kind' => 'code',
+            'source_id' => 'other-workspace/embedding-decision',
+            'label' => 'Foreign embedding decision module',
+            'workspace_id' => 'other-workspace',
+            'provider_safe' => true,
+            'sensitive' => false,
+            'meta' => ['slug' => 'embedding-decision'],
+            'content_hash' => hash('sha256', $foreign),
+        ]);
+        AtlasAurgEdge::query()->create([
+            'from_node_id' => self::M1,
+            'to_node_id' => $foreign,
+            'kind' => 'references',
+            'source' => 'linker_memory_code',
+            'confidence' => 0.7,
+            'meta' => ['matched_token' => 'embedding'],
+        ]);
+
+        $result = $this->service()->query('embedding decision', [
+            'provider_bound' => true,
+            'workspace_id' => 'atlas-server',
+        ]);
+        $ids = array_column($result['nodes'], 'id');
+
+        $this->assertSame('atlas-server', $result['workspace_id']);
+        $this->assertContains(self::M1, $ids);
+        $this->assertContains(self::C1, $ids);
+        $this->assertNotContains($foreign, $ids);
+        $this->assertNotContains($foreign, array_column($result['seeds'], 'node_id'));
     }
 
     public function test_provider_bound_seeds_skip_generic_mission_outcome_noise(): void

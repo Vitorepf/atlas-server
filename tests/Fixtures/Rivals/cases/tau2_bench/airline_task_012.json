@@ -1,0 +1,9 @@
+{
+  "case_id": "airline_task_012",
+  "native_task_id": "12",
+  "domain": "airline",
+  "task_type": "tool_use_function_calling",
+  "title": "airline_task_012",
+  "suite_id": "tau2_bench",
+  "source_repo": "tau2_bench"
+}

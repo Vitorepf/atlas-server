@@ -68,7 +68,9 @@ class AtlasCliRollbackCommand extends Command
     {
         $to = $this->option('to');
         if (is_string($to) && $to !== '') {
-            return trim($this->runProcess(['git', 'rev-parse', $to])['stdout']) ?: null;
+            $resolved = trim($this->runProcess(['git', 'rev-parse', '--verify', $to])['stdout']);
+
+            return $resolved !== '' ? $resolved : null;
         }
 
         $steps = max(1, min(50, (int) $this->option('steps')));

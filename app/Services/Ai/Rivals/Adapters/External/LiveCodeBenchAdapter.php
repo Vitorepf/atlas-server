@@ -4,7 +4,7 @@ namespace App\Services\Ai\Rivals\Adapters\External;
 
 use RuntimeException;
 
-/** LiveCodeBench: problemas de código contamination-free por release window. */
+/** LiveCodeBench. */
 class LiveCodeBenchAdapter extends AbstractExternalSuiteAdapter
 {
     public function suiteId(): string
@@ -14,12 +14,12 @@ class LiveCodeBenchAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        return 'python -m lcb_runner.runner.main --model {model} --scenario codegeneration --release_version release_v6 --question_ids {case_id}';
+        return 'python {atlas_root}/scripts/rivals_lcb_verboo.py --rivals-question-id={native_task_id} --rivals-usage-file={eval_scratch_dir}/provider_usage.json --model {cli_model} --scenario codegeneration --release_version release_v6 --evaluate --continue_existing_with_eval --n 1 --temperature {temperature} --multiprocess 1 --num_process_evaluate 1';
     }
 
     protected function mapResults(array $native): array
     {
-        $model = $native['model'] ?? 'unknown';
+        $model = $native['model'] ?? throw new RuntimeException('live_code_bench_model_missing');
         $receipts = [];
         foreach ($native['results'] ?? [] as $r) {
             $questionId = $r['question_id'] ?? throw new RuntimeException('live_code_bench_question_id_missing');
@@ -27,19 +27,33 @@ class LiveCodeBenchAdapter extends AbstractExternalSuiteAdapter
             if (! is_array($graded) || $graded === []) {
                 throw new RuntimeException('live_code_bench_graded_list_missing:'.$questionId);
             }
+            $status = $graded[0] === true ? 'success' : 'failure';
+            $hasTiming = isset($r['wall_ms']) || isset($r['duration_sec']);
+            $hasUsage = isset($r['tokens_in'], $r['tokens_out'], $r['cost_usd']);
             $receipts[] = [
                 'case_id' => $questionId,
                 'task_type' => 'coding_patch',
-                'arm_id' => $model.'@lcb',
-                'repetition' => 1,
-                'status' => $graded[0] === true ? 'success' : 'failure',
-                // LCB não reporta tempo/tokens/custo por questão; 0 honesto, nunca estimado
-                'wall_ms' => 0,
-                'tokens_in' => 0,
-                'tokens_out' => 0,
-                'cost_usd' => 0.0,
-                'started_at' => null,
-                'finished_at' => null,
+                'arm_id' => $model.'@bare',
+                'repetition' => (int) ($r['repetition'] ?? 1),
+                'status' => $status,
+                'failure_class' => $status === 'success' ? null : 'model_failure',
+                'wall_ms' => (int) ($r['wall_ms'] ?? round(((float) ($r['duration_sec'] ?? 0)) * 1000)),
+                'tokens_in' => (int) ($r['tokens_in'] ?? 0),
+                'tokens_out' => (int) ($r['tokens_out'] ?? 0),
+                'cost_usd' => (float) ($r['cost_usd'] ?? 0.0),
+                'field_presence' => [
+                    'wall_ms' => ['present' => $hasTiming, 'reason' => $hasTiming ? null : 'lcb_omits_per_question_timing'],
+                    'tokens_in' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : 'lcb_omits_usage'],
+                    'tokens_out' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : 'lcb_omits_usage'],
+                    'cost_usd' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : 'lcb_omits_usage'],
+                ],
+                'started_at' => $r['started_at'] ?? null,
+                'finished_at' => $r['finished_at'] ?? null,
+                'metadata' => ['native' => [
+                    'cli_model' => $model,
+                    'native_agent' => 'lcb',
+                    'source_repo' => 'live_code_bench',
+                ]],
             ];
         }
 

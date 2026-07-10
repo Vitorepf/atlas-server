@@ -70,6 +70,13 @@ class AtlasEliteCompactionCommandTest extends TestCase
 
         $deadClasses = array_column((array) ($inventory['dead_sample'] ?? []), 'class');
         $this->assertSame([], array_values(array_intersect($keepList, $deadClasses)));
+        foreach (['LensContract', 'LoopExecutionDriver', 'ScopeRuntimeFacts'] as $loadBearingContract) {
+            $this->assertNotContains(
+                $loadBearingContract,
+                $deadClasses,
+                "{$loadBearingContract} has non-Atlas references and must never be pruned by the inventory parser",
+            );
+        }
     }
 
     public function test_prune_acde_dry_run_excludes_keep_list(): void

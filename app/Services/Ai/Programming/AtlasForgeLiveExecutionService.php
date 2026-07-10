@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
+use App\Services\Ai\Context\AtlasAucriRuntimeEnforcementService;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -53,6 +55,7 @@ class AtlasForgeLiveExecutionService
         private readonly AtlasEvidenceLedger $evidenceLedger,
         private readonly AtlasContextRuntime $contextRuntime,
         private readonly ?AtlasWorkspaceIntelligenceExecutionGateService $workspaceExecutionGate = null,
+        private readonly ?AtlasEngineeringOutcomeRecorder $outcomeRecorder = null,
     ) {}
 
     /**
@@ -423,7 +426,7 @@ class AtlasForgeLiveExecutionService
         return [
             'name' => 'aucri_runtime_enforcement',
             'status' => ($enforcement['status'] ?? 'blocked') === 'passed' ? 'passed' : 'blocked',
-            'schema_version' => AtlasContextRuntime::SCHEMA_VERSION,
+            'schema_version' => AtlasAucriRuntimeEnforcementService::SCHEMA_VERSION,
             'runtime_enforcement_hash' => (string) ($enforcement['runtime_enforcement_hash'] ?? ''),
             'blockers' => array_values((array) ($enforcement['blockers'] ?? [])),
             'enforcement' => $enforcement,
@@ -836,7 +839,7 @@ class AtlasForgeLiveExecutionService
             default => 'passed',
         };
 
-        return [
+        $result = [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => now()->toIso8601String(),
             'forge_live_execution_status' => $status,
@@ -865,6 +868,32 @@ class AtlasForgeLiveExecutionService
             'external_provider_call' => false,
             'note' => 'Live execution sem provider externo. Patch e teste sao fixtures locais; repair loop usa plan canonico do ProgrammingRepairExecutor; evidence segue para Evidence Ledger quando a tabela existir.',
         ];
+        $result['aemor_outcome'] = ($this->outcomeRecorder ?? app(AtlasEngineeringOutcomeRecorder::class))->record([
+            'executor' => 'forge',
+            'objective' => 'Execute Forge plan '.$planId,
+            'workspace' => (string) ($sandbox['execution_workspace'] ?? base_path()),
+            'surface_id' => 'atlas_code',
+            'scope_type' => 'obra',
+            'scope_id' => $obraId,
+            'status' => match ($status) {
+                'passed' => 'succeeded',
+                'blocked' => 'blocked',
+                default => 'failed',
+            },
+            'summary' => 'Forge live execution finished with status '.$status.'.',
+            'evidence_refs' => array_values(array_filter(array_unique([
+                ...$evidenceRefs,
+                ...$ledgerEvents,
+            ]))),
+            'metrics' => [
+                'tests_passed' => ! in_array('test_run_failed', $blockers, true),
+                'attribution_reviewed' => true,
+            ],
+            'blockers' => array_values(array_unique($blockers)),
+            'provider_calls_made' => false,
+        ]);
+
+        return $result;
     }
 
 }

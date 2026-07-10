@@ -9,9 +9,7 @@ use InvalidArgumentException;
 /** Plano imutável de um run: suite × cases × arms × repetitions × budget × seed. */
 class RunPlan
 {
-    private function __construct(public readonly array $data)
-    {
-    }
+    private function __construct(public readonly array $data) {}
 
     public static function make(
         string $suiteId,
@@ -21,7 +19,9 @@ class RunPlan
         array $budget,
         int $seed,
         ?array $judgeConfig = null,
+        ?string $claimTier = null,
     ): self {
+        $resolvedTier = ClaimTier::forPlan($suiteId, $arms, $claimTier);
         $data = [
             'schema_version' => SchemaContract::RUN_PLAN,
             'run_id' => self::newRunId(),
@@ -37,6 +37,8 @@ class RunPlan
                 'hostname' => gethostname() ?: 'unknown',
             ],
             'judge_config' => $judgeConfig,
+            'claim_tier' => $resolvedTier,
+            'preregistration_hash' => null,
             'created_at' => now()->toIso8601String(),
         ];
 
@@ -50,6 +52,24 @@ class RunPlan
 
     public static function fromArray(array $data): self
     {
+        $schema = (string) ($data['schema_version'] ?? '');
+        if ($schema === SchemaContract::RUN_PLAN_V1) {
+            $violations = SchemaContract::validate($data, SchemaContract::RUN_PLAN_V1);
+            if ($violations !== []) {
+                throw new InvalidArgumentException('rivals_invalid_plan: '.implode(',', $violations));
+            }
+            $data['schema_version'] = SchemaContract::RUN_PLAN;
+            $data['claim_tier'] = ClaimTier::forPlan(
+                (string) $data['suite_id'],
+                (array) $data['arms'],
+            );
+            $data['preregistration_hash'] = null;
+        }
+        if (($data['schema_version'] ?? null) === SchemaContract::RUN_PLAN
+            && ! array_key_exists('preregistration_hash', $data)) {
+            $data['preregistration_hash'] = null;
+        }
+
         $violations = SchemaContract::validate($data, SchemaContract::RUN_PLAN);
         if ($violations !== []) {
             throw new InvalidArgumentException('rivals_invalid_plan: '.implode(',', $violations));

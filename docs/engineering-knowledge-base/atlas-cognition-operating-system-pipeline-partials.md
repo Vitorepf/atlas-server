@@ -3,17 +3,17 @@ id: atlas-cognition-operating-system-pipeline-partials
 type: engineering_knowledge
 title: Atlas Cognition OS Pipeline Partials 1:1
 status: active
-implementation_state: pipeline_partials_enumerated_live_scorecard_required
+implementation_state: live_baseline_2026_07_09_four_pipeline_partials
 category: macro-system
 priority: 98
-summary: Child of ACOS listing pipeline_status=partial subsystems 1:1 (from Residual Elite Obra8 table). Live counts always from atlas:cognition:scorecard — do not treat this table as omniscience.
+summary: Child of ACOS separating the current evidence-resolved pipeline baseline from the historical Residual Elite Obra8 table. Live counts always come from atlas:cognition:scorecard; receipts never substitute runtime repair.
 tags: [atlas-ai, acos, pipeline-partials, residual-elite]
 capabilities: [acos_pipeline_partials_inventory]
 decisions:
   - Parent ACOS doc links here; never paste the full 1:1 table into the oversized parent.
   - Live scorecard overrides frozen receipt numbers.
 maintenance:
-  - Regenerate table when mint-pipeline-receipts flips partials or Obra8 JSON updates.
+  - Regenerate the live baseline when evidence-resolved scorecard output changes.
 related_paths:
   - docs/engineering-knowledge-base/atlas-cognition-operating-system.md
   - storage/app/atlas/elite-compaction/OBRA8-ACOS-PARTIALS-1to1-2026-07-08.json
@@ -52,17 +52,19 @@ requires_evidence: true
 risk_level: medium
 line_limit: 200
 next_actions:
-  - Soak mint-pipeline-receipts until live partial count drops.
-  - Refresh table when live partial set diverges from Obra8 JSON.
+  - Repair the four live partial capabilities and execute their owner tests.
+  - Refresh the live baseline from the evidence-resolved scorecard; never mint around a runtime gap.
 ---
 # Atlas Cognition OS Pipeline Partials 1:1
 
 ## Resumo
 
 Inventario 1:1 dos subsistemas ACOS que estavam `pipeline_status=partial` apos
-Residual Elite Obra8. Snapshot vivo Onda 3 closeout 2026-07-09: overall
-**10/10**, code 10, doc 10, pipeline **10**, partials **0/73** (tabela abaixo =
-historico Obra8; live count via scorecard).
+Residual Elite Obra8, mais o baseline vivo do programa ACOS Inteligencia Maxima.
+Em 2026-07-09 o scorecard evidence-resolved retornou overall **9.94/10**,
+code **10**, doc **10**, pipeline **9.83**, **4/73 facets partial** e
+**3/69 services unicos partial**. O modo `--strict` retornou exit 3. A tabela
+longa abaixo permanece historica.
 
 ## Papel no Atlas
 
@@ -83,8 +85,9 @@ GAP-RE-* no open-gaps ledger.
 
 1. Rodar scorecard.
 2. Comparar partials com esta tabela.
-3. Mint receipts: `atlas:cognition:mint-pipeline-receipts --limit=30`.
-4. Atualizar ledger GAP-RE-TEOS-ACOS quando partials cairem.
+3. Corrigir runtime, teste ou doc-owner do capability parcial.
+4. Executar o teste dono e registrar somente o receipt produzido pela execucao real.
+5. Atualizar ledger GAP-RE-TEOS-ACOS quando partials cairem.
 
 ## Regras para IA
 
@@ -93,23 +96,39 @@ GAP-RE-* no open-gaps ledger.
 
 ## Escopo de Implementacao
 
-Documentacao + ponte para mint soak. Fechar partials e trabalho de runtime
-(Onda 5 closeout).
+Documentacao + baseline vivo. Fechar partials pelo runtime e evidencia real,
+nunca por receipt sem execucao.
 
 ## Dependencias
 
-ACOS scorecard service, mint-pipeline-receipts, Obra8 JSON.
+ACOS scorecard service, evidence resolver, owner tests e Obra8 JSON historico.
 
 ## Evidencias
 
-- Scorecard hash Onda 3 closeout: `sha256:5b1f7225454f6791e7f008dc89d8f4495d32da29f020e4a572008e5cf799ed48`
-- Obra8 table below (historical rows; live partial count = 0 apos mint path-scope + test evidence_refs)
+- Scorecard hash vivo 2026-07-09: `sha256:e2254d9135fc01ae46aef2b52ce7bb3f5e402312c196fbf3cb5efb630acc6bef`
+- Obra8 table below (historical rows only; it does not override the live scorecard)
 
 ## Riscos
 
-Tabela stale se scorecard nao for re-rodado apos mint.
+Tabela stale se o scorecard nao for re-rodado depois de alterar codigo, owner
+docs, testes ou receipts.
+
+## Baseline Vivo 2026-07-09
+
+| Acronym | Name | Group | Code | Doc | Pipeline |
+|---|---|---|---|---|---|
+| MEM-RECALL | Memory Recall (hybrid) | memory_core | ready | ready | partial |
+| AHRI | Hybrid Retrieval Infrastructure | aucri | ready | ready | partial |
+| AGRN | Graph Retrieval Network | aucri | ready | ready | partial |
+| AKIF | Knowledge Ingestion Fabric | aucri | ready | ready | partial |
+
+Sinais adjacentes congelados no mesmo baseline: memory quality **63/100**;
+AEMOR readiness **6/9 (blocked)**; AURG **586 nodes / 637 edges / 1 linker
+edge**; architecture validation com tres violacoes estaticas preexistentes.
 
 ## Exemplos
+
+### Historico Obra8
 
 | Acronym | Name | Residual | Group | Code | Doc | Pipeline |
 |---|---|---|---|---|---|---|
@@ -146,5 +165,6 @@ Tabela stale se scorecard nao for re-rodado apos mint.
 
 ## Proximas Acoes
 
-1. Soak mint-pipeline-receipts ate partials cairem.
-2. Re-gerar esta tabela quando live partial set divergir do Obra8 JSON.
+1. Restaurar recall PostgreSQL, schema de deltas e testes do hot path.
+2. Fechar MEM-RECALL/AHRI, AGRN e AKIF por comportamento comprovado.
+3. Re-gerar o baseline quando o scorecard vivo mudar.

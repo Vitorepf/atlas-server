@@ -2,59 +2,41 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
 
 /**
- * Report por task_type × arm: success_rate, custo, tempo, estabilidade, n.
- * NUNCA produz "best overall" nem score único colapsado. claim_allowed e
- * blockers vêm da adjudicação — report sem adjudicação nunca permite claim.
+ * Report multi-eixo por task_type × arm. Sem best overall / média global.
  */
 class ReportBuilder
 {
     public function build(string $runId): array
     {
+        $plan = RunPlan::load($runId);
         $receipts = RunReceipt::loadAll($runId);
         $adjPath = RunPaths::adjudicationPath($runId);
         $adjudication = is_file($adjPath) ? (json_decode(file_get_contents($adjPath), true) ?? []) : [];
-        $claimAllowed = ($adjudication['claim_allowed'] ?? false) === true;
-        $blockers = $adjudication['claim_blockers'] ?? ['adjudication_missing'];
+        $pipelineValid = ($adjudication['pipeline_valid'] ?? false) === true;
+        $claimTier = (string) ($adjudication['claim_tier'] ?? ClaimTier::HARNESS);
+        $internalAllowed = ($adjudication['internal_claim_allowed']
+            ?? $adjudication['claim_allowed']
+            ?? false) === true;
+        $publicAllowed = ($adjudication['public_claim_allowed'] ?? false) === true;
+        $blockers = $adjudication['internal_claim_blockers']
+            ?? $adjudication['claim_blockers']
+            ?? ['adjudication_missing'];
+        $notReadyReasons = $adjudication['not_ready_reasons'] ?? $blockers;
 
-        $groups = [];
-        foreach ($receipts as $receipt) {
-            $groups["{$receipt->data['task_type']}|{$receipt->data['arm_id']}"][] = $receipt->data;
-        }
-
-        $rows = [];
-        foreach ($groups as $key => $items) {
-            [$taskType, $armId] = explode('|', $key, 2);
-            $successFlags = array_map(fn ($r) => $r['status'] === 'success' ? 1.0 : 0.0, $items);
-            $n = count($items);
-            $successRate = array_sum($successFlags) / $n;
-            // estabilidade = 1 - desvio-padrão do sucesso entre execuções (1.0 = sempre igual)
-            $variance = array_sum(array_map(fn ($f) => ($f - $successRate) ** 2, $successFlags)) / $n;
-            $rows[] = [
-                'task_type' => $taskType,
-                'arm_id' => $armId,
-                'n' => $n,
-                'success_rate' => round($successRate, 4),
-                'avg_cost_usd' => round(array_sum(array_column($items, 'cost_usd')) / $n, 6),
-                'avg_wall_ms' => (int) round(array_sum(array_column($items, 'wall_ms')) / $n),
-                'stability' => round(1.0 - sqrt($variance), 4),
-                'avg_patch_bloat' => ($bloats = array_filter(array_column($items, 'patch_bloat_ratio'), 'is_numeric')) === []
-                    ? null
-                    : round(array_sum($bloats) / count($bloats), 3),
-                'reality' => $this->realityAggregate($items),
-            ];
-        }
-
-        // Difficulty Calibrator: banda por linha + banda da suite (baseline bare mais forte).
-        // Suite fácil demais = sinal de cola/contaminação/case trivial, não de modelo bom.
+        $rows = $this->buildRows($receipts, $plan);
         $calibration = (new DifficultyCalibrator)->calibrate($rows);
         foreach ($rows as &$row) {
             $row['difficulty_band'] = $calibration['row_bands']["{$row['task_type']}|{$row['arm_id']}"] ?? null;
         }
         unset($row);
+
+        $upliftPath = RunPaths::runDir($runId).'/uplift.json';
+        $uplift = is_file($upliftPath) ? (json_decode(file_get_contents($upliftPath), true) ?? null) : null;
 
         $report = [
             'schema_version' => SchemaContract::REPORT,
@@ -63,83 +45,277 @@ class ReportBuilder
             'difficulty_band' => $calibration['suite_band'],
             'difficulty_baseline' => $calibration['baseline'],
             'difficulty_flags' => $calibration['flags'],
-            'claim_allowed' => $claimAllowed,
+            'uplift' => $uplift,
+            'pipeline_valid' => $pipelineValid,
+            'claim_tier' => $claimTier,
+            'internal_claim_allowed' => $internalAllowed,
+            'public_claim_allowed' => $publicAllowed,
+            'not_ready_reasons' => array_values($notReadyReasons),
+            // Backward-compatible alias for internal scoped claims.
+            'claim_allowed' => $internalAllowed,
             'claim_blockers' => $blockers,
             'claim_scope' => $adjudication['claim_scope'] ?? null,
-            'built_at' => now()->toIso8601String(),
+            'statistical_analysis' => $adjudication['statistical_analysis'] ?? [
+                'adequate' => false,
+                'blockers' => ['adjudication_missing'],
+                'segments' => [],
+            ],
+            'missing_data_policy' => $this->missingDataPolicy($runId),
+            'built_at' => $adjudication['adjudicated_at'] ?? $plan->data['created_at'],
         ];
+        $report['report_hash'] = self::hashPayload($report);
+        $violations = SchemaContract::validate($report, SchemaContract::REPORT);
+        if ($violations !== []) {
+            throw new \RuntimeException('rivals_invalid_report:'.implode(',', $violations));
+        }
 
-        RunPaths::ensureDir(RunPaths::runDir($runId));
-        file_put_contents(
+        AtomicWriter::write(
             RunPaths::reportPath($runId),
-            json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+            json_encode(
+                $report,
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+            )
         );
-        file_put_contents(RunPaths::reportMarkdownPath($runId), $this->markdown($report));
+        AtomicWriter::write(RunPaths::reportMarkdownPath($runId), $this->markdown($report));
+        AtomicWriter::write(RunPaths::reportCsvPath($runId), $this->csv($report));
 
         return $report;
     }
 
-    /**
-     * Agregado cross-run: varre runs/ e consolida por task_type × arm.
-     * Só receipts de runs com adjudicação VÁLIDA contam para linhas com
-     * claim; runs inválidos/não-adjudicados entram apenas na contagem de
-     * excluded_runs (nunca somem silenciosamente).
-     */
     public function buildAll(): array
     {
         $runsDir = RunPaths::runsDir();
-        $runIds = is_dir($runsDir) ? array_values(array_diff(scandir($runsDir), ['.', '..'])) : [];
+        $runIds = is_dir($runsDir) ? array_values(array_diff(scandir($runsDir) ?: [], ['.', '..'])) : [];
 
-        $groups = [];
+        $segments = [];
         $included = [];
         $excluded = [];
         foreach ($runIds as $runId) {
             $adjPath = RunPaths::adjudicationPath($runId);
             $adj = is_file($adjPath) ? (json_decode(file_get_contents($adjPath), true) ?? []) : [];
-            if (($adj['claim_allowed'] ?? false) !== true) {
+            if (($adj['pipeline_valid'] ?? false) !== true) {
                 $excluded[] = ['run_id' => $runId, 'reason' => $adj === [] ? 'not_adjudicated' : 'invalid'];
+
                 continue;
             }
+            $scope = $adj['claim_scope'] ?? [];
+            $segmentKey = implode('|', [
+                $scope['suite'] ?? 'unknown',
+                $adj['claim_tier'] ?? 'unknown',
+                json_encode($scope['task_types'] ?? []),
+                json_encode($scope['models'] ?? []),
+                json_encode($scope['runtimes'] ?? []),
+                json_encode($scope['environment'] ?? []),
+                (string) ($scope['repo_commit'] ?? ''),
+                (string) ($scope['adapter_hash'] ?? ''),
+            ]);
             $included[] = $runId;
             foreach (RunReceipt::loadAll($runId) as $receipt) {
-                $groups["{$receipt->data['task_type']}|{$receipt->data['arm_id']}"][] = $receipt->data;
+                $segments[$segmentKey]['claim_tier'] = $adj['claim_tier'] ?? 'unknown';
+                $segments[$segmentKey]['internal_claim_allowed'] =
+                    (bool) ($adj['internal_claim_allowed'] ?? false);
+                $segments[$segmentKey]['groups']["{$receipt->data['task_type']}|{$receipt->data['arm_id']}"][] =
+                    $receipt->data;
             }
         }
 
-        $rows = [];
-        foreach ($groups as $key => $items) {
-            [$taskType, $armId] = explode('|', $key, 2);
-            $successFlags = array_map(fn ($r) => $r['status'] === 'success' ? 1.0 : 0.0, $items);
-            $n = count($items);
-            $successRate = array_sum($successFlags) / $n;
-            $variance = array_sum(array_map(fn ($f) => ($f - $successRate) ** 2, $successFlags)) / $n;
-            $rows[] = [
-                'task_type' => $taskType,
-                'arm_id' => $armId,
-                'n' => $n,
-                'success_rate' => round($successRate, 4),
-                'avg_cost_usd' => round(array_sum(array_column($items, 'cost_usd')) / $n, 6),
-                'avg_wall_ms' => (int) round(array_sum(array_column($items, 'wall_ms')) / $n),
-                'stability' => round(1.0 - sqrt($variance), 4),
+        $segmentRows = [];
+        foreach ($segments as $segmentKey => $segment) {
+            $rows = [];
+            foreach ($segment['groups'] ?? [] as $key => $items) {
+                [$taskType, $armId] = explode('|', $key, 2);
+                $rows[] = $this->aggregateItems($taskType, $armId, $items);
+            }
+            $segmentRows[] = [
+                'segment_key' => $segmentKey,
+                'claim_tier' => $segment['claim_tier'],
+                'internal_claim_allowed' => $segment['internal_claim_allowed'],
+                'rows' => $rows,
             ];
         }
 
         return [
             'schema_version' => 'atlas.rivals2.report_all.v1',
-            'rows' => $rows,
+            'segments' => $segmentRows,
             'included_runs' => $included,
             'excluded_runs' => $excluded,
-            // agregado é leitura consolidada; claim continua POR RUN (escopo pinado lá)
             'claim_allowed' => false,
             'claim_blockers' => ['aggregate_view_claims_live_per_run'],
             'built_at' => now()->toIso8601String(),
         ];
     }
 
-    /**
-     * Agregado do Reality Score por task_type × arm — vetor de dimensões,
-     * nunca colapsado. Só agrega o que os receipts realmente carregam.
-     */
+    /** @param array<int, RunReceipt> $receipts */
+    private function buildRows(array $receipts, RunPlan $plan): array
+    {
+        $groups = [];
+        $caseTypes = [];
+        foreach ($receipts as $receipt) {
+            $groups["{$receipt->data['task_type']}|{$receipt->data['arm_id']}"][] = $receipt->data;
+            $caseTypes[$receipt->data['case_id']] = $receipt->data['task_type'];
+        }
+        foreach ($plan->data['case_ids'] as $caseId) {
+            $caseTypes[$caseId] ??= $this->caseTaskType(
+                (string) $plan->data['suite_id'],
+                (string) $caseId,
+            );
+        }
+        $planned = [];
+        foreach ($plan->data['arms'] as $arm) {
+            foreach ($caseTypes as $caseId => $taskType) {
+                $key = "{$taskType}|{$arm['arm_id']}";
+                $planned[$key]['attempts'] = ($planned[$key]['attempts'] ?? 0)
+                    + (int) $plan->data['repetitions'];
+                $planned[$key]['cases'][$caseId] = true;
+                $groups[$key] ??= [];
+            }
+        }
+        $rows = [];
+        foreach ($groups as $key => $items) {
+            [$taskType, $armId] = explode('|', $key, 2);
+            $rows[] = $this->aggregateItems(
+                $taskType,
+                $armId,
+                $items,
+                (int) ($planned[$key]['attempts'] ?? count($items)),
+                count((array) ($planned[$key]['cases'] ?? [])),
+            );
+        }
+
+        return $rows;
+    }
+
+    /** @param array<int, array<string, mixed>> $items */
+    private function aggregateItems(
+        string $taskType,
+        string $armId,
+        array $items,
+        ?int $plannedAttempts = null,
+        ?int $plannedCases = null,
+    ): array {
+        $n = count($items);
+        $plannedAttempts ??= $n;
+        $plannedCases ??= count(array_unique(array_column($items, 'case_id')));
+        $successes = count(array_filter($items, fn ($r) => $r['status'] === 'success'));
+        $failures = count(array_filter($items, fn ($r) => $r['status'] === 'failure'));
+        $validResults = $successes + $failures;
+        $successFlags = array_map(fn ($r) => $r['status'] === 'success' ? 1.0 : 0.0, $items);
+        $successRate = $plannedAttempts > 0 ? $successes / $plannedAttempts : 0.0;
+        $conditionalSuccessRate = $validResults > 0 ? $successes / $validResults : 0.0;
+        $variance = $n > 0 ? array_sum(array_map(fn ($f) => ($f - $successRate) ** 2, $successFlags)) / $n : 0.0;
+        $totalCost = array_sum(array_column($items, 'cost_usd'));
+        $tokenInPresent = 0;
+        $tokenOutPresent = 0;
+        $tokenInSum = 0;
+        $tokenOutSum = 0;
+        foreach ($items as $item) {
+            $presence = $item['field_presence'] ?? [];
+            $inOk = (($presence['tokens_in']['present'] ?? true) === true);
+            $outOk = (($presence['tokens_out']['present'] ?? true) === true);
+            if ($inOk) {
+                $tokenInPresent++;
+                $tokenInSum += (int) ($item['tokens_in'] ?? 0);
+            }
+            if ($outOk) {
+                $tokenOutPresent++;
+                $tokenOutSum += (int) ($item['tokens_out'] ?? 0);
+            }
+        }
+        $failureClasses = [];
+        foreach ($items as $item) {
+            $cls = $item['failure_class'] ?? ($item['status'] === 'success' ? null : 'model_failure');
+            if ($cls !== null) {
+                $failureClasses[$cls] = ($failureClasses[$cls] ?? 0) + 1;
+            }
+        }
+        $dimensions = $this->dimensionsAggregate($items);
+        $costs = array_values(array_map(
+            fn (array $item): float => (float) $item['cost_usd'],
+            array_filter(
+                $items,
+                fn (array $item): bool => (($item['field_presence']['cost_usd']['present'] ?? true) === true),
+            ),
+        ));
+        $walls = array_values(array_map(
+            fn (array $item): float => (float) $item['wall_ms'],
+            array_filter(
+                $items,
+                fn (array $item): bool => (($item['field_presence']['wall_ms']['present'] ?? true) === true),
+            ),
+        ));
+        $wilson = StatisticalPolicy::wilson($successes, $plannedAttempts);
+        $environmentFailures = $failureClasses[FailureClass::ENVIRONMENT] ?? 0;
+
+        return [
+            'task_type' => $taskType,
+            'arm_id' => $armId,
+            'n' => $n,
+            'planned_attempts' => $plannedAttempts,
+            'observed_attempts' => $n,
+            'valid_results' => $validResults,
+            'successes' => $successes,
+            'success_rate' => round($successRate, 4),
+            'success_rate_itt' => round($successRate, 4),
+            'success_rate_valid_results' => round($conditionalSuccessRate, 4),
+            'success_rate_wilson_95' => $wilson,
+            'environment_failure_rate' => $plannedAttempts > 0
+                ? round($environmentFailures / $plannedAttempts, 4)
+                : 0.0,
+            'total_cost_usd' => round($totalCost, 6),
+            'avg_cost_usd' => $n > 0 ? round($totalCost / $n, 6) : 0.0,
+            'cost_per_task' => $plannedCases > 0 ? round($totalCost / $plannedCases, 6) : null,
+            'median_cost_usd' => $this->quantile($costs, 0.5),
+            'p95_cost_usd' => $this->quantile($costs, 0.95),
+            'median_cost_ci_95' => $this->bootstrapMedianCi($costs, crc32($taskType.'|'.$armId.'|cost')),
+            'avg_tokens_in' => $tokenInPresent > 0 ? round($tokenInSum / $tokenInPresent, 2) : null,
+            'avg_tokens_out' => $tokenOutPresent > 0 ? round($tokenOutSum / $tokenOutPresent, 2) : null,
+            'total_tokens_in' => $tokenInSum,
+            'total_tokens_out' => $tokenOutSum,
+            'tokens_coverage' => [
+                'in' => $tokenInPresent,
+                'out' => $tokenOutPresent,
+                'n' => $n,
+                'in_rate' => $n > 0 ? round($tokenInPresent / $n, 4) : 0.0,
+                'out_rate' => $n > 0 ? round($tokenOutPresent / $n, 4) : 0.0,
+            ],
+            'avg_wall_ms' => $n > 0 ? (int) round(array_sum(array_column($items, 'wall_ms')) / $n) : 0,
+            'median_wall_ms' => $this->quantile($walls, 0.5),
+            'p95_wall_ms' => $this->quantile($walls, 0.95),
+            'median_wall_ci_95' => $this->bootstrapMedianCi($walls, crc32($taskType.'|'.$armId.'|wall')),
+            'stability' => round(1.0 - sqrt($variance), 4),
+            'failure_classes' => $failureClasses,
+            'dimensions' => $dimensions,
+            'avg_patch_bloat' => ($bloats = array_filter(array_column($items, 'patch_bloat_ratio'), 'is_numeric')) === []
+                ? null
+                : round(array_sum($bloats) / count($bloats), 3),
+            'reality' => $this->realityAggregate($items),
+        ];
+    }
+
+    private function dimensionsAggregate(array $items): ?array
+    {
+        $all = [];
+        foreach ($items as $item) {
+            if (! isset($item['dimensions']) || ! is_array($item['dimensions'])) {
+                continue;
+            }
+            foreach ($item['dimensions'] as $key => $value) {
+                if (is_numeric($value) || is_bool($value)) {
+                    $all[$key][] = is_bool($value) ? ($value ? 1.0 : 0.0) : (float) $value;
+                }
+            }
+        }
+        if ($all === []) {
+            return null;
+        }
+        $out = [];
+        foreach ($all as $key => $values) {
+            $out[$key] = round(array_sum($values) / count($values), 4);
+        }
+
+        return $out;
+    }
+
     private function realityAggregate(array $items): ?array
     {
         $cards = array_values(array_filter(array_column($items, 'reality')));
@@ -159,20 +335,191 @@ class ReportBuilder
         ];
     }
 
+    private function caseTaskType(string $suiteId, string $caseId): string
+    {
+        $candidates = [
+            RunPaths::root()."/external/{$suiteId}/cases/{$caseId}.json",
+            RunPaths::root()."/atlasbench/cases/{$caseId}.json",
+            RunPaths::root()."/elite/cases/{$caseId}.json",
+        ];
+        foreach ($candidates as $path) {
+            if (! is_file($path)) {
+                continue;
+            }
+            $case = json_decode((string) file_get_contents($path), true);
+            if (is_array($case) && is_string($case['task_type'] ?? null)) {
+                return $case['task_type'];
+            }
+        }
+
+        return 'unknown_unknown';
+    }
+
+    /** @return array<string, mixed> */
+    private function missingDataPolicy(string $runId): array
+    {
+        try {
+            return (array) Preregistration::load($runId)->data['missing_data_policy'];
+        } catch (\Throwable) {
+            return [
+                'imputation' => 'forbidden',
+                'primary_denominator' => 'all_planned_attempts',
+                'environment_failures' => 'reported_separately',
+                'status' => 'preregistration_missing',
+            ];
+        }
+    }
+
+    private function quantile(array $values, float $quantile): ?float
+    {
+        if ($values === []) {
+            return null;
+        }
+        sort($values, SORT_NUMERIC);
+        $position = (count($values) - 1) * min(1.0, max(0.0, $quantile));
+        $lower = (int) floor($position);
+        $upper = (int) ceil($position);
+        $value = $lower === $upper
+            ? $values[$lower]
+            : $values[$lower] + (($values[$upper] - $values[$lower]) * ($position - $lower));
+
+        return round((float) $value, 6);
+    }
+
+    /** @return array{low: ?float, high: ?float, samples: int} */
+    private function bootstrapMedianCi(array $values, int $seed): array
+    {
+        if ($values === []) {
+            return ['low' => null, 'high' => null, 'samples' => 0];
+        }
+        if (count($values) === 1) {
+            $value = round((float) $values[0], 6);
+
+            return ['low' => $value, 'high' => $value, 'samples' => 1];
+        }
+        $samples = app()->environment('testing')
+            ? 500
+            : (int) config('atlas_rivals.report.bootstrap_samples', 10_000);
+        $state = (int) sprintf('%u', $seed);
+        $medians = [];
+        $n = count($values);
+        for ($iteration = 0; $iteration < $samples; $iteration++) {
+            $resample = [];
+            for ($index = 0; $index < $n; $index++) {
+                $state = (int) (($state * 1664525 + 1013904223) % 4294967296);
+                $resample[] = $values[$state % $n];
+            }
+            $medians[] = $this->quantile($resample, 0.5);
+        }
+
+        return [
+            'low' => $this->quantile($medians, 0.025),
+            'high' => $this->quantile($medians, 0.975),
+            'samples' => $samples,
+        ];
+    }
+
     private function markdown(array $report): string
     {
         $md = "# Rivals 2.0 — run {$report['run_id']}\n\n";
+        if (! ($report['internal_claim_allowed'] ?? false)) {
+            $md .= "NOT READY FOR PRODUCTION CLAIM\n\n";
+        }
+        $md .= 'pipeline_valid: '.(($report['pipeline_valid'] ?? false) ? 'true' : 'false')."\n";
+        $md .= 'claim_tier: '.($report['claim_tier'] ?? ClaimTier::HARNESS)."\n";
+        $md .= 'internal_claim_allowed: '.(($report['internal_claim_allowed'] ?? false) ? 'true' : 'false')."\n";
+        $md .= 'public_claim_allowed: '.(($report['public_claim_allowed'] ?? false) ? 'true' : 'false')."\n";
+        $md .= 'report_hash: '.($report['report_hash'] ?? 'missing')."\n";
+        $md .= 'statistical_adequacy: '.(($report['statistical_analysis']['adequate'] ?? false) ? 'true' : 'false')."\n";
         $md .= 'difficulty_band: '.($report['difficulty_band'] ?? 'uncalibrated')."\n";
         $md .= 'claim_allowed: '.($report['claim_allowed'] ? 'true' : 'false')."\n";
         if ($report['claim_blockers'] !== []) {
             $md .= "claim_blockers:\n".implode("\n", array_map(fn ($b) => "- {$b}", $report['claim_blockers']))."\n";
         }
-        $md .= "\n| task_type | arm | n | success_rate | avg_cost_usd | avg_wall_ms | stability |\n";
-        $md .= "|---|---|---|---|---|---|---|\n";
+        $md .= "\nMissing-data policy: `".json_encode($report['missing_data_policy'], JSON_UNESCAPED_SLASHES)."`\n";
+        $md .= "\n| task_type | arm | planned | observed | success_itt | Wilson95 | valid_success | cost/task | median_ms | p95_ms | env_fail | stability |\n";
+        $md .= "|---|---|---|---|---|---|---|---|---|---|---|---|\n";
         foreach ($report['rows'] as $row) {
-            $md .= "| {$row['task_type']} | {$row['arm_id']} | {$row['n']} | {$row['success_rate']} | {$row['avg_cost_usd']} | {$row['avg_wall_ms']} | {$row['stability']} |\n";
+            $ci = $row['success_rate_wilson_95'];
+            $md .= "| {$row['task_type']} | {$row['arm_id']} | {$row['planned_attempts']} | {$row['observed_attempts']} | "
+                ."{$row['success_rate_itt']} | [{$ci['low']}, {$ci['high']}] | {$row['success_rate_valid_results']} | "
+                .($row['cost_per_task'] ?? 'n/a').' | '.($row['median_wall_ms'] ?? 'n/a')
+                .' | '.($row['p95_wall_ms'] ?? 'n/a')." | {$row['environment_failure_rate']} | {$row['stability']} |\n";
         }
 
         return $md."\nEscopo do claim: ".json_encode($report['claim_scope'], JSON_UNESCAPED_SLASHES)."\n";
+    }
+
+    private function csv(array $report): string
+    {
+        $handle = fopen('php://temp', 'w+');
+        fputcsv($handle, [
+            'run_id',
+            'claim_tier',
+            'task_type',
+            'arm_id',
+            'planned_attempts',
+            'observed_attempts',
+            'successes',
+            'success_rate_itt',
+            'ci_low',
+            'ci_high',
+            'total_cost_usd',
+            'cost_per_task',
+            'median_wall_ms',
+            'p95_wall_ms',
+            'environment_failure_rate',
+            'failure_classes',
+            'dimensions',
+        ]);
+        foreach ($report['rows'] as $row) {
+            fputcsv($handle, [
+                $report['run_id'],
+                $report['claim_tier'],
+                $row['task_type'],
+                $row['arm_id'],
+                $row['planned_attempts'],
+                $row['observed_attempts'],
+                $row['successes'],
+                $row['success_rate_itt'],
+                $row['success_rate_wilson_95']['low'],
+                $row['success_rate_wilson_95']['high'],
+                $row['total_cost_usd'],
+                $row['cost_per_task'],
+                $row['median_wall_ms'],
+                $row['p95_wall_ms'],
+                $row['environment_failure_rate'],
+                json_encode($row['failure_classes'], JSON_UNESCAPED_SLASHES),
+                json_encode($row['dimensions'], JSON_UNESCAPED_SLASHES),
+            ]);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return (string) $csv;
+    }
+
+    /** @param array<string, mixed> $payload */
+    public static function hashPayload(array $payload): string
+    {
+        unset($payload['report_hash']);
+
+        return hash('sha256', json_encode(
+            self::canonicalize($payload),
+            JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+        ));
+    }
+
+    private static function canonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(self::canonicalize(...), $value);
     }
 }

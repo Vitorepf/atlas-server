@@ -268,6 +268,17 @@ class AtlasRealityGraphIngestionService
         $label = $this->memoryPrivacy->providerTitle($entry)
             ?? $this->memoryPrivacy->providerSummary($entry)
             ?? ('memory:'.$entry->memory_type);
+        $metadata = (array) ($entry->metadata ?? []);
+        $paths = $this->candidatePaths(array_merge(
+            $metadata,
+            ['tags' => (array) ($entry->tags ?? [])],
+        ));
+        if ((bool) $decision['allowed']) {
+            $paths = array_slice(array_values(array_unique(array_merge(
+                $paths,
+                $this->providerProjectionPaths($entry),
+            ))), 0, self::MAX_META_PATHS);
+        }
 
         return $this->node(
             id: $this->nodeKey('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY, (string) $entry->id),
@@ -281,11 +292,8 @@ class AtlasRealityGraphIngestionService
                 'type' => (string) $entry->memory_type,
                 'scope' => (string) $entry->scope_type,
                 'privacy_class' => $privacyClass,
-                'paths' => $this->candidatePaths(array_merge(
-                    (array) ($entry->metadata ?? []),
-                    ['tags' => (array) ($entry->tags ?? [])],
-                )),
-                'domains' => $this->candidateDomains((array) ($entry->tags ?? []), (array) ($entry->metadata ?? [])),
+                'paths' => $paths,
+                'domains' => $this->candidateDomains((array) ($entry->tags ?? []), $metadata),
             ],
             contentHash: is_string($entry->content_hash) && $entry->content_hash !== ''
                 ? $entry->content_hash
@@ -1798,6 +1806,37 @@ class AtlasRealityGraphIngestionService
         }
 
         return array_slice(array_values(array_unique(array_filter($candidates))), 0, self::MAX_META_PATHS);
+    }
+
+    /**
+     * Explicit repository paths cited by the already-redacted provider
+     * projection. This is deterministic cite-or-omit extraction, not semantic
+     * inference: only concrete paths rooted in a known repository directory
+     * can create a memory→code edge.
+     *
+     * @return list<string>
+     */
+    private function providerProjectionPaths(AtlasMemoryEntry $entry): array
+    {
+        $text = implode("\n", array_filter([
+            $this->memoryPrivacy->providerTitle($entry),
+            $this->memoryPrivacy->providerSummary($entry),
+            $this->memoryPrivacy->providerBody($entry),
+        ]));
+        if ($text === '') {
+            return [];
+        }
+
+        preg_match_all(
+            '~(?<![\pL\pN_])(?:app|tests|docs|config|routes|database|resources|scripts)/[A-Za-z0-9_./-]+~u',
+            $text,
+            $matches,
+        );
+
+        return array_slice(array_values(array_unique(array_filter(array_map(
+            static fn (string $path): string => rtrim($path, ".,;:!?)]}'\"`"),
+            $matches[0] ?? [],
+        )))), 0, self::MAX_META_PATHS);
     }
 
     /**

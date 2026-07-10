@@ -1,0 +1,9 @@
+{
+  "case_id": "gaia_l1_004",
+  "task_ref": "inspect_evals/gaia_level1",
+  "sample_id": "gaia_l1_004",
+  "task_type": "tool_use_function_calling",
+  "title": "gaia_l1_004",
+  "suite_id": "inspect_evals",
+  "source_repo": "inspect_evals"
+}

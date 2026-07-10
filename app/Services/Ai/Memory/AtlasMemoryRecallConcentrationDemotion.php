@@ -41,11 +41,19 @@ final class AtlasMemoryRecallConcentrationDemotion
         if ($total < $minRecalls) {
             return [];
         }
+        // Compare integer counts instead of dividing inside SQL. PostgreSQL
+        // infers COUNT(*) and the first placeholder as bigint; the previous
+        // `COUNT(*) / ? > ?` therefore both performed integer division and
+        // tried to bind a fractional threshold as bigint. For an integer
+        // recall count, ratio > threshold is exactly count > floor(total * threshold).
+        $exclusiveCountFloor = (int) floor(
+            $total * max(0.0, min(1.0, $threshold)),
+        );
 
         return (clone $query)
             ->selectRaw('memory_entry_id, COUNT(*) as recall_count')
             ->groupBy('memory_entry_id')
-            ->havingRaw('COUNT(*) / ? > ?', [$total, $threshold])
+            ->havingRaw('COUNT(*) > ?', [$exclusiveCountFloor])
             ->orderByDesc('recall_count')
             ->limit(8)
             ->pluck('memory_entry_id')

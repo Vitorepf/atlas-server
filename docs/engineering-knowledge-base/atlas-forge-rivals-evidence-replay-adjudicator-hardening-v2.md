@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
 type: engineering_knowledge
 title: Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 88
-summary: Hardening v2 do ciclo evidence → replay → adjudicate → report do Forge Rivals. Quebra a ordem circular do v1 separando `collect-evidence` em duas fases (pre_adjudication / final) e isolando `replay` por fase. NÃO destrava external_rivals_certification.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Hardening v2 do ciclo evidence → replay → adjudicate → report do Forge Rivals. Quebra a ordem circular do v1 separando `collect-evidence` em duas fases (pre_adjudication / final) e isolando `replay` por fase. NÃO destrava external_rivals_certification."
 tags:
   - atlas
   - forge
@@ -40,7 +42,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: "Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2"
 canonical_name: "Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2"
@@ -78,7 +80,8 @@ next_actions:
   - Monitorar pipeline `run-battery` em modos `fair`/`full_power` quanto a regressões circulares.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Evidence / Replay / Adjudicator Hardening v2
 

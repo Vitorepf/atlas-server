@@ -2,11 +2,12 @@
 id: atlas-forge-rivals-benchmark-strategy-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Benchmark Strategy v1
-status: source_material
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
 implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 96
-summary: Estrategia canonica para transformar Rivals em uma bateria real de comparacao entre Atlas Forge, Claude Code, Codex, Gemini e futuros runners por categoria, preset, confianca e evidencia replayable.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Estrategia canonica para transformar Rivals em uma bateria real de comparacao entre Atlas Forge, Claude Code, Codex, Gemini e futuros runners por categoria, preset, confianca e evidencia replayable."
 tags:
   - atlas
   - forge
@@ -54,7 +55,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Forge Rivals Benchmark Strategy v1
 canonical_name: Atlas Forge Rivals Benchmark Strategy v1
@@ -103,7 +104,8 @@ next_actions:
   - Evoluir Provider Performance Ledger para Intelligence Ledger historico e segmentado.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals Benchmark Strategy v1
 

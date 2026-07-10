@@ -622,6 +622,20 @@ class AiWorker
                     'tokens_used' => is_numeric($tokensUsed) ? (int) $tokensUsed : null,
                     'input_tokens' => is_numeric($inputTokens) ? (int) $inputTokens : null,
                     'output_tokens' => is_numeric($outputTokens) ? (int) $outputTokens : null,
+                    'language' => data_get($job->payload, 'programming_language')
+                        ?? data_get($job->payload, 'language')
+                        ?? data_get($job->payload, 'payload.language'),
+                    'risk_level' => data_get($job->payload, 'risk_level')
+                        ?? data_get($job->payload, 'atlas_decide.risk_level'),
+                    'context_mode' => data_get($job->payload, 'context_delivery_policy.delivery_mode')
+                        ?? data_get($job->payload, 'open_brain.mode'),
+                    'tool_profile' => data_get($job->payload, 'execution_policy.tool_profile')
+                        ?? data_get($job->payload, 'tool_profile'),
+                    'repair_count' => data_get($result->metadata, 'repair_count')
+                        ?? data_get($result->metadata, 'repair.attempt_count'),
+                    'context_tokens' => is_numeric($inputTokens) ? (int) $inputTokens : null,
+                    'proven_real' => data_get($result->metadata, 'proven_real') === true
+                        || data_get($result->metadata, 'outcome_proof.proven_real') === true,
                     'actor' => 'ai_worker',
                 ]);
             } catch (\Throwable $e) {

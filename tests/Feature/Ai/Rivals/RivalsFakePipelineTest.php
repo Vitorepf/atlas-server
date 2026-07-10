@@ -51,7 +51,7 @@ class RivalsFakePipelineTest extends TestCase
         return $runId;
     }
 
-    public function test_clean_pipeline_allows_scoped_claim(): void
+    public function test_clean_fake_pipeline_is_valid_but_never_claimable(): void
     {
         $runId = $this->runPipeline(repetitions: 3);
 
@@ -60,8 +60,13 @@ class RivalsFakePipelineTest extends TestCase
 
         $adjudication = (new Adjudicator)->adjudicate($runId);
         $this->assertSame('valid', $adjudication['verdict']);
-        $this->assertTrue($adjudication['claim_allowed']);
-        $this->assertSame([], $adjudication['claim_blockers']);
+        $this->assertTrue($adjudication['pipeline_valid']);
+        $this->assertSame('harness', $adjudication['claim_tier']);
+        $this->assertFalse($adjudication['internal_claim_allowed']);
+        $this->assertFalse($adjudication['public_claim_allowed']);
+        $this->assertFalse($adjudication['claim_allowed']);
+        $this->assertNotEmpty(preg_grep('/claim_tier_not_production/', $adjudication['claim_blockers']));
+        $this->assertNotEmpty(preg_grep('/harness_only_receipt/', $adjudication['claim_blockers']));
         $this->assertSame('local_fake', $adjudication['claim_scope']['suite']);
         $this->assertSame(3, $adjudication['claim_scope']['repetitions']);
 
@@ -70,7 +75,10 @@ class RivalsFakePipelineTest extends TestCase
         $this->assertSame($runId, $entry['run_id']);
 
         $report = (new ReportBuilder)->build($runId);
-        $this->assertTrue($report['claim_allowed']);
+        $this->assertTrue($report['pipeline_valid']);
+        $this->assertFalse($report['internal_claim_allowed']);
+        $this->assertFalse($report['public_claim_allowed']);
+        $this->assertFalse($report['claim_allowed']);
         // 2 task_types × 1 arm = 2 linhas; nunca um "best overall"
         $this->assertCount(2, $report['rows']);
         $this->assertArrayNotHasKey('winner', $report);

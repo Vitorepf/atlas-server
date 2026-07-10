@@ -148,6 +148,12 @@ class AtlasOpenBrainContextInjectionService
     {
         $payload = $this->payload($options);
         $pack = $contextPack->toArray();
+        $precomputedAobg = is_array($options['precomputed_aobg_pack'] ?? null)
+            ? $options['precomputed_aobg_pack']
+            : null;
+        if ($precomputedAobg !== null && is_array($precomputedAobg['context_delivery_policy'] ?? null)) {
+            $pack['context_delivery_policy'] = $precomputedAobg['context_delivery_policy'];
+        }
         $workspace = $this->workspace(data_get($pack, 'surface.workspace', data_get($payload, 'workspace')));
         $engineeringContext = $this->engineeringContext($workspace, $payload);
         $memoryQuality = $this->memoryQuality($engineeringContext, $policy);
@@ -160,13 +166,17 @@ class AtlasOpenBrainContextInjectionService
         // the provider prompt through THIS shared seam — flag-gated, default-OFF. When the
         // flag is off this resolves to [] (no DB touch, no app() resolution, no hash key)
         // so the injection stays byte-identical to the pre-wiring behaviour.
-        $codeGraphRefs = $this->codeGraphRefs($input, $payload, $pack, $workspace);
+        $codeGraphRefs = $precomputedAobg === null
+            ? $this->codeGraphRefs($input, $payload, $pack, $workspace)
+            : $this->precomputedCodeGraphRefs($precomputedAobg);
         // R4 (PART A): the operator's accrued SEMANTIC memory recall (decisions/learnings)
         // pulled through the now-pgvector AtlasHybridMemoryRetrievalService::recall — the
         // single shared semantic recall path (NOT a new retrieval engine). Flag-gated,
         // default-OFF: when off this resolves to [] (no service resolution, no DB, no hash
         // key) so the injection stays byte-identical to the pre-wiring behaviour.
-        $memoryRecallRefs = $this->memoryRecallRefs($input, $engineeringContext, $pack);
+        $memoryRecallRefs = $precomputedAobg === null
+            ? $this->memoryRecallRefs($input, $engineeringContext, $pack)
+            : $this->precomputedMemoryRecallRefs($precomputedAobg);
         // F3 (Salto 1 — AURG vivo): the fused reality graph's CROSS-LAYER chains enter the
         // LIVE prompt through this same seam — flag-gated, default-OFF. PROVIDER-BOUND
         // ALWAYS (hard-coded true inside realityGraphRefs): this section IS a provider
@@ -174,7 +184,9 @@ class AtlasOpenBrainContextInjectionService
         // unreachable from here. When the flag is off this resolves to [] (no service
         // resolution, no DB, no hash key) so the injection stays byte-identical to the
         // pre-wiring behaviour.
-        $realityGraphRefs = $this->realityGraphRefs($input);
+        $realityGraphRefs = $precomputedAobg === null
+            ? $this->realityGraphRefs($input)
+            : $this->precomputedRealityGraphRefs($precomputedAobg);
         $operatorRefs = $this->operatorContextRefs($operatorContext);
         $contextDeliveryPolicy = $this->contextDeliveryPolicy($payload, $pack);
         $contextDeliveryRefs = $contextDeliveryPolicy !== null ? $this->contextDeliveryRefs($contextDeliveryPolicy) : [];
@@ -197,7 +209,27 @@ class AtlasOpenBrainContextInjectionService
         $omissionReasons = array_values(array_unique($omissionReasons));
         sort($omissionReasons);
 
-        $contextRefs = $this->mergeRefs($contextPackRefs, $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs, $contextDeliveryRefs);
+        $fusedSourceRefs = null;
+        if ($precomputedAobg !== null
+            && (bool) data_get($precomputedAobg, 'retrieval_fusion.applied_to_sections', false)
+        ) {
+            $fusedSourceRefs = $this->orderFusedSourceRefs(
+                $codeGraphRefs,
+                $memoryRecallRefs,
+                $realityGraphRefs,
+                (array) data_get($precomputedAobg, 'retrieval_fusion.candidates', []),
+            );
+            $contextRefs = $this->mergeRefs(
+                $contextPackRefs,
+                $knowledgeRefs,
+                $codeRefs,
+                $fusedSourceRefs,
+                $operatorRefs,
+                $contextDeliveryRefs,
+            );
+        } else {
+            $contextRefs = $this->mergeRefs($contextPackRefs, $knowledgeRefs, $codeRefs, $codeGraphRefs, $memoryRecallRefs, $realityGraphRefs, $operatorRefs, $contextDeliveryRefs);
+        }
         $hashPayload = [
             'context_pack' => $this->stableContextPackForHash($pack),
             'knowledge_refs' => $knowledgeRefs,
@@ -227,6 +259,9 @@ class AtlasOpenBrainContextInjectionService
         if ($contextDeliveryPolicy !== null) {
             $hashPayload['context_delivery_policy'] = $this->stableContextDeliveryPolicyForHash($contextDeliveryPolicy);
         }
+        if ($precomputedAobg !== null) {
+            $hashPayload['retrieval_core_hash'] = (string) ($precomputedAobg['context_pack_hash'] ?? '');
+        }
         $contextPackHash = hash('sha256', json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
         $summary = $this->summary($contextRefs, $knowledgeRefs, $codeRefs, $policy, $pack);
         if ($contextDeliveryPolicy !== null) {
@@ -243,10 +278,23 @@ class AtlasOpenBrainContextInjectionService
             ->values()
             ->take((int) config('atlas_operator_intelligence.max_injected_profile_items', 8))
             ->all();
+        $summary['retrieval_core'] = $precomputedAobg === null
+            ? ['mode' => 'legacy_parallel']
+            : [
+                'mode' => 'precomputed_aobg',
+                'schema' => (string) ($precomputedAobg['schema'] ?? ''),
+                'context_pack_hash' => (string) ($precomputedAobg['context_pack_hash'] ?? ''),
+                'sources_present' => array_values((array) data_get($precomputedAobg, 'provenance.sources_present', [])),
+                'memory_status' => (string) data_get($precomputedAobg, 'provenance.memory.status', 'unknown'),
+            ];
         $warnings = [];
 
-        if ((int) $summary['memory_refs'] === 0) {
+        if ((int) $summary['memory_refs'] === 0 && (int) $summary['memory_recall_refs'] === 0) {
             $warnings[] = 'no_provider_safe_memory_refs';
+        }
+        if ($precomputedAobg !== null
+            && data_get($precomputedAobg, 'provenance.memory.status') === 'retrieval_error') {
+            $warnings[] = 'retrieval_memory_error';
         }
         if ((int) $summary['knowledge_refs'] === 0) {
             $warnings[] = 'no_engineering_knowledge_refs';
@@ -334,6 +382,7 @@ class AtlasOpenBrainContextInjectionService
             'context_pack_contradictory',
             'context_pack_risky',
             'retrieval_required_source_unavailable',
+            'retrieval_memory_error',
         ]));
 
         if ($blockingWarnings !== [] && $policy['mode'] === 'required') {
@@ -569,6 +618,109 @@ class AtlasOpenBrainContextInjectionService
      * @param  array<string,mixed>  $pack
      * @return array<int,array<string,mixed>> the pack's included symbols (E-3 shape), or []
      */
+    private function precomputedCodeGraphRefs(array $fusedPack): array
+    {
+        return collect((array) ($fusedPack['code_graph'] ?? []))
+            ->filter(static fn (mixed $item): bool => is_array($item))
+            ->map(static fn (array $item): array => [
+                'type' => 'atlas_code_graph_symbol',
+                'id' => (string) ($item['id'] ?? ''),
+                'symbol_type' => (string) ($item['symbol_type'] ?? ''),
+                'file_path' => (string) ($item['file_path'] ?? ''),
+                'signature' => (string) ($item['signature'] ?? ''),
+                'tokens' => (int) ($item['tokens'] ?? 0),
+                'provider_safe' => true,
+            ])
+            ->filter(static fn (array $item): bool => $item['id'] !== '')
+            ->values()
+            ->all();
+    }
+
+    private function precomputedMemoryRecallRefs(array $fusedPack): array
+    {
+        return collect((array) ($fusedPack['memory'] ?? []))
+            ->filter(static fn (mixed $item): bool => is_array($item))
+            ->map(static function (array $item): array {
+                $sourceId = trim((string) ($item['id'] ?? ''));
+                $title = (string) ($item['title'] ?? '');
+                $summary = (string) ($item['summary'] ?? ($item['body'] ?? ''));
+
+                return [
+                    'type' => 'atlas_memory_recall',
+                    'id' => $sourceId !== ''
+                        ? (string) ($item['source_type'] ?? 'memory').':'.$sourceId
+                        : 'memory:'.hash('sha256', $title.'|'.$summary),
+                    'memory_type' => (string) ($item['type'] ?? 'memory'),
+                    'scope' => (string) ($item['scope'] ?? ''),
+                    'title' => $title,
+                    'summary' => $summary,
+                    'reason' => 'precomputed AOBG provider-safe recall',
+                    'provider_safe' => true,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function precomputedRealityGraphRefs(array $fusedPack): array
+    {
+        return collect((array) ($fusedPack['reality_graph_paths'] ?? []))
+            ->filter(static fn (mixed $path): bool => is_array($path))
+            ->map(fn (array $path): ?array => $this->precomputedRealityGraphRef($path))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function precomputedRealityGraphRef(array $path): ?array
+    {
+        $chain = array_values(array_filter((array) ($path['chain'] ?? []), 'is_array'));
+        $hops = array_values(array_filter((array) ($path['hops'] ?? []), 'is_array'));
+        if (count($chain) < 2 || count($hops) !== count($chain) - 1) {
+            return null;
+        }
+
+        $nodes = [];
+        $nodeIds = [];
+        foreach ($chain as $node) {
+            $id = trim((string) ($node['id'] ?? ''));
+            if ($id === '') {
+                return null;
+            }
+            $nodeIds[] = $id;
+            $nodes[] = [
+                'kind' => (string) ($node['kind'] ?? $node['source_kind'] ?? ''),
+                'label' => (string) ($node['label'] ?? ''),
+                'source_kind' => (string) ($node['source_kind'] ?? ''),
+                'source_id' => (string) ($node['source_id'] ?? ''),
+            ];
+        }
+
+        $parts = [$nodes[0]['kind']];
+        $confidences = [];
+        foreach ($hops as $index => $hop) {
+            $edgeKind = trim((string) ($hop['edge_kind'] ?? $hop['kind'] ?? ''));
+            if ($edgeKind === '') {
+                return null;
+            }
+            $parts[] = $edgeKind;
+            $parts[] = $nodes[$index + 1]['kind'];
+            if (is_numeric($hop['confidence'] ?? null)) {
+                $confidences[] = (float) $hop['confidence'];
+            }
+        }
+
+        return [
+            'type' => 'atlas_reality_path',
+            'id' => implode('>', $nodeIds),
+            'chain_label' => implode('→', $parts),
+            'nodes' => $nodes,
+            'confidence_min' => $confidences === [] ? null : round(min($confidences), 4),
+            'cross_layer' => (bool) ($path['cross_layer'] ?? false),
+            'provider_safe' => true,
+        ];
+    }
+
     private function codeGraphRefs(string $input, array $payload, array $pack, ?string $workspace): array
     {
         if (! (bool) config('atlas.code_graph.auto_context', false)) {
@@ -1464,6 +1616,83 @@ class AtlasOpenBrainContextInjectionService
         }
 
         return array_values(array_unique($warnings));
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $codeGraphRefs
+     * @param  array<int,array<string,mixed>>  $memoryRecallRefs
+     * @param  array<int,array<string,mixed>>  $realityGraphRefs
+     * @param  list<array<string,mixed>|mixed>  $candidates
+     * @return array<int,array<string,mixed>>
+     */
+    private function orderFusedSourceRefs(
+        array $codeGraphRefs,
+        array $memoryRecallRefs,
+        array $realityGraphRefs,
+        array $candidates,
+    ): array {
+        $pools = [
+            'code' => $codeGraphRefs,
+            'memory' => $memoryRecallRefs,
+            'reality' => $realityGraphRefs,
+        ];
+        $ordered = [];
+        $seen = [];
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $source = (string) ($candidate['source'] ?? '');
+            $ref = trim((string) ($candidate['ref'] ?? ''));
+            if ($ref === '' || ! isset($pools[$source])) {
+                continue;
+            }
+            foreach ($pools[$source] as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $itemId = (string) ($item['id'] ?? '');
+                if ($itemId === '' || isset($seen[$source.':'.$itemId])) {
+                    continue;
+                }
+                if (! $this->fusionCandidateMatchesRef($source, $ref, $itemId)) {
+                    continue;
+                }
+                $ordered[] = $item;
+                $seen[$source.':'.$itemId] = true;
+                break;
+            }
+        }
+        foreach (['code', 'memory', 'reality'] as $source) {
+            foreach ($pools[$source] as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $itemId = (string) ($item['id'] ?? '');
+                $key = $source.':'.($itemId !== '' ? $itemId : md5(json_encode($item) ?: ''));
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $ordered[] = $item;
+                $seen[$key] = true;
+            }
+        }
+
+        return $ordered;
+    }
+
+    private function fusionCandidateMatchesRef(string $source, string $candidateRef, string $itemId): bool
+    {
+        if ($itemId === $candidateRef) {
+            return true;
+        }
+        if ($source === 'memory') {
+            $suffix = ':'.$candidateRef;
+
+            return str_ends_with($itemId, $suffix);
+        }
+
+        return false;
     }
 
     /**

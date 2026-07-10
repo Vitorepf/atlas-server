@@ -183,6 +183,25 @@ Use `audit-code` when you need drift inspection without writing:
 ./bin/atlas memory maintain --workspace=/Users/vitorepf/develop/Atlas/atlas-server --json
 ```
 
+## Recovery And Schema Drift
+
+When the migration ledger says `Ran` but a canonical table/column is absent,
+use additive idempotent repair migrations. Never edit the migration ledger.
+
+```bash
+/opt/homebrew/bin/php artisan atlas:brain:replay --dry-run --json
+/opt/homebrew/bin/php artisan atlas:brain:rehydrate-memory database/atlas/memory-rehydration-wiper-restore.json --json
+/opt/homebrew/bin/php artisan migrate --path=database/migrations/2026_07_09_153500_repair_missing_ai_memory_deltas_table.php
+/opt/homebrew/bin/php artisan migrate --path=database/migrations/2026_07_09_154000_repair_missing_atlas_memory_embedding_columns.php
+/opt/homebrew/bin/php artisan migrate --path=database/migrations/2026_07_09_154500_backfill_atlas_memory_valid_from.php
+OPENAI_API_KEY='' ATLAS_SEMANTIC_EMBEDDING_PROVIDER=semantic_rag ATLAS_SEMANTIC_EMBEDDING_FALLBACK_ENABLED=false \
+  /opt/homebrew/bin/php artisan atlas:memory:embed-backfill --missing-only --json
+```
+
+Apply the re-hydration map only after its dry-run reports every authored row
+present and zero truncated bodies. Recovery may enrich or archive existing
+entries, but must never infer or mint missing memories.
+
 For privacy/governance:
 
 ```bash

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Aemor;
 
 use App\Services\Ai\Aemor\AtlasAemorCertificationService;
+use Illuminate\Support\Facades\DB;
+use Tests\Concerns\CreatesAemorTables;
 use Tests\TestCase;
 
 /**
@@ -17,6 +19,20 @@ use Tests\TestCase;
  */
 final class AtlasAemorCertificationTestExecutionTest extends TestCase
 {
+    use CreatesAemorTables;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->createAemorTables();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->dropAemorTables();
+        parent::tearDown();
+    }
+
     public function test_certify_parses_tests_executed_from_aemor_suite(): void
     {
         $cert = $this->app->make(AtlasAemorCertificationService::class)->certify();
@@ -49,6 +65,25 @@ final class AtlasAemorCertificationTestExecutionTest extends TestCase
         // When tests_run > 0, the check passes and does NOT block certification.
         $this->assertSame('pass', $exec['status'],
             'tests_executed should pass when real tests are found');
+        $this->assertSame(0, $exec['evidence']['exit_code']);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $exec['evidence']['output_hash']);
+    }
+
+    public function test_certification_smokes_are_rolled_back_instead_of_polluting_execution_memory(): void
+    {
+        $cert = $this->app->make(AtlasAemorCertificationService::class)->certify();
+
+        $this->assertSame('passed', $cert['status']);
+        foreach ([
+            'atlas_aemor_execution_episodes',
+            'atlas_aemor_execution_events',
+            'atlas_aemor_outcomes',
+            'atlas_aemor_learning_signals',
+            'atlas_aemor_memory_candidates',
+            'atlas_aemor_judgment_reports',
+        ] as $table) {
+            $this->assertSame(0, DB::table($table)->count(), "Certification polluted {$table}");
+        }
     }
 
     public function test_certification_status_is_blocked_when_no_tests_run(): void

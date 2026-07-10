@@ -1,0 +1,36 @@
+{
+    "benchmark": "abundant-ai/swe-marathon",
+    "website": "https://www.swe-marathon.org/",
+    "tasks": [
+        {
+            "task_id": "slack-clone",
+            "agent": "claude-code",
+            "model": "claude-opus-4-8",
+            "attempt": 1,
+            "resolved": false,
+            "duration_seconds": 18420.5,
+            "usage": {
+                "input_tokens": 4200000,
+                "output_tokens": 310000,
+                "cost_usd": 187.4
+            },
+            "started_at": "2026-07-01T10:00:00Z",
+            "finished_at": "2026-07-01T15:07:00Z"
+        },
+        {
+            "task_id": "wasm-simd",
+            "agent": "claude-code",
+            "model": "claude-opus-4-8",
+            "attempt": 1,
+            "resolved": true,
+            "duration_seconds": 9120.0,
+            "usage": {
+                "input_tokens": 1800000,
+                "output_tokens": 140000,
+                "cost_usd": 72.1
+            },
+            "started_at": "2026-07-01T16:00:00Z",
+            "finished_at": "2026-07-01T18:32:00Z"
+        }
+    ]
+}

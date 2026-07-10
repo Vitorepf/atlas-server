@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-battery-modes-and-human-prompts-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · Battery Modes and Human Prompts v1
-status: source_material
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 95
-summary: Canon dos modos de bateria do Atlas Forge Rivals: spec-perfect, human-normal, messy-real, enterprise-change, provider-arena, atlas-power, fair-mode, power-mode, category-battery e difficulty-ladder. Define quando cada modo e valido, que tipo de verdade mede, e como isso alimenta Provider Performance Ledger e Atlas Decide sem destravar external_rivals_certification.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Canon dos modos de bateria do Atlas Forge Rivals: spec-perfect, human-normal, messy-real, enterprise-change, provider-arena, atlas-power, fair-mode, power-mode, category-battery e difficulty-ladder. Define quando cada modo e valido, que tipo de verdade mede, e como isso alimenta Provider Performance Ledger e Atlas Decide sem destravar external_rivals_certification."
 tags:
   - atlas
   - forge
@@ -48,7 +50,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-benchmark-strategy-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: "Atlas Forge Rivals · Battery Modes and Human Prompts v1"
 canonical_name: "Atlas Forge Rivals · Battery Modes and Human Prompts v1"
@@ -93,7 +95,8 @@ next_actions:
   - Registrar resultados validos no Provider Performance Ledger por modo, categoria e dificuldade.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Battery Modes and Human Prompts v1
 

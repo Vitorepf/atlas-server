@@ -1,0 +1,12 @@
+{
+  "case_id": "django__django-11790",
+  "benchmark": "swebench_verified_mini",
+  "task_id": "django__django-11790",
+  "agent_dir": "agents/hal_generalist_agent",
+  "agent_function": "main.run",
+  "agent_name": "hal_generalist_agent",
+  "task_type": "long_horizon_engineering",
+  "title": "SWE-bench Verified Mini native case",
+  "suite_id": "hal_harness",
+  "source_repo": "hal_harness"
+}

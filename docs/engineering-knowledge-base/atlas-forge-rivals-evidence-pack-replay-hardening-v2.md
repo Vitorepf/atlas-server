@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-evidence-pack-replay-hardening-v2
 type: engineering_knowledge
 title: Atlas Forge Rivals · Evidence Pack + Replay Hardening v2
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 90
-summary: Hardening v2 do Evidence Pack + Replay do Forge Rivals. Define artifact layout canônico, artifact_index sidecar, verifier strict por modo (dry_run/fake_run/real_run/replay), reason_missing obrigatório, after-clean-check e fail-closed. NÃO destrava external_rivals_certification.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Hardening v2 do Evidence Pack + Replay do Forge Rivals. Define artifact layout canônico, artifact_index sidecar, verifier strict por modo (dry_run/fake_run/real_run/replay), reason_missing obrigatório, after-clean-check e fail-closed. NÃO destrava external_rivals_certification."
 tags:
   - atlas
   - forge
@@ -46,7 +48,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-evidence-replay-adjudicator-hardening-v2
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: "Atlas Forge Rivals · Evidence Pack + Replay Hardening v2"
 canonical_name: "Atlas Forge Rivals · Evidence Pack + Replay Hardening v2"
@@ -89,7 +91,8 @@ next_actions:
   - Sincronizar este doc se novos artifact keys forem adicionados.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Evidence Pack + Replay Hardening v2
 

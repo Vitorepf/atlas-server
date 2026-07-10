@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-external-evidence-lifecycle-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · External Evidence Lifecycle v1
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 91
-summary: Gate read-only que prova o ciclo externo reprodutivel do Rivals: inventory, bundle portatil, restore, replay, trusted-signal, ledger-record e decide-signal advisory-only.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Gate read-only que prova o ciclo externo reprodutivel do Rivals: inventory, bundle portatil, restore, replay, trusted-signal, ledger-record e decide-signal advisory-only."
 tags:
   - atlas-forge
   - rivals
@@ -53,7 +55,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: module
 graph_parent: atlas-forge-rivals-provider-performance-ledger-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 repo_paths:
   - app/Services/Ai/Rivals/
@@ -87,7 +89,8 @@ next_actions:
   - Adicionar ingest externo real somente sem provider call e sem destravar external_rivals_certification.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · External Evidence Lifecycle v1
 

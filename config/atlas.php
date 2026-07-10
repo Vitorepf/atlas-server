@@ -296,6 +296,51 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | ACOS Context Runtime unified retrieval
+    |--------------------------------------------------------------------------
+    | Kill switch OFF preserves the legacy Builder + Injection retrieval paths.
+    | Mode ladder: offline → shadow → canary → default. Shadow builds the fused
+    | pack for receipt/compare but keeps legacy injection. Canary/default hand
+    | the fused pack to injection. Legacy enabled=true with mode=offline is
+    | treated as default (see AtlasIntelligenceRolloutMode).
+    */
+    'context_runtime' => [
+        'unified_retrieval_enabled' => (bool) env('ATLAS_CONTEXT_RUNTIME_UNIFIED_RETRIEVAL_ENABLED', false),
+        'unified_retrieval_mode' => (string) env('ATLAS_CONTEXT_RUNTIME_UNIFIED_RETRIEVAL_MODE', 'offline'),
+        'unified_retrieval_canary_percent' => max(0, min(100, (int) env('ATLAS_CONTEXT_RUNTIME_UNIFIED_RETRIEVAL_CANARY_PERCENT', 0))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Atlas Decide learned-route gateway consultation
+    |--------------------------------------------------------------------------
+    | Every automatic gateway request records a governed consultation. Shadow
+    | mode is the default and never changes the selected provider. Active mode
+    | (alias of default) can only follow an operator-activated route that passes
+    | Kernel/Admission and points to a live auto-worker provider. Offline skips
+    | consultation entirely (kill switch or explicit mode).
+    */
+    'atlas_decide' => [
+        'gateway_consultation_enabled' => (bool) env('ATLAS_DECIDE_GATEWAY_CONSULTATION_ENABLED', true),
+        'gateway_consultation_mode' => env('ATLAS_DECIDE_GATEWAY_CONSULTATION_MODE', 'shadow'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AEMOR engineering outcome recorder rollout
+    |--------------------------------------------------------------------------
+    | Kill switch OFF = no-op. Mode ladder: offline → shadow → canary → default.
+    | shadow = open/observe/close + judge, no distill. canary/default = full
+    | path. Defaults keep Forge/Autônomos recording; flip enabled=false to drain.
+    */
+    'aemor' => [
+        'engineering_outcome_enabled' => (bool) env('ATLAS_AEMOR_ENGINEERING_OUTCOME_ENABLED', true),
+        'engineering_outcome_mode' => (string) env('ATLAS_AEMOR_ENGINEERING_OUTCOME_MODE', 'default'),
+        'engineering_outcome_canary_percent' => max(0, min(100, (int) env('ATLAS_AEMOR_ENGINEERING_OUTCOME_CANARY_PERCENT', 0))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Context-window / retrieval budget kernels
     |--------------------------------------------------------------------------
     | Three pure deterministic kernels under App\Services\Ai\Context\,
@@ -4166,6 +4211,14 @@ return [
         // L3-6: rerank semântico da seção de memória do context pack via o engine local
         // real (embeddings sobre os itens recuperados). Default OFF; fail-open sem venv.
         'semantic_retrieval' => (bool) env('ATLAS_AOBG_SEMANTIC_RETRIEVAL', false),
+        // Deterministic cross-source Reciprocal Rank Fusion receipt. It only
+        // reorders already provider-safe refs and invokes no provider.
+        // Mode ladder: offline → shadow → canary → default (see AtlasIntelligenceRolloutMode).
+        'fusion_enabled' => (bool) env('ATLAS_AOBG_FUSION_ENABLED', false),
+        'fusion_mode' => (string) env('ATLAS_AOBG_FUSION_MODE', 'offline'),
+        'fusion_canary_percent' => max(0, min(100, (int) env('ATLAS_AOBG_FUSION_CANARY_PERCENT', 0))),
+        'fusion_limit' => max(1, (int) env('ATLAS_AOBG_FUSION_LIMIT', 12)),
+        'fusion_rrf_k' => max(1, (int) env('ATLAS_AOBG_FUSION_RRF_K', 60)),
         // Total char budget for the assembled pack (a text brief, ~6000 chars).
         'budget_chars' => (int) env('ATLAS_AOBG_BUDGET_CHARS', 6000),
         // Per-source sub-budgets (the code-graph sub-budget is converted to a

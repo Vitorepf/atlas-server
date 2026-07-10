@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
+use App\Services\Ai\Context\AtlasFusionInjectionApplier;
+use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
+use App\Services\Ai\Context\AtlasRetrievalFusionService;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Obra\AtlasObraStateService;
@@ -55,10 +58,11 @@ use Throwable;
  * (the pack never depends on it).
  *
  * HONEST DEGRADE (anti-over-claim): each of the three sections is built
- * independently and degrades to EMPTY on its own — no brain table, a blank
- * query, or a transient fault yields an honest empty section, never a fabricated
- * one. The pack is a CURATED TOP-K assembly, not omniscience, and labels itself
- * so. This service NEVER throws: context recall is best-effort, not a gate.
+ * independently and never fabricates context. Empty, filtered and retrieval
+ * failures remain item-compatible (`[]`) but carry distinct provider-safe
+ * provenance, so a consumer never mistakes a broken source for "nothing known".
+ * The pack is a CURATED TOP-K assembly, not omniscience. This service NEVER
+ * throws: context recall is best-effort, not a gate.
  */
 class AtlasOpenBrainContextPackService
 {
@@ -70,7 +74,7 @@ class AtlasOpenBrainContextPackService
 
     public const RUNTIME_SCHEMA = 'atlas.aobg.context_pack.runtime.v1';
 
-    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v4';
+    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v5';
 
     /**
      * Provider-visible flags that let external MCP clients detect whether the
@@ -89,8 +93,10 @@ class AtlasOpenBrainContextPackService
         'initial_surface_symbol_deferral',
         'initial_reality_cross_layer_only',
         'memory_relevance_floor',
+        'memory_section_status',
         'provider_bound_mission_seed_filter',
         'reality_doc_mission_filter',
+        'retrieval_fusion_receipt',
         'same_layer_path_omission_provenance',
         'separator_term_expansion',
         'test_symbol_on_demand_expansion',
@@ -135,6 +141,8 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasHybridMemoryRetrievalService $memory,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
         private readonly SemanticContextRetrievalService $semanticContext,
+        private readonly AtlasRetrievalFusionService $fusion,
+        private readonly AtlasFusionInjectionApplier $fusionApplier,
     ) {}
 
     /**
@@ -197,7 +205,7 @@ class AtlasOpenBrainContextPackService
         // Each section is built INDEPENDENTLY and fail-safe: any one degrading to
         // empty never blocks the others (honest empty, never fabricated).
         $code = $this->codeSection($task, $workspaceId, $codeBudget, $changedFiles, $opts);
-        $reality = $this->realitySection($task);
+        $reality = $this->realitySection($task, $workspaceId);
         $memorySection = $this->memorySection($task, $workspaceId, $memoryBudget, $opts);
         $reality = $this->applyRealitySourceSelection($reality, $sourceSelectionPolicy);
         $contextDeliveryPolicy = $this->mergeInitialCodeGraphDeliveryPolicy(
@@ -257,6 +265,34 @@ class AtlasOpenBrainContextPackService
             ],
             'context_hygiene' => $this->contextHygieneSummary($code, $reality, $memorySection),
         ];
+        $fusionEnabled = (bool) config('atlas.aobg.fusion_enabled', false);
+        $fusionMode = AtlasIntelligenceRolloutMode::resolve([
+            'enabled' => $fusionEnabled,
+            'mode' => (string) config('atlas.aobg.fusion_mode', AtlasIntelligenceRolloutMode::OFFLINE),
+            'canary_percent' => (int) config('atlas.aobg.fusion_canary_percent', 0),
+        ], [
+            'workspace' => (string) ($pack['workspace'] ?? ''),
+            'flow_id' => (string) ($opts['flow_id'] ?? ''),
+            'actor' => 'aobg_fusion',
+        ]);
+        if (AtlasIntelligenceRolloutMode::shouldRecordShadow($fusionMode)) {
+            $pack['retrieval_fusion'] = $this->fusion->fuse(
+                $pack['code_graph'],
+                $pack['memory'],
+                $pack['reality_graph_paths'],
+                [
+                    'limit' => (int) config('atlas.aobg.fusion_limit', 12),
+                    'rrf_k' => (int) config('atlas.aobg.fusion_rrf_k', 60),
+                ],
+            );
+            $pack['retrieval_fusion']['rollout'] = AtlasIntelligenceRolloutMode::receipt($fusionMode, $fusionEnabled);
+            $pack['counts']['fusion_candidates'] = count((array) data_get($pack, 'retrieval_fusion.candidates', []));
+            if (AtlasIntelligenceRolloutMode::shouldExecuteLive($fusionMode)) {
+                $pack = $this->fusionApplier->apply($pack);
+            } else {
+                $pack['retrieval_fusion']['applied_to_sections'] = false;
+            }
+        }
 
         // WO-17-T1 — "retomei e ele sabia": the resumption section for the ACTIVE obra
         // (explicit pointer, never inferred). Fail-open + only present when an obra is
@@ -274,8 +310,9 @@ class AtlasOpenBrainContextPackService
 
         // Obra 2 / OB-01: optional AtlasContextRuntime::compose sidecar (fail-open).
         // Default OFF so AOBG CLI/MCP stay byte-identical; elite callers may opt in.
-        if (($opts['include_runtime_compose'] ?? false) === true
-            || (bool) config('atlas.aobg.include_runtime_compose', false)) {
+        $runtimeComposeOption = $opts['include_runtime_compose'] ?? null;
+        if ($runtimeComposeOption === true
+            || ($runtimeComposeOption === null && (bool) config('atlas.aobg.include_runtime_compose', false))) {
             $pack = $this->attachRuntimeCompose($pack, $task, $opts, $workspaceId);
         }
 
@@ -1714,7 +1751,7 @@ class AtlasOpenBrainContextPackService
      *
      * @return array{present:bool, paths:array<int,array<string,mixed>>, chars:int, provenance:array<string,mixed>}
      */
-    private function realitySection(string $task): array
+    private function realitySection(string $task, string $workspaceId): array
     {
         $empty = [
             'present' => false,
@@ -1729,7 +1766,10 @@ class AtlasOpenBrainContextPackService
 
         try {
             // provider_bound is non-relaxable here: gateway output is external.
-            $result = $this->realityGraph->query($task, ['provider_bound' => true]);
+            $result = $this->realityGraph->query($task, [
+                'provider_bound' => true,
+                'workspace_id' => $workspaceId,
+            ]);
         } catch (Throwable) {
             return $empty;
         }
@@ -1805,6 +1845,7 @@ class AtlasOpenBrainContextPackService
             'chars' => $chars,
             'provenance' => [
                 'provider_bound' => (bool) ($result['provider_bound'] ?? true),
+                'workspace_id' => (string) ($result['workspace_id'] ?? $workspaceId),
                 'ranking' => (string) ($result['ranking'] ?? ''),
                 'seeds' => count((array) ($result['seeds'] ?? [])),
                 'nodes' => count((array) ($result['nodes'] ?? [])),
@@ -1931,10 +1972,17 @@ class AtlasOpenBrainContextPackService
             'present' => false,
             'items' => [],
             'chars' => 0,
-            'provenance' => ['policy' => 'provider_safe_only', 'note' => self::HONESTY_LABEL],
+            'provenance' => [
+                'policy' => 'provider_safe_only',
+                'status' => 'empty',
+                'status_reason' => 'no_candidates',
+                'note' => self::HONESTY_LABEL,
+            ],
         ];
 
         if ($task === '' || $budgetChars <= 0) {
+            $empty['provenance']['status_reason'] = $task === '' ? 'blank_task' : 'budget_zero';
+
             return $empty;
         }
 
@@ -1949,6 +1997,9 @@ class AtlasOpenBrainContextPackService
                 ],
             );
         } catch (Throwable) {
+            $empty['provenance']['status'] = 'retrieval_error';
+            $empty['provenance']['status_reason'] = 'memory_recall_exception';
+
             return $empty;
         }
 
@@ -1993,6 +2044,15 @@ class AtlasOpenBrainContextPackService
             $chars += $entryChars;
             $items[] = $item;
         }
+        $recalledCount = (int) data_get($recall, 'summary.recall_count', count($items));
+        $status = $items !== []
+            ? 'ready'
+            : ($recalledCount > 0 ? 'filtered' : 'empty');
+        $statusReason = match ($status) {
+            'ready' => 'items_delivered',
+            'filtered' => 'provider_safe_relevance_policy',
+            default => 'no_candidates',
+        };
 
         return [
             'present' => $items !== [],
@@ -2000,7 +2060,9 @@ class AtlasOpenBrainContextPackService
             'chars' => $chars,
             'provenance' => [
                 'policy' => (string) data_get($recall, 'summary.policy', 'provider_safe_only'),
-                'recall_count' => (int) data_get($recall, 'summary.recall_count', count($items)),
+                'status' => $status,
+                'status_reason' => $statusReason,
+                'recall_count' => $recalledCount,
                 'redacted_ref_count' => (int) data_get($recall, 'summary.redacted_ref_count', 0),
                 'retrieval_mode' => $memoryMode,
                 'feedback_demoted_count' => $demotedCount,
@@ -2548,6 +2610,30 @@ class AtlasOpenBrainContextPackService
         }
         $lines[] = '';
 
+        $fusion = (array) ($pack['retrieval_fusion'] ?? []);
+        if ($fusion !== []) {
+            $lines[] = '## Unified retrieval priority';
+            $lines[] = sprintf(
+                '- status=%s algorithm=%s candidates=%d',
+                (string) ($fusion['status'] ?? 'unknown'),
+                (string) ($fusion['algorithm'] ?? 'unknown'),
+                count((array) ($fusion['candidates'] ?? [])),
+            );
+            foreach (array_slice((array) ($fusion['candidates'] ?? []), 0, 8) as $candidate) {
+                if (! is_array($candidate)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '- [%s] %s (rank=%d score=%.8f)',
+                    (string) ($candidate['source'] ?? 'unknown'),
+                    mb_substr((string) ($candidate['label'] ?? $candidate['ref'] ?? ''), 0, 160),
+                    (int) ($candidate['source_rank'] ?? 0),
+                    (float) ($candidate['fused_score'] ?? 0.0),
+                );
+            }
+            $lines[] = '';
+        }
+
         $feedback = (array) ($pack['context_feedback_request'] ?? []);
         if ($feedback !== []) {
             $lines[] = '## Context feedback request';
@@ -2608,7 +2694,12 @@ class AtlasOpenBrainContextPackService
         $lines[] = '## Memory (provider-safe, redacted)';
         $memory = (array) ($pack['memory'] ?? []);
         if ($memory === []) {
-            $lines[] = '_no provider-safe memory recalled for this task_';
+            $memoryStatus = (string) data_get($pack, 'provenance.memory.status', 'empty');
+            $lines[] = match ($memoryStatus) {
+                'retrieval_error' => '_memory retrieval unavailable (retrieval_error); no memory was fabricated_',
+                'filtered' => '_memory candidates were filtered by provider-safe relevance policy_',
+                default => '_no provider-safe memory recalled for this task_',
+            };
         } else {
             foreach ($memory as $item) {
                 $title = (string) ($item['title'] ?? '');

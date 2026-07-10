@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Rivals\Contracts;
 
 use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Core\RunReceipt;
 
 /**
  * Rivals 2.0 suite adapter. Suites externas (Senior SWE-Bench, aider, Harbor...)
@@ -20,6 +21,6 @@ interface BenchmarkSuiteAdapter
     /** @return array<int, array{case_id: string, arm_id: string, repetition: int, command: string}> */
     public function planCommands(RunPlan $plan): array;
 
-    /** @return array<int, \App\Services\Ai\Rivals\Core\RunReceipt> */
+    /** @return array<int, RunReceipt> */
     public function ingestResults(string $runDir): array;
 }

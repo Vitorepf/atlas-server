@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
+use App\Services\Ai\AutonomousEvolution\Support\NowTrait;
 use FilesystemIterator;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -32,6 +33,8 @@ use Throwable;
  */
 final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
 {
+    use NowTrait;
+
     /** The FIXED, deterministic fact->transition map (pétreo; adding a transition is an explicit design act). */
     private const TRANSITION_MAP = [
         // level_vector key (or its negation) => the NAMED transition it unlocks (a supply-lane that already exists).
@@ -53,9 +56,8 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
 
     /**
      * @param  array{docs_roots?:list<string>, max_files?:int}  $opts  the build options, FIXED for this query instance
-     * @param  ?ScopeRuntimeFacts  $runtimeFacts  the FREE runtime-fact source; null => the safe "no evidence"
-     *                                            defaults (gate_clean true, last_merge_clean false). A Part-2
-     *                                            consumer passes the live {@see AtlasLoopScopeRuntimeFacts}.
+     * @param  ?ScopeRuntimeFacts  $runtimeFacts  optional runtime-fact source; null => the safe "no evidence"
+     *                                            defaults used by current Autônomos callers.
      */
     public function __construct(
         private readonly AtlasLoopScopeComprehensionModelBuilder $builder,
@@ -305,7 +307,7 @@ final class AtlasLoopScopeComprehensionQuery implements ScopeComprehensionQuery
     /** Wall-clock seconds. Isolated so the snapshot-age math has one source of time. */
     private function now(): int
     {
-        return time();
+        return $this->nowAsTimestamp();
     }
 
     /**

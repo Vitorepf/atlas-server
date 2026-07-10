@@ -21,6 +21,10 @@ related_paths:
   - docs/engineering-knowledge-base/architecture-audit/canonical-findings.md
   - docs/engineering-knowledge-base/architecture-audit/capability-ownership-map.md
   - docs/engineering-knowledge-base/architecture-audit/programming-pipeline-target.md
+  - docs/engineering-knowledge-base/architecture-audit/atlas-elite-engineering-kernel-audit-2026-07-09.md
+  - docs/engineering-knowledge-base/architecture-audit/atlas-dev-elite-execution-audit-2026-07-09.md
+  - docs/engineering-knowledge-base/architecture-audit/atlas-forge-elite-execution-audit-2026-07-09.md
+  - docs/engineering-knowledge-base/architecture-audit/atlas-autonomos-elite-execution-audit-2026-07-09.md
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-ai-architecture-audit-readme
@@ -115,6 +119,10 @@ forcing every AI session to read the historical 500-line report.
 | `canonical-findings.md` | What truths already exist and where disorder appeared. |
 | `capability-ownership-map.md` | Which Atlas subsystem owns each capability. |
 | `programming-pipeline-target.md` | Target shape for unifying `dev`, `forge`, `fix`, `continue`, app and workers. |
+| `atlas-elite-engineering-kernel-audit-2026-07-09.md` | Read first: N x M thesis, shared kernel, cross-mode gaps and consolidated scores. |
+| `atlas-dev-elite-execution-audit-2026-07-09.md` | Dev flow, operator relation, evidence, risks and score against the elite telos. |
+| `atlas-forge-elite-execution-audit-2026-07-09.md` | Forge long-horizon Obra flow, continuity gaps and score against the commissioned-execution telos. |
+| `atlas-autonomos-elite-execution-audit-2026-07-09.md` | Live Brain + Muscle reality, unplug-test gap and score against zero-operator 24/7 autonomy. |
 
 ## Rule
 

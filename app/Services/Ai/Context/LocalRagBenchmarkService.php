@@ -620,13 +620,34 @@ class LocalRagBenchmarkService
      */
     private function memoryRecallFixtures(): array
     {
-        $fixtures = $this->promotedMemoryRecallFixtures();
+        $promoted = $this->nonEmptyMemoryRecallFixtures($this->promotedMemoryRecallFixtures());
 
-        if ($fixtures !== []) {
-            return array_slice($this->nonEmptyMemoryRecallFixtures($fixtures), 0, 6);
+        if (count($promoted) >= 2) {
+            return array_slice($promoted, 0, 6);
         }
 
-        return array_slice($this->nonEmptyMemoryRecallFixtures($this->governedProviderSafeMemoryRecallFixtures()), 0, 6);
+        // A single promoted row is not a corpus. Preserve promoted-first
+        // ordering, then top up from governed provider-safe active memory until
+        // the minimum independent cases can actually be measured. Dedup by the
+        // canonical source ref; no row is minted or promoted here.
+        $fixtures = [];
+        $seen = [];
+        foreach ([
+            ...$promoted,
+            ...$this->nonEmptyMemoryRecallFixtures($this->governedProviderSafeMemoryRecallFixtures()),
+        ] as $fixture) {
+            $key = (string) ($fixture['source_ref_type'] ?? '').':'.(string) ($fixture['source_ref_id'] ?? '');
+            if ($key === ':' || isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $fixtures[] = $fixture;
+            if (count($fixtures) >= 2) {
+                break;
+            }
+        }
+
+        return $fixtures;
     }
 
     /**

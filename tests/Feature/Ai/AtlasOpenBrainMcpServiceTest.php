@@ -252,6 +252,18 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('context_pack_runtime_fingerprint', data_get($structured, 'runtime.feature_flags'));
         $this->assertContains('mcp_runtime_self_check', data_get($structured, 'runtime.feature_flags'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($structured, 'runtime.runtime_fingerprint'));
+        $this->assertSame('atlas.open_brain.surface_contract.v1', data_get($structured, 'surface_contract.schema_version'));
+        $this->assertSame(9, data_get($structured, 'surface_contract.primary_tool_count'));
+        $this->assertSame(55, data_get($structured, 'surface_contract.compatibility_tool_count'));
+        $this->assertContains('atlas_context_pack', data_get($structured, 'surface_contract.primary_tools'));
+        $this->assertContains('atlas_claim_task', data_get($structured, 'surface_contract.primary_tools'));
+        $this->assertSame(
+            'atlas_context_pack',
+            data_get($structured, 'surface_contract.compatibility_aliases.atlas_open_brain_context_pack'),
+        );
+        $this->assertSame('atlas.open_brain.transport_contract.v1', data_get($structured, 'transport_contract.schema_version'));
+        $this->assertFalse(data_get($structured, 'transport_contract.cancellation.supported'));
+        $this->assertSame('sequential_stdio', data_get($structured, 'transport_contract.cancellation.reason'));
         $this->assertContains('atlas_aurg_query', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_mission_history', array_column($structured['tools'], 'name'));
         $this->assertContains('atlas_obra_status', array_column($structured['tools'], 'name'));

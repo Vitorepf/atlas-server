@@ -13,7 +13,7 @@ use RuntimeException;
  */
 class ResultLedger
 {
-    public function append(string $runId, array $verdict): array
+    public function append(string $runId, array $verdict, array $context = []): array
     {
         $path = RunPaths::ledgerPath();
         RunPaths::ensureDir(dirname($path));
@@ -26,33 +26,112 @@ class ResultLedger
         try {
             $prevHash = 'genesis';
             $lastLine = null;
+            $entries = [];
             while (($line = fgets($handle)) !== false) {
                 if (trim($line) !== '') {
                     $lastLine = $line;
+                    $decoded = json_decode($line, true);
+                    if (is_array($decoded)) {
+                        $entries[] = $decoded;
+                    }
                 }
             }
             if ($lastLine !== null) {
                 $prevHash = (json_decode($lastLine, true) ?? [])['entry_hash'] ?? 'genesis';
             }
 
+            $state = (new RunStateMachine)->current($runId);
+            $revision = (int) ($context['revision'] ?? $state['revision'] ?? 1);
+            $entryType = (string) ($context['entry_type'] ?? 'adjudication');
+            $verdictHash = self::hashPayload($verdict);
+            $evidenceHash = self::fileHash(RunPaths::evidencePath($runId));
+            $adjudicationHash = self::fileHash(RunPaths::adjudicationPath($runId));
+            $reportHash = self::fileHash(RunPaths::reportPath($runId));
+            $logicalId = hash('sha256', implode('|', [
+                $runId,
+                (string) $revision,
+                $entryType,
+                $verdictHash,
+                $evidenceHash ?? 'none',
+                $adjudicationHash ?? 'none',
+                $reportHash ?? 'none',
+            ]));
+            foreach ($entries as $existing) {
+                if (($existing['logical_id'] ?? null) === $logicalId) {
+                    return $existing + ['idempotent_replay' => true];
+                }
+            }
+            $latestForRun = null;
+            foreach (array_reverse($entries) as $existing) {
+                if (($existing['run_id'] ?? null) === $runId) {
+                    $latestForRun = $existing;
+                    break;
+                }
+            }
             $entry = [
                 'schema_version' => SchemaContract::LEDGER_ENTRY,
                 'entry_id' => 'le_'.bin2hex(random_bytes(8)),
+                'logical_id' => $logicalId,
+                'entry_type' => $entryType,
                 'prev_hash' => $prevHash,
                 'run_id' => $runId,
+                'revision' => $revision,
                 'verdict' => $verdict,
+                'verdict_hash' => $verdictHash,
+                'evidence_pack_hash' => $evidenceHash,
+                'adjudication_hash' => $adjudicationHash,
+                'report_hash' => $reportHash,
+                'supersedes_entry_id' => $context['supersedes_entry_id']
+                    ?? $latestForRun['entry_id']
+                    ?? null,
                 'appended_at' => now()->toIso8601String(),
             ];
+            $violations = SchemaContract::validate($entry, SchemaContract::LEDGER_ENTRY);
+            if ($violations !== []) {
+                throw new RuntimeException('rivals_invalid_ledger_entry:'.implode(',', $violations));
+            }
             $entry['entry_hash'] = self::hashEntry($entry);
 
             fseek($handle, 0, SEEK_END);
             fwrite($handle, json_encode($entry, JSON_UNESCAPED_SLASHES).PHP_EOL);
+            fflush($handle);
+            if (function_exists('fsync')) {
+                fsync($handle);
+            }
         } finally {
             flock($handle, LOCK_UN);
             fclose($handle);
         }
 
         return $entry;
+    }
+
+    public function appendReport(string $runId, array $report): array
+    {
+        return $this->append($runId, [
+            'verdict' => ($report['pipeline_valid'] ?? false) ? 'valid' : 'invalid',
+            'pipeline_valid' => (bool) ($report['pipeline_valid'] ?? false),
+            'internal_claim_allowed' => (bool) ($report['internal_claim_allowed'] ?? false),
+            'public_claim_allowed' => (bool) ($report['public_claim_allowed'] ?? false),
+            'not_ready_reasons' => $report['not_ready_reasons'] ?? [],
+        ], ['entry_type' => 'report']);
+    }
+
+    public function appendBundle(string $runId, array $bundle): array
+    {
+        return $this->append($runId, [
+            'verdict' => 'bundled',
+            'bundle_hash' => $bundle['bundle_hash'] ?? null,
+            'files' => count((array) ($bundle['files'] ?? [])),
+        ], ['entry_type' => 'bundle']);
+    }
+
+    public function supersede(string $runId, string $reason): array
+    {
+        return $this->append($runId, [
+            'verdict' => 'superseded',
+            'reason' => $reason,
+        ], ['entry_type' => 'supersede']);
     }
 
     /** @return array{verified: bool, entries: int, failures: list<string>} */
@@ -70,6 +149,7 @@ class ResultLedger
             $entry = json_decode($line, true);
             if (! is_array($entry)) {
                 $failures[] = "line_unparseable:{$index}";
+
                 continue;
             }
             $count++;
@@ -77,14 +157,72 @@ class ResultLedger
                 $failures[] = "chain_broken_prev_hash:line_{$index}";
             }
             $recorded = $entry['entry_hash'] ?? '';
+            $schema = $entry['schema_version'] ?? null;
             unset($entry['entry_hash']);
-            if (self::hashEntry($entry) !== $recorded) {
+            $computed = $schema === SchemaContract::LEDGER_ENTRY_V1
+                ? self::hashLegacyEntry($entry)
+                : self::hashEntry($entry);
+            if ($computed !== $recorded) {
                 $failures[] = "entry_hash_mismatch:line_{$index}";
             }
             $prevHash = $recorded;
         }
 
         return ['verified' => $failures === [], 'entries' => $count, 'failures' => $failures];
+    }
+
+    /** @return array{verified: bool, entries: int, current_runs: int, legacy_entries: int, failures: list<string>} */
+    public function verifySemantic(): array
+    {
+        $chain = $this->verifyChain();
+        $failures = $chain['failures'];
+        $latest = [];
+        $legacy = 0;
+        foreach ($this->entries() as $entry) {
+            if (($entry['schema_version'] ?? null) === SchemaContract::LEDGER_ENTRY_V1) {
+                $legacy++;
+
+                continue;
+            }
+            $runId = (string) ($entry['run_id'] ?? '');
+            $latest[$runId] = $entry;
+            if (($entry['verdict_hash'] ?? null) !== self::hashPayload((array) ($entry['verdict'] ?? []))) {
+                $failures[] = 'semantic_verdict_hash_mismatch:'.($entry['entry_id'] ?? 'unknown');
+            }
+        }
+        $entryIds = array_column($this->entries(), null, 'entry_id');
+        foreach ($latest as $runId => $entry) {
+            $supersedes = $entry['supersedes_entry_id'] ?? null;
+            if ($supersedes !== null && ! isset($entryIds[$supersedes])) {
+                $failures[] = "semantic_supersedes_missing:{$runId}";
+            }
+            if (($entry['entry_type'] ?? null) === 'supersede') {
+                continue;
+            }
+            foreach ([
+                'evidence_pack_hash' => RunPaths::evidencePath($runId),
+                'adjudication_hash' => RunPaths::adjudicationPath($runId),
+            ] as $field => $path) {
+                $recorded = $entry[$field] ?? null;
+                if ($recorded !== null && self::fileHash($path) !== $recorded) {
+                    $failures[] = "semantic_file_hash_mismatch:{$runId}:{$field}";
+                }
+            }
+            if (($entry['report_hash'] ?? null) !== null) {
+                $recorded = $entry['report_hash'] ?? null;
+                if ($recorded === null || self::fileHash(RunPaths::reportPath($runId)) !== $recorded) {
+                    $failures[] = "semantic_file_hash_mismatch:{$runId}:report_hash";
+                }
+            }
+        }
+
+        return [
+            'verified' => $failures === [],
+            'entries' => $chain['entries'],
+            'current_runs' => count($latest),
+            'legacy_entries' => $legacy,
+            'failures' => array_values(array_unique($failures)),
+        ];
     }
 
     public function tail(int $lines = 10): array
@@ -98,10 +236,54 @@ class ResultLedger
         return array_map(fn ($l) => json_decode($l, true), array_slice($all, -$lines));
     }
 
+    /** @return list<array<string, mixed>> */
+    public function entries(): array
+    {
+        $path = RunPaths::ledgerPath();
+        if (! is_file($path)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (string $line): mixed => json_decode($line, true),
+            array_filter(explode(PHP_EOL, (string) file_get_contents($path))),
+        ), 'is_array'));
+    }
+
     private static function hashEntry(array $entryWithoutHash): string
+    {
+        return self::hashPayload($entryWithoutHash);
+    }
+
+    private static function hashLegacyEntry(array $entryWithoutHash): string
     {
         ksort($entryWithoutHash);
 
         return hash('sha256', json_encode($entryWithoutHash, JSON_UNESCAPED_SLASHES));
+    }
+
+    private static function hashPayload(array $payload): string
+    {
+        return hash('sha256', json_encode(
+            self::canonicalize($payload),
+            JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+        ));
+    }
+
+    private static function canonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(self::canonicalize(...), $value);
+    }
+
+    private static function fileHash(string $path): ?string
+    {
+        return is_file($path) ? hash_file('sha256', $path) : null;
     }
 }

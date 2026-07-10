@@ -272,6 +272,15 @@ final class AtlasAurgCompoundingTest extends TestCase
             $payload['store']['linker_edges_total'],
         );
         $this->assertNotNull($payload['store']['last_ingest_at']);
+        $this->assertTrue($payload['coverage']['available']);
+        $this->assertSame(
+            $payload['store']['nodes_by_source_kind']['memory'],
+            $payload['coverage']['memory_nodes'],
+        );
+        $this->assertGreaterThanOrEqual(0, $payload['coverage']['memory_cross_layer_nodes']);
+        $this->assertLessThanOrEqual(1.0, $payload['coverage']['memory_cross_layer_coverage_ratio']);
+        $this->assertGreaterThanOrEqual(0, $payload['coverage']['orphan_nodes']);
+        $this->assertContains($payload['coverage']['status'], ['measured', 'needs_links', 'empty']);
 
         // Temporal: chain of 2 full-sync ticks, intact, growth delta == the accrual.
         $this->assertSame(2, $payload['temporal']['chain_length']);

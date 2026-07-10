@@ -87,8 +87,8 @@ final class AtlasTaskWorkerInstructionLint
     ];
 
     /**
-     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, worker_instructions?:string, duplicate_canonical_candidates?:list<string>}  $packet
-     * @return array{schema:string, accepted:bool, findings:list<string>}
+     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, worker_instructions?:string, duplicate_canonical_candidates?:list<string>, acceptance_criteria?:list<string>, required_evidence?:list<string>}  $packet
+     * @return array{schema:string, accepted:bool, findings:list<string>, violations:list<array<string,mixed>>, terminal_lint:array<string,mixed>}
      */
     public function lint(array $packet): array
     {
@@ -147,8 +147,106 @@ final class AtlasTaskWorkerInstructionLint
             ];
         }, $findings);
 
+        $terminalLint = $this->lintTerminalPacket($packet);
+
         return [
             'schema' => self::SCHEMA,
+            'accepted' => $findings === [] && ($terminalLint['accepted'] ?? true),
+            'findings' => $findings,
+            'violations' => $violations,
+            'terminal_lint' => $terminalLint,
+        ];
+    }
+
+    /**
+     * Terminal/CLI/review packet quality checks.
+     *
+     * @param  array{packet_id?:string, objective?:string, allowed_files?:list<string>, acceptance_criteria?:list<string>, required_evidence?:list<string>}  $packet
+     * @return array{accepted:bool, findings:list<string>, violations:list<array<string,mixed>>}
+     */
+    public function lintTerminalPacket(array $packet): array
+    {
+        $findings = [];
+        $objective = (string) ($packet['objective'] ?? '');
+        $isTerminal = (bool) preg_match('/terminal|cli|review|cockpit|dashboard/i', $objective);
+        if (! $isTerminal) {
+            return ['accepted' => true, 'findings' => [], 'violations' => []];
+        }
+
+        $allowed = is_array($packet['allowed_files'] ?? null) ? array_values(array_map('strval', $packet['allowed_files'])) : [];
+        $acceptance = is_array($packet['acceptance_criteria'] ?? null) ? array_values(array_map('strval', $packet['acceptance_criteria'])) : [];
+        $evidence = is_array($packet['required_evidence'] ?? null) ? array_values(array_map('strval', $packet['required_evidence'])) : [];
+
+        $hasImpl = false;
+        $hasTest = false;
+        foreach ($allowed as $file) {
+            if (str_starts_with($file, 'app/') || str_starts_with($file, 'routes/') || str_starts_with($file, 'config/')) {
+                $hasImpl = true;
+            }
+            if (str_starts_with($file, 'tests/')) {
+                $hasTest = true;
+            }
+        }
+        if (! $hasImpl) {
+            $findings[] = 'terminal_missing_implementation_file';
+        }
+        if (! $hasTest) {
+            $findings[] = 'terminal_missing_test_file';
+        }
+
+        $hasRunnablePhp = false;
+        foreach ($acceptance as $criterion) {
+            if (str_contains($criterion, '/opt/homebrew/bin/php')) {
+                $hasRunnablePhp = true;
+                break;
+            }
+        }
+        if (! $hasRunnablePhp) {
+            $findings[] = 'terminal_acceptance_not_runnable_with_php';
+        }
+
+        if (! in_array('tests_or_gates_result', $evidence, true)) {
+            $findings[] = 'terminal_missing_evidence_tests_or_gates_result';
+        }
+        if (! in_array('implementation_notes', $evidence, true)) {
+            $findings[] = 'terminal_missing_evidence_implementation_notes';
+        }
+
+        $text = $objective.' '.implode(' ', $acceptance).' '.implode(' ', $evidence);
+        $cosmeticPatterns = [
+            '/\bwrapper\b/i',
+            '/\bcosmetic\b/i',
+            '/\btemplate\s+farm\b/i',
+            '/\bjust\s+(polish|pretty|format|style)\b/i',
+            '/\bonly\s+(display|show|render|print)\b/i',
+        ];
+        foreach ($cosmeticPatterns as $pattern) {
+            if (preg_match($pattern, $text)) {
+                $findings[] = 'terminal_cosmetic_template_wrapper';
+                break;
+            }
+        }
+
+        $findings = array_values(array_unique($findings));
+        sort($findings, SORT_STRING);
+
+        $violations = array_map(function (string $finding): array {
+            return [
+                'violation_code' => $finding,
+                'severity' => 'high',
+                'repair_hint' => match ($finding) {
+                    'terminal_missing_implementation_file' => 'repair: include at least one implementation file (app/, routes/, config/) in allowed_files',
+                    'terminal_missing_test_file' => 'repair: include at least one test file (tests/) in allowed_files',
+                    'terminal_acceptance_not_runnable_with_php' => 'repair: acceptance criteria must include a runnable /opt/homebrew/bin/php command',
+                    'terminal_missing_evidence_tests_or_gates_result' => 'repair: required_evidence must include tests_or_gates_result',
+                    'terminal_missing_evidence_implementation_notes' => 'repair: required_evidence must include implementation_notes',
+                    'terminal_cosmetic_template_wrapper' => 'repair: remove cosmetic/template-farm wording; task must deliver a concrete, testable unit',
+                    default => 'repair: revise the terminal packet to meet CLI/review quality bar',
+                },
+            ];
+        }, $findings);
+
+        return [
             'accepted' => $findings === [],
             'findings' => $findings,
             'violations' => $violations,

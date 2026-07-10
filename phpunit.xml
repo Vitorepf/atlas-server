@@ -24,7 +24,10 @@
     </source>
     <php>
         <ini name="memory_limit" value="4096M"/>
-        <env name="APP_ENV" value="testing"/>
+        <!-- force="true": se o launcher exportou APP_ENV=local (`.env` do host), o
+             PHPUnit deve vencer e forçar testing, senão o Laravel carrega `.env`
+             (DB_CONNECTION=pgsql) em vez de `.env.testing` (sqlite :memory:). -->
+        <env name="APP_ENV" value="testing" force="true"/>
         <env name="ATLAS_TOKEN" value="testing-atlas-token-with-enough-length"/>
         <env name="ATLAS_TASK_SERVING_QUEUE_DISK" value="local"/>
         <!-- piso anti-vazamento: teste NUNCA escreve no storage vivo do Rivals -->

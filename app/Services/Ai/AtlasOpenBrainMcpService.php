@@ -58,7 +58,7 @@ class AtlasOpenBrainMcpService
 {
     public const PROTOCOL_VERSION = '2025-06-18';
 
-    public const SERVER_VERSION = '1.2.0';
+    public const SERVER_VERSION = '1.3.0';
 
     public const RUNTIME_SCHEMA = 'atlas.open_brain.mcp.runtime.v1';
 
@@ -86,6 +86,23 @@ class AtlasOpenBrainMcpService
         'mcp_runtime_self_check',
         'initial_code_symbol_noise_filter',
         'reality_doc_mission_filter',
+        'deep_surface_contract',
+    ];
+
+    public const PRIMARY_TOOLS = [
+        'atlas_capabilities',
+        'atlas_context_pack',
+        'atlas_context_expand',
+        'atlas_context_feedback',
+        'atlas_record_outcome',
+        'atlas_propose_learning',
+        'atlas_memory_maintenance_status',
+        'atlas_claim_task',
+        'atlas_mcp_self_check',
+    ];
+
+    public const COMPATIBILITY_ALIASES = [
+        'atlas_open_brain_context_pack' => 'atlas_context_pack',
     ];
 
     private string $processStartedAt;
@@ -2442,11 +2459,77 @@ class AtlasOpenBrainMcpService
                 'version' => self::SERVER_VERSION,
             ],
             'runtime' => $this->runtimeProfile(),
+            'surface_contract' => $this->surfaceContract(),
+            'transport_contract' => $this->transportContract(),
             'progressive_disclosure' => $this->progressiveDisclosureCapabilities(),
             'tools' => $this->tools(),
             'transport' => 'stdio',
             'remote_capable' => false,
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * Small stable interface advertised to new clients. The complete tool list
+     * remains available as compatibility adapters and can only be removed after
+     * an observed deprecation window.
+     *
+     * @return array<string,mixed>
+     */
+    private function surfaceContract(): array
+    {
+        $allNames = $this->toolNames();
+        $primary = array_values(array_filter(
+            self::PRIMARY_TOOLS,
+            static fn (string $tool): bool => in_array($tool, $allNames, true),
+        ));
+
+        return [
+            'schema_version' => 'atlas.open_brain.surface_contract.v1',
+            'status' => 'stable',
+            'primary_tool_count' => count($primary),
+            'primary_tools' => $primary,
+            'compatibility_tool_count' => max(0, count($allNames) - count($primary)),
+            'compatibility_aliases' => self::COMPATIBILITY_ALIASES,
+            'deprecation_policy' => [
+                'minimum_observation_days' => 90,
+                'usage_evidence_required' => true,
+                'breaking_removal_requires_major_version' => true,
+                'current_action' => 'prefer_primary_keep_compatibility',
+            ],
+        ];
+    }
+
+    /**
+     * Honest transport limits. PHP stdio dispatch is sequential, therefore an
+     * in-flight tool cannot consume a later cancellation notification; clients
+     * cancel by terminating/restarting the process. Claiming otherwise would be
+     * a false capability.
+     *
+     * @return array<string,mixed>
+     */
+    private function transportContract(): array
+    {
+        return [
+            'schema_version' => 'atlas.open_brain.transport_contract.v1',
+            'schema_compatibility' => 'additive_minor_breaking_major',
+            'quotas' => [
+                'write_request_chars' => (int) config('atlas.aobg.write_back.max_request_chars', 2000),
+                'write_files' => (int) config('atlas.aobg.write_back.max_files', 50),
+                'write_memory_refs' => (int) config('atlas.aobg.write_back.max_memory_refs', 25),
+                'context_budget_chars' => (int) config('atlas.aobg.budget_chars', 6000),
+            ],
+            'timeouts' => [
+                'file_context_soft_ms' => (int) config('atlas.aobg.file_context.soft_budget_ms', 1500),
+                'client_hard_timeout_required' => true,
+            ],
+            'cancellation' => [
+                'supported' => false,
+                'reason' => 'sequential_stdio',
+                'client_action' => 'terminate_and_restart_process',
+            ],
+            'diagnostics_tool' => 'atlas_mcp_self_check',
+            'provider_safe' => true,
         ];
     }
 

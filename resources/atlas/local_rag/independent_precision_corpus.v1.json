@@ -24,7 +24,15 @@
     { "id": "doc_spaced_repetition", "domain": "personal_development", "text": "Reviewing material at expanding intervals, just before you would forget it, moves knowledge into long-term memory far more efficiently than cramming." },
     { "id": "doc_deep_work", "domain": "personal_development", "text": "Long uninterrupted stretches of focus on a single cognitively demanding task produce far more value than the same hours fragmented by context switches." },
     { "id": "doc_deliberate_practice", "domain": "personal_development", "text": "Skill grows fastest when you work at the edge of your ability on targeted weaknesses with immediate feedback, not by repeating what you already do well." },
-    { "id": "doc_atlas_antifragile", "domain": "atlas", "text": "When a contracted engine suddenly gets much stronger, the governing layer captures that jump automatically and multiplies it with its own compounding, so the whole gets better from the shock." }
+    { "id": "doc_atlas_antifragile", "domain": "atlas", "text": "When a contracted engine suddenly gets much stronger, the governing layer captures that jump automatically and multiplies it with its own compounding, so the whole gets better from the shock." },
+    { "id": "doc_architecture_placement", "domain": "programming", "text": "Before adding a structural capability, identify its canonical owner layer, domain and flow, then extend the existing module instead of creating a parallel runtime." },
+    { "id": "doc_pg_repair_migration", "domain": "programming", "text": "If the migration ledger says an operation ran but its table is absent, add an idempotent repair migration guarded by schema checks and never edit the ledger manually." },
+    { "id": "doc_test_isolation", "domain": "programming", "text": "Automated suites must use an isolated disposable database; destructive reset helpers may never connect to the developer's live data store." },
+    { "id": "doc_provider_safety", "domain": "programming", "text": "Context sent outside the machine contains only redacted provider-safe projections, while sensitive source material remains local and excluded before traversal." },
+    { "id": "doc_must_keep_continuity", "domain": "programming", "text": "Long-running work preserves every invariant, decision, blocker and open action during compaction, with the raw event log retained separately for deterministic replay." },
+    { "id": "doc_debug_reproduction", "domain": "programming", "text": "A hard defect starts with a fast deterministic reproduction that asserts the exact symptom; only after it fails consistently should hypotheses and a fix follow." },
+    { "id": "doc_change_impact", "domain": "programming", "text": "Syntax trees, call and data flow, ownership and dependency edges identify affected modules and choose the smallest trustworthy set of tests for a change." },
+    { "id": "doc_repair_stop", "domain": "programming", "text": "An automated repair loop has a bounded attempt budget, stops when measured quality worsens, rolls back the harmful change and sends the result to an independent judge." }
   ],
   "cases": [
     { "id": "case_undo_commit_safe", "query": "how do I roll back a change I already saved without throwing away the record of what happened", "relevant_ids": ["doc_git_revert"] },
@@ -41,6 +49,14 @@
     { "id": "case_remember_what_i_study", "query": "best way to actually retain things I learn instead of forgetting them in a week", "relevant_ids": ["doc_spaced_repetition"] },
     { "id": "case_get_more_done_focus", "query": "I get more meaningful output from a few hours of undistracted concentration than a whole scattered day", "relevant_ids": ["doc_deep_work"] },
     { "id": "case_improve_skill_fast", "query": "what is the fastest way to actually get better at something I am already okay at", "relevant_ids": ["doc_deliberate_practice"] },
-    { "id": "case_atlas_thesis", "query": "the brain layer should turn an external tool's leap into a bigger compounded advantage", "relevant_ids": ["doc_atlas_antifragile"] }
+    { "id": "case_atlas_thesis", "query": "the brain layer should turn an external tool's leap into a bigger compounded advantage", "relevant_ids": ["doc_atlas_antifragile"] },
+    { "id": "case_place_new_capability", "query": "where should this new subsystem live so I do not accidentally build a second execution path", "relevant_ids": ["doc_architecture_placement"] },
+    { "id": "case_schema_says_done_but_missing", "query": "the database history claims the change happened but the relation is not there, how should I recover safely", "relevant_ids": ["doc_pg_repair_migration"] },
+    { "id": "case_tests_destroy_development_data", "query": "a suite reset wiped records from my normal local environment, what boundary was missing", "relevant_ids": ["doc_test_isolation"] },
+    { "id": "case_external_context_privacy", "query": "how can an outside model receive useful memory without any confidential source crossing the boundary", "relevant_ids": ["doc_provider_safety"] },
+    { "id": "case_resume_month_long_work", "query": "after weeks away I need all commitments and unfinished actions back without trusting one lossy summary", "relevant_ids": ["doc_must_keep_continuity"] },
+    { "id": "case_debug_before_guessing", "query": "the failure is complicated and intermittent, what should I build before theorizing about causes", "relevant_ids": ["doc_debug_reproduction"] },
+    { "id": "case_pick_impacted_tests", "query": "which checks should run after touching this function without executing the entire suite blindly", "relevant_ids": ["doc_change_impact"] },
+    { "id": "case_repair_gets_worse", "query": "the autonomous fixer keeps making the result worse, when must it stop and undo its attempt", "relevant_ids": ["doc_repair_stop"] }
   ]
 }

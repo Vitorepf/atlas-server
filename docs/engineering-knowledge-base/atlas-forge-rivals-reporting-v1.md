@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-reporting-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Reporting v1
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 94
-summary: Relatório humano-final do Forge Rivals (schema atlas.forge.rivals.report.v3). Define headline, executive summary, vencedores por categoria, confidence ladder, suspicious results, hard failures, claim status separado de external_rivals_certification e próximas ações para o operador.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Relatório humano-final do Forge Rivals (schema atlas.forge.rivals.report.v3). Define headline, executive summary, vencedores por categoria, confidence ladder, suspicious results, hard failures, claim status separado de external_rivals_certification e próximas ações para o operador."
 tags:
   - atlas
   - forge
@@ -41,7 +43,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: runbook
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Forge Rivals Reporting v1
 canonical_name: Atlas Forge Rivals Reporting v1
@@ -88,7 +90,8 @@ next_actions:
   - Conectar provider_performance_signal ao Ledger como entrada advisory.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Reporting v1
 

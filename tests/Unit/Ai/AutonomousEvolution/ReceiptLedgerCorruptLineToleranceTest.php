@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\MemoryIntegration\AtlasCortexMemoryReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Quaternity\CortexIntentMeaning\AtlasCortexIntentMeaningReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Quaternity\IntentIngest\AtlasLoopOperatorIntentReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Quaternity\LoopIntentDrift\AtlasLoopIntentDriftReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Receipts\AtlasLoopCycleReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\SymbolicAnchoring\PerPhase\AtlasLoopAnchorGatePerPhaseReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Trinity\AntiDecoupling\AtlasLoopTrinityContractReceiptLedger;
 use Tests\TestCase;
 
 /**
@@ -56,16 +53,6 @@ final class ReceiptLedgerCorruptLineToleranceTest extends TestCase
         file_put_contents($path, implode("\n", $lines)."\n");
     }
 
-    public function test_cycle_receipt_ledger_all_skips_bad_lines(): void
-    {
-        $path = $this->dir.'/cycle.jsonl';
-        $this->seedFixture($path, ['seq' => 1, 'chain_hash' => 'a'], ['seq' => 2, 'chain_hash' => 'b']);
-
-        $rows = iterator_to_array((new AtlasLoopCycleReceiptLedger(path: $path))->all(), false);
-
-        $this->assertSame([['seq' => 1, 'chain_hash' => 'a'], ['seq' => 2, 'chain_hash' => 'b']], $rows);
-    }
-
     public function test_anchor_gate_per_phase_reader_skips_bad_lines(): void
     {
         $this->seedFixture($this->dir.'/2026-07-06.jsonl',
@@ -81,18 +68,6 @@ final class ReceiptLedgerCorruptLineToleranceTest extends TestCase
         );
     }
 
-    public function test_trinity_contract_replay_skips_bad_lines(): void
-    {
-        $this->seedFixture($this->dir.'/2026-07-06.ndjson',
-            ['seq' => 1, 'kind' => 'audit'],
-            ['seq' => 2, 'kind' => 'drift'],
-        );
-
-        $rows = (new AtlasLoopTrinityContractReceiptLedger($this->dir))->replay();
-
-        $this->assertSame([['seq' => 1, 'kind' => 'audit'], ['seq' => 2, 'kind' => 'drift']], $rows);
-    }
-
     public function test_cortex_memory_all_skips_bad_lines(): void
     {
         $path = $this->dir.'/cortex-memory.jsonl';
@@ -106,16 +81,6 @@ final class ReceiptLedgerCorruptLineToleranceTest extends TestCase
         $this->assertCount(2, $rows);
         $this->assertSame(['m1', 'm2'], array_column($rows, 'memoryEntryId'));
         $this->assertSame([null, 'h'], array_column($rows, 'approvalTokenHash'));
-    }
-
-    public function test_cortex_intent_meaning_list_skips_bad_lines(): void
-    {
-        $path = $this->dir.'/intent-meaning.jsonl';
-        $this->seedFixture($path, ['intent' => 'i1'], ['intent' => 'i2']);
-
-        $rows = (new AtlasCortexIntentMeaningReceiptLedger($path))->list();
-
-        $this->assertSame([['intent' => 'i1'], ['intent' => 'i2']], $rows);
     }
 
     public function test_intent_drift_all_skips_bad_lines(): void

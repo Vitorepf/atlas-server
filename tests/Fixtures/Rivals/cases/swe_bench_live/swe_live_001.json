@@ -1,0 +1,8 @@
+{
+  "case_id": "swe_live_001",
+  "native_task_id": "astropy__astropy-31337",
+  "task_type": "coding_patch",
+  "title": "swe_live_001",
+  "suite_id": "swe_bench_live",
+  "source_repo": "swe_bench_live"
+}

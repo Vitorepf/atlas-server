@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-matrix-report-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · Matrix Report v1
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 90
-summary: Relatório humano final da bateria multi-case do Forge Rivals. Lê battery_evidence_pack + scorecards per-case e emite winner geral, rankings por categoria e por L1-L5, heatmap categoria×L5, planning_score vs execution_score, invalid/suspicious separados, sinal medido advisory para Atlas Decide e Markdown+JSON. Honesto com insufficient_evidence; nunca destrava external_rivals.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Relatório humano final da bateria multi-case do Forge Rivals. Lê battery_evidence_pack + scorecards per-case e emite winner geral, rankings por categoria e por L1-L5, heatmap categoria×L5, planning_score vs execution_score, invalid/suspicious separados, sinal medido advisory para Atlas Decide e Markdown+JSON. Honesto com insufficient_evidence; nunca destrava external_rivals."
 tags:
   - atlas
   - forge
@@ -43,7 +45,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-evidence-pack-replay-multi-case-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: "Atlas Forge Rivals · Matrix Report v1"
 canonical_name: "Atlas Forge Rivals · Matrix Report v1"
@@ -86,7 +88,8 @@ next_actions:
   - Sincronizar este doc se novos eixos (cost vs quality, mode-aware tabelas) forem adicionados ao matrix.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Matrix Report v1
 **Status:** Delivered 2026-05-15 (Claude D · Matrix Report slice)

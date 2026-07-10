@@ -2,12 +2,13 @@
 id: atlas-forge-rivals-intelligence-ledger-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · Intelligence Ledger v1
-status: planned
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
 category: programming-forge
 priority: 94
-implementation_state: proposed_next_patamar_not_promoted
+implementation_state: source_material_no_runtime_authority
 blocker: ledger_historical_tests_and_two_real_batteries_required
-summary: Proximo patamar do Rivals: transformar baterias reais replayable em inteligencia historica segmentada por provider, modelo, modo de prompt, categoria, dificuldade, custo, tempo, estabilidade e confianca estatistica, sempre advisory-only para Atlas Decide.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Proximo patamar do Rivals: transformar baterias reais replayable em inteligencia historica segmentada por provider, modelo, modo de prompt, categoria, dificuldade, custo, tempo, estabilidade e confianca estatistica, sempre advisory-only para Atlas Decide."
 tags:
   - atlas
   - forge
@@ -50,7 +51,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-provider-performance-ledger-v1
-graph_status: planned
+graph_status: deprecated
 graph_source: repo
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
@@ -91,7 +92,8 @@ next_actions:
   - Adicionar variancia, intervalos de confianca e regressao por segmento quando houver repeticoes suficientes.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Intelligence Ledger v1
 

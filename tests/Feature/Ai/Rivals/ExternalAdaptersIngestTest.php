@@ -4,21 +4,24 @@ namespace Tests\Feature\Ai\Rivals;
 
 use App\Services\Ai\Rivals\Adapters\External\AbstractExternalSuiteAdapter;
 use App\Services\Ai\Rivals\Adapters\External\AiderBenchAdapter;
+use App\Services\Ai\Rivals\Adapters\External\BfclAdapter;
 use App\Services\Ai\Rivals\Adapters\External\HalHarnessAdapter;
 use App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter;
 use App\Services\Ai\Rivals\Adapters\External\InspectEvalsAdapter;
 use App\Services\Ai\Rivals\Adapters\External\LiveCodeBenchAdapter;
 use App\Services\Ai\Rivals\Adapters\External\SeniorSweBenchAdapter;
 use App\Services\Ai\Rivals\Adapters\External\SweBenchLiveAdapter;
-use App\Services\Ai\Rivals\Adapters\External\Tau2BfclAdapter;
+use App\Services\Ai\Rivals\Adapters\External\SweMarathonAdapter;
+use App\Services\Ai\Rivals\Adapters\External\Tau2BenchAdapter;
+use App\Services\Ai\Rivals\Core\RunReceipt;
+use App\Services\Ai\Rivals\Core\SuiteRegistry;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use RuntimeException;
 use Tests\TestCase;
 
 /**
- * Slice 7: prova de ingest reproduzível dos 8 adapters de suite externa.
- * Fixture = resultado NATIVO plausível da suite; o adapter mapeia para
- * RunReceipt (schema atlas.rivals2.run_receipt.v1) sem inventar nada.
+ * Certifica ingest dos 10 adapters externos com fixtures nativas.
+ * Fixture = harness-only; nunca prova qualidade de mercado.
  */
 class ExternalAdaptersIngestTest extends TestCase
 {
@@ -39,7 +42,6 @@ class ExternalAdaptersIngestTest extends TestCase
         parent::tearDown();
     }
 
-    /** Copia a fixture nativa para um runDir temporário e retorna o runDir. */
     private function stageRunDir(string $suiteId): string
     {
         $runDir = $this->storage.'/runs/run_'.$suiteId;
@@ -52,7 +54,6 @@ class ExternalAdaptersIngestTest extends TestCase
         return $runDir;
     }
 
-    /** Importa um case mínimo (fonte do task_type p/ suites multi-tipo). */
     private function importCase(string $suiteId, string $caseId, string $taskType): void
     {
         $dir = $this->storage."/external/{$suiteId}/cases";
@@ -62,14 +63,13 @@ class ExternalAdaptersIngestTest extends TestCase
         ]));
     }
 
-    /** @return array<int, \App\Services\Ai\Rivals\Core\RunReceipt> */
+    /** @return array<int, RunReceipt> */
     private function ingestAndAssertCommon(AbstractExternalSuiteAdapter $adapter): array
     {
         $receipts = $adapter->ingestResults($this->stageRunDir($adapter->suiteId()));
 
         $this->assertNotEmpty($receipts, $adapter->suiteId().': ingest vazio');
         foreach ($receipts as $receipt) {
-            // RunReceipt::fromArray já validou o schema (senão teria lançado)
             $this->assertContains(
                 $receipt->data['task_type'],
                 config('atlas_rivals.task_types'),
@@ -81,25 +81,55 @@ class ExternalAdaptersIngestTest extends TestCase
         return $receipts;
     }
 
-    public function test_all_external_adapters_ingest_native_fixtures_into_valid_receipts(): void
+    public function test_all_ten_external_adapters_ingest_native_fixtures(): void
     {
         $this->importCase('inspect_evals', 'gaia_l1_004', 'tool_use_function_calling');
         $this->importCase('inspect_evals', 'gaia_l1_011', 'tool_use_function_calling');
         $this->importCase('hal_harness', 'hal_task_001', 'long_horizon_engineering');
         $this->importCase('hal_harness', 'hal_task_002', 'long_horizon_engineering');
 
-        foreach ([
-            new SeniorSweBenchAdapter,
+        $adapters = [
+            new Tau2BenchAdapter,
+            new BfclAdapter,
             new HarborTerminalBenchAdapter,
-            new AiderBenchAdapter,
-            new InspectEvalsAdapter,
+            new SeniorSweBenchAdapter,
             new SweBenchLiveAdapter,
-            new HalHarnessAdapter,
-            new Tau2BfclAdapter,
             new LiveCodeBenchAdapter,
-        ] as $adapter) {
+            new InspectEvalsAdapter,
+            new HalHarnessAdapter,
+            new AiderBenchAdapter,
+            new SweMarathonAdapter,
+        ];
+        $this->assertCount(10, $adapters);
+        $this->assertSame(
+            (new SuiteRegistry)->externalSuiteIds(),
+            array_map(fn ($a) => $a->suiteId(), $adapters)
+        );
+
+        foreach ($adapters as $adapter) {
             $this->ingestAndAssertCommon($adapter);
         }
+    }
+
+    public function test_bfcl_is_not_tau2_json(): void
+    {
+        $receipts = $this->ingestAndAssertCommon(new BfclAdapter);
+        $this->assertSame('tool_use_function_calling', $receipts[0]->data['task_type']);
+        $this->assertSame('bfcl', $receipts[0]->data['metadata']['native']['native_agent'] ?? null);
+    }
+
+    public function test_swe_marathon_maps_binary_reward_and_long_horizon_default(): void
+    {
+        $receipts = $this->ingestAndAssertCommon(new SweMarathonAdapter);
+        $byCase = collect($receipts)->keyBy(fn ($r) => $r->data['case_id']);
+
+        $this->assertSame('failure', $byCase['slack-clone']->data['status']);
+        $this->assertSame('success', $byCase['wasm-simd']->data['status']);
+        $this->assertSame('long_horizon_engineering', $byCase['slack-clone']->data['task_type']);
+        // Sem plan: arm nativo fica model@bare; agent fica em metadata.native (remap exige plan).
+        $this->assertSame('claude-opus-4-8@bare', $byCase['slack-clone']->data['arm_id']);
+        $this->assertSame('claude-code', $byCase['slack-clone']->data['metadata']['native']['native_agent'] ?? null);
+        $this->assertGreaterThan(0, $byCase['slack-clone']->data['cost_usd']);
     }
 
     public function test_senior_swe_bench_keeps_dimensions_uncollapsed_and_maps_task_kinds(): void
@@ -157,7 +187,7 @@ class ExternalAdaptersIngestTest extends TestCase
 
     public function test_list_cases_is_empty_when_nothing_imported(): void
     {
-        // honestidade: sem import não há cases — nunca inventar
-        $this->assertSame([], (new Tau2BfclAdapter)->listCases());
+        $this->assertSame([], (new Tau2BenchAdapter)->listCases());
+        $this->assertSame([], (new BfclAdapter)->listCases());
     }
 }

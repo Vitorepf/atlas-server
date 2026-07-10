@@ -1,0 +1,8 @@
+{
+  "case_id": "tb_git-bisect",
+  "native_task_id": "git-bisect",
+  "task_type": "terminal_agent",
+  "title": "tb_git-bisect",
+  "suite_id": "terminal_bench",
+  "source_repo": "terminal_bench"
+}

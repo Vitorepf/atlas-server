@@ -1,0 +1,8 @@
+{
+  "case_id": "polyglot_001",
+  "native_task_id": "acronym",
+  "task_type": "coding_patch",
+  "title": "polyglot_001",
+  "suite_id": "aider_polyglot",
+  "source_repo": "aider_polyglot"
+}

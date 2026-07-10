@@ -105,7 +105,10 @@ class AtlasBenchAdapterTest extends TestCase
         (new EvidencePackBuilder)->build($runId);
 
         $adjudication = (new Adjudicator)->adjudicate($runId);
-        $this->assertTrue($adjudication['claim_allowed'], implode(',', $adjudication['claim_blockers']));
+        $this->assertTrue($adjudication['pipeline_valid']);
+        $this->assertSame('diagnostic', $adjudication['claim_tier']);
+        $this->assertFalse($adjudication['internal_claim_allowed']);
+        $this->assertNotEmpty(preg_grep('/harness_only_/', $adjudication['claim_blockers']));
 
         $report = (new ReportBuilder)->build($runId);
         $rows = collect($report['rows']);
@@ -122,7 +125,7 @@ class AtlasBenchAdapterTest extends TestCase
         config()->set('atlas_rivals.models.stub_cli', [
             'provider' => 'local', 'access_type' => 'cli', 'local' => true, 'enabled' => true,
             'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0,
-            'command' => 'php tests/solver.php',
+            'command' => 'php tests/solver.php', 'harness_only' => true,
         ]);
         $caseId = $this->writeCase();
         $adapter = new AtlasBenchSuiteAdapter;
@@ -139,7 +142,9 @@ class AtlasBenchAdapterTest extends TestCase
         (new EvidencePackBuilder)->build($runId);
 
         $adjudication = (new Adjudicator)->adjudicate($runId);
-        $this->assertTrue($adjudication['claim_allowed'], implode(',', $adjudication['claim_blockers']));
+        $this->assertTrue($adjudication['pipeline_valid']);
+        $this->assertSame('diagnostic', $adjudication['claim_tier']);
+        $this->assertFalse($adjudication['internal_claim_allowed']);
         $report = (new ReportBuilder)->build($runId);
         $this->assertSame(1.0, collect($report['rows'])->firstWhere('arm_id', 'stub_cli@bare')['success_rate']);
     }
@@ -166,21 +171,10 @@ class AtlasBenchAdapterTest extends TestCase
 
     public function test_atlas_runtime_without_wrapper_blocks_honestly(): void
     {
-        $caseId = $this->writeCase();
-        $adapter = new AtlasBenchSuiteAdapter;
-        $plan = RunPlan::make(
-            $adapter->suiteId(),
-            [$caseId],
-            [(new ArmRegistry)->makeArm('harness_golden', 'atlas_dev')],
-            3,
-            ['max_usd' => 0.0, 'max_minutes' => 5],
-            7,
-        );
-        $plan->persist();
-
-        // harness_golden@atlas_dev não existe como executor → nunca simular
-        $this->expectExceptionMessageMatches('/uplift_supported=false/');
-        $adapter->execute($plan);
+        // A6: arm Atlas sem runtime_commands falha cedo no ArmRegistry — nunca chega a simular.
+        config()->set('atlas_rivals.runtime_commands.atlas_dev', null);
+        $this->expectExceptionMessageMatches('/rivals_runtime_command_not_configured:atlas_dev/');
+        (new ArmRegistry)->makeArm('harness_golden', 'atlas_dev');
     }
 
     public function test_mining_live_repo_is_read_only_and_yields_valid_cases(): void

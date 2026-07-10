@@ -109,10 +109,25 @@ class AtlasMemoryRegistryService
         data_set($metadata, 'curation_history', $history);
 
         $current = array_intersect_key($entry->getAttributes(), array_flip($entry->getFillable()));
-        $payload = $this->normalize(array_merge($current, [
+        $merged = array_merge($current, [
             'tags' => $entry->tags ?? [],
             'metadata' => $metadata,
-        ], $attributes));
+        ], $attributes);
+        foreach ([
+            'title' => 'redacted_title',
+            'body' => 'redacted_body',
+            'summary' => 'redacted_summary',
+        ] as $contentField => $projectionField) {
+            if (array_key_exists($contentField, $attributes)
+                && ! array_key_exists($projectionField, $attributes)) {
+                unset($merged[$projectionField]);
+            }
+        }
+        if (array_intersect_key($attributes, array_flip(['title', 'body', 'summary'])) !== []
+            && ! array_key_exists('content_hash', $attributes)) {
+            unset($merged['content_hash']);
+        }
+        $payload = $this->normalize($merged);
 
         $entry->fill($payload)->save();
         $this->journal($entry, 'curate');
@@ -592,6 +607,7 @@ class AtlasMemoryRegistryService
         $memoryType = $this->memoryType($attributes['memory_type'] ?? ($attributes['type'] ?? 'technical_context'));
         $body = trim((string) ($attributes['body'] ?? $attributes['content'] ?? ''));
         $summary = isset($attributes['summary']) ? trim((string) $attributes['summary']) : null;
+        $recordedAt = $attributes['recorded_at'] ?? now();
 
         $payload = [
             'memory_type' => $memoryType,
@@ -615,13 +631,22 @@ class AtlasMemoryRegistryService
             'status' => $status,
             'tags' => array_values(array_filter((array) ($attributes['tags'] ?? []), fn (mixed $tag): bool => is_scalar($tag) && trim((string) $tag) !== '')),
             'metadata' => is_array($attributes['metadata'] ?? null) ? $attributes['metadata'] : [],
-            'recorded_at' => $attributes['recorded_at'] ?? now(),
+            'recorded_at' => $recordedAt,
             'last_used_at' => $attributes['last_used_at'] ?? null,
             'archived_at' => $status === 'archived' ? ($attributes['archived_at'] ?? now()) : ($attributes['archived_at'] ?? null),
         ];
 
         if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'content_hash')) {
             $payload['content_hash'] = $this->contentHash($attributes['content_hash'] ?? null, $memoryType, $scopeType, $scopeId, $body, $summary);
+        }
+        if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'valid_from')) {
+            $payload['valid_from'] = $attributes['valid_from'] ?? $recordedAt;
+        }
+        foreach (['valid_until', 'observed_at', 'verified_at', 'stale_after', 'source_hash', 'authority_level'] as $temporalField) {
+            if (array_key_exists($temporalField, $attributes)
+                && DatabaseTableAvailability::hasColumn('atlas_memory_entries', $temporalField)) {
+                $payload[$temporalField] = $attributes[$temporalField];
+            }
         }
 
         return $this->privacy->normalizeForStorage($payload, $attributes);

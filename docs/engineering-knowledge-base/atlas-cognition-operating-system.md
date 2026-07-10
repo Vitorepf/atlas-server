@@ -3,11 +3,11 @@ id: atlas-cognition-operating-system
 type: engineering_knowledge
 title: Atlas Cognition Operating System
 status: active
-implementation_state: structural_scorecard_ready_10
-blocker: Nenhum blocker estrutural no scorecard ACOS v3. Real-world data volume continua sendo produzido pelo uso do operador e nao faz parte da nota estrutural.
+implementation_state: evidence_resolved_v3_compat_v4_boundary_active
+blocker: O scorecard strict permanece vermelho enquanto capacidades parciais nao tiverem runtime e receipts frescos; AEMOR e os modulos v4 suplementares tambem precisam de certificacao propria.
 category: macro-system
 priority: 99
-summary: Atlas Cognition Operating System (ACOS) e o SO cognitivo do Atlas — sistema operacional que governa toda area de memoria, contexto, retrieval, RAG, graph, ranking, freshness, privacy, embedding, ingestion, compounding e learning. Encompasses Memory Core + Cognitive Immune (G0-G8) + AUCRI (18 blocks) + APCR + AEMOR + TEOS-I1 long-horizon + Open Brain MCP + Evidence Ledger memory side + Self-Improvement L7 + Compounding Engineering Intelligence + AVCEL + ACQCG. Forge, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia e Self-Construction OS sao consumers de ACOS, nao parte dele.
+summary: Atlas Cognition Operating System (ACOS) e o SO cognitivo do Atlas — governa memoria, contexto, retrieval, RAG, graph, ranking, freshness, privacy, embedding, ingestion, compounding e learning. O scorecard v3 preserva 73 facets historicas (69 services unicos pontuados); o v4 explicita os modulos profundos, inclui os nove blocos antes ausentes e separa consumers/legado da boundary cognitiva.
 tags: [atlas-ai, acos, cognition, memory, context, retrieval, rag, graph, ranking, freshness, compounding, self-improvement, macro-system, authority]
 capabilities:
   - cognition_macro_authority
@@ -21,15 +21,15 @@ capabilities:
   - self_improvement_closed_loop_level7
   - cognitive_quality_certification
 decisions:
-  - ACOS e nome canonico da camada cognitiva do Atlas. Substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por umbrella unificada com 73 subsistemas estruturais no scorecard v3 e ~15 modulos profundos no v4.
+  - ACOS e nome canonico da camada cognitiva do Atlas. O v3 mantem 73 facets por compatibilidade, mas aliases da mesma service_class nao sao pontuados duas vezes; o v4 e a boundary de modulos profundos.
   - ContextRuntime (`AtlasContextRuntime { compose, certify }`) e a unica porta de contexto dos tres executores elite; blocos AUCRI sao policies internas do gate, nao retrieval direto.
   - Boundary clara entre ACOS (cognicao) e consumidores (Forge, AWIS, Mission, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS). Quem consome ACOS nunca esta dentro de ACOS.
-  - ACOS 10/10 estrutural e o ALVO, definido por `atlas:cognition:scorecard --json`. Closeout vivo Onda 3 Residual Elite 2026-07-09: overall **10/10** (code 10, doc 10, pipeline 10; 0/73 pipeline partial). Inventario historico dos partials fechados vive em `atlas-cognition-operating-system-pipeline-partials.md` (nao neste parent). Numeros vivos sempre via scorecard.
+  - ACOS 10/10 estrutural e um alvo, nunca um snapshot congelado. Em 2026-07-09, depois da deduplicacao de evidencia, o v3 vivo reportou overall 9.94, code 10, doc 10 e pipeline 9.83; numeros vivos sempre via scorecard.
   - Pipeline canonico ACOS: Captura -> Quarentena (G0) -> Promotion Gates (G1-G8) -> Memory Registry (10 types x 9 scopes x 4 privacy) -> Embedding (ASEF) -> Retrieval (AHRI + AARF + AGRN + AURG) -> Ranking (ACRS) -> Freshness Gate (ACFQ) -> Privacy/Trust (ARPTL) -> Cost Governor (ARCLG) -> Compilation (ACCR + ACCCR + ATER + ACPFR) -> Working Memory (ACMF) -> Persistence (APCR) -> Injection (Open Brain) -> Outcome (AEMOR) -> Learning Signal -> Memory Candidate -> Promotion -> Compounding -> Self-Improvement L7.
   - Forge, AWIS, Mission Foundation, Specialist Flows, Domains, Vox, Cartografia, Self-Construction OS estao FORA de ACOS — sao consumers que chamam ACOS via APIs canonicas (Open Brain MCP, AiContextPackBuilder, AtlasMemoryRegistryService, AtlasEvidenceLedger).
   - Nenhuma absorcao externa (claude-mem/engram/mem0) entra no Atlas sem AP por absorcao e sem passar pelos G0-G8 gates. As 4 absorcoes aprovadas em atlas-external-memory-pattern-absorptions-v1.md sao melhorias dentro de ACOS, nao novos subsistemas.
 maintenance:
-  - Manter `AtlasCognitionScoreCardService::SUBSYSTEMS` sincronizado com docs, services e testes.
+  - Manter as facets v3, os modulos suplementares v4 e a boundary de consumers sincronizados com docs, services e testes.
   - Rodar `php artisan atlas:cognition:scorecard --strict --json` depois de alterar qualquer bloco ACOS.
   - Separar score estrutural ACOS de volume organico produzido pelo operador.
 related_paths:
@@ -158,8 +158,9 @@ claim_policy:
 Atlas Cognition Operating System (ACOS) e o sistema operacional cognitivo do
 Atlas. Encompasses toda area de memoria, contexto, retrieval, RAG, graph,
 ranking, freshness, privacy, embedding, ingestion, compounding e learning
-sob uma autoridade unica. ACOS organiza 73 subsistemas estruturais no scorecard
-v3 atual, com boundary clara e 3 dimensoes: code, doc e pipeline.
+sob uma autoridade unica. O scorecard v3 preserva 73 facets historicas e
+pontua 69 services unicos em 3 dimensoes: code, doc e pipeline. O v4 organiza
+a boundary cognitiva em modulos profundos e projeta consumers separadamente.
 
 ACOS substitui nomenclatura difusa anterior (memoria/contexto/RAG/etc) por
 umbrella unificada. Forge OS, AWIS, Mission Foundation, Specialist Flows,
@@ -241,28 +242,31 @@ Atlas (substrato de soberania pessoal sobre AI generativa)
 
 ### Subsistemas canonicos ACOS + status atual
 
-O status operacional nao e mantido manualmente nesta tabela. A fonte de verdade
-runtime e `php artisan atlas:cognition:scorecard --json`, schema
-`atlas.cognition.scorecard.v3`. As dimensoes doc e pipeline agora sao RESOLVIDAS
-por evidencia real (doc-owner canonico resolvivel + green-run receipt), nao mais
-declaradas na constante `SUBSYSTEMS` — so `code` ja era prova (`class_exists`).
-Estado atual resolvido (rode o comando para o numero vivo; muda com a evidencia):
+O status operacional nao e mantido manualmente. A fonte de verdade runtime e
+`php artisan atlas:cognition:scorecard --json`. O v3 continua sendo a interface
+compatível de facets; o v4 e a leitura arquitetural:
 
-| Dimensao | Resultado (vivo 2026-07-09 Onda 3 scorecard) | Como e resolvido |
+- aliases da mesma `service_class` permanecem navegaveis, mas pontuam uma vez;
+- code exige classe instanciavel por reflection, nao apenas nome presente;
+- doc e pipeline sao resolvidos por owner FQN + green-run receipt fresco;
+- ACIE, APCR, AEMOR, TEOS-I1, AVCEL, ACQCG, AOBG, Evidence e ACCCR aparecem
+  como modulos suplementares v4;
+- Self-Construction, Cartografia, Programming, Research Domain e ASI-L7 ficam
+  em `consumer_modules`, fora da nota cognitiva.
+
+Baseline evidence-resolved de 2026-07-09:
+
+| Dimensao | Resultado | Como e resolvido |
 |---|---:|---|
-| subsistemas | 73 | constante `SUBSYSTEMS` |
-| code | 10/10 | `class_exists` — 73/73 |
+| facets v3 | 73 | identidade historica |
+| services pontuados | 69 | aliases deduplicados |
+| code | 10/10 | classe existe e e instanciavel |
 | doc | 10/10 | doc-owner canonico resolvivel |
-| pipeline | 10/10 | **73 ready** · 0 partial · 0 building |
-| **overall** | **10/10** | scorecard hash `sha256:5b1f7225…ed48` — re-rodar comando para numero vivo |
+| pipeline | 9.83/10 | 3 gaps unicos / 4 facets partial |
+| **overall** | **9.94/10** | hash e numero vivos via comando |
 
-O `--strict` passa com 0 pipeline partial. Inventario historico dos partials
-fechados: `atlas-cognition-operating-system-pipeline-partials.md`.
-
-Grupos canônicos: Cognitive Immune G0-G8, Memory Core, AUCRI/contexto, Atlas
-Decide, compounding, self-construction, cartography, governance, programming e
-research-domain. Todos devem permanecer `ready` nas tres dimensoes ou o strict
-scorecard falha.
+O `--strict` falha enquanto qualquer dimensao ficar abaixo de 10. Inventario
+vivo e historico: `atlas-cognition-operating-system-pipeline-partials.md`.
 
 ### Definicao operacional de 10/10
 
@@ -419,11 +423,11 @@ Consumers de ACOS:
 
 Evidencia minima para considerar ACOS estruturalmente ready:
 - `php artisan atlas:cognition:scorecard --strict --json` retorna exit 0;
-- schema `atlas.cognition.scorecard.v3`;
-- 73 subsistemas no scorecard v3 atual;
+- schemas `atlas.cognition.scorecard.v3` e `atlas.cognition.scorecard.v4`;
+- 73 facets v3, 69 services unicos pontuados e aliases explicitos;
+- modulos suplementares v4 presentes e consumers projetados fora da boundary;
 - code/doc/pipeline = 10/10;
-- claim policy bloqueia benchmark/rivals/superiority;
-- `external_rivals_certification_touched=false`;
+- claim policy bloqueia comparacao externa;
 - `cognitive_immune_law_enforced=true`;
 - `must_keep_coverage_invariant=true`;
 - `php artisan test --filter=CognitionScorecard` verde.
@@ -443,28 +447,25 @@ Evidencia adicional para volume organico:
 - **Risco 2**: provider externo recebe raw private content sem ARPTL gate. Mitigacao: ARPTL classify obrigatorio antes de qualquer chamada de provider.
 - **Risco 3**: compactacao quebra must_keep_coverage = 1.0 -> evidence loss -> Decision Receipt invalido. Mitigacao: invariant test em CI.
 - **Risco 4**: auto-promocao silenciosa de learning sem evidence -> Atlas aprende coisa errada. Mitigacao: Judgment & Learning Guard + review humano + trust outcomes ledged.
-- **Risco 5**: score estrutural ser confundido com volume organico. Mitigacao: scorecard v3 declara que readiness estrutural nao mede volume real produzido pelo operador.
+- **Risco 5**: score estrutural ser confundido com volume organico. Mitigacao: scorecards v3/v4 declaram que readiness estrutural nao mede volume real produzido pelo operador.
 - **Risco 6**: doc inflar mais rapido que codigo. Mitigacao: scorecard exige code/doc/pipeline e testes; docs sem runtime devem ficar em proposta explicita, fora do score estrutural.
 - **Risco 7**: novas otimizacoes de token/contexto criarem runtime paralelo. Mitigacao: ATER/ACMF/ACCR/AUCRI sao owners; variantes precisam de boundary review.
 - **Risco 8**: graph store externo (Neo4j/Memgraph) absorvido sem AP -> conflito arquitetural com pgvector decision. Mitigacao: AGRN/AURG via pgvector + entity store bipartite antes de externo.
 - **Risco 9**: dados reais nao fluem por nao haver volume de uso -> AEMOR/L7 ficam sinteticos -> compounding nao acontece. Mitigacao: Atlas precisa rodar producao no Mac do operador com cobertura crescente de domains.
-- **Risco 10**: external_rivals_certification e mencionado em codigo ACOS -> contaminacao com area de outra equipe. Mitigacao: claim_policy enforced (`external_rivals_certification_touched: false`).
-
 ## Exemplos
 
 ### Score ACOS atual (scorecard v3)
 
-`php artisan atlas:cognition:scorecard --json` retorna, no closeout Onda 3 vivo,
-`overall_out_of_10=10`, `subsystem_count=73`, `code=10`, `doc=10`,
-`pipeline=10`, `external_rivals_certification_touched=false`,
-`cognitive_immune_law_enforced=true` e `must_keep_coverage_invariant=true`.
-doc e pipeline sao resolvidos por evidencia real, entao o numero MOVE com a
-evidencia — rode o comando para o valor vivo; `--strict` passa com as 3 dimensoes
-ready. Isso e score estrutural ACOS, nao nota global do Atlas inteiro.
+No baseline 2026-07-09, `php artisan atlas:cognition:scorecard --json` retornou
+`overall_out_of_10=9.94`, `subsystem_count=73`,
+`scored_subsystem_count=69`, `code=10`, `doc=10` e `pipeline=9.83`.
+Doc e pipeline sao resolvidos por evidencia real, entao o numero move com a
+evidencia. Rode o comando para o valor vivo; `--strict` permanece vermelho
+enquanto houver qualquer gap.
 
 ## Proximas Acoes
 
-1. Manter `AtlasCognitionScoreCardService::SUBSYSTEMS` como reflexo fiel de code/doc/pipeline.
+1. Manter facets v3, modulos suplementares v4 e consumer boundary como reflexo fiel de code/doc/pipeline.
 2. Rodar scorecard strict e testes CognitionScorecard apos qualquer mudanca ACOS.
 3. Continuar alimentando volume organico de outcomes sem confundir isso com score estrutural.
 4. Preservar boundary: Forge, AWIS, Domains, Cartografia e Self-Construction continuam consumers.

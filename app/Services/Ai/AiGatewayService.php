@@ -12,6 +12,7 @@ use App\Models\AiSpecialistFlowExecution;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;
+use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Cli\AtlasFileAttachmentService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Mission\AiGatewayMissionBridge;
@@ -106,6 +107,7 @@ class AiGatewayService
         private readonly YouTubeKnowledgeIngestionService $youtubeKnowledge,
         private readonly AiStreamRecorder $stream,
         private readonly AiGatewayMissionBridge $missionBridge,
+        private readonly AtlasDecideGatewayConsultationService $gatewayConsultation,
         private readonly ?AtlasPersistentContextRuntimeService $persistentContext = null,
     ) {}
 
@@ -161,6 +163,61 @@ class AiGatewayService
                 $options['model'] = $expectedModel;
             }
         }
+        $gatewayConsultation = null;
+        $learnedRouteApplied = false;
+        $consultationEnabled = (bool) config('atlas.atlas_decide.gateway_consultation_enabled', true);
+        $rawConsultationMode = strtolower(trim((string) config('atlas.atlas_decide.gateway_consultation_mode', 'shadow')));
+        // active is the legacy alias for default (apply learned route).
+        $consultationMode = match ($rawConsultationMode) {
+            'offline' => 'offline',
+            'active', 'default', 'canary' => 'active',
+            default => 'shadow',
+        };
+        if (! $consultationEnabled) {
+            $consultationMode = 'offline';
+        }
+        if ($consultationEnabled && $consultationMode !== 'offline') {
+            try {
+                $gatewayConsultation = $this->gatewayConsultation->consult([
+                    'task_category' => (string) (
+                        data_get($payload, 'atlas_ai_router.routing_task')
+                        ?? data_get($payload, 'task_category')
+                        ?? data_get($payload, 'task_type')
+                        ?? data_get($payload, 'programming_flow')
+                        ?? 'interaction'
+                    ),
+                    'role' => (string) (
+                        data_get($payload, 'council_role')
+                        ?? data_get($payload, 'role')
+                        ?? $options['role']
+                        ?? 'primary'
+                    ),
+                    'framework' => data_get($payload, 'framework'),
+                    'privacy_class' => (string) ($privacy['sensitivity'] ?? 'normal'),
+                    'actor' => 'ai_gateway',
+                ]);
+                $learnedProvider = data_get($gatewayConsultation, 'active_route.provider');
+                $manualOverride = data_get($options, 'payload.decision_mode') === 'manual_override';
+                if ($consultationMode === 'active'
+                    && ! $manualOverride
+                    && ! $this->fairClaude->isFairPayload($payload)
+                    && ($gatewayConsultation['verdict'] ?? null) === AtlasDecideGatewayConsultationService::VERDICT_FOLLOW_LEARNED
+                    && is_string($learnedProvider)
+                    && in_array($learnedProvider, self::AUTO_LIVE_WORKER_PROVIDERS, true)
+                    && $this->providerAllowedForInvocation($learnedProvider, $options)) {
+                    $provider = $learnedProvider;
+                    $options['provider'] = $provider;
+                    $learnedRouteApplied = true;
+                }
+            } catch (\Throwable $exception) {
+                $gatewayConsultation = [
+                    'status' => 'degraded',
+                    'reason' => 'gateway_consultation_error',
+                    'error_hash' => hash('sha256', $exception->getMessage()),
+                ];
+            }
+        }
+        $options['payload'] = $payload;
         $fairMode = $this->fairClaude->isFairPayload($payload);
         if ($fairMode) {
             $decisionPayload = $this->fairModeDecisionPayload($payload, $provider);
@@ -186,6 +243,9 @@ class AiGatewayService
                 'fallback_reason' => $fallbackReason,
                 'planned_graph' => $decisionPayload['planned_graph'] ?? null,
                 'runtime_graph' => $decisionPayload['runtime_graph'] ?? null,
+                'gateway_consultation' => $gatewayConsultation,
+                'gateway_consultation_mode' => $consultationMode,
+                'route_applied' => $learnedRouteApplied,
             ],
         );
         if ($provider === 'hermes_cli') {

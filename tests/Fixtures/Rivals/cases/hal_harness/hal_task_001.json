@@ -1,0 +1,12 @@
+{
+  "case_id": "hal_task_001",
+  "benchmark": "gaia",
+  "task_id": "hal_task_001",
+  "agent_dir": "agents/hal_generalist_agent",
+  "agent_function": "main.run",
+  "agent_name": "hal_generalist_agent",
+  "task_type": "long_horizon_engineering",
+  "title": "hal_task_001",
+  "suite_id": "hal_harness",
+  "source_repo": "hal_harness"
+}

@@ -162,6 +162,42 @@ final class AtlasAurgIngestionTest extends TestCase
         $this->assertSame([], array_diff($confidences, [0.7, 1.0]));
     }
 
+    public function test_provider_safe_explicit_path_in_memory_projection_links_to_code(): void
+    {
+        $entry = AtlasMemoryEntry::query()->create([
+            'memory_type' => 'technical_context',
+            'scope_type' => 'global',
+            'title' => 'Reality ingestion owner',
+            'summary' => 'The owner is explicit in the provider-safe projection.',
+            'body' => 'See app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php for the runtime.',
+            'redacted_title' => 'Reality ingestion owner',
+            'redacted_summary' => 'The owner is explicit in the provider-safe projection.',
+            'redacted_body' => 'See app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php for the runtime.',
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'status' => 'active',
+            'source_type' => 'manual',
+            'metadata' => [],
+            'tags' => [],
+            'recorded_at' => now(),
+        ]);
+
+        $this->service()->sync();
+
+        $edge = AtlasAurgEdge::query()
+            ->where('from_node_id', 'memory:memory_entry:'.$entry->id)
+            ->where('to_node_id', 'code:module:atlas-server/services-ai-reality')
+            ->where('source', 'linker_memory_code')
+            ->first();
+        $this->assertNotNull($edge);
+        $this->assertSame(0.7, (float) $edge->confidence);
+        $this->assertSame(
+            'app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php',
+            $edge->meta['matched_path'] ?? null,
+        );
+    }
+
     public function test_rerun_is_idempotent_no_duplicates(): void
     {
         $service = $this->service();

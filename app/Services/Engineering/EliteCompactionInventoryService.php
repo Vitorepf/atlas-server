@@ -181,8 +181,8 @@ final class EliteCompactionInventoryService
             if ($line === '') {
                 continue;
             }
-            if (preg_match('/:(Atlas\w+)$/', $line, $m)) {
-                $counts[$m[1]] = ($counts[$m[1]] ?? 0) + 1;
+            if (preg_match('/:(\w+)$/', $line, $m) && array_key_exists($m[1], $counts)) {
+                $counts[$m[1]]++;
             }
         }
 

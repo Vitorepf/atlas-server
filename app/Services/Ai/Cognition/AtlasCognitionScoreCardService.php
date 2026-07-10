@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Aemor\AtlasAemorCertificationService;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AiDecisionReceiptRefreshService;
 use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\AtlasDecide\AtlasCognitiveFunctionSwarmRouterService;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
@@ -26,11 +28,13 @@ use App\Services\Ai\Compounding\AtlasLearningDistiller;
 use App\Services\Ai\Compounding\AtlasLearningMutationRuntimeService;
 use App\Services\Ai\Context\AtlasAgenticRagFrameworkService;
 use App\Services\Ai\Context\AtlasCognitiveMemoryFabricService;
+use App\Services\Ai\Context\AtlasContextCacheCompilerRuntimeService;
 use App\Services\Ai\Context\AtlasContextCompilerRuntimeService;
 use App\Services\Ai\Context\AtlasContextFreshnessQualityGateService;
 use App\Services\Ai\Context\AtlasContextObservabilityPlaneService;
 use App\Services\Ai\Context\AtlasContextObservabilityToRankingReflexiveBridgeService;
 use App\Services\Ai\Context\AtlasContextParetoFrontierRuntimeService;
+use App\Services\Ai\Context\AtlasContextQualityCertificationService;
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Context\AtlasGraphRetrievalNetworkService;
 use App\Services\Ai\Context\AtlasHybridRetrievalInfrastructureService;
@@ -41,6 +45,7 @@ use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\Context\AtlasRetrievalPrivacyTrustLayerService;
 use App\Services\Ai\Context\AtlasSemanticEmbeddingFoundationService;
 use App\Services\Ai\Context\AtlasUnifiedRealityGraphService;
+use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
 use App\Services\Ai\CrossDomain\AtlasTemporaryDomainCompositionService;
 use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
@@ -50,6 +55,8 @@ use App\Services\Ai\Governance\AtlasConstitutionalVaultService;
 use App\Services\Ai\Governance\AtlasTrustBudgetService;
 use App\Services\Ai\Knowledge\AtlasKnowledgeIngestionFabricOcrConfidenceService;
 use App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\LongHorizon\LongHorizonContinuityCertificationService;
 use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use App\Services\Ai\Patamar4\AtlasEmbodimentIntegrationService;
 use App\Services\Ai\Patamar4\AtlasNightlyCounterfactualsService;
@@ -58,6 +65,7 @@ use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
 use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Programming\Bdd\AtlasBddAcceptanceRuntimeService;
 use App\Services\Ai\Programming\Cartography\AtlasProgrammingCartographyPublisherService;
+use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\ResearchDomain\ResearchRuntimeService;
@@ -70,6 +78,9 @@ use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
 use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Teos\AtlasTeosI4CounterfactualTreeService;
 use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
+use App\Services\Ai\VerifiedContextExecution\AtlasVerifiedContextExecutionLoopService;
+use ReflectionClass;
+use Throwable;
 
 /**
  * Atlas Cognition Operating System — runtime scorecard.
@@ -249,17 +260,38 @@ class AtlasCognitionScoreCardService
     ];
 
     /**
+     * Deep ACOS modules declared by the canonical architecture but historically
+     * absent from the 73-row v3 facet inventory. They are emitted only in v4 so
+     * v3 remains a compatibility surface while v4 becomes the truthful boundary.
+     */
+    private const V4_SUPPLEMENTAL_SUBSYSTEMS = [
+        ['ACCCR', 'Context Cache Compiler Runtime', 'context_cache', AtlasContextCacheCompilerRuntimeService::class],
+        ['ACIE', 'Context Intelligence Engine', 'context_intelligence', AtlasContextOperationsRuntimeService::class],
+        ['APCR', 'Persistent Context Runtime', 'persistent_context', AtlasPersistentContextRuntimeService::class],
+        ['AEMOR', 'Execution Memory Outcome Runtime', 'aemor', AtlasAemorCertificationService::class],
+        ['TEOS-I1', 'Long-Horizon Intelligence Layer', 'long_horizon', LongHorizonContinuityCertificationService::class],
+        ['AVCEL', 'Verified Context Execution Loop', 'verified_context', AtlasVerifiedContextExecutionLoopService::class],
+        ['ACQCG', 'Context Quality Certification Gate', 'context_quality', AtlasContextQualityCertificationService::class],
+        ['AOBG', 'Open Brain Gateway', 'open_brain', AtlasOpenBrainMcpService::class],
+        ['EVIDENCE', 'Evidence Ledger Memory Side', 'evidence', AtlasEvidenceLedger::class],
+    ];
+
+    /**
      * Build the full scorecard.
      */
     public function build(): array
     {
         $rows = [];
+        $firstFacetByService = [];
         foreach (self::SUBSYSTEMS as [$acronym, $name, $group, $serviceClass]) {
+            $evidenceAlias = $firstFacetByService[$serviceClass] ?? null;
+            $firstFacetByService[$serviceClass] ??= $acronym;
             $rows[] = [
                 'acronym' => $acronym,
                 'name' => $name,
                 'group' => $group,
                 'service_class' => $serviceClass,
+                'evidence_alias_of' => $evidenceAlias,
                 'code_status' => $this->probeCodeStatus($serviceClass),
                 // doc_status and pipeline_status are RESOLVED from real evidence at
                 // runtime (FQN-bound doc ownership + a fresh B3 green-run receipt) —
@@ -275,22 +307,31 @@ class AtlasCognitionScoreCardService
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => gmdate('c'),
             'subsystem_count' => count($rows),
+            'scored_subsystem_count' => count(array_filter(
+                $rows,
+                static fn (array $row): bool => $row['evidence_alias_of'] === null,
+            )),
             'subsystems' => $rows,
             'score' => $score,
             'claim_policy' => $this->claimPolicy(),
             'notes' => [
-                'readiness_definition' => 'A subsystem is ready when (code_status=ready) AND (doc_status=ready) AND (pipeline_status=ready). Real-world data volume is generated by the operator using Atlas; this scorecard certifies that the structure is ready for that use.',
+                'readiness_definition' => 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.',
             ],
         ];
         $envelope['scorecard_hash'] = $this->hash($rows, $score);
 
         if ((bool) config('atlas_elite_compaction.scorecard.dual_emit_v3', true)) {
             $grouper = new AtlasCognitionScoreCardV4Grouper;
-            $modules = $grouper->group($rows);
+            $supplemental = $this->v4SupplementalRows();
+            $modules = $grouper->group(array_merge($rows, $supplemental));
+            $consumerModules = $grouper->groupConsumers($rows);
             $envelope['v4'] = [
                 'schema_version' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
                 'module_count' => count($modules),
                 'modules' => $modules,
+                'consumer_module_count' => count($consumerModules),
+                'consumer_modules' => $consumerModules,
+                'supplemental_subsystem_count' => count($supplemental),
             ];
         }
 
@@ -311,7 +352,11 @@ class AtlasCognitionScoreCardService
             'generated_at' => $v3['generated_at'] ?? gmdate('c'),
             'module_count' => $v3['v4']['module_count'] ?? 0,
             'modules' => $v3['v4']['modules'] ?? [],
+            'consumer_module_count' => $v3['v4']['consumer_module_count'] ?? 0,
+            'consumer_modules' => $v3['v4']['consumer_modules'] ?? [],
+            'supplemental_subsystem_count' => $v3['v4']['supplemental_subsystem_count'] ?? 0,
             'subsystem_count' => $v3['subsystem_count'] ?? 0,
+            'scored_subsystem_count' => $v3['scored_subsystem_count'] ?? 0,
             'score' => $v3['score'] ?? [],
             'scorecard_hash' => $v3['scorecard_hash'] ?? null,
             'claim_policy' => $v3['claim_policy'] ?? [],
@@ -330,7 +375,13 @@ class AtlasCognitionScoreCardService
             return self::STATUS_BLOCKED;
         }
 
-        return self::STATUS_READY;
+        try {
+            return (new ReflectionClass($serviceClass))->isInstantiable()
+                ? self::STATUS_READY
+                : self::STATUS_PARTIAL;
+        } catch (Throwable) {
+            return self::STATUS_BLOCKED;
+        }
     }
 
     /**
@@ -339,6 +390,10 @@ class AtlasCognitionScoreCardService
      */
     private function aggregateScore(array $rows): array
     {
+        $rows = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => ($row['evidence_alias_of'] ?? null) === null,
+        ));
         $dimensions = ['code_status', 'doc_status', 'pipeline_status'];
         $totals = [];
         foreach ($dimensions as $dim) {
@@ -392,6 +447,7 @@ class AtlasCognitionScoreCardService
         $canonical = array_map(static function (array $r): array {
             return [
                 'acronym' => $r['acronym'],
+                'evidence_alias_of' => $r['evidence_alias_of'] ?? null,
                 'code_status' => $r['code_status'],
                 'doc_status' => $r['doc_status'],
                 'pipeline_status' => $r['pipeline_status'],
@@ -412,5 +468,28 @@ class AtlasCognitionScoreCardService
     public static function canonicalSubsystemCount(): int
     {
         return count(self::SUBSYSTEMS);
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function v4SupplementalRows(): array
+    {
+        $rows = [];
+        foreach (self::V4_SUPPLEMENTAL_SUBSYSTEMS as [$acronym, $name, $group, $serviceClass]) {
+            $rows[] = [
+                'acronym' => $acronym,
+                'name' => $name,
+                'group' => $group,
+                'service_class' => $serviceClass,
+                'evidence_alias_of' => null,
+                'supplemental' => true,
+                'code_status' => $this->probeCodeStatus($serviceClass),
+                'doc_status' => $this->evidence->resolveDocStatus($serviceClass),
+                'pipeline_status' => $this->evidence->resolvePipelineStatus($serviceClass),
+            ];
+        }
+
+        return $rows;
     }
 }

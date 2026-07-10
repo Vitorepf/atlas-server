@@ -1,0 +1,26 @@
+{
+    "domain": "airline",
+    "agent_llm": "claude-sonnet-5",
+    "simulations": [
+        {
+            "simulation_id": "sim_001",
+            "task_id": "airline_task_012",
+            "trial": 1,
+            "reward": 1.0,
+            "duration_sec": 74.1,
+            "usage": {"input_tokens": 30110, "output_tokens": 4020, "cost_usd": 0.22},
+            "started_at": "2026-06-26T15:00:00Z",
+            "finished_at": "2026-06-26T15:01:14Z"
+        },
+        {
+            "simulation_id": "sim_002",
+            "task_id": "airline_task_012",
+            "trial": 2,
+            "reward": 0.0,
+            "duration_sec": 121.8,
+            "usage": {"input_tokens": 45200, "output_tokens": 6110, "cost_usd": 0.35},
+            "started_at": "2026-06-26T15:02:00Z",
+            "finished_at": "2026-06-26T15:04:02Z"
+        }
+    ]
+}

@@ -16,6 +16,10 @@ class AtlasForgeLiveExecutionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // This suite exercises the deterministic simulate-only test double.
+        // Strict retrieval is covered separately; a sqlite fixture has no
+        // production vector/read-model freshness and must not fake it.
+        config()->set('atlas.programming.strict_retrieval_gate', false);
 
         if (! Schema::hasTable('atlas_ledger_events')) {
             Schema::create('atlas_ledger_events', function (Blueprint $t) {

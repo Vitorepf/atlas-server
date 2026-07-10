@@ -2,19 +2,22 @@
 id: atlas-forge-rivals-intelligence-ledger-v1-full-2026-06-09
 type: engineering_knowledge
 title: Atlas Forge Rivals Intelligence Ledger v1 Full Design Snapshot
-status: source_material
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
 authority_class: design_reference
-implementation_state: source_material_full_snapshot_no_runtime_authority
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
-summary: Full pre-split design snapshot for the canonical Intelligence Ledger v1 contract; not current runtime authority.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Full pre-split design snapshot for the canonical Intelligence Ledger v1 contract; not current runtime authority."
 canonical_owner: docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md
 ---
+
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
 
 ---
 id: atlas-forge-rivals-intelligence-ledger-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals · Intelligence Ledger v1
-status: planned
+status: deprecated
 category: programming-forge
 priority: 94
 implementation_state: proposed_next_patamar_not_promoted
@@ -62,7 +65,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-provider-performance-ledger-v1
-graph_status: planned
+graph_status: deprecated
 graph_source: repo
 repo_paths:
   - docs/engineering-knowledge-base/atlas-forge-rivals-intelligence-ledger-v1.md

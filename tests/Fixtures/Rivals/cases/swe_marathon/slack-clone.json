@@ -1,0 +1,8 @@
+{
+  "case_id": "slack-clone",
+  "native_task_id": "slack-clone",
+  "task_type": "long_horizon_engineering",
+  "title": "slack-clone",
+  "suite_id": "swe_marathon",
+  "source_repo": "swe_marathon"
+}

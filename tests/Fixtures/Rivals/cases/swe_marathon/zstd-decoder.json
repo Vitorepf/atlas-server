@@ -1,0 +1,8 @@
+{
+  "case_id": "zstd-decoder",
+  "native_task_id": "zstd-decoder",
+  "task_type": "long_horizon_engineering",
+  "title": "SWE-Marathon CPU zstd decoder task",
+  "suite_id": "swe_marathon",
+  "source_repo": "swe_marathon"
+}

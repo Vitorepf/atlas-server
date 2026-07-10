@@ -48,7 +48,6 @@ final class AtlasTaskPropertyGatedTargetPolicyTest extends TestCase
         $cases = [
             'app/Services/Ai/AutonomousEvolution/AtlasLoopHarnessGuard.php',
             'app/Services/Ai/AutonomousEvolution/AtlasLoopMasterSwitch.php',
-            'app/Services/Ai/AutonomousEvolution/Constitution/AtlasLoopConstitutionGateService.php',
             'config/atlas.php',
             'bin/atlas-loop-watchdog.sh',
             'app/Services/Ai/SelfConstruction/AtlasTaskScopedCommitter.php',

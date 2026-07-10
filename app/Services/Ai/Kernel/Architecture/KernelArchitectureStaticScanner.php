@@ -15043,7 +15043,8 @@ class KernelArchitectureStaticScanner
             }
         }
 
-        if (! str_contains($routesContents, 'AtlasAiKernelPipelineReportController') || ! str_contains($routesContents, "Route::get('/ai/kernel-pipeline/report', AtlasAiKernelPipelineReportController::class);")) {
+        if (! str_contains($routesContents, 'AtlasAiKernelPipelineReportController')
+            || ! str_contains($routesContents, "Route::get('/ai/kernel-pipeline/report', AtlasAiKernelPipelineReportController::class)")) {
             $violations[] = 'routes/api.php: GET /ai/kernel-pipeline/report must be registered inside the atlas.token API group';
         }
 

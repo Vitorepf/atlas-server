@@ -1,0 +1,8 @@
+{
+  "case_id": "embedding-eval",
+  "native_task_id": "embedding-eval",
+  "task_type": "long_horizon_engineering",
+  "title": "SWE-Marathon embedding evaluation task",
+  "suite_id": "swe_marathon",
+  "source_repo": "swe_marathon"
+}

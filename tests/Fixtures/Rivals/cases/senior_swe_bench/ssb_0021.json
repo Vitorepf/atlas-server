@@ -1,0 +1,9 @@
+{
+  "case_id": "ssb_0021",
+  "native_task_id": "posthog-fix-replay-buffering",
+  "segment": "investigate",
+  "task_type": "bug_investigation",
+  "title": "ssb_0021",
+  "suite_id": "senior_swe_bench",
+  "source_repo": "senior_swe_bench"
+}

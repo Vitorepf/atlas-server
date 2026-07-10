@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\TerminalLoopHealthDigestQueueReader;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
@@ -131,5 +133,76 @@ final class TerminalLoopHealthDigestQueueReaderTest extends TestCase
         foreach (['queue_depth', 'servable_depth', 'active_leases', 'recoverables', 'blocked_pressure', 'malformed_risk'] as $key) {
             $this->assertArrayHasKey($key, $d);
         }
+    }
+
+    // ── AC: live queue read + fail-closed diagnostics ──────────────────────────────
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Storage::fake('local');
+    }
+
+    public function test_digest_from_queue_reads_live_claimable_claimed_blocked_and_recoverable(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $queue->enqueue($this->packet('live-claimable-1', 'claimable'), ['tags' => ['lane-live']]);
+        $queue->enqueue($this->packet('live-claimed-1', 'claimed'), ['tags' => ['lane-live']]);
+        $queue->enqueue($this->packet('live-blocked-1', 'blocked'), ['tags' => ['lane-live']]);
+        $queue->enqueue($this->packet('live-released-1', 'released'), ['tags' => ['lane-live']]);
+
+        $d = TerminalLoopHealthDigestQueueReader::digestFromQueue($queue);
+
+        $this->assertTrue($d['source_available']);
+        $this->assertNull($d['diagnostic']);
+        $this->assertSame(4, $d['queue_depth']);
+        $this->assertSame(1, $d['servable_depth']);
+        $this->assertSame(1, $d['active_leases']);
+        $this->assertSame(1, $d['recoverables']);
+        $this->assertSame(1, $d['blocked_pressure']);
+    }
+
+    public function test_digest_from_queue_fails_closed_when_source_throws(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository('nonexistent-disk-for-test');
+
+        $d = TerminalLoopHealthDigestQueueReader::digestFromQueue($queue);
+
+        $this->assertFalse($d['source_available']);
+        $this->assertNotNull($d['diagnostic']);
+        $this->assertSame(0, $d['queue_depth']);
+        $this->assertFalse($d['is_healthy']);
+        $this->assertFalse($d['is_dry']);
+        $this->assertTrue($d['provider_safe']);
+    }
+
+    public function test_digest_from_queue_malformed_sweep_warning(): void
+    {
+        $queue = new AgentControlPlaneTaskPacketQueueRepository;
+        $queue->enqueue($this->packet('malformed-1', 'blocked', objective: ''), ['tags' => ['lane-malformed']]);
+        $queue->enqueue($this->packet('malformed-2', 'blocked', allowedFiles: []), ['tags' => ['lane-malformed']]);
+        $queue->enqueue($this->packet('servable-1', 'claimable'), ['tags' => ['lane-malformed']]);
+
+        $d = TerminalLoopHealthDigestQueueReader::digestFromQueue($queue);
+
+        $this->assertSame(2, $d['malformed_risk']);
+        $this->assertFalse($d['is_healthy']);
+        $this->assertFalse($d['is_dry']);
+    }
+
+    private function packet(string $id, string $classification, string $objective = 'Live queue test packet', array $allowedFiles = ['app/X.php']): array
+    {
+        return [
+            'schema_version' => 'atlas.self_construction.agent_control_plane_task_packet.v1',
+            'task_packet_id' => $id,
+            'task_packet_hash' => hash('sha256', $id),
+            'status' => $classification,
+            'classification' => $classification,
+            'objective' => $objective,
+            'allowed_files' => $allowedFiles,
+            'normalized_scope' => ['allowed_files' => $allowedFiles],
+            'acceptance_criteria' => ['test'],
+            'required_evidence' => ['tests_or_gates_result'],
+        ];
     }
 }

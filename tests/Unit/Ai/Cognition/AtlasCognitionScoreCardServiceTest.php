@@ -71,6 +71,7 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
 
         $this->assertSame('atlas.cognition.scorecard.v3', $r['schema_version']);
         $this->assertSame(73, $r['subsystem_count']);
+        $this->assertSame(69, $r['scored_subsystem_count']);
         $this->assertCount(73, $r['subsystems']);
         $this->assertArrayHasKey('score', $r);
         $this->assertArrayHasKey('scorecard_hash', $r);
@@ -84,11 +85,32 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
             foreach (['acronym', 'name', 'group', 'code_status', 'doc_status', 'pipeline_status'] as $k) {
                 $this->assertArrayHasKey($k, $row);
             }
+            $this->assertArrayHasKey('evidence_alias_of', $row);
             $this->assertArrayNotHasKey('volume_status', $row);
             foreach (['code_status', 'doc_status', 'pipeline_status'] as $k) {
                 $this->assertContains($row[$k], ['ready', 'partial', 'building', 'blocked']);
             }
         }
+    }
+
+    public function test_shared_service_facets_are_explicit_aliases_and_not_double_scored(): void
+    {
+        $report = (new AtlasCognitionScoreCardService)->build();
+        $aliases = collect($report['subsystems'])
+            ->filter(static fn (array $row): bool => $row['evidence_alias_of'] !== null)
+            ->mapWithKeys(static fn (array $row): array => [$row['acronym'] => $row['evidence_alias_of']])
+            ->all();
+
+        $this->assertSame([
+            'G1' => 'G0',
+            'MEM-DELTA' => 'G3',
+            'AHRI' => 'MEM-RECALL',
+            'ACFQ' => 'G4',
+        ], $aliases);
+        $this->assertSame(
+            $report['subsystem_count'] - count($aliases),
+            $report['scored_subsystem_count'],
+        );
     }
 
     /**
@@ -114,7 +136,7 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
 
         $this->assertArrayNotHasKey('volume', $score['dimensions']);
 
-        // code stays the one already-real dimension: every class_exists -> 10.0.
+        // code stays the one already-real dimension: every unique class is instantiable -> 10.0.
         $this->assertSame(10.0, (float) $score['dimensions']['code']['score_out_of_10']);
 
         // doc + pipeline are RESOLVED, so they must be BELOW the old hardcoded 10/10.
@@ -205,6 +227,10 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
     private function expectedDimensionScore(array $rows, string $statusKey): float
     {
         $points = ['ready' => 10, 'partial' => 6, 'building' => 3, 'blocked' => 0];
+        $rows = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => ($row['evidence_alias_of'] ?? null) === null,
+        ));
         $sum = 0;
         foreach ($rows as $row) {
             $sum += $points[$row[$statusKey]] ?? 0;

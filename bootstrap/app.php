@@ -136,6 +136,7 @@ use App\Console\Commands\AtlasOperatorProfileCommand;
 use App\Console\Commands\AtlasOperatorProfileContextCommand;
 use App\Console\Commands\AtlasOperatorSkillCommand;
 use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
+use App\Console\Commands\AtlasIntelligenceRolloutPromoteCommand;
 use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasProgrammingAdaptiveControlPlaneCommand;
@@ -352,6 +353,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCognitiveFunctionDecomposeCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
+        AtlasIntelligenceRolloutPromoteCommand::class,
         AtlasPatamar4SelfConstructF4GapsCommand::class,
         AtlasSchedulerEnsureLaunchdCommand::class,
         AtlasSwarmExecuteArmCommand::class,

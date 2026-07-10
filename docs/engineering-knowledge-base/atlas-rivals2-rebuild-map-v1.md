@@ -5,7 +5,7 @@ title: Atlas Rivals 2.0 — Rebuild Map v1 (kill-map do Rivals 1.0)
 status: active
 category: programming
 priority: 100
-summary: Mapa canonico do rebuild do Rivals. Classifica todo o Rivals 1.0 em A/B/C/D (manter padrao, adaptar conceito, aposentar, deletar) e governa o Slice 6 (remocao total do 1.0). Rivals 2.0 e o benchmark interno do Atlas — model-vs-model e Atlas-uplift, local, fail-closed, sem leaderboard.
+summary: Kill-map historico do Rivals 1.0 (A/B/C/D) e ponteiro para o canon vivo 2.0. Produto e estrutura vivem em atlas-rivals-product-v1 e atlas-rivals-structure-v1; este doc nao e a fonte de verdade do produto.
 tags:
   - atlas
   - rivals2
@@ -21,12 +21,14 @@ decisions:
   - As 5 tabelas do 1.0 sao dropadas; o 2.0 usa JSONL append-only com hash chain.
   - Avaliacao per-delivery segue oficial; Rivals 2.0 mede modelos e runtimes.
 maintenance:
-  - Atualizar este doc a cada slice do rebuild concluido.
-  - Este doc e a fonte de verdade da classificacao A/B/C/D do 1.0.
+  - Manter apenas como kill-map A/B/C/D e ponteiro; mudancas de produto vao nos docs atlas-rivals-*-v1.
+  - Atualizar contagem de suites externas quando config/atlas_rivals.php mudar.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+  - docs/engineering-knowledge-base/atlas-rivals-structure-v1.md
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
   - app/Services/Ai/Rivals/
-  - app/Console/Commands/AtlasRivals2Command.php
+  - app/Console/Commands/AtlasRivalsCommand.php
   - config/atlas_rivals.php
   - docs/acde-teto-closure.md
 doc_schema: atlas_canonical_module_doc.v1
@@ -48,23 +50,25 @@ forbidden_changes:
   - Reintroduzir codigo do ForgeRivals 1.0 no runtime 2.0.
   - Transformar o 2.0 em leaderboard/score unico colapsado.
 depends_on:
-  - atlas-forge-native-rivals-protocol-v1
+  - atlas-rivals-product-v1
 flows_to:
-  - programming-professional-completion-audit
+  - atlas-rivals-structure-v1
 unlocks:
   - rivals2_runtime
 governs:
   - rivals2_rebuild
 evidence:
-  - tests/Unit/Ai/Rivals2
-  - tests/Feature/Ai/Rivals2
+  - tests/Unit/Ai/Rivals
+  - tests/Feature/Ai/Rivals
 required_tests:
-  - php artisan test --filter=Rivals2
+  - php artisan test --filter=Rivals
 requires_evidence: true
 risk_level: medium
 next_actions:
-  - Concluir slices restantes do rebuild e registrar evidencia por slice.
+  - Manter kill-map sincronizado com remocoes residuais do Slice 6; produto vive nos docs atlas-rivals-*-v1.
 ---
+
+> Canon vivo do produto: [`atlas-rivals-product-v1.md`](./atlas-rivals-product-v1.md) e [`atlas-rivals-structure-v1.md`](./atlas-rivals-structure-v1.md). Este arquivo e o kill-map historico do 1.0.
 
 ## Contrato de nomenclatura (2026-07-03, decisão do operador)
 
@@ -78,17 +82,19 @@ vars `ATLAS_RIVALS2_*` ficam como formato interno preservado (runs existentes
 neste doc são históricas do rebuild.
 
 Benchmark repos externos REAIS: registry em `config/atlas_rivals.php`
-(`benchmarks.repos`, os 9 do operador), clones pinados em `tools/rivals/benchmarks/`,
+(`benchmarks.repos`, os 10 do operador — inclui SWE-Marathon
+https://www.swe-marathon.org/), clones pinados em `tools/rivals/benchmarks/`,
 smoke real via `atlas:rivals benchmark-smoke --repo=<id> --json` (receipts em
 `storage/atlas/rivals/benchmarks/`). Adapter sem smoke verde = blocked, nunca done.
+Catálogo: [`atlas-rivals-external-suites-v1.md`](./atlas-rivals-external-suites-v1.md).
 
 ## Resumo
 
-Kill-map canonico do Rivals 1.0 e mapa do rebuild 2.0. Ver secoes numeradas abaixo (fonte de verdade A/B/C/D).
+Kill-map historico do Rivals 1.0 (classificacao A/B/C/D) e ponteiro para o canon vivo 2.0. Nao e a fonte de verdade do produto.
 
 ## Papel no Atlas
 
-Governa o que morre, o que vira conceito e o que e reimplementado no benchmark interno Rivals 2.0.
+Governa o que morreu no 1.0 e o que foi reimplementado como conceito no 2.0. Produto/estrutura/claims vivem nos docs `atlas-rivals-*-v1`.
 
 ## Onde Se Encaixa
 
@@ -104,19 +110,19 @@ Slices do rebuild: runtime 2.0 (Slices 1-5) -> remocao do 1.0 (Slice 6) conforme
 
 ## Regras para IA
 
-Proibido importar ForgeRivals no Rivals2; proibido leaderboard/score unico; claims sempre escopados.
+Proibido importar ForgeRivals no namespace Rivals; proibido leaderboard/score unico; claims sempre escopados. Para produto, ler `atlas-rivals-product-v1` primeiro.
 
 ## Escopo de Implementacao
 
-app/Services/Ai/Rivals/, AtlasRivals2Command, config/atlas_rivals.php, storage/atlas/rivals2/.
+app/Services/Ai/Rivals/, AtlasRivalsCommand (`atlas:rivals`), config/atlas_rivals.php, storage/atlas/rivals/.
 
 ## Dependencias
 
-Evidence Ledger proprio (JSONL + hash chain); suites externas apenas como adapters.
+Evidence Ledger proprio (JSONL + hash chain); suites externas apenas como adapters. Canon de produto: atlas-rivals-product-v1.
 
 ## Evidencias
 
-Suite tests/{Unit,Feature}/Ai/Rivals2 verde; saldo do Slice 6 na secao 8.
+Suite tests/{Unit,Feature}/Ai/Rivals; saldo do Slice 6 na secao 8.
 
 ## Riscos
 
@@ -124,7 +130,7 @@ Goodhart via corpus auto-autorado (mitigado: corpus fresh + juiz local); claim s
 
 ## Exemplos
 
-`php artisan atlas:rivals2 --json` (unico entrypoint CLI do 2.0).
+`php artisan atlas:rivals doctor --json` (entrypoint CLI do 2.0).
 
 ## Proximas Acoes
 
@@ -132,7 +138,7 @@ Ver next_actions do frontmatter e a secao 8 (saldo projetado do Slice 6).
 
 # Atlas Rivals 2.0 — Rebuild Map v1 (kill-map do Rivals 1.0)
 
-Status: canonical para o rebuild. Autor: Fable 5. Data: 2026-07-02.
+Status: kill-map historico (produto vive em atlas-rivals-product-v1). Autor: Fable 5. Data: 2026-07-02.
 Decisão do operador: Rivals 1.0 fracassou e não será salvo. Rivals 2.0 é o **benchmark interno do Atlas**
 (local, no Mac do operador, ledger/receipts/evidence/replay/adjudicação próprios, fail-closed).
 Suites externas entram somente como adapters/fontes de tarefas. O juiz final é sempre o Rivals 2.0.
@@ -286,8 +292,8 @@ Nenhum teste 1.0 é migrado; o 2.0 nasce com suíte própria em `tests/{Unit,Fea
 
 ## 7. Docs (42) — destino
 
-- **C (header SUPERSEDED, conteúdo preservado até S6):** operator-battery-v2, native-protocol-v1, evidence-pack-replay-manifest-v1, reliability-lockdown-v1, thesis/rivals-validation.md e demais atlas-forge-rivals-*.
-- **Vivos:** este doc + futuros atlas-rivals2-*.
+- **C/superseded (conteúdo preservado in-place):** operator-battery-v2, native-protocol-v1, evidence-pack-replay-manifest-v1, reliability-lockdown-v1 e demais atlas-forge-rivals-* (frontmatter `status: superseded`).
+- **Vivos:** `atlas-rivals-product-v1`, `atlas-rivals-structure-v1`, suites/claims/internal/runbook, thesis/rivals-validation (tese 2.0), este kill-map.
 - acde-teto-closure.md recebe nota de coexistência (per-delivery segue oficial; 2.0 = modelos/runtimes).
 
 ## 8. Saldo projetado do Slice 6

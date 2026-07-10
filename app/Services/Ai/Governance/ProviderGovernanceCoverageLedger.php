@@ -49,6 +49,8 @@ final class ProviderGovernanceCoverageLedger
 
     public const SURFACE_MANAGER = 'ai_provider_manager';
 
+    public const SURFACE_RECOMMENDATION = 'ai_provider_manager_recommendation';
+
     public const SURFACE_FORGE_PROCESS_RUNNER = 'forge_process_runner';
 
     public const SURFACE_DEV_CLAUDE_GATEWAY = 'dev_claude_gateway';

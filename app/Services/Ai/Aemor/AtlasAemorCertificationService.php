@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aemor;
 
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -96,8 +98,33 @@ final class AtlasAemorCertificationService
             && $this->contains($models[2], 'provider_skill_reliability')
             && $this->contains($models[2], 'counterfactual_replay')
             && collect($models)->every(fn (string $path): bool => File::exists($path));
+        $tables = [
+            'atlas_aemor_execution_episodes',
+            'atlas_aemor_execution_events',
+            'atlas_aemor_outcomes',
+            'atlas_aemor_learning_signals',
+            'atlas_aemor_memory_candidates',
+            'atlas_aemor_judgment_reports',
+        ];
+        $missingTables = array_values(array_filter(
+            $tables,
+            static fn (string $table): bool => ! DatabaseTableAvailability::has($table),
+        ));
+        $missingIntelligenceColumns = array_values(array_filter([
+            'outcome_attribution',
+            'negative_knowledge',
+            'provider_skill_reliability',
+            'counterfactual_replay',
+            'memory_budget',
+            'operational_doctrine',
+        ], static fn (string $column): bool => ! DatabaseTableAvailability::hasColumn('atlas_aemor_judgment_reports', $column)));
+        $ok = $ok && $missingTables === [] && $missingIntelligenceColumns === [];
 
-        return $this->check('persistence_surface', $ok, array_map($this->relative(...), [$migration, $intelligenceMigration, ...$models]), 'Restore AEMOR migration/models and persisted Intelligence Layer outputs.');
+        return $this->check('persistence_surface', $ok, [
+            'paths' => array_map($this->relative(...), [$migration, $intelligenceMigration, ...$models]),
+            'missing_tables' => $missingTables,
+            'missing_intelligence_columns' => $missingIntelligenceColumns,
+        ], 'Restore AEMOR migration/models and persisted Intelligence Layer outputs.');
     }
 
     /**
@@ -105,7 +132,10 @@ final class AtlasAemorCertificationService
      */
     private function runtimeSmoke(): array
     {
+        $transactionStarted = false;
         try {
+            DB::beginTransaction();
+            $transactionStarted = true;
             $episode = $this->runtime->openEpisode([
                 'objective' => 'AEMOR certification smoke',
                 'workspace' => base_path(),
@@ -134,6 +164,10 @@ final class AtlasAemorCertificationService
             ]);
         } catch (Throwable $exception) {
             return $this->check('runtime_smoke', false, ['exception' => $exception->getMessage()], 'Fix AEMOR runtime smoke.');
+        } finally {
+            if ($transactionStarted && DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
         }
 
         $ok = ($episode['status'] ?? null) === 'open'
@@ -152,7 +186,10 @@ final class AtlasAemorCertificationService
      */
     private function judgmentSmoke(): array
     {
+        $transactionStarted = false;
         try {
+            DB::beginTransaction();
+            $transactionStarted = true;
             $episode = $this->runtime->openEpisode([
                 'objective' => 'AEMOR judgment smoke',
                 'workspace' => base_path(),
@@ -168,6 +205,10 @@ final class AtlasAemorCertificationService
             $judgment = $this->judgment->judge((string) ($episode['episode_id'] ?? ''));
         } catch (Throwable $exception) {
             return $this->check('judgment_smoke', false, ['exception' => $exception->getMessage()], 'Fix AEMOR Judgment Guard.');
+        } finally {
+            if ($transactionStarted && DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
         }
 
         $ok = ($judgment['schema_version'] ?? null) === AtlasAemorJudgmentService::SCHEMA_VERSION
@@ -332,12 +373,18 @@ final class AtlasAemorCertificationService
             PHP_BINARY,
             base_path('vendor/bin/phpunit'),
             '--no-coverage',
-        ], $testFiles), base_path());
+        ], $testFiles), base_path(), [
+            'APP_ENV' => 'testing',
+            'DB_CONNECTION' => 'sqlite',
+            'DB_DATABASE' => ':memory:',
+            'DB_URL' => '',
+        ]);
 
         $process->setTimeout(300);
         $process->run();
 
-        $output = $process->getOutput();
+        $output = $process->getOutput()."\n".$process->getErrorOutput();
+        $output = (string) preg_replace('/\x1B\[[0-9;]*[A-Za-z]/', '', $output);
 
         // Parse "OK (N tests, M assertions)" from output.
         $testsRun = 0;
@@ -351,10 +398,13 @@ final class AtlasAemorCertificationService
         }
 
         $ok = $testsRun > 0;
+        $ok = $ok && $process->isSuccessful();
 
         return $this->check('tests_executed', $ok, [
             'tests_run' => $testsRun,
             'assertions' => $assertions,
+            'exit_code' => $process->getExitCode(),
+            'output_hash' => hash('sha256', $output),
         ], "{$testDir} tests returned 0 executed tests — check syntax, namespaces, or dependencies.");
     }
 }

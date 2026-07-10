@@ -195,13 +195,15 @@ Layer 1   Kernel contracts: envelope, receipt, ledger, SDKs, tests, SLOs
 Layer 1.5 Runtime boundaries: Laravel, Python, Go, Swift
 Layer 2   Master Architecture: product, planes, domains, roadmap
 Layer 2.2 Obras Operating System: production primitive, Obras Shared Workspace, ObraOS, Foundry, Sovereign OS
-Layer 2.5 Qualitative levels: P1-P7, co-strategist, Rivals Strategy
+Layer 2.5 Qualitative levels: P1-P7, co-strategist (Rivals Strategy 1.0 retired)
+Layer 2.6 Rivals 2.0: internal benchmark (model-vs-model + Atlas uplift); start at atlas-rivals-product-v1
 Layer 3   Operating topology: pipeline, core-vs-domain, operating system
 Layer 4   Domain specs and focused domain playbooks
 ```
 Layer -1 wins every conflict. Kernel wins executable contracts. Master Architecture wins product/domain direction unless it violates Layer -1 or Kernel.
 | Subject | Read |
 |---|---|
+| Rivals / internal benchmark (2.0) | `atlas-rivals-product-v1.md` then `atlas-rivals-structure-v1.md` (legacy `atlas-forge-rivals-*` = superseded) |
 | Detailed subject authority | `canonical-index/authority-map.md` |
 | Layer implementation status | `canonical-index/layer-status.md` |
 | Canonical glossary & naming (Atlas / Atlas AI / Dev / Forge / Code / Obra / Mission / WorkOrder / Domain / Flow / Runtime / Harness) | `atlas-canonical-glossary-and-naming.md` |

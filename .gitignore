@@ -60,3 +60,6 @@ Thumbs.db
 /.devcontainer/.cache
 /storage/testing
 /tools/rivals/benchmarks/
+
+# Superpowers subagent-driven development scratch ledger
+/.superpowers/

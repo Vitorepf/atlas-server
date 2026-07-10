@@ -3,12 +3,17 @@
 namespace App\Services\Ai\Rivals\Adapters;
 
 use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
+use App\Services\Ai\Rivals\Core\ClaimTier;
+use App\Services\Ai\Rivals\Core\ContaminationGuard;
+use App\Services\Ai\Rivals\Core\ModelRegistry;
+use App\Services\Ai\Rivals\Core\RealityScoreCard;
 use App\Services\Ai\Rivals\Core\RunPlan;
 use App\Services\Ai\Rivals\Core\RunReceipt;
 use App\Services\Ai\Rivals\Support\EventStream;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
 use App\Support\AtlasCloneDir;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
@@ -114,7 +119,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             }
 
             // Contamination Guard fail-closed: case com receita/sem snapshot não vira corpus
-            $audit = (new \App\Services\Ai\Rivals\Core\ContaminationGuard)->audit($case);
+            $audit = (new ContaminationGuard)->audit($case);
             if ($audit['violations'] !== []) {
                 continue;
             }
@@ -135,7 +140,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         if (! is_dir($this->casesDir())) {
             return [];
         }
-        $guard = new \App\Services\Ai\Rivals\Core\ContaminationGuard;
+        $guard = new ContaminationGuard;
         $cases = [];
         foreach (glob($this->casesDir().'/*.json') as $file) {
             $case = json_decode(file_get_contents($file), true);
@@ -221,7 +226,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
             $solverTimedOut = false;
             try {
                 $patchOutput = $this->applySolver($repo, $worktree, $case, $modelId, $runtime, $plan);
-            } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException) {
+            } catch (ProcessTimedOutException) {
                 $solverTimedOut = true;
                 $patchOutput = "(solver timed out)\n";
             }
@@ -273,20 +278,44 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                     $check = Process::path($worktree)->timeout($timeout)->run($case['check_command']);
                     $status = $check->successful() ? 'success' : 'failure';
                     $checkOutput = $check->output()."\n".$check->errorOutput();
-                } catch (\Illuminate\Process\Exceptions\ProcessTimedOutException) {
+                } catch (ProcessTimedOutException) {
                     $timedOut = true;
                     $status = 'timeout';
                     $checkOutput = "check timed out after {$timeout}s";
                 }
             }
 
+            $bridgePath = $worktree.'/.rivals_atlas_dev_bridge.json';
+            $bridgeReceipt = is_file($bridgePath)
+                ? (json_decode((string) file_get_contents($bridgePath), true) ?? null)
+                : null;
+            $bareProviderPath = $worktree.'/.rivals_bare_provider.json';
+            $bareProviderReceipt = is_file($bareProviderPath)
+                ? (json_decode((string) file_get_contents($bareProviderPath), true) ?? null)
+                : null;
+            $providerReceipt = $runtime === 'bare' ? $bareProviderReceipt : $bridgeReceipt;
+            $artifactContents = ['patch.diff' => $patchOutput, 'check_output.txt' => $checkOutput];
+            if (is_array($bridgeReceipt)) {
+                $artifactContents['atlas_dev_bridge.json'] = json_encode(
+                    $bridgeReceipt,
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+                );
+            }
+            if (is_array($bareProviderReceipt)) {
+                $artifactContents['bare_provider.json'] = json_encode(
+                    $bareProviderReceipt,
+                    JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES,
+                );
+            }
             $artifacts = [];
-            foreach (['patch.diff' => $patchOutput, 'check_output.txt' => $checkOutput] as $name => $content) {
+            foreach ($artifactContents as $name => $content) {
                 $rel = "artifacts/{$slug}__{$name}";
                 file_put_contents(RunPaths::runDir($runId).'/'.$rel, $content);
                 $artifacts[] = ['path' => $rel, 'sha256' => hash_file('sha256', RunPaths::runDir($runId).'/'.$rel)];
             }
 
+            $harnessOnly = (new ModelRegistry)->isHarnessOnly($modelId);
+            $usagePresent = (bool) data_get($providerReceipt, 'usage.present', false);
             RunReceipt::fromArray([
                 'schema_version' => SchemaContract::RUN_RECEIPT,
                 'run_id' => $runId,
@@ -295,17 +324,40 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
                 'arm_id' => $armId,
                 'repetition' => $rep,
                 'status' => $status,
+                'failure_class' => RunReceipt::defaultFailureClass($status),
                 'wall_ms' => (int) round((microtime(true) - $t0) * 1000),
-                'tokens_in' => 0, // harness arms não consomem modelo
-                'tokens_out' => 0,
-                'cost_usd' => 0.0,
+                'tokens_in' => (int) (data_get($providerReceipt, 'usage.input_tokens') ?? 0),
+                'tokens_out' => (int) (data_get($providerReceipt, 'usage.output_tokens') ?? 0),
+                'cost_usd' => (float) (data_get($providerReceipt, 'usage.cost_usd') ?? 0.0),
+                'field_presence' => [
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                    'tokens_in' => [
+                        'present' => $harnessOnly || $usagePresent,
+                        'reason' => $harnessOnly || $usagePresent ? null : 'solver_cli_usage_not_captured',
+                    ],
+                    'tokens_out' => [
+                        'present' => $harnessOnly || $usagePresent,
+                        'reason' => $harnessOnly || $usagePresent ? null : 'solver_cli_usage_not_captured',
+                    ],
+                    'cost_usd' => [
+                        'present' => $harnessOnly || $usagePresent,
+                        'reason' => $harnessOnly || $usagePresent ? null : 'solver_cli_usage_not_captured',
+                    ],
+                ],
+                'claim_tier' => (string) ($plan->data['claim_tier'] ?? ClaimTier::DIAGNOSTIC),
+                'harness_only' => $harnessOnly,
                 'artifacts' => $artifacts,
                 'judge_config' => $plan->data['judge_config'] ?? null,
                 // Reality Score: vetor mecânico por dimensão (nunca score único)
-                'reality' => $reality = (new \App\Services\Ai\Rivals\Core\RealityScoreCard)->evaluate($case, $patchOutput, $status),
+                'reality' => $reality = (new RealityScoreCard)->evaluate($case, $patchOutput, $status),
                 'patch_lines' => $reality['patch_lines'],
                 'golden_lines' => $reality['golden_lines'],
                 'patch_bloat_ratio' => $reality['bloat_ratio'],
+                'metadata' => [
+                    'runtime' => $runtime,
+                    'runtime_bridge' => $bridgeReceipt,
+                    'direct_provider' => $bareProviderReceipt,
+                ],
                 'started_at' => $startedAt,
                 'finished_at' => now()->toIso8601String(),
             ])->append();
@@ -345,7 +397,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
     protected function provisionDatabaseFloor(string $worktree): void
     {
         $floor = "APP_ENV=testing\n"
-            ."APP_KEY=base64:".base64_encode(random_bytes(32))."\n"
+            .'APP_KEY=base64:'.base64_encode(random_bytes(32))."\n"
             ."DB_CONNECTION=sqlite\n"
             ."DB_DATABASE=:memory:\n"
             ."ATLAS_LOOP_MASTER_ENABLED=false\n"
@@ -407,7 +459,7 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
      */
     private function runCliArm(string $worktree, array $case, string $modelId, ?string $overrideCommand = null): string
     {
-        $model = (new \App\Services\Ai\Rivals\Core\ModelRegistry)->get($modelId);
+        $model = (new ModelRegistry)->get($modelId);
         if ($model === null || ! ($model['enabled'] ?? false)) {
             throw new RuntimeException("atlasbench_unknown_or_disabled_model:{$modelId}");
         }
@@ -434,6 +486,32 @@ class AtlasBenchSuiteAdapter implements BenchmarkSuiteAdapter
         $exec = Process::path($worktree)->timeout($timeout)->run($resolved);
         if (! $exec->successful()) {
             throw new RuntimeException("atlasbench_model_cli_failed:{$modelId}: ".substr($exec->errorOutput(), 0, 500));
+        }
+        if ($overrideCommand !== null) {
+            $bridgePath = $worktree.'/.rivals_atlas_dev_bridge.json';
+            $bridge = is_file($bridgePath)
+                ? json_decode((string) file_get_contents($bridgePath), true)
+                : null;
+            if (! is_array($bridge)
+                || ($bridge['status'] ?? null) !== 'passed'
+                || ($bridge['real_provider'] ?? false) !== true
+                || data_get($bridge, 'fair_mode.single_provider') !== true
+                || data_get($bridge, 'fair_mode.decide_disabled') !== true
+                || data_get($bridge, 'fair_mode.fallback_disabled') !== true) {
+                throw new RuntimeException('atlasbench_runtime_bridge_receipt_invalid:'.$modelId);
+            }
+        } elseif (($model['provider'] ?? null) === 'hermes') {
+            $barePath = $worktree.'/.rivals_bare_provider.json';
+            $bare = is_file($barePath)
+                ? json_decode((string) file_get_contents($barePath), true)
+                : null;
+            if (! is_array($bare)
+                || ! in_array(($bare['status'] ?? null), ['passed', 'incomplete'], true)
+                || ($bare['real_provider'] ?? false) !== true
+                || ($bare['provider'] ?? null) !== 'verboo'
+                || ($bare['model'] ?? null) !== ($model['cli_model'] ?? $modelId)) {
+                throw new RuntimeException('atlasbench_bare_provider_receipt_invalid:'.$modelId);
+            }
         }
         unlink($promptFile);
 

@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-provider-arena-v2
 type: engineering_knowledge
 title: Atlas Forge Rivals · Provider Arena v2
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 95
-summary: Contrato enterprise para comparar qualquer arm canonico contra qualquer outro arm canonico com registry central de arms, registry central de provider/modelo, resolver unico, command builder unico e saida advisory-only para Atlas Decide.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Contrato enterprise para comparar qualquer arm canonico contra qualquer outro arm canonico com registry central de arms, registry central de provider/modelo, resolver unico, command builder unico e saida advisory-only para Atlas Decide."
 tags:
   - atlas
   - forge
@@ -50,7 +52,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-rivals-benchmark-strategy-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: "Atlas Forge Rivals · Provider Arena v2"
 canonical_name: "Atlas Forge Rivals · Provider Arena v2"
@@ -107,7 +109,8 @@ next_actions:
   - Registrar outcomes no Intelligence Ledger por arm/provider/model/mode.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals · Provider Arena v2
 

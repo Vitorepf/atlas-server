@@ -2,10 +2,12 @@
 id: atlas-forge-native-rivals-protocol-v1
 type: engineering_knowledge
 title: Atlas Forge-Native Rivals Protocol v1
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 100
-summary: Protocolo canonico que define que toda bateria Rivals do Atlas avalia exclusivamente o runtime Forge contra um rival externo isolado. Atlas arm = Forge obrigatorio; rival arm = baseline puro; dry-run, preflight e bateria real sao etapas separadas sem confundir claim com validacao preparatoria.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Protocolo canonico que define que toda bateria Rivals do Atlas avalia exclusivamente o runtime Forge contra um rival externo isolado. Atlas arm = Forge obrigatorio; rival arm = baseline puro; dry-run, preflight e bateria real sao etapas separadas sem confundir claim com validacao preparatoria."
 tags:
   - atlas
   - rivals
@@ -51,7 +53,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-programming-forge-flow
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Forge-Native Rivals Protocol v1
 canonical_name: Atlas Forge-Native Rivals Protocol v1
@@ -134,6 +136,9 @@ next_actions:
   - Rodar `php artisan atlas:forge:rivals dry-run --mode=diagnostic --case=<id> --json --strict` para validar case sem custo.
   - Apenas com preflight=ready_for_provider_battery e aprovacao operadora, despachar bateria real via runner governado.
 ---
+
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 # Atlas Forge-Native Rivals Protocol v1
 
 ## Resumo

@@ -216,10 +216,7 @@ final class AtlasLoopHarnessGuardTest extends TestCase
             'app/Services/Ai/AutonomousEvolution/Attribution/AtlasLoopCapabilityDeltaAttributionService.php',
             // (iii) o gate de falsificação R8.3 — bug só conta com RED reproduzível
             'app/Services/Ai/AutonomousEvolution/Defect/AtlasLoopDefectFalsificationGate.php',
-            // (iv) meta-objetivo + auto-arquitetura V4
-            'app/Services/Ai/AutonomousEvolution/V4/AtlasLoopV4MetaObjectiveOriginator.php',
-            'app/Services/Ai/AutonomousEvolution/V4/AtlasLoopV4SelfArchitectureProposer.php',
-            // (v) o veto de grounding — material só nasce ancorado
+            // (iv) o veto de grounding — material só nasce ancorado
             'app/Services/Ai/AutonomousEvolution/Verify/AtlasLoopComprehensionGroundingGate.php',
             // (vi) o decisor de ambição — o réu não edita o que decide o próprio salto
             'app/Services/Ai/AutonomousEvolution/Discovery/AtlasLoopAmbitionDecider.php',

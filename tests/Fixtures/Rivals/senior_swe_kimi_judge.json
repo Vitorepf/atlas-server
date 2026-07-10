@@ -1,0 +1,7 @@
+{
+  "va_model": "openai/kimi-k2.7",
+  "judge_model": "openai/kimi-k2.7",
+  "classifier_model": "openai/kimi-k2.7",
+  "provider": "verboo",
+  "model_lock": true
+}

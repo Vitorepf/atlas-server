@@ -1,0 +1,8 @@
+{
+  "case_id": "tb_hello-world",
+  "native_task_id": "sanitize-git-repo",
+  "task_type": "terminal_agent",
+  "title": "tb_hello-world",
+  "suite_id": "terminal_bench",
+  "source_repo": "terminal_bench"
+}

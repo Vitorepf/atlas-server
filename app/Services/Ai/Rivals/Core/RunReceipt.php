@@ -12,12 +12,23 @@ use InvalidArgumentException;
  */
 class RunReceipt
 {
-    private function __construct(public readonly array $data)
-    {
-    }
+    private function __construct(public readonly array $data) {}
 
     public static function fromArray(array $data): self
     {
+        $schema = (string) ($data['schema_version'] ?? '');
+        if ($schema === SchemaContract::RUN_RECEIPT_V1) {
+            $violations = SchemaContract::validate($data, SchemaContract::RUN_RECEIPT_V1);
+            if ($violations !== []) {
+                throw new InvalidArgumentException('rivals_invalid_receipt: '.implode(',', $violations));
+            }
+            $data['schema_version'] = SchemaContract::RUN_RECEIPT;
+            $data['claim_tier'] = ClaimTier::forLegacyReceipt($data);
+            $data['harness_only'] = ($data['claim_tier'] ?? null) === ClaimTier::HARNESS;
+            $data['failure_class'] = self::defaultFailureClass((string) $data['status']);
+            $data['field_presence'] = self::defaultFieldPresence($data);
+        }
+
         $violations = SchemaContract::validate($data, SchemaContract::RUN_RECEIPT);
         if ($violations !== []) {
             throw new InvalidArgumentException('rivals_invalid_receipt: '.implode(',', $violations));
@@ -55,5 +66,30 @@ class RunReceipt
         }
 
         return $receipts;
+    }
+
+    public static function defaultFailureClass(string $status): ?string
+    {
+        return match ($status) {
+            'success' => null,
+            'timeout' => FailureClass::TIMEOUT,
+            'failure' => FailureClass::MODEL,
+            default => FailureClass::INVALID_RESULT,
+        };
+    }
+
+    /** @return array<string, array{present: bool, reason: ?string}> */
+    public static function defaultFieldPresence(array $data): array
+    {
+        $presence = [];
+        foreach (['wall_ms', 'tokens_in', 'tokens_out', 'cost_usd'] as $field) {
+            $present = array_key_exists($field, $data) && is_numeric($data[$field]);
+            $presence[$field] = [
+                'present' => $present,
+                'reason' => $present ? null : 'field_not_reported',
+            ];
+        }
+
+        return $presence;
     }
 }

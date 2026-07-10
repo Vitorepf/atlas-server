@@ -2,10 +2,12 @@
 id: atlas-forge-rivals-reliability-lockdown-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Reliability Lockdown v1
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming
 priority: 100
-summary: Lockdown do harness Rivals do Atlas Forge: workspace hygiene, fingerprint unico, Sonnet model lock, quick preset real, streaming JSONL, evidence pack real-run e triage por fingerprint. Rivals e benchmark/teste, nao feature de produto.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Lockdown do harness Rivals do Atlas Forge: workspace hygiene, fingerprint unico, Sonnet model lock, quick preset real, streaming JSONL, evidence pack real-run e triage por fingerprint. Rivals e benchmark/teste, nao feature de produto."
 tags:
   - atlas
   - forge
@@ -90,7 +92,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: runbook
 graph_parent: atlas-forge-native-rivals-protocol-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Forge Rivals Reliability Lockdown v1
 canonical_name: Atlas Forge Rivals Reliability Lockdown v1
@@ -100,7 +102,8 @@ canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-reliability
 owner: atlas-ai
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals Reliability Lockdown v1
 

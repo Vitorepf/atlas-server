@@ -23,8 +23,22 @@ return [
 
     'storage_root' => env('ATLAS_RIVALS2_STORAGE', storage_path('atlas/rivals')),
 
+    'import_roots' => array_values(array_filter([
+        base_path(),
+        storage_path('atlas/rivals'),
+        base_path('tools/rivals/benchmarks'),
+        env('ATLAS_RIVALS2_IMPORT_ROOT'),
+    ])),
+
     'claim' => [
         'min_repetitions' => 3,
+        'min_distinct_cases_internal' => 3,
+        'max_ci_width_internal' => 0.50,
+        'min_distinct_cases_public' => 10,
+        'max_ci_width_public' => 0.25,
+        'smoke_max_age_hours' => 168,
+        'max_environment_failure_rate' => 0.05,
+        'block_dirty_workspace' => true,
         'require_replay_verified' => true,
         'require_evidence_pack' => true,
         // Claims são SEMPRE escopados (task_type, suite, cases, model, runtime,
@@ -57,6 +71,10 @@ return [
     // Reality Score: acima deste inchaço vs golden, o patch deixa de contar como minimal.
     'reality' => [
         'max_bloat_ratio' => 2.0,
+    ],
+
+    'report' => [
+        'bootstrap_samples' => (int) env('ATLAS_RIVALS2_BOOTSTRAP_SAMPLES', 10000),
     ],
 
     // Elite Reality Suite: pisos mais duros que o atlasbench (chaves omitidas herdam dele).
@@ -106,14 +124,45 @@ return [
         'minimax_m3' => ['provider' => 'minimax', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true, 'cli_model' => 'minimax-m3', 'command' => env('ATLAS_RIVALS2_MINIMAX_CMD')],
         // assinatura Verboo via Hermes (custo marginal ~0; aprovado pelo operador 02/07)
         'verboo_qwen_3_6_27b' => ['provider' => 'hermes', 'access_type' => 'cli', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => false, 'enabled' => true, 'cli_model' => 'qwen3.6-27b', 'command' => env('ATLAS_RIVALS2_HERMES_QWEN_CMD', 'hermes -z "$(cat {prompt_file})" --provider verboo -m {cli_model} --yolo')],
+        'verboo_kimi_k2_7' => [
+            'provider' => 'hermes',
+            'access_type' => 'cli',
+            'cost_hint_in' => 0.0,
+            'cost_hint_out' => 0.0,
+            'local' => false,
+            'enabled' => true,
+            'cli_model' => 'kimi-k2.7',
+            'native_models' => [
+                'tau2_bench' => 'openai/kimi-k2.7',
+                'bfcl' => 'kimi-k2.7-FC',
+                'terminal_bench' => 'openai/kimi-k2.7',
+                'senior_swe_bench' => 'openai/kimi-k2.7',
+                'swe_bench_live' => 'kimi-k2.7',
+                'live_code_bench' => 'kimi-k2.7',
+                'inspect_evals' => 'openai/kimi-k2.7',
+                'hal_harness' => 'openai/kimi-k2.7',
+                'aider_polyglot' => 'openai/kimi-k2.7',
+                'swe_marathon' => 'openai/kimi-k2.7',
+            ],
+            'native_agents' => [
+                'terminal_bench' => 'aider',
+                'senior_swe_bench' => 'hermes',
+                'swe_marathon' => 'hermes',
+            ],
+            'command' => escapeshellarg(PHP_BINARY).' '
+                .escapeshellarg(base_path('scripts/rivals-hermes-bare.php'))
+                .' --workspace={workspace} --prompt-file={prompt_file} --model={cli_model}',
+        ],
         'kimi' => ['provider' => 'moonshot', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'composer_2_5' => ['provider' => 'cursor', 'access_type' => 'cli', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => false],
         'glm_5_2' => ['provider' => 'zai', 'access_type' => 'api', 'cost_hint_in' => null, 'cost_hint_out' => null, 'local' => false, 'enabled' => true],
-        'local_fake_model' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
+        'local_fake_model' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true, 'harness_only' => true],
         // harness_* existem SÓ para validar a mecânica do AtlasBench (null = não faz nada,
         // golden = reaplica o patch real minerado). Nunca são medição de modelo.
-        'harness_null' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
-        'harness_golden' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true],
+        'harness_null' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true, 'harness_only' => true],
+        'harness_golden' => ['provider' => 'local', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true, 'harness_only' => true],
+        // mockllm: Inspect AI mock provider — certifica pipeline nativo sem spend; nunca claim de mercado.
+        'mockllm' => ['provider' => 'inspect', 'access_type' => 'local', 'cost_hint_in' => 0.0, 'cost_hint_out' => 0.0, 'local' => true, 'enabled' => true, 'cli_model' => 'mockllm/model', 'harness_only' => true],
     ],
 
     // Executores de runtime Atlas (objetivo 2 — uplift). Template CLI que envolve
@@ -121,76 +170,144 @@ return [
     // {prompt_file}, {cli_model}). null = runtime ainda sem wrapper → o adapter
     // bloqueia honesto (uplift_supported=false); NUNCA simula.
     'runtime_commands' => [
-        'atlas_dev' => env('ATLAS_RIVALS2_ATLAS_DEV_CMD'),
+        'atlas_dev' => env(
+            'ATLAS_RIVALS2_ATLAS_DEV_CMD',
+            escapeshellarg(PHP_BINARY).' '
+                .escapeshellarg(base_path('scripts/rivals-atlas-dev-bridge.php'))
+                .' --workspace={workspace} --prompt-file={prompt_file} --model={cli_model}',
+        ),
         'forge' => env('ATLAS_RIVALS2_FORGE_CMD'),
         'loop' => env('ATLAS_RIVALS2_LOOP_CMD'),
         'autonomous' => env('ATLAS_RIVALS2_AUTONOMOUS_CMD'),
     ],
 
-    // Benchmark repos EXTERNOS reais (os 9 fornecidos pelo operador), clonados em
+    'uplift_families' => [
+        'long_horizon' => 'hal_harness',
+        'patch_swe' => 'swe_bench_live',
+        'terminal' => 'terminal_bench',
+        'tool_function' => 'bfcl',
+        'polyglot' => 'aider_polyglot',
+    ],
+
+    'native_execution' => [
+        'swe_marathon_environment' => env('ATLAS_RIVALS2_MARATHON_ENV', 'docker'),
+    ],
+
+    // Benchmark repos EXTERNOS reais (os 10 do operador), clonados em
     // área isolada (tools/rivals/benchmarks). Adapter só é "pronto" com smoke real
     // verde aqui; erro vira status=blocked com o erro exato, nunca "done".
     // install/smoke rodam DENTRO do clone com .atlas-venv/bin no PATH (venv uv
     // isolado por repo — nunca o vendor/autoload vivo). Nenhum smoke gasta provider.
+    // Catálogo canônico: docs/engineering-knowledge-base/atlas-rivals-external-suites-v1.md
     'benchmarks' => [
         'root' => env('ATLAS_RIVALS_BENCHMARKS_ROOT', base_path('tools/rivals/benchmarks')),
         'install_timeout_seconds' => 900,
         'smoke_timeout_seconds' => 300,
         'repos' => [
+            // suite_id canônico = repo_id (A0). adapter key = suite_id.
             'tau2_bench' => [
                 'url' => 'https://github.com/sierra-research/tau2-bench.git',
-                'adapter' => 'tau2_bfcl',
+                'adapter' => 'tau2_bench',
+                'native_agent_default' => 'tau2',
+                'native_timeout_minutes' => 15,
                 'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
                 'smoke' => 'tau2 check-data',
             ],
             'bfcl' => [
                 'url' => 'https://github.com/ShishirPatil/gorilla.git',
-                'adapter' => 'tau2_bfcl',
+                'adapter' => 'bfcl',
+                'native_agent_default' => 'bfcl',
+                'native_timeout_minutes' => 15,
                 'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e ./berkeley-function-call-leaderboard soundfile -q'],
                 'smoke' => 'bfcl test-categories',
             ],
             'terminal_bench' => [
                 'url' => 'https://github.com/laude-institute/terminal-bench.git',
-                'adapter' => 'harbor_terminal_bench',
+                'adapter' => 'terminal_bench',
+                'native_agent_default' => 'terminus-2',
+                'native_timeout_minutes' => 60,
                 'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
                 'smoke' => 'tb datasets list',
             ],
             'senior_swe_bench' => [
                 'url' => 'https://github.com/snorkel-ai/senior-swe-bench-v2026.06.git',
                 'adapter' => 'senior_swe_bench',
+                'native_agent_default' => 'claude-code',
+                'native_timeout_minutes' => 120,
                 'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python harbor -q'],
                 'smoke' => 'harbor --help',
             ],
             'swe_bench_live' => [
                 'url' => 'https://github.com/microsoft/SWE-bench-Live.git',
                 'adapter' => 'swe_bench_live',
+                'native_agent_default' => 'swe_bench_live',
+                'native_timeout_minutes' => 90,
                 'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'git submodule update --init --depth 1 launch', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
                 'smoke' => 'python -m evaluation.evaluation --help',
             ],
             'live_code_bench' => [
                 'url' => 'https://github.com/LiveCodeBench/LiveCodeBench.git',
                 'adapter' => 'live_code_bench',
-                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'native_agent_default' => 'lcb',
+                'native_timeout_minutes' => 30,
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . "datasets<4" -q'],
                 'smoke' => 'python -m lcb_runner.runner.main --help',
             ],
             'inspect_evals' => [
                 'url' => 'https://github.com/UKGovernmentBEIS/inspect_evals.git',
                 'adapter' => 'inspect_evals',
-                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . inspect-ai -q'],
+                'native_agent_default' => 'inspect',
+                'native_timeout_minutes' => 15,
+                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . inspect-ai openai -q'],
                 'smoke' => 'inspect eval inspect_evals/gsm8k --model mockllm/model --limit 1',
             ],
             'hal_harness' => [
                 'url' => 'https://github.com/princeton-pli/hal-harness.git',
                 'adapter' => 'hal_harness',
-                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q'],
+                'native_agent_default' => 'hal_generalist_agent',
+                'native_timeout_minutes' => 120,
+                'install' => [
+                    'uv venv --clear --python 3.12 .atlas-venv',
+                    'uv pip install -p .atlas-venv/bin/python -e . -q',
+                    'uv pip install -p .atlas-venv/bin/python -r agents/hal_generalist_agent/requirements.txt -q',
+                    'test -x .miniforge/bin/conda || (curl -fsSL https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh -o /tmp/rivals-miniforge.sh && bash /tmp/rivals-miniforge.sh -b -p "$PWD/.miniforge")',
+                ],
                 'smoke' => 'hal-eval --help',
             ],
             'aider_polyglot' => [
                 'url' => 'https://github.com/Aider-AI/aider.git',
                 'adapter' => 'aider_polyglot',
-                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . -q', 'uv pip install -p .atlas-venv/bin/python -r requirements/requirements-dev.txt -q'],
+                'native_agent_default' => 'aider',
+                'native_timeout_minutes' => 45,
+                'install' => [
+                    'uv venv --clear --python 3.12 .atlas-venv',
+                    'uv pip install -p .atlas-venv/bin/python -e . -q',
+                    'uv pip install -p .atlas-venv/bin/python -r requirements/requirements-dev.txt -q',
+                    'test -d tmp.benchmarks/polyglot-benchmark/.git || (mkdir -p tmp.benchmarks && git clone --depth 1 https://github.com/Aider-AI/polyglot-benchmark.git tmp.benchmarks/polyglot-benchmark)',
+                ],
                 'smoke' => 'python benchmark/benchmark.py --help',
             ],
+            // Ultra-long-horizon SWE (https://www.swe-marathon.org/) — Harbor tasks;
+            // trials reais pedem Modal + provider; smoke aqui é só presença de tasks + harbor CLI.
+            'swe_marathon' => [
+                'url' => 'https://github.com/abundant-ai/swe-marathon.git',
+                'adapter' => 'swe_marathon',
+                'native_agent_default' => 'claude-code',
+                'native_timeout_minutes' => 360,
+                'website' => 'https://www.swe-marathon.org/',
+                // 3.12: uv já tem cpython-3.12 local; 3.13 forçava download e falhou com
+                // "Operation not permitted" em ~/.local/share/uv/python (receipt A8).
+                'install' => [
+                    'uv venv --clear --python 3.12 .atlas-venv',
+                    'uv pip install -p .atlas-venv/bin/python "harbor==0.17.1" modal -q',
+                ],
+                'smoke' => 'test -d tasks/slack-clone && harbor --help && modal --version',
+            ],
+        ],
+        // aliases legados: só leitura de runs antigas; plans novos usam suite_id=repo_id
+        'legacy_aliases' => [
+            'tau2_bfcl' => 'tau2_bench',
+            'harbor_terminal_bench' => 'terminal_bench',
         ],
     ],
 

@@ -8,6 +8,7 @@ use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
+use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
@@ -64,6 +65,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 
         config()->set('atlas.aurg.enabled', true);
         config()->set('atlas.aurg.query_rank_enabled', false); // deterministic, no runtime
+        config()->set('atlas.aobg.include_runtime_compose', false);
     }
 
     protected function tearDown(): void
@@ -193,6 +195,71 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('## Code graph', $pack['markdown']);
         $this->assertStringContainsString('## Reality graph', $pack['markdown']);
         $this->assertStringContainsString('## Memory', $pack['markdown']);
+    }
+
+    public function test_enabled_fusion_emits_one_deterministic_cross_source_priority_receipt(): void
+    {
+        config()->set('atlas.aobg.fusion_enabled', true);
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-1', 'Embedding decision for memoria vector search', true, 'normal');
+
+        $pack = $this->service()->packFor('embedding decision');
+
+        $this->assertSame('ready', data_get($pack, 'retrieval_fusion.status'));
+        $this->assertSame('reciprocal_rank_fusion', data_get($pack, 'retrieval_fusion.algorithm'));
+        $this->assertContains('code', array_column(data_get($pack, 'retrieval_fusion.candidates'), 'source'));
+        $this->assertContains('memory', array_column(data_get($pack, 'retrieval_fusion.candidates'), 'source'));
+        $this->assertContains('reality', array_column(data_get($pack, 'retrieval_fusion.candidates'), 'source'));
+        $this->assertTrue((bool) data_get($pack, 'retrieval_fusion.applied_to_sections'));
+        $this->assertStringContainsString('## Unified retrieval priority', $pack['markdown']);
+    }
+
+    public function test_shadow_fusion_emits_receipt_but_does_not_reorder_sections(): void
+    {
+        config()->set('atlas.aobg.fusion_enabled', true);
+        config()->set('atlas.aobg.fusion_mode', 'shadow');
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-1', 'Embedding decision for memoria vector search', true, 'normal');
+
+        $pack = $this->service()->packFor('embedding decision');
+
+        $this->assertSame('ready', data_get($pack, 'retrieval_fusion.status'));
+        $this->assertSame('shadow', data_get($pack, 'retrieval_fusion.rollout.mode'));
+        $this->assertFalse((bool) data_get($pack, 'retrieval_fusion.applied_to_sections'));
+        $this->assertFalse((bool) data_get($pack, 'retrieval_fusion.rollout.live'));
+    }
+
+    public function test_live_fusion_reorders_memory_section_to_match_fusion_candidate_order(): void
+    {
+        config()->set('atlas.aobg.fusion_enabled', true);
+        config()->set('atlas.aobg.fusion_mode', 'default');
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-low', 'Unrelated filler note about routing', true, 'normal');
+        $this->seedMemory('mem-high', 'Embedding decision for memoria vector search', true, 'normal');
+
+        $pack = $this->service()->packFor('embedding decision');
+        $memoryIds = array_values(array_filter(array_map(
+            static fn (array $row): string => (string) ($row['id'] ?? ''),
+            (array) ($pack['memory'] ?? []),
+        )));
+        $memoryCandidateRefs = [];
+        foreach ((array) data_get($pack, 'retrieval_fusion.candidates', []) as $candidate) {
+            if (($candidate['source'] ?? null) === 'memory') {
+                $memoryCandidateRefs[] = (string) $candidate['ref'];
+            }
+        }
+
+        $this->assertNotEmpty($memoryIds);
+        $this->assertNotEmpty($memoryCandidateRefs);
+        $this->assertTrue((bool) data_get($pack, 'retrieval_fusion.applied_to_sections'));
+        $this->assertSame(
+            array_values(array_intersect($memoryCandidateRefs, $memoryIds)),
+            array_values(array_intersect($memoryIds, $memoryCandidateRefs)),
+        );
+        $this->assertSame($memoryCandidateRefs[0], $memoryIds[0]);
     }
 
     public function test_provider_bound_excludes_sensitive_memory_and_sensitive_domain(): void
@@ -396,6 +463,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame([], $pack['reality_graph_paths']);
         $this->assertSame([], $pack['memory']);
         $this->assertSame([], $pack['provenance']['sources_present']);
+        $this->assertSame('empty', data_get($pack, 'provenance.memory.status'));
         $this->assertTrue($pack['provider_bound']);
 
         // Empty sections are LABELLED honestly in markdown (not silently dropped).
@@ -408,6 +476,65 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame('', $blank['task']);
         $this->assertSame([], $blank['code_graph']);
         $this->assertSame([], $blank['memory']);
+        $this->assertSame('empty', data_get($blank, 'provenance.memory.status'));
+    }
+
+    public function test_memory_retrieval_error_is_explicit_without_fabricating_context(): void
+    {
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock): void {
+            $mock->shouldReceive('recall')
+                ->twice()
+                ->andThrow(new \RuntimeException('fixture retrieval failure'));
+        });
+
+        $pack = $this->service()->packFor('specific architecture decision');
+
+        $this->assertSame([], $pack['memory']);
+        $this->assertNotContains('memory', $pack['provenance']['sources_present']);
+        $this->assertSame('retrieval_error', data_get($pack, 'provenance.memory.status'));
+        $this->assertSame('memory_recall_exception', data_get($pack, 'provenance.memory.status_reason'));
+        $this->assertStringContainsString('memory retrieval unavailable', $pack['markdown']);
+    }
+
+    public function test_memory_candidates_removed_by_relevance_are_reported_as_filtered(): void
+    {
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock): void {
+            $mock->shouldReceive('recall')->twice()->andReturn([
+                'summary' => [
+                    'policy' => 'provider_safe_only',
+                    'recall_count' => 1,
+                    'redacted_ref_count' => 0,
+                ],
+                'recall' => [[
+                    'source_ref_id' => 'memory-filtered-fixture',
+                    'type' => 'decision',
+                    'scope' => 'global',
+                    'title' => 'Unrelated culinary note',
+                    'summary' => 'Recipe ingredients and oven timing',
+                    'excerpt' => 'No overlap with the requested software architecture decision.',
+                    'privacy_class' => 'normal',
+                ]],
+            ]);
+        });
+
+        $pack = $this->service()->packFor('database migration rollback contract');
+
+        $this->assertSame([], $pack['memory']);
+        $this->assertSame('filtered', data_get($pack, 'provenance.memory.status'));
+        $this->assertSame(1, data_get($pack, 'provenance.memory.relevance_filtered_count'));
+        $this->assertStringContainsString('memory candidates were filtered', $pack['markdown']);
+    }
+
+    public function test_explicit_false_prevents_runtime_compose_recursion_even_when_config_is_enabled(): void
+    {
+        config()->set('atlas.aobg.include_runtime_compose', true);
+
+        $pack = $this->service()->packFor('context runtime recursion guard', [
+            'include_runtime_compose' => false,
+        ]);
+
+        $this->assertArrayNotHasKey('runtime_compose', $pack);
+        $this->assertArrayNotHasKey('runtime_compose_status', $pack);
     }
 
     public function test_initial_pack_omits_same_layer_reality_graph_paths(): void
@@ -1742,6 +1869,8 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 
         $migration = require database_path('migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php');
         $migration->up();
+        $temporalMigration = require database_path('migrations/2026_07_07_181500_add_temporal_truth_to_atlas_aurg_edges.php');
+        $temporalMigration->up();
     }
 
     private function seedCodeSymbol(string $name, string $workspaceId): void

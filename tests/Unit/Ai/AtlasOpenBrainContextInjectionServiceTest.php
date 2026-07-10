@@ -1649,6 +1649,169 @@ class AtlasOpenBrainContextInjectionServiceTest extends TestCase
         $this->assertContains('quarantine', data_get($result, 'hygiene_receipt.omission_reasons'));
     }
 
+    public function test_precomputed_aobg_pack_is_the_single_retrieval_source_for_injection(): void
+    {
+        config()->set('atlas.code_graph.auto_context', true);
+        config()->set('atlas.open_brain.injection.include_memory_recall', true);
+        config()->set('atlas.open_brain.injection.include_reality_graph', true);
+
+        $codeGraph = $this->createMock(CodeGraphContextRetriever::class);
+        $codeGraph->expects($this->never())->method('packFor');
+        $memory = $this->createMock(AtlasHybridMemoryRetrievalService::class);
+        $memory->expects($this->never())->method('recall');
+        $reality = $this->createMock(AtlasRealityGraphQueryService::class);
+        $reality->expects($this->never())->method('query');
+        $service = new AtlasOpenBrainContextInjectionService(
+            $this->knowledge,
+            $this->code,
+            null,
+            null,
+            null,
+            $codeGraph,
+            $memory,
+            $reality,
+        );
+        $fusedPack = [
+            'schema' => 'atlas.aobg.context_pack.v1',
+            'context_pack_hash' => str_repeat('a', 64),
+            'code_graph' => [[
+                'id' => 'sym:App\\Services\\Example',
+                'symbol_type' => 'class',
+                'file_path' => 'app/Services/Example.php',
+                'signature' => 'final class Example',
+                'tokens' => 4,
+            ]],
+            'memory' => [[
+                'id' => 'memory-safe',
+                'type' => 'decision',
+                'scope' => 'workspace',
+                'title' => 'Use the canonical context runtime',
+                'summary' => 'Executors consume the same fused retrieval result.',
+                'source_type' => 'registry',
+            ]],
+            'reality_graph_paths' => [[
+                'cross_layer' => true,
+                'chain' => [
+                    ['id' => 'memory:1', 'kind' => 'memory_entry', 'label' => 'Context decision', 'source_kind' => 'memory', 'source_id' => '1'],
+                    ['id' => 'code:1', 'kind' => 'module', 'label' => 'Context runtime', 'source_kind' => 'code', 'source_id' => '1'],
+                ],
+                'hops' => [
+                    ['kind' => 'references', 'confidence' => 1.0],
+                ],
+            ]],
+            'provenance' => [
+                'memory' => ['status' => 'ready'],
+                'code_graph' => ['retriever' => 'fixture'],
+                'reality_graph' => ['ranking' => 'fixture'],
+            ],
+        ];
+
+        $result = $service->inject(
+            'implement context runtime',
+            $this->task('dev'),
+            $this->pack(),
+            [
+                'payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()],
+                'precomputed_aobg_pack' => $fusedPack,
+            ],
+        );
+
+        $this->assertSame('precomputed_aobg', data_get($result, 'summary.retrieval_core.mode'));
+        $this->assertSame(1, data_get($result, 'summary.memory_recall_refs'));
+        $this->assertSame(1, data_get($result, 'summary.reality_graph_refs'));
+        $this->assertStringContainsString('Use the canonical context runtime', (string) $result['prompt_section']);
+        $this->assertStringContainsString('Context decision', (string) $result['prompt_section']);
+        $this->assertStringContainsString('sym:App\\Services\\Example', (string) $result['prompt_section']);
+    }
+
+    public function test_precomputed_aobg_pack_honors_applied_fusion_candidate_order_in_context_refs(): void
+    {
+        config()->set('atlas.code_graph.auto_context', true);
+        config()->set('atlas.open_brain.injection.include_memory_recall', true);
+        config()->set('atlas.open_brain.injection.include_reality_graph', true);
+
+        $service = new AtlasOpenBrainContextInjectionService(
+            $this->knowledge,
+            $this->code,
+            null,
+            null,
+            null,
+            $this->createMock(CodeGraphContextRetriever::class),
+            $this->createMock(AtlasHybridMemoryRetrievalService::class),
+            $this->createMock(AtlasRealityGraphQueryService::class),
+        );
+        $fusedPack = [
+            'schema' => 'atlas.aobg.context_pack.v1',
+            'context_pack_hash' => str_repeat('b', 64),
+            'code_graph' => [
+                [
+                    'id' => 'sym:Second',
+                    'symbol_type' => 'class',
+                    'file_path' => 'app/Second.php',
+                    'signature' => 'final class Second',
+                    'tokens' => 2,
+                ],
+                [
+                    'id' => 'sym:First',
+                    'symbol_type' => 'class',
+                    'file_path' => 'app/First.php',
+                    'signature' => 'final class First',
+                    'tokens' => 2,
+                ],
+            ],
+            'memory' => [
+                [
+                    'id' => 'memory-b',
+                    'type' => 'decision',
+                    'scope' => 'workspace',
+                    'title' => 'Second memory',
+                    'summary' => 'B',
+                    'source_type' => 'registry',
+                ],
+                [
+                    'id' => 'memory-a',
+                    'type' => 'decision',
+                    'scope' => 'workspace',
+                    'title' => 'First memory',
+                    'summary' => 'A',
+                    'source_type' => 'registry',
+                ],
+            ],
+            'reality_graph_paths' => [],
+            'retrieval_fusion' => [
+                'status' => 'ready',
+                'applied_to_sections' => true,
+                'candidates' => [
+                    ['source' => 'memory', 'ref' => 'memory-a', 'fused_score' => 0.9],
+                    ['source' => 'code', 'ref' => 'sym:First', 'fused_score' => 0.8],
+                    ['source' => 'memory', 'ref' => 'memory-b', 'fused_score' => 0.7],
+                    ['source' => 'code', 'ref' => 'sym:Second', 'fused_score' => 0.6],
+                ],
+            ],
+        ];
+
+        $result = $service->inject(
+            'implement fused injection order',
+            $this->task('dev'),
+            $this->pack(),
+            [
+                'payload' => ['atlas_workflow_mode' => 'dev', 'workspace' => base_path()],
+                'precomputed_aobg_pack' => $fusedPack,
+            ],
+        );
+
+        $contextRefs = array_values(array_filter(
+            (array) ($result['context_refs'] ?? []),
+            static fn (mixed $ref): bool => is_array($ref) && in_array(($ref['type'] ?? null), ['atlas_code_graph_symbol', 'atlas_memory_recall'], true),
+        ));
+        $ids = array_map(static fn (array $ref): string => (string) ($ref['id'] ?? ''), $contextRefs);
+
+        $this->assertSame(
+            ['registry:memory-a', 'sym:First', 'registry:memory-b', 'sym:Second'],
+            $ids,
+        );
+    }
+
     // --- helpers ---
 
     /**

@@ -1,0 +1,11 @@
+{
+  "case_id": "conan-io__conan-15377",
+  "native_task_id": "conan-io__conan-15377",
+  "repo": "conan-io/conan",
+  "base_commit": "c361744fa45be644670a8bf476d2bafccafe7f16",
+  "problem_statement": "Add a standard one-line Conan 2 helper that records the current Git URL and commit under the scm key in conandata during export, replacing the repeated three-line Git/get_url_and_commit/update_conandata pattern.",
+  "task_type": "repair_regression_fixing",
+  "title": "SCM to conandata helper",
+  "suite_id": "swe_bench_live",
+  "source_repo": "swe_bench_live"
+}

@@ -1,0 +1,35 @@
+{
+    "model": "claude-sonnet-5",
+    "results": [
+        {
+            "test_category": "simple",
+            "run": 1,
+            "accuracy": 1.0,
+            "status": "success",
+            "duration_sec": 12.4,
+            "usage": {"input_tokens": 1200, "output_tokens": 340, "cost_usd": 0.02},
+            "started_at": "2026-06-26T16:00:00Z",
+            "finished_at": "2026-06-26T16:00:12Z"
+        },
+        {
+            "test_category": "simple",
+            "run": 2,
+            "accuracy": 0.0,
+            "status": "failure",
+            "duration_sec": 15.1,
+            "usage": {"input_tokens": 1400, "output_tokens": 410, "cost_usd": 0.03},
+            "started_at": "2026-06-26T16:01:00Z",
+            "finished_at": "2026-06-26T16:01:15Z"
+        },
+        {
+            "test_category": "multiple",
+            "run": 1,
+            "accuracy": 1.0,
+            "status": "success",
+            "duration_sec": 18.2,
+            "usage": {"input_tokens": 2100, "output_tokens": 520, "cost_usd": 0.04},
+            "started_at": "2026-06-26T16:02:00Z",
+            "finished_at": "2026-06-26T16:02:18Z"
+        }
+    ]
+}

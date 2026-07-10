@@ -49,6 +49,7 @@ class RehydrateMemoryCommandTest extends TestCase
             'title' => 'Docs canônicos governam',
             'summary' => 'Docs canônicos governam',
             'body' => 'leia o doc canônico. [recuperado de projeção provider-safe — corpo pode estar truncado; wiper incident]',
+            'redacted_body' => 'leia o doc canônico. [recuperado de projeção provider-safe — corpo pode estar truncado; wiper incident]',
             'status' => 'active',
             'priority' => 50,
             'source_type' => 'test_fixture',
@@ -74,6 +75,8 @@ class RehydrateMemoryCommandTest extends TestCase
         $this->assertSame($real, $fresh->body);
         $this->assertSame(90, $fresh->priority);
         $this->assertStringNotContainsString('corpo pode estar truncado', (string) $fresh->body);
+        $this->assertStringContainsString('Por quê', (string) $fresh->redacted_body);
+        $this->assertStringNotContainsString('corpo pode estar truncado', (string) $fresh->redacted_body);
     }
 
     public function test_dry_run_does_not_write(): void

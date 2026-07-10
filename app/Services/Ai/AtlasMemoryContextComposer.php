@@ -455,19 +455,17 @@ class AtlasMemoryContextComposer
 
     /**
      * Drops candidates strictly Pareto-dominated on {score: maximize, age_days:
-     * minimize} — a candidate that is both no-better on relevance and older
-     * than another admitted candidate adds nothing, so it never survives to
-     * the final ranked budget-fill. Only candidates with a known age_days are
-     * evaluated; candidates with unknown freshness are always kept as-is,
-     * since a missing objective value cannot be honestly compared.
+     * minimize} WITHIN the same source. Registry, verbatim, semantic and
+     * compounding memories are distinct evidence forms; an exact reviewed
+     * verbatim fact must not disappear merely because a newer registry summary
+     * has a higher score. Only candidates with known age are evaluated.
      *
      * @param  array<int,array<string,mixed>>  $candidates
      * @return array<int,array<string,mixed>>
      */
     private function dropParetoDominatedCandidates(array $candidates): array
     {
-        $eligible = [];
-        $variants = [];
+        $variantsBySource = [];
 
         foreach ($candidates as $index => $candidate) {
             $ageDays = $candidate['freshness']['age_days'] ?? null;
@@ -475,27 +473,28 @@ class AtlasMemoryContextComposer
                 continue;
             }
 
-            $eligible[(string) $index] = $candidate;
-            $variants[] = [
+            $source = (string) ($candidate['source'] ?? 'unknown');
+            $variantsBySource[$source][] = [
                 'id' => (string) $index,
                 'score' => (float) $candidate['score'],
                 'age_days' => (float) $ageDays,
             ];
         }
 
-        if (count($variants) < 2) {
-            return $candidates;
-        }
-
-        $result = $this->paretoFilter->filter(
-            $variants,
-            ['score' => 'maximize', 'age_days' => 'minimize'],
-        );
-
         $dominated = [];
-        foreach ($result['evaluated'] as $row) {
-            if ($row['status'] === 'dominated') {
-                $dominated[$row['id']] = true;
+        foreach ($variantsBySource as $variants) {
+            if (count($variants) < 2) {
+                continue;
+            }
+
+            $result = $this->paretoFilter->filter(
+                $variants,
+                ['score' => 'maximize', 'age_days' => 'minimize'],
+            );
+            foreach ($result['evaluated'] as $row) {
+                if ($row['status'] === 'dominated') {
+                    $dominated[$row['id']] = true;
+                }
             }
         }
 

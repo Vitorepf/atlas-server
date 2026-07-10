@@ -33,4 +33,21 @@ class ModelRegistry
 
         return $model !== null && ($model['enabled'] ?? false) === true;
     }
+
+    public function isHarnessOnly(string $modelId): bool
+    {
+        if ($modelId === '') {
+            return false;
+        }
+
+        $model = $this->get($modelId);
+
+        return ($model['harness_only'] ?? false) === true
+            || in_array($modelId, [
+                'local_fake_model',
+                'harness_null',
+                'harness_golden',
+                'mockllm',
+            ], true);
+    }
 }

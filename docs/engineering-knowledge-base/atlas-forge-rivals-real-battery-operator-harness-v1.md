@@ -2,11 +2,12 @@
 id: atlas-forge-rivals-real-battery-operator-harness-v1
 type: engineering_knowledge
 title: Atlas Forge Rivals Real Battery Operator Harness v1
-status: source_material
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
 implementation_state: source_material_no_runtime_authority
 category: programming
 priority: 100
-summary: Harness operavel da bateria Rivals real do Atlas Forge. Define o fluxo end-to-end (worktrees -> preflight -> dry-run -> run quick -> evidence pack -> verify -> after-clean -> triage) com comandos copy-safe, state machine canonica de 15 estados, gates de seguranca em tres niveis, fingerprint-scoped triage e logs JSONL em streaming. Rivals e bateria de teste/operavel, nunca feature de produto.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Harness operavel da bateria Rivals real do Atlas Forge. Define o fluxo end-to-end (worktrees -> preflight -> dry-run -> run quick -> evidence pack -> verify -> after-clean -> triage) com comandos copy-safe, state machine canonica de 15 estados, gates de seguranca em tres niveis, fingerprint-scoped triage e logs JSONL em streaming. Rivals e bateria de teste/operavel, nunca feature de produto."
 tags:
   - atlas
   - forge
@@ -110,7 +111,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: runbook
 graph_parent: atlas-forge-rivals-reliability-lockdown-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Forge Rivals Real Battery Operator Harness v1
 canonical_name: Atlas Forge Rivals Real Battery Operator Harness v1
@@ -120,7 +121,8 @@ canonical_source: docs/engineering-knowledge-base/atlas-forge-rivals-real-batter
 owner: atlas-ai
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 line_limit: 520
 

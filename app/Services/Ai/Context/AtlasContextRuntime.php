@@ -6,6 +6,7 @@ namespace App\Services\Ai\Context;
 
 use App\Services\Ai\AiContextPackBuilder;
 use App\Services\Ai\AtlasOpenBrainContextInjectionService;
+use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Context\ValueObjects\ContextPackContract;
 use App\Services\Ai\Context\ValueObjects\GateVerdict;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
@@ -25,6 +26,7 @@ final class AtlasContextRuntime
         private readonly AtlasOpenBrainContextInjectionService $openBrain,
         private readonly AtlasAucriRuntimeEnforcementService $aucriGate,
         private readonly AtlasContextQualityCertificationService $qualityCert,
+        private readonly AtlasOpenBrainContextPackService $fusedContext,
     ) {}
 
     /**
@@ -36,11 +38,40 @@ final class AtlasContextRuntime
     {
         $workspace = (string) ($options['workspace'] ?? base_path());
         $pack = $this->packBuilder->build($input, $task, $options);
-        $injection = $this->openBrain->inject($input, $task, $pack, $options);
+        $enabled = (bool) config('atlas.context_runtime.unified_retrieval_enabled', false);
+        $rolloutMode = AtlasIntelligenceRolloutMode::resolve([
+            'enabled' => $enabled,
+            'mode' => (string) config('atlas.context_runtime.unified_retrieval_mode', AtlasIntelligenceRolloutMode::OFFLINE),
+            'canary_percent' => (int) config('atlas.context_runtime.unified_retrieval_canary_percent', 0),
+        ], [
+            'workspace' => $workspace,
+            'flow_id' => (string) ($options['flow_id'] ?? ''),
+            'actor' => (string) ($options['actor'] ?? 'context_runtime'),
+        ]);
+        $fused = null;
+        if (AtlasIntelligenceRolloutMode::shouldRecordShadow($rolloutMode)) {
+            $fused = $this->fusedContext->packFor($input, [
+                'workspace' => $workspace,
+                'changed_files' => array_values((array) ($options['changed_files'] ?? [])),
+                'flow_id' => (string) ($options['flow_id'] ?? ''),
+                'task_type' => $task->taskType(),
+                'domain' => (string) ($options['domain'] ?? data_get($options, 'payload.domain', '')),
+                // ContextRuntime is the parent; never recurse back into it.
+                'include_runtime_compose' => false,
+            ]);
+        }
+        $liveUnified = AtlasIntelligenceRolloutMode::shouldExecuteLive($rolloutMode) && $fused !== null;
+        $injectionOptions = $liveUnified
+            ? array_merge($options, ['precomputed_aobg_pack' => $fused])
+            : $options;
+        $injection = $this->openBrain->inject($input, $task, $pack, $injectionOptions);
 
         return ContextPackContract::fromArray([
             'schema' => self::SCHEMA_VERSION,
             'context_pack' => $pack->toArray(),
+            'retrieval_core_status' => $liveUnified ? 'unified' : ($fused !== null ? 'shadow' : 'legacy'),
+            'retrieval_core' => $fused,
+            'retrieval_rollout' => AtlasIntelligenceRolloutMode::receipt($rolloutMode, $enabled),
             'open_brain_injection' => $injection,
         ], $input, $workspace);
     }

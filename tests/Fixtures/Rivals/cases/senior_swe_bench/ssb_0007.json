@@ -1,0 +1,9 @@
+{
+  "case_id": "ssb_0007",
+  "native_task_id": "posthog-feat-approval-gating",
+  "segment": "design",
+  "task_type": "feature_under_specified",
+  "title": "ssb_0007",
+  "suite_id": "senior_swe_bench",
+  "source_repo": "senior_swe_bench"
+}

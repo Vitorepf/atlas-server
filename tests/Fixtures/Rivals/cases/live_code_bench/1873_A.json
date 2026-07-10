@@ -1,0 +1,8 @@
+{
+  "case_id": "1873_A",
+  "native_task_id": "1873_A",
+  "task_type": "coding_patch",
+  "title": "LiveCodeBench release_v6 native case",
+  "suite_id": "live_code_bench",
+  "source_repo": "live_code_bench"
+}

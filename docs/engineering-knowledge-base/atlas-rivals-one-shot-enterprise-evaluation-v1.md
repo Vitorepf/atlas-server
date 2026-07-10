@@ -2,10 +2,12 @@
 id: atlas-rivals-one-shot-enterprise-evaluation-v1
 type: engineering_knowledge
 title: Atlas Rivals One-Shot Enterprise Evaluation v1
-status: active
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 100
-summary: Rubrica e avaliacao canonica que pontuam uma entrega one-shot enterprise do Atlas Code. Qualidade extrema e objetivo primario; tempo bruto e metrica secundaria que jamais decide o veredito. Evaluation e diagnostica local — nunca chama provider externo e nunca promove o claim Rivals.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Rubrica e avaliacao canonica que pontuam uma entrega one-shot enterprise do Atlas Code. Qualidade extrema e objetivo primario; tempo bruto e metrica secundaria que jamais decide o veredito. Evaluation e diagnostica local — nunca chama provider externo e nunca promove o claim Rivals."
 tags:
   - atlas
   - rivals
@@ -43,7 +45,7 @@ graph_world: atlas
 graph_layer: system
 graph_kind: contract
 graph_parent: atlas-forge-native-rivals-protocol-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Rivals One-Shot Enterprise Evaluation v1
 canonical_name: Atlas Rivals One-Shot Enterprise Evaluation v1
@@ -111,7 +113,8 @@ next_actions:
   - Atualizar evidence pack quando bateria real existir (fora do escopo desta camada).
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Rivals One-Shot Enterprise Evaluation v1
 

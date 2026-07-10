@@ -374,7 +374,18 @@ class EngineeringKnowledgeBaseService
 
     private function status(string $status): string
     {
-        return in_array($status, AtlasEngineeringKnowledgeItem::STATUSES, true) ? $status : 'active';
+        $normalized = strtolower(trim($status));
+        // Canonical docs often use superseded/source_material; KB enum is closed.
+        // Map demotions to archived so sync never re-promotes them as active.
+        $aliases = [
+            'superseded' => 'archived',
+            'source_material' => 'archived',
+            'retired' => 'archived',
+            'obsolete' => 'archived',
+        ];
+        $normalized = $aliases[$normalized] ?? $normalized;
+
+        return in_array($normalized, AtlasEngineeringKnowledgeItem::STATUSES, true) ? $normalized : 'active';
     }
 
     private function slug(string $value): string

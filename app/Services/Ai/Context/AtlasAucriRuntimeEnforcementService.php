@@ -110,6 +110,7 @@ final class AtlasAucriRuntimeEnforcementService
             'risk_level' => $risk,
             'query' => $this->contextHash($rawContext, $segments),
             'required_sources' => $this->requiredSources($input, $flowId),
+            'source_refs' => (array) ($input['source_refs'] ?? []),
         ]);
 
         $feedback = $this->feedbackLoop->capture($baseInput + [

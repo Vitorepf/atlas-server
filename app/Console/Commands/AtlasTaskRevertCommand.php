@@ -35,17 +35,20 @@ class AtlasTaskRevertCommand extends Command
 
         $actuator = new AtlasTaskMergeActuator;
         $result = $actuator->revert($taskPacketId, ! $live);
+        $refused = ! empty($result['refused']);
 
         if ($this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}');
 
-            return self::SUCCESS;
+            return $refused ? self::FAILURE : self::SUCCESS;
         }
 
         $this->line('');
         $this->line('  <fg=cyan>TASK REVERT</>  task='.$taskPacketId.'  mode='.($live ? 'live' : 'dry_run'));
-        if (! empty($result['refused'])) {
+        if ($refused) {
             $this->line('  <fg=red>refused</>  reason='.($result['reason'] ?? 'unknown'));
+
+            return self::FAILURE;
         } elseif (! empty($result['would_revert'])) {
             $this->line('  plan  sha='.($result['sha'] ?? '').'  files='.implode(',', (array) ($result['files'] ?? [])));
         } elseif (! empty($result['reverted'])) {

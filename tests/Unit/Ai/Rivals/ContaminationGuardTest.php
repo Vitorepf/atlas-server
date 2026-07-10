@@ -13,7 +13,7 @@ class ContaminationGuardTest extends TestCase
             'case_id' => 'ab_test',
             'title' => 'fix: outcome ledger drops entries under load',
             'ticket_body' => 'Entries vanish when two writers race on the ledger.',
-            'symptom_excerpt' => "Failed asserting that 3 matches expected 5.",
+            'symptom_excerpt' => 'Failed asserting that 3 matches expected 5.',
             'base_sha' => str_repeat('a', 40),
             'golden_sha' => str_repeat('b', 40),
             'check_command' => 'php vendor/bin/phpunit --no-coverage x',

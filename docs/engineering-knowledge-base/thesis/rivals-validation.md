@@ -21,10 +21,12 @@ decisions:
 maintenance:
   - Keep metrics aligned with current Rivals implementation.
 related_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+  - docs/engineering-knowledge-base/atlas-rivals-structure-v1.md
+  - docs/engineering-knowledge-base/atlas-rivals-claims-and-reporting-v1.md
   - docs/engineering-knowledge-base/atlas-ai-thesis-multiplier-channel.md
-  - docs/atlas-cli-fair-claude-benchmark.md
   - app/Console/Commands/AtlasRivalsCommand.php
-  - app/Services/Engineering/EngineeringBenchmarkService.php
+  - config/atlas_rivals.php
 doc_schema: atlas_canonical_module_doc.v1
 
 graph_id: atlas-thesis-rivals-validation
@@ -60,26 +62,28 @@ forbidden_changes:
   - Declarar runtime, maturidade ou prontidao sem evidencia verificavel e gates verdes.
 
 depends_on:
+  - atlas-rivals-product-v1
   - atlas-ai-documentation-operating-system
 
 flows_to:
+  - atlas-rivals-claims-and-reporting-v1
   - atlas-cartography
-  - atlas-code
 
 unlocks:
-  - ai-safe-implementation-context
+  - rivals_uplift_measurement
 
 governs:
-  - thesis
+  - thesis_rivals_multiplier
 
 evidence:
-  - docs/engineering-knowledge-base/thesis/rivals-validation.md
+  - docs/engineering-knowledge-base/atlas-rivals-product-v1.md
+  - app/Services/Ai/Rivals/Core/AtlasUpliftRunner.php
 
 evidence_refs:
-  - command: atlas:engineering:benchmark:rivals
-  - symbol: EngineeringBenchmarkService
+  - command: atlas:rivals
+  - symbol: AtlasUpliftRunner
 required_tests:
-  - "php artisan atlas:engineering:knowledge docs-health --json"
+  - "php artisan atlas:rivals doctor --json"
 
 requires_evidence: true
 
@@ -106,22 +110,27 @@ observability_signals:
   - docs-health status ok
 
 next_actions:
-  - Manter este doc sincronizado com codigo, testes, evidencias e Cartografia.
+  - Manter alinhado com atlas-rivals-product-v1 e AtlasUpliftRunner; runtime CLI atlas:rivals.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> Tese 2.0 (2026-07-09): produto e estrutura vivem em `atlas-rivals-product-v1` / `atlas-rivals-structure-v1`.
+> Runtime: `atlas:rivals`. Kill-map do 1.0: `atlas-rivals2-rebuild-map-v1.md`.
 
 # Atlas Thesis - Rivals Validation
 
 ## Purpose
 
-Rivals runs the same task through:
+Rivals (2.0) measures two things on the same ruler:
 
-1. Atlas path: Kernel pipeline, memory, policy, provider selection, gates,
-   repair, evidence.
+1. **Model vs model** (scoped by suite / task_type / budget) — quality, cost, cost-per-task, time, stability.
+2. **Atlas uplift** — same model/case/budget; only variable is runtime (`bare` vs `atlas_dev` / forge / autonomous).
+
+Uplift arms:
+
+1. Atlas path: Kernel pipeline, memory, policy, provider selection, gates, repair, evidence (when runtime_commands are wired).
 2. Direct path: same provider/model and workspace without the Atlas ecosystem.
 
-It answers: did Atlas multiply, match or degrade the provider?
+It answers: did Atlas multiply, match or degrade the provider? (and, separately, which model wins which scoped task.)
 
 ## Outcomes
 
@@ -169,6 +178,17 @@ audit-grade:
 - export bundle verifiable by manifest/evidence hash;
 - environment failures classified separately from model quality failures.
 
+Runtime atual: o arm `atlas_dev` usa bridge nao-interativo sobre
+`atlas:cli:dev`, com single-provider, Atlas Decide/fallback e fast-path
+deterministico desligados. Cada receipt de uplift precisa carregar prova desse
+bridge; arm_id sozinho nao prova que Atlas rodou.
+
+`fase_a_100_percent_authorized` certifica o produto somente quando
+`atlas:rivals closure --strict` encontra 10 bundles nativos + cinco uplifts
+reais claim-ready + tests/docs/ledger/prerequisites verdes. Nao equivale a
+`public_claim_allowed`; promocao publica continua sujeita a todos os itens
+acima e a verificacao independente do bundle.
+
 If any item fails, the correct status is `not_ready`, even when the current
 sample says Atlas or the rival is leading.
 
@@ -179,17 +199,11 @@ sample says Atlas or the rival is leading.
 - full: before significant release;
 - on-demand: whenever Atlas feels worse than direct provider.
 
-## P4 Readiness
+## P4 / strategy surface (1.0 — retired)
 
-Strategic Rivals cannot promote Atlas to P4+ from intent or scheduled reviews.
-`atlas:ai:rivals-strategy report --json` must expose
-`p4_promotion_readiness.status=ready`, which requires at least one real scored
-review with regret, alignment and agency evidence and average agency >= 70.
-While blocked, the report names the next review and prohibits synthetic scores,
-P4 declaration and autonomous decision authority.
-The report also exposes `atlas.rivals_strategy.report_safety.v1`: read-model
-only, writes closed, strategy/provider/runtime/policy execution closed,
-synthetic scores forbidden and operator review required for scores.
+The old `atlas:ai:rivals-strategy` / Rivals Strategy P4 surface belonged to Rivals 1.0
+and is **not** a live claim path. Uplift and model comparison use `atlas:rivals`
+with scoped `claim_allowed` gates (`atlas-rivals-claims-and-reporting-v1`).
 
 ## Domain Expansion
 

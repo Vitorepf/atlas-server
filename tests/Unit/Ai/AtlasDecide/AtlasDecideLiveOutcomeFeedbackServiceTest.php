@@ -125,6 +125,34 @@ class AtlasDecideLiveOutcomeFeedbackServiceTest extends TestCase
         $this->assertSame(2, $provider['token_sample_count']);
     }
 
+    public function test_route_stats_exposes_observed_capability_context(): void
+    {
+        $base = [
+            'task_category' => 'code_generation',
+            'role' => 'primary',
+            'framework' => 'laravel',
+            'provider' => 'codex_cli',
+            'model' => 'gpt',
+            'result' => 'success',
+            'proven_real' => true,
+            'language' => 'php',
+            'risk_level' => 'high',
+            'context_mode' => 'unified',
+            'tool_profile' => 'workspace_write',
+        ];
+        $this->svc->record($base + ['repair_count' => 0, 'context_tokens' => 1200]);
+        $this->svc->record($base + ['repair_count' => 2, 'context_tokens' => 1800]);
+
+        $profile = $this->svc->routeStats('code_generation', 'primary', 'laravel')['providers'][0]['capability_profile'];
+
+        $this->assertSame(['php' => 2], $profile['language_counts']);
+        $this->assertSame(['high' => 2], $profile['risk_level_counts']);
+        $this->assertSame(['unified' => 2], $profile['context_mode_counts']);
+        $this->assertSame(['workspace_write' => 2], $profile['tool_profile_counts']);
+        $this->assertSame(1.0, $profile['avg_repair_count']);
+        $this->assertSame(1500, $profile['avg_context_tokens']);
+    }
+
     public function test_degradation_signal_insufficient_evidence(): void
     {
         $this->seedOutcomes('claude_cli', 2, 0); // below MIN_CALLS_FOR_SIGNAL=5

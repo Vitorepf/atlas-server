@@ -9,6 +9,7 @@ use App\Models\AtlasAurgNode;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\RuntimeBoundary\GraphRankRuntimeClient;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -119,6 +120,7 @@ class AtlasRealityGraphQueryService
     {
         $query = trim($query);
         $providerBound = (bool) ($opts['provider_bound'] ?? false);
+        $workspaceId = trim((string) ($opts['workspace_id'] ?? ''));
 
         $requestedDepth = (int) ($opts['depth'] ?? $this->cap('query_depth', 2));
         $depth = max(1, min(self::HARD_MAX_DEPTH, $requestedDepth));
@@ -134,10 +136,10 @@ class AtlasRealityGraphQueryService
         ];
 
         if ($query === '') {
-            return $this->result($query, [], $providerBound, $depth, [], [], [], [], self::RANKING_EMPTY_QUERY, $capsHit);
+            return $this->result($query, [], $providerBound, $workspaceId, $depth, [], [], [], [], self::RANKING_EMPTY_QUERY, $capsHit);
         }
         if (! $this->storeReady()) {
-            return $this->result($query, [], $providerBound, $depth, [], [], [], [], self::RANKING_STORE_MISSING, $capsHit);
+            return $this->result($query, [], $providerBound, $workspaceId, $depth, [], [], [], [], self::RANKING_STORE_MISSING, $capsHit);
         }
 
         $terms = $this->terms($query);
@@ -147,19 +149,19 @@ class AtlasRealityGraphQueryService
         // ------------------------------------------------------------------
         $semanticTruncated = false;
         $lexicalTruncated = false;
-        $semantic = $this->semanticSeeds($query, $providerBound, $seedLimit, $semanticTruncated);
-        $lexical = $this->lexicalSeeds($terms, $providerBound, $seedLimit, $lexicalTruncated);
+        $semantic = $this->semanticSeeds($query, $providerBound, $workspaceId, $seedLimit, $semanticTruncated);
+        $lexical = $this->lexicalSeeds($terms, $providerBound, $workspaceId, $seedLimit, $lexicalTruncated);
         $seeds = $this->mergeSeeds($semantic, $lexical, $seedLimit, $capsHit['seeds']);
         $capsHit['seeds'] = $capsHit['seeds'] || $semanticTruncated || $lexicalTruncated;
 
         if ($seeds === []) {
-            return $this->result($query, $terms, $providerBound, $depth, [], [], [], [], self::RANKING_BELOW_THRESHOLD, $capsHit);
+            return $this->result($query, $terms, $providerBound, $workspaceId, $depth, [], [], [], [], self::RANKING_BELOW_THRESHOLD, $capsHit);
         }
 
         // ------------------------------------------------------------------
         // 2) TRAVERSAL — bounded undirected BFS with parent pointers.
         // ------------------------------------------------------------------
-        $traversal = $this->traverse(array_column($seeds, 'node_id'), $depth, $maxNodes, $maxEdges, $providerBound, $capsHit);
+        $traversal = $this->traverse(array_column($seeds, 'node_id'), $depth, $maxNodes, $maxEdges, $providerBound, $workspaceId, $capsHit);
 
         // ------------------------------------------------------------------
         // 3) PATHS — every reached node carries its node→edge→node chain.
@@ -178,7 +180,7 @@ class AtlasRealityGraphQueryService
         }
         $edges = array_map(fn (AtlasAurgEdge $edge): array => $this->edgePayload($edge), $traversal['edges']);
 
-        return $this->result($query, $terms, $providerBound, $depth, $seeds, $nodes, $edges, $paths, $ranking, $capsHit);
+        return $this->result($query, $terms, $providerBound, $workspaceId, $depth, $seeds, $nodes, $edges, $paths, $ranking, $capsHit);
     }
 
     // ------------------------------------------------------------------
@@ -194,7 +196,7 @@ class AtlasRealityGraphQueryService
      *
      * @return list<array<string,mixed>>
      */
-    private function semanticSeeds(string $query, bool $providerBound, int $cap, bool &$truncated = false): array
+    private function semanticSeeds(string $query, bool $providerBound, string $workspaceId, int $cap, bool &$truncated = false): array
     {
         $builder = AtlasAurgNode::query()
             ->where('source_kind', 'memory')
@@ -202,6 +204,7 @@ class AtlasRealityGraphQueryService
         if ($providerBound) {
             $builder->where('provider_safe', true)->where('sensitive', false);
         }
+        $this->applyWorkspaceScope($builder, $workspaceId);
         $candidates = $builder
             ->orderBy('id')
             ->limit($this->cap('max_nodes', 5000))
@@ -270,7 +273,7 @@ class AtlasRealityGraphQueryService
      * @param  list<string>  $terms
      * @return list<array<string,mixed>>
      */
-    private function lexicalSeeds(array $terms, bool $providerBound, int $cap, bool &$truncated = false): array
+    private function lexicalSeeds(array $terms, bool $providerBound, string $workspaceId, int $cap, bool &$truncated = false): array
     {
         if ($terms === []) {
             return [];
@@ -282,6 +285,7 @@ class AtlasRealityGraphQueryService
         if ($providerBound) {
             $builder->where('provider_safe', true)->where('sensitive', false);
         }
+        $this->applyWorkspaceScope($builder, $workspaceId);
         $builder->where(function ($query) use ($terms, $metaExpression): void {
             foreach ($terms as $term) {
                 $like = '%'.$term.'%';
@@ -394,7 +398,15 @@ class AtlasRealityGraphQueryService
      * @param  array<string,bool>  $capsHit  mutated: nodes/edges flags
      * @return array{order:list<string>, nodesById:array<string,AtlasAurgNode>, edges:list<AtlasAurgEdge>, parents:array<string,array{via:string, edge:AtlasAurgEdge, depth:int}>, depths:array<string,int>, seedIds:array<string,bool>}
      */
-    private function traverse(array $seedIds, int $depth, int $maxNodes, int $maxEdges, bool $providerBound, array &$capsHit): array
+    private function traverse(
+        array $seedIds,
+        int $depth,
+        int $maxNodes,
+        int $maxEdges,
+        bool $providerBound,
+        string $workspaceId,
+        array &$capsHit,
+    ): array
     {
         $seedRows = AtlasAurgNode::query()->whereIn('id', $seedIds)->get()->keyBy('id');
 
@@ -408,6 +420,9 @@ class AtlasRealityGraphQueryService
                 continue;
             }
             if ($providerBound && ! $this->providerAdmissible($row)) {
+                continue;
+            }
+            if (! $this->workspaceAdmissible($row, $workspaceId)) {
                 continue;
             }
             if (count($order) >= $maxNodes) {
@@ -487,6 +502,9 @@ class AtlasRealityGraphQueryService
                 if ($providerBound && ! $this->providerAdmissible($neighborRow)) {
                     continue; // structural privacy: never traverse INTO excluded nodes
                 }
+                if (! $this->workspaceAdmissible($neighborRow, $workspaceId)) {
+                    continue;
+                }
                 if (count($order) >= $maxNodes) {
                     $capsHit['nodes'] = true;
 
@@ -526,6 +544,27 @@ class AtlasRealityGraphQueryService
         // sensitive domains provider_safe=false already, but a sensitive row
         // must never ride a provider-bound answer regardless of its safe bit.
         return (bool) $node->provider_safe && ! (bool) $node->sensitive;
+    }
+
+    private function applyWorkspaceScope(Builder $builder, string $workspaceId): void
+    {
+        if ($workspaceId === '') {
+            return;
+        }
+
+        $builder->where(function (Builder $query) use ($workspaceId): void {
+            $query->whereNull('workspace_id')
+                ->orWhere('workspace_id', $workspaceId);
+        });
+    }
+
+    private function workspaceAdmissible(AtlasAurgNode $node, string $workspaceId): bool
+    {
+        $nodeWorkspace = trim((string) ($node->workspace_id ?? ''));
+
+        return $workspaceId === ''
+            || $nodeWorkspace === ''
+            || hash_equals($workspaceId, $nodeWorkspace);
     }
 
     // ------------------------------------------------------------------
@@ -769,6 +808,7 @@ class AtlasRealityGraphQueryService
         string $query,
         array $terms,
         bool $providerBound,
+        string $workspaceId,
         int $depth,
         array $seeds,
         array $nodes,
@@ -781,6 +821,7 @@ class AtlasRealityGraphQueryService
             'query' => $query,
             'terms' => $terms,
             'provider_bound' => $providerBound,
+            'workspace_id' => $workspaceId !== '' ? $workspaceId : null,
             'depth' => $depth,
             'seeds' => $seeds,
             'nodes' => $nodes,

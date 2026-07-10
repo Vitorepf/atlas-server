@@ -2,11 +2,12 @@
 id: atlas-forge-rivals-perfect-battery-and-adjudicator-v1-part-02
 type: engineering_knowledge
 title: Atlas Forge Rivals Perfect Battery & Adjudicator v1 · Parte 2
-status: source_material
+status: deprecated
+superseded_by: docs/engineering-knowledge-base/atlas-rivals-product-v1.md
 implementation_state: source_material_no_runtime_authority
 category: programming-forge
 priority: 88
-summary: Recorte focado de Atlas Forge Rivals Perfect Battery & Adjudicator v1: 4b. Adjudicator v2 (per-category, suspicious triage, confidence ladder) ate 4c. Truth Guard v1 — Calibration & Score Separation.
+summary: "SUPERSEDED by atlas-rivals-product-v1 (Rivals 2.0). Legacy: Recorte focado de Atlas Forge Rivals Perfect Battery & Adjudicator v1: 4b. Adjudicator v2 (per-category, suspicious triage, confidence ladder) ate 4c. Truth Guard v1 — Calibration & Score Separation."
 tags:
   - atlas
   - forge
@@ -28,7 +29,7 @@ graph_world: atlas
 graph_layer: module
 graph_kind: module
 graph_parent: atlas-forge-rivals-perfect-battery-and-adjudicator-v1
-graph_status: active
+graph_status: deprecated
 graph_source: repo
 human_name: Atlas Forge Rivals Perfect Battery & Adjudicator v1 Parte 2
 canonical_name: Atlas Forge Rivals Perfect Battery & Adjudicator v1 Parte 2
@@ -61,7 +62,8 @@ next_actions:
   - Manter este recorte alinhado ao índice canônico.
 ---
 
-> SUPERSEDED (2026-07-02): Rivals 1.0 removido. Ver atlas-rivals2-rebuild-map-v1.md e o runtime atlas:rivals2.
+> SUPERSEDED (2026-07-02 / docs overhaul 2026-07-09): Rivals 1.0 removido. Canon vivo: `atlas-rivals-product-v1.md` + `atlas-rivals-structure-v1.md`. Kill-map histórico: `atlas-rivals2-rebuild-map-v1.md`. Runtime: `atlas:rivals`.
+
 
 # Atlas Forge Rivals Perfect Battery & Adjudicator v1 · Parte 2
 

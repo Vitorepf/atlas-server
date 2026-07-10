@@ -1,0 +1,9 @@
+{
+  "case_id": "simple",
+  "native_category": "simple_python",
+  "native_test_id": "simple_python_0",
+  "task_type": "tool_use_function_calling",
+  "title": "simple",
+  "suite_id": "bfcl",
+  "source_repo": "bfcl"
+}

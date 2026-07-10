@@ -1,0 +1,8 @@
+{
+  "case_id": "wasm-simd",
+  "native_task_id": "wasm-simd",
+  "task_type": "long_horizon_engineering",
+  "title": "wasm-simd",
+  "suite_id": "swe_marathon",
+  "source_repo": "swe_marathon"
+}

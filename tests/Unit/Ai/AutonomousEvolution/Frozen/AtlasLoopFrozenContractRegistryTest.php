@@ -35,7 +35,7 @@ final class AtlasLoopFrozenContractRegistryTest extends TestCase
         $second = $registry->missing();
 
         $this->assertSame($first, $second);
-        $this->assertContains('App\\Services\\Ai\\AutonomousEvolution\\Telemetry\\AtlasLoopTelemetryFactStreamEmitter', $first);
+        $this->assertContains('App\\Services\\Ai\\AutonomousEvolution\\Anomaly\\AtlasLoopAnomalyBaselineReporter', $first);
         $this->assertNotContains('App\\Services\\Ai\\AutonomousEvolution\\AtlasLoopAttemptLedger', $first);
     }
 

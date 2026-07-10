@@ -54,6 +54,7 @@ class AtlasRealityGraphStatusService
         return [
             'enabled' => (bool) config('atlas.aurg.enabled', true),
             'store' => $store,
+            'coverage' => $this->coverageStatus($store),
             'temporal' => $temporal,
             'flags' => $this->flagStatus(),
             'generated_at' => now()->toIso8601String(),
@@ -130,6 +131,77 @@ class AtlasRealityGraphStatusService
         } catch (Throwable) {
             return (string) $raw;
         }
+    }
+
+    /**
+     * Cross-layer coverage from live endpoints. Counts are evidence, not a
+     * readiness proxy: a linked memory can still be irrelevant, so precision is
+     * certified separately by query fixtures/held-out evaluation.
+     *
+     * @param  array<string,mixed>  $store
+     * @return array<string,mixed>
+     */
+    private function coverageStatus(array $store): array
+    {
+        if (! (bool) ($store['available'] ?? false)) {
+            return ['available' => false, 'reason' => 'tables_missing'];
+        }
+
+        $memoryNodes = (int) AtlasAurgNode::query()
+            ->where('source_kind', 'memory')
+            ->count();
+        $linkedMemory = [];
+        $crossLayerEdges = 0;
+        $rows = DB::table('atlas_aurg_edges as edge')
+            ->join('atlas_aurg_nodes as from_node', 'from_node.id', '=', 'edge.from_node_id')
+            ->join('atlas_aurg_nodes as to_node', 'to_node.id', '=', 'edge.to_node_id')
+            ->where('edge.source', 'like', 'linker_%')
+            ->get([
+                'from_node.id as from_id',
+                'from_node.source_kind as from_source_kind',
+                'to_node.id as to_id',
+                'to_node.source_kind as to_source_kind',
+            ]);
+        foreach ($rows as $row) {
+            if ($row->from_source_kind === $row->to_source_kind) {
+                continue;
+            }
+            $crossLayerEdges++;
+            if ($row->from_source_kind === 'memory') {
+                $linkedMemory[(string) $row->from_id] = true;
+            }
+            if ($row->to_source_kind === 'memory') {
+                $linkedMemory[(string) $row->to_id] = true;
+            }
+        }
+
+        $connectedIds = DB::table('atlas_aurg_edges')
+            ->get(['from_node_id', 'to_node_id'])
+            ->flatMap(static fn (object $edge): array => [
+                (string) $edge->from_node_id,
+                (string) $edge->to_node_id,
+            ])
+            ->unique()
+            ->values()
+            ->all();
+        $orphanNodes = $connectedIds === []
+            ? (int) ($store['nodes_total'] ?? 0)
+            : (int) AtlasAurgNode::query()->whereNotIn('id', $connectedIds)->count();
+        $linkedCount = count($linkedMemory);
+
+        return [
+            'available' => true,
+            'status' => $memoryNodes === 0
+                ? 'empty'
+                : ($linkedCount === 0 ? 'needs_links' : 'measured'),
+            'memory_nodes' => $memoryNodes,
+            'memory_cross_layer_nodes' => $linkedCount,
+            'memory_cross_layer_coverage_ratio' => $memoryNodes > 0
+                ? round($linkedCount / $memoryNodes, 4)
+                : 0.0,
+            'cross_layer_linker_edges' => $crossLayerEdges,
+            'orphan_nodes' => $orphanNodes,
+        ];
     }
 
     // ------------------------------------------------------------------

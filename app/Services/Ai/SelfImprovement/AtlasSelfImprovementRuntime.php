@@ -2793,7 +2793,11 @@ class AtlasSelfImprovementRuntime
      */
     private function normalizedDomainOnboardingFilters(array $filters): array
     {
-        return $this->normalizedWhitelistFilters($filters, ['domain', 'flow', 'onboarding_status']);
+        return $this->normalizedWhitelistFilters($filters, [
+            'domain',
+            'flow',
+            'onboarding_status' => 'onboarding_status',
+        ]);
     }
 
     /**

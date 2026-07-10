@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Support\NowTrait;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Closure;
 use DateTimeImmutable;
@@ -26,6 +27,7 @@ use Throwable;
  */
 final class AtlasLoopProviderHealthProbe
 {
+    use NowTrait;
     public const SCHEMA_VERSION = 'atlas.loop.provider_health.v1';
 
     private const STORAGE_SUBPATH = 'app/atlas/loop/provider-health';
@@ -176,10 +178,8 @@ final class AtlasLoopProviderHealthProbe
 
     private function now(): DateTimeImmutable
     {
-        if ($this->clock !== null) {
-            return ($this->clock)()->setTimezone(new DateTimeZone('UTC'));
-        }
+        $clock = is_callable($this->clock) ? Closure::fromCallable($this->clock) : null;
 
-        return new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        return $this->nowAsDateTimeImmutable($clock);
     }
 }

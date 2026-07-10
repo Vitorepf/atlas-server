@@ -84,6 +84,7 @@ class AtlasCliInboxCommand extends Command
         );
         $items = $page['items'];
         $payload = AiInboxItemResource::collection($items)->resolve();
+        $payload = array_map([$this, 'enrichListItem'], $payload);
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode([
@@ -100,16 +101,55 @@ class AtlasCliInboxCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->table(['id', 'type', 'severity', 'status', 'title', 'created'], collect($payload)->map(fn (array $row): array => [
+        $this->table(['id', 'type', 'severity', 'actions', 'status', 'title', 'created'], collect($payload)->map(fn (array $row): array => [
             $row['id'],
             $row['type'],
             $row['severity'],
+            (string) ($row['action_summary']['count'] ?? 0),
             $row['status'],
-            Str::limit($row['title'], 70),
+            Str::limit($row['title'], 60),
             $row['created_at'],
         ])->all());
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>
+     */
+    private function enrichListItem(array $row): array
+    {
+        $actions = is_array($row['available_actions'] ?? null) ? $row['available_actions'] : [];
+        $ids = array_values(array_filter(array_map(fn (mixed $a): ?string => is_array($a) && is_string($a['id'] ?? null) ? $a['id'] : null, $actions)));
+
+        $row['action_summary'] = [
+            'count' => count($ids),
+            'ids' => $ids,
+        ];
+        $row['origin'] = [
+            'source_type' => $row['source_type'] ?? null,
+            'source_id' => $row['source_id'] ?? null,
+            'initiator' => $row['initiator'] ?? null,
+        ];
+
+        $payload = is_array($row['payload'] ?? null) ? $row['payload'] : [];
+        $proofRefs = [];
+        if (is_string($payload['trace_id'] ?? null) && $payload['trace_id'] !== '') {
+            $proofRefs[] = $payload['trace_id'];
+        }
+        if (is_string($payload['job_id'] ?? null) && $payload['job_id'] !== '') {
+            $proofRefs[] = $payload['job_id'];
+        }
+        $contextBundle = is_array($row['context_bundle'] ?? null) ? $row['context_bundle'] : [];
+        foreach ((array) ($contextBundle['trace_refs'] ?? []) as $ref) {
+            if (is_array($ref) && is_string($ref['id'] ?? null)) {
+                $proofRefs[] = $ref['id'];
+            }
+        }
+        $row['proof_refs'] = array_values(array_unique($proofRefs));
+
+        return $row;
     }
 
     private function reviewCritical(): int
@@ -174,14 +214,47 @@ class AtlasCliInboxCommand extends Command
         $payload = (new AiInboxItemResource($item->load('contextBundle')))->resolve();
 
         if ((bool) $this->option('json')) {
-            $this->line(json_encode(['item' => $payload], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $responseCommands = $this->buildResponseCommands($item);
+            $this->line(json_encode([
+                'item' => $payload,
+                'response_commands' => $responseCommands,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return self::SUCCESS;
         }
 
         $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->newLine();
+        $this->line('<fg=bright-blue;options=bold>Comandos prontos para responder:</>');
+        foreach ($this->buildResponseCommands($item) as $label => $command) {
+            $this->line('  <fg=cyan>'.$label.'</>: '.$command);
+        }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function buildResponseCommands(AiInboxItem $item): array
+    {
+        $id = (string) $item->id;
+        $commands = [];
+        foreach ((array) ($item->available_actions ?? []) as $action) {
+            if (! is_array($action) || ! is_string($action['id'] ?? null)) {
+                continue;
+            }
+            $actionId = $action['id'];
+            if (in_array($actionId, ['mark_read', 'dismiss', 'discard', 'snooze', 'discuss'], true)) {
+                continue;
+            }
+            $label = is_string($action['label'] ?? null) ? $action['label'] : $actionId;
+            $commands[$label] = sprintf('atlas:cli:inbox respond %s --action=%s --reason="<motivo>"', $id, $actionId);
+        }
+        $commands['Discutir'] = sprintf('atlas:cli:inbox discuss %s', $id);
+        $commands['Descartar'] = sprintf('atlas:cli:inbox dismiss %s --reason="<motivo>"', $id);
+
+        return $commands;
     }
 
     private function dismiss(AtlasInboxService $inbox): int

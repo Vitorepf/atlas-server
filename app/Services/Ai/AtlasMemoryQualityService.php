@@ -12,6 +12,7 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AtlasMemoryQualityService
 {
@@ -272,6 +273,8 @@ class AtlasMemoryQualityService
             'archived' => $entries->where('status', 'archived')->count(),
             'provider_safe_active' => $providerSafe->count(),
             'provider_blocked_active' => max(0, $active->count() - $providerSafe->count()),
+            'global_active' => $active->where('scope_type', 'global')->count(),
+            'non_global_active' => $active->where('scope_type', '!=', 'global')->count(),
             'privacy_review_needed' => $privacyReviewNeeded,
             'redacted_active' => $active->filter(fn (AtlasMemoryEntry $entry): bool => ($entry->redaction_status ?? null) === 'redacted')->count(),
             'missing_title_active' => $active->filter(fn (AtlasMemoryEntry $entry): bool => trim((string) ($entry->title ?? '')) === '')->count(),
@@ -554,9 +557,11 @@ class AtlasMemoryQualityService
         $query = AiMemoryDelta::query();
         $workspace = $this->workspace($filters['workspace'] ?? null);
         if ($workspace !== null) {
+            $workspaceSlug = Str::limit(str_replace(['/', '\\', ' '], '_', trim($workspace)), 150, '');
             $query->whereIn('scope', array_values(array_unique([
                 'workspace:'.$workspace,
                 'workspace:'.(realpath($workspace) ?: $workspace),
+                'workspace:'.$workspaceSlug,
             ])));
         }
 
@@ -598,6 +603,16 @@ class AtlasMemoryQualityService
             }
 
             $checked++;
+            // Every canonical source table above uses a UUID primary key.
+            // Legacy/provider projections may retain a human source label; do
+            // not send that value to a PostgreSQL uuid comparison, where it
+            // raises 22P02 and hides the entire quality report. It is an
+            // orphaned source reference by definition.
+            if (! Str::isUuid($sourceId)) {
+                $orphaned++;
+
+                continue;
+            }
             if (! DB::table($knownSources[$sourceType])->where('id', $sourceId)->exists()) {
                 $orphaned++;
             }
@@ -636,6 +651,10 @@ class AtlasMemoryQualityService
             'recall_concentration_ratio' => $this->ratio((int) ($retrievalEval['top_entry_recall_count'] ?? 0), max(1, (int) ($retrievalEval['recall_usage_total'] ?? 0))),
             'open_relation_ratio' => $this->ratio((int) $relations['open'], $active),
             'source_orphan_ratio' => $this->ratio((int) $sourceIntegrity['orphaned'], $checked),
+            'global_scope_ratio' => $this->ratio(
+                (int) ($counts['global_active'] ?? 0),
+                max(1, (int) ($counts['active'] ?? 0)),
+            ),
         ];
     }
 
@@ -749,6 +768,14 @@ class AtlasMemoryQualityService
         if ($sourceIntegrity['orphaned'] > 0) {
             $issues[] = ['code' => 'orphaned_memory_sources', 'severity' => 'warning', 'count' => $sourceIntegrity['orphaned']];
         }
+        if ((int) ($counts['active'] ?? 0) > 0
+            && (int) ($counts['global_active'] ?? 0) === (int) ($counts['active'] ?? 0)) {
+            $issues[] = [
+                'code' => 'global_scope_concentration',
+                'severity' => 'info',
+                'count' => (int) $counts['global_active'],
+            ];
+        }
         if ($deltas['accepted'] > 0) {
             $issues[] = ['code' => 'accepted_learning_not_promoted', 'severity' => 'info', 'count' => $deltas['accepted']];
         }
@@ -823,6 +850,10 @@ class AtlasMemoryQualityService
         }
         if ($sourceIntegrity['orphaned'] > 0 || in_array($status, ['critical', 'needs_review'], true)) {
             $actions[] = './bin/atlas memory govern --dry-run --json';
+        }
+        if ((int) ($counts['active'] ?? 0) > 0
+            && (int) ($counts['global_active'] ?? 0) === (int) ($counts['active'] ?? 0)) {
+            $actions[] = './bin/atlas memory list --scope-type=global --status=active --compact --limit=50 --json';
         }
         if (in_array($trend['status'] ?? null, ['regressed', 'watch_regressed'], true)) {
             $actions[] = './bin/atlas memory quality history'.$workspaceArg.' --days=30 --json';

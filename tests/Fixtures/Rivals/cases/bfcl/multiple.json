@@ -1,0 +1,9 @@
+{
+  "case_id": "multiple",
+  "native_category": "multiple",
+  "native_test_id": "multiple_0",
+  "task_type": "tool_use_function_calling",
+  "title": "multiple",
+  "suite_id": "bfcl",
+  "source_repo": "bfcl"
+}

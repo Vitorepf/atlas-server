@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai\Rivals;
 
 use App\Services\Ai\Rivals\Core\ResultLedger;
+use App\Services\Ai\Rivals\Support\RunPaths;
 use Tests\TestCase;
 
 class ResultLedgerTest extends TestCase
@@ -53,5 +54,40 @@ class ResultLedgerTest extends TestCase
         $chain = $ledger->verifyChain();
         $this->assertFalse($chain['verified']);
         $this->assertNotEmpty($chain['failures']);
+    }
+
+    public function test_same_logical_decision_is_idempotent(): void
+    {
+        $ledger = new ResultLedger;
+        $first = $ledger->append('run_a', ['verdict' => 'valid']);
+        $again = $ledger->append('run_a', ['verdict' => 'valid']);
+
+        $this->assertSame($first['entry_id'], $again['entry_id']);
+        $this->assertTrue($again['idempotent_replay']);
+        $this->assertSame(1, $ledger->verifyChain()['entries']);
+    }
+
+    public function test_semantic_verify_binds_latest_report_to_disk(): void
+    {
+        $runId = 'run_semantic';
+        RunPaths::ensureDir(RunPaths::runDir($runId));
+        file_put_contents(RunPaths::evidencePath($runId), '{"evidence":true}');
+        file_put_contents(RunPaths::adjudicationPath($runId), '{"verdict":"valid"}');
+        file_put_contents(RunPaths::reportPath($runId), '{"pipeline_valid":true}');
+
+        $ledger = new ResultLedger;
+        $ledger->append($runId, ['verdict' => 'valid']);
+        $ledger->appendReport($runId, [
+            'pipeline_valid' => true,
+            'internal_claim_allowed' => false,
+            'public_claim_allowed' => false,
+            'not_ready_reasons' => ['sample_inadequate'],
+        ]);
+        $this->assertTrue($ledger->verifySemantic()['verified']);
+
+        file_put_contents(RunPaths::reportPath($runId), '{"pipeline_valid":false}');
+        $semantic = $ledger->verifySemantic();
+        $this->assertFalse($semantic['verified']);
+        $this->assertNotEmpty(preg_grep('/report_hash/', $semantic['failures']));
     }
 }

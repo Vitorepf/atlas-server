@@ -4,16 +4,30 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\Rivals\Adapters\AtlasBenchSuiteAdapter;
 use App\Services\Ai\Rivals\Adapters\LocalFakeSuiteAdapter;
+use App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager;
 use App\Services\Ai\Rivals\Contracts\BenchmarkSuiteAdapter;
 use App\Services\Ai\Rivals\Core\Adjudicator;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\AtlasUpliftRunner;
+use App\Services\Ai\Rivals\Core\BundleManifest;
+use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\FaseAClosureReceipt;
 use App\Services\Ai\Rivals\Core\ModelRegistry;
+use App\Services\Ai\Rivals\Core\NativeExecutionBundleImporter;
+use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
+use App\Services\Ai\Rivals\Core\Preregistration;
 use App\Services\Ai\Rivals\Core\ReplayVerifier;
 use App\Services\Ai\Rivals\Core\ReportBuilder;
 use App\Services\Ai\Rivals\Core\ResultLedger;
 use App\Services\Ai\Rivals\Core\RunPlan;
+use App\Services\Ai\Rivals\Core\RunReceipt;
+use App\Services\Ai\Rivals\Core\RunStateMachine;
+use App\Services\Ai\Rivals\Core\SuiteRegistry;
+use App\Services\Ai\Rivals\Support\RunLock;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process as ProcessFacade;
 
 /**
  * Único entrypoint do Rivals (produto público: Rivals, versão 2.0; substitui
@@ -25,19 +39,29 @@ class AtlasRivalsCommand extends Command
     protected $aliases = ['atlas:rivals2'];
 
     protected $signature = 'atlas:rivals
-        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|plan|run|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|ledger}
+        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|uplift|bundle|verify-bundle|closure|ledger}
         {--repo= : (benchmark-smoke) repo_id do registry (vazio = todos)}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
         {--atlas-runtime=atlas_dev}
         {--suite=local_fake}
+        {--cases= : (plan) comma-separated case ids; default all imported cases}
         {--limit=5 : (mine) máximo de cases a minerar}
         {--file= : (import-cases/import-results) arquivo ou diretório de origem}
+        {--source-repo= : (import-cases/plan) source_repo de proveniência}
+        {--judge-config= : (plan) path JSON de judge_config}
+        {--budget= : (plan) budget USD}
+        {--max-minutes= : (plan) hard wall-clock cap per native execution}
+        {--approve-provider-spend : (plan) aprovação explícita de spend}
+        {--replace-import : (import-results) substitui receipts/evidence anteriores}
+        {--strict : falha se smoke blocked / uplift unsupported}
         {--run= : run_id (default: run mais recente)}
         {--arms=local_fake_model@bare : lista model@runtime separada por vírgula}
         {--repetitions=3}
         {--seed=1}
         {--verify : (ledger) verifica a hash chain}
+        {--semantic : (ledger) verifica chain + estado semântico atual}
+        {--reason= : (cancel) motivo obrigatório}
         {--workspace= : (compat launcher bin/atlas) ignorado — Rivals roda no atlas-server}
         {--json}';
 
@@ -46,9 +70,22 @@ class AtlasRivalsCommand extends Command
     public function handle(): int
     {
         $action = $this->argument('action');
+        $enabled = (bool) config('atlas_rivals.enabled', false);
+        $mutating = ! in_array($action, ['doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status', 'verify-bundle', 'report', 'report-all'], true);
+        if (! $enabled && $mutating) {
+            $payload = [
+                'status' => 'error',
+                'error' => 'atlas_rivals_disabled',
+                'hint' => 'Set ATLAS_RIVALS2_ENABLED=true to mutate or run Rivals 2.0.',
+            ];
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+            return self::FAILURE;
+        }
+
         $payload = match ($action) {
             'doctor' => $this->doctor(),
-            'benchmarks' => (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status(),
+            'benchmarks' => $this->benchmarks(),
             'benchmark-smoke' => $this->benchmarkSmoke(),
             'run' => $this->runSuite(),
             'models' => ['schema_version' => 'atlas.rivals2.models.v1', 'models' => (new ModelRegistry)->all()],
@@ -57,31 +94,65 @@ class AtlasRivalsCommand extends Command
             'import-cases' => $this->importCases(),
             'import-results' => $this->importResults(),
             'plan' => $this->plan(),
+            'preflight' => $this->preflight(),
+            'status' => $this->runStatus(),
+            'resume' => $this->resume(),
+            'cancel' => $this->cancel(),
             'run-fake' => $this->runFake(),
             'run-bench' => $this->runBench(),
-            'verify' => $this->withRun(fn ($runId) => ['run_id' => $runId] + (new ReplayVerifier)->verify($runId)),
+            'verify' => $this->withRun(function ($runId) {
+                (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::EVIDENCE_BUILT);
+                $result = ['run_id' => $runId] + (new ReplayVerifier)->verify($runId);
+                if (($result['verified'] ?? false) === true) {
+                    (new RunStateMachine)->mark($runId, RunStateMachine::VERIFIED, $result);
+                }
+
+                return $result;
+            }, lock: true),
             'adjudicate' => $this->withRun(function ($runId) {
+                (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::VERIFIED);
                 $adjudication = (new Adjudicator)->adjudicate($runId);
+                (new RunStateMachine)->mark($runId, RunStateMachine::ADJUDICATED, [
+                    'claim_allowed' => (bool) ($adjudication['claim_allowed'] ?? false),
+                ]);
                 // toda adjudicação (válida OU inválida) entra na chain — auditoria completa
                 $entry = (new ResultLedger)->append($runId, $adjudication);
 
                 return $adjudication + ['ledger_entry_id' => $entry['entry_id']];
-            }),
-            'report' => $this->withRun(fn ($runId) => (new ReportBuilder)->build($runId)),
+            }, lock: true),
+            'report' => $this->withRun(function ($runId) {
+                (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::ADJUDICATED);
+                $report = (new ReportBuilder)->build($runId);
+                (new RunStateMachine)->mark($runId, RunStateMachine::REPORTED, [
+                    'claim_allowed' => (bool) ($report['claim_allowed'] ?? false),
+                ]);
+                (new ResultLedger)->appendReport($runId, $report);
+
+                return $report;
+            }, lock: true),
             'report-all' => (new ReportBuilder)->buildAll(),
             'uplift' => $this->withRun(function ($runId) {
+                (new RunStateMachine)->assertAtLeast($runId, RunStateMachine::ADJUDICATED);
                 $model = (string) $this->option('model');
                 if ($model === '') {
                     return ['status' => 'error', 'error' => 'uplift_requires_model_option'];
                 }
 
-                return (new \App\Services\Ai\Rivals\Core\AtlasUpliftRunner)->compare(
+                $result = (new AtlasUpliftRunner)->compare(
                     $runId,
                     $model,
                     (string) $this->option('base-runtime'),
                     (string) $this->option('atlas-runtime'),
                 );
-            }),
+                if ($this->option('strict') && ! ($result['uplift_supported'] ?? false)) {
+                    return $result + ['status' => 'error', 'error' => 'uplift_unsupported'];
+                }
+
+                return $result + ['status' => 'ok'];
+            }, lock: true),
+            'bundle' => $this->bundle(),
+            'verify-bundle' => $this->verifyBundle(),
+            'closure' => $this->closure(),
             'ledger' => $this->ledger(),
             default => ['status' => 'error', 'error' => "unknown_action:{$action}"],
         };
@@ -103,21 +174,33 @@ class AtlasRivalsCommand extends Command
     {
         $root = RunPaths::root();
         RunPaths::ensureDir($root);
+        $registry = new SuiteRegistry;
+        $registryOk = true;
+        $registryError = null;
+        try {
+            $registry->assertComplete();
+        } catch (\Throwable $e) {
+            $registryOk = false;
+            $registryError = $e->getMessage();
+        }
         $checks = [
             'config_loaded' => config('atlas_rivals') !== null,
             'storage_writable' => is_writable($root),
             'provider_spend_allowed' => (bool) config('atlas_rivals.provider_spend_allowed'),
             'ledger_chain' => (new ResultLedger)->verifyChain(),
+            'suite_registry_complete' => $registryOk,
+            'suite_registry_error' => $registryError,
+            'fase_a_closure' => (new FaseAClosureReceipt)->verify(),
         ];
         // resumo honesto dos benchmark repos externos (informativo; blocked
         // não derruba o doctor — é estado do mundo, não defeito do Rivals)
-        $benchmarks = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status();
+        $benchmarks = (new BenchmarkRepoManager)->status();
         $checks['benchmark_repos'] = [
             'total' => $benchmarks['total'],
             'running' => $benchmarks['running'],
             'blocked' => $benchmarks['blocked'],
         ];
-        $ok = $checks['config_loaded'] && $checks['storage_writable'] && $checks['ledger_chain']['verified'];
+        $ok = $checks['config_loaded'] && $checks['storage_writable'] && $checks['ledger_chain']['verified'] && $registryOk;
 
         return [
             'schema_version' => 'atlas.rivals2.doctor.v1',
@@ -125,17 +208,155 @@ class AtlasRivalsCommand extends Command
             'version' => (string) config('atlas_rivals.version'),
             'status' => $ok ? 'ok' : 'error',
             'storage_root' => $root,
+            'canonical_suite_ids' => $registry->externalSuiteIds(),
+            'catalog' => $registryOk ? $registry->catalog() : [],
             'checks' => $checks,
         ];
+    }
+
+    private function benchmarks(): array
+    {
+        $status = (new BenchmarkRepoManager)->status();
+        if ($this->option('strict') && (int) ($status['blocked'] ?? 0) > 0) {
+            return $status + ['status' => 'error', 'error' => 'smoke_not_all_green'];
+        }
+
+        return $status;
+    }
+
+    private function preflight(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $plan = RunPlan::load($runId);
+            $suiteId = (string) $plan->data['suite_id'];
+            $checks = [
+                'plan_valid' => true,
+                'storage_writable' => is_writable(RunPaths::runDir($runId)),
+            ];
+            if (in_array($suiteId, (new SuiteRegistry)->externalSuiteIds(), true)) {
+                $manifest = NativeExecutionManifest::load($runId);
+                $repo = collect(
+                    (new BenchmarkRepoManager)->status()['repos'] ?? []
+                )->firstWhere('repo_id', $suiteId);
+                $checks['manifest_valid'] = $manifest->data['run_id'] === $runId;
+                $checks['benchmark_smoke_running'] = ($repo['status'] ?? null) === 'running';
+                $plannedCommit = $plan->data['environment']['repo_commit'] ?? null;
+                $checks['repo_commit_matches'] = $plannedCommit === null
+                    || $plannedCommit === ($repo['commit'] ?? null);
+            }
+            $ok = ! in_array(false, $checks, true);
+            if (! $ok) {
+                return [
+                    'status' => 'error',
+                    'error' => 'rivals_preflight_failed',
+                    'run_id' => $runId,
+                    'checks' => $checks,
+                ];
+            }
+            $state = (new RunStateMachine)->current($runId);
+            if (($state['state'] ?? null) === RunStateMachine::PLANNED) {
+                $state = (new RunStateMachine)->mark(
+                    $runId,
+                    RunStateMachine::PREFLIGHTED,
+                    ['checks' => $checks],
+                );
+            }
+
+            return [
+                'schema_version' => 'atlas.rivals2.preflight.v1',
+                'status' => 'ok',
+                'run_id' => $runId,
+                'suite_id' => $suiteId,
+                'checks' => $checks,
+                'state' => $state,
+            ];
+        }, lock: true);
+    }
+
+    private function runStatus(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $plan = RunPlan::load($runId);
+            $stateMachine = new RunStateMachine;
+            $state = $stateMachine->current($runId);
+
+            return [
+                'schema_version' => 'atlas.rivals2.status.v1',
+                'status' => 'ok',
+                'run_id' => $runId,
+                'suite_id' => $plan->data['suite_id'],
+                'state' => $state,
+                'resume_action' => $stateMachine->resumeAction($runId),
+                'receipts_expected' => count($plan->expectedReceiptKeys()),
+                'receipts_observed' => count(RunReceipt::loadAll($runId)),
+                'latest_ledger_entry' => collect((new ResultLedger)->entries())
+                    ->reverse()
+                    ->firstWhere('run_id', $runId),
+            ];
+        });
+    }
+
+    private function resume(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $stateMachine = new RunStateMachine;
+            $next = $stateMachine->resumeAction($runId);
+
+            return [
+                'schema_version' => 'atlas.rivals2.resume.v1',
+                'status' => in_array($next, ['operator_intervention', 'plan'], true)
+                    ? 'error'
+                    : 'ok',
+                'run_id' => $runId,
+                'state' => $stateMachine->current($runId),
+                'next_action' => $next,
+                'hint' => match ($next) {
+                    'native_execution' => 'Run remaining manifest units; completed unit receipts are idempotent.',
+                    'build_evidence' => 'Run atlas:rivals verify after evidence is rebuilt.',
+                    'verify' => 'Run atlas:rivals verify --run='.$runId,
+                    'adjudicate' => 'Run atlas:rivals adjudicate --run='.$runId,
+                    'report' => 'Run atlas:rivals report --run='.$runId,
+                    'bundle' => 'Run atlas:rivals report --run='.$runId.' before bundle support.',
+                    'complete' => 'Run is already bundled.',
+                    default => 'Operator intervention is required.',
+                },
+            ];
+        });
+    }
+
+    private function cancel(): array
+    {
+        $reason = trim((string) $this->option('reason'));
+        if ($reason === '') {
+            return ['status' => 'error', 'error' => 'cancel_requires_reason'];
+        }
+
+        return $this->withRun(function (string $runId) use ($reason) {
+            $state = (new RunStateMachine)->cancel($runId, $reason);
+
+            return [
+                'schema_version' => 'atlas.rivals2.cancel.v1',
+                'status' => 'ok',
+                'run_id' => $runId,
+                'state' => $state,
+            ];
+        }, lock: true);
     }
 
     /** Smoke REAL (clone/install/execução externa) de 1 repo ou de todos. */
     private function benchmarkSmoke(): array
     {
-        $manager = new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager;
+        $manager = new BenchmarkRepoManager;
         $repo = (string) $this->option('repo');
-        if ($repo !== '' && ! isset($manager->registry()[$repo])) {
-            return ['status' => 'error', 'error' => "unknown_benchmark_repo:{$repo}"];
+        if ($repo !== '') {
+            try {
+                $repo = (new SuiteRegistry)->canonicalize($repo, allowLegacyAlias: false);
+            } catch (\Throwable $e) {
+                return ['status' => 'error', 'error' => $e->getMessage()];
+            }
+            if (! isset($manager->registry()[$repo])) {
+                return ['status' => 'error', 'error' => "unknown_benchmark_repo:{$repo}"];
+            }
         }
         $ids = $repo !== '' ? [$repo] : array_keys($manager->registry());
 
@@ -151,7 +372,7 @@ class AtlasRivalsCommand extends Command
             $results[] = $result;
         }
 
-        return [
+        $payload = [
             'schema_version' => 'atlas.rivals2.benchmark_smoke_action.v1',
             // smoke que falha é resultado HONESTO (blocked), não erro do comando;
             // erro do comando = repo desconhecido/registry vazio
@@ -161,6 +382,12 @@ class AtlasRivalsCommand extends Command
             'blocked' => $blocked,
             'results' => $results,
         ];
+        if ($this->option('strict') && $blocked > 0) {
+            $payload['status'] = 'error';
+            $payload['error'] = 'smoke_not_all_green';
+        }
+
+        return $payload;
     }
 
     /** Dispatcher canônico: roda o run mais recente conforme a suite do plano. */
@@ -203,55 +430,92 @@ class AtlasRivalsCommand extends Command
         ];
     }
 
-    private function adapterFor(string $suiteId): ?BenchmarkSuiteAdapter
+    private function adapterFor(string $suiteId, bool $allowLegacyAlias = true): ?BenchmarkSuiteAdapter
     {
-        return match ($suiteId) {
-            LocalFakeSuiteAdapter::SUITE_ID => new LocalFakeSuiteAdapter,
-            AtlasBenchSuiteAdapter::SUITE_ID => new AtlasBenchSuiteAdapter,
-            \App\Services\Ai\Rivals\Adapters\EliteRealitySuiteAdapter::SUITE_ID => new \App\Services\Ai\Rivals\Adapters\EliteRealitySuiteAdapter,
-            'senior_swe_bench' => new \App\Services\Ai\Rivals\Adapters\External\SeniorSweBenchAdapter,
-            'harbor_terminal_bench' => new \App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter,
-            'aider_polyglot' => new \App\Services\Ai\Rivals\Adapters\External\AiderBenchAdapter,
-            'inspect_evals' => new \App\Services\Ai\Rivals\Adapters\External\InspectEvalsAdapter,
-            'swe_bench_live' => new \App\Services\Ai\Rivals\Adapters\External\SweBenchLiveAdapter,
-            'hal_harness' => new \App\Services\Ai\Rivals\Adapters\External\HalHarnessAdapter,
-            'tau2_bfcl' => new \App\Services\Ai\Rivals\Adapters\External\Tau2BfclAdapter,
-            'live_code_bench' => new \App\Services\Ai\Rivals\Adapters\External\LiveCodeBenchAdapter,
-            default => null,
-        };
+        try {
+            return (new SuiteRegistry)->adapterFor($suiteId, $allowLegacyAlias);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function resolveSuiteOption(bool $forNewPlan = true): array
+    {
+        $raw = (string) $this->option('suite');
+        $registry = new SuiteRegistry;
+        if ($forNewPlan && $registry->isLegacyAlias($raw)) {
+            return [
+                'ok' => false,
+                'error' => "legacy_alias_forbidden_for_new_plans:{$raw}",
+                'hint' => 'Use canonical suite_id '.$registry->canonicalize($raw),
+            ];
+        }
+        try {
+            $suiteId = $registry->canonicalize($raw, allowLegacyAlias: ! $forNewPlan);
+
+            return ['ok' => true, 'suite_id' => $suiteId, 'adapter' => $registry->adapterFor($suiteId, allowLegacyAlias: ! $forNewPlan)];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /** Importa cases de uma suite externa para external/<suite>/cases/. */
     private function importCases(): array
     {
-        $suiteId = (string) $this->option('suite');
-        if ($this->adapterFor($suiteId) === null) {
-            return ['status' => 'error', 'error' => "unknown_suite:{$suiteId}"];
+        $resolved = $this->resolveSuiteOption(forNewPlan: true);
+        if (! ($resolved['ok'] ?? false)) {
+            return ['status' => 'error'] + $resolved;
         }
+        /** @var BenchmarkSuiteAdapter $adapter */
+        $adapter = $resolved['adapter'];
+        $suiteId = $resolved['suite_id'];
         $source = (string) $this->option('file');
+        try {
+            $source = RunPaths::assertImportSource($source);
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'error' => $e->getMessage()];
+        }
         $files = is_dir($source) ? glob($source.'/*.json') : (is_file($source) ? [$source] : []);
         if ($files === []) {
             return ['status' => 'error', 'error' => "no_case_files_at:{$source}"];
         }
 
+        $sourceRepo = trim((string) $this->option('source-repo')) ?: $suiteId;
         $dir = RunPaths::root()."/external/{$suiteId}/cases";
         RunPaths::ensureDir($dir);
         $imported = [];
         $rejected = [];
         foreach ($files as $file) {
             $payload = json_decode(file_get_contents($file), true);
-            $cases = isset($payload['case_id']) ? [$payload] : (array) $payload;
+            $cases = isset($payload['case_id']) ? [$payload] : (array) ($payload['cases'] ?? $payload);
             foreach ($cases as $case) {
-                if (! isset($case['case_id'], $case['task_type'])) {
+                if (! is_array($case) || ! isset($case['case_id'], $case['task_type'])) {
                     $rejected[] = ['file' => basename($file), 'reason' => 'missing_case_id_or_task_type'];
+
                     continue;
                 }
+                try {
+                    RunPaths::assertCaseId((string) $case['case_id']);
+                } catch (\Throwable $e) {
+                    $rejected[] = ['file' => basename($file), 'reason' => $e->getMessage()];
+
+                    continue;
+                }
+                $case['suite_id'] = $suiteId;
+                $case['source_repo'] = $case['source_repo'] ?? $sourceRepo;
                 file_put_contents($dir.'/'.$case['case_id'].'.json', json_encode($case, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
                 $imported[] = $case['case_id'];
             }
         }
 
-        return ['schema_version' => 'atlas.rivals2.import_cases.v1', 'status' => 'ok', 'suite' => $suiteId, 'imported' => $imported, 'rejected' => $rejected];
+        return [
+            'schema_version' => 'atlas.rivals2.import_cases.v1',
+            'status' => 'ok',
+            'suite' => $suiteId,
+            'adapter' => $adapter->suiteId(),
+            'imported' => $imported,
+            'rejected' => $rejected,
+        ];
     }
 
     /**
@@ -262,23 +526,87 @@ class AtlasRivalsCommand extends Command
     {
         return $this->withRun(function (string $runId) {
             $plan = RunPlan::load($runId);
-            $adapter = $this->adapterFor($plan->data['suite_id']);
+            $suiteId = (new SuiteRegistry)->canonicalize((string) $plan->data['suite_id']);
+            $adapter = $this->adapterFor($suiteId);
             if ($adapter === null) {
-                return ['status' => 'error', 'error' => 'unknown_suite:'.$plan->data['suite_id']];
+                return ['status' => 'error', 'error' => 'unknown_suite:'.$suiteId];
             }
             $source = (string) $this->option('file');
-            if (! is_file($source)) {
-                return ['status' => 'error', 'error' => "results_file_not_found:{$source}"];
+            if (! is_file($source) && ! is_dir($source)) {
+                return ['status' => 'error', 'error' => "results_source_not_found:{$source}"];
             }
-            $destDir = RunPaths::runDir($runId).'/external_results';
-            RunPaths::ensureDir($destDir);
-            copy($source, $destDir.'/'.$adapter->suiteId().'.json');
+            $source = RunPaths::assertImportSource($source);
 
-            $receipts = $adapter->ingestResults(RunPaths::runDir($runId));
+            $runDir = RunPaths::runDir($runId);
+            $receiptsPath = RunPaths::receiptsPath($runId);
+            $replace = (bool) $this->option('replace-import');
+            if (is_file($receiptsPath) && ! $replace) {
+                return [
+                    'status' => 'error',
+                    'error' => 'import_already_exists',
+                    'hint' => 'Pass --replace-import to rebuild receipts/evidence from a new native import.',
+                ];
+            }
+            $states = new RunStateMachine;
+            if ($replace) {
+                if (is_file(RunPaths::adjudicationPath($runId))
+                    || is_file(RunPaths::reportPath($runId))) {
+                    (new ResultLedger)->supersede($runId, 'replace_import');
+                }
+                foreach ([
+                    'receipts.jsonl',
+                    'evidence.json',
+                    'evidence_pack.json',
+                    'adjudication.json',
+                    'report.json',
+                    'report.md',
+                    'uplift.json',
+                ] as $stale) {
+                    $path = $runDir.'/'.$stale;
+                    if (is_file($path)) {
+                        unlink($path);
+                    }
+                }
+                File::deleteDirectory(RunPaths::nativeReceiptsDir($runId));
+                File::deleteDirectory(RunPaths::nativeResultsDir($runId));
+                $states->resetForReplaceImport($runId, ['source' => $source]);
+            }
+
+            $importSummary = null;
+            if (is_file(RunPaths::nativeManifestPath($runId))) {
+                $importSummary = (new NativeExecutionBundleImporter)->import(
+                    $runId,
+                    $adapter->suiteId(),
+                    $source,
+                );
+            } else {
+                if (! is_file($source)) {
+                    return ['status' => 'error', 'error' => 'legacy_results_file_required'];
+                }
+                $destDir = $runDir.'/external_results';
+                RunPaths::ensureDir($destDir);
+                copy($source, $destDir.'/'.$adapter->suiteId().'.json');
+                $importSummary = [
+                    'mode' => 'legacy_v1',
+                    'results_imported' => 1,
+                    'native_receipts_imported' => 0,
+                ];
+            }
+
+            $states->mark($runId, RunStateMachine::NATIVE_RUNNING, ['source' => $source]);
+            // External adapters auto-load the plan for native→canonical arm remap.
+            $receipts = $adapter->ingestResults($runDir);
             foreach ($receipts as $receipt) {
                 $receipt->append();
             }
-            $pack = (new \App\Services\Ai\Rivals\Core\EvidencePackBuilder)->build($runId);
+            $states->mark($runId, RunStateMachine::RESULTS_IMPORTED, [
+                'receipts' => count($receipts),
+                'replaced' => $replace,
+            ]);
+            $pack = (new EvidencePackBuilder)->build($runId);
+            $states->mark($runId, RunStateMachine::EVIDENCE_BUILT, [
+                'evidence_hash' => $pack['evidence_hash'] ?? null,
+            ]);
 
             return [
                 'schema_version' => 'atlas.rivals2.import_results.v1',
@@ -286,9 +614,12 @@ class AtlasRivalsCommand extends Command
                 'run_id' => $runId,
                 'suite' => $adapter->suiteId(),
                 'receipts_ingested' => count($receipts),
+                'replaced' => $replace,
+                'native_import' => $importSummary,
                 'evidence_pack_built' => ($pack['receipts_hash']['present'] ?? false) === true,
+                'state' => (new RunStateMachine)->current($runId),
             ];
-        });
+        }, lock: true);
     }
 
     private function mine(): array
@@ -316,36 +647,130 @@ class AtlasRivalsCommand extends Command
 
     private function plan(): array
     {
-        $adapter = $this->adapterFor((string) $this->option('suite'));
-        if ($adapter === null) {
-            return ['status' => 'error', 'error' => 'unknown_suite:'.$this->option('suite')];
+        $resolved = $this->resolveSuiteOption(forNewPlan: true);
+        if (! ($resolved['ok'] ?? false)) {
+            return ['status' => 'error'] + $resolved;
         }
+        /** @var BenchmarkSuiteAdapter $adapter */
+        $adapter = $resolved['adapter'];
+        $suiteId = $resolved['suite_id'];
         $cases = $adapter->listCases();
+        $requestedCases = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) ($this->option('cases') ?? '')),
+        )));
+        if ($requestedCases !== []) {
+            $knownCases = array_column($cases, null, 'case_id');
+            $unknownCases = array_values(array_diff($requestedCases, array_keys($knownCases)));
+            if ($unknownCases !== []) {
+                return [
+                    'status' => 'error',
+                    'error' => 'unknown_cases:'.implode(',', $unknownCases),
+                ];
+            }
+            $cases = array_values(array_map(
+                fn (string $caseId): array => $knownCases[$caseId],
+                $requestedCases,
+            ));
+        }
         if ($cases === []) {
             return ['status' => 'error', 'error' => 'no_cases_available_mine_first'];
         }
+
+        $budgetUsd = $this->option('budget') !== null && $this->option('budget') !== ''
+            ? (float) $this->option('budget')
+            : 0.0;
+        $maxMinutes = $this->option('max-minutes') !== null && $this->option('max-minutes') !== ''
+            ? max(1, (int) $this->option('max-minutes'))
+            : (int) config("atlas_rivals.benchmarks.repos.{$suiteId}.native_timeout_minutes", 30);
+        if ($budgetUsd > 0 && ! $this->option('approve-provider-spend')) {
+            return [
+                'status' => 'error',
+                'error' => 'provider_spend_not_approved',
+                'hint' => 'Pass --approve-provider-spend when budget > 0.',
+            ];
+        }
+
+        $judgeConfig = null;
+        $judgePath = trim((string) $this->option('judge-config'));
+        if ($judgePath !== '') {
+            if (! is_file($judgePath)) {
+                return ['status' => 'error', 'error' => "judge_config_not_found:{$judgePath}"];
+            }
+            try {
+                $judgePath = RunPaths::assertImportSource($judgePath);
+            } catch (\Throwable $e) {
+                return ['status' => 'error', 'error' => $e->getMessage()];
+            }
+            $judgeConfig = json_decode((string) file_get_contents($judgePath), true);
+            if (! is_array($judgeConfig)) {
+                return ['status' => 'error', 'error' => 'judge_config_invalid_json'];
+            }
+        }
+
         $registry = new ArmRegistry;
         try {
-            $arms = array_map(fn ($s) => $registry->parse(trim($s)), explode(',', (string) $this->option('arms')));
+            $arms = array_map(
+                fn ($s) => $registry->parse(trim($s), $suiteId),
+                explode(',', (string) $this->option('arms'))
+            );
         } catch (\Throwable $e) {
             return ['status' => 'error', 'error' => $e->getMessage()];
         }
+
+        $sourceRepo = trim((string) $this->option('source-repo')) ?: $suiteId;
+        $repoMeta = ((new BenchmarkRepoManager)->status()['repos'] ?? []);
+        $repoRow = collect($repoMeta)->firstWhere('repo_id', $suiteId) ?? [];
 
         $plan = RunPlan::make(
             $adapter->suiteId(),
             array_column($cases, 'case_id'),
             $arms,
             (int) $this->option('repetitions'),
-            ['max_usd' => 0.0, 'max_minutes' => 5],
+            ['max_usd' => $budgetUsd, 'max_minutes' => $maxMinutes],
             (int) $this->option('seed'),
+            $judgeConfig,
         );
+        // pin upstream provenance into environment for claim_scope
+        $data = $plan->data;
+        $data['environment']['source_repo'] = $sourceRepo;
+        $data['environment']['repo_commit'] = $repoRow['commit'] ?? null;
+        $data['environment']['adapter_hash'] = hash('sha256', $adapter::class.'|'.(string) config('atlas_rivals.version', '2.0'));
+        $data['environment']['approve_provider_spend'] = (bool) $this->option('approve-provider-spend');
+        $plan = RunPlan::fromArray($data);
+        $preregistration = Preregistration::fromPlan($plan);
+        $data = $plan->data;
+        $data['preregistration_hash'] = $preregistration->hash();
+        $plan = RunPlan::fromArray($data);
         $runId = $plan->persist();
+        $preregistration->persist();
+        (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED, [
+            'suite_id' => $suiteId,
+            'cases' => count($cases),
+            'arms' => count($arms),
+        ]);
+        $commands = $adapter->planCommands($plan);
+        $manifest = null;
+        if (in_array($suiteId, (new SuiteRegistry)->externalSuiteIds(), true)) {
+            $manifest = NativeExecutionManifest::fromPlan($plan, $adapter, $commands);
+            $manifest->persist();
+        }
 
         return [
             'schema_version' => 'atlas.rivals2.plan_action.v1',
             'status' => 'ok',
             'run_id' => $runId,
-            'commands' => $adapter->planCommands($plan),
+            'suite_id' => $suiteId,
+            'state' => (new RunStateMachine)->current($runId),
+            'commands' => $commands,
+            'native_manifest_path' => $manifest !== null
+                ? RunPaths::nativeManifestPath($runId)
+                : null,
+            'native_manifest_hash' => $manifest?->hash(),
+            'preregistration_hash' => $preregistration->hash(),
+            'note' => $manifest !== null
+                ? 'Execute native commands outside PHP, then atlas:rivals import-results --run='.$runId.' --file=...'
+                : null,
         ];
     }
 
@@ -357,8 +782,14 @@ class AtlasRivalsCommand extends Command
                 return ['status' => 'error', 'error' => 'run_is_not_local_fake'];
             }
             $adapter = new LocalFakeSuiteAdapter;
+            $states = new RunStateMachine;
+            $states->mark($runId, RunStateMachine::NATIVE_RUNNING, ['executor' => 'local_fake']);
             $adapter->execute($plan);
-            $pack = (new \App\Services\Ai\Rivals\Core\EvidencePackBuilder)->build($runId);
+            $states->mark($runId, RunStateMachine::RESULTS_IMPORTED, [
+                'receipts' => count($adapter->ingestResults(RunPaths::runDir($runId))),
+            ]);
+            $pack = (new EvidencePackBuilder)->build($runId);
+            $states->mark($runId, RunStateMachine::EVIDENCE_BUILT);
 
             return [
                 'schema_version' => 'atlas.rivals2.run_fake.v1',
@@ -367,7 +798,7 @@ class AtlasRivalsCommand extends Command
                 'receipts' => count($adapter->ingestResults(RunPaths::runDir($runId))),
                 'evidence_pack_built' => ($pack['receipts_hash']['present'] ?? false) === true,
             ];
-        });
+        }, lock: true);
     }
 
     private function runBench(): array
@@ -378,8 +809,14 @@ class AtlasRivalsCommand extends Command
             if (! $adapter instanceof AtlasBenchSuiteAdapter) {
                 return ['status' => 'error', 'error' => 'run_is_not_atlas_bench'];
             }
+            $states = new RunStateMachine;
+            $states->mark($runId, RunStateMachine::NATIVE_RUNNING, ['executor' => 'atlas_bench']);
             $adapter->execute($plan);
-            $pack = (new \App\Services\Ai\Rivals\Core\EvidencePackBuilder)->build($runId);
+            $states->mark($runId, RunStateMachine::RESULTS_IMPORTED, [
+                'receipts' => count($adapter->ingestResults(RunPaths::runDir($runId))),
+            ]);
+            $pack = (new EvidencePackBuilder)->build($runId);
+            $states->mark($runId, RunStateMachine::EVIDENCE_BUILT);
 
             return [
                 'schema_version' => 'atlas.rivals2.run_bench.v1',
@@ -388,22 +825,145 @@ class AtlasRivalsCommand extends Command
                 'receipts' => count($adapter->ingestResults(RunPaths::runDir($runId))),
                 'evidence_pack_built' => ($pack['receipts_hash']['present'] ?? false) === true,
             ];
-        });
+        }, lock: true);
+    }
+
+    private function bundle(): array
+    {
+        return $this->withRun(function (string $runId) {
+            $states = new RunStateMachine;
+            $states->assertAtLeast($runId, RunStateMachine::REPORTED);
+            $states->mark($runId, RunStateMachine::BUNDLED, [
+                'status' => 'building_manifest',
+            ]);
+            $bundle = (new BundleManifest)->build($runId);
+            $verify = (new BundleManifest)->verify(RunPaths::runDir($runId));
+            if (! $verify['verified']) {
+                $states->fail($runId, 'bundle_verification_failed');
+
+                return [
+                    'status' => 'error',
+                    'error' => 'bundle_verification_failed',
+                    'run_id' => $runId,
+                    'verify' => $verify,
+                ];
+            }
+            (new ResultLedger)->appendBundle($runId, $bundle);
+
+            return [
+                'schema_version' => 'atlas.rivals2.bundle_action.v1',
+                'status' => 'ok',
+                'run_id' => $runId,
+                'bundle_path' => RunPaths::bundleManifestPath($runId),
+                'bundle_hash' => $bundle['bundle_hash'],
+                'files' => count($bundle['files']),
+                'verified' => true,
+            ];
+        }, lock: true);
+    }
+
+    private function verifyBundle(): array
+    {
+        $source = trim((string) $this->option('file'));
+        if ($source === '') {
+            $runId = $this->option('run') ?: RunPaths::latestRunId();
+            $source = $runId !== null ? RunPaths::runDir($runId) : '';
+        }
+        if ($source === '' || ! is_dir($source)) {
+            return ['status' => 'error', 'error' => 'bundle_directory_required'];
+        }
+        $verify = (new BundleManifest)->verify($source);
+
+        return [
+            'schema_version' => 'atlas.rivals2.bundle_verification.v1',
+            'status' => $verify['verified'] ? 'ok' : 'error',
+            'bundle_directory' => $source,
+        ] + $verify;
+    }
+
+    private function closure(): array
+    {
+        $closure = new FaseAClosureReceipt;
+        if ($this->option('verify')) {
+            $verify = $closure->verify();
+
+            return [
+                'schema_version' => 'atlas.rivals2.fase_a_closure_verification.v1',
+                'status' => $verify['verified'] ? 'ok' : 'error',
+            ] + $verify;
+        }
+
+        $tests = ProcessFacade::path(base_path())
+            ->env([
+                'APP_ENV' => 'testing',
+                'DB_CONNECTION' => 'sqlite',
+                'DB_DATABASE' => ':memory:',
+                'ATLAS_ALLOW_LIVE_DB_TESTS' => '0',
+            ])
+            ->timeout(300)
+            ->run([
+                PHP_BINARY,
+                'artisan',
+                'test',
+                'tests/Unit/Ai/Rivals',
+                'tests/Feature/Ai/Rivals',
+                '--no-coverage',
+            ]);
+        $docs = ProcessFacade::path(base_path())
+            ->timeout(120)
+            ->run([
+                PHP_BINARY,
+                'artisan',
+                'atlas:engineering:knowledge',
+                'docs-health',
+                '--enforce',
+                '--json',
+            ]);
+        $codeGates = [
+            'tests' => [
+                'passed' => $tests->successful(),
+                'exit_code' => $tests->exitCode(),
+                'output_sha256' => hash('sha256', $tests->output().$tests->errorOutput()),
+            ],
+            'docs_health' => [
+                'passed' => $docs->successful(),
+                'exit_code' => $docs->exitCode(),
+                'output_sha256' => hash('sha256', $docs->output().$docs->errorOutput()),
+            ],
+        ];
+        $receipt = $closure->build($codeGates);
+        $authorized = ($receipt['fase_a_100_percent_authorized'] ?? false) === true;
+
+        return [
+            'schema_version' => 'atlas.rivals2.fase_a_closure_action.v1',
+            'status' => $authorized || ! $this->option('strict') ? 'ok' : 'error',
+            'authorized' => $authorized,
+            'closure_path' => RunPaths::closureReceiptPath(),
+            'closure_hash' => $receipt['closure_hash'],
+            'gates' => $receipt['gates'],
+            'blockers' => $receipt['blockers'],
+        ];
     }
 
     private function ledger(): array
     {
         $ledger = new ResultLedger;
         if ($this->option('verify')) {
-            $chain = $ledger->verifyChain();
+            $chain = $this->option('semantic')
+                ? $ledger->verifySemantic()
+                : $ledger->verifyChain();
 
-            return ['schema_version' => 'atlas.rivals2.ledger.v1', 'status' => $chain['verified'] ? 'ok' : 'error'] + $chain;
+            return [
+                'schema_version' => 'atlas.rivals2.ledger.v2',
+                'mode' => $this->option('semantic') ? 'semantic' : 'chain',
+                'status' => $chain['verified'] ? 'ok' : 'error',
+            ] + $chain;
         }
 
-        return ['schema_version' => 'atlas.rivals2.ledger.v1', 'status' => 'ok', 'tail' => $ledger->tail()];
+        return ['schema_version' => 'atlas.rivals2.ledger.v2', 'status' => 'ok', 'tail' => $ledger->tail()];
     }
 
-    private function withRun(callable $fn): array
+    private function withRun(callable $fn, bool $lock = false): array
     {
         $runId = $this->option('run') ?: RunPaths::latestRunId();
         if ($runId === null) {
@@ -411,7 +971,9 @@ class AtlasRivalsCommand extends Command
         }
 
         try {
-            return $fn($runId);
+            return $lock
+                ? RunLock::exclusive($runId, fn (): array => $fn($runId))
+                : $fn($runId);
         } catch (\Throwable $e) {
             return ['status' => 'error', 'run_id' => $runId, 'error' => $e->getMessage()];
         }

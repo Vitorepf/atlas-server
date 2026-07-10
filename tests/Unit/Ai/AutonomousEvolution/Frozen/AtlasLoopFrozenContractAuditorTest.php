@@ -60,7 +60,7 @@ final class AtlasLoopFrozenContractAuditorTest extends TestCase
     public function test_unregistered_loop_class_is_ignored_by_this_contract_gate(): void
     {
         $result = $this->auditor()->audit([
-            'app/Services/Ai/AutonomousEvolution/Telemetry/AtlasLoopTelemetryFactStreamEmitter.php',
+            'app/Services/Ai/AutonomousEvolution/Anomaly/AtlasLoopAnomalyBaselineReporter.php',
         ], new AtlasLoopFrozenContractRegistry);
 
         $this->assertSame('ALLOW', $result['verdict']);
