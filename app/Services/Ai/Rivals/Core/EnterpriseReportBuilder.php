@@ -377,30 +377,60 @@ class EnterpriseReportBuilder
      */
     private function modelMatrixRows(array $suiteRows, array $runs): array
     {
-        // Placeholder comparative rows — full pairing lands in Wave 5.
-        return array_values(array_filter(array_map(
-            function (array $row) use ($runs): ?array {
-                if (($row['run_id'] ?? null) === null) {
-                    return null;
-                }
-                $run = null;
-                foreach ($runs as $candidate) {
-                    if ($candidate['run_id'] === $row['run_id']) {
-                        $run = $candidate;
-                        break;
+        $bySuite = [];
+        foreach ($runs as $run) {
+            $suiteId = (string) ($run['suite_id'] ?? '');
+            if ($suiteId === '') {
+                continue;
+            }
+            $models = array_values(array_filter(
+                (array) ($run['claim_scope']['models'] ?? []),
+                fn ($model): bool => is_string($model) && $model !== '',
+            ));
+            if (count($models) < 2) {
+                // Infer from report rows arm_ids when claim_scope is thin.
+                $reportRows = (array) (($run['report']['rows'] ?? []) ?: []);
+                $fromArms = [];
+                foreach ($reportRows as $row) {
+                    $armId = (string) ($row['arm_id'] ?? '');
+                    if ($armId !== '' && str_contains($armId, '@bare')) {
+                        $fromArms[explode('@', $armId, 2)[0]] = true;
                     }
                 }
-                $models = (array) ($run['claim_scope']['models'] ?? []);
-
-                return [
-                    'suite_id' => $row['suite_id'],
-                    'models' => $models,
-                    'status' => $row['status'],
-                    'success_rate_itt' => $row['success_rate_itt'],
+                $models = array_keys($fromArms);
+            }
+            if (count($models) < 2) {
+                continue;
+            }
+            sort($models);
+            $metrics = [];
+            foreach ((array) (($run['report']['rows'] ?? []) ?: []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $armId = (string) ($row['arm_id'] ?? '');
+                if (! str_ends_with($armId, '@bare')) {
+                    continue;
+                }
+                $modelId = explode('@', $armId, 2)[0];
+                $metrics[$modelId] = [
+                    'success_rate_itt' => $row['success_rate_itt'] ?? null,
+                    'median_wall_ms' => $row['median_wall_ms'] ?? null,
+                    'cost_per_task' => $row['cost_per_task'] ?? null,
+                    'tokens_in_avg' => $row['avg_tokens_in'] ?? null,
+                    'tokens_out_avg' => $row['avg_tokens_out'] ?? null,
                 ];
-            },
-            $suiteRows,
-        )));
+            }
+            $bySuite[$suiteId] = [
+                'suite_id' => $suiteId,
+                'run_id' => $run['run_id'],
+                'models' => $models,
+                'per_model' => $metrics,
+                'status' => (($run['adjudication']['pipeline_valid'] ?? false) === true) ? 'ok' : 'failed',
+            ];
+        }
+
+        return array_values($bySuite);
     }
 
     /**

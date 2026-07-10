@@ -133,6 +133,116 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertNotEmpty($report['model_matrix']['model_id']);
     }
 
+    public function test_model_vs_model_when_two_bare_models_present(): void
+    {
+        $armA = (new ArmRegistry)->parse('verboo_kimi_k2_7@bare', 'bfcl');
+        $armB = (new ArmRegistry)->parse('verboo_qwen_3_6_27b@bare', 'bfcl');
+        $plan = RunPlan::make(
+            'bfcl',
+            ['case_a', 'case_b', 'case_c'],
+            [$armA, $armB],
+            1,
+            ['max_usd' => 10.0, 'max_minutes' => 30],
+            1,
+        );
+        $runId = $plan->persist();
+        foreach ([$armA, $armB] as $index => $arm) {
+            RunReceipt::fromArray([
+                'schema_version' => SchemaContract::RUN_RECEIPT,
+                'run_id' => $runId,
+                'case_id' => 'case_a',
+                'task_type' => 'tool_use_function_calling',
+                'arm_id' => $arm['arm_id'],
+                'repetition' => 1,
+                'status' => 'success',
+                'failure_class' => null,
+                'wall_ms' => 1000,
+                'tokens_in' => 100,
+                'tokens_out' => 20,
+                'cost_usd' => 0.0,
+                'field_presence' => [
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                    'tokens_in' => ['present' => true, 'reason' => null],
+                    'tokens_out' => ['present' => true, 'reason' => null],
+                    'cost_usd' => ['present' => true, 'reason' => 'verboo_subscription_marginal'],
+                ],
+                'claim_tier' => 'production',
+                'harness_only' => false,
+                'artifacts' => [],
+                'started_at' => null,
+                'finished_at' => null,
+            ])->append();
+        }
+        file_put_contents(RunPaths::reportPath($runId), json_encode([
+            'schema_version' => SchemaContract::REPORT,
+            'run_id' => $runId,
+            'rows' => [
+                [
+                    'task_type' => 'tool_use_function_calling',
+                    'arm_id' => $armA['arm_id'],
+                    'success_rate_itt' => 1.0,
+                    'median_wall_ms' => 1000.0,
+                    'avg_tokens_in' => 100.0,
+                    'avg_tokens_out' => 20.0,
+                    'cost_per_task' => 0.0,
+                    'environment_failure_rate' => 0.0,
+                    'tokens_coverage' => ['in' => 1, 'out' => 1, 'n' => 1, 'in_rate' => 1.0, 'out_rate' => 1.0],
+                    'stability' => 1.0,
+                ],
+                [
+                    'task_type' => 'tool_use_function_calling',
+                    'arm_id' => $armB['arm_id'],
+                    'success_rate_itt' => 0.5,
+                    'median_wall_ms' => 2000.0,
+                    'avg_tokens_in' => 80.0,
+                    'avg_tokens_out' => 10.0,
+                    'cost_per_task' => 0.0,
+                    'environment_failure_rate' => 0.0,
+                    'tokens_coverage' => ['in' => 1, 'out' => 1, 'n' => 1, 'in_rate' => 1.0, 'out_rate' => 1.0],
+                    'stability' => 1.0,
+                ],
+            ],
+            'pipeline_valid' => true,
+            'claim_tier' => 'production',
+            'internal_claim_allowed' => false,
+            'public_claim_allowed' => false,
+            'not_ready_reasons' => [],
+            'claim_allowed' => false,
+            'claim_blockers' => [],
+            'claim_scope' => [
+                'suite' => 'bfcl',
+                'models' => ['verboo_kimi_k2_7', 'verboo_qwen_3_6_27b'],
+                'runtimes' => ['bare'],
+            ],
+            'statistical_analysis' => ['adequate' => false, 'blockers' => [], 'segments' => []],
+            'missing_data_policy' => [],
+            'report_hash' => 'fixture',
+            'built_at' => '2026-07-10T00:00:00Z',
+        ], JSON_UNESCAPED_SLASHES));
+        file_put_contents(RunPaths::adjudicationPath($runId), json_encode([
+            'pipeline_valid' => true,
+            'claim_tier' => 'production',
+            'internal_claim_allowed' => false,
+            'public_claim_allowed' => false,
+            'internal_claim_blockers' => ['fixture'],
+            'not_ready_reasons' => ['fixture'],
+            'claim_scope' => [
+                'suite' => 'bfcl',
+                'models' => ['verboo_kimi_k2_7', 'verboo_qwen_3_6_27b'],
+                'runtimes' => ['bare'],
+            ],
+            'statistical_analysis' => ['adequate' => false, 'blockers' => [], 'segments' => []],
+            'adjudicated_at' => '2026-07-10T00:00:00Z',
+        ], JSON_UNESCAPED_SLASHES));
+
+        $report = (new EnterpriseReportBuilder)->build();
+        $this->assertSame('model_vs_model', $report['model_matrix']['mode']);
+        $this->assertNotEmpty($report['model_matrix']['rows']);
+        $this->assertArrayHasKey('per_model', $report['model_matrix']['rows'][0]);
+        $this->assertArrayHasKey('verboo_kimi_k2_7', $report['model_matrix']['rows'][0]['per_model']);
+        $this->assertArrayHasKey('verboo_qwen_3_6_27b', $report['model_matrix']['rows'][0]['per_model']);
+    }
+
     /** @return array<string, mixed> */
     private function minimalEnterprisePayload(int $suiteCount): array
     {

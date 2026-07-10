@@ -182,12 +182,22 @@ class AtlasRivalsCommand extends Command
         if ($mode === 'status') {
             return $orchestrator->status();
         }
-        if (in_array($mode, ['prepare', 'execute'], true)) {
+        if ($mode === 'execute') {
             return [
                 'status' => 'error',
                 'error' => 'rivals_battery_execute_mac_only',
-                'hint' => 'Cloud/CI may only use battery --mode=bare|uplift|status (dry-run). Prepare/execute requires operator Mac + Hermes+Verboo.',
+                'hint' => 'Native spend execute is Mac-only with Hermes+Verboo. Use battery --mode=prepare for import/plan/preflight steps, then rivals-native-runner per unit.',
             ];
+        }
+        if ($mode === 'prepare') {
+            try {
+                return $orchestrator->prepare(
+                    'bare',
+                    (bool) $this->option('approve-provider-spend'),
+                );
+            } catch (\Throwable $e) {
+                return ['status' => 'error', 'error' => $e->getMessage()];
+            }
         }
 
         try {

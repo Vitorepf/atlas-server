@@ -29,6 +29,7 @@ final class FaseAClosureReceipt
         $ledger = (new ResultLedger)->verifySemantic();
         $operational = $this->operationalPrerequisites();
         $workspace = $this->workspaceState();
+        $enterprise = $this->enterpriseReportGate();
 
         $gates = [
             'registry_10_of_10' => $registryOk,
@@ -37,6 +38,7 @@ final class FaseAClosureReceipt
                 && $smokeFresh['fresh'],
             'native_run_10_of_10' => count($nativeRuns['completed']) === 10,
             'uplift_families_5_of_5' => count($uplifts['completed']) === 5,
+            'enterprise_report_present' => $enterprise['ready'],
             'tests_green' => ($codeGates['tests']['passed'] ?? false) === true,
             'docs_health_green' => ($codeGates['docs_health']['passed'] ?? false) === true,
             'ledger_verified' => $ledger['verified'],
@@ -54,6 +56,7 @@ final class FaseAClosureReceipt
             $smokeFresh['blockers'],
             $nativeRuns['blockers'],
             $uplifts['blockers'],
+            $enterprise['blockers'],
             $ledger['failures'],
             $operational['blockers'],
         )));
@@ -76,6 +79,7 @@ final class FaseAClosureReceipt
             ],
             'native_runs' => $nativeRuns,
             'uplifts' => $uplifts,
+            'enterprise_report' => $enterprise,
             'code_gates' => $codeGates,
             'ledger' => $ledger,
             'operational' => $operational,
@@ -134,6 +138,7 @@ final class FaseAClosureReceipt
         $ledger = (new ResultLedger)->verifySemantic();
         $operational = $this->operationalPrerequisites();
         $workspace = $this->workspaceState();
+        $enterprise = $this->enterpriseReportGate();
         $currentConfigHash = hash('sha256', json_encode(
             config('atlas_rivals'),
             JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
@@ -145,6 +150,7 @@ final class FaseAClosureReceipt
                 && $smoke['fresh'],
             'native_run_10_of_10' => count($native['completed']) === 10,
             'uplift_families_5_of_5' => count($uplifts['completed']) === 5,
+            'enterprise_report_present' => $enterprise['ready'],
             'tests_green' => ($receipt['code_gates']['tests']['passed'] ?? false) === true,
             'docs_health_green' => ($receipt['code_gates']['docs_health']['passed'] ?? false) === true,
             'ledger_verified' => $ledger['verified'],
@@ -169,6 +175,7 @@ final class FaseAClosureReceipt
             $smoke['blockers'],
             $native['blockers'],
             $uplifts['blockers'],
+            $enterprise['blockers'],
             $ledger['failures'],
             $operational['blockers'],
         )));
@@ -344,6 +351,47 @@ final class FaseAClosureReceipt
             array_diff(scandir(RunPaths::runsDir()) ?: [], ['.', '..']),
             fn (string $runId): bool => is_dir(RunPaths::runsDir().'/'.$runId),
         ));
+    }
+
+    /** @return array{ready: bool, blockers: list<string>, path: ?string, report_hash: ?string, suite_rows: int} */
+    private function enterpriseReportGate(): array
+    {
+        $path = RunPaths::enterpriseReportPath();
+        if (! is_file($path)) {
+            return [
+                'ready' => false,
+                'blockers' => ['enterprise_report_missing'],
+                'path' => null,
+                'report_hash' => null,
+                'suite_rows' => 0,
+            ];
+        }
+        $payload = json_decode((string) file_get_contents($path), true) ?? [];
+        $blockers = [];
+        if (($payload['schema_version'] ?? null) !== \App\Services\Ai\Rivals\Support\SchemaContract::ENTERPRISE_REPORT) {
+            $blockers[] = 'enterprise_report_schema_mismatch';
+        }
+        if (($payload['claim_allowed'] ?? true) !== false) {
+            $blockers[] = 'enterprise_report_claim_allowed_not_false';
+        }
+        $rows = (array) ($payload['suite_rows'] ?? []);
+        $expected = count((new SuiteRegistry)->externalSuiteIds());
+        if (count($rows) !== $expected) {
+            $blockers[] = 'enterprise_report_suite_rows_count:'.count($rows);
+        }
+        $storedHash = (string) ($payload['report_hash'] ?? '');
+        $recomputed = EnterpriseReportBuilder::hashPayload($payload);
+        if ($storedHash === '' || ! hash_equals($storedHash, $recomputed)) {
+            $blockers[] = 'enterprise_report_hash_mismatch';
+        }
+
+        return [
+            'ready' => $blockers === [],
+            'blockers' => $blockers,
+            'path' => $path,
+            'report_hash' => $storedHash !== '' ? $storedHash : null,
+            'suite_rows' => count($rows),
+        ];
     }
 
     private function operationalPrerequisites(): array

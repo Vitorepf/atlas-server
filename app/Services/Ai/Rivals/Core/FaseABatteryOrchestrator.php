@@ -54,9 +54,78 @@ class FaseABatteryOrchestrator
             'primary_model' => $primary,
             'provider_binding' => 'hermes+verboo',
             'execute_allowed_here' => false,
-            'hint' => 'dry-run only — use --prepare/--execute on operator Mac with Hermes+Verboo',
+            'hint' => 'dry-run only — use --mode=prepare on Mac (no native spend); --mode=execute is Mac-only',
             'suite_count' => count($plans),
             'plans' => $plans,
+        ];
+    }
+
+    /**
+     * Import fixture cases + create plans + preflight for each suite.
+     * Does NOT run native spend. Requires ATLAS_RIVALS2_ENABLED + spend approval flags
+     * because plan() is a mutating action with provider-spend gate.
+     *
+     * @return array<string, mixed>
+     */
+    public function prepare(string $mode = 'bare', bool $approveProviderSpend = false): array
+    {
+        if (! (bool) config('atlas_rivals.enabled', false)) {
+            throw new RuntimeException('atlas_rivals_disabled');
+        }
+        if (! $approveProviderSpend) {
+            throw new RuntimeException('rivals_battery_prepare_requires_approve_provider_spend');
+        }
+        if (! (bool) config('atlas_rivals.provider_spend_allowed', false)) {
+            throw new RuntimeException('rivals_provider_spend_not_allowed');
+        }
+
+        $dry = $this->dryRun($mode);
+        $prepared = [];
+        $errors = [];
+        foreach ($dry['plans'] as $planSpec) {
+            $suiteId = (string) $planSpec['suite_id'];
+            try {
+                $fixtureRoot = base_path((string) $planSpec['fixture_root']);
+                if (! is_dir($fixtureRoot)) {
+                    throw new RuntimeException("rivals_battery_fixture_root_missing:{$suiteId}");
+                }
+                // Defer actual artisan plan/import to CLI layer; return actionable steps.
+                $prepared[] = [
+                    'suite_id' => $suiteId,
+                    'status' => 'ready_to_plan',
+                    'import_cases' => [
+                        'action' => 'import-cases',
+                        'suite' => $suiteId,
+                        'file' => $fixtureRoot,
+                    ],
+                    'plan' => [
+                        'action' => 'plan',
+                        'suite' => $suiteId,
+                        'cases' => implode(',', (array) $planSpec['cases']),
+                        'arms' => implode(',', (array) $planSpec['arms']),
+                        'repetitions' => $planSpec['repetitions'],
+                        'approve_provider_spend' => true,
+                    ],
+                    'preflight' => [
+                        'action' => 'preflight',
+                        'after' => 'plan',
+                    ],
+                    'units_expected' => $planSpec['units_expected'],
+                ];
+            } catch (\Throwable $e) {
+                $errors[] = ['suite_id' => $suiteId, 'error' => $e->getMessage()];
+            }
+        }
+
+        return [
+            'schema_version' => 'atlas.rivals2.fase_a_battery_prepare.v1',
+            'mode' => $mode,
+            'primary_model' => $dry['primary_model'],
+            'execute_allowed_here' => false,
+            'hint' => 'prepare emits import/plan/preflight steps — operator/CLI executes them; native runner is separate (execute)',
+            'prepared' => $prepared,
+            'errors' => $errors,
+            'status' => $errors === [] ? 'ok' : 'error',
         ];
     }
 

@@ -46,4 +46,25 @@ class FaseABatteryOrchestratorTest extends TestCase
             ]);
         $this->assertSame(0, $exit);
     }
+
+    public function test_prepare_requires_flags_and_emits_steps(): void
+    {
+        config()->set('atlas_rivals.enabled', true);
+        config()->set('atlas_rivals.provider_spend_allowed', true);
+        $payload = (new FaseABatteryOrchestrator)->prepare('bare', true);
+        $this->assertSame('atlas.rivals2.fase_a_battery_prepare.v1', $payload['schema_version']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertCount(10, $payload['prepared']);
+        $this->assertSame('import-cases', $payload['prepared'][0]['import_cases']['action']);
+        $this->assertSame('plan', $payload['prepared'][0]['plan']['action']);
+    }
+
+    public function test_prepare_fails_closed_without_approve(): void
+    {
+        config()->set('atlas_rivals.enabled', true);
+        config()->set('atlas_rivals.provider_spend_allowed', true);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('rivals_battery_prepare_requires_approve_provider_spend');
+        (new FaseABatteryOrchestrator)->prepare('bare', false);
+    }
 }

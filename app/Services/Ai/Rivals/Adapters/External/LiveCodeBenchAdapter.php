@@ -29,7 +29,10 @@ class LiveCodeBenchAdapter extends AbstractExternalSuiteAdapter
             }
             $status = $graded[0] === true ? 'success' : 'failure';
             $hasTiming = isset($r['wall_ms']) || isset($r['duration_sec']);
-            $hasUsage = isset($r['tokens_in'], $r['tokens_out'], $r['cost_usd']);
+            $hasUsage = (($r['usage_capture']['present'] ?? null) === true)
+                || (isset($r['tokens_in'], $r['tokens_out'])
+                    && ((int) $r['tokens_in'] + (int) $r['tokens_out']) > 0);
+            $usageMissingReason = (string) ($r['usage_capture']['reason'] ?? 'lcb_omits_usage');
             $receipts[] = [
                 'case_id' => $questionId,
                 'task_type' => 'coding_patch',
@@ -43,9 +46,12 @@ class LiveCodeBenchAdapter extends AbstractExternalSuiteAdapter
                 'cost_usd' => (float) ($r['cost_usd'] ?? 0.0),
                 'field_presence' => [
                     'wall_ms' => ['present' => $hasTiming, 'reason' => $hasTiming ? null : 'lcb_omits_per_question_timing'],
-                    'tokens_in' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : 'lcb_omits_usage'],
-                    'tokens_out' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : 'lcb_omits_usage'],
-                    'cost_usd' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : 'lcb_omits_usage'],
+                    'tokens_in' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : $usageMissingReason],
+                    'tokens_out' => ['present' => $hasUsage, 'reason' => $hasUsage ? null : $usageMissingReason],
+                    'cost_usd' => [
+                        'present' => $hasUsage,
+                        'reason' => $hasUsage ? 'verboo_subscription_marginal' : $usageMissingReason,
+                    ],
                 ],
                 'started_at' => $r['started_at'] ?? null,
                 'finished_at' => $r['finished_at'] ?? null,

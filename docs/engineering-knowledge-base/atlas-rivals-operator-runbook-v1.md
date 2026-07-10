@@ -186,15 +186,16 @@ php artisan atlas:rivals ledger --verify --json
 ### Fase A finalize (Mac + Hermes + Verboo only)
 
 ```bash
-php artisan atlas:rivals battery --mode=bare --json          # dry-run (CI/cloud ok)
-# no Mac, apos smoke + flags:
-# php artisan atlas:rivals battery --mode=prepare --approve-provider-spend --json
-# php artisan atlas:rivals battery --mode=execute --approve-provider-spend --json
+php artisan atlas:rivals battery --mode=bare --json
+php artisan atlas:rivals battery --mode=prepare --approve-provider-spend --json
+# seguir prepared[].import_cases / plan / preflight por suite
+# depois native runner unit-a-unit no Mac (NUNCA no cloud)
 php artisan atlas:rivals report-enterprise --json
 php artisan atlas:rivals closure --json
+php artisan atlas:rivals closure --verify --json
 ```
 
-Cloud agents **nao** chamam prepare/execute.
+Cloud agents **nao** chamam `--mode=execute` / native spend.
 
 ## Regras para IA
 

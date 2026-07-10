@@ -438,13 +438,15 @@ Se `php` ausente no ambiente: instalar PHP 8.4+ antes de marcar wave verde; não
 
 | Wave | Status |
 |---|---|
-| 1 Enterprise report | ✅ done |
-| 2 Per-run + config | ✅ done (markdown/csv ricos + case_packs) |
-| 3 Usage capture | ✅ done (UsageCaptureContract + tests; normalizer suite fixes continuam no Mac) |
-| 4 Battery dry-run | ✅ done (`battery --mode=bare|uplift|status`) |
-| 5 Faces wiring | ✅ partial (enterprise report já expõe model_matrix + atlas_uplift) |
-| 6 Closure + docs | ✅ partial (runbook + enterprise doc; closure gate enterprise opcional próximo) |
-| 7 Mac execute | ⬜ blocked (notebook/travel) |
+| 1 Enterprise report | ✅ feito (schema/CLI/builder/tests) |
+| 2 Per-run + config | ✅ feito (MD/CSV + case_packs) |
+| 3 Usage capture | 🟡 parcial — contract wired no Adjudicator + LCB field_presence; ainda faltam fixes suite-a-suite (TB/inspect/Harbor) no Mac |
+| 4 Battery | 🟡 parcial — dry-run + prepare steps; execute ainda Mac-only stub |
+| 5 Faces wiring | ✅ feito (model_vs_model real + uplift 5 families) |
+| 6 Closure + docs | ✅ parcial — gate `enterprise_report_present` + structure drift corrigido; docs-health sync no Mac |
+| 7 Mac execute | ⬜ **NÃO feito** — notebook/viagem; 10 benches reais + closure 100% |
+
+**Auditoria 2026-07-10 (pós-correção):** código cloud das Waves 1–6 avançou; **Fase A produto NÃO está finalizada** sem Wave 7 no Mac.
 
 ---
 

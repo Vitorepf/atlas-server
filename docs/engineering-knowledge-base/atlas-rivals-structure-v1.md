@@ -107,11 +107,13 @@ Entre `atlas-rivals-product-v1` e os docs de suites / internal / claims / runboo
    exigem tiers e gates adicionais. Harness/fixture nunca promove.
 
 **Estado operacional (receipt vivo):** `storage/atlas/rivals/fase_a_closure_receipt.json`.
-- L1 harness + L2 adapters 10/10 + L3 smoke 10/10: **verde**.
-- L3 native batteries 10/10 + L4 uplift/claims: **ainda nao** — blockers honestos no receipt (`runtime_commands.atlas_dev` unset; Harbor/Modal/provider spend para as 9 suites restantes).
+- L1 harness + L2 adapters 10/10 + L3 smoke 10/10: **verde** (no Mac do operador; não evidenciado em todo clone).
+- L3 native batteries 10/10 + L4 uplift/claims: **ainda nao**.
+- `runtime_commands.atlas_dev` **tem default** em `config/atlas_rivals.php` (`scripts/rivals-atlas-dev-bridge.php`); o blocker real no Mac é bridge/`atlas:cli:dev` + Hermes+Verboo funcionando — não "unset" no config.
+- Relatório empresarial: `atlas:rivals report-enterprise` (schema `atlas.rivals2.enterprise_report.v1`); closure exige `enterprise_report_present`.
 - Declarar "Fase A 100%" so quando `fase_a_100_percent_authorized=true` no receipt.
 - O receipt agora e machine-generated/anti-tamper: registry/smoke 10/10,
-  native bundles 10/10, uplifts 5/5, tests/docs, semantic ledger, workspace e
+  native bundles 10/10, uplifts 5/5, enterprise report, tests/docs, semantic ledger, workspace e
   prerequisites. `closure --verify` recalcula o hash; edicao manual invalida.
 
 ### Fase B — Internalizar (caminho CursorBench)
