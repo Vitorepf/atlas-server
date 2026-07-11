@@ -159,12 +159,15 @@ de memória/promoção; nada a refatorar do modelo antigo.
 
 ### Residual follow-ons (não bloqueiam 98/98 land; bloqueiam carimbo 10/10 live)
 
-| Item | Estado vivo 2026-07-11 |
+| Item | Estado vivo 2026-07-11T23:00Z |
 |---|---|
-| Gate longitudinal EVI-05/06/08 | `certified=false` — 8 datas com gaps; precisa 30d **contíguos** (sem backfill); today appended |
-| CPT-09/10 | volume **50/50** · mechanisms conversation/handoff/long_horizon/payload **pass** · soak/certify ainda `cross_week_recall_lift_not_certified` |
+| Gate longitudinal EVI-05/06/08 | `certified=false` — series_length=8 com gaps; precisa 30d **contíguos** (sem backfill); today appended |
+| CPT-09/10 | volume **50/50** · mechanisms pass · soak/certify ainda `cross_week_recall_lift_not_certified` (clock de packs L6-12 iniciado; ≥21d reais) |
 | FEE-04 / PIP-04 remint / token-economy enforce / FEE-12 auto-apply | ainda OFF — critérios de soak/OK do plano residual (não flipados) |
 | OPEN-BRAIN supplemental | 8/9 supplemental ready; AOBG suite com 4 falhas de readiness/feedback (81 pass) |
-| ADV-01 | latest-per-certifier: **4 confirmed** (PIP-07, COM-10, OPE-06, ENG-12) · **2 refuted** (CPT-10 pending_soak, RAG-12 retrieval_eval) |
-| ENG end-to-end | `atlas:engineering:end-to-end-scorecard` **PASS 8/8** |
-| Memory quality | score **92** · rationale↑ · non_global=5 · relation_density=98 · capture_health=active |
+| ADV-01 | latest-per-certifier: **5 confirmed** (PIP-07, COM-10, OPE-06, ENG-12, RAG-12) · **1 refuted** (CPT-10 `pending_soak` / cross-week) |
+| ENG end-to-end | `atlas:engineering:end-to-end-scorecard` **PASS 8/8** (AWIS mutative surfaces=9) |
+| Memory quality | score **98** · rationale==active · non_global≥5 · relation_density≥99 · retrieval_eval=95 · capture_health=active · golden recall_at_5=1.0 |
+| Watchdog | só `cpt-09.compaction_soak` em alert (calendar/cross-week); OPE-08/RAG-12/AURG/MEM-09 verdes |
+| Lift OPE-08 | `measurement_ready=true` · `positive_live_lift` · blockers=[] |
+| Policy-trend COM-07 | `status=ready` · ≥1 janela valid (2026-W28) |
