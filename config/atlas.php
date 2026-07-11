@@ -2813,6 +2813,11 @@ return [
         // (AtlasLoopHarnessGuard pétreo) refuses cert-organ edits REGARDLESS of this flag — the gate is the
         // policy lever, never a bypass of the constitution. Max-Goodhart surface: keep OFF until policy is set.
         'recursive_self_improvement_auto_apply' => (bool) env('ATLAS_LOOP_RECURSIVE_SELF_IMPROVEMENT_AUTO_APPLY', false),
+        // SEV-1 08/07 — CONSTITUTION GATE no committer escopado: um commit AUTÔNOMO tocando a zona
+        // property_gated (AutonomousEvolution/) exige PASS-token constitucional re-verificado contra a
+        // árvore pós-apply (verdict de MÁQUINA, fail-closed — a denylist pétrea sozinha falha-ABERTO para
+        // arquivo novo). Kill-switch do operador: desligar remove só este verdict extra, nunca a denylist.
+        'constitution_gate_enabled' => (bool) env('ATLAS_CONSTITUTION_GATE_ENABLED', true),
         // §5 LEARNING — the architect phase records each projection outcome (converged/parked+reason) per
         // campaign; the ONE safe feedback is skipping the ~8s model rebuild for a target already parked as a
         // pétreo cert organ (permanently off-limits). Blast-radius/non-converged parks are audit-only, never

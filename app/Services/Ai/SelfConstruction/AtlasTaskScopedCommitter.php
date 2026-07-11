@@ -6,12 +6,14 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionGateToken;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
+use App\Services\Ai\SelfConstruction\GovernedTargets\AtlasTaskPropertyGatedTargetPolicy;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -60,6 +62,9 @@ final class AtlasTaskScopedCommitter
      *
      * @param  list<string>  $allowedFiles
      * @param  array<string,mixed>|null  $verification  server-side verify result (ENG-04 certify seam)
+     * @param  string  $commitAuthority  'autonomous' (default — constitution-gated self-edit) | 'operator' (atlas:land)
+     * @param  array{token?:string,battery_root?:string,nonce?:string,consumed_nonces?:list<string>}|null  $constitution
+     *                Constitution PASS-token bind for a property_gated (self-edit) scope — verdict de MÁQUINA.
      * @return array<string, mixed>
      */
     public function commitScope(
@@ -70,11 +75,14 @@ final class AtlasTaskScopedCommitter
         ?array $verification = null,
         bool $governedLockAlreadyHeld = false,
         ?callable $preEffectGuard = null,
+        string $commitAuthority = 'autonomous',
+        ?array $constitution = null,
     ): array {
         $files = $this->normalizeFiles($allowedFiles);
         if ($files === []) {
             return $this->result(false, 'empty_scope', taskPacketId: $taskPacketId);
         }
+        $constitution ??= [];
 
         // PÉTREO: never commit a forbidden self-target (the loop's own judge/guard/master switch).
         $guard = $this->guard ?? new AtlasLoopHarnessGuard;
@@ -82,6 +90,26 @@ final class AtlasTaskScopedCommitter
             if ($guard->isForbiddenSelfTarget($file)) {
                 return $this->result(false, 'forbidden_self_target', taskPacketId: $taskPacketId, extra: ['path' => $file]);
             }
+        }
+
+        // SEV-1 08/07 — CONSTITUTION GATE (verdict de MÁQUINA, fail-closed). The pétreo denylist above
+        // fails-OPEN for files it never listed; the property_gated zone (AutonomousEvolution/ — the loop's
+        // own organs, NEW files included by prefix) is the SELF-EDIT surface. An AUTONOMOUS commit touching
+        // it lands ONLY with a Constitution PASS-token ({@see AtlasLoopConstitutionGateService}) re-verified
+        // against the post-apply tree under the lock — never human approval, never a silent unlock. The
+        // operator port (atlas:land) is exempt; kill-switch: ATLAS_CONSTITUTION_GATE_ENABLED=false.
+        $selfEditPaths = [];
+        if ($commitAuthority !== 'operator' && (bool) config('atlas.loop.constitution_gate_enabled', true)) {
+            $policy = new AtlasTaskPropertyGatedTargetPolicy;
+            $selfEditPaths = array_values(array_filter(
+                $files,
+                static fn (string $f): bool => $policy->classify($f) === AtlasTaskPropertyGatedTargetPolicy::CLASSIFICATION_PROPERTY_GATED,
+            ));
+        }
+        if ($selfEditPaths !== [] && trim((string) ($constitution['token'] ?? '')) === '') {
+            return $this->result(false, 'constitution_gate_blocked_self_edit_no_token', taskPacketId: $taskPacketId, extra: [
+                'self_edit_paths' => $selfEditPaths,
+            ]);
         }
 
         $certify = null;
@@ -109,7 +137,7 @@ final class AtlasTaskScopedCommitter
             ]);
         }
 
-        $effect = function () use ($repo, $files, $taskPacketId, $clientId, $objective, $verification, $certify, $bootSmoke, $preEffectGuard): array {
+        $effect = function () use ($repo, $files, $taskPacketId, $clientId, $objective, $verification, $certify, $bootSmoke, $preEffectGuard, $selfEditPaths, $constitution): array {
             // STATUS-FIRST: `git status` on the scope never errors on a path that does not exist; `git add` of a
             // non-existent pathspec DOES error. So discover which scoped paths actually changed, and act only on
             // those. Empty ⇒ the AI made no edits ⇒ honest no-op (keep the lease).
@@ -131,6 +159,28 @@ final class AtlasTaskScopedCommitter
             $add = $this->git($repo, array_merge(['add', '--'], $changed));
             if ($add['code'] !== 0) {
                 return $this->result(false, 'git_add_failed', taskPacketId: $taskPacketId, extra: ['stderr' => $add['err']]);
+            }
+
+            // Constitution spine (SEV-1): under the SAME lock, re-verify the PASS-token against the
+            // POST-APPLY tree (same bind as {@see AtlasLoopMergeActuator::commitWithConstitutionToken}) —
+            // a token minted for a different tree/battery, or a replayed nonce, NEVER commits.
+            if ($selfEditPaths !== []) {
+                $tree = $this->git($repo, ['write-tree']);
+                if ($tree['code'] !== 0) {
+                    return $this->result(false, 'constitution_write_tree_failed', taskPacketId: $taskPacketId, extra: ['stderr' => $tree['err']]);
+                }
+                $verdict = (new AtlasLoopConstitutionGateToken)->verify(
+                    (string) ($constitution['token'] ?? ''),
+                    trim((string) $tree['out']),
+                    (string) ($constitution['battery_root'] ?? ''),
+                    (string) ($constitution['nonce'] ?? ''),
+                    array_values(array_map('strval', (array) ($constitution['consumed_nonces'] ?? []))),
+                );
+                if (($verdict['valid'] ?? false) !== true) {
+                    return $this->result(false, 'constitution_token_invalid:'.((string) ($verdict['reason'] ?? 'unknown')), taskPacketId: $taskPacketId, extra: [
+                        'self_edit_paths' => $selfEditPaths,
+                    ]);
+                }
             }
 
             $message = $this->commitMessage($taskPacketId, $clientId, $objective);

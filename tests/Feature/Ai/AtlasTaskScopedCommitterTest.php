@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionGateToken;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -96,6 +97,75 @@ final class AtlasTaskScopedCommitterTest extends TestCase
 
         $this->assertFalse($res['committed']);
         $this->assertSame('nothing_to_commit_in_scope', $res['reason']);
+    }
+
+    /** A NEW file inside the self-edit zone — NOT on the pétreo denylist (the fail-open hole SEV-1 closed). */
+    private const SELF_EDIT = 'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainBrandNewOrgan.php';
+
+    public function test_a_self_edit_without_a_constitution_token_is_blocked_fail_closed(): void
+    {
+        $this->writeFile(self::SELF_EDIT, "<?php // self-edit\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope([self::SELF_EDIT], 'task-se', 'client-se');
+
+        $this->assertFalse($res['committed'], 'a self-edit without a constitutional MACHINE verdict never lands');
+        $this->assertSame('constitution_gate_blocked_self_edit_no_token', $res['reason']);
+        $this->assertSame([self::SELF_EDIT], $res['self_edit_paths']);
+        $this->assertSame('seed', trim($this->git(['log', '-1', '--pretty=%s'])['out']), 'no commit landed');
+    }
+
+    public function test_a_self_edit_with_a_machine_pass_token_bound_to_the_post_apply_tree_commits(): void
+    {
+        $this->writeFile(self::SELF_EDIT, "<?php // gated self-edit\n");
+
+        // The MACHINE mints the PASS-token for the exact post-apply tree (never human approval).
+        $this->git(['add', '--', self::SELF_EDIT]);
+        $tree = trim($this->git(['write-tree'])['out']);
+        $token = (new AtlasLoopConstitutionGateToken)->mint($tree, 'battery-1', 'PASS', 'nonce-1');
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            [self::SELF_EDIT], 'task-se2', 'client-se2', 'gated self-edit',
+            constitution: ['token' => $token, 'battery_root' => 'battery-1', 'nonce' => 'nonce-1'],
+        );
+
+        $this->assertTrue($res['committed'], 'reason: '.(string) ($res['reason'] ?? ''));
+        $this->assertContains(self::SELF_EDIT, $res['files_committed']);
+    }
+
+    public function test_a_self_edit_with_a_token_bound_to_a_different_tree_does_not_commit(): void
+    {
+        $this->writeFile(self::SELF_EDIT, "<?php // forged bind\n");
+        $token = (new AtlasLoopConstitutionGateToken)->mint(str_repeat('a', 40), 'battery-1', 'PASS', 'nonce-1');
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            [self::SELF_EDIT], 'task-se3', 'client-se3', 'forged',
+            constitution: ['token' => $token, 'battery_root' => 'battery-1', 'nonce' => 'nonce-1'],
+        );
+
+        $this->assertFalse($res['committed']);
+        $this->assertStringStartsWith('constitution_token_invalid', (string) $res['reason']);
+        $this->assertSame('seed', trim($this->git(['log', '-1', '--pretty=%s'])['out']), 'no commit landed');
+    }
+
+    public function test_the_operator_kill_switch_disables_the_constitution_gate(): void
+    {
+        config(['atlas.loop.constitution_gate_enabled' => false]);
+        $this->writeFile(self::SELF_EDIT, "<?php // kill-switch\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope([self::SELF_EDIT], 'task-ks', 'client-ks');
+
+        $this->assertTrue($res['committed'], 'reason: '.(string) ($res['reason'] ?? ''));
+    }
+
+    public function test_the_operator_port_lands_property_gated_paths_without_a_token(): void
+    {
+        $this->writeFile(self::SELF_EDIT, "<?php // operator landing (atlas:land)\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            [self::SELF_EDIT], 'task-op', 'client-op', 'operator landing', commitAuthority: 'operator',
+        );
+
+        $this->assertTrue($res['committed'], 'reason: '.(string) ($res['reason'] ?? ''));
     }
 
     private function writeFile(string $rel, string $content): void

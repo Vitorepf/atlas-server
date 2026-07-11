@@ -58,7 +58,8 @@ class AtlasLandCommand extends Command
 
         $task = (string) ($this->option('task') ?: 'land-'.strtolower((string) Str::ulid()));
         $committer = new AtlasTaskScopedCommitter(null, $this->option('repo') ?: null);
-        $res = $committer->commitScope($paths, $task, (string) $this->option('client'), $message);
+        // atlas:land is the OPERATOR port: the constitution gate governs AUTONOMOUS self-edit only.
+        $res = $committer->commitScope($paths, $task, (string) $this->option('client'), $message, commitAuthority: 'operator');
 
         $diaryId = null;
         if (($res['committed'] ?? false) === true && ! $this->option('no-diario')) {
