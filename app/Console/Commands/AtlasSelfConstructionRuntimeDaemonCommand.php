@@ -126,6 +126,7 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
      */
     private function tickAction(array $facts, bool $apply): array
     {
+        $facts = $this->withProductiveNativeTick($facts, $apply);
         $cycle = $this->productiveCycle();
         $verdict = $cycle->tick($facts, ['apply' => $apply]);
 
@@ -158,6 +159,7 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 
         for ($i = 0; $i < $maxCycles; $i++) {
             $tickFacts = array_replace($facts, ['daemon_state' => $state]);
+            $tickFacts = $this->withProductiveNativeTick($tickFacts, $apply);
             $verdict = $cycle->tick($tickFacts, ['apply' => $apply]);
             $ticks[] = $verdict;
             $state = $verdict['next_state'];
@@ -211,6 +213,27 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
         return new AtlasSelfConstructionRuntimeDaemonCycle(
             actionExecutor: $executor,
         );
+    }
+
+    /** @param array<string,mixed> $facts @return array<string,mixed> */
+    private function withProductiveNativeTick(array $facts, bool $apply): array
+    {
+        if (! $apply || (array) ($facts['planned_actions'] ?? []) !== []) {
+            return $facts;
+        }
+        $provider = trim((string) config('atlas.ai.default_provider', ''));
+        $model = trim((string) config('atlas.ai.default_model', ''));
+        if ($provider === '' || $model === '') {
+            return $facts;
+        }
+        $facts['planned_actions'] = [[
+            'kind' => 'native_tick',
+            'provider' => $provider,
+            'model' => $model,
+            'source' => 'governed_default_route',
+        ]];
+
+        return $facts;
     }
 
     /**

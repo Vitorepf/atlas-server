@@ -62,6 +62,18 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
         if ($decoded === null) {
             return ['status' => 'invalid_provider_contract', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
+        $claimAllowed = array_values(array_map('strval', (array) ($request['claim']['allowed_files'] ?? [])));
+        $patchAllowed = array_values(array_map('strval', (array) ($decoded['patch_plan']['allowed_files'] ?? [])));
+        if ($claimAllowed === [] || $patchAllowed !== $claimAllowed) {
+            return ['status' => 'invalid_provider_scope', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+        }
+        foreach ((array) ($decoded['patch_plan']['patches'] ?? []) as $patch) {
+            if (! is_array($patch) || ! in_array((string) ($patch['path'] ?? ''), $claimAllowed, true)
+                || ! in_array((string) ($patch['mode'] ?? ''), ['create', 'modify'], true)
+                || ! array_key_exists('next', $patch)) {
+                return ['status' => 'invalid_provider_patch', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+            }
+        }
 
         return [
             'status' => 'ok',
@@ -69,7 +81,7 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             'executes_provider' => true,
             'provider' => $providerKey,
             'patch_plan' => (array) ($decoded['patch_plan'] ?? []),
-            'command_plan' => (array) ($decoded['command_plan'] ?? []),
+            'model' => (string) ($request['model'] ?? ''),
             'output_hash' => hash('sha256', (string) ($raw['output'] ?? '')),
         ];
     }
@@ -85,7 +97,6 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
 
         return is_array($decoded)
             && is_array($decoded['patch_plan'] ?? null)
-            && is_array($decoded['command_plan'] ?? null)
             ? $decoded
             : null;
     }

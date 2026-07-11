@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerCommandPlanRunner;
-
 /** Executes a proposal only inside an isolated disposable filesystem root. */
 final class AtlasSelfConstructionHermeticSandboxApplyService
 {
+    private const MANIFEST = '.atlas-native-manifest.json';
+
     public function __construct(
         private readonly ?AtlasSelfConstructionNativePatchMaterializer $materializer = null,
-        private readonly ?AtlasNativeWorkerCommandPlanRunner $commands = null,
     ) {}
 
     /** @param array<string,mixed> $input @return array<string,mixed> */
@@ -25,11 +24,20 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
         if (! is_dir($sandbox) && ! mkdir($sandbox, 0o700, true) && ! is_dir($sandbox)) {
             return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_create_failed'];
         }
+        if (is_link($sandbox)) {
+            return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_symlink_detected'];
+        }
+        chmod($sandbox, 0o700);
 
         $proposal = ($this->materializer ?? new AtlasSelfConstructionNativePatchMaterializer)
             ->materialize((array) ($input['patch_plan'] ?? []));
         if (($proposal['accepted'] ?? false) !== true) {
             return ['applied' => false, 'dry_run' => false, 'reason' => 'materialization_refused', 'sandbox_root' => $sandbox];
+        }
+        foreach ((array) ($proposal['files'] ?? []) as $file) {
+            if (! is_array($file) || $this->hasSymlinkComponent($sandbox, (string) ($file['path'] ?? ''))) {
+                return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_symlink_detected', 'sandbox_root' => $sandbox];
+            }
         }
 
         $idempotencyReceipt = hash('sha256', $key.'|'.(string) json_encode($proposal, JSON_UNESCAPED_SLASHES));
@@ -75,31 +83,98 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_apply_failed', 'sandbox_root' => $sandbox, 'apply_receipt' => $apply];
         }
 
-        $commandPlan = [];
-        foreach ((array) ($input['command_plan'] ?? []) as $command) {
-            if (is_array($command)) {
-                $command['cwd'] = $sandbox;
-                $commandPlan[] = $command;
-            }
-        }
-        $names = array_values(array_filter(array_map(static fn (array $row): string => (string) ($row['name'] ?? ''), $commandPlan)));
-        $commandReceipt = ($this->commands ?? new AtlasNativeWorkerCommandPlanRunner)
-            ->execute(['command_allowlist' => $names], $commandPlan, dryRun: false);
-        foreach ((array) ($commandReceipt['results'] ?? []) as $row) {
-            if (! is_array($row) || ($row['status'] ?? '') !== AtlasNativeWorkerCommandPlanRunner::STATUS_OK || ($row['exit_code'] ?? 1) !== 0) {
-                return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_command_failed', 'sandbox_root' => $sandbox, 'command_receipt' => $commandReceipt];
-            }
-        }
-
-        return [
+        $result = [
             'applied' => true,
             'replayed' => false,
             'dry_run' => false,
             'sandbox_root' => $sandbox,
             'apply_receipt' => $apply,
-            'command_receipt' => $commandReceipt,
             'diffs' => $proposal['diffs'] ?? [],
             'idempotency_receipt' => $idempotencyReceipt,
         ];
+        $this->writeManifest($sandbox, [
+            'state' => 'applied',
+            'idempotency_key' => $key,
+            'provider_receipt' => (array) ($input['provider_receipt'] ?? []),
+            'provider_hash' => hash('sha256', (string) json_encode((array) ($input['provider_receipt'] ?? []), JSON_UNESCAPED_SLASHES)),
+            'apply_hash' => hash('sha256', (string) json_encode($apply, JSON_UNESCAPED_SLASHES)),
+            'evidence_hash' => $idempotencyReceipt,
+        ]);
+
+        return $result;
+    }
+
+    /** @return array<string,mixed>|null */
+    public function reconcile(string $key): ?array
+    {
+        $path = sys_get_temp_dir().'/atlas-native-sandbox-'.substr(hash('sha256', $key), 0, 24).'/'.self::MANIFEST;
+        if (! is_file($path) || is_link($path)) {
+            return null;
+        }
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        return is_array($decoded) && hash_equals($key, (string) ($decoded['idempotency_key'] ?? '')) ? $decoded : null;
+    }
+
+    /** @param array<string,mixed> $receipt */
+    public function stageProvider(string $key, array $receipt): bool
+    {
+        $sandbox = sys_get_temp_dir().'/atlas-native-sandbox-'.substr(hash('sha256', $key), 0, 24);
+        if (! is_dir($sandbox) && ! mkdir($sandbox, 0o700, true) && ! is_dir($sandbox)) {
+            return false;
+        }
+        if (is_link($sandbox)) {
+            return false;
+        }
+        $existing = $this->reconcile($key);
+        $hash = hash('sha256', (string) json_encode($receipt, JSON_UNESCAPED_SLASHES));
+        if (is_array($existing)) {
+            return hash_equals((string) ($existing['provider_hash'] ?? ''), $hash);
+        }
+
+        return $this->writeManifest($sandbox, [
+            'state' => 'provider_staged',
+            'idempotency_key' => $key,
+            'provider_receipt' => $receipt,
+            'provider_hash' => $hash,
+            'apply_hash' => null,
+            'evidence_hash' => null,
+        ]);
+    }
+
+    /** @param array<string,mixed> $manifest */
+    private function writeManifest(string $sandbox, array $manifest): bool
+    {
+        $path = $sandbox.'/'.self::MANIFEST;
+        if (is_link($path)) {
+            return false;
+        }
+        $tmp = $path.'.tmp.'.bin2hex(random_bytes(6));
+        if (file_put_contents($tmp, json_encode($manifest, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), LOCK_EX) === false) {
+            return false;
+        }
+        chmod($tmp, 0o600);
+
+        return rename($tmp, $path);
+    }
+
+    private function hasSymlinkComponent(string $root, string $relative): bool
+    {
+        $cursor = $root;
+        foreach (explode('/', trim($relative, '/')) as $component) {
+            $cursor .= '/'.$component;
+            if (is_link($cursor)) {
+                return true;
+            }
+            if (file_exists($cursor)) {
+                $real = realpath($cursor);
+                $realRoot = realpath($root);
+                if ($real === false || $realRoot === false || ($real !== $realRoot && ! str_starts_with($real, $realRoot.'/'))) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

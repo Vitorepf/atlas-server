@@ -9,14 +9,14 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCase
 {
-    public function test_real_apply_and_command_run_only_inside_disposable_sandbox(): void
+    public function test_provider_supplied_commands_are_never_executed(): void
     {
         $main = sys_get_temp_dir().'/atlas-main-'.bin2hex(random_bytes(4));
         mkdir($main);
         file_put_contents($main.'/protected.php', 'main');
 
         $result = (new AtlasSelfConstructionHermeticSandboxApplyService)->execute([
-            'idempotency_key' => 'delivery-1',
+            'idempotency_key' => 'delivery-'.bin2hex(random_bytes(4)),
             'allowed_files' => ['protected.php'],
             'patch_plan' => [
                 'allowed_files' => ['protected.php'],
@@ -24,7 +24,8 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
             ],
             'command_plan' => [[
                 'name' => 'sandbox-gate',
-                'argv' => [PHP_BINARY, '-r', 'file_put_contents("gate-ran", "yes");'],
+                'argv' => [PHP_BINARY, '-r', 'file_put_contents('.var_export($main.'/escaped', true).', "owned");'],
+                'labels' => ['network', 'shell'],
                 'timeout_seconds' => 5,
             ]],
         ]);
@@ -33,7 +34,8 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
         self::assertTrue($result['applied']);
         self::assertFalse($result['dry_run']);
         self::assertNotSame($main, $result['sandbox_root']);
-        self::assertFileExists($result['sandbox_root'].'/gate-ran');
+        self::assertFileDoesNotExist($result['sandbox_root'].'/gate-ran');
+        self::assertFileDoesNotExist($main.'/escaped');
         self::assertFileDoesNotExist($result['sandbox_root'].'/vendor');
     }
 
@@ -59,5 +61,41 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
         self::assertTrue($second['replayed']);
         self::assertSame($mtime, filemtime($path));
         self::assertSame($first['idempotency_receipt'], $second['idempotency_receipt']);
+    }
+
+    public function test_planted_symlink_component_cannot_escape_sandbox(): void
+    {
+        $key = 'symlink-'.bin2hex(random_bytes(4));
+        $sandbox = sys_get_temp_dir().'/atlas-native-sandbox-'.substr(hash('sha256', $key), 0, 24);
+        $outside = sys_get_temp_dir().'/atlas-outside-'.bin2hex(random_bytes(4));
+        mkdir($sandbox, 0o700, true);
+        mkdir($outside, 0o700, true);
+        symlink($outside, $sandbox.'/app');
+
+        $result = (new AtlasSelfConstructionHermeticSandboxApplyService)->execute([
+            'idempotency_key' => $key,
+            'allowed_files' => ['app/Escape.php'],
+            'patch_plan' => ['allowed_files' => ['app/Escape.php'], 'patches' => [[
+                'path' => 'app/Escape.php', 'mode' => 'create', 'next' => 'escaped',
+            ]]],
+        ]);
+
+        self::assertFalse($result['applied']);
+        self::assertSame('sandbox_symlink_detected', $result['reason']);
+        self::assertFileDoesNotExist($outside.'/Escape.php');
+    }
+
+    public function test_restart_reconciles_staged_provider_receipt_and_refuses_changed_output(): void
+    {
+        $key = 'kill-window-'.bin2hex(random_bytes(4));
+        $first = ['status' => 'ok', 'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => []]];
+        $changed = ['status' => 'ok', 'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => [['path' => 'app/X.php']]]];
+        $service = new AtlasSelfConstructionHermeticSandboxApplyService;
+
+        self::assertTrue($service->stageProvider($key, $first));
+        $restarted = (new AtlasSelfConstructionHermeticSandboxApplyService)->reconcile($key);
+        self::assertSame('provider_staged', $restarted['state']);
+        self::assertSame($first, $restarted['provider_receipt']);
+        self::assertFalse($service->stageProvider($key, $changed));
     }
 }

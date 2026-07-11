@@ -141,6 +141,27 @@ final class AtlasSelfConstructionRuntimeDaemonCommandTest extends TestCase
         $this->assertSame('held', $p['applied_actions'][0]['result']['status']);
     }
 
+    public function test_productive_empty_plan_synthesizes_governed_native_tick_route(): void
+    {
+        config()->set('atlas.ai.default_provider', 'test-provider');
+        config()->set('atlas.ai.default_model', 'test-model');
+        app()->instance(AtlasSelfConstructionNativeActionExecutor::class, new class extends AtlasSelfConstructionNativeActionExecutor
+        {
+            public function execute(array $action, array $state): array
+            {
+                return ['status' => 'held', 'reason' => $action['provider'].'/'.$action['model'], 'retryable' => true];
+            }
+        });
+        $this->writeFacts($this->readyFacts(['planned_actions' => []]));
+
+        Artisan::call('atlas:self-construction:runtime-daemon', ['action' => 'tick', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame('native_tick', $p['planned_actions'][0]['kind']);
+        self::assertSame('test-provider', $p['planned_actions'][0]['provider']);
+        self::assertSame('test-model', $p['planned_actions'][0]['model']);
+    }
+
     public function test_apply_invokes_only_typed_atlas_native_executor(): void
     {
         $captured = [];

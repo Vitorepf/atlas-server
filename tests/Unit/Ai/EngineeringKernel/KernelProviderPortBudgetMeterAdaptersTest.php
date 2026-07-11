@@ -78,13 +78,16 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
         $receipt = $adapter->invoke([
             'execute_provider' => true,
             'provider' => 'codex_cli',
+            'model' => 'test-model',
             'prompt' => 'Produce a governed patch plan',
+            'claim' => ['allowed_files' => ['app/X.php']],
         ]);
 
         self::assertSame(1, $calls);
         self::assertSame('ok', $receipt['status']);
         self::assertArrayHasKey('patch_plan', $receipt);
-        self::assertArrayHasKey('command_plan', $receipt);
+        self::assertArrayNotHasKey('command_plan', $receipt);
+        self::assertSame('test-model', $receipt['model']);
         self::assertTrue($receipt['provider_invoked']);
     }
 

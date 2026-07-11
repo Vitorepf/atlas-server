@@ -45,14 +45,26 @@ class AtlasSelfConstructionNativeActionExecutor
             if (! $this->provider instanceof ProviderPort) {
                 return ['status' => 'held', 'reason' => 'provider_port_unavailable', 'retryable' => true];
             }
+            $idempotencyKey = hash('sha256', implode('|', [
+                (string) ($claim['task_packet_id'] ?? ''),
+                (string) ($claim['lease_id'] ?? ''),
+                (string) ($claim['authority_hash'] ?? ''),
+                (string) ($claim['envelope_hash'] ?? ''),
+            ]));
+            $sandbox = $this->sandbox ?? new AtlasSelfConstructionHermeticSandboxApplyService;
+            $manifest = $sandbox->reconcile($idempotencyKey);
+            if (($manifest['state'] ?? null) === 'applied') {
+                return ['status' => 'held', 'reason' => 'governed_release_and_canary_pending', 'retryable' => true, 'replayed' => true, 'idempotency_key' => $idempotencyKey];
+            }
+            $providerReceipt = is_array($manifest['provider_receipt'] ?? null) ? $manifest['provider_receipt'] : null;
             try {
-                $providerReceipt = $this->provider->invoke([
+                $providerReceipt ??= $this->provider->invoke([
                     'execute_provider' => true,
                     'capability' => 'atlas.self_construction.native_patch_plan',
                     'provider' => $providerKey,
                     'model' => $model,
                     'prompt' => (string) json_encode([
-                        'objective' => 'Produce only a governed JSON patch_plan and command_plan for this claim.',
+                        'objective' => 'Produce only a governed JSON patch_plan for this claim. Never propose commands.',
                         'claim' => $claim,
                     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
                     'claim' => $claim,
@@ -69,12 +81,14 @@ class AtlasSelfConstructionNativeActionExecutor
             if (($providerReceipt['status'] ?? 'ok') !== 'ok' || ($providerReceipt['exhausted'] ?? false) === true) {
                 return ['status' => 'held', 'reason' => 'provider_fallback_exhausted', 'retryable' => true];
             }
-            $idempotencyKey = hash('sha256', (string) ($claim['task_packet_id'] ?? '').'|'.(string) ($claim['lease_id'] ?? ''));
-            $sandboxReceipt = ($this->sandbox ?? new AtlasSelfConstructionHermeticSandboxApplyService)->execute([
+            if (! $sandbox->stageProvider($idempotencyKey, $providerReceipt)) {
+                return ['status' => 'held', 'reason' => 'provider_receipt_conflict', 'retryable' => false, 'idempotency_key' => $idempotencyKey];
+            }
+            $sandboxReceipt = $sandbox->execute([
                 'idempotency_key' => $idempotencyKey,
                 'allowed_files' => (array) ($claim['allowed_files'] ?? []),
                 'patch_plan' => (array) ($providerReceipt['patch_plan'] ?? []),
-                'command_plan' => (array) ($providerReceipt['command_plan'] ?? []),
+                'provider_receipt' => $providerReceipt,
             ]);
             if (($sandboxReceipt['applied'] ?? false) !== true) {
                 return [

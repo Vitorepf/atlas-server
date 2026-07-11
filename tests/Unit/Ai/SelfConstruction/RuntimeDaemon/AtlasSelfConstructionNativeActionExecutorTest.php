@@ -56,10 +56,15 @@ final class AtlasSelfConstructionNativeActionExecutorTest extends TestCase
 
     public function test_provider_success_applies_in_sandbox_and_keeps_lease_open_without_report(): void
     {
-        $provider = new class implements ProviderPort
+        $calls = 0;
+        $provider = new class($calls) implements ProviderPort
         {
+            public function __construct(private int &$calls) {}
+
             public function invoke(array $request): array
             {
+                $this->calls++;
+
                 return [
                     'status' => 'ok',
                     'patch_plan' => ['allowed_files' => ['app/Generated.php'], 'patches' => [[
@@ -71,13 +76,15 @@ final class AtlasSelfConstructionNativeActionExecutorTest extends TestCase
                 ];
             }
         };
-        $runtime = new class implements AtlasNativeWorkerProductionRuntime
+        $runtime = new class(bin2hex(random_bytes(4))) implements AtlasNativeWorkerProductionRuntime
         {
             public int $reports = 0;
 
+            public function __construct(private readonly string $suffix) {}
+
             public function claim(string $clientId): ?array
             {
-                return ['task_packet_id' => 'task-1', 'lease_id' => 'lease-1', 'allowed_files' => ['app/Generated.php']];
+                return ['task_packet_id' => 'task-'.$this->suffix, 'lease_id' => 'lease-'.$this->suffix, 'allowed_files' => ['app/Generated.php']];
             }
 
             public function report(string $clientId, array $outcome): array
@@ -95,11 +102,15 @@ final class AtlasSelfConstructionNativeActionExecutorTest extends TestCase
 
         $result = (new AtlasSelfConstructionNativeActionExecutor(production: $runtime, provider: $provider))
             ->execute(['kind' => 'native_tick', 'provider' => 'test', 'model' => 'test-model'], []);
+        $replayed = (new AtlasSelfConstructionNativeActionExecutor(production: $runtime, provider: $provider))
+            ->execute(['kind' => 'native_tick', 'provider' => 'test', 'model' => 'test-model'], []);
 
         self::assertSame('held', $result['status']);
         self::assertSame('governed_release_and_canary_pending', $result['reason']);
         self::assertSame(0, $runtime->reports);
         self::assertTrue($result['sandbox_applied']);
+        self::assertSame(1, $calls);
+        self::assertTrue($replayed['replayed']);
     }
 
     public function test_provider_timeout_is_held_retryable(): void
