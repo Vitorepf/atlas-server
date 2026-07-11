@@ -49,12 +49,12 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | COM-01 | ✅ | 0177b45a5d | ledger pack + namespace canônico refs |
 | ENG-04 | ✅ | 872591fe9 | certify no landing Autônomos |
 | EVI-09 | ✅ | 248cb34a13 | rename fable→acos delta-series |
-| EVI-05 | ⬜ | — | — |
+| EVI-05 | ✅ | 9fdbe5560 | contiguidade + anti-backfill [MEDIDOR] |
 | EVI-06 | ⬜ | — | — |
 | EVI-03 | ⬜ | — | — |
 | PIP-02 | ⬜ | — | — |
 | MEM-04 | ✅ | 83f1b48 | ALL_RECALLED (5 decisões pétreas via atlas:memory:add) |
-| RAG-01 | ⬜ | — | — |
+| RAG-01 | ✅ | e3730223d | usage no ponto de entrega [MEDIDOR] |
 | RAG-04 | ⬜ | — | — |
 | CPT-01 | ✅ | 5962afd83 | must_keep extractor always-merge |
 | FEE-06 | ✅ | pending | PipelineMemoryRefsNoiseTest 3/3 |
@@ -64,7 +64,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | OPE-03 | ⬜ | — | — |
 | OPE-06 | ⬜ | — | — |
 | SUB-01 | ✅ | pending | phpunit 2/2 + ledger receipt com dump hash |
-| ROL-01 | ⬜ | — | — |
+| ROL-01 | ✅ | 1d7506b5e | 6 gatilhos rollback pré-declarados |
 
 ### Onda 2 — Produtores reais (22)
 
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 21/98 · Faltam: 77 · Próximo: EVI-05**
+**Feitas: 25/98 · Faltam: 73 · Próximo: EVI-06**
