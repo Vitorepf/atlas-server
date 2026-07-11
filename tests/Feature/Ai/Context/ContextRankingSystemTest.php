@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Context;
 
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
@@ -102,6 +103,51 @@ final class ContextRankingSystemTest extends TestCase
         $this->assertFalse(data_get($payload, 'rerank_result.feedback_impact_report.policy.raw_text_exposed'));
         $this->assertFalse(data_get($payload, 'policy.writes'));
         $this->assertFalse(data_get($payload, 'source_ranking_inputs.feedback_hint.providers_invoked'));
+    }
+
+    public function test_feedback_hint_records_before_after_snapshot_to_ledger_and_read_only_command_lists_delta(): void
+    {
+        $this->bootLedgerEventsTable();
+
+        try {
+            app(AtlasContextRankingSystemService::class)->rank([
+                'objective' => 'corrigir bug no repo com teste falhando e evidence replay',
+                'task_type' => 'debug',
+                'domain' => 'developer',
+                'risk_level' => 'low',
+                'max_refs' => 8,
+                'feedback_hint_input' => [
+                    'repromote_source_types' => ['vector_retrieval'],
+                    'demote_source_types' => ['evidence_replay'],
+                ],
+            ]);
+
+            $event = AtlasLedgerEvent::query()
+                ->get()
+                ->first(fn (AtlasLedgerEvent $row): bool => data_get($row->payload, 'event_name') === 'context.ranking_hints.snapshot');
+
+            $this->assertNotNull($event);
+            $this->assertSame('CONTEXT_COMPOSED', $event->event_type);
+            $this->assertSame('active', data_get($event->payload, 'hint.status'));
+            $this->assertNotEmpty(data_get($event->payload, 'snapshot.before.positions'));
+            $this->assertNotEmpty(data_get($event->payload, 'snapshot.after.positions'));
+            $this->assertGreaterThan(0, data_get($event->payload, 'delta.rank_position_change_count'));
+            $this->assertStringNotContainsString('corrigir bug no repo', json_encode($event->payload, JSON_THROW_ON_ERROR));
+
+            $exit = Artisan::call('atlas:context:ranking-hints', ['--json' => true]);
+            $report = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+            $this->assertSame(0, $exit);
+            $this->assertSame('atlas.context.ranking_hints.report.v1', $report['schema_version']);
+            $this->assertSame('ready', $report['status']);
+            $this->assertFalse(data_get($report, 'policy.writes'));
+            $this->assertSame('active', data_get($report, 'hints.0.hint.status'));
+            $this->assertGreaterThan(0, data_get($report, 'hints.0.delta.rank_position_change_count'));
+            $this->assertNotEmpty(data_get($report, 'hints.0.snapshot.before.positions'));
+            $this->assertNotEmpty(data_get($report, 'hints.0.snapshot.after.positions'));
+        } finally {
+            (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->down();
+        }
     }
 
     public function test_flow_id_loads_latest_retrieval_feedback_hint_for_ranking(): void
@@ -305,5 +351,12 @@ final class ContextRankingSystemTest extends TestCase
         $this->assertTrue(collect(data_get($payload, 'rerank_result.feedback_impact_report.newly_selected_refs'))->contains('source_type', 'vector_retrieval'));
         $this->assertContains('vector_retrieval', data_get($payload, 'rerank_result.feedback_impact_report.coverage_delta.gained_required_sources'));
         $this->assertContains('evidence_replay', data_get($payload, 'rerank_result.feedback_impact_report.coverage_delta.lost_required_sources'));
+    }
+
+    private function bootLedgerEventsTable(): void
+    {
+        $migration = require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php');
+        $migration->down();
+        $migration->up();
     }
 }

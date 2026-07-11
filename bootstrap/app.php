@@ -87,6 +87,7 @@ use App\Console\Commands\AtlasCognitionRemintTouchedCommand;
 use App\Console\Commands\AtlasCognitionVerifyClaimsCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
+use App\Console\Commands\AtlasContextPolicyTrendCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
 use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
@@ -362,6 +363,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCognitionRemintTouchedCommand::class,
         AtlasCognitionVerifyClaimsCommand::class,
         AtlasCostCalibrateCommand::class,
+        AtlasContextPolicyTrendCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
         AtlasIntelligenceRolloutPromoteCommand::class,
         AtlasPatamar4SelfConstructF4GapsCommand::class,
@@ -439,6 +441,10 @@ return Application::configure(basePath: dirname(__DIR__))
         if (config('atlas.ai.weekly_memory_digest.enabled', true)) {
             $schedule->command('atlas:ai:weekly-memory-digest --days=7 --json')
                 ->weeklyOn(0, (string) config('atlas.ai.weekly_memory_digest.time', '18:00')) // 0 = Sunday
+                ->timezone((string) config('app.timezone', 'UTC'))
+                ->withoutOverlapping();
+            $schedule->command('atlas:memory:growth-report --days=7 --json')
+                ->weeklyOn(0, (string) config('atlas.ai.weekly_memory_digest.time', '18:00'))
                 ->timezone((string) config('app.timezone', 'UTC'))
                 ->withoutOverlapping();
         }

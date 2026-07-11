@@ -6,6 +6,8 @@ namespace App\Services\Ai\Context;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelGraphRanker;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\AutonomousEngineering\WorldModel\WorldModelRankingQuery;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
@@ -71,6 +73,15 @@ final class AtlasContextRankingSystemService
         $baselineSelected = array_slice($baselineRanked, 0, $maxRefs);
         $baselineCoverage = $this->requiredSourceCoverage($baselineSelected, $requiredSources);
         $status = $this->status($plan, $selected, $coverage);
+        $feedbackImpactReport = $this->feedbackImpactReport(
+            $baselineRanked,
+            $ranked,
+            $baselineSelected,
+            $selected,
+            $baselineCoverage,
+            $coverage,
+            $feedbackHint,
+        );
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -90,15 +101,7 @@ final class AtlasContextRankingSystemService
                     'graph_status' => (string) ($graphRanking['status'] ?? 'unknown'),
                     'professional_reranker' => data_get($professional, 'metrics.reranker', 'deterministic_professional_v1'),
                 ],
-                'feedback_impact_report' => $this->feedbackImpactReport(
-                    $baselineRanked,
-                    $ranked,
-                    $baselineSelected,
-                    $selected,
-                    $baselineCoverage,
-                    $coverage,
-                    $feedbackHint,
-                ),
+                'feedback_impact_report' => $feedbackImpactReport,
             ],
             'source_ranking_inputs' => [
                 'aarf_status' => (string) ($plan['status'] ?? 'unknown'),
@@ -120,6 +123,17 @@ final class AtlasContextRankingSystemService
         $hashPayload = $payload;
         unset($hashPayload['generated_at']);
         $payload['rerank_result_hash'] = MissionCanonicalHash::sha256($hashPayload);
+
+        $this->recordFeedbackHintSnapshot(
+            $input,
+            $feedbackHint,
+            $baselineRanked,
+            $ranked,
+            $baselineSelected,
+            $selected,
+            $feedbackImpactReport,
+            $payload['rerank_result_hash'],
+        );
 
         return $payload;
     }
@@ -644,6 +658,81 @@ final class AtlasContextRankingSystemService
             'auto_apply_learning' => false,
             'writes' => false,
             'providers_invoked' => false,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @param  array<string,mixed>  $feedbackHint
+     * @param  array<int,array<string,mixed>>  $baselineRanked
+     * @param  array<int,array<string,mixed>>  $currentRanked
+     * @param  array<int,array<string,mixed>>  $baselineSelected
+     * @param  array<int,array<string,mixed>>  $currentSelected
+     * @param  array<string,mixed>  $feedbackImpactReport
+     */
+    private function recordFeedbackHintSnapshot(
+        array $input,
+        array $feedbackHint,
+        array $baselineRanked,
+        array $currentRanked,
+        array $baselineSelected,
+        array $currentSelected,
+        array $feedbackImpactReport,
+        string $rerankResultHash,
+    ): void {
+        if (! (bool) ($feedbackHint['active'] ?? false)) {
+            return;
+        }
+
+        try {
+            app(AtlasEvidenceLedger::class)->record(LedgerEventType::ContextComposed, [
+                'event_name' => 'context.ranking_hints.snapshot',
+                'schema_version' => 'atlas.context.ranking_hints.snapshot.v1',
+                'objective_hash' => MissionCanonicalHash::sha256((string) ($input['objective'] ?? $input['prompt'] ?? $input['query'] ?? '')),
+                'domain' => (string) ($input['domain'] ?? 'atlas'),
+                'task_type' => (string) ($input['task_type'] ?? 'direct'),
+                'flow_id' => $feedbackHint['flow_id'] ?? null,
+                'hint' => $this->feedbackHintSummary($feedbackHint),
+                'snapshot' => [
+                    'before' => $this->rankingSnapshot($baselineRanked, $baselineSelected),
+                    'after' => $this->rankingSnapshot($currentRanked, $currentSelected),
+                ],
+                'delta' => $feedbackImpactReport,
+                'hold' => [
+                    'status' => 'observe',
+                    'auto_revert' => false,
+                    'reason' => ((int) ($feedbackImpactReport['rank_position_change_count'] ?? 0)) > 0
+                        ? 'comparison_recorded'
+                        : 'no_measured_improvement_yet',
+                ],
+                'rerank_result_hash' => $rerankResultHash,
+                'policy' => [
+                    'provider_safe_only' => true,
+                    'raw_text_exposed' => false,
+                    'read_only_command' => 'atlas:context:ranking-hints',
+                    'auto_revert' => false,
+                ],
+            ], [
+                'envelope_id' => 'context_ranking_hints',
+                'correlation_id' => $rerankResultHash !== '' ? $rerankResultHash : 'context_ranking_hints',
+                'emitter_stage' => 'atlas.context_ranking',
+                'emitter_version' => self::SCHEMA_VERSION,
+            ]);
+        } catch (\Throwable) {
+            // Evidence is observational. Missing ledger/schema must never alter ranking.
+        }
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $ranked
+     * @param  array<int,array<string,mixed>>  $selected
+     * @return array<string,mixed>
+     */
+    private function rankingSnapshot(array $ranked, array $selected): array
+    {
+        return [
+            'positions' => array_values($this->rankPositionMap($ranked)),
+            'selected' => array_values($this->rankPositionMap($selected)),
         ];
     }
 
