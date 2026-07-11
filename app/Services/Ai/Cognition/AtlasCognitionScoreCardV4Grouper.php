@@ -62,6 +62,13 @@ final class AtlasCognitionScoreCardV4Grouper
                 $buckets[$module][$dim][] = (string) ($row[$dim] ?? 'blocked');
             }
             $buckets[$module]['members'][] = (string) ($row['acronym'] ?? '');
+            $serviceClass = trim((string) ($row['service_class'] ?? ''));
+            if ($serviceClass !== '') {
+                $buckets[$module]['service_classes'][] = $serviceClass;
+            }
+            if (($row['supplemental'] ?? false) === true) {
+                $buckets[$module]['supplemental_count'] = ($buckets[$module]['supplemental_count'] ?? 0) + 1;
+            }
         }
 
         $modules = [];
@@ -74,6 +81,8 @@ final class AtlasCognitionScoreCardV4Grouper
                 'doc_status' => $this->rollup($bucket['doc_status'] ?? []),
                 'pipeline_status' => $this->rollup($bucket['pipeline_status'] ?? []),
                 'members' => $bucket['members'] ?? [],
+                'service_classes' => array_values(array_unique($bucket['service_classes'] ?? [])),
+                'supplemental_count' => (int) ($bucket['supplemental_count'] ?? 0),
                 'boundary' => $consumers ? 'consumer' : 'acos',
             ];
         }

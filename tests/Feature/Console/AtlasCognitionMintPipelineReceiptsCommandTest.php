@@ -8,6 +8,8 @@ use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -216,6 +218,193 @@ final class AtlasCognitionMintPipelineReceiptsCommandTest extends TestCase
         $this->assertSame(1, $report['born_stale_count']);
         $this->assertTrue($report['minted'][0]['born_stale']);
         $this->assertSame(' M app/Foo.php', $report['minted'][0]['seal']['git_porcelain']);
+    }
+
+    public function test_dry_run_lists_nine_v4_supplemental_partial_targets_without_running_or_persisting(): void
+    {
+        $services = [];
+        $caps = [];
+        for ($i = 1; $i <= 9; $i++) {
+            $short = 'Pip05SupplementalService'.$i;
+            $service = 'App\\Services\\Ai\\Cognition\\'.$short;
+            $testRef = $short.'Test';
+            $testRel = 'tests/Fixtures/Pip05/'.$testRef.'.php';
+            @mkdir(dirname(base_path($testRel)), 0775, true);
+            file_put_contents(base_path($testRel), "<?php\nfinal class {$testRef} { public function test_binding(): void { {$short}::class; } }\n");
+            $this->tempFiles[] = base_path($testRel);
+
+            $services[] = $service;
+            $caps[$service] = [
+                'capability_id' => 'pip05.cap-'.$i,
+                'owner_doc' => 'docs/engineering-knowledge-base/pip05-'.$i.'.md',
+                'evidence_refs' => [['kind' => 'symbol', 'ref' => $short]],
+                'test_refs' => [['ref' => $testRef, 'index_resolved' => true, 'matched' => $testRef, 'file_path' => $testRel]],
+            ];
+        }
+
+        $truth = new class($caps) extends AtlasAaeosImplementationTruthService
+        {
+            public function __construct(private readonly array $caps) {}
+
+            public function capabilityTestRefs(?string $capability = null): array
+            {
+                return array_values($this->caps);
+            }
+
+            public function freshnessHashes(array $evidenceRefs, string $testRef): array
+            {
+                return ['test_file_hash' => 'dry-test', 'impl_files_hash' => 'dry-impl'];
+            }
+        };
+        $resolver = new class($caps) extends AtlasCognitionEvidenceResolver
+        {
+            public function __construct(private readonly array $caps) {}
+
+            public function ownerCapabilityIdsForFqn(?string $serviceClass): array
+            {
+                return isset($this->caps[$serviceClass]) ? [$this->caps[$serviceClass]['capability_id']] : [];
+            }
+        };
+        $execution = new class extends AtlasAaeosTestExecutionService
+        {
+            public int $calls = 0;
+
+            public function __construct() {}
+
+            public function runAndRecord(string $capabilityId, string $testRef, ?string $explicitPath = null, ?string $testFileHash = null, ?string $implFilesHash = null): array
+            {
+                $this->calls++;
+
+                return ['passed' => true, 'tests_run' => 1];
+            }
+        };
+        $scorecard = new class($services) extends AtlasCognitionScoreCardService
+        {
+            public function __construct(private readonly array $services) {}
+
+            public function build(): array
+            {
+                return [
+                    'score' => ['dimensions' => ['pipeline' => ['score_out_of_10' => 0.0]]],
+                    'subsystems' => [],
+                    'v4' => [
+                        'modules' => array_map(
+                            static fn (string $service): array => [
+                                'acronym' => class_basename($service),
+                                'pipeline_status' => AtlasCognitionScoreCardService::STATUS_PARTIAL,
+                                'supplemental_count' => 1,
+                                'service_classes' => [$service],
+                                'members' => [class_basename($service)],
+                            ],
+                            $this->services,
+                        ),
+                    ],
+                ];
+            }
+        };
+
+        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasCognitionScoreCardService::class, $scorecard);
+        $this->app->instance(AtlasCognitionEvidenceResolver::class, $resolver);
+
+        $out = new BufferedOutput;
+        $exit = Artisan::call('atlas:cognition:mint-pipeline-receipts', ['--limit' => 20, '--dry-run' => true, '--json' => true], $out);
+        $report = json_decode($out->fetch(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue($report['dry_run']);
+        $this->assertSame(9, $report['dry_run_target_count']);
+        $this->assertCount(9, $report['dry_run_targets']);
+        $this->assertSame(0, $execution->calls, 'dry-run lists targets without running tests or writing receipts');
+    }
+
+    public function test_v4_supplemental_target_rejects_test_ref_that_does_not_bind_to_service_class(): void
+    {
+        $service = 'App\\Services\\Ai\\Cognition\\Pip05BoundService';
+        $testRel = 'tests/Fixtures/Pip05/Pip05BoundServiceTest.php';
+        @mkdir(dirname(base_path($testRel)), 0775, true);
+        file_put_contents(base_path($testRel), "<?php\nfinal class Pip05BoundServiceTest { public function test_unbound(): void { self::assertTrue(true); } }\n");
+        $this->tempFiles[] = base_path($testRel);
+
+        $cap = [
+            'capability_id' => 'pip05.unbound',
+            'owner_doc' => 'docs/engineering-knowledge-base/pip05-unbound.md',
+            'evidence_refs' => [['kind' => 'symbol', 'ref' => 'Pip05BoundService']],
+            'test_refs' => [['ref' => 'Pip05BoundServiceTest', 'index_resolved' => true, 'matched' => 'Pip05BoundServiceTest', 'file_path' => $testRel]],
+        ];
+        $truth = new class($cap) extends AtlasAaeosImplementationTruthService
+        {
+            public function __construct(private readonly array $cap) {}
+
+            public function capabilityTestRefs(?string $capability = null): array
+            {
+                return [$this->cap];
+            }
+
+            public function freshnessHashes(array $evidenceRefs, string $testRef): array
+            {
+                return ['test_file_hash' => 'unbound-test', 'impl_files_hash' => 'unbound-impl'];
+            }
+        };
+        $resolver = new class($cap, $service) extends AtlasCognitionEvidenceResolver
+        {
+            public function __construct(private readonly array $cap, private readonly string $service) {}
+
+            public function ownerCapabilityIdsForFqn(?string $serviceClass): array
+            {
+                return $serviceClass === $this->service ? [$this->cap['capability_id']] : [];
+            }
+        };
+        $execution = new class extends AtlasAaeosTestExecutionService
+        {
+            public int $calls = 0;
+
+            public function __construct() {}
+
+            public function runAndRecord(string $capabilityId, string $testRef, ?string $explicitPath = null, ?string $testFileHash = null, ?string $implFilesHash = null): array
+            {
+                $this->calls++;
+
+                return ['passed' => true, 'tests_run' => 1];
+            }
+        };
+        $scorecard = new class($service) extends AtlasCognitionScoreCardService
+        {
+            public function __construct(private readonly string $service) {}
+
+            public function build(): array
+            {
+                return [
+                    'score' => ['dimensions' => ['pipeline' => ['score_out_of_10' => 0.0]]],
+                    'subsystems' => [],
+                    'v4' => [
+                        'modules' => [[
+                            'acronym' => 'PIP05-UNBOUND',
+                            'pipeline_status' => AtlasCognitionScoreCardService::STATUS_PARTIAL,
+                            'supplemental_count' => 1,
+                            'service_classes' => [$this->service],
+                            'members' => ['PIP05-UNBOUND'],
+                        ]],
+                    ],
+                ];
+            }
+        };
+
+        $this->app->instance(AtlasAaeosImplementationTruthService::class, $truth);
+        $this->app->instance(AtlasAaeosTestExecutionService::class, $execution);
+        $this->app->instance(AtlasCognitionScoreCardService::class, $scorecard);
+        $this->app->instance(AtlasCognitionEvidenceResolver::class, $resolver);
+
+        $out = new BufferedOutput;
+        $exit = Artisan::call('atlas:cognition:mint-pipeline-receipts', ['--limit' => 1, '--dry-run' => true, '--json' => true], $out);
+        $report = json_decode($out->fetch(), true);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(0, $report['dry_run_target_count']);
+        $this->assertSame(1, $report['binding_rejection_count']);
+        $this->assertSame('test_ref_not_bound_to_service_class', $report['binding_rejections'][0]['reason']);
+        $this->assertSame(0, $execution->calls, 'unbound test refs are rejected before any mint attempt');
     }
 
     public function test_verify_green_mint_seal_detects_index_drift_after_receipt(): void
