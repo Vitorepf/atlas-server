@@ -27,6 +27,11 @@ final readonly class CanonicalReleaseAuthorizationRequest
         public string $issuedAt,
         public string $expiresAt,
         public array $context,
+        public string $orderHash = '',
+        public string $deliveryId = '',
+        public string $evidenceHash = '',
+        public bool $requiresCanarySettlement = false,
+        public string $action = 'commit',
     ) {
         if ($this->decisionHash === '' || $this->taskPacketId === '' || $this->candidateHash === ''
             || $this->verificationHash === '' || $this->rollbackHash === '' || $this->files === []
@@ -34,6 +39,14 @@ final readonly class CanonicalReleaseAuthorizationRequest
             || $this->leaseId === '' || $this->leaseOwner === '' || $this->fencingToken < 1
             || $this->nonce === '' || $this->issuedAt === '' || $this->expiresAt === '') {
             throw new InvalidArgumentException('canonical_release_authorization_request_incomplete');
+        }
+        if ($this->requiresCanarySettlement
+            && (preg_match('/^[a-f0-9]{64}$/', $this->orderHash) !== 1 || $this->deliveryId === ''
+                || preg_match('/^[a-f0-9]{64}$/', $this->evidenceHash) !== 1)) {
+            throw new InvalidArgumentException('canonical_release_authorization_canary_binding_incomplete');
+        }
+        if (! in_array($this->action, ['commit', 'revert_task'], true)) {
+            throw new InvalidArgumentException('canonical_release_authorization_action_invalid');
         }
     }
 }

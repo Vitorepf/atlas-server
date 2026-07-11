@@ -328,6 +328,7 @@ final class AtlasTaskCommitGovernanceChain
         $rollbackHash = $this->deterministicHash($rollback);
         $prepareBinding = [
             'task_packet_id' => $taskId,
+            'action' => 'commit',
             'candidate_hash' => $candidateHash,
             'verification_hash' => $verificationHash,
             'rollback_hash' => $rollbackHash,
@@ -339,6 +340,13 @@ final class AtlasTaskCommitGovernanceChain
             'lease_owner' => trim((string) ($prepareContext['lease_owner'] ?? '')),
             'fencing_token' => (int) ($prepareContext['fencing_token'] ?? 0),
         ];
+        if (($prepareContext['requires_canary_settlement'] ?? false) === true) {
+            $prepareBinding += [
+                'order_hash' => trim((string) ($prepareContext['order_hash'] ?? '')),
+                'delivery_id' => trim((string) ($prepareContext['delivery_id'] ?? '')),
+                'evidence_hash' => trim((string) ($prepareContext['evidence_hash'] ?? '')),
+            ];
+        }
 
         $verdictStatus = 'error';
         try {
@@ -435,6 +443,10 @@ final class AtlasTaskCommitGovernanceChain
                 nonce: $nonce,
                 issuedAt: $issuedAt,
                 expiresAt: $expiresAt,
+                orderHash: trim((string) ($context['order_hash'] ?? '')),
+                deliveryId: trim((string) ($context['delivery_id'] ?? '')),
+                evidenceHash: trim((string) ($context['evidence_hash'] ?? '')),
+                requiresCanarySettlement: ($context['requires_canary_settlement'] ?? false) === true,
                 context: [
                     'correlation_id' => $nonce,
                     'scope_type' => 'task_packet',
@@ -468,6 +480,9 @@ final class AtlasTaskCommitGovernanceChain
                 'scope_hash' => $scopeHash,
                 'lease_id' => $leaseId,
                 'fencing_token' => $fencingToken,
+                'order_hash' => trim((string) ($context['order_hash'] ?? '')),
+                'delivery_id' => trim((string) ($context['delivery_id'] ?? '')),
+                'evidence_hash' => trim((string) ($context['evidence_hash'] ?? '')),
             ],
         )->toArray();
     }

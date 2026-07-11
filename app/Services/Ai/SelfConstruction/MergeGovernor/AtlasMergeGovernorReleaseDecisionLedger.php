@@ -21,7 +21,7 @@ use RuntimeException;
  */
 final class AtlasMergeGovernorReleaseDecisionLedger
 {
-    public const SCHEMA = 'atlas.mergegovernor.release_decision.v2';
+    public const SCHEMA = 'atlas.mergegovernor.release_decision.v3';
 
     public const STATUS_OK = 'ok';
 

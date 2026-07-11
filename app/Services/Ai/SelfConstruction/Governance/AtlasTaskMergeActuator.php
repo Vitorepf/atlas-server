@@ -6,6 +6,9 @@ namespace App\Services\Ai\SelfConstruction\Governance;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
+use App\Services\Ai\EngineeringKernel\AuthorizedRevertAction;
+use App\Services\Ai\EngineeringKernel\CanarySettlementRequest;
+use App\Services\Ai\EngineeringKernel\CanonicalReleaseAuthorizationRequest;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -15,6 +18,7 @@ use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPo
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -118,6 +122,66 @@ final class AtlasTaskMergeActuator
         return $this->act(AuthorizedMergeAction::fromArray($prepared['authorized_merge_action']));
     }
 
+    public function prepareRevert(CanarySettlementRequest $request): ?AuthorizedRevertAction
+    {
+        $repo = $this->repoRoot();
+        $action = $request->action;
+        if (($this->leaseValidator !== null && ! ($this->leaseValidator)($action->leaseId, $action->fencingToken))
+            || trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']) !== $request->landedSha) {
+            return null;
+        }
+        $files = $this->changedFiles($repo, $request->landedSha);
+        sort($files, SORT_STRING);
+        $expected = $action->files;
+        sort($expected, SORT_STRING);
+        if ($files !== $expected) {
+            return null;
+        }
+        $candidateHash = $this->candidateHash($action->taskPacketId, $request->landedSha, $files);
+        $verificationHash = hash('sha256', $request->landedSha);
+        $rollbackHash = $this->rollbackHash($request->landedSha);
+        $treeHash = hash('sha256', 'revert:'.$request->landedSha.':'.implode('|', $files));
+        $nonce = (string) Str::uuid();
+        $issuedAt = date(DATE_ATOM);
+        $expiresAt = date(DATE_ATOM, time() + 300);
+        $prepareBinding = [
+            'task_packet_id' => $action->taskPacketId, 'action' => self::ACTION_REVERT_TASK,
+            'candidate_hash' => $candidateHash, 'verification_hash' => $verificationHash,
+            'rollback_hash' => $rollbackHash, 'changed_files' => $files,
+            'scope_hash' => $action->scopeHash, 'base_commit' => $request->landedSha, 'tree_hash' => $treeHash,
+            'lease_id' => $action->leaseId, 'lease_owner' => (string) ($action->metadata['lease_owner'] ?? ''),
+            'fencing_token' => $action->fencingToken, 'order_hash' => $request->orderHash,
+            'delivery_id' => $request->deliveryId, 'evidence_hash' => $request->evidenceHash,
+        ];
+        try {
+            $row = $this->appendReleaseDecision($action->taskPacketId, $request->landedSha, $files,
+                AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED, [], 'medium',
+                'revertible:git_revert_scoped_commit', $prepareBinding);
+            $authority = $this->kernelEvidenceAuthority ?? app(KernelEvidenceAuthority::class);
+            $event = $authority->issueReleaseAuthorization(new CanonicalReleaseAuthorizationRequest(
+                decisionHash: (string) $row['decision_hash'], taskPacketId: $action->taskPacketId,
+                candidateHash: $candidateHash, verificationHash: $verificationHash,
+                rollbackHash: $rollbackHash, files: $files, scopeHash: $action->scopeHash,
+                baseCommit: $request->landedSha, treeHash: $treeHash, leaseId: $action->leaseId,
+                leaseOwner: (string) ($action->metadata['lease_owner'] ?? ''), fencingToken: $action->fencingToken,
+                nonce: $nonce, issuedAt: $issuedAt, expiresAt: $expiresAt,
+                context: ['correlation_id' => $nonce, 'scope_type' => 'task_packet', 'scope_id' => $action->taskPacketId],
+                orderHash: $request->orderHash, deliveryId: $request->deliveryId, evidenceHash: $request->evidenceHash,
+                requiresCanarySettlement: true, action: self::ACTION_REVERT_TASK,
+            ));
+        } catch (Throwable $exception) {
+            throw new \RuntimeException('canonical_revert_authorization_failed', previous: $exception);
+        }
+        $revert = AuthorizedMergeAction::fromReleaseDecisionRow($row, self::ACTION_REVERT_TASK, $this->ledger()->path(),
+            targetSha: $request->landedSha, files: $files, metadata: ['dry_run' => false, 'lease_owner' => $prepareBinding['lease_owner']],
+            canonicalBinding: ['event_id' => $event->event_id, 'event_hash' => (string) ($event->event_hash ?: $event->payload_hash),
+                'nonce' => $nonce, 'base_commit' => $request->landedSha, 'tree_hash' => $treeHash,
+                'scope_hash' => $action->scopeHash, 'lease_id' => $action->leaseId, 'fencing_token' => $action->fencingToken,
+                'order_hash' => $request->orderHash, 'delivery_id' => $request->deliveryId, 'evidence_hash' => $request->evidenceHash]);
+
+        return new AuthorizedRevertAction($revert, $request->idempotencyHash(), $request->landedEventId);
+    }
+
     /**
      * V1 translator: perform the old revert preflight, persist Governor authority,
      * and return a capability the kernel act() seam can consume.
@@ -217,6 +281,9 @@ final class AtlasTaskMergeActuator
         if (($validated['ok'] ?? false) !== true) {
             return $this->zeroEffect($action->taskPacketId, $action->dryRun(), (string) ($validated['reason'] ?? self::REASON_AUTHORITY_NOT_PERSISTED), $validated);
         }
+        if (! $this->validateCanonicalRevertAuthority($action)) {
+            return $this->zeroEffect($action->taskPacketId, $action->dryRun(), self::REASON_AUTHORITY_NOT_PERSISTED);
+        }
 
         $repo = $this->repoRoot();
         $sha = (string) $validated['sha'];
@@ -235,6 +302,9 @@ final class AtlasTaskMergeActuator
         }
 
         return $this->withCommitLock($repo, function () use ($repo, $action, $sha, $files): array {
+            if (! $this->validateCanonicalRevertAuthority($action)) {
+                return $this->zeroEffect($action->taskPacketId, false, self::REASON_AUTHORITY_NOT_PERSISTED);
+            }
             $revert = $this->git($repo, ['revert', '--no-edit', $sha]);
             if ($revert['code'] !== 0) {
                 $this->recordDecision($action->taskPacketId, $sha, $files, AtlasMergeGovernorAdmissionPolicy::DECISION_REJECTED, [self::REASON_REVERT_FAILED], 'high');
@@ -255,6 +325,8 @@ final class AtlasTaskMergeActuator
             $revertSha = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
             try {
                 $settlement = $this->recordEffectSettlement($action, $revertSha, $files);
+                $authority = $this->kernelEvidenceAuthority ?? app(KernelEvidenceAuthority::class);
+                $canonicalSettlement = $authority->issueRevertSettlement($action, $sha, $revertSha, $files);
             } catch (Throwable $e) {
                 return [
                     'schema' => self::SCHEMA,
@@ -282,6 +354,7 @@ final class AtlasTaskMergeActuator
                 'revert_sha' => $revertSha,
                 'files' => $files,
                 'settlement' => $settlement,
+                'settlement_event_id' => (string) $canonicalSettlement->event_id,
             ];
         });
     }
@@ -325,6 +398,9 @@ final class AtlasTaskMergeActuator
                 'commit_sha' => $sha,
                 'changed_files' => $action->files,
                 'scope_hash' => $action->scopeHash,
+                'order_hash' => $action->orderHash,
+                'delivery_id' => $action->deliveryId,
+                'evidence_hash' => $action->evidenceHash,
                 'provenance' => ['emitter' => 'atlas.merge_actuator', 'sovereign' => true],
             ], [
                 'correlation_id' => $action->nonce,
@@ -389,7 +465,10 @@ final class AtlasTaskMergeActuator
         if (! hash_equals($persistedHash, $action->canonicalEventHash)) {
             return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED];
         }
-        $payload = is_array($event->payload) ? $event->payload : [];
+        $payload = $event->getAttribute('payload');
+        if (! is_array($payload)) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED];
+        }
         $bindings = [
             'event_name' => 'release.authorized',
             'task_packet_id' => $action->taskPacketId,
@@ -407,6 +486,9 @@ final class AtlasTaskMergeActuator
             'nonce' => $action->nonce,
             'issued_at' => $action->issuedAt,
             'expires_at' => $action->expiresAt,
+            'order_hash' => $action->orderHash,
+            'delivery_id' => $action->deliveryId,
+            'evidence_hash' => $action->evidenceHash,
         ];
         foreach ($bindings as $key => $expected) {
             if (($payload[$key] ?? null) !== $expected) {
@@ -581,6 +663,43 @@ final class AtlasTaskMergeActuator
         return ['ok' => true, 'sha' => $sha, 'files' => $files, 'row' => $row];
     }
 
+    private function validateCanonicalRevertAuthority(AuthorizedMergeAction $action): bool
+    {
+        if ($action->canonicalEventId === '' || $action->canonicalEventHash === '' || $action->orderHash === ''
+            || $action->deliveryId === '' || $action->evidenceHash === ''
+            || ($this->leaseValidator !== null && ! ($this->leaseValidator)($action->leaseId, $action->fencingToken))) {
+            return false;
+        }
+        $ledger = $this->canonicalLedger();
+        $event = $ledger->eventById($action->canonicalEventId);
+        $payload = $event?->getAttribute('payload');
+        $authority = $this->kernelEvidenceAuthority ?? app(KernelEvidenceAuthority::class);
+        if ($event === null || ! $authority->verifyReleaseAuthorization($event) || ! is_array($payload)) {
+            return false;
+        }
+        $persistedHash = (string) ($event->getAttribute('event_hash') ?: $event->getAttribute('payload_hash'));
+        if ($persistedHash === '' || ! hash_equals($persistedHash, $action->canonicalEventHash)) {
+            return false;
+        }
+        foreach (['event_name' => 'release.authorized', 'task_packet_id' => $action->taskPacketId,
+            'action' => self::ACTION_REVERT_TASK, 'candidate_hash' => $action->candidateHash,
+            'decision_hash' => $action->decisionHash, 'verification_hash' => $action->verificationHash,
+            'rollback_hash' => $action->rollbackHash, 'changed_files' => $action->files,
+            'scope_hash' => $action->scopeHash, 'base_commit' => $action->baseCommit,
+            'tree_hash' => $action->treeHash, 'lease_id' => $action->leaseId,
+            'lease_owner' => (string) ($action->metadata['lease_owner'] ?? ''),
+            'fencing_token' => $action->fencingToken, 'nonce' => $action->nonce,
+            'issued_at' => $action->issuedAt, 'expires_at' => $action->expiresAt,
+            'order_hash' => $action->orderHash, 'delivery_id' => $action->deliveryId,
+            'evidence_hash' => $action->evidenceHash] as $key => $expected) {
+            if (($payload[$key] ?? null) !== $expected) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * @return array<string,mixed>|null
      */
@@ -615,7 +734,7 @@ final class AtlasTaskMergeActuator
      * @param  list<string>  $reasons
      * @return array<string,mixed>
      */
-    private function appendReleaseDecision(string $taskPacketId, string $sha, array $files, string $decision, array $reasons, string $riskLevel, string $rollbackPosture): array
+    private function appendReleaseDecision(string $taskPacketId, string $sha, array $files, string $decision, array $reasons, string $riskLevel, string $rollbackPosture, array $prepareBinding = []): array
     {
         $ledger = $this->ledger();
         $append = $ledger->append([
@@ -633,6 +752,7 @@ final class AtlasTaskMergeActuator
             'rollback_posture' => $rollbackPosture,
             'rejected_alternatives' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? [] : ['act_without_authorized_merge_action'],
             'post_release_learning_hooks' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? ['merge_actuator_effect_settlement_required'] : [],
+            'prepare_binding' => $prepareBinding,
         ]);
 
         return is_array($append['row'] ?? null) ? $append['row'] : [];

@@ -272,6 +272,7 @@ final class KernelEvidenceAuthority
         $binding = is_array($row['prepare_binding'] ?? null) ? $row['prepare_binding'] : [];
         $expectedBinding = [
             'task_packet_id' => $request->taskPacketId,
+            'action' => $request->action,
             'candidate_hash' => $request->candidateHash,
             'verification_hash' => $request->verificationHash,
             'rollback_hash' => $request->rollbackHash,
@@ -283,6 +284,13 @@ final class KernelEvidenceAuthority
             'lease_owner' => $request->leaseOwner,
             'fencing_token' => $request->fencingToken,
         ];
+        if ($request->requiresCanarySettlement) {
+            $expectedBinding += [
+                'order_hash' => $request->orderHash,
+                'delivery_id' => $request->deliveryId,
+                'evidence_hash' => $request->evidenceHash,
+            ];
+        }
         if (! is_array($row)
             || ($row['schema'] ?? null) !== AtlasMergeGovernorReleaseDecisionLedger::SCHEMA
             || ($row['decision'] ?? null) !== AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED
@@ -298,7 +306,7 @@ final class KernelEvidenceAuthority
         return $this->issue('release_authorization', LedgerEventType::ReleaseAuthorized, [
             'event_name' => 'release.authorized',
             'task_packet_id' => (string) ($row['task_packet_id'] ?? ''),
-            'action' => 'commit',
+            'action' => $request->action,
             'candidate_hash' => (string) ($row['candidate_hash'] ?? ''),
             'decision_hash' => (string) ($row['decision_hash'] ?? ''),
             'verification_hash' => (string) ($row['verification_hash'] ?? ''),
@@ -311,6 +319,9 @@ final class KernelEvidenceAuthority
             'lease_id' => $request->leaseId,
             'lease_owner' => $request->leaseOwner,
             'fencing_token' => $request->fencingToken,
+            'order_hash' => $request->orderHash,
+            'delivery_id' => $request->deliveryId,
+            'evidence_hash' => $request->evidenceHash,
             'nonce' => $request->nonce,
             'issued_at' => $request->issuedAt,
             'expires_at' => $request->expiresAt,
@@ -339,12 +350,67 @@ final class KernelEvidenceAuthority
             && $this->producerSealValid($receipt, AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER, true);
     }
 
+    /** @param array<string,mixed> $observation */
+    public function issueCanaryObservation(CanarySettlementRequest $request, array $observation, string $phase): AtlasLedgerEvent
+    {
+        if (! in_array($phase, ['observed', 'terminal'], true)
+            || ! in_array((string) ($observation['verdict'] ?? ''), ['canary_pass', 'canary_fail_attributed', 'canary_inconclusive'], true)
+            || ! in_array((string) ($observation['status'] ?? ''), ['pending', 'settled', 'reverted', 'release_uncertain'], true)) {
+            throw new InvalidArgumentException('canonical_canary_observation_invalid');
+        }
+
+        return $this->issue($phase === 'terminal' ? 'terminal_outcome' : 'canary_observation', LedgerEventType::GateEvaluated, $request->binding() + [
+            'event_name' => 'release.canary_'.$phase, 'canary_request_hash' => $request->idempotencyHash(),
+            'phase' => $phase, 'observation' => $observation,
+        ], ['event_id' => 'canary-'.substr(hash('sha256', $phase.':'.$request->idempotencyHash()), 0, 24),
+            'correlation_id' => $request->action->nonce, 'causation_id' => $request->landedEventId,
+            'scope_type' => 'task_packet', 'scope_id' => $request->action->taskPacketId], $phase === 'terminal' ? 0 : 3600);
+    }
+
+    /** @param list<string> $files */
+    public function issueRevertSettlement(AuthorizedMergeAction $action, string $targetSha, string $revertSha, array $files): AtlasLedgerEvent
+    {
+        if ($action->action !== 'revert_task' || preg_match('/^[a-f0-9]{40}$/', $targetSha) !== 1
+            || preg_match('/^[a-f0-9]{40}$/', $revertSha) !== 1 || $files !== $action->files) {
+            throw new InvalidArgumentException('canonical_revert_settlement_invalid');
+        }
+
+        return $this->issue('revert_settlement', LedgerEventType::ReleaseReverted, [
+            'event_name' => 'release.reverted', 'task_packet_id' => $action->taskPacketId,
+            'authorization_event_id' => $action->canonicalEventId,
+            'authorization_event_hash' => $action->canonicalEventHash, 'nonce' => $action->nonce,
+            'target_sha' => $targetSha, 'revert_sha' => $revertSha, 'changed_files' => $files,
+            'scope_hash' => $action->scopeHash, 'order_hash' => $action->orderHash,
+            'delivery_id' => $action->deliveryId, 'evidence_hash' => $action->evidenceHash,
+        ], ['correlation_id' => $action->nonce, 'causation_id' => $action->canonicalEventId,
+            'scope_type' => 'task_packet', 'scope_id' => $action->taskPacketId]);
+    }
+
+    public function issueProvisionalOutcome(EngineeringOutcome $outcome, AuthorizedMergeAction $action): AtlasLedgerEvent
+    {
+        $data = $outcome->toArray();
+        if (! $this->verifyOutcome($data) || $outcome->deliveryId !== $action->deliveryId
+            || ! hash_equals((string) ($outcome->correlatedHashes['order'] ?? ''), $action->orderHash)
+            || ! hash_equals((string) ($outcome->correlatedHashes['evidence'] ?? ''), $action->evidenceHash)) {
+            throw new InvalidArgumentException('provisional_engineering_outcome_binding_invalid');
+        }
+
+        return $this->issue('provisional_outcome', LedgerEventType::OperationCompleted, [
+            'event_name' => 'engineering.outcome.provisional', 'task_packet_id' => $action->taskPacketId,
+            'candidate_hash' => $action->candidateHash, 'order_hash' => $action->orderHash,
+            'delivery_id' => $action->deliveryId, 'evidence_hash' => $action->evidenceHash,
+            'outcome_hash' => $outcome->outcomeHash, 'outcome' => $data,
+        ], ['correlation_id' => $action->nonce, 'causation_id' => $action->canonicalEventId,
+            'scope_type' => 'engineering_delivery', 'scope_id' => $action->deliveryId]);
+    }
+
     /** @param array<string,mixed> $payload @param array<string,mixed> $context */
     private function issue(string $kind, LedgerEventType $type, array $payload, array $context, int $validForSeconds = 3600): AtlasLedgerEvent
     {
         $this->assertAllowed($kind, $type);
         $now = CarbonImmutable::now()->startOfSecond();
-        $payload['_authority'] = $this->seal($kind, $payload, $now, $now->addSeconds($validForSeconds));
+        $payload['_authority'] = $this->seal($kind, $payload, $now,
+            $validForSeconds > 0 ? $now->addSeconds($validForSeconds) : null);
         $event = $this->ledger->record($type, $payload, array_replace($context, [
             'emitter_stage' => self::EMITTER_STAGE,
             'emitter_version' => self::SCHEMA,
@@ -361,8 +427,10 @@ final class KernelEvidenceAuthority
         $expectedType = match ($kind) {
             'decision' => LedgerEventType::DecisionIssued,
             'evidence_bundle' => LedgerEventType::EvidencePacked,
-            'acceptance', 'role_disposition' => LedgerEventType::GateEvaluated,
+            'acceptance', 'role_disposition', 'canary_observation', 'terminal_outcome' => LedgerEventType::GateEvaluated,
             'release_authorization' => LedgerEventType::ReleaseAuthorized,
+            'revert_settlement' => LedgerEventType::ReleaseReverted,
+            'provisional_outcome' => LedgerEventType::OperationCompleted,
             default => null,
         };
         if ($expectedType === null || $event->event_type !== $expectedType->value
@@ -426,8 +494,9 @@ final class KernelEvidenceAuthority
             return false;
         }
         if ($issued === null || CarbonImmutable::now()->lt($issued)
-            || ($kind !== 'engineering_outcome' && ($expires === null || CarbonImmutable::now()->gte($expires)))
-            || ($kind === 'engineering_outcome' && $expiresRaw !== null)
+            || (! in_array($kind, ['engineering_outcome', 'terminal_outcome'], true)
+                && ($expires === null || CarbonImmutable::now()->gte($expires)))
+            || (in_array($kind, ['engineering_outcome', 'terminal_outcome'], true) && $expiresRaw !== null)
             || ($authority['schema_version'] ?? null) !== self::SCHEMA || ($authority['kind'] ?? null) !== $kind
             || ($authority['provenance'] ?? null) !== 'kernel_evidence_authority'
             || ! hash_equals((string) ($authority['payload_hash'] ?? ''), CanonicalKernelPayload::hash($payload))) {
@@ -480,8 +549,11 @@ final class KernelEvidenceAuthority
     {
         $allowed = ($kind === 'decision' && $type === LedgerEventType::DecisionIssued)
             || ($kind === 'evidence_bundle' && $type === LedgerEventType::EvidencePacked)
-            || (in_array($kind, ['acceptance', 'role_disposition'], true) && $type === LedgerEventType::GateEvaluated);
+            || (in_array($kind, ['acceptance', 'role_disposition', 'canary_observation', 'terminal_outcome'], true)
+                && $type === LedgerEventType::GateEvaluated);
         $allowed = $allowed || ($kind === 'release_authorization' && $type === LedgerEventType::ReleaseAuthorized);
+        $allowed = $allowed || ($kind === 'revert_settlement' && $type === LedgerEventType::ReleaseReverted);
+        $allowed = $allowed || ($kind === 'provisional_outcome' && $type === LedgerEventType::OperationCompleted);
         if (! $allowed) {
             throw new InvalidArgumentException('kernel_evidence_authority_kind_type_forbidden');
         }

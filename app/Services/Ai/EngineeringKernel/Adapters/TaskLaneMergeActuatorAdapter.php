@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\Adapters;
 
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
+use App\Services\Ai\EngineeringKernel\AuthorizedRevertAction;
+use App\Services\Ai\EngineeringKernel\CanarySettlementRequest;
 use App\Services\Ai\EngineeringKernel\MergeActuator;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 
@@ -32,5 +34,10 @@ final class TaskLaneMergeActuatorAdapter implements MergeActuator
     public function revert(string $taskPacketId, bool $dryRun = true): array
     {
         return $this->actuator->revert($taskPacketId, $dryRun);
+    }
+
+    public function prepareRevert(CanarySettlementRequest $request): ?AuthorizedRevertAction
+    {
+        return $this->actuator->prepareRevert($request);
     }
 }

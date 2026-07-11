@@ -15,6 +15,7 @@ use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -43,6 +44,290 @@ final class EliteExecutorKernel
         private readonly ?AtlasSelfConstructionHermeticSandboxApplyService $mutativeSandbox = null,
         private readonly ?AtlasRealEngineeringExecutionKernelService $realExecution = null,
     ) {}
+
+    /** @return array<string,mixed> */
+    public function settleLandedRelease(CanarySettlementRequest $request, MergeActuator $actuator, AtlasTaskPostLandCanarySentinel $sentinel): array
+    {
+        $ledger = $this->evidenceLedger ?? app(AtlasEvidenceLedger::class);
+        $authority = $this->evidenceAuthority ?? app(KernelEvidenceAuthority::class);
+        $terminalId = 'canary-'.substr(hash('sha256', 'terminal:'.$request->idempotencyHash()), 0, 24);
+        $terminal = $ledger->eventById($terminalId);
+        if ($terminal instanceof AtlasLedgerEvent && $authority->verifyEvent($terminal, 'terminal_outcome')) {
+            $observation = (array) data_get($terminal->payload, 'observation', []);
+            $terminalOutcome = $observation['engineering_outcome'] ?? null;
+            if (is_array($terminalOutcome) && $authority->verifyOutcome($terminalOutcome)) {
+                return $observation + ['replayed' => true];
+            }
+        }
+        $landed = $ledger->eventById($request->landedEventId);
+        if (! $landed instanceof AtlasLedgerEvent || ! $ledger->eventIntegrityValid($landed)
+            || $landed->event_type !== LedgerEventType::ReleaseLanded->value
+            || ! $request->matchesCanonicalLandedEvent($landed)
+            || data_get($landed->payload, 'commit_sha') !== $request->landedSha
+            || data_get($landed->payload, 'task_packet_id') !== $request->action->taskPacketId
+            || data_get($landed->payload, 'scope_hash') !== $request->action->scopeHash
+            || data_get($landed->payload, 'order_hash') !== $request->orderHash
+            || data_get($landed->payload, 'delivery_id') !== $request->deliveryId
+            || data_get($landed->payload, 'evidence_hash') !== $request->evidenceHash
+            || ! $this->canonicalReleaseBindingValid($ledger, $authority, $request, $landed)) {
+            return $this->uncertainCanary($request, 'landed_release_binding_invalid');
+        }
+        $provisionalOutcome = $this->provisionalOutcome($ledger, $authority, $request);
+        if (! $provisionalOutcome instanceof EngineeringOutcome) {
+            return $this->uncertainCanary($request, 'provisional_engineering_outcome_invalid');
+        }
+        $observedId = 'canary-'.substr(hash('sha256', 'observed:'.$request->idempotencyHash()), 0, 24);
+        $observed = $ledger->eventById($observedId);
+        if ($observed instanceof AtlasLedgerEvent && $authority->verifyEvent($observed, 'canary_observation')) {
+            return $this->persistUncertainCanary($authority, $request,
+                'reconciliation_required_after_observed_effect', provisional: $provisionalOutcome) + ['replayed' => true];
+        }
+        try {
+            $canary = $sentinel->observe($request->action->taskPacketId, $request->landedSha, $request->action->files);
+        } catch (\Throwable $exception) {
+            return $this->persistUncertainCanary($authority, $request, 'canary_observer_failed:'.$exception::class,
+                provisional: $provisionalOutcome);
+        }
+        $verdict = (string) ($canary['verdict'] ?? AtlasTaskPostLandCanarySentinel::VERDICT_INCONCLUSIVE);
+        try {
+            $authority->issueCanaryObservation($request, ['verdict' => $verdict, 'status' => 'pending'], 'observed');
+        } catch (\Throwable) {
+            return $this->uncertainCanary($request, 'canary_observed_ledger_failed');
+        }
+        if (($canary['ledger_status'] ?? 'error') === 'error' || $verdict === AtlasTaskPostLandCanarySentinel::VERDICT_INCONCLUSIVE) {
+            return $this->persistUncertainCanary($authority, $request, 'canary_inconclusive_or_diagnostic_ledger_down', $verdict,
+                $provisionalOutcome);
+        }
+        if ($verdict === AtlasTaskPostLandCanarySentinel::VERDICT_PASS) {
+            $result = ['verdict' => $verdict, 'status' => 'settled', 'resolved' => true, 'release_uncertain' => false,
+                'landed_sha' => $request->landedSha, 'canary_before_terminal' => true];
+            $result['engineering_outcome'] = $this->terminalEngineeringOutcome(
+                $provisionalOutcome, 'released', $request, $request->landedEventHash, $result,
+            )->toArray();
+            try {
+                $authority->issueCanaryObservation($request, $result, 'terminal');
+            } catch (\Throwable) {
+                return $this->uncertainCanary($request, 'canary_terminal_ledger_failed');
+            }
+
+            return $result;
+        }
+        try {
+            $authorizedRevert = $actuator->prepareRevert($request);
+            if (! $authorizedRevert instanceof AuthorizedRevertAction
+                || ! $this->canonicalRevertAuthorizationValid($ledger, $authority, $request, $authorizedRevert)) {
+                return $this->persistUncertainCanary($authority, $request, 'revert_authority_invalid', $verdict, $provisionalOutcome);
+            }
+            $revert = $actuator->act($authorizedRevert->action);
+        } catch (\Throwable $exception) {
+            return $this->persistUncertainCanary($authority, $request, 'revert_failed:'.$exception::class, $verdict, $provisionalOutcome);
+        }
+        $reverted = $this->canonicalRevertSettlementValid($ledger, $authority, $request, $authorizedRevert, $revert);
+        $result = ['verdict' => $verdict, 'status' => $reverted ? 'reverted' : 'release_uncertain',
+            'resolved' => $reverted, 'release_uncertain' => ! $reverted, 'revert_receipt' => $revert,
+            'landed_sha' => $request->landedSha, 'canary_before_terminal' => true];
+        $releaseHash = $request->landedEventHash;
+        if ($reverted) {
+            $settlement = $ledger->eventById((string) ($revert['settlement_event_id'] ?? ''));
+            $releaseHash = (string) ($settlement?->getAttribute('event_hash') ?: $settlement?->getAttribute('payload_hash'));
+        }
+        $result['engineering_outcome'] = $this->terminalEngineeringOutcome(
+            $provisionalOutcome, $reverted ? 'reverted' : 'release_uncertain', $request, $releaseHash, $result,
+        )->toArray();
+        try {
+            $authority->issueCanaryObservation($request, $result, 'terminal');
+        } catch (\Throwable) {
+            return $this->uncertainCanary($request, 'revert_effect_terminal_ledger_failed');
+        }
+
+        return $result;
+    }
+
+    /** @return array<string,mixed> */
+    private function persistUncertainCanary(KernelEvidenceAuthority $authority, CanarySettlementRequest $request, string $reason,
+        string $verdict = AtlasTaskPostLandCanarySentinel::VERDICT_INCONCLUSIVE,
+        ?EngineeringOutcome $provisional = null): array
+    {
+        $result = $this->uncertainCanary($request, $reason) + ['verdict' => $verdict];
+        if ($provisional instanceof EngineeringOutcome) {
+            $result['engineering_outcome'] = $this->terminalEngineeringOutcome(
+                $provisional, 'release_uncertain', $request, $request->landedEventHash, $result,
+            )->toArray();
+        }
+        try {
+            $authority->issueCanaryObservation($request, $result, 'terminal');
+        } catch (\Throwable) {
+            // The returned quarantine remains fail-closed; no terminal claim is fabricated.
+        }
+
+        return $result;
+    }
+
+    /** @return array<string,mixed> */
+    private function uncertainCanary(CanarySettlementRequest $request, string $reason): array
+    {
+        return ['verdict' => AtlasTaskPostLandCanarySentinel::VERDICT_INCONCLUSIVE, 'status' => 'release_uncertain',
+            'resolved' => false, 'release_uncertain' => true, 'quarantined' => true, 'reason' => $reason,
+            'landed_sha' => $request->landedSha, 'canary_before_terminal' => true];
+    }
+
+    private function provisionalOutcome(AtlasEvidenceLedger $ledger, KernelEvidenceAuthority $authority,
+        CanarySettlementRequest $request): ?EngineeringOutcome
+    {
+        $event = $ledger->eventById($request->provisionalOutcomeEventId);
+        $payload = $event?->getAttribute('payload');
+        if (! $event instanceof AtlasLedgerEvent || ! $request->matchesProvisionalOutcomeEvent($event)
+            || ! $authority->verifyEvent($event, 'provisional_outcome') || ! is_array($payload)
+            || ($payload['event_name'] ?? null) !== 'engineering.outcome.provisional'
+            || ($payload['task_packet_id'] ?? null) !== $request->action->taskPacketId
+            || ($payload['candidate_hash'] ?? null) !== $request->action->candidateHash
+            || ($payload['order_hash'] ?? null) !== $request->orderHash
+            || ($payload['delivery_id'] ?? null) !== $request->deliveryId
+            || ($payload['evidence_hash'] ?? null) !== $request->evidenceHash
+            || ($payload['outcome_hash'] ?? null) !== $request->provisionalOutcomeHash
+            || ! is_array($payload['outcome'] ?? null)) {
+            return null;
+        }
+        try {
+            $outcome = EngineeringOutcome::fromArray($payload['outcome']);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $outcome->outcomeHash === $request->provisionalOutcomeHash
+            && $outcome->deliveryId === $request->deliveryId
+            && ($outcome->correlatedHashes['order'] ?? null) === $request->orderHash
+            && ($outcome->correlatedHashes['evidence'] ?? null) === $request->evidenceHash
+            && $authority->verifyOutcome($outcome->toArray()) ? $outcome : null;
+    }
+
+    /** @param array<string,mixed> $canary */
+    private function terminalEngineeringOutcome(EngineeringOutcome $provisional, string $status,
+        CanarySettlementRequest $request, string $releaseHash, array $canary): EngineeringOutcome
+    {
+        $data = $provisional->toArray();
+        unset($data['outcome_hash']);
+        $data['status'] = $status;
+        $data['correlated_hashes']['release'] = $releaseHash;
+        $data['release_receipt'] = ['status' => $status, 'hash' => $releaseHash,
+            'landed_event_id' => $request->landedEventId, 'landed_sha' => $request->landedSha];
+        $data['canary_rollback_receipt'] = $canary;
+        $remainingUncertainties = array_values(array_filter($provisional->uncertainties,
+            static fn (mixed $uncertainty): bool => $uncertainty !== 'release_pending_canary'));
+        $data['uncertainties'] = $status === 'release_uncertain'
+            ? array_values(array_unique([...$remainingUncertainties, (string) ($canary['reason'] ?? 'release_uncertain')]))
+            : $remainingUncertainties;
+        $data['evidence_bundle']['authority'] = ($this->evidenceAuthority ?? app(KernelEvidenceAuthority::class))->sealOutcome($data);
+
+        return EngineeringOutcome::fromArray($data);
+    }
+
+    private function canonicalReleaseBindingValid(AtlasEvidenceLedger $ledger, KernelEvidenceAuthority $authority,
+        CanarySettlementRequest $request, AtlasLedgerEvent $landed): bool
+    {
+        $action = $request->action;
+        if (! hash_equals($action->orderHash, $request->orderHash)
+            || $action->deliveryId !== $request->deliveryId
+            || ! hash_equals($action->evidenceHash, $request->evidenceHash)) {
+            return false;
+        }
+        $authorization = $ledger->eventById($action->canonicalEventId);
+        if (! $authorization instanceof AtlasLedgerEvent
+            || ! $authority->verifyReleaseAuthorization($authorization)
+            || data_get($landed->payload, 'authorization_event_id') !== $action->canonicalEventId
+            || data_get($landed->payload, 'authorization_event_hash') !== $action->canonicalEventHash
+            || data_get($landed->payload, 'changed_files') !== $action->files) {
+            return false;
+        }
+        $payload = $authorization->getAttribute('payload');
+        if (! is_array($payload)) {
+            return false;
+        }
+        $bindings = [
+            'task_packet_id' => $action->taskPacketId,
+            'action' => 'commit',
+            'candidate_hash' => $action->candidateHash,
+            'decision_hash' => $action->decisionHash,
+            'verification_hash' => $action->verificationHash,
+            'rollback_hash' => $action->rollbackHash,
+            'changed_files' => $action->files,
+            'scope_hash' => $action->scopeHash,
+            'base_commit' => $action->baseCommit,
+            'tree_hash' => $action->treeHash,
+            'lease_id' => $action->leaseId,
+            'lease_owner' => (string) ($action->metadata['lease_owner'] ?? ''),
+            'fencing_token' => $action->fencingToken,
+            'nonce' => $action->nonce,
+            'issued_at' => $action->issuedAt,
+            'expires_at' => $action->expiresAt,
+            'order_hash' => $action->orderHash,
+            'delivery_id' => $action->deliveryId,
+            'evidence_hash' => $action->evidenceHash,
+        ];
+        foreach ($bindings as $key => $expected) {
+            if (($payload[$key] ?? null) !== $expected) {
+                return false;
+            }
+        }
+
+        return str_starts_with((string) ($payload['rollback_posture'] ?? ''), 'revertible:');
+    }
+
+    private function canonicalRevertAuthorizationValid(AtlasEvidenceLedger $ledger, KernelEvidenceAuthority $authority,
+        CanarySettlementRequest $request, AuthorizedRevertAction $authorized): bool
+    {
+        $action = $authorized->action;
+        $event = $ledger->eventById($action->canonicalEventId);
+        $payload = $event?->getAttribute('payload');
+        if (! $event instanceof AtlasLedgerEvent || ! $authority->verifyReleaseAuthorization($event) || ! is_array($payload)
+            || $authorized->canaryRequestHash !== $request->idempotencyHash()
+            || $authorized->originatingLandedEventId !== $request->landedEventId
+            || $action->action !== 'revert_task' || $action->taskPacketId !== $request->action->taskPacketId
+            || $action->targetSha !== $request->landedSha || $action->files !== $request->action->files
+            || $action->scopeHash !== $request->action->scopeHash || $action->leaseId !== $request->action->leaseId
+            || $action->fencingToken !== $request->action->fencingToken || $action->orderHash !== $request->orderHash
+            || $action->deliveryId !== $request->deliveryId || $action->evidenceHash !== $request->evidenceHash) {
+            return false;
+        }
+        foreach (['task_packet_id' => $action->taskPacketId, 'action' => 'revert_task',
+            'candidate_hash' => $action->candidateHash, 'decision_hash' => $action->decisionHash,
+            'verification_hash' => $action->verificationHash, 'rollback_hash' => $action->rollbackHash,
+            'changed_files' => $action->files, 'scope_hash' => $action->scopeHash, 'base_commit' => $action->baseCommit,
+            'tree_hash' => $action->treeHash, 'lease_id' => $action->leaseId,
+            'lease_owner' => (string) ($action->metadata['lease_owner'] ?? ''), 'fencing_token' => $action->fencingToken,
+            'nonce' => $action->nonce, 'order_hash' => $action->orderHash, 'delivery_id' => $action->deliveryId,
+            'evidence_hash' => $action->evidenceHash] as $key => $expected) {
+            if (($payload[$key] ?? null) !== $expected) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param array<string,mixed> $result */
+    private function canonicalRevertSettlementValid(AtlasEvidenceLedger $ledger, KernelEvidenceAuthority $authority,
+        CanarySettlementRequest $request, AuthorizedRevertAction $authorized, array $result): bool
+    {
+        if (($result['reverted'] ?? false) !== true || ($result['resolved'] ?? false) !== true
+            || ($result['status'] ?? null) !== 'settled') {
+            return false;
+        }
+        $event = $ledger->eventById((string) ($result['settlement_event_id'] ?? ''));
+        $payload = $event?->getAttribute('payload');
+
+        return $event instanceof AtlasLedgerEvent && $authority->verifyEvent($event, 'revert_settlement')
+            && $event->event_type === LedgerEventType::ReleaseReverted->value && is_array($payload)
+            && ($payload['event_name'] ?? null) === 'release.reverted'
+            && ($payload['authorization_event_id'] ?? null) === $authorized->action->canonicalEventId
+            && ($payload['authorization_event_hash'] ?? null) === $authorized->action->canonicalEventHash
+            && ($payload['task_packet_id'] ?? null) === $request->action->taskPacketId
+            && ($payload['target_sha'] ?? null) === $request->landedSha
+            && ($payload['scope_hash'] ?? null) === $request->action->scopeHash
+            && ($payload['order_hash'] ?? null) === $request->orderHash
+            && ($payload['delivery_id'] ?? null) === $request->deliveryId
+            && ($payload['evidence_hash'] ?? null) === $request->evidenceHash;
+    }
 
     public function prepareMutativeCandidate(ExecutionOrder $order): VerifiedMutativeCandidate
     {

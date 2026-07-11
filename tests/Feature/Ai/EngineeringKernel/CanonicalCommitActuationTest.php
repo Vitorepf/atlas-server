@@ -5,19 +5,28 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\EngineeringKernel;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\EngineeringKernel\Adapters\TaskLaneMergeActuatorAdapter;
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
+use App\Services\Ai\EngineeringKernel\AuthorizedRevertAction;
+use App\Services\Ai\EngineeringKernel\CanarySettlementRequest;
 use App\Services\Ai\EngineeringKernel\CanonicalReleaseAuthorizationRequest;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\EngineeringKernel\MergeActuator;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -73,6 +82,339 @@ final class CanonicalCommitActuationTest extends TestCase
         $this->assertNotNull($ledger->latestForCorrelation($action->nonce, 'release.landed'));
     }
 
+    public function test_kernel_settles_only_after_canonical_canary_and_replays_without_duplicate_effect(): void
+    {
+        file_put_contents($this->repo.'/app/target.txt', "after\n");
+        $ledger = $this->app->make(AtlasEvidenceLedger::class);
+        $action = $this->authorizedAction($ledger);
+        $actuator = new AtlasTaskMergeActuator(repoRootOverride: $this->repo, evidenceLedger: $ledger,
+            scopedCommitter: new AtlasTaskScopedCommitter(repoRootOverride: $this->repo),
+            allowedFilesResolver: static fn (): array => ['app/target.txt'],
+            leaseValidator: static fn (string $leaseId, int $fence): bool => $leaseId === 'lease-1' && $fence === 4);
+        $landed = $actuator->act($action);
+        $landedEvent = AtlasLedgerEvent::query()->findOrFail((string) $landed['settlement_event_id']);
+        $provisional = $this->provisionalOutcomeEvent($action);
+        $request = CanarySettlementRequest::fromCanonicalLanded($action, $landedEvent, $provisional, hash('sha256', 'order'),
+            'delivery-test', hash('sha256', 'evidence'), 'test-canary-observer');
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->expects($this->once())->method('observe')->willReturn(['verdict' => 'canary_pass', 'revert_candidate' => [],
+            'checks' => ['focused' => 'passed'], 'ledger_status' => 'ok']);
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('revert');
+        $kernel = $this->app->make(EliteExecutorKernel::class);
+
+        $first = $kernel->settleLandedRelease($request, $mechanical, $sentinel);
+        $replay = $kernel->settleLandedRelease($request, $mechanical, $sentinel);
+        $this->travel(25)->hours();
+        $durableReplay = $kernel->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('settled', $first['status']);
+        $this->assertSame('released', $first['engineering_outcome']['status']);
+        $this->assertSame($request->deliveryId, $first['engineering_outcome']['delivery_id']);
+        $this->assertSame($request->orderHash, $first['engineering_outcome']['correlated_hashes']['order']);
+        $provisional = $ledger->eventById($request->provisionalOutcomeEventId);
+        $this->assertEquals(data_get($provisional?->payload, 'outcome.role_dispositions'),
+            $first['engineering_outcome']['role_dispositions']);
+        $this->assertTrue($first['canary_before_terminal']);
+        $this->assertTrue($replay['replayed']);
+        $this->assertSame($first['engineering_outcome']['outcome_hash'], $replay['engineering_outcome']['outcome_hash']);
+        $this->assertTrue($durableReplay['replayed']);
+        $this->assertSame('released', $durableReplay['engineering_outcome']['status']);
+        $this->assertSame($first['engineering_outcome']['outcome_hash'], $durableReplay['engineering_outcome']['outcome_hash']);
+        $event = $ledger->eventById('canary-'.substr(hash('sha256', 'terminal:'.$request->idempotencyHash()), 0, 24));
+        $this->assertNotNull($event);
+        $this->assertTrue($this->app->make(KernelEvidenceAuthority::class)->verifyEvent($event, 'terminal_outcome'));
+    }
+
+    public function test_attributed_canary_failure_uses_separately_authorized_revert_once(): void
+    {
+        file_put_contents($this->repo.'/app/target.txt', "after\n");
+        $ledger = $this->app->make(AtlasEvidenceLedger::class);
+        $action = $this->authorizedAction($ledger);
+        $landingActuator = new AtlasTaskMergeActuator(repoRootOverride: $this->repo, evidenceLedger: $ledger,
+            scopedCommitter: new AtlasTaskScopedCommitter(repoRootOverride: $this->repo),
+            allowedFilesResolver: static fn (): array => ['app/target.txt'],
+            leaseValidator: static fn (string $leaseId, int $fence): bool => $leaseId === 'lease-1' && $fence === 4);
+        $landed = $landingActuator->act($action);
+        $landedEvent = AtlasLedgerEvent::query()->findOrFail((string) $landed['settlement_event_id']);
+        $provisional = $this->provisionalOutcomeEvent($action);
+        $request = CanarySettlementRequest::fromCanonicalLanded($action, $landedEvent, $provisional, hash('sha256', 'order'),
+            'delivery-test', hash('sha256', 'evidence'), 'test-canary-observer');
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->method('observe')->willReturn(['verdict' => 'canary_fail_attributed', 'revert_candidate' => [],
+            'checks' => ['focused' => 'failed'], 'ledger_status' => 'ok']);
+        $mechanical = new TaskLaneMergeActuatorAdapter(new AtlasTaskMergeActuator(
+            repoRootOverride: $this->repo,
+            ledgerOverride: new AtlasMergeGovernorReleaseDecisionLedger($action->releaseLedgerPath),
+            evidenceLedger: $ledger,
+            allowedFilesResolver: static fn (): array => ['app/target.txt'],
+            leaseValidator: static fn (string $leaseId, int $fence): bool => $leaseId === 'lease-1' && $fence === 4,
+            kernelEvidenceAuthority: new KernelEvidenceAuthority($ledger,
+                $this->app->make(DecisionReceiptRuntimeGuard::class),
+                new AtlasMergeGovernorReleaseDecisionLedger($action->releaseLedgerPath)),
+        ));
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('reverted', $result['status'], json_encode($result));
+        $this->assertTrue($result['resolved']);
+        $this->assertSame('reverted', $result['engineering_outcome']['status']);
+    }
+
+    public function test_inconclusive_canary_is_durably_quarantined_without_revert(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->method('observe')->willReturn(['verdict' => 'canary_inconclusive', 'ledger_status' => 'ok']);
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('revert');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertTrue($result['quarantined']);
+        $this->assertSame('release_uncertain', $result['engineering_outcome']['status']);
+        $this->assertNotNull($this->app->make(AtlasEvidenceLedger::class)->eventById(
+            'canary-'.substr(hash('sha256', 'terminal:'.$request->idempotencyHash()), 0, 24),
+        ));
+    }
+
+    public function test_diagnostic_ledger_failure_is_durably_quarantined_without_revert(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->method('observe')->willReturn(['verdict' => 'canary_pass', 'ledger_status' => 'error']);
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('revert');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertTrue($result['quarantined']);
+    }
+
+    public function test_failed_revert_is_release_uncertain_and_replay_does_not_repeat_effect(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->expects($this->once())->method('observe')->willReturn([
+            'verdict' => 'canary_fail_attributed', 'ledger_status' => 'ok',
+        ]);
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->once())->method('prepareRevert')->with($request)->willReturn(null);
+        $mechanical->expects($this->never())->method('act');
+        $kernel = $this->app->make(EliteExecutorKernel::class);
+
+        $first = $kernel->settleLandedRelease($request, $mechanical, $sentinel);
+        $replay = $kernel->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $first['status']);
+        $this->assertFalse($first['resolved']);
+        $this->assertTrue($replay['replayed']);
+    }
+
+    public function test_revert_exception_is_durably_release_uncertain(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->method('observe')->willReturn(['verdict' => 'canary_fail_attributed', 'ledger_status' => 'ok']);
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->method('prepareRevert')->willThrowException(new \RuntimeException('revert unavailable'));
+        $mechanical->expects($this->never())->method('act');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertStringStartsWith('revert_failed:', $result['reason']);
+    }
+
+    public function test_cosmetic_typed_revert_without_canonical_revert_authority_has_zero_effect(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $payload = array_replace($request->action->toArray(), [
+            'action' => 'revert_task', 'target_sha' => $request->landedSha, 'authority_hash' => '',
+        ]);
+        $cosmetic = new AuthorizedRevertAction(
+            AuthorizedMergeAction::fromArray($payload), $request->idempotencyHash(), $request->landedEventId,
+        );
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->method('observe')->willReturn(['verdict' => 'canary_fail_attributed', 'ledger_status' => 'ok']);
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->method('prepareRevert')->willReturn($cosmetic);
+        $mechanical->expects($this->never())->method('act');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertSame('revert_authority_invalid', $result['reason']);
+    }
+
+    public function test_legacy_jsonl_revert_action_without_canonical_hmac_has_zero_git_effect(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $actuator = new AtlasTaskMergeActuator(
+            repoRootOverride: $this->repo,
+            ledgerOverride: new AtlasMergeGovernorReleaseDecisionLedger($request->action->releaseLedgerPath),
+            evidenceLedger: $this->app->make(AtlasEvidenceLedger::class),
+            allowedFilesResolver: static fn (): array => ['app/target.txt'],
+        );
+        $legacy = $actuator->prepareAuthorizedRevert($request->action->taskPacketId, false);
+        $action = AuthorizedMergeAction::fromArray((array) $legacy['authorized_merge_action']);
+        $head = trim($this->git(['rev-parse', 'HEAD']));
+
+        $result = $actuator->act($action);
+
+        $this->assertSame('', $action->canonicalEventId);
+        $this->assertTrue($result['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_NOT_PERSISTED, $result['reason']);
+        $this->assertSame($head, trim($this->git(['rev-parse', 'HEAD'])));
+    }
+
+    public function test_direct_revert_rejects_substituted_canonical_event_hash(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $ledger = $this->app->make(AtlasEvidenceLedger::class);
+        $releaseLedger = new AtlasMergeGovernorReleaseDecisionLedger($request->action->releaseLedgerPath);
+        $actuator = new AtlasTaskMergeActuator(
+            repoRootOverride: $this->repo, ledgerOverride: $releaseLedger, evidenceLedger: $ledger,
+            allowedFilesResolver: static fn (): array => ['app/target.txt'],
+            leaseValidator: static fn (): bool => true,
+            kernelEvidenceAuthority: new KernelEvidenceAuthority($ledger,
+                $this->app->make(DecisionReceiptRuntimeGuard::class), $releaseLedger),
+        );
+        $authorized = $actuator->prepareRevert($request);
+        $this->assertNotNull($authorized);
+        $payload = array_replace($authorized->action->toArray(), [
+            'canonical_event_hash' => hash('sha256', 'substituted-canonical-event-hash'), 'authority_hash' => '',
+        ]);
+        $head = trim($this->git(['rev-parse', 'HEAD']));
+
+        $result = $actuator->act(AuthorizedMergeAction::fromArray($payload));
+
+        $this->assertTrue($result['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_NOT_PERSISTED, $result['reason']);
+        $this->assertSame($head, trim($this->git(['rev-parse', 'HEAD'])));
+    }
+
+    public function test_crash_after_observed_effect_quarantines_replay_without_duplicate_revert(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $this->app->make(KernelEvidenceAuthority::class)->issueCanaryObservation($request, [
+            'verdict' => 'canary_fail_attributed', 'status' => 'pending',
+        ], 'observed');
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->expects($this->never())->method('observe');
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('revert');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertTrue($result['quarantined']);
+        $this->assertTrue($result['replayed']);
+    }
+
+    #[DataProvider('nonEffectCanaryVerdicts')]
+    public function test_crash_after_pass_or_inconclusive_observation_never_reruns_sentinel(string $verdict): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $this->app->make(KernelEvidenceAuthority::class)->issueCanaryObservation($request, [
+            'verdict' => $verdict, 'status' => 'pending',
+        ], 'observed');
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->expects($this->never())->method('observe');
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('revert');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($request, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertTrue($result['quarantined']);
+        $this->assertTrue($result['replayed']);
+    }
+
+    /** @return array<string,array{string}> */
+    public static function nonEffectCanaryVerdicts(): array
+    {
+        return ['pass' => ['canary_pass'], 'inconclusive' => ['canary_inconclusive']];
+    }
+
+    public function test_canary_settlement_rejects_every_action_binding_substituted_after_canonical_landing(): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->expects($this->never())->method('observe');
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('revert');
+        $mutations = [
+            ['candidate_hash' => hash('sha256', 'substituted-candidate')],
+            ['decision_hash' => hash('sha256', 'substituted-decision')],
+            ['verification_hash' => hash('sha256', 'substituted-verification')],
+            ['rollback_hash' => hash('sha256', 'substituted-rollback')],
+            ['files' => ['app/substituted.txt']],
+            ['scope_hash' => hash('sha256', 'substituted-scope')],
+            ['base_commit' => str_repeat('1', 40)],
+            ['tree_hash' => hash('sha256', 'substituted-tree')],
+            ['lease_id' => 'substituted-lease'],
+            ['fencing_token' => 99],
+            ['nonce' => 'substituted-nonce'],
+            ['canonical_event_id' => 'substituted-event'],
+            ['canonical_event_hash' => hash('sha256', 'substituted-event')],
+            ['metadata' => array_replace($request->action->metadata, ['lease_owner' => 'substituted-owner'])],
+            ['order_hash' => hash('sha256', 'substituted-order')],
+            ['delivery_id' => 'substituted-delivery'],
+            ['evidence_hash' => hash('sha256', 'substituted-evidence')],
+        ];
+        foreach ($mutations as $mutation) {
+            $payload = array_replace($request->action->toArray(), $mutation, ['authority_hash' => '']);
+            $substituted = CanarySettlementRequest::fromLanded(
+                AuthorizedMergeAction::fromArray($payload), $request->landedEventId, $request->landedEventHash,
+                $request->landedSha, $request->orderHash, $request->deliveryId, $request->evidenceHash,
+                $request->provisionalOutcomeEventId, $request->provisionalOutcomeEventHash, $request->provisionalOutcomeHash,
+                $request->observerIdentity,
+            );
+            $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($substituted, $mechanical, $sentinel);
+
+            $this->assertSame('release_uncertain', $result['status'], json_encode($mutation));
+            $this->assertSame('landed_release_binding_invalid', $result['reason'], json_encode($mutation));
+        }
+    }
+
+    #[DataProvider('invalidProvisionalOutcomeRefs')]
+    public function test_canary_settlement_rejects_invalid_provisional_outcome_before_observer(array $mutation): void
+    {
+        [$request] = $this->landedCanaryRequest();
+        $refs = array_replace([
+            'event_id' => $request->provisionalOutcomeEventId,
+            'event_hash' => $request->provisionalOutcomeEventHash,
+            'outcome_hash' => $request->provisionalOutcomeHash,
+        ], $mutation);
+        $invalid = CanarySettlementRequest::fromLanded(
+            $request->action, $request->landedEventId, $request->landedEventHash, $request->landedSha,
+            $request->orderHash, $request->deliveryId, $request->evidenceHash,
+            $refs['event_id'], $refs['event_hash'], $refs['outcome_hash'], $request->observerIdentity,
+        );
+        $sentinel = $this->createMock(AtlasTaskPostLandCanarySentinel::class);
+        $sentinel->expects($this->never())->method('observe');
+        $mechanical = $this->createMock(MergeActuator::class);
+        $mechanical->expects($this->never())->method('act');
+
+        $result = $this->app->make(EliteExecutorKernel::class)->settleLandedRelease($invalid, $mechanical, $sentinel);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertSame('provisional_engineering_outcome_invalid', $result['reason']);
+        $this->assertArrayNotHasKey('engineering_outcome', $result);
+    }
+
+    /** @return array<string,array{array<string,string>}> */
+    public static function invalidProvisionalOutcomeRefs(): array
+    {
+        return [
+            'absent' => [['event_id' => 'missing-provisional-event']],
+            'foreign event hash' => [['event_hash' => hash('sha256', 'foreign-event')]],
+            'tampered outcome hash' => [['outcome_hash' => hash('sha256', 'tampered-outcome')]],
+        ];
+    }
+
     public function test_release_signer_rejects_unpersisted_decision_and_has_no_array_api(): void
     {
         $parameter = (new \ReflectionMethod(KernelEvidenceAuthority::class, 'issueReleaseAuthorization'))->getParameters()[0];
@@ -99,7 +441,7 @@ final class CanonicalCommitActuationTest extends TestCase
     {
         $trusted = new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/trusted-release.jsonl');
         $binding = [
-            'task_packet_id' => 'task-bound', 'candidate_hash' => str_repeat('1', 64),
+            'task_packet_id' => 'task-bound', 'action' => 'commit', 'candidate_hash' => str_repeat('1', 64),
             'verification_hash' => str_repeat('2', 64), 'rollback_hash' => str_repeat('3', 64),
             'changed_files' => ['app/target.txt'], 'scope_hash' => str_repeat('4', 64),
             'base_commit' => str_repeat('5', 40), 'tree_hash' => str_repeat('6', 64),
@@ -348,14 +690,58 @@ final class CanonicalCommitActuationTest extends TestCase
         $governed = $chain->govern([
             'task_packet_id' => 'packet-commit', 'project_id' => 'atlas-server',
             'changed_files' => ['app/target.txt'],
-            'verification' => ['passed' => true, 'evidence_hash' => hash('sha256', 'verified')],
+            'verification' => ['passed' => true, 'evidence_hash' => hash('sha256', 'evidence')],
             'base_commit' => trim($this->git(['rev-parse', 'HEAD'])),
             'tree_hash' => hash('sha256', $this->git(['diff', '--binary', '--', 'app/target.txt'])),
             'lease_id' => 'lease-1', 'lease_owner' => 'owner-1', 'fencing_token' => 4,
+            'requires_canary_settlement' => true, 'order_hash' => hash('sha256', 'order'),
+            'delivery_id' => 'delivery-test', 'evidence_hash' => hash('sha256', 'evidence'),
         ]);
         $this->assertTrue($governed['admitted'], json_encode($governed, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return AuthorizedMergeAction::fromArray($governed['authorized_merge_action']);
+    }
+
+    /** @return array{CanarySettlementRequest,AtlasEvidenceLedger} */
+    private function landedCanaryRequest(): array
+    {
+        file_put_contents($this->repo.'/app/target.txt', "after\n");
+        $ledger = $this->app->make(AtlasEvidenceLedger::class);
+        $action = $this->authorizedAction($ledger);
+        $landed = $this->actuator($ledger, static fn (string $leaseId, int $fence): bool => $leaseId === 'lease-1' && $fence === 4)
+            ->act($action);
+        $event = AtlasLedgerEvent::query()->findOrFail((string) $landed['settlement_event_id']);
+        $provisional = $this->provisionalOutcomeEvent($action);
+
+        return [CanarySettlementRequest::fromCanonicalLanded(
+            $action, $event, $provisional, hash('sha256', 'order'), 'delivery-test', hash('sha256', 'evidence'), 'test-canary-observer',
+        ), $ledger];
+    }
+
+    private function provisionalOutcomeEvent(AuthorizedMergeAction $action): AtlasLedgerEvent
+    {
+        $dispositions = [];
+        foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
+            $dispositions[$role] = ['status' => 'pass', 'evidence_hash' => hash('sha256', $role),
+                'signature' => hash('sha256', 'signature:'.$role)];
+        }
+        $hashes = ['order' => $action->orderHash, 'intent' => hash('sha256', 'intent'),
+            'spec' => hash('sha256', 'spec'), 'baseline' => hash('sha256', 'baseline'),
+            'diff' => hash('sha256', 'diff'), 'evidence' => $action->evidenceHash,
+            'release' => hash('sha256', 'release-pending:'.$action->nonce)];
+        $data = ['schema_version' => 'atlas.engineering_outcome.v2', 'run_id' => 'run-test',
+            'delivery_id' => $action->deliveryId, 'status' => 'held', 'correlated_hashes' => $hashes,
+            'role_dispositions' => $dispositions, 'evidence_bundle' => ['hash' => $hashes['evidence']],
+            'provider_receipt' => ['status' => 'accepted'], 'sandbox_receipt' => ['status' => 'accepted'],
+            'release_receipt' => ['status' => 'pending_canary', 'hash' => $hashes['release']],
+            'canary_rollback_receipt' => ['status' => 'pending'], 'operator_effort' => ['active_seconds' => 0],
+            'cost' => ['amount' => 0, 'currency' => 'USD'], 'tokens' => ['input' => 0, 'output' => 0],
+            'elapsed_ms' => 1, 'uncertainties' => ['release_pending_canary'],
+            'observation_schedule' => array_fill_keys(EngineeringOutcome::WINDOWS, 'pending'), 'claim_eligible' => false];
+        $data['evidence_bundle']['authority'] = $this->app->make(KernelEvidenceAuthority::class)->sealOutcome($data);
+        $outcome = EngineeringOutcome::fromArray($data);
+
+        return $this->app->make(KernelEvidenceAuthority::class)->issueProvisionalOutcome($outcome, $action);
     }
 
     private function actuator(AtlasEvidenceLedger $ledger, \Closure $leaseValidator): AtlasTaskMergeActuator

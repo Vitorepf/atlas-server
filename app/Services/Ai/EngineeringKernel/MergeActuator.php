@@ -23,4 +23,6 @@ interface MergeActuator
      * @return array<string,mixed>
      */
     public function revert(string $taskPacketId, bool $dryRun = true): array;
+
+    public function prepareRevert(CanarySettlementRequest $request): ?AuthorizedRevertAction;
 }

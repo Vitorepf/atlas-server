@@ -16,7 +16,7 @@ use InvalidArgumentException;
  */
 final readonly class AuthorizedMergeAction
 {
-    public const SCHEMA = 'atlas.engineering_kernel.authorized_merge_action.v1';
+    public const SCHEMA = 'atlas.engineering_kernel.authorized_merge_action.v2';
 
     /**
      * @param  list<string>  $files
@@ -48,6 +48,9 @@ final readonly class AuthorizedMergeAction
         public string $scopeHash = '',
         public string $leaseId = '',
         public int $fencingToken = 0,
+        public string $orderHash = '',
+        public string $deliveryId = '',
+        public string $evidenceHash = '',
     ) {
         if ($this->action === '') {
             throw new InvalidArgumentException('authorized merge action: missing action');
@@ -111,6 +114,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: (string) ($canonicalBinding['scope_hash'] ?? ''),
             leaseId: (string) ($canonicalBinding['lease_id'] ?? ''),
             fencingToken: (int) ($canonicalBinding['fencing_token'] ?? 0),
+            orderHash: (string) ($canonicalBinding['order_hash'] ?? ''),
+            deliveryId: (string) ($canonicalBinding['delivery_id'] ?? ''),
+            evidenceHash: (string) ($canonicalBinding['evidence_hash'] ?? ''),
         );
 
         if ((string) ($row['decision'] ?? '') !== AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED) {
@@ -149,6 +155,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: (string) ($payload['scope_hash'] ?? ''),
             leaseId: (string) ($payload['lease_id'] ?? ''),
             fencingToken: (int) ($payload['fencing_token'] ?? 0),
+            orderHash: (string) ($payload['order_hash'] ?? ''),
+            deliveryId: (string) ($payload['delivery_id'] ?? ''),
+            evidenceHash: (string) ($payload['evidence_hash'] ?? ''),
         );
     }
 
@@ -182,6 +191,9 @@ final readonly class AuthorizedMergeAction
             'scope_hash' => $this->scopeHash,
             'lease_id' => $this->leaseId,
             'fencing_token' => $this->fencingToken,
+            'order_hash' => $this->orderHash,
+            'delivery_id' => $this->deliveryId,
+            'evidence_hash' => $this->evidenceHash,
         ];
     }
 
@@ -225,6 +237,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: $this->scopeHash,
             leaseId: $this->leaseId,
             fencingToken: $this->fencingToken,
+            orderHash: $this->orderHash,
+            deliveryId: $this->deliveryId,
+            evidenceHash: $this->evidenceHash,
         )->withAuthorityHash();
     }
 
@@ -255,6 +270,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: $this->scopeHash,
             leaseId: $this->leaseId,
             fencingToken: $this->fencingToken,
+            orderHash: $this->orderHash,
+            deliveryId: $this->deliveryId,
+            evidenceHash: $this->evidenceHash,
         )->withAuthorityHash();
     }
 
@@ -285,6 +303,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: $this->scopeHash,
             leaseId: $this->leaseId,
             fencingToken: $this->fencingToken,
+            orderHash: $this->orderHash,
+            deliveryId: $this->deliveryId,
+            evidenceHash: $this->evidenceHash,
         )->withAuthorityHash();
     }
 
@@ -315,6 +336,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: $this->scopeHash,
             leaseId: $this->leaseId,
             fencingToken: $this->fencingToken,
+            orderHash: $this->orderHash,
+            deliveryId: $this->deliveryId,
+            evidenceHash: $this->evidenceHash,
         )->withAuthorityHash();
     }
 
@@ -358,6 +382,9 @@ final readonly class AuthorizedMergeAction
             scopeHash: $this->scopeHash,
             leaseId: $this->leaseId,
             fencingToken: $this->fencingToken,
+            orderHash: $this->orderHash,
+            deliveryId: $this->deliveryId,
+            evidenceHash: $this->evidenceHash,
         );
     }
 
@@ -390,6 +417,9 @@ final readonly class AuthorizedMergeAction
             'scope_hash' => $this->scopeHash,
             'lease_id' => $this->leaseId,
             'fencing_token' => $this->fencingToken,
+            'order_hash' => $this->orderHash,
+            'delivery_id' => $this->deliveryId,
+            'evidence_hash' => $this->evidenceHash,
         ];
     }
 
