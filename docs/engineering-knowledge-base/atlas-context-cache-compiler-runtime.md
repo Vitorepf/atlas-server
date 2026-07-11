@@ -63,6 +63,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasContextCacheCompilerRuntimeService
   - command: atlas:context:cache-warm
+  - test: ContextCacheCompilerRuntimeTest
 required_tests:
   - "php artisan atlas:context:cache-warm --json"
   - "php artisan test tests/Feature/Ai/Context/ContextCacheCompilerRuntimeTest.php"
