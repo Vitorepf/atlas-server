@@ -132,7 +132,11 @@ final class KernelEvidenceAuthority
             throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid');
         }
         $role = (string) $persisted->role_id;
-        $domain = $role === 'final_certification' ? EngineeringFinalCertifier::MUTATIVE_DOMAIN : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN;
+        $domain = match ($role) {
+            'final_certification' => EngineeringFinalCertifier::MUTATIVE_DOMAIN,
+            'qa_testing' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN,
+            default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+        };
         if (! $this->mutativeRoleReceiptValid($persisted, $case, $domain, 'v1')) {
             throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid');
         }
@@ -154,13 +158,18 @@ final class KernelEvidenceAuthority
             return false;
         }
         $role = (string) $persisted->role_id;
+        if ($role === 'qa_testing') {
+            return $expectedDomain === AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN
+                && $expectedVersion === AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_VERSION
+                && app(AtlasRealEngineeringExecutionKernelService::class)->candidateQaOwnerReceiptValid($persisted, $case);
+        }
         $expectedBinding = [
             'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,
             'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
             'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
             'diff_hash' => $case->candidate->diffHash, 'tree_hash' => $case->candidate->treeHash,
-            'engagement_record_id' => (string) $persisted->engagement_record_id,
-            'cycle_record_id' => (string) $persisted->cycle_record_id,
+            'engagement_record_id' => $case->engagementRecordId,
+            'cycle_record_id' => $case->cycleRecordId,
         ];
         $issuedAt = (string) ($receipt['issued_at'] ?? '');
         $expiresAt = (string) ($receipt['expires_at'] ?? '');
@@ -177,7 +186,7 @@ final class KernelEvidenceAuthority
                 ? app(EngineeringFinalCertifier::class)->certifyCandidate($case)
                 : app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role),
             $expectedDomain, $expectedVersion, $issuedAt, $expiresAt,
-            ['candidate:'.$case->candidate->candidateHash, 'verification:'.(string) $case->candidate->verificationReceipt['hash']],
+            ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash],
         )->toArray();
         $sealedReceipt = array_diff_key($receipt, ['hash' => true]);
         if (($receipt['purpose'] ?? null) !== 'mutative_candidate_quality_adjudication'
@@ -186,7 +195,7 @@ final class KernelEvidenceAuthority
             || ($receipt['role_id'] ?? null) !== $role || ($receipt['status'] ?? null) !== $persisted->status
             || ($disposition['role'] ?? null) !== $role
             || ($receipt['binding'] ?? null) !== $expectedBinding
-            || ($receipt['evidence_refs'] ?? null) !== ['candidate:'.$case->candidate->candidateHash, 'verification:'.(string) $case->candidate->verificationReceipt['hash']]
+            || ($receipt['evidence_refs'] ?? null) !== ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash]
             || ($receipt['output'] ?? null) !== $output || ($receipt['disposition'] ?? null) !== ($output['disposition'] ?? null)
             || ($output['role_evidence_receipt'] ?? null) !== $expectedTypedReceipt
             || ($role === 'final_certification'

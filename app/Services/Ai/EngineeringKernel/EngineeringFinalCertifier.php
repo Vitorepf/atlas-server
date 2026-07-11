@@ -6,6 +6,7 @@ namespace App\Services\Ai\EngineeringKernel;
 
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionTestRun;
+use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use InvalidArgumentException;
 
 final class EngineeringFinalCertifier
@@ -23,14 +24,20 @@ final class EngineeringFinalCertifier
     public function certifyCandidate(CandidateQualityCase $case): RoleDisposition
     {
         $expectedRoles = array_values(array_filter(EngineeringRoleRoster::OFFICIAL_ROLES, static fn (string $role): bool => $role !== 'final_certification'));
-        $candidates = AiEngineeringCompanyRoleRun::query()->whereIn('role_id', $expectedRoles)->get()
+        $candidates = AiEngineeringCompanyRoleRun::query()
+            ->where('engagement_record_id', $case->engagementRecordId)
+            ->where('cycle_record_id', $case->cycleRecordId)
+            ->whereIn('role_id', $expectedRoles)->get()
             ->filter(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'binding.case_hash') === $case->caseHash);
         $rows = $candidates->keyBy('role_id');
         $persistedValid = $candidates->count() === 21 && $rows->count() === 21;
         foreach ($expectedRoles as $role) {
             $row = $rows->get($role);
+            $ownerDomain = $role === 'qa_testing'
+                ? AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN
+                : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN;
             if (! $row instanceof AiEngineeringCompanyRoleRun
-                || ! app(KernelEvidenceAuthority::class)->mutativeRoleReceiptValid($row, $case, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN, 'v1')) {
+                || ! app(KernelEvidenceAuthority::class)->mutativeRoleReceiptValid($row, $case, $ownerDomain, 'v1')) {
                 $persistedValid = false;
             }
         }

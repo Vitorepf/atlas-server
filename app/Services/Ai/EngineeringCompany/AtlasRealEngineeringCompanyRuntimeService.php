@@ -288,11 +288,20 @@ class AtlasRealEngineeringCompanyRuntimeService
 
     public function adjudicateMutativeCandidate(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): QualityCourtVerdict
     {
-        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()) {
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()
+            || (string) $engagement->getKey() !== $case->engagementRecordId || (string) $cycle->getKey() !== $case->cycleRecordId) {
             throw new \InvalidArgumentException('mutative_quality_case_company_owner_invalid');
         }
         $dispositions = [];
         foreach (array_slice(self::QUALITY_ROLES, 0, 21) as $role) {
+            if ($role === 'qa_testing') {
+                $qaRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateQaOwnerReceipt($engagement, $cycle, $case);
+                $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($qaRun, $case, []);
+                $dispositions[$role] = $disposition;
+
+                continue;
+            }
             $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
             $this->persistMutativeDisposition($engagement, $cycle, $case, $disposition, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN, 'v1');
             $dispositions[$role] = $disposition;
@@ -325,7 +334,7 @@ class AtlasRealEngineeringCompanyRuntimeService
         if (AiEngineeringCompanyRoleRun::query()->where('role_run_id', $roleRunId)->exists()) {
             throw new \InvalidArgumentException('mutative_quality_role_duplicate');
         }
-        $evidenceRefs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.(string) $case->candidate->verificationReceipt['hash']];
+        $evidenceRefs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash];
         $issuedAt = now()->startOfSecond();
         $expiresAt = $issuedAt->copy()->addHour();
         $typed = RoleEvidenceReceipt::issue(

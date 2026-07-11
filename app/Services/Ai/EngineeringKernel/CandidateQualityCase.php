@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel;
 
+use App\Models\AiEngineeringCompanyCycle;
+use App\Models\AiEngineeringCompanyEngagement;
+use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use InvalidArgumentException;
 
 final readonly class CandidateQualityCase
@@ -11,29 +14,29 @@ final readonly class CandidateQualityCase
     private function __construct(
         public ExecutionOrder $order,
         public VerifiedMutativeCandidate $candidate,
+        public MutativeVerificationReference $verification,
+        public string $engagementRecordId,
+        public string $cycleRecordId,
         public string $caseHash,
     ) {}
 
-    public static function fromCandidate(ExecutionOrder $order, VerifiedMutativeCandidate $candidate, KernelEvidenceAuthority $authority): self
+    public static function fromCandidate(ExecutionOrder $order, VerifiedMutativeCandidate $candidate, AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle): self
     {
-        $verification = $candidate->verificationReceipt;
-        $behavioral = is_array($verification['behavioral'] ?? null) ? $verification['behavioral'] : [];
-        $expectedCandidateHash = CanonicalKernelPayload::hash([
-            'order_hash' => $order->canonicalHash(), 'base_commit' => $order->baseCommit,
-            'tree_hash' => $candidate->treeHash, 'diff_hash' => $candidate->diffHash,
-            'files' => $candidate->files, 'verification_hash' => $verification['hash'] ?? null,
-            'behavioral_hash' => CanonicalKernelPayload::hash($behavioral),
-        ]);
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()) {
+            throw new InvalidArgumentException('candidate_quality_case_company_binding_invalid');
+        }
+        $verification = new MutativeVerificationReference(
+            $candidate->verificationRunId, $candidate->verificationHash, $candidate->candidateHash,
+            $candidate->providerIdentity, $candidate->authorIdentity, $candidate->verifierIdentity,
+        );
+        $row = app(AtlasRealEngineeringExecutionKernelService::class)->verifiedMutativeVerification($verification, $order);
+        $binding = (array) data_get($row->receipt, 'binding', []);
         if ($candidate->status !== 'behaviorally_verified_pending_quality_court'
             || $candidate->authorityEligible || $candidate->orderHash !== $order->canonicalHash()
-            || $candidate->baseCommit !== $order->baseCommit
-            || ! hash_equals($expectedCandidateHash, $candidate->candidateHash)
-            || ($verification['tree_hash'] ?? null) !== $candidate->treeHash
-            || ($verification['diff_hash'] ?? null) !== $candidate->diffHash
-            || ($verification['files'] ?? null) !== $candidate->files
-            || ($verification['independent_from_provider'] ?? null) !== true
-            || ! $authority->verifyMutativeVerificationReceipt($verification)
-            || ! self::artifactsValid($candidate)) {
+            || $candidate->baseCommit !== $order->baseCommit || $candidate->candidateHash !== $verification->candidateHash
+            || ($binding['tree_hash'] ?? null) !== $candidate->treeHash
+            || ($binding['diff_hash'] ?? null) !== $candidate->diffHash
+            || ($binding['files'] ?? null) !== $candidate->files) {
             throw new InvalidArgumentException('candidate_quality_case_binding_invalid');
         }
         foreach ($candidate->files as $file) {
@@ -45,32 +48,14 @@ final readonly class CandidateQualityCase
             'order_hash' => $candidate->orderHash, 'spec_hash' => $order->specHash,
             'candidate_hash' => $candidate->candidateHash, 'diff_hash' => $candidate->diffHash,
             'tree_hash' => $candidate->treeHash, 'files' => $candidate->files,
-            'verification_hash' => $verification['hash'],
+            'verification_hash' => $verification->receiptHash,
+            'engagement_record_id' => (string) $engagement->getKey(),
+            'cycle_record_id' => (string) $cycle->getKey(),
         ]);
 
-        return new self($order, $candidate, $caseHash);
-    }
-
-    private static function artifactsValid(VerifiedMutativeCandidate $candidate): bool
-    {
-        $artifacts = [$candidate->verificationReceipt['junit_artifact'] ?? null,
-            data_get($candidate->verificationReceipt, 'behavioral.junit_artifact')];
-        $root = realpath($candidate->sandboxRoot.'/.atlas');
-        if ($root === false) {
-            return false;
-        }
-        foreach ($artifacts as $artifact) {
-            if (! is_array($artifact)) {
-                return false;
-            }
-            $path = (string) ($artifact['path'] ?? '');
-            $real = realpath($path);
-            if ($real === false || ! str_starts_with($real, $root.'/') || ! is_file($real) || is_link($path)
-                || ! hash_equals((string) ($artifact['sha256'] ?? ''), (string) hash_file('sha256', $real))) {
-                return false;
-            }
-        }
-
-        return true;
+        return new self(
+            $order, $candidate, $verification, (string) $engagement->getKey(),
+            (string) $cycle->getKey(), $caseHash,
+        );
     }
 }

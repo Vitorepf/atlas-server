@@ -49,6 +49,15 @@ final readonly class RoleDisposition
         );
     }
 
+    public static function qaCandidateVerified(CandidateQualityCase $case, string $signerContext, string $signature): self
+    {
+        return new self(
+            'qa_testing', 'pass', 'candidate_mechanical_and_behavioral_verification_passed',
+            $case->order->canonicalHash(), $case->order->specHash, $case->candidate->candidateHash,
+            $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature,
+        );
+    }
+
     /** @return array<string,string> */
     public function toArray(): array
     {

@@ -34,6 +34,7 @@ use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
+use App\Services\Ai\RealExecution\RealExecutionHash;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -144,27 +145,36 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertDirectoryExists($candidate->sandboxRoot.'/.git');
         $this->assertFileDoesNotExist($repo.'/app/Candidate.php');
         $this->assertSame("<?php\nreturn 'after';\n", file_get_contents($candidate->sandboxRoot.'/app/Candidate.php'));
-        $this->assertTrue($candidate->verificationReceipt['independent_from_provider']);
-        $this->assertTrue($candidate->verificationReceipt['behavioral']['passed']);
-        $this->assertFileExists($candidate->verificationReceipt['junit_artifact']['path']);
         $this->assertNotSame('', $candidate->candidateHash);
         $this->assertSame(['app/Candidate.php'], $candidate->files);
 
         $authority = $this->app->make(KernelEvidenceAuthority::class);
-        $this->assertTrue($authority->verifyMutativeVerificationReceipt($candidate->verificationReceipt));
+        $verificationOwner = AiRealExecutionTestRun::query()->where('test_run_id', $candidate->verificationRunId)->firstOrFail();
+        $verificationReceipt = (array) $verificationOwner->receipt;
+        $this->assertTrue(data_get($verificationReceipt, 'behavioral.passed'));
+        $this->assertFileExists((string) data_get($verificationReceipt, 'junit_artifact.path'));
+        $this->assertTrue($authority->verifyMutativeVerificationReceipt($verificationReceipt));
         foreach (['hash', 'producer', 'diff_hash'] as $field) {
-            $tampered = $candidate->verificationReceipt;
+            $tampered = $verificationReceipt;
             $tampered[$field] = $field === 'producer' ? array_replace((array) $tampered[$field], ['signature' => str_repeat('0', 64)]) : str_repeat('0', 64);
             $this->assertFalse($authority->verifyMutativeVerificationReceipt($tampered), 'tamper accepted: '.$field);
         }
 
-        $qualityCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $candidate, $authority);
-        $missingPrior = app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase);
-        $this->assertSame('block', $missingPrior->status);
-        $this->assertSame('prior_21_not_all_pass_or_na', $missingPrior->reason);
+        $this->assertNotSame('', $candidate->verificationRunId);
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $candidate->verificationHash);
+        $this->assertSame($candidate->verificationHash, $verificationOwner->test_hash);
+        $this->assertSame($candidate->candidateHash, data_get($verificationOwner->receipt, 'binding.candidate_hash'));
+        $this->assertSame(RealExecutionHash::make($providerResult), data_get($verificationOwner->receipt, 'identities.provider_receipt_hash'));
+        $this->assertNotSame(data_get($verificationOwner->receipt, 'identities.author'), data_get($verificationOwner->receipt, 'identities.verifier'));
+        $this->assertNotSame(data_get($verificationOwner->receipt, 'identities.provider'), data_get($verificationOwner->receipt, 'identities.verifier'));
         $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
         $engagement = $company->createEngagement('candidate quality court persistence');
         $cycle = $company->createCycle($engagement);
+        $qualityCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $candidate, $engagement, $cycle);
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status);
+        $missingPrior = app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase);
+        $this->assertSame('block', $missingPrior->status);
+        $this->assertSame('prior_21_not_all_pass_or_na', $missingPrior->reason);
         $persistedVerdict = $company->adjudicateMutativeCandidate($engagement, $cycle, $qualityCase);
         $persisted = AiEngineeringCompanyRoleRun::query()
             ->where('engagement_record_id', $engagement->getKey())
@@ -174,11 +184,36 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertCount(22, $persisted);
         $this->assertFalse($persistedVerdict->authorityEligible);
         $this->assertSame(self::ROLE_IDS, array_keys($persistedVerdict->dispositions));
-        $this->assertSame(['block'], array_values(array_unique(array_map(static fn ($disposition): string => $disposition->status, $persistedVerdict->dispositions))));
-        $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['qa_testing']->reason);
+        $this->assertSame(['block', 'pass'], array_values(array_unique(array_map(static fn ($disposition): string => $disposition->status, $persistedVerdict->dispositions))));
+        $passingRoles = array_keys(array_filter(
+            $persistedVerdict->dispositions,
+            static fn ($disposition): bool => $disposition->status === 'pass',
+        ));
+        $blockingRoles = array_keys(array_filter(
+            $persistedVerdict->dispositions,
+            static fn ($disposition): bool => $disposition->status === 'block',
+        ));
+        $this->assertSame(['qa_testing'], $passingRoles);
+        $this->assertCount(21, $blockingRoles);
+        $this->assertContains('final_certification', $blockingRoles);
+        $this->assertSame('pass', $persistedVerdict->dispositions['qa_testing']->status);
+        $this->assertSame('candidate_mechanical_and_behavioral_verification_passed', $persistedVerdict->dispositions['qa_testing']->reason);
         $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['evidence_audit']->reason);
         $this->assertSame('prior_21_not_all_pass_or_na', $persistedVerdict->dispositions['final_certification']->reason);
         $this->assertSame(22, $persisted->pluck('role_id')->unique()->count());
+        $qaOwner = $persisted->firstWhere('role_id', 'qa_testing');
+        $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN, data_get($qaOwner->receipt, 'owner_domain'));
+        $this->assertSame($candidate->baseCommit, data_get($qaOwner->receipt, 'qa_evidence.base_commit'));
+        $this->assertSame($candidate->files, data_get($qaOwner->receipt, 'qa_evidence.files'));
+        $this->assertSame(data_get($verificationReceipt, 'behavioral.runner_hash'), data_get($qaOwner->receipt, 'qa_evidence.runner_hash'));
+        $this->assertSame(data_get($verificationReceipt, 'junit_artifact.sha256'), data_get($qaOwner->receipt, 'qa_evidence.mechanical_junit.sha256'));
+        $this->assertSame(data_get($verificationReceipt, 'behavioral.junit_artifact.sha256'), data_get($qaOwner->receipt, 'qa_evidence.behavioral_junit.sha256'));
+        $this->assertNotSame((string) data_get($providerResult, 'provider'), (string) data_get($qaOwner->receipt, 'owner_domain'));
+        $qaOwnerParameters = array_map(
+            static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+            (new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'persistCandidateQaOwnerReceipt'))->getParameters(),
+        );
+        $this->assertSame(['engagement', 'cycle', 'case'], $qaOwnerParameters);
         $this->assertTrue($persisted->every(fn (AiEngineeringCompanyRoleRun $run): bool => data_get($run->receipt, 'binding.case_hash') === $qualityCase->caseHash
             && data_get($run->receipt, 'binding.candidate_hash') === $candidate->candidateHash
             && data_get($run->receipt, 'binding.diff_hash') === $candidate->diffHash
@@ -189,6 +224,60 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             ->filter(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'event_name') === 'role.mutative_disposition.recorded'
                 && data_get($event->payload, 'case_hash') === $qualityCase->caseHash)
             ->count());
+        $originalQaReceipt = $qaOwner->receipt;
+        foreach (['artifact_tamper', 'stale', 'red', 'self_owner_mismatch'] as $attack) {
+            $attackedQaReceipt = $originalQaReceipt;
+            if ($attack === 'artifact_tamper') {
+                $attackedQaReceipt['qa_evidence']['runner_hash'] = str_repeat('0', 64);
+            } elseif ($attack === 'stale') {
+                $attackedQaReceipt['expires_at'] = now()->subMinute()->startOfSecond()->toAtomString();
+            } elseif ($attack === 'red') {
+                $attackedQaReceipt['status'] = 'blocked';
+            } else {
+                $attackedQaReceipt['owner_domain'] = 'atlas.provider.author.v1';
+            }
+            $qaOwner->forceFill(['receipt' => $attackedQaReceipt])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status, $attack);
+            $qaOwner->forceFill(['receipt' => $originalQaReceipt])->save();
+        }
+        $mechanicalJunitPath = (string) data_get($originalQaReceipt, 'qa_evidence.mechanical_junit.path');
+        $mechanicalJunit = file_get_contents($mechanicalJunitPath);
+        $this->assertIsString($mechanicalJunit);
+        unlink($mechanicalJunitPath);
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status, 'missing_artifact');
+        file_put_contents($mechanicalJunitPath, $mechanicalJunit);
+        $this->assertSame('pass', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status);
+        $verificationSnapshot = [
+            'goal_record_id' => $verificationOwner->goal_record_id,
+            'patch_run_record_id' => $verificationOwner->patch_run_record_id,
+            'schema_version' => $verificationOwner->schema_version,
+            'test_run_id' => $verificationOwner->test_run_id,
+            'status' => $verificationOwner->status,
+            'selected_tests' => $verificationOwner->selected_tests,
+            'impact_reasoning' => $verificationOwner->impact_reasoning,
+            'exit_code' => $verificationOwner->exit_code,
+            'output_excerpt' => $verificationOwner->output_excerpt,
+            'evidence_refs' => $verificationOwner->evidence_refs,
+            'receipt' => $verificationOwner->receipt,
+            'test_hash' => $verificationOwner->test_hash,
+        ];
+        $verificationOwner->delete();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status, 'missing_verification_owner');
+        $verificationOwner = AiRealExecutionTestRun::query()->create($verificationSnapshot);
+        $this->assertSame('pass', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status);
+
+        $otherEngagement = $company->createEngagement('cross engagement transplant');
+        $otherCycle = $company->createCycle($otherEngagement);
+        $this->assertInvalidArgumentMessage(
+            fn () => $company->adjudicateMutativeCandidate($otherEngagement, $otherCycle, $qualityCase),
+            'mutative_quality_case_company_owner_invalid',
+        );
+        $originalEngagementId = $qaOwner->engagement_record_id;
+        $originalCycleId = $qaOwner->cycle_record_id;
+        $qaOwner->forceFill(['engagement_record_id' => $otherEngagement->getKey(), 'cycle_record_id' => $otherCycle->getKey()])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status, 'cross_engagement_cycle_transplant');
+        $qaOwner->forceFill(['engagement_record_id' => $originalEngagementId, 'cycle_record_id' => $originalCycleId])->save();
+        $this->assertSame('pass', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status);
         $certifier = app(EngineeringFinalCertifier::class);
         $beforeDuplicate = $certifier->certifyCandidate($qualityCase);
         $duplicate = $persisted->firstWhere('role_id', 'product_management')->replicate();
@@ -212,31 +301,49 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $changed = new VerifiedMutativeCandidate(
             $candidate->status, $candidate->orderHash, $candidate->candidateHash, $candidate->baseCommit,
             $candidate->treeHash, str_repeat('0', 64), $candidate->files, $candidate->sandboxRoot,
-            $candidate->providerReceipt, $candidate->sandboxReceipt, $candidate->verificationReceipt,
+            $candidate->providerReceipt, $candidate->sandboxReceipt, $candidate->verificationRunId, $candidate->verificationHash,
+            $candidate->providerIdentity, $candidate->authorIdentity, $candidate->verifierIdentity,
             $candidate->blockers, false,
         );
         $this->assertInvalidArgumentMessage(
-            fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $changed, $authority),
+            fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $changed, $engagement, $cycle),
             'candidate_quality_case_binding_invalid',
         );
+        $replayed = new VerifiedMutativeCandidate(
+            $candidate->status, $candidate->orderHash, str_repeat('0', 64), $candidate->baseCommit,
+            $candidate->treeHash, $candidate->diffHash, $candidate->files, $candidate->sandboxRoot,
+            $candidate->providerReceipt, $candidate->sandboxReceipt, $candidate->verificationRunId, $candidate->verificationHash,
+            $candidate->providerIdentity, $candidate->authorIdentity, $candidate->verifierIdentity,
+            $candidate->blockers, false,
+        );
+        $this->assertInvalidArgumentMessage(
+            fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $replayed, $engagement, $cycle),
+            'mutative_verification_owner_invalid',
+        );
         foreach (['outside_artifact', 'provider_as_verifier'] as $attack) {
-            $attackedReceipt = $candidate->verificationReceipt;
             if ($attack === 'outside_artifact') {
+                $attackedReceipt = $verificationReceipt;
                 $attackedReceipt['junit_artifact']['path'] = $repo.'/tests/CandidateBehaviorTest.php';
                 $attackedReceipt['junit_artifact']['sha256'] = hash_file('sha256', $repo.'/tests/CandidateBehaviorTest.php');
+                $verificationOwner->forceFill(['receipt' => $attackedReceipt])->save();
+                $this->assertInvalidArgumentMessage(
+                    fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $candidate, $engagement, $cycle),
+                    'mutative_verification_owner_invalid',
+                );
+                $verificationOwner->forceFill(['receipt' => $verificationReceipt])->save();
             } else {
-                $attackedReceipt['independent_from_provider'] = false;
+                $attacked = new VerifiedMutativeCandidate(
+                    $candidate->status, $candidate->orderHash, $candidate->candidateHash, $candidate->baseCommit,
+                    $candidate->treeHash, $candidate->diffHash, $candidate->files, $candidate->sandboxRoot,
+                    $candidate->providerReceipt, $candidate->sandboxReceipt, $candidate->verificationRunId, $candidate->verificationHash,
+                    $candidate->verifierIdentity, $candidate->authorIdentity, $candidate->verifierIdentity,
+                    $candidate->blockers, false,
+                );
+                $this->assertInvalidArgumentMessage(
+                    fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $attacked, $engagement, $cycle),
+                    'mutative_verification_owner_invalid',
+                );
             }
-            $attacked = new VerifiedMutativeCandidate(
-                $candidate->status, $candidate->orderHash, $candidate->candidateHash, $candidate->baseCommit,
-                $candidate->treeHash, $candidate->diffHash, $candidate->files, $candidate->sandboxRoot,
-                $candidate->providerReceipt, $candidate->sandboxReceipt, $attackedReceipt,
-                $candidate->blockers, false,
-            );
-            $this->assertInvalidArgumentMessage(
-                fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $attacked, $authority),
-                'candidate_quality_case_binding_invalid',
-            );
         }
         $forged = $persisted->firstWhere('role_id', 'product_strategy');
         $forgedOutput = $forged->output;
@@ -268,16 +375,6 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame(['case'], $certifierParameters);
         $this->assertTrue((new \ReflectionClass(RoleDisposition::class))->getConstructor()?->isPrivate());
         $this->assertTrue((new \ReflectionClass(RoleEvidenceReceipt::class))->getConstructor()?->isPrivate());
-        $artifactValidator = new \ReflectionMethod(EliteExecutorKernel::class, 'artifactValid');
-        $junit = $candidate->verificationReceipt['behavioral']['junit_artifact'];
-        $originalJunit = file_get_contents($junit['path']);
-        file_put_contents($junit['path'], 'tampered');
-        $this->assertFalse($artifactValidator->invoke($kernel, $junit, $candidate->sandboxRoot));
-        file_put_contents($junit['path'], $originalJunit);
-        $outside = $repo.'/outside-artifact';
-        file_put_contents($outside, 'outside');
-        $this->assertFalse($artifactValidator->invoke($kernel, ['path' => $outside, 'sha256' => hash_file('sha256', $outside)], $candidate->sandboxRoot));
-
         $redProvider = $this->createMock(ProviderPort::class);
         $red = $providerResult;
         $red['patch_plan']['patches'][0]['next'] = "<?php\nreturn 'wrong';\n";
@@ -288,7 +385,25 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $redData['idempotency_key'] = 'mutative-red-'.Str::uuid();
         $redCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($redData));
         $this->assertSame('blocked', $redCandidate->status);
-        $this->assertContains('behavioral_verification_refused', $redCandidate->blockers);
+        $this->assertTrue(array_any($redCandidate->blockers, static fn (string $blocker): bool => str_starts_with($blocker, 'independent_verification_refused:')));
+
+        foreach (['provider_is_verifier', 'author_is_verifier'] as $identityAttack) {
+            $identityProvider = $this->createMock(ProviderPort::class);
+            $identityResult = $providerResult;
+            if ($identityAttack === 'provider_is_verifier') {
+                $identityResult['provider'] = AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER;
+            } else {
+                $identityResult['author_identity'] = AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER;
+            }
+            $identityProvider->method('invoke')->willReturn($identityResult);
+            $this->app->instance(ProviderPort::class, $identityProvider);
+            $this->app->forgetInstance(EliteExecutorKernel::class);
+            $identityData = $data;
+            $identityData['idempotency_key'] = 'mutative-identity-'.$identityAttack.'-'.Str::uuid();
+            $identityCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($identityData));
+            $this->assertSame('blocked', $identityCandidate->status, $identityAttack);
+            $this->assertTrue(array_any($identityCandidate->blockers, static fn (string $blocker): bool => str_contains($blocker, 'hermetic_candidate_verifier_independence_invalid')), $identityAttack);
+        }
 
         $oracleProvider = $this->createMock(ProviderPort::class);
         $oracleProvider->method('invoke')->willReturn([

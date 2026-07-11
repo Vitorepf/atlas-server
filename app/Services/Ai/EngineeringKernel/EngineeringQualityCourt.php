@@ -43,6 +43,18 @@ final class EngineeringQualityCourt
         if ($role === 'final_certification' || ! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)) {
             throw new InvalidArgumentException('mutative_quality_role_invalid');
         }
+        if ($role === 'qa_testing') {
+            $rows = AiEngineeringCompanyRoleRun::query()
+                ->where('engagement_record_id', $case->engagementRecordId)
+                ->where('cycle_record_id', $case->cycleRecordId)
+                ->where('role_id', 'qa_testing')->get()
+                ->filter(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'binding.case_hash') === $case->caseHash);
+            $owner = $rows->count() === 1 ? $rows->first() : null;
+            if ($owner instanceof AiEngineeringCompanyRoleRun
+                && app(AtlasRealEngineeringExecutionKernelService::class)->candidateQaOwnerReceiptValid($owner, $case)) {
+                return app(AtlasRealEngineeringExecutionKernelService::class)->candidateQaDisposition($case);
+            }
+        }
         $payload = $this->mutativeAbsencePayload($case, $role);
 
         return RoleDisposition::ownerEvidenceAbsent(

@@ -3,6 +3,9 @@
 namespace App\Services\Ai\RealExecution;
 
 use App\Models\AiAutonomousEngineeringGoal;
+use App\Models\AiEngineeringCompanyCycle;
+use App\Models\AiEngineeringCompanyEngagement;
+use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionCertification;
 use App\Models\AiRealExecutionDeliveryPack;
 use App\Models\AiRealExecutionForgeHandoff;
@@ -12,13 +15,20 @@ use App\Models\AiRealExecutionRivalsBenchmark;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AiRealExecutionWorktree;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
+use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\EngineeringKernel\MutativeVerificationReference;
+use App\Services\Ai\EngineeringKernel\RoleDisposition;
+use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -32,6 +42,10 @@ class AtlasRealEngineeringExecutionKernelService
     public const TEST_SCHEMA = 'atlas.ai.real_execution.test_run.v1';
 
     public const KERNEL_VERIFICATION_PRODUCER = 'atlas.real_execution.kernel_verification.v1';
+
+    public const CANDIDATE_QA_OWNER_DOMAIN = 'atlas.real_execution.candidate_qa_owner.v1';
+
+    public const CANDIDATE_QA_OWNER_VERSION = 'v1';
 
     public const REPAIR_SCHEMA = 'atlas.ai.real_execution.repair_attempt.v1';
 
@@ -320,8 +334,8 @@ class AtlasRealEngineeringExecutionKernelService
         return is_string($decoded) ? $decoded : '';
     }
 
-    /** Independent mutative verification inside the hermetic candidate git root. @param list<string> $files @return array<string,mixed> */
-    public function verifyHermeticCandidate(ExecutionOrder $order, string $sandbox, array $allowedFiles, array $appliedPaths): array
+    /** Independent mutative verification inside the hermetic candidate git root. @param list<string> $files @param array<string,mixed> $providerReceipt */
+    public function verifyHermeticCandidate(ExecutionOrder $order, string $sandbox, array $allowedFiles, array $appliedPaths, array $providerReceipt): MutativeVerificationReference
     {
         if (! is_dir($sandbox.'/.git') || $allowedFiles === [] || $appliedPaths === []) {
             throw new \InvalidArgumentException('hermetic_candidate_invalid');
@@ -420,22 +434,329 @@ class AtlasRealEngineeringExecutionKernelService
         @unlink($tempIndex);
         $diffArtifact = $artifactDir.'/candidate.diff';
         File::put($diffArtifact, $diff);
+        $providerIdentity = trim((string) ($providerReceipt['provider'] ?? ''));
+        $authorIdentity = trim((string) ($providerReceipt['author_identity'] ?? $providerIdentity));
+        $verifierIdentity = self::KERNEL_VERIFICATION_PRODUCER;
+        $providerReceiptHash = RealExecutionHash::make($providerReceipt);
+        if ($providerIdentity === '' || $authorIdentity === '' || $authorIdentity === $verifierIdentity || $providerIdentity === $verifierIdentity) {
+            throw new \InvalidArgumentException('hermetic_candidate_verifier_independence_invalid');
+        }
+        $candidateHash = RealExecutionHash::make([
+            'order_hash' => $order->canonicalHash(), 'base_commit' => $base, 'tree_hash' => $treeSha,
+            'diff_hash' => hash('sha256', $diff), 'files' => $files,
+            'provider_receipt_hash' => $providerReceiptHash, 'verifier_identity' => $verifierIdentity,
+        ]);
+        $verificationRunId = 'aere_mutative_'.substr(RealExecutionHash::make([$order->runId, $candidateHash]), 0, 24);
+        $issuedAt = CarbonImmutable::now()->startOfSecond();
         $receipt = [
             'schema_version' => 'atlas.mutative_candidate.verification.v1',
-            'verifier' => self::KERNEL_VERIFICATION_PRODUCER,
-            'order_hash' => $order->canonicalHash(), 'base_commit' => $base,
-            'files' => $files, 'commands' => $results, 'passed' => $passed,
+            'verification_run_id' => $verificationRunId,
+            'issued_at' => $issuedAt->toAtomString(), 'expires_at' => $issuedAt->addHour()->toAtomString(),
+            'identities' => ['provider' => $providerIdentity, 'author' => $authorIdentity,
+                'verifier' => $verifierIdentity, 'verifier_domain' => self::KERNEL_VERIFICATION_PRODUCER,
+                'provider_receipt_hash' => $providerReceiptHash],
+            'binding' => ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId,
+                'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
+                'candidate_hash' => $candidateHash, 'base_commit' => $base,
+                'tree_hash' => $treeSha, 'diff_hash' => hash('sha256', $diff), 'files' => $files],
+            'sandbox_root' => $sandbox, 'commands' => $results, 'passed' => $passed,
             'behavioral' => $behavioral,
-            'diff_hash' => hash('sha256', $diff),
             'diff_artifact' => ['path' => $diffArtifact, 'sha256' => hash_file('sha256', $diffArtifact), 'bytes' => filesize($diffArtifact)],
-            'tree_hash' => $treeSha,
             'junit_artifact' => ['path' => $junit, 'sha256' => hash_file('sha256', $junit)],
-            'independent_from_provider' => true,
         ];
         $receipt['producer'] = $this->producerSeal(self::KERNEL_VERIFICATION_PRODUCER, $receipt);
         $receipt['hash'] = RealExecutionHash::make($receipt);
 
-        return $receipt;
+        if (AiRealExecutionTestRun::query()->where('test_run_id', $verificationRunId)->exists()) {
+            throw new \InvalidArgumentException('hermetic_candidate_verification_duplicate');
+        }
+        AiRealExecutionTestRun::query()->create([
+            'test_run_id' => $verificationRunId, 'status' => $passed && $behavioral['passed'] === true ? 'passed' : 'failed',
+            'selected_tests' => array_map(static fn (array $result): string => (string) $result['command_hash'], $results),
+            'impact_reasoning' => ['strategy' => 'candidate_bound_hermetic_verification'],
+            'exit_code' => $passed && $behavioral['passed'] === true ? 0 : 1,
+            'output_excerpt' => 'candidate_bound_hermetic_verification',
+            'evidence_refs' => ['candidate:'.$candidateHash, 'provider:'.$providerReceiptHash],
+            'receipt' => $receipt, 'test_hash' => $receipt['hash'],
+        ]);
+
+        return new MutativeVerificationReference(
+            $verificationRunId, $receipt['hash'], $candidateHash,
+            $providerIdentity, $authorIdentity, $verifierIdentity,
+        );
+    }
+
+    public function persistCandidateQaOwnerReceipt(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): AiEngineeringCompanyRoleRun
+    {
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()
+            || (string) $engagement->getKey() !== $case->engagementRecordId || (string) $cycle->getKey() !== $case->cycleRecordId
+            || ! $this->candidateQaArtifactsValid($case)) {
+            throw new \InvalidArgumentException('candidate_qa_owner_evidence_invalid');
+        }
+        $roleRunId = 'aereqa_'.substr(RealExecutionHash::make([$case->caseHash, 'qa_testing']), 0, 24);
+        if (AiEngineeringCompanyRoleRun::query()->where('role_run_id', $roleRunId)->exists()) {
+            throw new \InvalidArgumentException('candidate_qa_owner_duplicate');
+        }
+        $issued = CarbonImmutable::now()->startOfSecond();
+        $expires = $issued->addHour();
+        $disposition = $this->candidateQaDisposition($case);
+        $qaEvidence = $this->candidateQaEvidence($case);
+        $evidenceRefs = [
+            'candidate:'.$case->candidate->candidateHash,
+            'verification:'.$case->verification->receiptHash,
+            'mechanical_junit:'.(string) data_get($qaEvidence, 'mechanical_junit.sha256'),
+            'behavioral_junit:'.(string) data_get($qaEvidence, 'behavioral_junit.sha256'),
+        ];
+        $typed = RoleEvidenceReceipt::issue(
+            $case, $disposition, self::CANDIDATE_QA_OWNER_DOMAIN, self::CANDIDATE_QA_OWNER_VERSION,
+            $issued->toAtomString(), $expires->toAtomString(), $evidenceRefs,
+        );
+        $output = ['disposition' => $disposition->toArray(), 'role_evidence_receipt' => $typed->toArray()];
+        $binding = [
+            'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'base_commit' => $case->candidate->baseCommit, 'diff_hash' => $case->candidate->diffHash,
+            'tree_hash' => $case->candidate->treeHash, 'files' => $case->candidate->files,
+            'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey(),
+        ];
+        $receipt = [
+            'schema_version' => AtlasRealEngineeringCompanyRuntimeService::ROLE_SCHEMA,
+            'purpose' => 'candidate_qa_owner_evidence', 'owner_domain' => self::CANDIDATE_QA_OWNER_DOMAIN,
+            'owner_version' => self::CANDIDATE_QA_OWNER_VERSION, 'issued_at' => $issued->toAtomString(),
+            'expires_at' => $expires->toAtomString(), 'role_run_id' => $roleRunId, 'role_id' => 'qa_testing',
+            'status' => 'passed', 'output' => $output, 'evidence_refs' => $evidenceRefs,
+            'binding' => $binding, 'disposition' => $disposition->toArray(), 'qa_evidence' => $qaEvidence,
+        ];
+        $receipt['producer'] = $this->qaOwnerProducerSeal($receipt);
+        $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+
+        return AiEngineeringCompanyRoleRun::query()->create([
+            'engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(),
+            'role_run_id' => $roleRunId, 'role_id' => 'qa_testing', 'status' => 'passed',
+            'responsibilities' => [], 'output' => $output, 'evidence_refs' => $evidenceRefs,
+            'receipt' => $receipt, 'role_hash' => $receipt['hash'],
+        ]);
+    }
+
+    public function verifiedMutativeVerification(MutativeVerificationReference $reference, ExecutionOrder $order): AiRealExecutionTestRun
+    {
+        $row = AiRealExecutionTestRun::query()->where('test_run_id', $reference->runId)->first();
+        $receipt = $row?->receipt;
+        if (! $row instanceof AiRealExecutionTestRun || ! is_array($receipt)
+            || ! hash_equals((string) $row->test_hash, $reference->receiptHash)
+            || ! hash_equals((string) ($receipt['hash'] ?? ''), $reference->receiptHash)) {
+            throw new \InvalidArgumentException('mutative_verification_owner_missing_or_changed');
+        }
+        $unsigned = array_diff_key($receipt, ['hash' => true]);
+        $binding = $receipt['binding'] ?? null;
+        $identities = $receipt['identities'] ?? null;
+        try {
+            $issued = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['issued_at'] ?? ''));
+            $expires = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['expires_at'] ?? ''));
+        } catch (\Throwable) {
+            throw new \InvalidArgumentException('mutative_verification_owner_invalid');
+        }
+        if (! is_array($binding) || ! is_array($identities) || $row->status !== 'passed'
+            || $issued === null || $expires === null || CarbonImmutable::now()->lt($issued) || CarbonImmutable::now()->gte($expires)
+            || ($receipt['verification_run_id'] ?? null) !== $reference->runId
+            || ($binding['run_id'] ?? null) !== $order->runId || ($binding['delivery_id'] ?? null) !== $order->deliveryId
+            || ($binding['order_hash'] ?? null) !== $order->canonicalHash() || ($binding['spec_hash'] ?? null) !== $order->specHash
+            || ($binding['base_commit'] ?? null) !== $order->baseCommit
+            || ($binding['candidate_hash'] ?? null) !== $reference->candidateHash
+            || ($identities['provider'] ?? null) !== $reference->providerIdentity
+            || ($identities['author'] ?? null) !== $reference->authorIdentity
+            || ($identities['verifier'] ?? null) !== $reference->verifierIdentity
+            || ($identities['verifier_domain'] ?? null) !== self::KERNEL_VERIFICATION_PRODUCER
+            || $reference->providerIdentity === $reference->verifierIdentity
+            || $reference->authorIdentity === $reference->verifierIdentity
+            || ! hash_equals($reference->receiptHash, RealExecutionHash::make($unsigned))
+            || ! $this->qaVerificationProducerSealValid($unsigned)
+            || ! $this->mutativeVerificationArtifactsValid($receipt)) {
+            throw new \InvalidArgumentException('mutative_verification_owner_invalid');
+        }
+
+        return $row;
+    }
+
+    /** @param array<string,mixed> $unsigned */
+    private function qaVerificationProducerSealValid(array $unsigned): bool
+    {
+        $producer = $unsigned['producer'] ?? null;
+        if (! is_array($producer) || ($producer['domain'] ?? null) !== self::KERNEL_VERIFICATION_PRODUCER) {
+            return false;
+        }
+        $payload = array_diff_key($unsigned, ['producer' => true]);
+        if (! hash_equals((string) ($producer['payload_hash'] ?? ''), RealExecutionHash::make($payload))) {
+            return false;
+        }
+        $signature = (string) ($producer['signature'] ?? '');
+        $seal = array_diff_key($producer, ['signature' => true]);
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $this->producerKeyMaterial(), true);
+
+        return hash_equals($signature, hash_hmac('sha256', RealExecutionHash::make($seal), hash_hmac('sha256', self::KERNEL_VERIFICATION_PRODUCER, $authorityKey, true)));
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function mutativeVerificationArtifactsValid(array $receipt): bool
+    {
+        if (($receipt['passed'] ?? false) !== true || data_get($receipt, 'behavioral.passed') !== true) {
+            return false;
+        }
+        $commands = $receipt['commands'] ?? null;
+        if (! is_array($commands) || $commands === [] || array_any($commands, static fn (mixed $row): bool => ! is_array($row) || ($row['passed'] ?? false) !== true)) {
+            return false;
+        }
+        $root = realpath((string) ($receipt['sandbox_root'] ?? '').'/.atlas');
+        if ($root === false) {
+            return false;
+        }
+        foreach ([$receipt['junit_artifact'] ?? null, data_get($receipt, 'behavioral.junit_artifact'), $receipt['diff_artifact'] ?? null] as $artifact) {
+            $path = is_array($artifact) ? (string) ($artifact['path'] ?? '') : '';
+            $real = $path !== '' ? realpath($path) : false;
+            if ($real === false || ! str_starts_with($real, $root.'/') || is_link($path)
+                || ! hash_equals((string) ($artifact['sha256'] ?? ''), (string) hash_file('sha256', $real))) {
+                return false;
+            }
+        }
+        $runner = (string) data_get($receipt, 'behavioral.runner_path', '');
+
+        return is_file($runner) && ! is_link($runner)
+            && hash_equals((string) data_get($receipt, 'behavioral.runner_hash', ''), (string) hash_file('sha256', $runner));
+    }
+
+    public function candidateQaOwnerReceiptValid(AiEngineeringCompanyRoleRun $row, CandidateQualityCase $case): bool
+    {
+        $persisted = $row->exists ? AiEngineeringCompanyRoleRun::query()->find($row->getKey()) : null;
+        $receipt = $persisted?->getAttribute('receipt');
+        $output = $persisted?->getAttribute('output');
+        if (! $persisted instanceof AiEngineeringCompanyRoleRun || ! is_array($receipt) || ! is_array($output)
+            || ! $this->candidateQaArtifactsValid($case)) {
+            return false;
+        }
+        try {
+            $issued = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['issued_at'] ?? ''));
+            $expires = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['expires_at'] ?? ''));
+        } catch (\Throwable) {
+            return false;
+        }
+        $expectedDisposition = $this->candidateQaDisposition($case);
+        $expectedEvidence = $this->candidateQaEvidence($case);
+        $evidenceRefs = [
+            'candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash,
+            'mechanical_junit:'.(string) data_get($expectedEvidence, 'mechanical_junit.sha256'),
+            'behavioral_junit:'.(string) data_get($expectedEvidence, 'behavioral_junit.sha256'),
+        ];
+        $expectedTyped = RoleEvidenceReceipt::issue(
+            $case, $expectedDisposition, self::CANDIDATE_QA_OWNER_DOMAIN, self::CANDIDATE_QA_OWNER_VERSION,
+            (string) $receipt['issued_at'], (string) $receipt['expires_at'], $evidenceRefs,
+        )->toArray();
+        $expectedBinding = [
+            'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'base_commit' => $case->candidate->baseCommit, 'diff_hash' => $case->candidate->diffHash,
+            'tree_hash' => $case->candidate->treeHash, 'files' => $case->candidate->files,
+            'engagement_record_id' => $case->engagementRecordId,
+            'cycle_record_id' => $case->cycleRecordId,
+        ];
+        $unsigned = array_diff_key($receipt, ['hash' => true]);
+        $producer = $unsigned['producer'] ?? null;
+        $withoutProducer = array_diff_key($unsigned, ['producer' => true]);
+
+        return $persisted->role_id === 'qa_testing' && $persisted->status === 'passed'
+            && ($receipt['purpose'] ?? null) === 'candidate_qa_owner_evidence'
+            && ($receipt['owner_domain'] ?? null) === self::CANDIDATE_QA_OWNER_DOMAIN
+            && ($receipt['owner_version'] ?? null) === self::CANDIDATE_QA_OWNER_VERSION
+            && $issued !== null && $expires !== null && ! CarbonImmutable::now()->lt($issued) && CarbonImmutable::now()->lt($expires)
+            && ($receipt['binding'] ?? null) === $expectedBinding && ($receipt['qa_evidence'] ?? null) === $expectedEvidence
+            && ($receipt['evidence_refs'] ?? null) === $evidenceRefs && ($receipt['output'] ?? null) === $output
+            && ($output['disposition'] ?? null) === $expectedDisposition->toArray()
+            && ($output['role_evidence_receipt'] ?? null) === $expectedTyped
+            && hash_equals((string) $persisted->role_hash, (string) ($receipt['hash'] ?? ''))
+            && hash_equals((string) ($receipt['hash'] ?? ''), EngineeringCompanyHash::make($unsigned))
+            && $this->qaOwnerProducerSealValid($withoutProducer, $producer);
+    }
+
+    public function candidateQaDisposition(CandidateQualityCase $case): RoleDisposition
+    {
+        $payload = ['purpose' => 'candidate_qa_owner_disposition', 'case_hash' => $case->caseHash,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'candidate_hash' => $case->candidate->candidateHash, 'base_commit' => $case->candidate->baseCommit,
+            'diff_hash' => $case->candidate->diffHash, 'tree_hash' => $case->candidate->treeHash,
+            'files' => $case->candidate->files, 'verification_hash' => $case->verification->receiptHash,
+            'signer_context' => self::CANDIDATE_QA_OWNER_DOMAIN];
+
+        return RoleDisposition::qaCandidateVerified($case, self::CANDIDATE_QA_OWNER_DOMAIN, $this->qaOwnerSignature($payload));
+    }
+
+    /** @return array<string,mixed> */
+    private function candidateQaEvidence(CandidateQualityCase $case): array
+    {
+        $verification = (array) $this->verifiedMutativeVerification($case->verification, $case->order)->receipt;
+
+        return [
+            'case_hash' => $case->caseHash, 'order_hash' => $case->order->canonicalHash(),
+            'spec_hash' => $case->order->specHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'base_commit' => $case->candidate->baseCommit, 'diff_hash' => $case->candidate->diffHash,
+            'tree_hash' => $case->candidate->treeHash, 'files' => $case->candidate->files,
+            'verification_run_id' => $case->verification->runId,
+            'verification_hash' => $case->verification->receiptHash, 'commands_hash' => RealExecutionHash::make((array) data_get($verification, 'commands', [])),
+            'provider_identity' => $case->verification->providerIdentity,
+            'author_identity' => $case->verification->authorIdentity,
+            'verifier_identity' => $case->verification->verifierIdentity,
+            'provider_receipt_hash' => data_get($verification, 'identities.provider_receipt_hash'),
+            'runner_path' => data_get($verification, 'behavioral.runner_path'),
+            'runner_hash' => data_get($verification, 'behavioral.runner_hash'),
+            'runner_version' => data_get($verification, 'behavioral.runner_version'),
+            'mechanical_junit' => (array) data_get($verification, 'junit_artifact', []),
+            'behavioral_junit' => data_get($verification, 'behavioral.junit_artifact'),
+            'diff_artifact' => (array) data_get($verification, 'diff_artifact', []),
+        ];
+    }
+
+    private function candidateQaArtifactsValid(CandidateQualityCase $case): bool
+    {
+        try {
+            $this->verifiedMutativeVerification($case->verification, $case->order);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return $case->verification->providerIdentity !== $case->verification->verifierIdentity
+            && $case->verification->authorIdentity !== $case->verification->verifierIdentity;
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function qaOwnerSignature(array $payload): string
+    {
+        return hash_hmac('sha256', RealExecutionHash::make($payload), hash_hmac('sha256', self::CANDIDATE_QA_OWNER_DOMAIN, $this->producerKeyMaterial(), true));
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,string> */
+    private function qaOwnerProducerSeal(array $payload): array
+    {
+        $key = $this->producerKeyMaterial();
+        $seal = ['domain' => self::CANDIDATE_QA_OWNER_DOMAIN, 'key_id' => 'app-key-'.substr(hash('sha256', $key), 0, 16), 'payload_hash' => EngineeringCompanyHash::make($payload)];
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+        $seal['signature'] = hash_hmac('sha256', EngineeringCompanyHash::make($seal), hash_hmac('sha256', self::CANDIDATE_QA_OWNER_DOMAIN, $authorityKey, true));
+
+        return $seal;
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function qaOwnerProducerSealValid(array $payload, mixed $producer): bool
+    {
+        if (! is_array($producer) || ($producer['domain'] ?? null) !== self::CANDIDATE_QA_OWNER_DOMAIN
+            || ! hash_equals((string) ($producer['payload_hash'] ?? ''), EngineeringCompanyHash::make($payload))) {
+            return false;
+        }
+        $signature = (string) ($producer['signature'] ?? '');
+        $unsigned = array_diff_key($producer, ['signature' => true]);
+        $key = $this->producerKeyMaterial();
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+
+        return hash_equals($signature, hash_hmac('sha256', EngineeringCompanyHash::make($unsigned), hash_hmac('sha256', self::CANDIDATE_QA_OWNER_DOMAIN, $authorityKey, true)));
     }
 
     /** @return list<string> */
