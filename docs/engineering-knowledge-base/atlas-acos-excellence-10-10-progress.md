@@ -97,30 +97,34 @@ de memória/promoção; nada a refatorar do modelo antigo.
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| FEE-04 | ⬜ | — | — |
-| FEE-05 | ⬜ | — | — |
-| FEE-07 | ⬜ | — | — |
-| FEE-10 | ⬜ | — | — |
-| FEE-11 | ⬜ | — | — |
-| RAG-03 | ⬜ | — | — |
-| RAG-05 | ⬜ | — | — |
-| CORP-01 | ⬜ | — | — |
-| MEM-03 | ⬜ | — | — |
-| MEM-06 | ⬜ | — | — |
-| MEM-07 | ⬜ | — | — |
-| MEM-08 | ⬜ | — | — |
-| COM-05 | ⬜ | — | — |
-| COM-07 | ⬜ | — | — |
-| COM-08 | ⬜ | — | — |
-| COM-11 | ⬜ | — | — |
-| CPT-03 | ⬜ | — | — |
-| CPT-04 | ⬜ | — | — |
-| CPT-06 | ⬜ | — | — |
-| CPT-07 | ⬜ | — | — |
-| ENG-07 | ⬜ | — | — |
-| ENG-08 | ⬜ | — | — |
-| ENG-09 | ⬜ | — | — |
-| OPE-07 | ⬜ | — | — |
+| FEE-04 | ✅ | 26a4a2c22 | feedback_ranking default OFF |
+| FEE-05 | ✅ | 71a4f3267 | composer health/priority |
+| FEE-07 | ✅ | 239fdb6a2 | lift memory spine |
+| FEE-10 | ✅ | 5f8b4504d | session.auto delivered refs |
+| FEE-11 | ✅ | f96d116aa | ranking-hints before/after |
+| RAG-03 | ✅ | 89df3f5aa | anti-dominância top-K |
+| RAG-05 | ✅ | f39af178b | golden 25 + recall@K |
+| CORP-01 | ✅ | f111f9ce4 | capture+auto-admit+growth |
+| MEM-03 | ✅ | 3c0e02a5b | 45d window [MEDIDOR] |
+| MEM-06 | ✅ | c2a920cbc | curate scope |
+| MEM-07 | ✅ | 15106351c | recall relations consumer |
+| MEM-08 | ✅ | acc67fb50 | rationale policy |
+| COM-05 | ✅ | eac190025 | measured-only policy |
+| COM-07 | ✅ | eac190025 | policy-trend |
+| COM-08 | ✅ | eac190025 | missed resolve |
+| COM-11 | ✅ | be0eec499 | utility formula_version |
+| CPT-03 | ✅ | 3a3a81957 | importance summary |
+| CPT-04 | ✅ | 3a3a81957 | needs_review block overwrite |
+| CPT-06 | ✅ | f706e88ba | recovery executor |
+| CPT-07 | ✅ | 3a3a81957 | retention score |
+| ENG-07 | ✅ | 0e25a55b4 | AWIS mutative invariant [MEDIDOR] |
+| ENG-08 | ✅ | 0e25a55b4 | proven_real writers |
+| ENG-09 | ✅ | dc8e6a0c0 | Dev gate parity |
+| OPE-07 | ✅ | 477ce0dc8 | surface-review |
+
+## Notas de leitura dupla pendentes de land
+
+- **MEM-03** (2026-07-11, sem commit nesta sessão): medidor antigo lia `feedback.usage_total`/`feedback.feedback_total` e `retrieval_eval.recall_usage_total` com denominadores de vida-inteira ou janela RAG-02 de 30d; medidor novo lê `feedback.usage_window_total`/`feedback.feedback_window_total` e `retrieval_eval.recall_usage_window_total` na janela viva de 45d (`recall_concentration_window_days`) com piso `recall_concentration_min_recalls` retornando no-signal, preservando os contadores vida-inteira para auditoria. Testes: `AtlasMemoryQualityWindowingTest` + `MemoryQualityRetrievalWindowTest`.
 
 ### Onda 4 — Watchdog unificado + agregadores (13)
 
@@ -151,4 +155,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 55/98 · Faltam: 43 · Próximo: FEE-04 (onda 3) — onda 2 COMPLETA**
+**Feitas: 79/98 · Faltam: 19 · Próximo: WDG-01 (onda 4) — onda 3 COMPLETA**
