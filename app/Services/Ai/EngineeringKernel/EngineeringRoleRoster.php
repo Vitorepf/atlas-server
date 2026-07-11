@@ -8,13 +8,21 @@ use InvalidArgumentException;
 
 final class EngineeringRoleRoster
 {
+    public const OFFICIAL_ROLES = [
+        'product_strategy', 'product_management', 'domain_research', 'ux_research',
+        'interaction_design', 'visual_design', 'architecture', 'backend', 'frontend',
+        'mobile', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience',
+        'devops_sre', 'observability', 'release', 'documentation_dx',
+        'maintenance_simplification', 'outcome_analysis', 'evidence_audit', 'final_certification',
+    ];
+
     /**
      * @param  array<string,mixed>  $roster
      * @return array<string,array<string,mixed>>
      */
     public static function validateRoster(array $roster): array
     {
-        self::assertExactlyTwentyTwoUniqueRoles($roster, 'role_roster');
+        self::assertOfficialRoles($roster, 'role_roster');
         $normalized = [];
         foreach ($roster as $role => $entry) {
             if (! is_array($entry) || ! is_string($entry['depth'] ?? null) || trim($entry['depth']) === '') {
@@ -32,9 +40,14 @@ final class EngineeringRoleRoster
      */
     public static function validateDispositions(array $dispositions): array
     {
-        self::assertExactlyTwentyTwoUniqueRoles($dispositions, 'role_dispositions');
+        if (count($dispositions) !== count(self::OFFICIAL_ROLES)
+            || array_diff(array_keys($dispositions), self::OFFICIAL_ROLES) !== []
+            || array_diff(self::OFFICIAL_ROLES, array_keys($dispositions)) !== []) {
+            throw new InvalidArgumentException('role_dispositions_must_match_official_quality_foundry_roster');
+        }
         $normalized = [];
-        foreach ($dispositions as $role => $entry) {
+        foreach (self::OFFICIAL_ROLES as $role) {
+            $entry = $dispositions[$role];
             if (! is_array($entry)) {
                 throw new InvalidArgumentException("role_disposition_invalid:{$role}");
             }
@@ -55,12 +68,11 @@ final class EngineeringRoleRoster
     }
 
     /** @param array<string,mixed> $values */
-    private static function assertExactlyTwentyTwoUniqueRoles(array $values, string $field): void
+    private static function assertOfficialRoles(array $values, string $field): void
     {
         $roles = array_keys($values);
-        $validIds = array_filter($roles, static fn (mixed $role): bool => is_string($role) && trim($role) !== '');
-        if (count($values) !== 22 || count($validIds) !== 22 || count(array_unique($roles)) !== 22) {
-            throw new InvalidArgumentException("{$field}_must_contain_exactly_22_roles");
+        if ($roles !== self::OFFICIAL_ROLES) {
+            throw new InvalidArgumentException("{$field}_must_match_official_quality_foundry_roster");
         }
     }
 }

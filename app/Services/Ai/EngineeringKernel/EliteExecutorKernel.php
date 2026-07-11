@@ -14,6 +14,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Shared elite kernel surface for Dev · Forge · Autônomos.
@@ -33,6 +34,7 @@ final class EliteExecutorKernel
         private readonly AtlasForgeGateAdapter $forgeAdapter,
         private readonly AtlasAutonomosGateAdapter $autonomosAdapter,
         private readonly ?AtlasEvidenceLedger $evidenceLedger = null,
+        private readonly ?KernelEvidenceAuthority $evidenceAuthority = null,
     ) {}
 
     public function devGate(): AtlasDevGateAdapter
@@ -86,12 +88,24 @@ final class EliteExecutorKernel
 
     public function execute(ExecutionOrder $order): EngineeringOutcome
     {
+        if (self::idempotencyLockStrategy((string) DB::connection()->getDriverName()) === 'postgres_advisory_xact_lock') {
+            return DB::transaction(function () use ($order): EngineeringOutcome {
+                DB::select('SELECT pg_advisory_xact_lock(?)', [(int) hexdec(substr(hash('sha256', $order->idempotencyKey), 0, 15))]);
+
+                return $this->executeLocked($order);
+            });
+        }
         try {
             return Cache::lock('atlas:engineering-kernel:idempotency:'.hash('sha256', $order->idempotencyKey), 30)
                 ->block(1, fn (): EngineeringOutcome => $this->executeLocked($order));
         } catch (LockTimeoutException) {
             throw new \RuntimeException('engineering_execution_idempotency_lock_unavailable');
         }
+    }
+
+    public static function idempotencyLockStrategy(string $driver): string
+    {
+        return $driver === 'pgsql' ? 'postgres_advisory_xact_lock' : 'test_cache_lock';
     }
 
     private function executeLocked(ExecutionOrder $order): EngineeringOutcome
@@ -138,7 +152,7 @@ final class EliteExecutorKernel
         $status = $uncertainties !== [] ? 'held' : ($hasBlock ? 'blocked' : 'completed_read_only');
         $evidenceHash = $acceptanceHash;
         $releaseHash = hash('sha256', 'read-only:no-release:'.$orderHash);
-        $outcome = EngineeringOutcome::fromArray([
+        $outcomeData = [
             'schema_version' => 'atlas.engineering_outcome.v2',
             'run_id' => $order->runId,
             'delivery_id' => $order->deliveryId,
@@ -165,7 +179,9 @@ final class EliteExecutorKernel
             'uncertainties' => $uncertainties,
             'observation_schedule' => array_fill_keys(EngineeringOutcome::WINDOWS, 'pending'),
             'claim_eligible' => false,
-        ]);
+        ];
+        $outcomeData['evidence_bundle']['authority'] = $this->authority()->sealOutcome($outcomeData);
+        $outcome = EngineeringOutcome::fromArray($outcomeData);
 
         $this->recordEvent(LedgerEventType::GateEvaluated, $order, [
             'event_name' => 'acceptance.adjudicated', 'order_hash' => $orderHash,
@@ -190,7 +206,7 @@ final class EliteExecutorKernel
 
     public function observeOutcome(OutcomeObservation $observation): OutcomeLearningReceipt
     {
-        $known = $this->ledger()->latestForScope('engineering_delivery', $observation->deliveryId, 'engineering.outcome.recorded');
+        $known = $this->ledger()->engineeringOutcomeEvent($observation->deliveryId, $observation->orderHash, $observation->outcomeHash);
         $payload = $known === null ? [] : (array) $known->payload;
         $outcome = (array) ($payload['outcome'] ?? []);
         if ($known === null || ! $this->ledger()->eventIntegrityValid($known)
@@ -275,6 +291,15 @@ final class EliteExecutorKernel
         if ($event === null || ! $this->ledger()->eventIntegrityValid($event)) {
             throw new \InvalidArgumentException('canonical_evidence_event_missing_or_invalid');
         }
+        $kind = match ($eventName) {
+            'decision.issued' => 'decision',
+            'acceptance.evidence.recorded' => 'acceptance',
+            'role.disposition.recorded' => 'role_disposition',
+            default => throw new \InvalidArgumentException('canonical_evidence_event_kind_invalid'),
+        };
+        if (! $this->authority()->verifyEvent($event, $kind)) {
+            throw new \InvalidArgumentException('canonical_evidence_authority_invalid');
+        }
         $payload = $this->eventPayload($event);
         if (($payload['event_name'] ?? null) !== $eventName
             || $event->getAttribute('scope_type') !== 'engineering_delivery'
@@ -324,6 +349,11 @@ final class EliteExecutorKernel
     private function ledger(): AtlasEvidenceLedger
     {
         return $this->evidenceLedger ?? app(AtlasEvidenceLedger::class);
+    }
+
+    private function authority(): KernelEvidenceAuthority
+    {
+        return $this->evidenceAuthority ?? app(KernelEvidenceAuthority::class);
     }
 
     /** @return array<string,array<string,mixed>> */

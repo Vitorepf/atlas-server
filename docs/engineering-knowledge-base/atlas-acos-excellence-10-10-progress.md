@@ -57,7 +57,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | RAG-01 | ⬜ | — | — |
 | RAG-04 | ⬜ | — | — |
 | CPT-01 | ✅ | 5962afd83 | must_keep extractor always-merge |
-| FEE-06 | ⬜ | — | — |
+| FEE-06 | ✅ | pending | PipelineMemoryRefsNoiseTest 3/3 |
 | ENG-01 | ✅ | f6eae43f42 | AWIS gate no PipelineRunExecutor |
 | ENG-10 | ⬜ | — | — |
 | OPE-05 | ⬜ | — | — |

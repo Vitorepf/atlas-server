@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\EngineeringKernel;
 
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeLearningReceipt;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
 use InvalidArgumentException;
@@ -15,13 +19,13 @@ use Tests\TestCase;
 
 final class TypedEngineeringContractTest extends TestCase
 {
-    private const ROLE_IDS = [
-        'product_strategy', 'product_management', 'domain_research', 'ux_research',
-        'interaction_design', 'visual_design', 'architecture', 'backend', 'frontend',
-        'mobile', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience',
-        'devops_sre', 'observability', 'release', 'documentation_dx',
-        'maintenance_simplification', 'outcome_analysis', 'evidence_audit', 'final_certification',
-    ];
+    private const ROLE_IDS = EngineeringRoleRoster::OFFICIAL_ROLES;
+
+    public function test_legacy_nine_role_company_roster_is_not_quality_foundry_roster(): void
+    {
+        $this->assertNotSame(EngineeringRoleRoster::OFFICIAL_ROLES, AtlasRealEngineeringCompanyRuntimeService::ROLES);
+        $this->assertCount(9, AtlasRealEngineeringCompanyRuntimeService::ROLES, 'Phase 1 migration remains explicit.');
+    }
 
     public function test_execution_order_is_complete_canonical_and_deterministic(): void
     {
@@ -30,6 +34,7 @@ final class TypedEngineeringContractTest extends TestCase
         $this->assertSame('atlas.execution_order.v2', $order->schemaVersion);
         $this->assertSame('unbounded_quality_first', $order->budgetPosture);
         $this->assertSame(self::ROLE_IDS, array_keys($order->roleRoster));
+        $this->assertSame(EngineeringRoleRoster::OFFICIAL_ROLES, array_keys($order->roleRoster));
         $this->assertSame($order->canonicalHash(), ExecutionOrder::fromArray(array_reverse($this->validOrder(), true))->canonicalHash());
         $this->assertSame($order->toArray(), ExecutionOrder::fromArray($order->toArray())->toArray());
     }
@@ -146,6 +151,22 @@ final class TypedEngineeringContractTest extends TestCase
         EngineeringOutcome::fromArray($mismatch);
     }
 
+    public function test_direct_completed_outcome_without_authority_seal_is_refused(): void
+    {
+        $data = $this->validOutcome();
+        unset($data['evidence_bundle']['authority']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('completed_outcome_authority_invalid');
+        EngineeringOutcome::fromArray($data);
+    }
+
+    public function test_postgres_uses_transaction_scoped_advisory_lock_without_ttl(): void
+    {
+        $this->assertSame('postgres_advisory_xact_lock', EliteExecutorKernel::idempotencyLockStrategy('pgsql'));
+        $this->assertSame('test_cache_lock', EliteExecutorKernel::idempotencyLockStrategy('sqlite'));
+    }
+
     public function test_observation_and_learning_receipt_are_typed_and_hash_bound(): void
     {
         $observation = OutcomeObservation::fromArray([
@@ -190,7 +211,7 @@ final class TypedEngineeringContractTest extends TestCase
         $rosterHash = CanonicalKernelPayload::hash($roles);
         $authority = ['kind' => 'read_only'];
 
-        return [
+        $data = [
             'schema_version' => 'atlas.execution_order.v2',
             'run_id' => 'run-001',
             'delivery_id' => 'delivery-001',
@@ -220,6 +241,8 @@ final class TypedEngineeringContractTest extends TestCase
             'idempotency_key' => 'idempotency-001',
             'budget_posture' => 'unbounded_quality_first',
         ];
+
+        return $data;
     }
 
     /** @return array<string,mixed> */
@@ -246,7 +269,7 @@ final class TypedEngineeringContractTest extends TestCase
             'release' => hash('sha256', 'release'),
         ];
 
-        return [
+        $data = [
             'schema_version' => 'atlas.engineering_outcome.v2',
             'run_id' => 'run-001',
             'delivery_id' => 'delivery-001',
@@ -266,5 +289,8 @@ final class TypedEngineeringContractTest extends TestCase
             'observation_schedule' => array_fill_keys(['0h', '24h', '7d', '30d', '90d', '150d'], 'pending'),
             'claim_eligible' => false,
         ];
+        $data['evidence_bundle']['authority'] = app(KernelEvidenceAuthority::class)->sealOutcome($data);
+
+        return $data;
     }
 }

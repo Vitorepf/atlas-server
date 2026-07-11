@@ -207,6 +207,23 @@ class AtlasEvidenceLedger
             ->first();
     }
 
+    public function engineeringOutcomeEvent(string $deliveryId, string $orderHash, string $outcomeHash): ?AtlasLedgerEvent
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        return AtlasLedgerEvent::query()
+            ->where('scope_type', 'engineering_delivery')
+            ->where('scope_id', $deliveryId)
+            ->where('payload->event_name', 'engineering.outcome.recorded')
+            ->where('payload->order_hash', $orderHash)
+            ->where('payload->outcome->outcome_hash', $outcomeHash)
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('event_id')
+            ->first();
+    }
+
     public function eventIntegrityValid(AtlasLedgerEvent $event): bool
     {
         $rawPayload = $event->payload;

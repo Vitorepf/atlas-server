@@ -7,7 +7,9 @@ namespace Tests\Feature\Ai\EngineeringKernel;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -18,13 +20,7 @@ use Tests\TestCase;
 
 final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 {
-    private const ROLE_IDS = [
-        'product_strategy', 'product_management', 'domain_research', 'ux_research',
-        'interaction_design', 'visual_design', 'architecture', 'backend', 'frontend',
-        'mobile', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience',
-        'devops_sre', 'observability', 'release', 'documentation_dx',
-        'maintenance_simplification', 'outcome_analysis', 'evidence_audit', 'final_certification',
-    ];
+    private const ROLE_IDS = EngineeringRoleRoster::OFFICIAL_ROLES;
 
     protected function setUp(): void
     {
@@ -123,6 +119,21 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('canonical_evidence_event_binding_invalid');
+        app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
+    }
+
+    public function test_raw_ledger_spoof_with_test_emitter_is_not_authoritative(): void
+    {
+        $data = $this->orderData();
+        $event = app(AtlasEvidenceLedger::class)->eventById('decision-read-only');
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::DecisionIssued, (array) $event?->payload, [
+            'event_id' => 'spoof-decision', 'envelope_id' => $data['run_id'], 'correlation_id' => $data['idempotency_key'],
+            'scope_type' => 'engineering_delivery', 'scope_id' => $data['delivery_id'], 'emitter_stage' => 'test.fixture',
+        ]);
+        $data['decision_receipt']['decision_event_id'] = 'spoof-decision';
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('canonical_evidence_authority_invalid');
         app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
     }
 
@@ -277,18 +288,19 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         }
         $orderHash = ExecutionOrder::fromArray($orderData)->canonicalHash();
         $context = ['envelope_id' => $orderData['run_id'], 'correlation_id' => $orderData['idempotency_key'], 'scope_type' => 'engineering_delivery', 'scope_id' => $orderData['delivery_id'], 'emitter_stage' => 'test.fixture'];
-        $ledger->record(LedgerEventType::DecisionIssued, [
+        $authority = app(KernelEvidenceAuthority::class);
+        $authority->issue('decision', LedgerEventType::DecisionIssued, [
             'event_name' => 'decision.issued', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
             'spec_hash' => $orderData['spec_hash'], 'authority_hash' => CanonicalKernelPayload::hash($orderData['authority_envelope']),
             'role_roster' => $orderData['role_roster'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
         ], ['event_id' => 'decision-read-only'] + $context);
-        $ledger->record(LedgerEventType::GateEvaluated, [
+        $authority->issue('acceptance', LedgerEventType::GateEvaluated, [
             'event_name' => 'acceptance.evidence.recorded', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
             'spec_hash' => $orderData['spec_hash'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
             'acceptance_bundle' => $this->honestAcceptanceBundle(),
         ], ['event_id' => 'acceptance-read-only'] + $context);
         foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
-            $ledger->record(LedgerEventType::GateEvaluated, [
+            $authority->issue('role_disposition', LedgerEventType::GateEvaluated, [
                 'event_name' => 'role.disposition.recorded', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
                 'spec_hash' => $orderData['spec_hash'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
                 'role' => $role, 'disposition' => $dispositions[$role],

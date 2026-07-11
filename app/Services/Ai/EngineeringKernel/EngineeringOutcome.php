@@ -88,6 +88,9 @@ final readonly class EngineeringOutcome
                 CanonicalKernelPayload::requireString($disposition, 'receipt_ref');
                 CanonicalKernelPayload::requireHash($disposition, 'receipt_event_hash');
             }
+            if (! app(KernelEvidenceAuthority::class)->verifyOutcome($data)) {
+                throw new InvalidArgumentException('completed_outcome_authority_invalid');
+            }
         }
         $elapsed = $data['elapsed_ms'] ?? null;
         if (! is_int($elapsed) || $elapsed < 0) {
