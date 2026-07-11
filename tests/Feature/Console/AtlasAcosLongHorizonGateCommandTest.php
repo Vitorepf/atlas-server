@@ -335,6 +335,100 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
         $this->assertSame(1, data_get($payload, 'assessment.max_consecutive_gap_days'));
     }
 
+    public function test_mid_window_low_day_blocks_with_series_day_below_floor(): void
+    {
+        // EVI-06: a bad day buried in the middle of an otherwise healthy window must
+        // block certification even when the latest point clears the floor.
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+        $lowDay = $today->modify('-15 days')->format('Y-m-d');
+        $series = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            $series[] = [
+                'date' => $date,
+                'recorded_at' => $date.'T00:00:00+00:00',
+                'metrics' => ['scorecard_overall' => $date === $lowDay ? 5.33 : 9.7],
+                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+        }
+
+        $minDays = 30;
+        $minOverall = 9.5;
+        $independentScan = $this->independentCertificationWindowScan($series, $today, $minDays, $minOverall);
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'min_days' => $minDays,
+            'min_overall' => $minOverall,
+            'scorecard_report' => $this->highScorecard('h'),
+            'series' => $series,
+        ]);
+
+        $this->assertFalse($payload['certified']);
+        $this->assertContains('series_day_below_floor', $payload['blockers']);
+        $this->assertNotContains('latest_delta_series_score_below_floor', $payload['blockers']);
+        $this->assertGreaterThanOrEqual(9.5, data_get($payload, 'assessment.latest_series_overall'));
+        $this->assertSame(5.33, data_get($payload, 'assessment.min_certification_window_overall'));
+        $this->assertSame(1, data_get($payload, 'assessment.certification_window_days_below_floor'));
+        $this->assertNotContains('series_gap_exceeds_floor', $payload['blockers']);
+        $this->assertNotContains('series_day_count_below_floor', $payload['blockers']);
+
+        // MED-01 dual-read: independent jsonl-style recomputation must match gate verdict.
+        $this->assertSame($independentScan['min_overall'], data_get($payload, 'assessment.min_certification_window_overall'));
+        $this->assertSame(
+            $independentScan['days_below_floor'] > 0,
+            in_array('series_day_below_floor', $payload['blockers'], true),
+        );
+    }
+
+    /**
+     * MED-01: recompute the certification-window floor scan directly from series rows,
+     * independent of AtlasAcosLongHorizonGateService (jsonl-style read path).
+     *
+     * @param  list<array<string,mixed>>  $series
+     * @return array{min_overall: float, days_below_floor: int}
+     */
+    private function independentCertificationWindowScan(
+        array $series,
+        \DateTimeImmutable $today,
+        int $minDays,
+        float $minOverall,
+    ): array {
+        $windowDates = [];
+        for ($i = $minDays - 1; $i >= 0; $i--) {
+            $windowDates[] = $today->modify("-$i days")->format('Y-m-d');
+        }
+
+        $window = array_fill_keys($windowDates, true);
+        $scoresByDate = [];
+        foreach ($series as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date !== '' && isset($window[$date])) {
+                $scoresByDate[$date] = (float) data_get($row, 'metrics.scorecard_overall', 0.0);
+            }
+        }
+
+        $minScore = null;
+        $daysBelowFloor = 0;
+        foreach ($windowDates as $date) {
+            if (! array_key_exists($date, $scoresByDate)) {
+                continue;
+            }
+
+            $score = $scoresByDate[$date];
+            $minScore = $minScore === null ? $score : min($minScore, $score);
+            if ($score < $minOverall) {
+                $daysBelowFloor++;
+            }
+        }
+
+        return [
+            'min_overall' => $minScore ?? 0.0,
+            'days_below_floor' => $daysBelowFloor,
+        ];
+    }
+
     /**
      * @return array<string,mixed>
      */

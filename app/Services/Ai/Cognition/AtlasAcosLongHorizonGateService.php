@@ -114,6 +114,9 @@ final class AtlasAcosLongHorizonGateService
         $latestStalenessDays = $this->latestStalenessDays($latestDate, $today);
 
         $certificationWindowDates = $this->certificationWindowDates($latestDate, $minDays);
+        $windowOverallScan = $this->certificationWindowOverallScan($series, $certificationWindowDates, $minOverall);
+        $minCertificationWindowOverall = $windowOverallScan['min_overall'];
+        $certificationWindowDaysBelowFloor = $windowOverallScan['days_below_floor'];
         $certificationWindowStart = $certificationWindowDates[0] ?? null;
         $certificationWindowEnd = $latestDate;
         $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
@@ -136,8 +139,8 @@ final class AtlasAcosLongHorizonGateService
         if ($calendarSpanDays < $minDays) {
             $blockers[] = 'calendar_span_below_floor';
         }
-        if ($latestSeriesOverall < $minOverall) {
-            $blockers[] = 'latest_delta_series_score_below_floor';
+        if ($certificationWindowDaysBelowFloor > 0) {
+            $blockers[] = 'series_day_below_floor';
         }
         if ($resolvedEvidenceRows < $seriesDayCount) {
             $blockers[] = 'delta_series_resolved_evidence_source_missing';
@@ -165,6 +168,8 @@ final class AtlasAcosLongHorizonGateService
             'first_date' => $firstDate,
             'latest_date' => $latestDate,
             'latest_series_overall' => round($latestSeriesOverall, 3),
+            'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
+            'certification_window_days_below_floor' => $certificationWindowDaysBelowFloor,
             'resolved_evidence_rows' => $resolvedEvidenceRows,
             'today' => $todayKey,
             'future_dated_rows' => $futureDatedRows,
@@ -398,6 +403,49 @@ final class AtlasAcosLongHorizonGateService
         } catch (Throwable) {
             return PHP_INT_MAX;
         }
+    }
+
+    /**
+     * EVI-06: scan every sampled day inside the certification window and require
+     * sustained floor — a single bad day blocks even when the latest point is fine.
+     *
+     * @param  list<array<string,mixed>>  $series
+     * @param  list<string>  $certificationWindowDates
+     * @return array{min_overall: float, days_below_floor: int}
+     */
+    private function certificationWindowOverallScan(array $series, array $certificationWindowDates, float $minOverall): array
+    {
+        if ($certificationWindowDates === []) {
+            return ['min_overall' => 0.0, 'days_below_floor' => 0];
+        }
+
+        $window = array_fill_keys($certificationWindowDates, true);
+        $scoresByDate = [];
+        foreach ($series as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date !== '' && isset($window[$date])) {
+                $scoresByDate[$date] = (float) data_get($row, 'metrics.scorecard_overall', 0.0);
+            }
+        }
+
+        $minScore = null;
+        $daysBelowFloor = 0;
+        foreach ($certificationWindowDates as $date) {
+            if (! array_key_exists($date, $scoresByDate)) {
+                continue;
+            }
+
+            $score = $scoresByDate[$date];
+            $minScore = $minScore === null ? $score : min($minScore, $score);
+            if ($score < $minOverall) {
+                $daysBelowFloor++;
+            }
+        }
+
+        return [
+            'min_overall' => $minScore ?? 0.0,
+            'days_below_floor' => $daysBelowFloor,
+        ];
     }
 
     /**
