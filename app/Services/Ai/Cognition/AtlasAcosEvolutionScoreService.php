@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Models\AiCompoundingMemory;
+use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\Brain\AtlasEvolutionDiary;
+use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -58,8 +61,12 @@ class AtlasAcosEvolutionScoreService
     /** FQN do comando de reversão da memória (Carta Regra 4); probe por class_exists. */
     private const REVERSAL_COMMAND_CLASS = 'App\Console\Commands\AtlasBrainReplayCommand';
 
+    /** Minimum live A/B cases per arm before feedback_loop_vivo can score fully. */
+    private const LIFT_CASES_PER_ARM_REQUIRED = 10;
+
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
+        private readonly AtlasLearningRecallUseLiftService $lift = new AtlasLearningRecallUseLiftService,
     ) {}
 
     /**
@@ -143,23 +150,49 @@ class AtlasAcosEvolutionScoreService
 
         $feedback7d = $this->tableCount('ai_rag_feedback_events', fn ($q) => $q->where('created_at', '>=', now()->subDays(7)));
         $hintsOn = (bool) config('atlas.ai.context_feedback.global_hints_enabled', true);
+        $oldFeedbackPoints = round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2);
+
+        $lift = $this->lift->report(minCases: self::LIFT_CASES_PER_ARM_REQUIRED, minPassingUse: 1);
+        $withCount = (int) data_get($lift, 'measurement.with_recalled_memory.case_count', 0);
+        $withoutCount = (int) data_get($lift, 'measurement.without_recalled_memory.case_count', 0);
+        $measurementReady = (bool) data_get($lift, 'measurement.measurement_ready', false);
+        $armProgress = min($withCount, $withoutCount) / self::LIFT_CASES_PER_ARM_REQUIRED;
+        $newFeedbackPoints = ($measurementReady && $withCount >= self::LIFT_CASES_PER_ARM_REQUIRED && $withoutCount >= self::LIFT_CASES_PER_ARM_REQUIRED)
+            ? 2.5
+            : round(min(2.5, max(0.0, $armProgress) * 2.5), 2);
+
         $signals[] = [
             'signal' => 'feedback_loop_vivo',
-            'points' => round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2),
+            'points' => $newFeedbackPoints,
             'max' => 2.5,
-            // WO-17-T0.1 — the recall candidate set is now query-aware (the
-            // question enters selection, not just re-ranking). Evidence-only;
-            // points/weights unchanged.
-            'evidence' => sprintf('feedback_events_7d=%d global_hints=%s retrieval_mode=query_aware', max(0, $feedback7d), $hintsOn ? 'on' : 'off'),
+            'evidence' => sprintf(
+                'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
+                $oldFeedbackPoints,
+                $newFeedbackPoints,
+                (string) ($lift['status'] ?? 'unknown'),
+                $withCount,
+                $withoutCount,
+                $measurementReady ? 'true' : 'false',
+            ),
         ];
 
         $held = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where('decision', 'hold'));
         $promoted = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where('decision', 'promote'));
+        $oldLicoesPoints = round(($held > 0 ? 1.25 : 0.0) + ($promoted > 0 ? 1.25 : 0.0), 2);
+        $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
+        $newLicoesPoints = $servedCompounding ? 2.5 : 0.0;
         $signals[] = [
             'signal' => 'licoes_geridas',
-            'points' => round(($held > 0 ? 1.25 : 0.0) + ($promoted > 0 ? 1.25 : 0.0), 2),
+            'points' => $newLicoesPoints,
             'max' => 2.5,
-            'evidence' => sprintf('quarantine_held=%d promoted=%d', max(0, $held), max(0, $promoted)),
+            'evidence' => sprintf(
+                'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s',
+                $oldLicoesPoints,
+                $newLicoesPoints,
+                max(0, $held),
+                max(0, $promoted),
+                $servedCompounding ? 'yes' : 'no',
+            ),
         ];
 
         return $this->rollUp($signals);
@@ -300,6 +333,51 @@ class AtlasAcosEvolutionScoreService
             return (int) $query->count();
         } catch (Throwable) {
             return -1;
+        }
+    }
+
+    private function activeCompoundingMemoryServedByRecall(): bool
+    {
+        try {
+            if (! Schema::hasTable('ai_compounding_memories') || ! Schema::hasTable('ai_rag_feedback_events')) {
+                return false;
+            }
+
+            $activeKeys = [];
+            foreach (AiCompoundingMemory::query()->active()->get(['id', 'memory_hash']) as $memory) {
+                foreach ([$memory->id, $memory->memory_hash] as $value) {
+                    if (! is_string($value) || trim($value) === '') {
+                        continue;
+                    }
+                    $value = trim($value);
+                    $activeKeys['compounding_memory:'.$value] = true;
+                    $activeKeys[$value] = true;
+                }
+            }
+
+            if ($activeKeys === []) {
+                return false;
+            }
+
+            return AiRagFeedbackEvent::query()
+                ->where('created_at', '>=', now()->subDays(7))
+                ->get(['source_utility'])
+                ->contains(function (AiRagFeedbackEvent $event) use ($activeKeys): bool {
+                    $utility = is_array($event->source_utility) ? $event->source_utility : [];
+                    foreach ($utility as $key => $status) {
+                        if (! isset($activeKeys[(string) $key])) {
+                            continue;
+                        }
+                        $normalized = is_scalar($status) ? strtolower(trim((string) $status)) : '';
+                        if (in_array($normalized, ['included', 'used', 'useful'], true)) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                });
+        } catch (Throwable) {
+            return false;
         }
     }
 
