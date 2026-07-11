@@ -5,55 +5,66 @@ declare(strict_types=1);
 namespace App\Services\Ai\Autonomy;
 
 use App\Models\AiLearningProposal;
+use App\Models\AiMemoryDelta;
+use App\Models\AtlasAemorMemoryCandidate;
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\AtlasMemoryDeltaPromotionService;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
+use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard;
 use App\Services\Ai\Policy\PolicyCanon;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
- * The autonomous loop's missing consumer — "Hermes mode" for self-learning. It takes
- * PROPOSED learning proposals and, for the SAFE reversible classes ONLY, auto-approves
- * + auto-applies them with NO operator approval. Everything else stays status='proposed'
- * (the Sunday review queue). Default-OFF behind `atlas.ai.autonomous_learning.enabled`.
+ * The autonomous loop's missing consumer — "Hermes mode" for self-learning. Routes the
+ * three digest queues (learning proposals, memory deltas, AEMOR candidates) through one
+ * fail-closed gate stack: what passes auto-applies with NO operator approval; everything
+ * else is held for the Sunday digest with a named reason. Default-OFF behind
+ * `atlas.ai.autonomous_learning.enabled`.
  *
- * Sovereignty is a FAIL-CLOSED gate stack — ALL must pass; any failure routes the
- * proposal to the Sunday queue, never applies:
- *   G1  kind ∈ applier.supportsAutoApply  — default-deny; only non-critical kinds that
- *       have BOTH an applier and a reverser (unknown/critical kinds never pass).
- *   G2  privacy fail-closed — sensitive/secret/cyber/unclassified → queue.
- *   G3  classifier.evaluate().may_auto_apply === true — the canon's critical oracle.
- *   G4  admission.admit() === allow_autonomous AND requires_human_approval===false AND
- *       effective_autonomy===autonomous, called with an EXPLICIT fail-closed risk_level
- *       and privacy under the nested scope.privacy_class key the gates actually read.
+ * Sovereignty is a FAIL-CLOSED gate stack — ALL must pass; any failure routes the item
+ * to the digest as `held`, never applies. Reversibility is the safeguard:
+ *   - proposals → atlas:ai:apply-learning --reverse
+ *   - deltas/candidates → atlas:ai:memory-forget on the promoted entry
  *
- * Every application is reversible (the applier materializes an archivable AtlasMemoryEntry)
- * and receipted. Pétreo floor held for free: no git, no main, no critical/secret/cyber.
- *
- * Note: the cognitive-immune G0-G8 PROMOTION gate is deliberately NOT wired as a fifth
- * gate here — it needs a richer signal context than a learning proposal carries, and
- * captured candidates already passed the capture-side immune quarantine. Wiring it is
- * the documented precondition before widening auto-apply beyond the memory-entry kinds;
- * this class never claims immune protection it does not enforce.
+ * Pétreo floor held for free: no git, no main, no critical/secret/cyber, no --force promote.
  */
 final class AtlasAutonomousLearningApplier
 {
     public const SCHEMA = 'atlas.ai.autonomous_learning_applier.v1';
 
-    /**
-     * The ONLY privacy classes that may auto-apply — an explicit allowlist, not a
-     * blocklist (fail-closed): of the canon's classes {public, normal, sensitive,
-     * secret, cyber}, only the two non-sensitive ones. Unknown/empty/sensitive ⇒ queue.
-     */
+    public const AUTO_APPLIED_BY = 'atlas-auto';
+
+    /** @var list<string> */
     private const APPLYABLE_PRIVACY = ['public', 'normal'];
+
+    /** @var list<string> */
+    private const AUTO_DELTA_TYPES = [
+        'decision',
+        'preference',
+        'feedback',
+        'error_pattern',
+        'issue',
+        'resolution',
+        'benchmark',
+        'benchmark_observation',
+        'harness_learning',
+        'process',
+        'technical_context',
+    ];
+
+    private const MIN_TRUSTED_CONFIDENCE = 0.86;
 
     public function __construct(
         private readonly AtlasLearningProposalsService $classifier,
         private readonly AtlasAutonomyAdmissionService $admission,
         private readonly AtlasLearningProposalService $proposals,
         private readonly AtlasLearningProposalApplier $applier,
+        private readonly AtlasMemoryDeltaPromotionService $deltaPromoter,
+        private readonly LongHorizonMemoryPromotionGuard $longHorizonGuard = new LongHorizonMemoryPromotionGuard,
     ) {}
 
     /**
@@ -64,106 +75,195 @@ final class AtlasAutonomousLearningApplier
         if (! (bool) config('atlas.ai.autonomous_learning.enabled', false)) {
             return $this->summary(false, 0, 0, [], 'disabled — default max friction (operator opt-in required)');
         }
-        if (! $this->tableReady('ai_learning_proposals')) {
-            return $this->summary(true, 0, 0, [], 'ai_learning_proposals table unavailable');
-        }
 
         $limit = max(1, min(500, $limit));
         $applied = 0;
-        $queued = 0;
+        $held = 0;
         $items = [];
 
-        $rows = AiLearningProposal::query()->where('status', 'proposed')->orderBy('created_at')->limit($limit)->get();
-        foreach ($rows as $proposal) {
-            $decision = $this->decide($proposal);
-            if ($decision['auto_apply'] === true && $this->tryApply($proposal, $items)) {
-                $applied++;
+        if ($this->tableReady('ai_learning_proposals')) {
+            foreach (AiLearningProposal::query()->where('status', 'proposed')->orderBy('created_at')->limit($limit)->get() as $proposal) {
+                $decision = $this->decide($proposal);
+                if ($decision['auto_apply'] === true && $this->tryApplyProposal($proposal, $items)) {
+                    $applied++;
 
-                continue;
+                    continue;
+                }
+                $held++;
+                $items[] = $this->heldItem('learning_proposals', (string) $proposal->getKey(), (string) $proposal->kind, $decision['reason']);
             }
-            $queued++;
-            $items[] = [
-                'id' => (string) $proposal->getKey(),
-                'kind' => (string) $proposal->kind,
-                'action' => 'queued_for_review',
-                'reason' => $decision['reason'],
-            ];
         }
 
-        return $this->summary(true, $applied, $queued, $items, null);
+        if ($this->tableReady('ai_memory_deltas')) {
+            foreach (AiMemoryDelta::query()
+                ->whereIn('status', ['pending', 'accepted'])
+                ->orderBy('created_at')
+                ->limit($limit)
+                ->get() as $delta) {
+                $decision = $this->decideDelta($delta);
+                if ($decision['auto_apply'] === true && $this->tryApplyDelta($delta, $items)) {
+                    $applied++;
+
+                    continue;
+                }
+                $held++;
+                $items[] = $this->heldItem('memory_deltas', (string) $delta->getKey(), (string) $delta->type, $decision['reason']);
+            }
+        }
+
+        if ($this->tableReady('atlas_aemor_memory_candidates')) {
+            foreach (AtlasAemorMemoryCandidate::query()
+                ->whereIn('status', ['watch', 'candidate'])
+                ->orderBy('created_at')
+                ->limit($limit)
+                ->get() as $candidate) {
+                $decision = $this->decideCandidate($candidate);
+                if ($decision['auto_apply'] === true && $this->tryApplyCandidate($candidate, $items)) {
+                    $applied++;
+
+                    continue;
+                }
+                $held++;
+                $items[] = $this->heldItem('aemor_candidates', (string) $candidate->getKey(), (string) $candidate->memory_type, $decision['reason']);
+            }
+        }
+
+        return $this->summary(true, $applied, $held, $items, null);
     }
 
     /**
      * @param  list<array<string,mixed>>  $items
      */
-    private function tryApply(AiLearningProposal $proposal, array &$items): bool
+    private function tryApplyProposal(AiLearningProposal $proposal, array &$items): bool
     {
         try {
-            $this->proposals->approve($proposal, 'atlas-auto', 'autonomous-safe-apply');
-            $result = $this->applier->apply($proposal, 'atlas-auto');
+            $this->proposals->approve($proposal, self::AUTO_APPLIED_BY, 'autonomous-safe-apply');
+            $result = $this->applier->apply($proposal, self::AUTO_APPLIED_BY);
             if (($result['applied'] ?? false) === true) {
                 $items[] = [
+                    'queue' => 'learning_proposals',
                     'id' => (string) $proposal->getKey(),
                     'kind' => (string) $proposal->kind,
                     'action' => 'auto_applied',
-                    'reverse' => $result['change']['reverse_handle'] ?? ('php artisan atlas:ai:apply-learning '.$proposal->getKey().' --reverse'),
+                    'reverse_handle' => $result['change']['reverse_handle'] ?? ('php artisan atlas:ai:apply-learning '.$proposal->getKey().' --reverse'),
                 ];
 
                 return true;
             }
-            $this->revertToQueue($proposal);
+            $this->revertProposalApproval($proposal);
         } catch (Throwable) {
-            $this->revertToQueue($proposal);
+            $this->revertProposalApproval($proposal);
         }
 
         return false;
     }
 
     /**
-     * O apply() exige status='approved', então approve vem antes — mas se o apply não
-     * concluiu, o carimbo NÃO pode sobrar: 'approved' é o marcador que o apply-learning
-     * manual confia, e status!='proposed' desaparece da fila de revisão de domingo.
-     * Reverte apenas o carimbo que ESTE ator acabou de fazer (nunca decisão de operador).
+     * @param  list<array<string,mixed>>  $items
      */
-    private function revertToQueue(AiLearningProposal $proposal): void
+    private function tryApplyDelta(AiMemoryDelta $delta, array &$items): bool
+    {
+        try {
+            $entry = $this->deltaPromoter->promote($delta, [
+                'force' => $delta->status !== 'accepted',
+                'promoted_by' => self::AUTO_APPLIED_BY,
+                'metadata' => [
+                    'autonomous_auto_apply' => [
+                        'applied_at' => now()->toIso8601String(),
+                        'actor' => self::AUTO_APPLIED_BY,
+                    ],
+                ],
+            ]);
+            $items[] = [
+                'queue' => 'memory_deltas',
+                'id' => (string) $delta->getKey(),
+                'kind' => (string) $delta->type,
+                'action' => 'auto_applied',
+                'memory_entry_id' => (string) $entry->getKey(),
+                'reverse_handle' => 'php artisan atlas:ai:memory-forget '.$entry->getKey().'   (undo: --restore)',
+            ];
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $items
+     */
+    private function tryApplyCandidate(AtlasAemorMemoryCandidate $candidate, array &$items): bool
+    {
+        $deltaId = $candidate->memory_delta_id;
+        if (! is_string($deltaId) || $deltaId === '') {
+            return false;
+        }
+
+        $delta = AiMemoryDelta::query()->find($deltaId);
+        if (! $delta instanceof AiMemoryDelta) {
+            return false;
+        }
+
+        if (! $this->tryApplyDelta($delta, $items)) {
+            return false;
+        }
+
+        try {
+            $candidate->forceFill([
+                'status' => 'promoted',
+                'metadata' => array_merge(is_array($candidate->metadata) ? $candidate->metadata : [], [
+                    'autonomous_auto_apply' => [
+                        'applied_at' => now()->toIso8601String(),
+                        'actor' => self::AUTO_APPLIED_BY,
+                    ],
+                ]),
+            ])->save();
+            $last = &$items[count($items) - 1];
+            $last['queue'] = 'aemor_candidates';
+            $last['id'] = (string) $candidate->getKey();
+            $last['kind'] = (string) $candidate->memory_type;
+            $last['linked_delta_id'] = $deltaId;
+        } catch (Throwable) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function revertProposalApproval(AiLearningProposal $proposal): void
     {
         try {
             $proposal->refresh();
-            if ($proposal->status !== 'approved' || $proposal->decided_by !== 'atlas-auto') {
+            if ($proposal->status !== 'approved' || $proposal->decided_by !== self::AUTO_APPLIED_BY) {
                 return;
             }
             $proposal->forceFill([
                 'status' => 'proposed',
                 'decided_by' => null,
                 'decided_at' => null,
-                'decision_notes' => 'auto_apply_failed: aplicação não concluiu; devolvido à fila de revisão',
+                'decision_notes' => 'auto_apply_failed: aplicação não concluiu; devolvido à fila held',
             ])->save();
         } catch (Throwable) {
-            // revert impossível (ex.: DB indisponível) — o run() ainda reporta queued_for_review
+            // revert impossível — o run() ainda reporta held
         }
     }
 
     /**
-     * The fail-closed gate stack. Returns auto_apply=true ONLY if every gate passes.
-     *
      * @return array{auto_apply:bool,reason:string}
      */
     public function decide(AiLearningProposal $proposal): array
     {
         $kind = (string) $proposal->kind;
 
-        // G1 — default-deny: only kinds with a reversible applier (non-critical in both taxonomies).
         if (! $this->applier->supportsAutoApply($kind)) {
             return ['auto_apply' => false, 'reason' => 'kind_not_auto_applyable:'.$kind];
         }
 
-        // G2 — privacy fail-closed (explicit non-sensitive allowlist).
         $privacy = $this->derivePrivacy($proposal);
         if (! in_array($privacy, self::APPLYABLE_PRIVACY, true)) {
             return ['auto_apply' => false, 'reason' => 'privacy_'.($privacy === '' ? 'unclassified' : $privacy)];
         }
 
-        // G3 — the canon's critical oracle (defense in depth on top of G1).
         try {
             $verdict = $this->classifier->evaluate($this->signalFor($proposal));
             if (($verdict['may_auto_apply'] ?? false) !== true) {
@@ -173,12 +273,9 @@ final class AtlasAutonomousLearningApplier
             return ['auto_apply' => false, 'reason' => 'classifier_threw'];
         }
 
-        // G4 — the composed admission floor (kernel + per-risk cap + privacy). Explicit
-        // fail-closed risk_level so deriveRiskLevel can never mis-default to LOW, and
-        // privacy under the NESTED scope.privacy_class key the kernel + admission read.
         try {
             $env = $this->admission->admit([
-                'actor' => 'atlas-auto',
+                'actor' => self::AUTO_APPLIED_BY,
                 'change_kind' => $kind,
                 'change_class' => $kind,
                 'requested_autonomy' => PolicyCanon::AUTONOMY_AUTONOMOUS,
@@ -203,11 +300,261 @@ final class AtlasAutonomousLearningApplier
         return ['auto_apply' => true, 'reason' => 'all_gates_passed'];
     }
 
+    /**
+     * @return array{auto_apply:bool,reason:string}
+     */
+    public function decideDelta(AiMemoryDelta $delta): array
+    {
+        if (! in_array($delta->status, ['pending', 'accepted'], true)) {
+            return ['auto_apply' => false, 'reason' => 'status_not_applyable:'.$delta->status];
+        }
+
+        if ($delta->requires_confirmation && $delta->status !== 'accepted') {
+            return ['auto_apply' => false, 'reason' => 'requires_confirmation'];
+        }
+
+        if ($this->deltaEvidence($delta) === []) {
+            return ['auto_apply' => false, 'reason' => 'missing_evidence'];
+        }
+
+        if ((float) $delta->confidence < self::MIN_TRUSTED_CONFIDENCE) {
+            return ['auto_apply' => false, 'reason' => 'confidence_below_threshold'];
+        }
+
+        if (! in_array((string) $delta->type, self::AUTO_DELTA_TYPES, true)) {
+            return ['auto_apply' => false, 'reason' => 'type_not_auto_applyable:'.$delta->type];
+        }
+
+        if ($delta->valid_until !== null && $delta->valid_until->isPast()) {
+            return ['auto_apply' => false, 'reason' => 'expired_valid_until'];
+        }
+
+        $immuneBlock = $this->immunePromotionBlockReason($delta);
+        if ($immuneBlock !== null) {
+            return ['auto_apply' => false, 'reason' => $immuneBlock];
+        }
+
+        $guardReasons = $this->longHorizonGuard->evaluate($delta, [
+            'promoted_by' => self::AUTO_APPLIED_BY,
+        ]);
+        if ($guardReasons !== []) {
+            return ['auto_apply' => false, 'reason' => 'long_horizon_guard:'.implode(',', $guardReasons)];
+        }
+
+        return ['auto_apply' => true, 'reason' => 'all_gates_passed'];
+    }
+
+    /**
+     * @return array{auto_apply:bool,reason:string}
+     */
+    public function decideCandidate(AtlasAemorMemoryCandidate $candidate): array
+    {
+        if (! in_array((string) $candidate->status, ['watch', 'candidate'], true)) {
+            return ['auto_apply' => false, 'reason' => 'status_not_applyable:'.$candidate->status];
+        }
+
+        $gate = is_array($candidate->promotion_gate) ? $candidate->promotion_gate : [];
+        if (($gate['status'] ?? '') !== 'pass') {
+            $blockers = is_array($gate['blockers'] ?? null) ? implode(',', $gate['blockers']) : 'promotion_gate_blocked';
+
+            return ['auto_apply' => false, 'reason' => 'promotion_gate:'.$blockers];
+        }
+
+        $refs = is_array($candidate->evidence_refs) ? array_values(array_filter($candidate->evidence_refs, static fn ($r): bool => $r !== null && $r !== '')) : [];
+        if ($refs === []) {
+            return ['auto_apply' => false, 'reason' => 'missing_evidence_refs'];
+        }
+
+        if (! is_string($candidate->memory_delta_id) || $candidate->memory_delta_id === '') {
+            return ['auto_apply' => false, 'reason' => 'missing_memory_delta_link'];
+        }
+
+        $delta = AiMemoryDelta::query()->find($candidate->memory_delta_id);
+        if (! $delta instanceof AiMemoryDelta) {
+            return ['auto_apply' => false, 'reason' => 'linked_delta_missing'];
+        }
+
+        $deltaDecision = $this->decideDelta($delta);
+        if ($deltaDecision['auto_apply'] !== true) {
+            return ['auto_apply' => false, 'reason' => 'linked_delta:'.$deltaDecision['reason']];
+        }
+
+        return ['auto_apply' => true, 'reason' => 'all_gates_passed'];
+    }
+
+    /**
+     * Read-only classification for the weekly digest (applied + held with reasons).
+     *
+     * @return array<string,mixed>
+     */
+    public function digestWindow(int $days = 7): array
+    {
+        $days = max(1, min(365, $days));
+        $since = now()->subDays($days);
+        $applied = [];
+        $held = [];
+
+        if ($this->tableReady('ai_learning_proposals')) {
+            foreach (AiLearningProposal::query()->where('created_at', '>=', $since)->orderByDesc('created_at')->limit(self::DIGEST_ITEM_CAP)->get() as $proposal) {
+                if ($proposal->status === 'applied' && (string) $proposal->decided_by === self::AUTO_APPLIED_BY) {
+                    $applied[] = [
+                        'queue' => 'learning_proposals',
+                        'id' => (string) $proposal->getKey(),
+                        'kind' => (string) $proposal->kind,
+                        'action' => 'auto_applied',
+                        'reverse_handle' => 'php artisan atlas:ai:apply-learning '.$proposal->getKey().' --reverse',
+                    ];
+
+                    continue;
+                }
+                if ($proposal->status !== 'proposed') {
+                    continue;
+                }
+                $decision = $this->decide($proposal);
+                if ($decision['auto_apply'] !== true) {
+                    $held[] = $this->heldItem('learning_proposals', (string) $proposal->getKey(), (string) $proposal->kind, $decision['reason']);
+                }
+            }
+        }
+
+        if ($this->tableReady('ai_memory_deltas')) {
+            foreach (AiMemoryDelta::query()->where('created_at', '>=', $since)->orderByDesc('created_at')->limit(self::DIGEST_ITEM_CAP)->get() as $delta) {
+                if ($delta->status === 'promoted' && $this->wasAutoAppliedDelta($delta)) {
+                    $entryId = (string) ($delta->promoted_memory_entry_id ?? '');
+                    $applied[] = [
+                        'queue' => 'memory_deltas',
+                        'id' => (string) $delta->getKey(),
+                        'kind' => (string) $delta->type,
+                        'action' => 'auto_applied',
+                        'memory_entry_id' => $entryId,
+                        'reverse_handle' => $entryId !== ''
+                            ? 'php artisan atlas:ai:memory-forget '.$entryId.'   (undo: --restore)'
+                            : 'php artisan atlas:ai:memory-forget <entry-id>   (undo: --restore)',
+                    ];
+
+                    continue;
+                }
+                if (! in_array($delta->status, ['pending', 'accepted'], true)) {
+                    continue;
+                }
+                $decision = $this->decideDelta($delta);
+                if ($decision['auto_apply'] !== true) {
+                    $held[] = $this->heldItem('memory_deltas', (string) $delta->getKey(), (string) $delta->type, $decision['reason']);
+                }
+            }
+        }
+
+        if ($this->tableReady('atlas_aemor_memory_candidates')) {
+            foreach (AtlasAemorMemoryCandidate::query()->where('created_at', '>=', $since)->orderByDesc('created_at')->limit(self::DIGEST_ITEM_CAP)->get() as $candidate) {
+                if ($candidate->status === 'promoted' && $this->wasAutoAppliedCandidate($candidate)) {
+                    $entryId = $this->linkedMemoryEntryId($candidate);
+                    $applied[] = [
+                        'queue' => 'aemor_candidates',
+                        'id' => (string) $candidate->getKey(),
+                        'kind' => (string) $candidate->memory_type,
+                        'action' => 'auto_applied',
+                        'memory_entry_id' => $entryId,
+                        'reverse_handle' => $entryId !== ''
+                            ? 'php artisan atlas:ai:memory-forget '.$entryId.'   (undo: --restore)'
+                            : 'php artisan atlas:ai:memory-forget <entry-id>   (undo: --restore)',
+                    ];
+
+                    continue;
+                }
+                if (! in_array((string) $candidate->status, ['watch', 'candidate'], true)) {
+                    continue;
+                }
+                $decision = $this->decideCandidate($candidate);
+                if ($decision['auto_apply'] !== true) {
+                    $held[] = $this->heldItem('aemor_candidates', (string) $candidate->getKey(), (string) $candidate->memory_type, $decision['reason']);
+                }
+            }
+        }
+
+        return [
+            'applied' => ['count' => count($applied), 'items' => $applied],
+            'held' => ['count' => count($held), 'items' => $held],
+        ];
+    }
+
+    private const DIGEST_ITEM_CAP = 200;
+
+    private function wasAutoAppliedDelta(AiMemoryDelta $delta): bool
+    {
+        if (! is_string($delta->promoted_memory_entry_id) || $delta->promoted_memory_entry_id === '') {
+            return false;
+        }
+        if (! $this->tableReady('atlas_memory_entries')) {
+            return false;
+        }
+        $entry = AtlasMemoryEntry::query()->find($delta->promoted_memory_entry_id);
+        if ($entry === null) {
+            return false;
+        }
+        $meta = is_array($entry->metadata) ? $entry->metadata : [];
+
+        return (($meta['promoted_by'] ?? '') === self::AUTO_APPLIED_BY)
+            || (($meta['autonomous_auto_apply']['actor'] ?? '') === self::AUTO_APPLIED_BY);
+    }
+
+    private function wasAutoAppliedCandidate(AtlasAemorMemoryCandidate $candidate): bool
+    {
+        $meta = is_array($candidate->metadata) ? $candidate->metadata : [];
+
+        return is_array($meta['autonomous_auto_apply'] ?? null)
+            && (($meta['autonomous_auto_apply']['actor'] ?? '') === self::AUTO_APPLIED_BY);
+    }
+
+    private function linkedMemoryEntryId(AtlasAemorMemoryCandidate $candidate): string
+    {
+        if (! is_string($candidate->memory_delta_id) || $candidate->memory_delta_id === '') {
+            return '';
+        }
+        $delta = AiMemoryDelta::query()->find($candidate->memory_delta_id);
+
+        return is_string($delta?->promoted_memory_entry_id) ? $delta->promoted_memory_entry_id : '';
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function deltaEvidence(AiMemoryDelta $delta): array
+    {
+        return is_array($delta->evidence)
+            ? array_values(array_filter($delta->evidence, static fn ($item): bool => $item !== null && $item !== ''))
+            : [];
+    }
+
+    private function immunePromotionBlockReason(AiMemoryDelta $delta): ?string
+    {
+        foreach ($this->deltaEvidence($delta) as $item) {
+            if (! is_array($item) || ($item['kind'] ?? null) !== 'capture_quarantine') {
+                continue;
+            }
+            if (($item['immune_memory_promotion_allowed_now'] ?? true) === false) {
+                return 'immune_audit_blocked';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function heldItem(string $queue, string $id, string $kind, string $reason): array
+    {
+        return [
+            'queue' => $queue,
+            'id' => $id,
+            'kind' => $kind,
+            'action' => 'held',
+            'reason' => $reason,
+        ];
+    }
+
     private function derivePrivacy(AiLearningProposal $proposal): string
     {
-        // Read from the SAME single source the writer (applyAsMemoryEntry) uses, so
-        // decide()'s auto_apply signal can never diverge from what the writer accepts.
-        // Fail-closed: a proposal with no explicit privacy class derives '' ⇒ queued.
         $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
 
         return strtolower(trim((string) ($ps['privacy_class'] ?? '')));
@@ -219,11 +566,6 @@ final class AtlasAutonomousLearningApplier
     private function signalFor(AiLearningProposal $proposal): array
     {
         $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
-        // Hardening G3 (sweep O-1): evidence_refs vem da coluna CANÔNICA do proposal
-        // (gravada pelo proposal service no momento da captura), nunca do proposed_state
-        // que o produtor avaliado escreve. sample/effect continuam do produtor — por isso
-        // só contam quando há evidência canônica não-vazia; o desenho completo
-        // (refs resolvíveis no ledger + privacy de classificador Atlas-side) é O-2a.
         $canonicalRefs = is_array($proposal->evidence_refs) ? array_values(array_filter($proposal->evidence_refs, static fn ($r): bool => $r !== null && $r !== '')) : [];
 
         return [
@@ -239,13 +581,14 @@ final class AtlasAutonomousLearningApplier
      * @param  list<array<string,mixed>>  $items
      * @return array<string,mixed>
      */
-    private function summary(bool $enabled, int $applied, int $queued, array $items, ?string $note): array
+    private function summary(bool $enabled, int $applied, int $held, array $items, ?string $note): array
     {
         $out = [
             'schema_version' => self::SCHEMA,
             'enabled' => $enabled,
             'applied' => $applied,
-            'queued' => $queued,
+            'held' => $held,
+            'queued' => $held,
             'items' => $items,
         ];
         if ($note !== null) {

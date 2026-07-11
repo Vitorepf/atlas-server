@@ -21,7 +21,7 @@ class AtlasWeeklyMemoryDigestServiceTest extends TestCase
         $report = (new AtlasWeeklyMemoryDigestService())->digest(7);
 
         $this->assertSame(AtlasWeeklyMemoryDigestService::SCHEMA, $report['schema_version']);
-        foreach (['memory_entries', 'compounding_memory', 'applied_learnings', 'totals'] as $k) {
+        foreach (['memory_entries', 'compounding_memory', 'applied_learnings', 'auto_apply_safe', 'totals'] as $k) {
             $this->assertArrayHasKey($k, $report);
         }
         $this->assertSame(7, $report['window_days']);

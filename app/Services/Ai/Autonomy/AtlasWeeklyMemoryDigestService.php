@@ -42,6 +42,7 @@ final class AtlasWeeklyMemoryDigestService
 
     public function __construct(
         private readonly AtlasConductorRoutingMemory $routing = new AtlasConductorRoutingMemory(),
+        private readonly ?AtlasAutonomousLearningApplier $autoApplier = null,
     ) {}
 
     /**
@@ -61,6 +62,7 @@ final class AtlasWeeklyMemoryDigestService
         $semantic = $this->semanticMemory($days);
         $operatorProfile = $this->operatorProfile($days);
         $proactive = $this->proactiveProposals($days);
+        $autoApplySafe = $this->autoApplySafe($days);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -70,6 +72,7 @@ final class AtlasWeeklyMemoryDigestService
             'memory_entries' => $entries,
             'compounding_memory' => $compounding,
             'applied_learnings' => $applied,
+            'auto_apply_safe' => $autoApplySafe,
             'learning_proposals' => $proposals,
             'operator_profile' => $operatorProfile,
             'proactive_proposals' => $proactive,
@@ -88,8 +91,45 @@ final class AtlasWeeklyMemoryDigestService
                 'semantic_memory' => $semantic['count'],
                 'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $aemor['count'] + $semantic['count'] + $operatorProfile['count'],
             ],
-            'review_note' => 'Everything below was saved automatically. "pending_your_review" is the queue to triage; '
-                .'prune any saved item with its reverse handle — all reversals are non-destructive (archive/restore, never hard-delete).',
+            'review_note' => 'Everything below was saved automatically. Items held by auto-apply-safe appear with a named reason — '
+                .'remove what you do not want via reverse handles (atlas:ai:memory-forget / apply-learning --reverse); '
+                .'never approve-before-apply. All reversals are non-destructive (archive/restore, never hard-delete).',
+        ];
+    }
+
+    /**
+     * Unified auto-apply-safe surface: what applied autonomously + what was held (with reason).
+     *
+     * @return array<string,mixed>
+     */
+    private function autoApplySafe(int $days): array
+    {
+        $empty = [
+            'applied' => ['count' => 0, 'items' => []],
+            'held' => ['count' => 0, 'items' => []],
+        ];
+
+        if ($this->autoApplier === null
+            && ! $this->tableReady('ai_learning_proposals')
+            && ! $this->tableReady('ai_memory_deltas')
+            && ! $this->tableReady('atlas_aemor_memory_candidates')) {
+            return $empty + [
+                'note' => 'auto-apply queues unavailable — no classification this window',
+            ];
+        }
+
+        $applier = $this->autoApplier ?? app(AtlasAutonomousLearningApplier::class);
+
+        try {
+            $window = $applier->digestWindow($days);
+        } catch (Throwable $e) {
+            return $empty + ['note' => 'classification failed: '.$e->getMessage()];
+        }
+
+        return [
+            'applied' => $window['applied'],
+            'held' => $window['held'],
+            'note' => 'autonomy doctrine: auto-apply passes checks alone; held items need named evidence — operator removes later, never approves before',
         ];
     }
 
@@ -256,7 +296,7 @@ final class AtlasWeeklyMemoryDigestService
                         'recorded_at' => optional($p->created_at)->toIso8601String(),
                         'reverse_handle' => $autoApplied
                             ? 'php artisan atlas:ai:apply-learning '.$p->getKey().' --reverse'
-                            : ($status === 'proposed' ? '(pending your review — approve/reject)' : ''),
+                            : ($status === 'proposed' ? '(held — remove via reverse handle after apply, never approve-before)' : ''),
                     ];
                 })->all();
 

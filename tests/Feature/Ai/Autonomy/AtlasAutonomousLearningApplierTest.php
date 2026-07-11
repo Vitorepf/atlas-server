@@ -5,13 +5,18 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Autonomy;
 
 use App\Models\AiLearningProposal;
+use App\Models\AiMemoryDelta;
 use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
+use App\Services\Ai\AtlasMemoryDeltaPromotionService;
+use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Autonomy\AtlasAutonomousLearningApplier;
+use App\Services\Ai\Autonomy\AtlasWeeklyMemoryDigestService;
 use App\Services\Ai\Compounding\AtlasLearningProposalApplier;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -56,6 +61,7 @@ class AtlasAutonomousLearningApplierTest extends TestCase
             $admission,
             new AtlasLearningProposalService(),
             new AtlasLearningProposalApplier(new AtlasConductorRoutingMemory()),
+            new AtlasMemoryDeltaPromotionService(new AtlasMemoryRegistryService(), new MemoryQueryInput()),
         );
     }
 
@@ -148,7 +154,7 @@ class AtlasAutonomousLearningApplierTest extends TestCase
 
         $this->assertFalse($report['enabled']);
         $this->assertSame(0, $report['applied']);
-        $this->assertSame(0, $report['queued']);
+        $this->assertSame(0, $report['held'] ?? $report['queued']);
     }
 
     /**
@@ -188,7 +194,7 @@ class AtlasAutonomousLearningApplierTest extends TestCase
         $report = $this->consumer()->run(10);
 
         $this->assertSame(0, $report['applied']);
-        $this->assertSame(1, $report['queued']);
+        $this->assertSame(1, $report['held'] ?? $report['queued']);
 
         $fresh = $proposal->fresh();
         $this->assertSame('proposed', $fresh->status, "carimbo 'approved' não pode sobrar quando o apply falha");

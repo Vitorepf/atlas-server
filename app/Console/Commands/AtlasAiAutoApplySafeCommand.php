@@ -36,19 +36,20 @@ class AtlasAiAutoApplySafeCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->info(sprintf('Autonomous safe-apply: %d auto-applied, %d queued for your Sunday review.', (int) $report['applied'], (int) $report['queued']));
+        $this->info(sprintf('Autonomous safe-apply: %d auto-applied, %d held for digest review.', (int) $report['applied'], (int) ($report['held'] ?? $report['queued'] ?? 0)));
 
         $rows = [];
         foreach (array_slice($report['items'] ?? [], 0, 30) as $i) {
             $rows[] = [
                 substr((string) $i['id'], 0, 8),
+                (string) ($i['queue'] ?? 'learning_proposals'),
                 (string) $i['kind'],
                 (string) $i['action'],
-                (string) ($i['reason'] ?? $i['reverse'] ?? ''),
+                (string) ($i['reason'] ?? $i['reverse_handle'] ?? $i['reverse'] ?? ''),
             ];
         }
         if ($rows !== []) {
-            $this->table(['id', 'kind', 'action', 'reason / reverse'], $rows);
+            $this->table(['id', 'queue', 'kind', 'action', 'reason / reverse'], $rows);
         }
         $this->line('<info>Everything auto-applied is reversible and appears in atlas:ai:weekly-memory-digest.</info>');
 
