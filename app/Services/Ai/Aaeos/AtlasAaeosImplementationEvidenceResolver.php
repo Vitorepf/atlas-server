@@ -310,9 +310,11 @@ class AtlasAaeosImplementationEvidenceResolver
 
     /**
      * B3 freshness — the implementation FILE(S) a {kind: symbol} ref resolves to in
-     * the Code Intelligence index. Same boundary matching as matchSymbol(), but returns
-     * the distinct, sorted file_path(s) so the truth service can hash their CONTENT and
-     * decay `verified` when the implementation changes. Empty when nothing resolves.
+     * the Code Intelligence index. Anchored to the CANONICAL symbol that matchSymbol()
+     * would return (exact indexed FQN / method name), NOT every suffix-boundary hit in
+     * the index. That set-stability matters: a later re-index that adds another class
+     * whose FQN merely ends with "\Ref" must not inflate the hashed path set and
+     * falsely stale a green receipt whose implementation file never changed.
      *
      * @return array<int,string> distinct relative file paths, sorted (deterministic)
      */
@@ -323,16 +325,22 @@ class AtlasAaeosImplementationEvidenceResolver
             return [];
         }
 
+        $matched = $this->matchSymbol($ref);
+        if ($matched === null) {
+            return [];
+        }
+
         $index = $this->index();
         $names = $index['names'];
         $pathCol = $index['paths'];
         $paths = [];
         foreach ($index['symbol'] as $offset) {
-            if ($pathCol[$offset] === '') {
+            if ($names[$offset] !== $matched) {
                 continue;
             }
-            if ($this->symbolNameMatchesRef($names[$offset], $ref)) {
-                $paths[$pathCol[$offset]] = true;
+            $path = $pathCol[$offset];
+            if ($path !== '') {
+                $paths[$path] = true;
             }
         }
 

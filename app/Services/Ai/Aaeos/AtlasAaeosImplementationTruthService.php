@@ -40,6 +40,9 @@ class AtlasAaeosImplementationTruthService
 
     public const LEDGER_SCHEMA = 'atlas.aaeos.capability_truth_ledger.v1';
 
+    /** B3 freshness format — v2 anchors path set to canonical FQN (PIP-01); v1 receipts read stale honestly. */
+    public const IMPL_FILES_HASH_FORMAT = 'atlas.aaeos.impl_files_hash.v2';
+
     /**
      * @var array<string,int>
      */
@@ -398,6 +401,32 @@ class AtlasAaeosImplementationTruthService
     }
 
     /**
+     * PIP-01 diagnostic — path=>content_hash breakdown for impl_files_hash, plus the
+     * combined hash. Used by mint selo / watchdog when a receipt reads stale.
+     *
+     * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
+     * @return array{format:string, impl_files_hash:?string, paths:array<string,string>}|null
+     */
+    public function explainImplFilesHash(array $evidenceRefs): ?array
+    {
+        $paths = $this->implFilePathsForHash($evidenceRefs);
+        if ($paths === []) {
+            return null;
+        }
+
+        $breakdown = [];
+        foreach ($paths as $path) {
+            $breakdown[$path] = $this->hashFileContent($path);
+        }
+
+        return [
+            'format' => self::IMPL_FILES_HASH_FORMAT,
+            'impl_files_hash' => $this->combineImplFilesHash($breakdown),
+            'paths' => $breakdown,
+        ];
+    }
+
+    /**
      * sha256 over the CONTENT of the implementation file(s) the capability's
      * {kind: symbol} evidence_refs resolve to (symbol file_path(s) from the index),
      * combined deterministically. Returns null when the capability declares no symbol
@@ -409,6 +438,25 @@ class AtlasAaeosImplementationTruthService
      * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
      */
     private function currentImplFilesHash(array $evidenceRefs): ?string
+    {
+        $paths = $this->implFilePathsForHash($evidenceRefs);
+        if ($paths === []) {
+            return null;
+        }
+
+        $breakdown = [];
+        foreach ($paths as $path) {
+            $breakdown[$path] = $this->hashFileContent($path);
+        }
+
+        return $this->combineImplFilesHash($breakdown);
+    }
+
+    /**
+     * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
+     * @return array<int,string> sorted distinct repo-relative paths
+     */
+    private function implFilePathsForHash(array $evidenceRefs): array
     {
         $paths = [];
         foreach ($evidenceRefs as $ref) {
@@ -425,18 +473,27 @@ class AtlasAaeosImplementationTruthService
         }
 
         if ($paths === []) {
-            return null;
+            return [];
         }
 
         $paths = array_keys($paths);
         sort($paths);
 
+        return $paths;
+    }
+
+    /**
+     * @param  array<string,string>  $pathContentHashes  repo-relative path => content sha256
+     */
+    private function combineImplFilesHash(array $pathContentHashes): string
+    {
+        ksort($pathContentHashes);
         $parts = [];
-        foreach ($paths as $path) {
-            $parts[] = $path.'='.$this->hashFileContent($path);
+        foreach ($pathContentHashes as $path => $contentHash) {
+            $parts[] = $path.'='.$contentHash;
         }
 
-        return hash('sha256', implode("\n", $parts));
+        return hash('sha256', self::IMPL_FILES_HASH_FORMAT."\n".implode("\n", $parts));
     }
 
     /**

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Aaeos;
 
+use App\Models\AtlasEngineeringCodeSymbol;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class AtlasAaeosImplementationTruthServiceTest extends TestCase
@@ -122,6 +124,163 @@ class AtlasAaeosImplementationTruthServiceTest extends TestCase
     }
 
     /**
+     * PIP-01 (a): same impl file via duplicate / reordered path projections => identical hash;
+     * content change => different hash.
+     */
+    public function test_impl_files_hash_is_stable_for_path_projection_and_sensitive_to_content(): void
+    {
+        $relativePath = 'tests/Unit/Ai/Aaeos/Fixtures/pip01-impl.php';
+        $absolutePath = base_path($relativePath);
+        if (! is_dir(dirname($absolutePath))) {
+            mkdir(dirname($absolutePath), 0777, true);
+        }
+        file_put_contents($absolutePath, '<?php // pip01-v1');
+
+        $refs = [['kind' => 'symbol', 'ref' => 'Pip01TargetService']];
+        $service = $this->serviceWithResolver(new OrderShufflingSymbolPathResolver($relativePath));
+
+        $first = $service->explainImplFilesHash($refs)['impl_files_hash'];
+        $second = $service->explainImplFilesHash($refs)['impl_files_hash'];
+        $this->assertSame($first, $second);
+
+        file_put_contents($absolutePath, '<?php // pip01-v2');
+        $changed = $service->explainImplFilesHash($refs)['impl_files_hash'];
+        $this->assertNotSame($first, $changed);
+
+        @unlink($absolutePath);
+    }
+
+    /**
+     * PIP-01 — explain lists path=>content_hash and matches the combined impl_files_hash.
+     */
+    public function test_explain_impl_files_hash_breaks_down_paths(): void
+    {
+        $relativePath = 'tests/Unit/Ai/Aaeos/Fixtures/pip01-explain.php';
+        $absolutePath = base_path($relativePath);
+        if (! is_dir(dirname($absolutePath))) {
+            mkdir(dirname($absolutePath), 0777, true);
+        }
+        file_put_contents($absolutePath, '<?php // explain-me');
+
+        $refs = [['kind' => 'symbol', 'ref' => 'ExplainTargetService']];
+        $service = $this->serviceWithResolver(new SinglePathSymbolResolver($relativePath));
+
+        $explain = $service->explainImplFilesHash($refs);
+
+        $this->assertIsArray($explain);
+        $this->assertSame(AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT, $explain['format']);
+        $this->assertArrayHasKey($relativePath, $explain['paths']);
+        $this->assertSame(hash('sha256', '<?php // explain-me'), $explain['paths'][$relativePath]);
+        $this->assertSame(
+            $explain['impl_files_hash'],
+            $service->explainImplFilesHash($refs)['impl_files_hash'],
+        );
+
+        @unlink($absolutePath);
+    }
+
+    /**
+     * PIP-01 (b): suffix-set drift — a NEW indexed symbol that suffix-matches the ref
+     * must NOT inflate the hashed path set when read from a FRESH resolver instance.
+     */
+    public function test_impl_files_hash_survives_suffix_matchable_symbol_added_on_reindex(): void
+    {
+        $this->seedCodeSymbolsTable();
+
+        $canonicalFile = 'tests/Unit/Ai/Aaeos/Fixtures/pip01-canonical.php';
+        $imposterFile = 'tests/Unit/Ai/Aaeos/Fixtures/pip01-imposter.php';
+        foreach ([$canonicalFile, $imposterFile] as $relativePath) {
+            $absolutePath = base_path($relativePath);
+            if (! is_dir(dirname($absolutePath))) {
+                mkdir(dirname($absolutePath), 0777, true);
+            }
+            file_put_contents($absolutePath, '<?php // '.basename($relativePath));
+        }
+
+        $this->seedSymbol('class', 'App\\Real\\Pip01AnchorService', $canonicalFile);
+        $refs = [['kind' => 'symbol', 'ref' => 'Pip01AnchorService']];
+
+        $before = $this->freshTruthService()->freshnessHashes($refs, 'ignored')['impl_files_hash'];
+        $storedReceiptHash = $before;
+
+        // Simulate post-reindex: another class whose FQN suffix-matches the short ref.
+        $this->seedSymbol('class', 'App\\Ghost\\Pip01AnchorService', $imposterFile);
+        $this->app->forgetScopedInstances();
+
+        $after = $this->freshTruthService()->freshnessHashes($refs, 'ignored')['impl_files_hash'];
+
+        $this->assertSame($before, $after, 'canonical FQN anchor must ignore suffix-only imposters');
+        $this->assertSame($storedReceiptHash, $after, 'MED-01: fresh re-read matches pre-reindex receipt hash');
+
+        @unlink(base_path($canonicalFile));
+        @unlink(base_path($imposterFile));
+    }
+
+    /**
+     * PIP-01 (c) MED-01 dual-read: two fresh resolver instances in the same process agree.
+     */
+    public function test_dual_read_impl_files_hash_matches_across_fresh_instances(): void
+    {
+        $this->seedCodeSymbolsTable();
+
+        $relativePath = 'tests/Unit/Ai/Aaeos/Fixtures/pip01-dual.php';
+        $absolutePath = base_path($relativePath);
+        if (! is_dir(dirname($absolutePath))) {
+            mkdir(dirname($absolutePath), 0777, true);
+        }
+        file_put_contents($absolutePath, '<?php // dual-read');
+
+        $this->seedSymbol('class', 'App\\Real\\DualReadService', $relativePath);
+        $refs = [['kind' => 'symbol', 'ref' => 'DualReadService']];
+
+        $a = $this->freshTruthService()->freshnessHashes($refs, 'ignored')['impl_files_hash'];
+        $this->app->forgetScopedInstances();
+        $b = $this->freshTruthService()->freshnessHashes($refs, 'ignored')['impl_files_hash'];
+
+        $this->assertSame($a, $b);
+
+        @unlink($absolutePath);
+    }
+
+    private function seedCodeSymbolsTable(): void
+    {
+        $migration = require base_path(
+            'database/migrations/2026_05_02_010000_create_atlas_engineering_code_intelligence_tables.php',
+        );
+        $migration->up();
+        $this->assertTrue(Schema::hasTable('atlas_engineering_code_symbols'));
+    }
+
+    private function seedSymbol(string $type, string $name, string $filePath): void
+    {
+        AtlasEngineeringCodeSymbol::query()->create([
+            'symbol_type' => $type,
+            'symbol_name' => $name,
+            'file_path' => $filePath,
+            'language' => 'php',
+            'status' => 'active',
+            'docs_status' => 'documented',
+            'source_hash' => 'seed-'.md5($type.'|'.$name),
+        ]);
+    }
+
+    private function freshTruthService(): AtlasAaeosImplementationTruthService
+    {
+        return new AtlasAaeosImplementationTruthService(
+            new AtlasAaeosImplementationEvidenceResolver,
+            new CanonicalDocsFrontmatterParser,
+        );
+    }
+
+    private function serviceWithResolver(AtlasAaeosImplementationEvidenceResolver $resolver): AtlasAaeosImplementationTruthService
+    {
+        return new AtlasAaeosImplementationTruthService(
+            $resolver,
+            new CanonicalDocsFrontmatterParser,
+        );
+    }
+
+    /**
      * @return array{kind:string, ref:string, resolved:bool, matched:?string}
      */
     private function res(string $kind, bool $resolved): array
@@ -140,5 +299,35 @@ class AtlasAaeosImplementationTruthServiceTest extends TestCase
             new AtlasAaeosImplementationEvidenceResolver,
             new CanonicalDocsFrontmatterParser,
         );
+    }
+}
+
+/** Returns the same path in different orders / with duplicates — hash must dedupe+sort. */
+final class OrderShufflingSymbolPathResolver extends AtlasAaeosImplementationEvidenceResolver
+{
+    private int $calls = 0;
+
+    public function __construct(private readonly string $path) {}
+
+    public function resolveSymbolFilePaths(string $ref): array
+    {
+        $this->calls++;
+
+        return match ($this->calls % 3) {
+            1 => [$this->path, $this->path],
+            2 => [$this->path],
+            default => [$this->path, $this->path],
+        };
+    }
+}
+
+/** Single deterministic path for explain / content sensitivity tests. */
+final class SinglePathSymbolResolver extends AtlasAaeosImplementationEvidenceResolver
+{
+    public function __construct(private readonly string $path) {}
+
+    public function resolveSymbolFilePaths(string $ref): array
+    {
+        return [$this->path];
     }
 }
