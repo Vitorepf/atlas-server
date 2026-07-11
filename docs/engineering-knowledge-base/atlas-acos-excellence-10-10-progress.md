@@ -73,25 +73,25 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | OUTC-01 | ✅ | d3dbb77412 | 4 suites outcome spine + LIVE auto-promote |
 | ENG-05 | ✅ | 047221c35c | single main-merge.lock + close evidence fallback |
 | ENG-06 | ✅ | 356685355e | AWIS gate on AtlasTaskServingService::next |
-| COM-02 | ⬜ | — | — |
-| COM-03 | ⬜ | — | — |
-| COM-04 | ⬜ | — | — |
-| COM-06 | ⬜ | — | — |
+| COM-02 | ✅ | e1cc31d44 | FeedbackDemotion measured-only |
+| COM-03 | ✅ | 8ac45a7cf | ContextFeedbackAutoCommandTest 5/5 |
+| COM-04 | ✅ | c093a5fb5 | DeliveredAttribution 3/3 + suite ARFL 10/10 [MEDIDOR] |
+| COM-06 | ✅ | 0c2a0c241 | ContextAttribution cited vs diffed |
 | MEM-05 | ⬜ | — | — |
 | MEM-02 | ✅ | 2cdea34c1f | relation verbs related/compatible/scoped/supersedes |
-| RAG-02 | ⬜ | — | — |
-| RAG-11 | ⬜ | — | — |
+| RAG-02 | ✅ | 363b4ba41 | window_days=30 + all_time_* [MEDIDOR] |
+| RAG-11 | ✅ | 41da0f98e | MemoryNegativeFeedbackPathTest |
 | RAG-07 | ⬜ | — | — |
 | RAG-08 | ⬜ | — | — |
-| CPT-02 | ⬜ | — | — |
+| CPT-02 | ✅ | d9d93dfdc | ConversationCompactionReceiptTest [MEDIDOR] |
 | CPT-05 | ⬜ | — | — |
 | CPT-08 | ⬜ | — | — |
-| FEE-03 | ⬜ | — | — |
+| FEE-03 | ✅ | 41da0f98e | AtlasMemoryFeedbackImplicitNegativeTest |
 | PIP-04 | ⬜ | — | — |
-| PIP-05 | ⬜ | — | — |
-| PIP-06 | ⬜ | — | — |
-| OPE-04 | ⬜ | — | — |
-| EVI-07 | ⬜ | — | — |
+| PIP-05 | ✅ | 0632d056b | mint dry-run + serviceClass binding (05b pending) |
+| PIP-06 | ✅ | 6d5e27aac | verify-claims drift gate + --write |
+| OPE-04 | ✅ | f2d2b9f91 | HybridRecallCompoundingArmDefaultOnTest 1/1 |
+| EVI-07 | ✅ | 6258f3c12 | near-floor warnings + watchdog echo |
 
 ### Onda 3 — Consumidores (24)
 
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 37/98 · Faltam: 61 · Próximo: COM-03 (onda 2)**
+**Feitas: 49/98 · Faltam: 49 · Próximo: CPT-05 / RAG-07 (onda 2)**
