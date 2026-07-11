@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev;
 
 use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
+use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AtlasDev\RunRequest;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
+use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
@@ -293,6 +296,7 @@ final class RunController extends Controller
         ?string $expectedCompactSddHash,
     ): array {
         $this->extendRequestTimeLimitForProviderRun();
+        $this->consultGovernanceForLegacyExecutor($taskContract, $promptProjection);
 
         $result = $this->executor->execute(
             envelope: $envelope,
@@ -309,6 +313,7 @@ final class RunController extends Controller
         $seniorLoopExecution = $this->persistSeniorLoopExecution($envelope, $taskContract, $result);
         $this->runIndex->updateCompletion($runId, $result->completionState, $result->verificationReceiptHash);
         $compoundingLearningSignal = $this->recordCompoundingLearningSignal($envelope, $taskContract, $result, $seniorLoopExecution);
+        $this->recordLiveOutcomeFeedbackForLegacyExecutor($taskContract, $result);
 
         // F-04: redact persisted receipt paths into provider-safe refs before
         // surfacing them in the HTTP body. The struct still carries the
@@ -325,6 +330,68 @@ final class RunController extends Controller
             'compounding_learning_signal' => $compoundingLearningSignal,
             'task_contract_hash' => $providedHash,
         ]);
+    }
+
+    private function consultGovernanceForLegacyExecutor(
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+    ): void {
+        if ($this->executor instanceof PipelineRunExecutor) {
+            return;
+        }
+
+        try {
+            $consult = app(ProviderGovernanceConsult::class);
+            if (is_object($consult) && method_exists($consult, 'consultBeforeSpawn')) {
+                $consult->consultBeforeSpawn([
+                    'provider' => $taskContract->providerLock->provider,
+                    'surface' => 'atlas_dev_legacy_run_controller',
+                    'prompt' => $promptProjection->renderedPromptText,
+                    'kind' => 'atlas_dev_run',
+                ]);
+            }
+        } catch (Throwable) {
+            // fail-open: telemetry/advisory governance must not break legacy runs
+        }
+    }
+
+    private function recordLiveOutcomeFeedbackForLegacyExecutor(
+        LightTaskContract $taskContract,
+        RunExecutionResult $result,
+    ): void {
+        if ($this->executor instanceof PipelineRunExecutor) {
+            return;
+        }
+        if ($result->completionState === 'no_patch_needed') {
+            return;
+        }
+        if (app()->runningUnitTests() && ! app()->bound(AtlasDecideLiveOutcomeFeedbackService::class)) {
+            return;
+        }
+
+        $providerCall = $result->providerCallSummary;
+        $passed = $result->completionState === 'passed';
+
+        try {
+            app(AtlasDecideLiveOutcomeFeedbackService::class)->record([
+                'task_category' => 'programming',
+                'role' => 'atlas_dev_legacy_run',
+                'provider' => (string) ($providerCall['provider'] ?? $taskContract->providerLock->provider),
+                'model' => (string) ($providerCall['model_family'] ?? $taskContract->providerLock->modelFamily),
+                'result' => $passed
+                    ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
+                    : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                'proven_real' => $passed,
+                'latency_ms' => (int) ($providerCall['duration_ms'] ?? 0),
+                'cost_usd' => $providerCall['estimated_cost_usd'] ?? null,
+                'quality_score' => $passed ? 1.0 : ($result->completionState === 'needs_review' ? 0.5 : 0.0),
+                'input_tokens' => $providerCall['tokens_in'] ?? null,
+                'output_tokens' => $providerCall['tokens_out'] ?? null,
+                'actor' => 'atlas_dev_legacy_run_controller',
+            ]);
+        } catch (Throwable) {
+            // fail-open: outcome feedback observes the run; it never changes it
+        }
     }
 
     /**

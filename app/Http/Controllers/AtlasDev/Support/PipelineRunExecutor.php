@@ -1536,7 +1536,7 @@ final class PipelineRunExecutor implements RunExecutor
         // operator flips enforce ON with a hard threshold, can block the spawn.
         // Fail-open: no seam bound => proceeds exactly as today.
         $consult = $this->resolve(ProviderGovernanceConsult::class);
-        if ($consult instanceof ProviderGovernanceConsult) {
+        if (is_object($consult) && method_exists($consult, 'consultBeforeSpawn')) {
             $advisory = $consult->consultBeforeSpawn([
                 'provider' => SonnetClaudeCliAdapter::PROVIDER,
                 'surface' => ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
