@@ -126,6 +126,28 @@ class AiCompactionService
             ]),
         ]);
 
+        $conversationReceipt = $this->persistConversationCompactionReceipt(
+            thread: $thread,
+            session: $session,
+            compaction: $compaction,
+            summary: $summary,
+            state: $state,
+            reason: $reason,
+            metadata: $metadata,
+        );
+        if (($conversationReceipt['status'] ?? null) === 'persisted') {
+            $compaction->update([
+                'metadata' => array_merge($compaction->metadata ?? [], [
+                    'long_horizon_compaction_receipt_id' => $conversationReceipt['compaction_receipt_id'] ?? null,
+                    'long_horizon_compaction_receipt_hash' => $conversationReceipt['receipt_hash'] ?? null,
+                    'long_horizon_compaction_receipt_scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_CONVERSATION,
+                    'long_horizon_compaction_receipt_coverage' => $conversationReceipt['must_keep_coverage'] ?? null,
+                    'long_horizon_compaction_receipt_loss_risk' => $conversationReceipt['loss_risk'] ?? null,
+                    'long_horizon_compaction_receipt_write_allowed' => $conversationReceipt['write_allowed'] ?? null,
+                ]),
+            ]);
+        }
+
         $thread->update([
             'summary' => $summary,
             'metadata' => array_merge($thread->metadata ?? [], [
@@ -133,18 +155,172 @@ class AiCompactionService
                 'last_compaction_reason' => $compaction->reason,
                 'last_compaction_at' => $compaction->created_at?->toJSON(),
                 'post_compaction_hook' => $this->runPostCompactionHooks(
-                    AtlasLongHorizonCanon::SCOPE_TYPE_THREAD,
+                    AtlasLongHorizonCanon::SCOPE_TYPE_CONVERSATION,
                     (string) $thread->id,
                     [
                         'compaction_id' => $compaction->id,
                         'reason' => $compaction->reason,
                         'session_id' => $session?->id,
+                        'compaction_receipt_id' => $conversationReceipt['compaction_receipt_id'] ?? null,
+                        'receipt_hash' => $conversationReceipt['receipt_hash'] ?? null,
+                        'receipt_status' => $conversationReceipt['status'] ?? 'unavailable',
                     ],
                 ),
+                'last_compaction_receipt_id' => $conversationReceipt['compaction_receipt_id'] ?? null,
+                'last_compaction_receipt_hash' => $conversationReceipt['receipt_hash'] ?? null,
             ]),
         ]);
 
         return $compaction->refresh();
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function persistConversationCompactionReceipt(
+        AiThread $thread,
+        ?AiSession $session,
+        AiCompaction $compaction,
+        string $summary,
+        ?AiSessionState $state,
+        string $reason,
+        array $metadata,
+    ): array {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
+            return [
+                'status' => 'unavailable',
+                'reason' => 'atlas_long_horizon_compaction_receipts_table_missing',
+            ];
+        }
+
+        try {
+            $mustKeepItems = $this->mustKeepExtractor->extract($state);
+            [$retainedItems, $discardedItems, $unresolvedLoss] = $this->splitMustKeepItemsByVisibleSummary(
+                $mustKeepItems,
+                $summary,
+            );
+
+            $mustKeepCoverageStatus = $mustKeepItems === []
+                ? CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS
+                : CompactionMustKeepExtractor::COVERAGE_STATUS_VERIFIED;
+            $mustKeepCoverage = $mustKeepItems === []
+                ? 0.0
+                : round(count($retainedItems) / max(1, count($mustKeepItems)), 3);
+
+            $touchedCriticalKind = false;
+            foreach ($unresolvedLoss as $loss) {
+                if (in_array((string) ($loss['kind'] ?? ''), AtlasLongHorizonCanon::CRITICAL_KEEP_KINDS, true)) {
+                    $touchedCriticalKind = true;
+                    break;
+                }
+            }
+
+            $lossPolicy = CompactionLossPolicy::classify(
+                $mustKeepCoverage,
+                $touchedCriticalKind,
+                count($discardedItems),
+            );
+            $lossRisk = $mustKeepCoverageStatus === CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS
+                ? AtlasLongHorizonCanon::LOSS_RISK_MEDIUM
+                : $lossPolicy['loss_risk'];
+            $writeAllowed = $mustKeepCoverageStatus !== CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS
+                && $lossPolicy['write_allowed'];
+
+            $sourceContextRefs = array_values(array_filter([
+                'ai_thread:'.$thread->id,
+                $session?->id !== null ? 'ai_session:'.$session->id : null,
+                'ai_compaction:'.$compaction->id,
+            ]));
+            $evidenceRefs = array_values(array_filter([
+                'ai_compaction:'.$compaction->id,
+                isset($metadata['provider']) && is_scalar($metadata['provider']) ? 'provider:'.(string) $metadata['provider'] : null,
+                isset($metadata['model']) && is_scalar($metadata['model']) ? 'model:'.(string) $metadata['model'] : null,
+            ]));
+            $summaryHash = hash('sha256', $summary);
+            $payload = [
+                'schema_version' => AtlasLongHorizonCanon::COMPACTION_RECEIPT_SCHEMA_VERSION,
+                'uuid' => (string) Str::uuid(),
+                'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_CONVERSATION,
+                'scope_id' => (string) $thread->id,
+                'source_context_refs' => $sourceContextRefs,
+                'retained_items' => $retainedItems,
+                'discarded_items' => $discardedItems,
+                'discarded_reason' => $discardedItems === [] ? null : AtlasLongHorizonCanon::DISCARDED_REASON_BUDGET_PRESSURE,
+                'must_keep_items' => array_values(array_map(
+                    static fn (array $i): array => [
+                        'id' => $i['id'],
+                        'kind' => $i['kind'],
+                        'digest' => $i['digest'] ?? null,
+                    ],
+                    $mustKeepItems,
+                )),
+                'must_keep_coverage' => $mustKeepCoverage,
+                'unresolved_loss' => $unresolvedLoss,
+                'loss_risk' => $lossRisk,
+                'recovery_queries' => $this->mergeRecoveryQueries([], $unresolvedLoss),
+                'evidence_refs' => $evidenceRefs,
+                'summary_hash' => $summaryHash,
+                'quality_score' => $this->deriveQualityScore($mustKeepCoverage, $unresolvedLoss, []),
+                'detected_contradictions' => [],
+                'stale_risks' => [],
+            ];
+            $payload['receipt_hash'] = AtlasLongHorizonCompactionReceipt::canonicalReceiptHash($payload);
+            $row = AtlasLongHorizonCompactionReceipt::query()->create($payload);
+
+            return [
+                'status' => 'persisted',
+                'compaction_receipt_id' => $row->id,
+                'receipt_uuid' => $row->uuid,
+                'receipt_hash' => $payload['receipt_hash'],
+                'must_keep_coverage' => $mustKeepCoverage,
+                'must_keep_coverage_status' => $mustKeepCoverageStatus,
+                'loss_risk' => $lossRisk,
+                'write_allowed' => $writeAllowed,
+                'loss_policy_reasons' => $lossPolicy['reasons'],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'status' => 'failed_open',
+                'reason' => 'conversation_compaction_receipt_failed',
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * @param  list<array{id:string,kind:string,digest:?string,payload:mixed}>  $mustKeepItems
+     * @return array{0:list<array<string,mixed>>,1:list<array<string,mixed>>,2:list<array<string,mixed>>}
+     */
+    private function splitMustKeepItemsByVisibleSummary(array $mustKeepItems, string $summary): array
+    {
+        $retained = [];
+        $discarded = [];
+        $unresolvedLoss = [];
+
+        foreach ($mustKeepItems as $item) {
+            $digest = (string) ($item['digest'] ?? '');
+            $visible = $digest !== '' && str_contains($summary, $digest);
+            if ($visible) {
+                $retained[] = [
+                    'id' => $item['id'],
+                    'kind' => $item['kind'],
+                    'digest' => $item['digest'],
+                ];
+                continue;
+            }
+
+            $loss = [
+                'id' => $item['id'],
+                'kind' => $item['kind'],
+                'digest' => $item['digest'],
+                'reason' => AtlasLongHorizonCanon::DISCARDED_REASON_BUDGET_PRESSURE,
+            ];
+            $discarded[] = $loss;
+            $unresolvedLoss[] = $loss;
+        }
+
+        return [$retained, $discarded, $unresolvedLoss];
     }
 
     private function protectedSkillNames($messages): array

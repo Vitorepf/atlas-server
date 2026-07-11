@@ -224,6 +224,8 @@ final class AtlasLongHorizonCanon
 
     public const SCOPE_TYPE_THREAD = 'thread';
 
+    public const SCOPE_TYPE_CONVERSATION = 'conversation';
+
     /**
      * Umbrella scope used by `AiCompactionService::compactForScope()` when
      * the caller wants a cross-scope long-horizon receipt that is not tied
@@ -244,6 +246,7 @@ final class AtlasLongHorizonCanon
         self::SCOPE_TYPE_FORGE_OBRA,
         self::SCOPE_TYPE_WORK_PACKET,
         self::SCOPE_TYPE_THREAD,
+        self::SCOPE_TYPE_CONVERSATION,
         self::SCOPE_TYPE_LONG_HORIZON,
     ];
 
