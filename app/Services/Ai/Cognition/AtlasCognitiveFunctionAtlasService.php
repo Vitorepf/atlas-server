@@ -170,7 +170,7 @@ class AtlasCognitiveFunctionAtlasService
         $groupRoots = [
             'cognitive_immune' => ['aemor', 'cognitive_immune'],
             'memory_core' => ['memory'],
-            'aucri' => ['acop_to_acrs', 'akif'],
+            'aucri' => ['akif'],
             'self_improvement' => ['self_improvement'],
             'atlas_decide' => ['atlas_decide', 'swarm'],
             'self_construction' => ['self_construction'],

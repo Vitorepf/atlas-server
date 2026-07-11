@@ -12,9 +12,9 @@ use Tests\TestCase;
  */
 class AtlasCognitionScoreCardServiceTest extends TestCase
 {
-    public function test_canonical_subsystem_count_is_73(): void
+    public function test_canonical_subsystem_count_is_72(): void
     {
-        $this->assertSame(73, AtlasCognitionScoreCardService::canonicalSubsystemCount());
+        $this->assertSame(72, AtlasCognitionScoreCardService::canonicalSubsystemCount());
     }
 
     public function test_swarm_executor_present(): void
@@ -70,9 +70,9 @@ class AtlasCognitionScoreCardServiceTest extends TestCase
         $r = (new AtlasCognitionScoreCardService)->build();
 
         $this->assertSame('atlas.cognition.scorecard.v3', $r['schema_version']);
-        $this->assertSame(73, $r['subsystem_count']);
-        $this->assertSame(69, $r['scored_subsystem_count']);
-        $this->assertCount(73, $r['subsystems']);
+        $this->assertSame(72, $r['subsystem_count']);
+        $this->assertSame(68, $r['scored_subsystem_count']);
+        $this->assertCount(72, $r['subsystems']);
         $this->assertArrayHasKey('score', $r);
         $this->assertArrayHasKey('scorecard_hash', $r);
         $this->assertStringStartsWith('sha256:', $r['scorecard_hash']);

@@ -32,7 +32,6 @@ use App\Services\Ai\Context\AtlasContextCacheCompilerRuntimeService;
 use App\Services\Ai\Context\AtlasContextCompilerRuntimeService;
 use App\Services\Ai\Context\AtlasContextFreshnessQualityGateService;
 use App\Services\Ai\Context\AtlasContextObservabilityPlaneService;
-use App\Services\Ai\Context\AtlasContextObservabilityToRankingReflexiveBridgeService;
 use App\Services\Ai\Context\AtlasContextParetoFrontierRuntimeService;
 use App\Services\Ai\Context\AtlasContextQualityCertificationService;
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
@@ -244,8 +243,9 @@ class AtlasCognitionScoreCardService
         ['ASDM',    'Self-Divergence Model (target vs current)', 'self_construction', AtlasSelfDivergenceModelService::class],
         ['AEMB',    'Embodiment Integration (P7 closure)',       'patamar_4',         AtlasEmbodimentIntegrationService::class],
 
-        // Patamar 1/2/3 closures — Reflexivity streaming, OCR confidence, Compounding L8/L9
-        ['ACOP-ACRS', 'ACOP→ACRS Reflexive Streaming Bridge', 'aucri',          AtlasContextObservabilityToRankingReflexiveBridgeService::class],
+        // Patamar 1/2/3 closures — OCR confidence, Compounding L8/L9
+        // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);
+        // ARFL feedbackHint in ACRS already closes observability→ranking.
         ['AKIF-OCR', 'AKIF OCR Confidence-Scored Ingestion', 'aucri',           AtlasKnowledgeIngestionFabricOcrConfidenceService::class],
         ['ACL8',    'Compounding Level 8/9 Distillation',   'compounding',     AtlasCompoundingLevel8DistillationService::class],
 
