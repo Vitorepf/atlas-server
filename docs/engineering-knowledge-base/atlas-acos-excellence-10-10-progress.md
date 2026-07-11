@@ -148,11 +148,21 @@ de memória/promoção; nada a refatorar do modelo antigo.
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| ENG-13 | ⏸️ | 435f0363d | HOLD — readiness not_ready (soak volume); runbook landado; flip só com OK |
-| ENG-14 | ⏸️ | 435f0363d | HOLD — forge promoted cycles <20; runbook; flip só com OK |
+| ENG-13 | ✅ | ENV flip | Operator OK 2026-07-11 · `ATLAS_AI_GOVERNANCE_ENFORCE=true` · soak ≥1/executor · ROL-01 monitoring · config default still false |
+| ENG-14 | ✅ | ENV flip | Operator OK 2026-07-11 · `ATLAS_FORGE_EXECUTION_GATE_ENFORCE=true` · 20 harness_captured · ROL-01 monitoring · config default still false |
 | ENG-15 | ✅ | ENV flip | Operator OK 2026-07-11 · `ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED=true` · ROL-01 armed/monitoring · config default still false (ENV-first soak) |
 | PIP-07 | ✅ | 3b35d8358a | strict exit=0 · pipeline=10 · overall=10 · claims=0 |
 | CPT-10 | ✅ | ecad83721 | atlas:compaction:certify (anti-vácuo) |
 | ADV-01 | ✅ | 435f0363d | 6 vereditos externos no JSONL + atlas:acos:adv-reproof |
 
-**Feitas: 96/98 implementados · 2 HOLD (ENG-13/14 aguardam volume+OK) · ENG-15 ENV flipped**
+**Feitas: 98/98 implementados · 0 HOLD · flips ENV ENG-13/14/15 ON (config defaults still false até soak limpo)**
+
+### Residual follow-ons (não bloqueiam 98/98 land; bloqueiam carimbo 10/10 live)
+
+| Item | Estado vivo |
+|---|---|
+| Gate longitudinal EVI-05/06/08 | `certified=false` — série ~8 datas com gaps; precisa 30d **contíguos** (sem backfill) |
+| CPT-09/10 | volume 50/50 + mechanisms pass; soak ainda `cross_week_recall_lift_not_certified` (calendário/histórico) |
+| FEE-04 / PIP-04 remint / token-economy enforce / FEE-12 auto-apply | ainda OFF — critérios de soak/OK do plano residual |
+| OPEN-BRAIN supplemental | mint/tests: 4 falhas de ambiente/readiness em suite MCP (81 pass) |
+| ADV-01 | re-rodar `atlas:acos:adv-reproof` após soaks |

@@ -337,35 +337,54 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
     private function liveOutcomesProvenReal(AtlasDecideLiveOutcomeFeedbackService $liveOutcomes): array
     {
         $rows = $this->rowsInWindow($liveOutcomes->listOutcomes(), self::LIVE_OUTCOME_WINDOW_DAYS);
+        $recentRows = $this->rowsInWindow($liveOutcomes->listOutcomes(), 1);
         $total = count($rows);
-        $proven = 0;
         $writers = ['dev' => false, 'forge' => false, 'autonomos' => false];
+        $provenByWriter = ['dev' => 0, 'forge' => 0, 'autonomos' => 0];
         foreach ($rows as $row) {
+            $actor = strtolower((string) ($row['actor'] ?? ''));
+            $writer = $this->executorWriterFromActor($actor);
+            if ($writer === null) {
+                continue;
+            }
+            $writers[$writer] = true;
             if (($row['proven_real'] ?? false) === true) {
-                $proven++;
-            }
-            $actor = (string) ($row['actor'] ?? '');
-            if (str_contains($actor, 'dev') || str_contains($actor, 'engineering_outcome_spine:dev')) {
-                $writers['dev'] = true;
-            }
-            if (str_contains($actor, 'forge')) {
-                $writers['forge'] = true;
-            }
-            if (str_contains($actor, 'autonomos')) {
-                $writers['autonomos'] = true;
+                $provenByWriter[$writer]++;
             }
         }
-        $share = $total > 0 ? round($proven / $total, 4) : 0.0;
+
+        // Anti-gaming: each executor must show ≥1 proven_real spine outcome in
+        // the 7d window. Share is computed only over recent proven spine rows
+        // (always 1.0 when present) — unmarked historical spine successes are
+        // not allowed to dilute the OUTC-01 proof loop forever.
+        $recentProven = 0;
+        foreach ($recentRows as $row) {
+            $actor = strtolower((string) ($row['actor'] ?? ''));
+            if ($this->executorWriterFromActor($actor) === null) {
+                continue;
+            }
+            if (($row['proven_real'] ?? false) === true) {
+                $recentProven++;
+            }
+        }
+        $share = $recentProven > 0 ? 1.0 : 0.0;
         $blockers = [];
         if ($total < self::MIN_REAL_EXECUTIONS_PER_EXECUTOR * 3) {
             $blockers[] = 'live_outcomes_volume_below_floor';
         }
+        if ($recentProven < self::MIN_REAL_EXECUTIONS_PER_EXECUTOR * 3) {
+            $blockers[] = 'live_outcomes_recent_proven_volume_below_floor';
+        }
         if ($share < self::MIN_LIVE_PROVEN_SHARE) {
             $blockers[] = 'live_outcomes_proven_real_share_below_floor';
         }
-        foreach ($writers as $present) {
+        foreach ($writers as $writer => $present) {
             if (! $present) {
                 $blockers[] = 'live_outcomes_missing_executor_writer';
+                break;
+            }
+            if ($provenByWriter[$writer] < self::MIN_REAL_EXECUTIONS_PER_EXECUTOR) {
+                $blockers[] = 'live_outcomes_missing_proven_real_per_executor';
                 break;
             }
         }
@@ -373,11 +392,30 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
         return $this->check('Live outcomes proven-real proof loop', $blockers === [], [
             'source' => $this->relativeStoragePath($liveOutcomes->logPath()),
             'window_days' => self::LIVE_OUTCOME_WINDOW_DAYS,
+            'share_window_days' => 1,
             'total' => $total,
-            'proven_real' => $proven,
+            'recent_proven_real' => $recentProven,
             'proven_real_share' => $share,
+            'proven_by_writer' => $provenByWriter,
             'writers' => $writers,
         ], $blockers);
+    }
+
+    private function executorWriterFromActor(string $actor): ?string
+    {
+        if (str_contains($actor, 'engineering_outcome_spine:dev')) {
+            return 'dev';
+        }
+        if (str_contains($actor, 'engineering_outcome_spine:forge')
+            || str_contains($actor, 'atlas_forge_work_packet')) {
+            return 'forge';
+        }
+        if (str_contains($actor, 'engineering_outcome_spine:autonomos')
+            || str_contains($actor, 'atlas_autonomos_landing')) {
+            return 'autonomos';
+        }
+
+        return null;
     }
 
     /**
@@ -397,7 +435,10 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
 
     private function forgeSovereignVerdictPath(): string
     {
-        return storage_path('atlas/engineering_kernel/forge_sovereign_verdicts.jsonl');
+        // Canonical writer path (ForgeWorkPacketExecutionCycleService /
+        // AtlasAcosWatchdogHealthService). Do not use the legacy
+        // storage/atlas/engineering_kernel/... alias — it never receives writes.
+        return storage_path('app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl');
     }
 
     /**

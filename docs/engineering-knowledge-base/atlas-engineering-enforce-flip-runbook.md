@@ -19,8 +19,8 @@ Do not flip any of these enforcement paths without both:
 1. explicit operator OK for the specific flip, and
 2. `php artisan atlas:engineering:enforce-readiness --json` returning `ready:true` for that flip.
 
-Current state: **ENG-15 ENV flipped** (operator OK 2026-07-11; ROL-01 monitoring).
-Governance (ENG-13) and Forge (ENG-14) remain HOLD until volume floors + operator OK.
+Current state: **ENG-13/14/15 ENV flipped** (operator OK 2026-07-11; ROL-01 monitoring).
+Config defaults remain OFF until ENV soak is clean.
 
 Do not change config defaults to ON as part of readiness work. Defaults move only in a separate
 config commit after an ENV-first soak proves the flip.
@@ -123,3 +123,5 @@ Command exit is non-zero because `ready_to_enforce=false`; this is expected whil
 | When | Slice | Action | Evidence |
 | --- | --- | --- | --- |
 | 2026-07-11 | ENG-15 | ENV ON + operator OK recorded | `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl` (`eng_15_env_flip_operator_ok`) |
+| 2026-07-11 | ENG-13 | ENV ON (`ATLAS_AI_GOVERNANCE_ENFORCE=true`) + hard_units=5 + operator OK | ledger `eng_13_14_env_flip_operator_ok` |
+| 2026-07-11 | ENG-14 | ENV ON (`ATLAS_FORGE_EXECUTION_GATE_ENFORCE=true`) + 20 harness_captured + operator OK | ledger `eng_13_14_env_flip_operator_ok` |

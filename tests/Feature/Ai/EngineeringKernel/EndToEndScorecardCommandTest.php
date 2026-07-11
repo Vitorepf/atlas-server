@@ -142,7 +142,7 @@ final class EndToEndScorecardCommandTest extends TestCase
 
     private function seedPassingSources(): void
     {
-        $now = now()->subDay()->toIso8601String();
+        $now = now()->subHours(2)->toIso8601String();
 
         foreach (['dev', 'forge', 'autonomos'] as $executor) {
             AppendOnlyJsonlStore::append($this->coverage->logPath(), [
@@ -209,7 +209,7 @@ final class EndToEndScorecardCommandTest extends TestCase
 
     private function forgeVerdictPath(): string
     {
-        return $this->tmpStorage.'/atlas/engineering_kernel/forge_sovereign_verdicts.jsonl';
+        return $this->tmpStorage.'/app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl';
     }
 
     /**

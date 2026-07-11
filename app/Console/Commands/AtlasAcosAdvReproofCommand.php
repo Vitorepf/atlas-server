@@ -66,6 +66,8 @@ final class AtlasAcosAdvReproofCommand extends Command
         $total = 0;
         $invalidLines = [];
         $blocking = [];
+        /** @var array<string,array{verdict:string,checked_at:string}> $latestByCertifier */
+        $latestByCertifier = [];
 
         if (! is_file($path)) {
             $blocking[] = 'evidence_file_missing';
@@ -84,12 +86,32 @@ final class AtlasAcosAdvReproofCommand extends Command
                     continue;
                 }
 
+                $certifier = strtoupper(trim((string) ($row['certifier_id'] ?? '')));
                 $verdict = strtolower(trim((string) ($row['verdict'] ?? 'inconclusive')));
                 if (! array_key_exists($verdict, $counts)) {
                     $verdict = 'inconclusive';
                 }
+                $checkedAt = (string) ($row['checked_at'] ?? '');
 
-                $counts[$verdict]++;
+                if ($certifier === '') {
+                    // Legacy rows without certifier_id still count once.
+                    $counts[$verdict]++;
+                    $total++;
+
+                    continue;
+                }
+
+                $previous = $latestByCertifier[$certifier] ?? null;
+                if ($previous === null || strcmp($checkedAt, $previous['checked_at']) >= 0) {
+                    $latestByCertifier[$certifier] = [
+                        'verdict' => $verdict,
+                        'checked_at' => $checkedAt,
+                    ];
+                }
+            }
+
+            foreach ($latestByCertifier as $row) {
+                $counts[$row['verdict']]++;
                 $total++;
             }
         }
@@ -114,6 +136,7 @@ final class AtlasAcosAdvReproofCommand extends Command
             'counts' => $counts,
             'invalid_lines' => $invalidLines,
             'blocking' => array_values(array_unique($blocking)),
+            'aggregation' => 'latest_per_certifier_id',
         ];
     }
 }
