@@ -42,6 +42,7 @@ final readonly class ExecutionOrder
         public array $decisionReceipt,
         public array $operatorContract,
         public array $roleRoster,
+        public string $roleRosterCatalogHash,
         public array $providerRoute,
         public array $toolPermissions,
         public array $evidencePolicy,
@@ -56,6 +57,7 @@ final readonly class ExecutionOrder
     /** @param array<string,mixed> $data */
     public static function fromArray(array $data): self
     {
+        self::assertExactFields($data);
         $schema = CanonicalKernelPayload::requireString($data, 'schema_version');
         if ($schema !== 'atlas.execution_order.v2') {
             throw new InvalidArgumentException('schema_version_invalid');
@@ -67,6 +69,24 @@ final readonly class ExecutionOrder
         $budget = CanonicalKernelPayload::requireString($data, 'budget_posture');
         if ($budget !== 'unbounded_quality_first') {
             throw new InvalidArgumentException('budget_posture_invalid');
+        }
+
+        $allowedScope = self::stringList($data, 'allowed_scope', false);
+        $forbiddenScope = self::stringList($data, 'forbidden_scope', true);
+        $authority = CanonicalKernelPayload::requireArray($data, 'authority_envelope');
+        CanonicalKernelPayload::requireString($authority, 'kind');
+        $roster = EngineeringRoleRoster::validateRoster(CanonicalKernelPayload::requireArray($data, 'role_roster'));
+        $rosterHash = CanonicalKernelPayload::requireHash($data, 'role_roster_catalog_hash');
+        if (! hash_equals($rosterHash, CanonicalKernelPayload::hash($roster))) {
+            throw new InvalidArgumentException('role_roster_catalog_hash_mismatch');
+        }
+        if (! hash_equals($rosterHash, CanonicalKernelPayload::requireHash($authority, 'role_roster_catalog_hash'))) {
+            throw new InvalidArgumentException('authority_roster_catalog_unbound');
+        }
+        $decisionReceipt = self::decisionReceipt($data);
+        if (! hash_equals($rosterHash, CanonicalKernelPayload::requireHash($decisionReceipt, 'role_roster_catalog_hash'))
+            || ! hash_equals(CanonicalKernelPayload::hash($authority), CanonicalKernelPayload::requireHash($decisionReceipt, 'authority_hash'))) {
+            throw new InvalidArgumentException('decision_receipt_authority_or_roster_unbound');
         }
 
         return new self(
@@ -83,18 +103,19 @@ final readonly class ExecutionOrder
             worldModelSnapshotHash: CanonicalKernelPayload::requireHash($data, 'world_model_snapshot_hash'),
             workspace: CanonicalKernelPayload::requireString($data, 'workspace'),
             baseCommit: $baseCommit,
-            allowedScope: array_values(array_map('strval', CanonicalKernelPayload::requireArray($data, 'allowed_scope'))),
-            forbiddenScope: array_values(array_map('strval', CanonicalKernelPayload::requireArray($data, 'forbidden_scope'))),
-            authorityEnvelope: CanonicalKernelPayload::requireArray($data, 'authority_envelope'),
-            decisionReceipt: self::decisionReceipt($data),
-            operatorContract: CanonicalKernelPayload::requireArray($data, 'operator_contract'),
-            roleRoster: EngineeringRoleRoster::validateRoster(CanonicalKernelPayload::requireArray($data, 'role_roster')),
-            providerRoute: CanonicalKernelPayload::requireArray($data, 'provider_route'),
-            toolPermissions: CanonicalKernelPayload::requireArray($data, 'tool_permissions'),
-            evidencePolicy: CanonicalKernelPayload::requireArray($data, 'evidence_policy'),
-            releasePolicy: CanonicalKernelPayload::requireArray($data, 'release_policy'),
-            rollbackPolicy: CanonicalKernelPayload::requireArray($data, 'rollback_policy'),
-            outcomePolicy: CanonicalKernelPayload::requireArray($data, 'outcome_policy'),
+            allowedScope: $allowedScope,
+            forbiddenScope: $forbiddenScope,
+            authorityEnvelope: $authority,
+            decisionReceipt: $decisionReceipt,
+            operatorContract: self::requiredNested($data, 'operator_contract', ['presence']),
+            roleRoster: $roster,
+            roleRosterCatalogHash: $rosterHash,
+            providerRoute: self::requiredNested($data, 'provider_route', ['provider', 'model']),
+            toolPermissions: self::toolPermissions($data),
+            evidencePolicy: self::evidencePolicy($data),
+            releasePolicy: self::requiredNested($data, 'release_policy', ['kind']),
+            rollbackPolicy: self::requiredNested($data, 'rollback_policy', ['kind']),
+            outcomePolicy: self::outcomePolicy($data),
             experimentRef: CanonicalKernelPayload::requireString($data, 'experiment_ref'),
             idempotencyKey: CanonicalKernelPayload::requireString($data, 'idempotency_key'),
             budgetPosture: $budget,
@@ -124,6 +145,7 @@ final readonly class ExecutionOrder
             'decision_receipt' => $this->decisionReceipt,
             'operator_contract' => $this->operatorContract,
             'role_roster' => $this->roleRoster,
+            'role_roster_catalog_hash' => $this->roleRosterCatalogHash,
             'provider_route' => $this->providerRoute,
             'tool_permissions' => $this->toolPermissions,
             'evidence_policy' => $this->evidencePolicy,
@@ -148,5 +170,81 @@ final readonly class ExecutionOrder
         CanonicalKernelPayload::requireHash($receipt, 'hash');
 
         return $receipt;
+    }
+
+    /** @param array<string,mixed> $data */
+    private static function assertExactFields(array $data): void
+    {
+        $expected = ['schema_version', 'run_id', 'delivery_id', 'mode', 'risk_class', 'complexity_band', 'duration_regime', 'work_topology', 'product_intent_verdict_hash', 'spec_hash', 'world_model_snapshot_hash', 'workspace', 'base_commit', 'allowed_scope', 'forbidden_scope', 'authority_envelope', 'decision_receipt', 'operator_contract', 'role_roster', 'role_roster_catalog_hash', 'provider_route', 'tool_permissions', 'evidence_policy', 'release_policy', 'rollback_policy', 'outcome_policy', 'experiment_ref', 'idempotency_key', 'budget_posture'];
+        $extra = array_diff(array_keys($data), $expected);
+        if ($extra !== []) {
+            throw new InvalidArgumentException('execution_order_unknown_fields');
+        }
+    }
+
+    /** @param array<string,mixed> $data @return list<string> */
+    private static function stringList(array $data, string $key, bool $allowEmpty): array
+    {
+        $value = $data[$key] ?? null;
+        if (! is_array($value) || (! $allowEmpty && $value === [])) {
+            throw new InvalidArgumentException("{$key}_required");
+        }
+        foreach ($value as $item) {
+            if (! is_string($item) || trim($item) === '') {
+                throw new InvalidArgumentException("{$key}_invalid_string");
+            }
+        }
+
+        return array_values($value);
+    }
+
+    /** @param array<string,mixed> $data @param list<string> $keys @return array<string,mixed> */
+    private static function requiredNested(array $data, string $field, array $keys): array
+    {
+        $value = CanonicalKernelPayload::requireArray($data, $field);
+        foreach ($keys as $key) {
+            CanonicalKernelPayload::requireString($value, $key);
+        }
+
+        return $value;
+    }
+
+    /** @param array<string,mixed> $data @return array<string,mixed> */
+    private static function toolPermissions(array $data): array
+    {
+        $permissions = CanonicalKernelPayload::requireArray($data, 'tool_permissions');
+        if (! is_bool($permissions['read'] ?? null) || ! is_bool($permissions['mutate'] ?? null)) {
+            throw new InvalidArgumentException('tool_permissions_invalid');
+        }
+
+        return $permissions;
+    }
+
+    /** @param array<string,mixed> $data @return array<string,mixed> */
+    private static function outcomePolicy(array $data): array
+    {
+        $policy = CanonicalKernelPayload::requireArray($data, 'outcome_policy');
+        if (($policy['windows'] ?? null) !== EngineeringOutcome::WINDOWS) {
+            throw new InvalidArgumentException('outcome_policy_windows_invalid');
+        }
+
+        return $policy;
+    }
+
+    /** @param array<string,mixed> $data @return array<string,mixed> */
+    private static function evidencePolicy(array $data): array
+    {
+        $policy = CanonicalKernelPayload::requireArray($data, 'evidence_policy');
+        if (! is_bool($policy['required'] ?? null) || ! is_bool($policy['fresh'] ?? null)) {
+            throw new InvalidArgumentException('evidence_policy_flags_invalid');
+        }
+        CanonicalKernelPayload::requireString($policy, 'status');
+        CanonicalKernelPayload::requireHash($policy, 'evidence_hash');
+        CanonicalKernelPayload::requireArray($policy, 'role_dispositions');
+        if (array_key_exists('acceptance_bundle', $policy) && ! is_array($policy['acceptance_bundle'])) {
+            throw new InvalidArgumentException('evidence_policy_acceptance_bundle_invalid');
+        }
+
+        return $policy;
     }
 }

@@ -13,10 +13,11 @@ final readonly class OutcomeLearningReceipt
         public string $observationHash,
         public string $status,
         public bool $claimEligible,
+        public ?string $ledgerEventRef,
         public string $receiptHash,
     ) {}
 
-    public static function fromObservation(OutcomeObservation $observation): self
+    public static function fromObservation(OutcomeObservation $observation, ?string $ledgerEventRef = null): self
     {
         $payload = [
             'schema_version' => 'atlas.outcome_learning_receipt.v1',
@@ -25,6 +26,7 @@ final readonly class OutcomeLearningReceipt
             'observation_hash' => $observation->canonicalHash(),
             'status' => 'held_for_causal_adjudication',
             'claim_eligible' => false,
+            'ledger_event_ref' => $ledgerEventRef,
         ];
 
         return new self(
@@ -34,6 +36,7 @@ final readonly class OutcomeLearningReceipt
             observationHash: $payload['observation_hash'],
             status: $payload['status'],
             claimEligible: false,
+            ledgerEventRef: $ledgerEventRef,
             receiptHash: CanonicalKernelPayload::hash($payload),
         );
     }

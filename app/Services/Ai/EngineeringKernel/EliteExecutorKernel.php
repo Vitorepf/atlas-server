@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel;
 
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 
 /**
  * Shared elite kernel surface for Dev · Forge · Autônomos.
@@ -19,9 +22,6 @@ final class EliteExecutorKernel
 {
     public const SCHEMA_VERSION = 'atlas.elite_executor_kernel.v1';
 
-    /** @var array<string,array{order_hash:string,outcome:EngineeringOutcome}> */
-    private array $readOnlyReplays = [];
-
     public function __construct(
         private readonly OutcomeProofGate $outcomeProof,
         private readonly FalseClaimInvariant $falseClaim,
@@ -30,6 +30,7 @@ final class EliteExecutorKernel
         private readonly AtlasDevGateAdapter $devAdapter,
         private readonly AtlasForgeGateAdapter $forgeAdapter,
         private readonly AtlasAutonomosGateAdapter $autonomosAdapter,
+        private readonly ?AtlasEvidenceLedger $evidenceLedger = null,
     ) {}
 
     public function devGate(): AtlasDevGateAdapter
@@ -84,25 +85,58 @@ final class EliteExecutorKernel
     public function execute(ExecutionOrder $order): EngineeringOutcome
     {
         $orderHash = $order->canonicalHash();
-        $existing = $this->readOnlyReplays[$order->idempotencyKey] ?? null;
+        $existing = $this->durableReplay($order);
         if ($existing !== null) {
-            if (! hash_equals($existing['order_hash'], $orderHash)) {
-                throw new \InvalidArgumentException('idempotency_key_reused_with_changed_order');
-            }
-
-            return $existing['outcome'];
+            return $existing;
         }
 
         if (($order->toolPermissions['mutate'] ?? null) !== false) {
             throw new \LogicException('mutating_execution_not_available_in_packet_3');
         }
 
+        $started = $this->recordEvent(LedgerEventType::ExecutionStarted, $order, [
+            'event_name' => 'execution.started',
+            'order_hash' => $orderHash,
+            'idempotency_key' => $order->idempotencyKey,
+            'role_roster_catalog_hash' => $order->roleRosterCatalogHash,
+        ]);
+        if ($started === null) {
+            throw new \RuntimeException('canonical_engineering_ledger_unavailable');
+        }
+
         $policy = $order->evidencePolicy;
-        $freshAndVerified = ($policy['required'] ?? false) === true
-            && ($policy['fresh'] ?? false) === true
-            && ($policy['status'] ?? null) === 'verified'
-            && is_string($policy['evidence_hash'] ?? null)
-            && preg_match('/^[a-f0-9]{64}$/', $policy['evidence_hash']) === 1;
+        $acceptanceInput = $policy['acceptance_bundle'] ?? null;
+        $freshAndVerified = false;
+        $acceptanceHash = null;
+        $gateVerdict = null;
+        if (is_array($acceptanceInput) && $acceptanceInput !== []) {
+            $acceptanceHash = CanonicalKernelPayload::hash($acceptanceInput);
+            $freshAndVerified = ($policy['required'] ?? false) === true
+                && ($policy['fresh'] ?? false) === true
+                && ($policy['status'] ?? null) === 'verified'
+                && is_string($policy['evidence_hash'] ?? null)
+                && hash_equals($acceptanceHash, $policy['evidence_hash']);
+            if ($freshAndVerified) {
+                $bundle = AcceptanceBundle::fromArray($acceptanceInput);
+                $execution = (array) ($acceptanceInput['execution'] ?? []);
+                $proof = $this->outcomeProof->assess('success', $execution);
+                $falseClaimVerdict = $this->falseClaim->evaluate($bundle->execution);
+                try {
+                    $this->assertHonestOutcome(['status' => 'success', 'execution' => $execution], $order->mode);
+                    $gateVerdict = match ($order->mode) {
+                        'dev' => $this->devAdapter->certify($bundle, TrustLevel::Dev),
+                        'forge' => $this->forgeAdapter->certify($bundle, TrustLevel::Forge),
+                        'autonomos' => $this->autonomosAdapter->certify($bundle, TrustLevel::Autonomos),
+                        default => throw new \InvalidArgumentException('execution_order_mode_unreachable'),
+                    };
+                    $freshAndVerified = $proof['proven_real']
+                        && $falseClaimVerdict['status'] === 'pass'
+                        && $gateVerdict->promoted();
+                } catch (\RuntimeException) {
+                    $freshAndVerified = false;
+                }
+            }
+        }
 
         $uncertainties = [];
         $dispositions = $policy['role_dispositions'] ?? null;
@@ -123,7 +157,7 @@ final class EliteExecutorKernel
 
         $hasBlock = array_any($dispositions, static fn (array $entry): bool => $entry['status'] === 'block');
         $status = $uncertainties !== [] ? 'held' : ($hasBlock ? 'blocked' : 'completed_read_only');
-        $evidenceHash = $freshAndVerified ? (string) $policy['evidence_hash'] : hash('sha256', 'unknown-evidence:'.$orderHash);
+        $evidenceHash = $acceptanceHash ?? hash('sha256', 'unknown-evidence:'.$orderHash);
         $releaseHash = hash('sha256', 'read-only:no-release:'.$orderHash);
         $outcome = EngineeringOutcome::fromArray([
             'schema_version' => 'atlas.engineering_outcome.v2',
@@ -131,6 +165,7 @@ final class EliteExecutorKernel
             'delivery_id' => $order->deliveryId,
             'status' => $status,
             'correlated_hashes' => [
+                'order' => $orderHash,
                 'intent' => $order->productIntentVerdictHash,
                 'spec' => $order->specHash,
                 'baseline' => hash('sha256', $order->baseCommit),
@@ -139,7 +174,7 @@ final class EliteExecutorKernel
                 'release' => $releaseHash,
             ],
             'role_dispositions' => $dispositions,
-            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => $freshAndVerified ? 'verified' : 'unknown'],
+            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => $freshAndVerified ? 'accepted' : 'unknown_or_refused', 'gate_verdict' => $gateVerdict?->toArray()],
             'provider_receipt' => ['status' => 'not_applicable_read_only'],
             'sandbox_receipt' => ['status' => 'not_applicable_read_only'],
             'release_receipt' => ['status' => 'not_applicable_read_only', 'hash' => $releaseHash],
@@ -153,14 +188,93 @@ final class EliteExecutorKernel
             'claim_eligible' => false,
         ]);
 
-        $this->readOnlyReplays[$order->idempotencyKey] = ['order_hash' => $orderHash, 'outcome' => $outcome];
+        $this->recordEvent(LedgerEventType::GateEvaluated, $order, [
+            'event_name' => 'acceptance.adjudicated', 'order_hash' => $orderHash,
+            'evidence_hash' => $evidenceHash, 'status' => $status, 'gate_verdict' => $gateVerdict?->toArray(),
+        ]);
+        $this->recordEvent(LedgerEventType::EvidencePacked, $order, [
+            'event_name' => 'evidence.packed', 'order_hash' => $orderHash, 'evidence_hash' => $evidenceHash,
+        ]);
+        $this->recordEvent(LedgerEventType::OperationCompleted, $order, [
+            'schema_version' => 'atlas.engineering_kernel.execution_receipt.v2',
+            'event_name' => 'engineering.outcome.recorded',
+            'idempotency_key' => $order->idempotencyKey,
+            'order_hash' => $orderHash,
+            'outcome' => $outcome->toArray(),
+        ]);
 
         return $outcome;
     }
 
     public function observeOutcome(OutcomeObservation $observation): OutcomeLearningReceipt
     {
-        return OutcomeLearningReceipt::fromObservation($observation);
+        $known = collect($this->ledger()->eventsForScope('engineering_delivery', $observation->deliveryId, 500))
+            ->contains(function (array $event) use ($observation): bool {
+                $payload = (array) ($event['payload'] ?? []);
+                $outcome = (array) ($payload['outcome'] ?? []);
+
+                return ($payload['event_name'] ?? null) === 'engineering.outcome.recorded'
+                    && hash_equals((string) ($payload['order_hash'] ?? ''), $observation->orderHash)
+                    && hash_equals((string) ($outcome['outcome_hash'] ?? ''), $observation->outcomeHash)
+                    && hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash);
+            });
+        if (! $known) {
+            throw new \InvalidArgumentException('outcome_observation_unknown_correlation');
+        }
+        $event = $this->ledger()->record(LedgerEventType::SloObserved, [
+            'schema_version' => 'atlas.outcome_observed.v1',
+            'event_name' => 'outcome.observed',
+            'observation' => $observation->toArray(),
+            'observation_hash' => $observation->canonicalHash(),
+        ], [
+            'envelope_id' => $observation->runId,
+            'correlation_id' => $observation->deliveryId,
+            'scope_type' => 'engineering_delivery',
+            'scope_id' => $observation->deliveryId,
+            'emitter_stage' => 'atlas.engineering_kernel.outcome',
+        ]);
+        if ($event === null) {
+            throw new \RuntimeException('outcome_observation_ledger_write_failed');
+        }
+
+        return OutcomeLearningReceipt::fromObservation($observation, (string) ($event->event_hash ?? $event->event_id));
+    }
+
+    private function durableReplay(ExecutionOrder $order): ?EngineeringOutcome
+    {
+        foreach ($this->ledger()->eventsForScope('engineering_delivery', $order->deliveryId, 500) as $event) {
+            $payload = (array) ($event['payload'] ?? []);
+            if (($payload['event_name'] ?? null) !== 'engineering.outcome.recorded'
+                || ($payload['idempotency_key'] ?? null) !== $order->idempotencyKey) {
+                continue;
+            }
+            if (! hash_equals((string) ($payload['order_hash'] ?? ''), $order->canonicalHash())) {
+                throw new \InvalidArgumentException('idempotency_key_reused_with_changed_order');
+            }
+
+            return EngineeringOutcome::fromArray((array) ($payload['outcome'] ?? []));
+        }
+
+        return null;
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function recordEvent(LedgerEventType $type, ExecutionOrder $order, array $payload): ?AtlasLedgerEvent
+    {
+        return $this->ledger()->record($type, $payload, [
+            'envelope_id' => $order->runId,
+            'correlation_id' => $order->deliveryId,
+            'receipt_id' => $order->idempotencyKey,
+            'scope_type' => 'engineering_delivery',
+            'scope_id' => $order->deliveryId,
+            'emitter_stage' => 'atlas.engineering_kernel',
+            'emitter_version' => 'v2',
+        ]);
+    }
+
+    private function ledger(): AtlasEvidenceLedger
+    {
+        return $this->evidenceLedger ?? app(AtlasEvidenceLedger::class);
     }
 
     /** @return array<string,array<string,mixed>> */

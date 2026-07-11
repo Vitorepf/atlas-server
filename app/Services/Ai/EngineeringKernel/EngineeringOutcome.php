@@ -38,45 +38,93 @@ final readonly class EngineeringOutcome
     /** @param array<string,mixed> $data */
     public static function fromArray(array $data): self
     {
+        $expected = ['schema_version', 'run_id', 'delivery_id', 'status', 'correlated_hashes', 'role_dispositions', 'evidence_bundle', 'provider_receipt', 'sandbox_receipt', 'release_receipt', 'canary_rollback_receipt', 'operator_effort', 'cost', 'tokens', 'elapsed_ms', 'uncertainties', 'observation_schedule', 'claim_eligible', 'outcome_hash'];
+        if (array_diff(array_keys($data), $expected) !== []) {
+            throw new InvalidArgumentException('engineering_outcome_unknown_fields');
+        }
         $schema = CanonicalKernelPayload::requireString($data, 'schema_version');
         if ($schema !== 'atlas.engineering_outcome.v2') {
             throw new InvalidArgumentException('schema_version_invalid');
         }
         $hashes = CanonicalKernelPayload::requireArray($data, 'correlated_hashes');
-        foreach (['intent', 'spec', 'baseline', 'diff', 'evidence', 'release'] as $name) {
+        foreach (['order', 'intent', 'spec', 'baseline', 'diff', 'evidence', 'release'] as $name) {
             CanonicalKernelPayload::requireHash($hashes, $name);
         }
         if (($data['claim_eligible'] ?? false) !== false) {
             throw new InvalidArgumentException('claim_eligibility_reserved_for_rivals');
         }
         $schedule = CanonicalKernelPayload::requireArray($data, 'observation_schedule');
-        if (array_keys($schedule) !== self::WINDOWS) {
+        if (array_diff(array_keys($schedule), self::WINDOWS) !== [] || array_diff(self::WINDOWS, array_keys($schedule)) !== []) {
             throw new InvalidArgumentException('observation_schedule_invalid');
         }
-        $payload = $data;
-        unset($payload['outcome_hash']);
-        $computedHash = CanonicalKernelPayload::hash($payload);
+        $schedule = array_replace(array_fill_keys(self::WINDOWS, 'pending'), $schedule);
+        $status = CanonicalKernelPayload::requireEnum($data, 'status', self::STATUSES);
+        $dispositions = EngineeringRoleRoster::validateDispositions(CanonicalKernelPayload::requireArray($data, 'role_dispositions'));
+        $evidenceBundle = CanonicalKernelPayload::requireArray($data, 'evidence_bundle');
+        $releaseReceipt = CanonicalKernelPayload::requireArray($data, 'release_receipt');
+        if (! hash_equals($hashes['evidence'], CanonicalKernelPayload::requireHash($evidenceBundle, 'hash'))
+            || ! hash_equals($hashes['release'], CanonicalKernelPayload::requireHash($releaseReceipt, 'hash'))) {
+            throw new InvalidArgumentException('outcome_receipt_hash_mismatch');
+        }
+        $uncertainties = $data['uncertainties'] ?? null;
+        if (! is_array($uncertainties) || ! array_is_list($uncertainties)) {
+            throw new InvalidArgumentException('uncertainties_invalid');
+        }
+        foreach ($uncertainties as $uncertainty) {
+            if (! is_string($uncertainty) || trim($uncertainty) === '') {
+                throw new InvalidArgumentException('uncertainties_invalid');
+            }
+        }
+        if ($status === 'completed_read_only'
+            && ($uncertainties !== [] || array_any($dispositions, static fn (array $entry): bool => $entry['status'] === 'block'))) {
+            throw new InvalidArgumentException('completed_read_only_requires_unblocked_certain_dispositions');
+        }
+        $elapsed = $data['elapsed_ms'] ?? null;
+        if (! is_int($elapsed) || $elapsed < 0) {
+            throw new InvalidArgumentException('elapsed_ms_invalid');
+        }
+        $normalized = [
+            'schema_version' => $schema,
+            'run_id' => CanonicalKernelPayload::requireString($data, 'run_id'),
+            'delivery_id' => CanonicalKernelPayload::requireString($data, 'delivery_id'),
+            'status' => $status,
+            'correlated_hashes' => $hashes,
+            'role_dispositions' => $dispositions,
+            'evidence_bundle' => $evidenceBundle,
+            'provider_receipt' => CanonicalKernelPayload::requireArray($data, 'provider_receipt'),
+            'sandbox_receipt' => CanonicalKernelPayload::requireArray($data, 'sandbox_receipt'),
+            'release_receipt' => $releaseReceipt,
+            'canary_rollback_receipt' => CanonicalKernelPayload::requireArray($data, 'canary_rollback_receipt'),
+            'operator_effort' => CanonicalKernelPayload::requireArray($data, 'operator_effort'),
+            'cost' => CanonicalKernelPayload::requireArray($data, 'cost'),
+            'tokens' => CanonicalKernelPayload::requireArray($data, 'tokens'),
+            'elapsed_ms' => $elapsed,
+            'uncertainties' => $uncertainties,
+            'observation_schedule' => $schedule,
+            'claim_eligible' => false,
+        ];
+        $computedHash = CanonicalKernelPayload::hash($normalized);
         if (isset($data['outcome_hash']) && ! hash_equals((string) $data['outcome_hash'], $computedHash)) {
             throw new InvalidArgumentException('outcome_hash_mismatch');
         }
 
         return new self(
             schemaVersion: $schema,
-            runId: CanonicalKernelPayload::requireString($data, 'run_id'),
-            deliveryId: CanonicalKernelPayload::requireString($data, 'delivery_id'),
-            status: CanonicalKernelPayload::requireEnum($data, 'status', self::STATUSES),
+            runId: $normalized['run_id'],
+            deliveryId: $normalized['delivery_id'],
+            status: $status,
             correlatedHashes: $hashes,
-            roleDispositions: EngineeringRoleRoster::validateDispositions(CanonicalKernelPayload::requireArray($data, 'role_dispositions')),
-            evidenceBundle: CanonicalKernelPayload::requireArray($data, 'evidence_bundle'),
-            providerReceipt: CanonicalKernelPayload::requireArray($data, 'provider_receipt'),
-            sandboxReceipt: CanonicalKernelPayload::requireArray($data, 'sandbox_receipt'),
-            releaseReceipt: CanonicalKernelPayload::requireArray($data, 'release_receipt'),
-            canaryRollbackReceipt: CanonicalKernelPayload::requireArray($data, 'canary_rollback_receipt'),
-            operatorEffort: CanonicalKernelPayload::requireArray($data, 'operator_effort'),
-            cost: CanonicalKernelPayload::requireArray($data, 'cost'),
-            tokens: CanonicalKernelPayload::requireArray($data, 'tokens'),
-            elapsedMs: max(0, (int) ($data['elapsed_ms'] ?? 0)),
-            uncertainties: array_values((array) ($data['uncertainties'] ?? [])),
+            roleDispositions: $dispositions,
+            evidenceBundle: $evidenceBundle,
+            providerReceipt: $normalized['provider_receipt'],
+            sandboxReceipt: $normalized['sandbox_receipt'],
+            releaseReceipt: $releaseReceipt,
+            canaryRollbackReceipt: $normalized['canary_rollback_receipt'],
+            operatorEffort: $normalized['operator_effort'],
+            cost: $normalized['cost'],
+            tokens: $normalized['tokens'],
+            elapsedMs: $elapsed,
+            uncertainties: $uncertainties,
             observationSchedule: $schedule,
             claimEligible: false,
             outcomeHash: $computedHash,

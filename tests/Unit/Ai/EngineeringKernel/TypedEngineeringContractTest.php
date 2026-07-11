@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\EngineeringKernel;
 
+use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\OutcomeLearningReceipt;
@@ -67,6 +68,16 @@ final class TypedEngineeringContractTest extends TestCase
         yield 'incomplete roster' => [static function (array &$data): void {
             array_pop($data['role_roster']);
         }];
+        yield 'invented unbound roster' => [static function (array &$data): void {
+            $data['role_roster']['invented_role'] = array_pop($data['role_roster']);
+            $data['role_roster_catalog_hash'] = CanonicalKernelPayload::hash($data['role_roster']);
+        }];
+        yield 'coercive scope item' => [static function (array &$data): void {
+            $data['allowed_scope'] = [123];
+        }];
+        yield 'unknown field' => [static function (array &$data): void {
+            $data['caller_claim'] = 'trusted';
+        }];
     }
 
     public function test_engineering_outcome_refuses_unknown_status_and_claim_eligibility(): void
@@ -105,6 +116,24 @@ final class TypedEngineeringContractTest extends TestCase
         EngineeringOutcome::fromArray($claimable);
     }
 
+    public function test_completed_read_only_cannot_hide_block_or_receipt_hash_mismatch(): void
+    {
+        $blocked = $this->validOutcome();
+        $blocked['role_dispositions'][self::ROLE_IDS[0]]['status'] = 'block';
+        try {
+            EngineeringOutcome::fromArray($blocked);
+            $this->fail('A blocked disposition must not complete read-only.');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('completed_read_only_requires_unblocked_certain_dispositions', $exception->getMessage());
+        }
+
+        $mismatch = $this->validOutcome();
+        $mismatch['release_receipt']['hash'] = hash('sha256', 'different-release');
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_receipt_hash_mismatch');
+        EngineeringOutcome::fromArray($mismatch);
+    }
+
     public function test_observation_and_learning_receipt_are_typed_and_hash_bound(): void
     {
         $observation = OutcomeObservation::fromArray([
@@ -112,6 +141,8 @@ final class TypedEngineeringContractTest extends TestCase
             'run_id' => 'run-001',
             'delivery_id' => 'delivery-001',
             'release_hash' => hash('sha256', 'release'),
+            'order_hash' => hash('sha256', 'order'),
+            'outcome_hash' => hash('sha256', 'outcome'),
             'window' => '24h',
             'observed_at' => '2026-07-11T00:00:00+00:00',
             'metrics' => ['escaped_defects' => 0],
@@ -127,9 +158,13 @@ final class TypedEngineeringContractTest extends TestCase
     private function validOrder(): array
     {
         $roles = [];
+        $dispositions = [];
         foreach (self::ROLE_IDS as $role) {
             $roles[$role] = ['depth' => 'standard', 'independent' => true];
+            $dispositions[$role] = ['status' => 'pass', 'evidence_hash' => hash('sha256', $role), 'signature' => hash('sha256', 'sign-'.$role)];
         }
+        $rosterHash = CanonicalKernelPayload::hash($roles);
+        $authority = ['kind' => 'read_only', 'role_roster_catalog_hash' => $rosterHash];
 
         return [
             'schema_version' => 'atlas.execution_order.v2',
@@ -147,13 +182,14 @@ final class TypedEngineeringContractTest extends TestCase
             'base_commit' => str_repeat('a', 40),
             'allowed_scope' => ['docs/README.md'],
             'forbidden_scope' => ['.env'],
-            'authority_envelope' => ['kind' => 'read_only'],
-            'decision_receipt' => ['hash' => hash('sha256', 'decision')],
+            'authority_envelope' => $authority,
+            'decision_receipt' => ['hash' => hash('sha256', 'decision'), 'authority_hash' => CanonicalKernelPayload::hash($authority), 'role_roster_catalog_hash' => $rosterHash],
             'operator_contract' => ['presence' => 'intent_and_authority'],
             'role_roster' => $roles,
+            'role_roster_catalog_hash' => $rosterHash,
             'provider_route' => ['provider' => 'none', 'model' => 'none'],
             'tool_permissions' => ['read' => true, 'mutate' => false],
-            'evidence_policy' => ['required' => true],
+            'evidence_policy' => ['required' => true, 'fresh' => true, 'status' => 'verified', 'evidence_hash' => hash('sha256', 'evidence'), 'role_dispositions' => $dispositions],
             'release_policy' => ['kind' => 'none_read_only'],
             'rollback_policy' => ['kind' => 'none_read_only'],
             'outcome_policy' => ['windows' => ['0h', '24h', '7d', '30d', '90d', '150d']],
@@ -176,6 +212,7 @@ final class TypedEngineeringContractTest extends TestCase
         }
 
         $hashes = [
+            'order' => hash('sha256', 'order'),
             'intent' => hash('sha256', 'intent'),
             'spec' => hash('sha256', 'spec'),
             'baseline' => hash('sha256', 'baseline'),
