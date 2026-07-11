@@ -1270,8 +1270,11 @@ final class PipelineRunExecutor implements RunExecutor
         // Context-pack ROI feedback (write side): AOBG requests used/noise/missed
         // after every pack and no internal flow ever answered — the retrieval
         // ranker never learned what was noise. Mechanical attribution from run
-        // evidence: path refs match changed files; memory refs (COM-01) match by
-        // id/hash/slug mention in diff+transcript — never path-containment.
+        // evidence:
+        //   - diffed path refs match altered files;
+        //   - cited refs match provider report/log mentions (files read, memory
+        //     refs by COM-01 id/hash);
+        //   - noise is only path refs that are BOTH untouched and uncited.
         // Unattributed memory refs stay OUT of noise (FEE-06). Same unit-test
         // guard as the ADML block. Fail-open.
         if (! app()->runningUnitTests() || app()->bound(AtlasRetrievalFeedbackLoopService::class)) {
@@ -1299,20 +1302,11 @@ final class PipelineRunExecutor implements RunExecutor
                         static fn (ScopeFileDiff $diff): string => $diff->path,
                         $scopeReceipt->observed->fileDiffs,
                     );
-                    $attributionParts = [
+                    $reportLogCorpus = implode("\n", array_filter([
                         (string) $callResult->stdout,
                         (string) $callResult->stderr,
-                        $diffResult->hasPatch() ? (string) $diffResult->diff : '',
-                    ];
-                    foreach ($scopeReceipt->observed->fileDiffs as $fileDiff) {
-                        $attributionParts[] = $fileDiff->path;
-                        $absolutePath = rtrim($envelope->workspace, '/').'/'.ltrim($fileDiff->path, '/');
-                        if (is_file($absolutePath)) {
-                            $attributionParts[] = (string) file_get_contents($absolutePath);
-                        }
-                    }
-                    $attributionCorpus = implode("\n", array_filter($attributionParts));
-                    $usedPath = array_values(array_filter($pathRefs, static function (string $ref) use ($changedPaths): bool {
+                    ]));
+                    $diffedPath = array_values(array_filter($pathRefs, static function (string $ref) use ($changedPaths): bool {
                         foreach ($changedPaths as $path) {
                             if ($path !== '' && (str_contains($ref, $path) || str_contains($path, $ref))) {
                                 return true;
@@ -1321,12 +1315,24 @@ final class PipelineRunExecutor implements RunExecutor
 
                         return false;
                     }));
-                    $usedMemory = array_values(array_filter(
+                    $citedPath = array_values(array_filter($pathRefs, static function (string $ref) use ($reportLogCorpus): bool {
+                        return $ref !== '' && $reportLogCorpus !== '' && str_contains($reportLogCorpus, $ref);
+                    }));
+                    $citedMemory = array_values(array_filter(
                         $memoryRefs,
-                        static fn (string $ref): bool => AtlasCanonicalContextRef::isMentionedInText($ref, $attributionCorpus),
+                        static fn (string $ref): bool => AtlasCanonicalContextRef::isMentionedInText($ref, $reportLogCorpus),
                     ));
-                    $used = array_values(array_merge($usedPath, $usedMemory));
                     $passed = $receipt->completion->status === CompletionSummary::STATUS_PASSED;
+                    $usedPath = $passed ? AtlasCanonicalContextRef::uniqueStrings(array_merge($diffedPath, $citedPath)) : [];
+                    $usedMemory = $passed ? $citedMemory : [];
+                    $used = AtlasCanonicalContextRef::uniqueStrings(array_merge($usedPath, $usedMemory));
+                    $attributionQuality = 'unmeasured';
+                    if ($passed && ($citedPath !== [] || $citedMemory !== [])) {
+                        $attributionQuality = 'cited';
+                    } elseif ($passed && $diffedPath !== []) {
+                        $attributionQuality = 'diffed';
+                    }
+
                     app(AtlasRetrievalFeedbackLoopService::class)->capture([
                         'objective' => $envelope->normalizedIntent,
                         'workspace' => $envelope->workspace,
@@ -1341,6 +1347,7 @@ final class PipelineRunExecutor implements RunExecutor
                         'delivered_context_refs' => $delivered,
                         'used_context_refs' => $used,
                         'noise_context_refs' => $passed ? array_values(array_diff($pathRefs, $usedPath)) : [],
+                        'attribution_quality' => $attributionQuality,
                         'flow_id' => 'atlas.dev',
                         'record' => true,
                     ]);

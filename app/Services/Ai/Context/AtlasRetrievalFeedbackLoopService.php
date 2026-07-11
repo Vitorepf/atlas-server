@@ -654,7 +654,7 @@ final class AtlasRetrievalFeedbackLoopService
     private function attributionQuality(string $quality): string
     {
         return match ($quality) {
-            'gate_verified', 'transcript_inferred', 'operator_reported', 'low' => $quality,
+            'gate_verified', 'transcript_inferred', 'operator_reported', 'cited', 'diffed', 'unmeasured', 'low' => $quality,
             default => 'low',
         };
     }

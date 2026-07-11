@@ -4,18 +4,30 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\AtlasDev\Cli;
 
+use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
+use App\Models\AiRagFeedbackEvent;
+use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
+use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
+use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\AtlasOpenBrainService;
+use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
+use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
+use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenIssue;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
@@ -26,6 +38,9 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Process\Process;
 use Tests\Feature\Ai\Programming\AtlasDev\Http\FakeAtlasOpenBrainService;
 use Tests\TestCase;
+use Tests\Unit\Ai\Programming\AtlasDev\Gate\FakeCommandRunner;
+use Tests\Unit\Ai\Programming\AtlasDev\Provider\AtlasDevProviderFixtures;
+use Tests\Unit\Ai\Programming\AtlasDev\Provider\FakeClaudeCliGateway;
 
 /**
  * CLI parity coverage for `atlas:cli:dev --efficient`.
@@ -40,6 +55,8 @@ use Tests\TestCase;
  */
 final class AtlasCliDevEfficientCommandTest extends TestCase
 {
+    use AtlasDevProviderFixtures;
+
     private string $tmpStorage;
 
     private string $tmpWorkspace;
@@ -52,6 +69,15 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
         config()->set('atlas_dev.efficient.plan_enabled', true);
         config()->set('atlas_dev.efficient.run_enabled', true);
         config()->set('app.key', 'base64:'.base64_encode(str_repeat('K', 32)));
+        config()->set('atlas_dev.elevations.e1.mode', 'off');
+        config()->set('atlas_dev.elevations.e2.mode', 'off');
+        config()->set('atlas_dev.elevations.e3.mode', 'off');
+        config()->set('atlas_dev.elevations.e4.mode', 'off');
+        config()->set('atlas_dev.elevations.e5.mode', 'off');
+        config()->set('atlas_dev.elevations.e6.mode', 'off');
+        config()->set('atlas_dev.elevations.weak_output.mode', 'off');
+        config()->set('atlas.programming.sovereign_floor_enforced', false);
+        config()->set('atlas.programming.strict_retrieval_gate', false);
 
         Http::preventStrayRequests();
         Http::fake();
@@ -81,6 +107,7 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
         );
 
         $this->app->instance(AtlasOpenBrainService::class, new FakeAtlasOpenBrainService);
+        $this->bindContextAttributionAwisGate();
         $this->bootstrapTokenTables();
     }
 
@@ -531,6 +558,78 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
         $this->assertNoAbsolutePaths($output);
     }
 
+    public function test_ContextAttribution_passed_run_uses_cited_memory_and_keeps_cited_file_out_of_noise(): void
+    {
+        $this->bootFeedbackSchema();
+
+        try {
+            $memoryRef = 'memory:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+            $citedFileRef = 'app/Services/Foo/FooService.php';
+            $uncitedFileRef = 'app/Services/Foo/Unused.php';
+
+            $event = $this->executeContextAttributionRun(
+                projection: [
+                    'context_pack_hash' => 'atlas-dev-context-attribution-cited',
+                    'code_refs' => [
+                        ['kind' => 'file', 'ref' => 'tests/Unit/Services/Foo/FooServiceTest.php', 'reason' => 'target'],
+                        ['kind' => 'file', 'ref' => $citedFileRef, 'reason' => 'read'],
+                        ['kind' => 'file', 'ref' => $uncitedFileRef, 'reason' => 'noise-candidate'],
+                    ],
+                    'memory_refs' => [
+                        ['kind' => 'memory', 'ref' => $memoryRef, 'reason' => 'decision'],
+                    ],
+                ],
+                gatewayStderr: 'Read '.$citedFileRef.' and applied COM-01 memory '.$memoryRef,
+            );
+
+            $usedRefs = array_map(
+                static fn (array $entry): string => (string) ($entry['ref'] ?? ''),
+                data_get($event->payload, 'payload.context_ref_attribution.used_refs', []),
+            );
+            $noiseRefs = array_map(
+                static fn (array $entry): string => (string) ($entry['ref'] ?? ''),
+                data_get($event->payload, 'payload.context_ref_attribution.noise_refs', []),
+            );
+
+            $this->assertSame('cited', data_get($event->payload, 'payload.attribution_quality'));
+            $this->assertContains($memoryRef, $usedRefs, 'A memory ref cited in the report/log must be credited as used.');
+            $this->assertContains($citedFileRef, $usedRefs, 'A read file cited in the report/log must be credited as used.');
+            $this->assertNotContains($memoryRef, $noiseRefs, 'A cited memory ref must never remain noise.');
+            $this->assertNotContains($citedFileRef, $noiseRefs, 'Noise is only untouched AND uncited.');
+            $this->assertContains($uncitedFileRef, $noiseRefs, 'Untouched and uncited file refs remain noise.');
+        } finally {
+            $this->dropFeedbackSchema();
+        }
+    }
+
+    public function test_ContextAttribution_failed_run_without_citations_is_unmeasured(): void
+    {
+        $this->bootFeedbackSchema();
+
+        try {
+            $event = $this->executeContextAttributionRun(
+                projection: [
+                    'context_pack_hash' => 'atlas-dev-context-attribution-failed',
+                    'code_refs' => [
+                        ['kind' => 'file', 'ref' => 'tests/Unit/Services/Foo/FooServiceTest.php', 'reason' => 'target'],
+                    ],
+                    'memory_refs' => [
+                        ['kind' => 'memory', 'ref' => 'memory:cccccccccccccccccccccccccccccccc', 'reason' => 'decision'],
+                    ],
+                ],
+                verificationExitCode: 1,
+                expectedCompletion: 'failed',
+            );
+
+            $this->assertSame('unmeasured', data_get($event->payload, 'payload.attribution_quality'));
+            $this->assertFalse((bool) data_get($event->payload, 'payload.context_ref_attribution.measured'));
+            $this->assertSame([], data_get($event->payload, 'payload.context_ref_attribution.used_refs', []));
+            $this->assertSame([], data_get($event->payload, 'payload.context_ref_attribution.noise_refs', []));
+        } finally {
+            $this->dropFeedbackSchema();
+        }
+    }
+
     private function bindFakeRunExecutor(): FakeCliRunExecutor
     {
         $fake = new FakeCliRunExecutor(new RunExecutionResult(
@@ -690,6 +789,140 @@ PHP);
         $process->run();
 
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput() ?: $process->getOutput());
+    }
+
+    /**
+     * @param  array<string,mixed>  $projection
+     */
+    private function executeContextAttributionRun(
+        array $projection,
+        string $gatewayStderr = '',
+        int $verificationExitCode = 0,
+        string $expectedCompletion = 'passed',
+    ): AiRagFeedbackEvent {
+        app()->instance(AtlasRetrievalFeedbackLoopService::class, app()->make(AtlasRetrievalFeedbackLoopService::class));
+
+        $runId = 'dev-context-attribution-'.bin2hex(random_bytes(3));
+        $storage = new ReceiptStorage($this->tmpStorage);
+        $this->seedRun($storage, $runId, taskKind: 'repair', riskLevel: 'R2');
+        @unlink($this->tmpStorage.'/'.$runId.'/'.ArtifactNames::OPEN_BRAIN_PROJECTION);
+        $storage->writeAtomic($runId, ArtifactNames::OPEN_BRAIN_PROJECTION, $projection);
+
+        $target = $this->tmpWorkspace.'/tests/Unit/Services/Foo/FooServiceTest.php';
+        file_put_contents($target, "<?php\nassert(false);\n");
+        file_put_contents($this->tmpWorkspace.'/app/Services/Foo/Unused.php', "<?php\nclass Unused {}\n");
+
+        $diff = <<<'DIFF'
+--- a/tests/Unit/Services/Foo/FooServiceTest.php
++++ b/tests/Unit/Services/Foo/FooServiceTest.php
+@@ -1,2 +1,2 @@
+ <?php
+-assert(false);
++assert(true);
+DIFF;
+
+        $gateway = new FakeClaudeCliGateway;
+        $gateway->queue($this->gatewayResponse(stdout: $diff, stderr: $gatewayStderr));
+
+        $commandRunner = new FakeCommandRunner;
+        $commandRunner->queue(new VerificationCommandResult(
+            command: 'echo verified',
+            exitCode: $verificationExitCode,
+            stdout: $verificationExitCode === 0 ? 'ok' : 'FAILURES!',
+            stderr: '',
+            durationMs: 10,
+        ));
+
+        $container = new Container;
+        $container->instance(ClaudeCliGateway::class, $gateway);
+        $container->instance(VerificationCommandRunner::class, $commandRunner);
+        $this->bindNoConcernsCritic($container);
+
+        $envelope = $this->contextAttributionEnvelope();
+        $taskContract = $this->taskContractFixture([
+            'allowed_files' => ['tests/Unit/Services/Foo/FooServiceTest.php'],
+            'expected_max_files' => 2,
+            'max_files_changed' => 2,
+        ]);
+
+        $result = (new PipelineRunExecutor($container, $storage))->execute(
+            envelope: $envelope,
+            taskContract: $taskContract,
+            promptProjection: $this->buildSendableProjection(envelope: $envelope, taskContract: $taskContract),
+            runId: $runId,
+        );
+
+        $this->assertSame($expectedCompletion, $result->completionState);
+
+        return AiRagFeedbackEvent::query()->latest('id')->firstOrFail();
+    }
+
+    private function contextAttributionEnvelope(): OperationEnvelope
+    {
+        $intent = 'corrija o teste falhando em tests/Unit/Services/Foo/FooServiceTest.php';
+
+        return new OperationEnvelope(
+            runId: 'unused-by-executor',
+            surfaceId: 'atlas_desktop_ai',
+            surfaceContext: new SurfaceContext(
+                productSurface: 'atlas_ai_desktop_mac',
+                composerMode: 'programming',
+                composerTask: 'dev',
+                providerChoice: null,
+            ),
+            workspace: $this->tmpWorkspace,
+            workspaceHash: hash('sha256', $this->tmpWorkspace),
+            gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
+            rawIntent: $intent,
+            normalizedIntent: $intent,
+            userConstraints: [],
+            intentClarityLevel: 'high',
+            dirtyWorktreePolicy: 'preserve_pre_existing_changes',
+            preflight: new Preflight(
+                workspaceResolved: true,
+                permissionMode: 'write_allowed',
+                writeAllowed: true,
+                operatorExplicit: false,
+            ),
+            envelopeHash: str_repeat('e', 64),
+        );
+    }
+
+    private function bindContextAttributionAwisGate(): void
+    {
+        $this->app->instance(AtlasWorkspaceIntelligenceExecutionGateService::class, new class
+        {
+            /**
+             * @param  list<string>  $conversationTexts
+             * @return array<string,mixed>
+             */
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return [
+                    'allowed' => true,
+                    'status' => 'ready',
+                    'mode' => $mode,
+                    'blockers' => [],
+                ];
+            }
+        });
+    }
+
+    private function bootFeedbackSchema(): void
+    {
+        $migration = require base_path('database/migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php');
+        $migration->down();
+        $migration->up();
+        $migration2 = require base_path('database/migrations/2026_05_19_030000_strengthen_rag_feedback_and_create_learning_proposals.php');
+        $migration2->up();
+    }
+
+    private function dropFeedbackSchema(): void
+    {
+        Schema::dropIfExists('ai_learning_proposals');
+        $migration = require base_path('database/migrations/2026_05_17_180000_create_ai_compounding_engineering_intelligence_tables.php');
+        $migration->down();
+        app()->forgetInstance(AtlasRetrievalFeedbackLoopService::class);
     }
 }
 
