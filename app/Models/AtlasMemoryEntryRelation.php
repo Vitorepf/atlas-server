@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,10 +11,7 @@ class AtlasMemoryEntryRelation extends Model
 {
     use HasUuids;
 
-    public const TYPES = [
-        'duplicate',
-        'conflict',
-    ];
+    public const TYPES = AtlasMemoryConflictResolutionService::RELATION_TYPES;
 
     public const STATUSES = [
         'open',

@@ -58,6 +58,26 @@ class AtlasMemoryConflictResolutionService
         self::VERDICT_NOT_CONFLICT,
     ];
 
+    /** Pathology types kept for review-queue / governance open conflicts. */
+    public const PATHOLOGY_RELATION_TYPES = [
+        'duplicate',
+        'conflict',
+    ];
+
+    /** Healthy knowledge-graph verbs (schema atlas.memory.relation_verdict.v1 subset). */
+    public const KNOWLEDGE_RELATION_TYPES = [
+        self::VERDICT_RELATED,
+        self::VERDICT_COMPATIBLE,
+        self::VERDICT_SCOPED,
+        self::VERDICT_SUPERSEDES,
+    ];
+
+    /** Shared with {@see \App\Models\AtlasMemoryEntryRelation::TYPES}. */
+    public const RELATION_TYPES = [
+        ...self::PATHOLOGY_RELATION_TYPES,
+        ...self::KNOWLEDGE_RELATION_TYPES,
+    ];
+
     /**
      * Verdicts que mudam display em search.
      */

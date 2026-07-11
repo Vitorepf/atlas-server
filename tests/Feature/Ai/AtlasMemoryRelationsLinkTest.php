@@ -98,6 +98,7 @@ final class AtlasMemoryRelationsLinkTest extends TestCase
         $this->assertNotNull(AtlasMemoryEntryRelation::query()
             ->where('source_memory_entry_id', $old->id)
             ->where('target_memory_entry_id', $new->id)
+            ->where('relation_type', 'supersedes')
             ->first(), 'a superseded chain relation is recorded');
     }
 

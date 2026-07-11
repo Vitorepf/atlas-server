@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\AtlasMemoryGovernanceService;
+use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
@@ -18,7 +19,7 @@ class AtlasMemoryRelationsCommand extends Command
         {action=list : list, review, resolve, dismiss, link or supersede}
         {relation? : Relation UUID for review/resolve/dismiss}
         {--id= : Relation UUID for review/resolve/dismiss}
-        {--type=* : duplicate or conflict}
+        {--type=* : duplicate, conflict, related, compatible, scoped or supersedes}
         {--status= : open, resolved or dismissed}
         {--source-id= : Source memory entry UUID}
         {--target-id= : Target memory entry UUID}
@@ -76,12 +77,25 @@ class AtlasMemoryRelationsCommand extends Command
             return self::FAILURE;
         }
 
+        $reason = $this->stringOption('reason');
+        if ($this->isKnowledgeRelationType($type)) {
+            if ($reason === null || $reason === '') {
+                $this->error('--reason é obrigatório para tipos de conhecimento: '
+                    .implode(', ', AtlasMemoryConflictResolutionService::KNOWLEDGE_RELATION_TYPES));
+
+                return self::FAILURE;
+            }
+            $status = 'resolved';
+        } else {
+            $status = $this->stringOption('status') ?: 'open';
+        }
+
         $relation = AtlasMemoryEntryRelation::query()->create([
             'source_memory_entry_id' => $source->id,
             'target_memory_entry_id' => $target->id,
             'relation_type' => $type,
-            'status' => $this->stringOption('status') ?: 'open',
-            'reason' => $this->stringOption('reason'),
+            'status' => $status,
+            'reason' => $reason,
             'metadata' => $this->metadata(),
         ]);
 
@@ -104,7 +118,7 @@ class AtlasMemoryRelationsCommand extends Command
         $relation = AtlasMemoryEntryRelation::query()->create([
             'source_memory_entry_id' => $source->id,
             'target_memory_entry_id' => $target->id,
-            'relation_type' => 'conflict',
+            'relation_type' => AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES,
             'status' => 'resolved',
             'reason' => $this->stringOption('reason') ?: 'superseded_by',
             'metadata' => $this->metadata() + ['verb' => 'supersede'],
@@ -292,6 +306,11 @@ class AtlasMemoryRelationsCommand extends Command
         $value = $this->option($key);
 
         return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    private function isKnowledgeRelationType(string $type): bool
+    {
+        return in_array($type, AtlasMemoryConflictResolutionService::KNOWLEDGE_RELATION_TYPES, true);
     }
 
     private function memoryInput(): MemoryQueryInput
