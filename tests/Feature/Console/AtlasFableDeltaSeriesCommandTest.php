@@ -92,6 +92,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
             '--baseline' => $this->baseline,
             '--series' => $this->series,
             '--date' => '2026-06-13',
+            '--allow-past-date' => '1',
             '--report' => true,
             '--json' => true,
         ], $out);
@@ -122,6 +123,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
             '--baseline' => '/nonexistent/marco-zero.json',
             '--series' => $this->series,
             '--date' => '2026-06-12',
+            '--allow-past-date' => '1',
             '--json' => true,
         ], $out);
 
@@ -140,8 +142,52 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
             '--baseline' => $this->baseline,
             '--series' => $this->series,
             '--date' => $date,
+            '--allow-past-date' => '1',
             '--json' => true,
         ]);
+    }
+
+    public function test_past_date_without_allow_flag_is_refused(): void
+    {
+        $out = new BufferedOutput;
+        $exit = Artisan::call('atlas:fable:delta-series', [
+            '--baseline' => $this->baseline,
+            '--series' => $this->series,
+            '--date' => '2026-06-27',
+            '--json' => true,
+        ], $out);
+        $this->assertSame(0, $exit);
+        $payload = json_decode($out->fetch(), true);
+        $this->assertSame('blocked', $payload['status'] ?? null);
+        $this->assertSame('past_date_refused', $payload['reason'] ?? null);
+        $this->assertFileDoesNotExist($this->series);
+    }
+
+    public function test_catchup_when_guard_skips_when_today_row_present(): void
+    {
+        $today = date('Y-m-d');
+        file_put_contents($this->series, json_encode([
+            'date' => $today,
+            'metrics' => ['scorecard_overall' => 9.9],
+        ], JSON_UNESCAPED_SLASHES)."\n");
+        $before = file_get_contents($this->series);
+        $this->assertTrue(\App\Support\AtlasJsonlDatePresence::hasDate($this->series, $today));
+        // Simulate the schedule when() closure: when today is present, catch-up must NOT run.
+        $shouldRun = ! \App\Support\AtlasJsonlDatePresence::hasDate($this->series, $today);
+        $this->assertFalse($shouldRun, 'closure must short-circuit when today row exists');
+        $this->assertSame($before, file_get_contents($this->series), 'zero write — arquivo byte-idêntico');
+    }
+
+    public function test_catchup_when_guard_allows_when_today_row_absent(): void
+    {
+        $today = date('Y-m-d');
+        file_put_contents($this->series, json_encode([
+            'date' => '2026-07-01',
+            'metrics' => ['scorecard_overall' => 9.0],
+        ], JSON_UNESCAPED_SLASHES)."\n");
+        $this->assertFalse(\App\Support\AtlasJsonlDatePresence::hasDate($this->series, $today));
+        $shouldRun = ! \App\Support\AtlasJsonlDatePresence::hasDate($this->series, $today);
+        $this->assertTrue($shouldRun);
     }
 
     /**

@@ -32,7 +32,8 @@ class AtlasFableDeltaSeriesCommand extends Command
     protected $signature = 'atlas:fable:delta-series
         {--baseline= : Caminho do JSON do Marco Zero (default: o congelado de 12/06)}
         {--series= : Caminho do JSONL da série (default: storage evidence)}
-        {--date= : Data do snapshot YYYY-MM-DD (default: hoje) — determinístico p/ teste}
+        {--date= : Data do snapshot YYYY-MM-DD (default: hoje)}
+        {--allow-past-date= : Set 1 to allow --date != today (TESTS ONLY — EVI-04)}
         {--report : Emite o relatório final N×M (tendência primeiro-vs-último)}
         {--json : Saída JSON canônica}';
 
@@ -50,7 +51,11 @@ class AtlasFableDeltaSeriesCommand extends Command
             return $this->blocked('no_baseline', 'Marco Zero ausente ou ilegível: '.$baselinePath);
         }
 
-        $date = $this->resolveDate();
+        try {
+            $date = $this->resolveDate();
+        } catch (\InvalidArgumentException $e) {
+            return $this->blocked('past_date_refused', $e->getMessage());
+        }
 
         // 1. Snapshot de hoje, resolvido de fontes vivas.
         $snapshot = $this->snapshot($date, $baseline);
@@ -111,12 +116,23 @@ class AtlasFableDeltaSeriesCommand extends Command
 
     private function resolveDate(): string
     {
+        $today = date('Y-m-d');
         $date = trim((string) $this->option('date'));
-        if ($date !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1) {
-            return $date;
+        if ($date === '') {
+            return $today;
+        }
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            throw new \InvalidArgumentException('atlas:fable:delta-series --date must be YYYY-MM-DD, got: '.$date);
+        }
+        // EVI-04: refuse silent rewrite of a past day unless tests opt in.
+        if ($date !== $today && ! filter_var((string) $this->option('allow-past-date'), FILTER_VALIDATE_BOOLEAN)) {
+            throw new \InvalidArgumentException(
+                'atlas:fable:delta-series refuses --date='.$date.' (today='.$today.'). '
+                .'Catch-up is same-day only; past days stay lost. Tests may pass --allow-past-date.'
+            );
         }
 
-        return date('Y-m-d');
+        return $date;
     }
 
     /**

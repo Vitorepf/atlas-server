@@ -163,6 +163,25 @@ Schedule::command('atlas:fable:delta-series --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.fable.delta_series_enabled', true));
 
+// EVI-04 · Catch-up same-day (hourly). LOAD-BEARING when(): appendSnapshot is REPLACE
+// per date — without the guard, hourly re-measure would overwrite the 05:10 sample.
+// Only runs when today's line is missing AND local hour >= 6. Never backfills past days.
+Schedule::command('atlas:fable:delta-series --json')
+    ->hourly()
+    ->withoutOverlapping()
+    ->when(static function (): bool {
+        if (! (bool) config('atlas.fable.delta_series_enabled', true)) {
+            return false;
+        }
+        if ((int) date('G') < 6) {
+            return false;
+        }
+        $path = storage_path('app/atlas/evidence/fable-delta-series.jsonl');
+        $today = date('Y-m-d');
+
+        return ! \App\Support\AtlasJsonlDatePresence::hasDate($path, $today);
+    });
+
 // L6-9 · ACOS long-horizon readiness. Read-only claim gate: requires
 // resolved-evidence score floors plus >=30 real days in the delta series.
 Schedule::command('atlas:cognition:acos-long-horizon-gate --write-receipt --json')
@@ -170,6 +189,40 @@ Schedule::command('atlas:cognition:acos-long-horizon-gate --write-receipt --json
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.cognition.acos_long_horizon_gate.enabled', true)
         && (bool) config('atlas.cognition.acos_long_horizon_gate.schedule_enabled', true));
+
+// EVI-04 · Catch-up same-day for the long-horizon gate receipt (hourly after 07:00
+// when today's receipt is absent). Same-day only — never backfill.
+Schedule::command('atlas:cognition:acos-long-horizon-gate --write-receipt --json')
+    ->hourly()
+    ->withoutOverlapping()
+    ->when(static function (): bool {
+        if (! (bool) config('atlas.cognition.acos_long_horizon_gate.enabled', true)
+            || ! (bool) config('atlas.cognition.acos_long_horizon_gate.schedule_enabled', true)) {
+            return false;
+        }
+        if ((int) date('G') < 7) {
+            return false;
+        }
+        $path = (string) config(
+            'atlas.cognition.acos_long_horizon_gate.receipt_path',
+            storage_path('app/atlas/evidence/acos-long-horizon-gate.json')
+        );
+        if (! is_file($path)) {
+            return true;
+        }
+        $raw = @file_get_contents($path);
+        if ($raw === false || $raw === '') {
+            return true;
+        }
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return true;
+        }
+        $generated = (string) ($decoded['generated_at'] ?? $decoded['assessment']['today'] ?? '');
+        $today = date('Y-m-d');
+
+        return ! str_starts_with($generated, $today) && (($decoded['assessment']['today'] ?? null) !== $today);
+    });
 
 // L6-10 · Swarm topology auto-composer. Shadow-only: selects a topology by
 // task type and measures convergence from real plan_trace envelopes.

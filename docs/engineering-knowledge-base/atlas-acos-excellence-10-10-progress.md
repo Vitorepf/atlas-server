@@ -14,6 +14,13 @@ Estado durável dos 97 slices. Atualizar a cada land.
 
 Receipt: `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl`
 
+## Adendo 11/07 — autonomia (charter 06/07)
+
+Relido do disco: plano v1 + implementation-prompt v1 pós-correção. Floor pétreo =
+aplicação autônoma + registro completo + revisão-depois (NUNCA aprovação-antes).
+Slices landados até aqui (EVI-01, EVI-02) = cadência/scheduler — **zero** write-path
+de memória/promoção; nada a refatorar do modelo antigo.
+
 ## Checklist
 
 ### Onda 0 — Fundação e higiene (14)
@@ -21,13 +28,13 @@ Receipt: `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl`
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
 | EVI-01 | ✅ | 29801e9cd | suite 8/8 + launchctl exit=0 runs=2 |
-| EVI-02 | ✅ | (pending) | suite 3/3: exit≠0 + fatal → heal; healthy sem heal |
-| EVI-04 | ⬜ | — | — |
+| EVI-02 | ✅ | a100e5bf74 | suite 3/3: exit≠0 + fatal → heal; healthy sem heal |
+| EVI-04 | ✅ | (pending) | suite 7/7 + schedule:list fable:delta-series=2 |
 | FEE-02 | ⬜ | — | — |
 | TAXO-01 | ⬜ | — | — |
 | PIP-01 | ⬜ | — | — |
 | PIP-03 | ⬜ | — | — |
-| ENG-02 | ⬜ | — | — |
+| ENG-02 | ✅ | 8e47c0082d | chave forge_execution_gate_enforcing default OFF + ledger ABERTO-até-ENG-02 |
 | RAG-09 | ⬜ | — | — |
 | COM-09 | ⬜ | — | — |
 | FEE-12 | ⬜ | — | — |
@@ -143,4 +150,4 @@ Receipt: `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl`
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 2/97 · Faltam: 95 · Próximo: EVI-04**
+**Feitas: 4/97 · Faltam: 93 · Próximo: MED-01**
