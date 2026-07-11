@@ -20,8 +20,8 @@ Receipt: `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl`
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| EVI-01 | 🔄 in_progress | — | — |
-| EVI-02 | ⬜ | — | — |
+| EVI-01 | ✅ | 29801e9cd | suite 8/8 + launchctl exit=0 runs=2 |
+| EVI-02 | ✅ | (pending) | suite 3/3: exit≠0 + fatal → heal; healthy sem heal |
 | EVI-04 | ⬜ | — | — |
 | FEE-02 | ⬜ | — | — |
 | TAXO-01 | ⬜ | — | — |
@@ -143,4 +143,4 @@ Receipt: `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl`
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 0/97 · Faltam: 97 · Próximo: EVI-01**
+**Feitas: 2/97 · Faltam: 95 · Próximo: EVI-04**
