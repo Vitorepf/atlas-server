@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * never copies source payloads; intra-layer detail stays in the source.
  *
  * `id` is the deterministic node key "<source_kind>:<kind>:<source_id>" built by
- * {@see \App\Services\Ai\Reality\AtlasRealityGraphIngestionService}.
+ * {@see AtlasRealityGraphIngestionService}.
  */
 class AtlasAurgNode extends Model
 {
@@ -23,6 +24,7 @@ class AtlasAurgNode extends Model
     public const SOURCE_KINDS = [
         'memory',
         'code',
+        'doc',
         'domain',
         'evidence',
         'strategic',

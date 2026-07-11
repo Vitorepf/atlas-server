@@ -35,6 +35,8 @@ use Throwable;
  *               atlas_engineering_code_modules (modules ONLY — the code-graph stays
  *               canonical for code-to-code; the brain holds a bounded projection,
  *               never the symbols).
+ *   docs      — canonical engineering knowledge docs under docs/engineering-knowledge-base
+ *               as doc refs only: path/title/hash + cite-or-omit path/memory refs.
  *   domains   — the 21 canonical domains from {@see CrossDomainTaxonomyMap}
  *               (sensitive flag from the map) + mesh allowed-crossing edges from the
  *               EXISTING {@see AtlasCrossDomainMeshService} topology (reuse, not
@@ -57,6 +59,8 @@ use Throwable;
  *       to a memory source_id (1.0), or an evidence file path matching a module
  *       root_path (exact 1.0 / prefix 0.7);
  *   (d) code workspace→engineering domain 'belongs_to' (1.0, by construction).
+ *   (e) doc→code/doc→memory 'references' — canonical doc citations that resolve
+ *       to existing repo paths / ingested memory nodes.
  *
  * CONFIDENCE LADDER (deterministic, documented, closed):
  *   1.0 — exact id match: FK rows (verbatim→entry, module→workspace, strategic
@@ -84,7 +88,7 @@ use Throwable;
  */
 class AtlasRealityGraphIngestionService
 {
-    public const SOURCES = ['memory', 'code', 'domains', 'evidence', 'strategic'];
+    public const SOURCES = ['memory', 'code', 'docs', 'domains', 'evidence', 'strategic'];
 
     public const CONFIDENCE_EXACT = 1.0;
 
@@ -125,6 +129,7 @@ class AtlasRealityGraphIngestionService
             $gathered = match ($source) {
                 'memory' => $this->gatherMemory(),
                 'code' => $this->gatherCode(),
+                'docs' => $this->gatherDocs(),
                 'domains' => $this->gatherDomains(),
                 'evidence' => $this->gatherEvidence(),
                 'strategic' => $this->gatherStrategic(),
@@ -155,6 +160,8 @@ class AtlasRealityGraphIngestionService
             'memory_domain' => $this->linkMemoryToDomain(),
             'evidence_links' => $this->linkEvidence(),
             'code_domain' => $this->linkWorkspaceToEngineeringDomain(),
+            'doc_code' => $this->linkDocsToCode(),
+            'doc_memory' => $this->linkDocsToMemory(),
         ];
 
         $stats['totals'] = [
@@ -406,8 +413,8 @@ class AtlasRealityGraphIngestionService
      *     wraps this in try/catch so a brain outage never breaks a delivery).
      *
      * @param  array<string,mixed>  $outcome  {id, request, branch, delivered(bool),
-     *     provider?, receipt?, files?:list<string>, measure?:array{status?,ok?},
-     *     memory_refs?:list<string>}
+     *                                        provider?, receipt?, files?:list<string>, measure?:array{status?,ok?},
+     *                                        memory_refs?:list<string>}
      * @return array<string,mixed> {recorded(bool), reason?, mission_node?, evidence_node?, edges?:int}
      */
     public function recordMissionOutcome(array $outcome): array
@@ -578,10 +585,10 @@ class AtlasRealityGraphIngestionService
      *     wraps this so a brain outage never breaks the obra).
      *
      * @param  array<string,mixed>  $outcome  {id, intent|request, branch, certified(bool),
-     *     status?, delivered_steps?:int, total_steps?:int, receipt_hash?:string,
-     *     step_ids?:list<string>, integrated_status?:string}
+     *                                        status?, delivered_steps?:int, total_steps?:int, receipt_hash?:string,
+     *                                        step_ids?:list<string>, integrated_status?:string}
      * @return array<string,mixed> {recorded(bool), reason?, obra_node?, evidence_node?,
-     *     step_edges?:int, edges?:int}
+     *                             step_edges?:int, edges?:int}
      */
     public function recordObraOutcome(array $outcome): array
     {
@@ -1072,7 +1079,72 @@ class AtlasRealityGraphIngestionService
     }
 
     // ------------------------------------------------------------------
-    // Source 3 — DOMAINS (21 canonical + mesh allowed-crossing edges)
+    // Source 3 — DOCS (canonical engineering knowledge refs)
+    // ------------------------------------------------------------------
+
+    /**
+     * @return array{nodes:list<array<string,mixed>>, edges:list<array<string,mixed>>}
+     */
+    private function gatherDocs(): array
+    {
+        $nodes = [];
+        $root = base_path('docs/engineering-knowledge-base');
+        if (! is_dir($root)) {
+            return ['nodes' => $nodes, 'edges' => []];
+        }
+
+        $base = rtrim(str_replace('\\', '/', base_path()), '/').'/';
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($iterator as $file) {
+            if (! $file instanceof \SplFileInfo || ! $file->isFile() || strtolower($file->getExtension()) !== 'md') {
+                continue;
+            }
+            $absolute = str_replace('\\', '/', $file->getPathname());
+            if (! str_starts_with($absolute, $base)) {
+                continue;
+            }
+            $relative = substr($absolute, strlen($base));
+            if (! str_starts_with($relative, 'docs/engineering-knowledge-base/')) {
+                continue;
+            }
+            $files[] = $relative;
+        }
+        sort($files, SORT_STRING);
+        $files = array_slice($files, 0, $this->cap('docs_limit', 2000));
+
+        foreach ($files as $relative) {
+            $absolute = base_path($relative);
+            $content = @file_get_contents($absolute);
+            if (! is_string($content)) {
+                continue;
+            }
+
+            $nodes[] = $this->node(
+                id: $this->nodeKey('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC, $relative),
+                kind: AtlasRealityGraphSnapshotBuilderService::NODE_DOC,
+                sourceKind: 'doc',
+                sourceId: $this->compactSourceId($relative),
+                label: $this->docTitle($relative, $content),
+                providerSafe: true,
+                sensitive: false,
+                meta: [
+                    'path' => $relative,
+                    'doc_status' => 'canonical_engineering_knowledge',
+                    'paths' => $this->existingRepoPathsFromText($content),
+                    'memory_refs' => $this->memoryRefsFromText($content),
+                ],
+                contentHash: hash('sha256', $relative.'|'.hash('sha256', $content)),
+            );
+        }
+
+        return ['nodes' => $nodes, 'edges' => []];
+    }
+
+    // ------------------------------------------------------------------
+    // Source 4 — DOMAINS (21 canonical + mesh allowed-crossing edges)
     // ------------------------------------------------------------------
 
     /**
@@ -1561,6 +1633,117 @@ class AtlasRealityGraphIngestionService
         return $this->upsertEdges($edges);
     }
 
+    /**
+     * (e1) doc→code 'references': exact path = 1.0; path under module root = 0.7.
+     */
+    private function linkDocsToCode(): int
+    {
+        $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
+        if ($modules === []) {
+            return 0;
+        }
+
+        $edges = [];
+        foreach ($this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC) as $doc) {
+            $edges = array_merge($edges, $this->docCodeEdgesFor($doc, $modules));
+        }
+
+        return $this->upsertEdges($edges);
+    }
+
+    /**
+     * @param  array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}  $doc
+     * @param  list<array{id:string, source_id:string, label:string, kind:string, meta:array<string,mixed>}>  $modules
+     * @return list<array<string,mixed>>
+     */
+    private function docCodeEdgesFor(array $doc, array $modules): array
+    {
+        $edges = [];
+        $emitted = 0;
+        $linked = [];
+        $paths = array_values(array_filter((array) ($doc['meta']['paths'] ?? []), 'is_string'));
+
+        foreach ($paths as $path) {
+            if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                break;
+            }
+            foreach ($modules as $module) {
+                $rootPath = (string) ($module['meta']['root_path'] ?? '');
+                if ($rootPath === '' || isset($linked[$module['id']])) {
+                    continue;
+                }
+                $confidence = null;
+                if ($path === $rootPath) {
+                    $confidence = self::CONFIDENCE_EXACT;
+                } elseif (str_starts_with($path, rtrim($rootPath, '/').'/')) {
+                    $confidence = self::CONFIDENCE_DERIVED;
+                }
+                if ($confidence === null) {
+                    continue;
+                }
+                $edges[] = $this->edge(
+                    from: $doc['id'],
+                    to: $module['id'],
+                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                    source: 'linker_doc_code',
+                    confidence: $confidence,
+                    meta: ['matched_path' => $path, 'module_root' => $rootPath],
+                );
+                $linked[$module['id']] = true;
+                $emitted++;
+                break;
+            }
+        }
+
+        return $edges;
+    }
+
+    /**
+     * (e2) doc→memory 'references': exact memory id match only.
+     */
+    private function linkDocsToMemory(): int
+    {
+        $docs = $this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC);
+        if ($docs === []) {
+            return 0;
+        }
+
+        $memoryBySourceId = [];
+        foreach ($this->brainNodes('memory', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) as $memory) {
+            $memoryBySourceId[$memory['source_id']] = $memory['id'];
+        }
+        if ($memoryBySourceId === []) {
+            return 0;
+        }
+
+        $edges = [];
+        foreach ($docs as $doc) {
+            $emitted = 0;
+            $seen = [];
+            foreach (array_values(array_filter((array) ($doc['meta']['memory_refs'] ?? []), 'is_string')) as $ref) {
+                if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                    break;
+                }
+                $target = $memoryBySourceId[$ref] ?? null;
+                if ($target === null || isset($seen[$target])) {
+                    continue;
+                }
+                $edges[] = $this->edge(
+                    from: $doc['id'],
+                    to: $target,
+                    kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                    source: 'linker_doc_memory',
+                    confidence: self::CONFIDENCE_EXACT,
+                    meta: ['matched_memory_id' => $ref],
+                );
+                $seen[$target] = true;
+                $emitted++;
+            }
+        }
+
+        return $this->upsertEdges($edges);
+    }
+
     // ------------------------------------------------------------------
     // Store primitives (idempotent upsert / prune / bounded reads)
     // ------------------------------------------------------------------
@@ -1797,6 +1980,15 @@ class AtlasRealityGraphIngestionService
         return substr($key, 0, 283).':'.substr(hash('sha256', $key), 0, 16);
     }
 
+    private function compactSourceId(string $sourceId): string
+    {
+        if (strlen($sourceId) <= 220) {
+            return $sourceId;
+        }
+
+        return substr($sourceId, 0, 203).':'.substr(hash('sha256', $sourceId), 0, 16);
+    }
+
     /**
      * Path-looking strings from a source row's metadata/tags — the citations the
      * memory→code / evidence→code linkers may later match. Deterministic: explicit
@@ -1853,6 +2045,62 @@ class AtlasRealityGraphIngestionService
             static fn (string $path): string => rtrim($path, ".,;:!?)]}'\"`"),
             $matches[0] ?? [],
         )))), 0, self::MAX_META_PATHS);
+    }
+
+    private function docTitle(string $path, string $content): string
+    {
+        if (preg_match('/^\s*#\s+(.+)$/m', $content, $matches) === 1) {
+            return AtlasSecurity::redactString(trim((string) $matches[1]));
+        }
+
+        return basename($path, '.md');
+    }
+
+    /**
+     * Existing repo-relative paths cited by a canonical doc (cite-or-omit).
+     *
+     * @return list<string>
+     */
+    private function existingRepoPathsFromText(string $text): array
+    {
+        preg_match_all(
+            '~(?<![\pL\pN_])(?:app|tests|docs|config|routes|database|resources|scripts)/[A-Za-z0-9_./-]+~u',
+            $text,
+            $matches,
+        );
+
+        $paths = [];
+        foreach ($matches[0] ?? [] as $match) {
+            $path = rtrim($match, ".,;:!?)]}'\"`");
+            if ($path === '' || str_contains($path, '..')) {
+                continue;
+            }
+            if (file_exists(base_path($path))) {
+                $paths[$path] = true;
+            }
+        }
+
+        return array_slice(array_keys($paths), 0, self::MAX_META_PATHS);
+    }
+
+    /**
+     * Memory entry ids explicitly cited by docs. Linkers still cite-or-omit by
+     * requiring a matching ingested memory node before an edge is written.
+     *
+     * @return list<string>
+     */
+    private function memoryRefsFromText(string $text): array
+    {
+        preg_match_all(
+            '/\b(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})\b/i',
+            $text,
+            $matches,
+        );
+
+        return array_slice(array_values(array_unique(array_map(
+            static fn (string $ref): string => strtolower($ref),
+            $matches[0] ?? [],
+        ))), 0, self::MAX_LINKS_PER_NODE);
     }
 
     /**
@@ -2066,7 +2314,11 @@ class AtlasRealityGraphIngestionService
 
     private function sourceKindFor(string $source): string
     {
-        return $source === 'domains' ? 'domain' : $source;
+        return match ($source) {
+            'domains' => 'domain',
+            'docs' => 'doc',
+            default => $source,
+        };
     }
 
     /**
@@ -2078,6 +2330,7 @@ class AtlasRealityGraphIngestionService
         return match ($source) {
             'memory' => $this->tableExists('atlas_memory_entries'),
             'code' => $this->tableExists('atlas_engineering_code_modules'),
+            'docs' => is_dir(base_path('docs/engineering-knowledge-base')),
             'domains' => true,
             'evidence' => $this->tableExists('atlas_ledger_events'),
             'strategic' => $this->tableExists('atlas_reality_entities'),

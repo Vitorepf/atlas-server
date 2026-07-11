@@ -74,6 +74,9 @@ final class AtlasAurgIngestionTest extends TestCase
         $this->assertSame(3, $stats['sources']['code']['nodes']);
         $this->assertSame(2, $stats['sources']['code']['edges']);
 
+        // docs: canonical engineering knowledge docs are now first-class refs.
+        $this->assertGreaterThanOrEqual(300, $stats['sources']['docs']['nodes']);
+
         // domains: the 21 canonical domains + real mesh allowed-crossing edges.
         $this->assertSame(21, $stats['sources']['domains']['nodes']);
         $this->assertGreaterThan(0, $stats['sources']['domains']['edges']);
@@ -88,7 +91,7 @@ final class AtlasAurgIngestionTest extends TestCase
 
         // Brain stays compact: refs, not copies.
         $this->assertSame(
-            3 + 3 + 21 + 2 + 2,
+            3 + 3 + $stats['sources']['docs']['nodes'] + 21 + 2 + 2,
             (int) AtlasAurgNode::query()->count(),
         );
 
