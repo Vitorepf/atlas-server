@@ -14,7 +14,6 @@ final class AtlasContextFeedbackSignalPolicy
 
     /** @var list<string> */
     private const EXCLUDED_ATTRIBUTION_QUALITIES = [
-        'low',
         'transcript_inferred',
     ];
 

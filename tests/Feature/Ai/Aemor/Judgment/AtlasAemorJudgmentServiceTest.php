@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Aemor\Judgment;
 
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasAemorJudgmentReport;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAemorTables;
 use Tests\TestCase;
 
@@ -18,10 +20,12 @@ final class AtlasAemorJudgmentServiceTest extends TestCase
     {
         parent::setUp();
         $this->createAemorTables();
+        $this->createAaeosTestRunReceiptTable();
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_aaeos_test_run_receipts');
         $this->dropAemorTables();
         parent::tearDown();
     }
@@ -30,13 +34,14 @@ final class AtlasAemorJudgmentServiceTest extends TestCase
     {
         $runtime = app(AtlasAemorRuntimeService::class);
         $episode = $runtime->openEpisode(['objective' => 'green patch', 'evidence_refs' => ['apcr:e1']]);
+        $receipt = $this->greenTestReceipt();
         $runtime->closeOutcome([
             'episode_id' => $episode['episode_id'],
             'status' => 'succeeded',
             'summary' => 'Patch passed with tests.',
             'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
             'context_utility' => ['helpful_sources' => ['doc:a'], 'missing_sources' => []],
-            'evidence_refs' => ['test:green'],
+            'evidence_refs' => ['test_run_receipt:'.$receipt->id],
         ]);
 
         $judgment = app(AtlasAemorJudgmentService::class)->judge((string) $episode['episode_id']);
@@ -153,5 +158,26 @@ final class AtlasAemorJudgmentServiceTest extends TestCase
         $this->assertSame('candidate', data_get($judgment, 'operational_doctrine.status'));
         $this->assertSame('candidate', data_get($judgment, 'human_correction.status'));
         $this->assertSame('normal', data_get($judgment, 'patch_quality_fingerprint.risk'));
+    }
+
+    private function createAaeosTestRunReceiptTable(): void
+    {
+        if (! Schema::hasTable('atlas_aaeos_test_run_receipts')) {
+            (require database_path('migrations/2026_06_02_090000_create_atlas_aaeos_test_run_receipts_table.php'))->up();
+        }
+    }
+
+    private function greenTestReceipt(): AtlasAaeosTestRunReceipt
+    {
+        return AtlasAaeosTestRunReceipt::query()->create([
+            'capability_id' => 'aemor.judgment.green',
+            'test_ref' => self::class.'::test_judgment_passes_when_outcome_has_evidence_tests_and_attribution',
+            'filter' => 'test_judgment_passes_when_outcome_has_evidence_tests_and_attribution',
+            'passed' => true,
+            'tests_run' => 1,
+            'exit_code' => 0,
+            'metadata' => ['attribution_reviewed' => true],
+            'ran_at' => now(),
+        ]);
     }
 }

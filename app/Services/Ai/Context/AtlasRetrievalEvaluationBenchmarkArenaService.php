@@ -299,12 +299,12 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         $selectedCount = max(1, count($selected));
         $precision = max(0.0, min(1.0, 1.0 - ($noiseSources / $selectedCount)));
         $groundedness = $this->groundedness($coverage, $feedback, $precision);
-        $roi = (float) data_get($feedback, 'context_roi.roi_score', 0.0);
+        $roiScore = $this->contextRoiScore($feedback, $recall, $precision, $groundedness);
         $missedSources = array_values(array_filter(
             $requiredSources,
             static fn (string $source): bool => ($coverage[$source] ?? false) !== true,
         ));
-        $caseRegressions = $this->caseRegressions($missedSources, $recall, $groundedness, $roi, (string) ($case['risk_level'] ?? $risk));
+        $caseRegressions = $this->caseRegressions($missedSources, $recall, $groundedness, $roiScore['score'], (string) ($case['risk_level'] ?? $risk));
 
         $result = [
             'schema_version' => self::EVAL_RESULT_SCHEMA,
@@ -315,7 +315,8 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
                 'required_source_recall' => round($recall, 4),
                 'precision_proxy' => round($precision, 4),
                 'groundedness' => round($groundedness, 4),
-                'context_roi' => round($roi, 4),
+                'context_roi' => round($roiScore['score'], 4),
+                'context_roi_basis' => $roiScore['basis'],
                 'selected_count' => count($selected),
                 'missed_required_count' => count($missedSources),
                 'noise_count' => $noiseSources,
@@ -363,6 +364,27 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         };
 
         return max(0.0, min(1.0, $coverageScore * 0.48 + $precision * 0.24 + $sufficiency * 0.28));
+    }
+
+    /**
+     * @param  array<string,mixed>  $feedback
+     * @return array{score:float,basis:string}
+     */
+    private function contextRoiScore(array $feedback, float $recall, float $precision, float $groundedness): array
+    {
+        $measured = (bool) data_get($feedback, 'context_roi.measured', false);
+        $roi = data_get($feedback, 'context_roi.roi_score');
+        if ($measured && is_numeric($roi)) {
+            return [
+                'score' => max(0.0, min(1.0, (float) $roi)),
+                'basis' => 'measured_arfl_context_roi',
+            ];
+        }
+
+        return [
+            'score' => max(0.0, min(1.0, $recall * 0.45 + $precision * 0.25 + $groundedness * 0.30)),
+            'basis' => 'internal_retrieval_proxy_unmeasured_arfl',
+        ];
     }
 
     /**
