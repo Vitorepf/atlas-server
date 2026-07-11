@@ -12,7 +12,7 @@ use Throwable;
  * L6-9: honest long-horizon gate for the ACOS 10/10 claim.
  *
  * This service never mints receipts, edits scorecard values or backfills time.
- * It only reads the resolved-evidence scorecard plus the append-only Fable
+ * It only reads the resolved-evidence scorecard plus the append-only ACOS
  * delta series and allows the claim once the real window and floors are met.
  */
 final class AtlasAcosLongHorizonGateService
@@ -44,7 +44,7 @@ final class AtlasAcosLongHorizonGateService
         $minOverall = max(0.0, min(10.0, (float) ($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5)));
         $minPipeline = max(0.0, min(10.0, (float) ($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5)));
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
-        $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/fable-delta-series.jsonl'));
+        $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
 
         // "Today" is injectable so the frozen test can pin the freshness window
         // deterministically; in production it is the real UTC calendar day. It

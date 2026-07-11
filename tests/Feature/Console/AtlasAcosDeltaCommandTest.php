@@ -12,11 +12,11 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
 /**
- * L2-7: o medidor do exponencial. O delta compara HOJE vs Marco Zero com fontes VIVAS
+ * L2-7 / EVI-09: medidor one-shot do ACOS (HOJE vs Marco Zero).
  * (scorecard resolved-evidence, tabela do Loop, runtime semântico) — nunca números
  * declarados. Congelado: o comando resolve, o shape carrega baseline/current/delta.
  */
-final class AtlasFableDeltaCommandTest extends TestCase
+final class AtlasAcosDeltaCommandTest extends TestCase
 {
     protected function setUp(): void
     {
@@ -37,12 +37,12 @@ final class AtlasFableDeltaCommandTest extends TestCase
         ]));
 
         $out = new BufferedOutput;
-        $exit = Artisan::call('atlas:fable:delta', ['--baseline' => $baseline, '--json' => true], $out);
+        $exit = Artisan::call('atlas:acos:delta', ['--baseline' => $baseline, '--json' => true], $out);
         @unlink($baseline);
 
         $this->assertSame(0, $exit);
         $report = json_decode($out->fetch(), true);
-        $this->assertSame('atlas.fable.delta.v1', $report['schema_version']);
+        $this->assertSame('atlas.acos.delta.v1', $report['schema_version']);
 
         $m = $report['metrics']['scorecard_overall'];
         $this->assertEqualsWithDelta(5.0, $m['baseline'], 0.001);
@@ -58,8 +58,29 @@ final class AtlasFableDeltaCommandTest extends TestCase
 
     public function test_missing_baseline_fails_closed(): void
     {
-        $exit = Artisan::call('atlas:fable:delta', ['--baseline' => '/nonexistent/mz.json']);
+        $exit = Artisan::call('atlas:acos:delta', ['--baseline' => '/nonexistent/mz.json']);
         $this->assertSame(1, $exit);
+    }
+
+    public function test_legacy_fable_alias_runs_same_command(): void
+    {
+        $this->seedMergedImpactReceipt();
+        $baseline = sys_get_temp_dir().'/marco-zero-alias-'.bin2hex(random_bytes(4)).'.json';
+        file_put_contents($baseline, json_encode([
+            'recorded_at' => '2026-06-11',
+            'baseline' => [
+                'maturity_scorecard' => ['acos_overall' => 5.0],
+                'learning_capture_quality_7d' => ['gate_mode' => 'observe'],
+            ],
+        ]));
+
+        $out = new BufferedOutput;
+        $exit = Artisan::call('atlas:fable:delta', ['--baseline' => $baseline, '--json' => true], $out);
+        @unlink($baseline);
+
+        $this->assertSame(0, $exit);
+        $report = json_decode($out->fetch(), true);
+        $this->assertSame('atlas.acos.delta.v1', $report['schema_version']);
     }
 
     private function ensureLoopTables(): void

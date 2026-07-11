@@ -1891,7 +1891,13 @@ return [
 
     // Atlas Cognition Operating System (ACOS) — toggles e budgets canonicos.
     // Doc canon: docs/engineering-knowledge-base/atlas-cognition-operating-system.md.
-    // L3-14: campanha Fable — série diária do delta N×M (HOJE vs Marco Zero).
+    // EVI-09: ACOS delta series — série diária N×M (HOJE vs Marco Zero).
+    // Config primária: atlas.acos.delta_series_enabled (fallback legado atlas.fable.*).
+    'acos' => [
+        'delta_series_enabled' => (bool) env('ATLAS_ACOS_DELTA_SERIES_ENABLED', env('ATLAS_FABLE_DELTA_SERIES_ENABLED', true)),
+    ],
+
+    // Legado campanha Fable — mantido 1 ciclo para leitura de env antigo.
     'fable' => [
         'delta_series_enabled' => (bool) env('ATLAS_FABLE_DELTA_SERIES_ENABLED', true),
     ],
@@ -1925,7 +1931,6 @@ return [
                 'atlas_memory_provider_projection_audits',
             ],
             'series_jsonls' => [
-                storage_path('app/atlas/evidence/fable-delta-series.jsonl'),
                 storage_path('app/atlas/evidence/acos-delta-series.jsonl'),
                 'live_outcomes:',
                 storage_path('atlas/scheduler/heartbeat.jsonl'),
@@ -1943,7 +1948,7 @@ return [
             // within this window of "today" or the gate rejects it as stale. Any
             // future-dated row is always rejected. Mechanical does_not_backfill_time.
             'max_latest_stale_days' => max(0, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MAX_LATEST_STALE_DAYS', 2)),
-            'series_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SERIES_PATH', storage_path('app/atlas/evidence/fable-delta-series.jsonl')),
+            'series_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SERIES_PATH', storage_path('app/atlas/evidence/acos-delta-series.jsonl')),
             'receipt_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/acos-long-horizon-gate.json')),
         ],
 

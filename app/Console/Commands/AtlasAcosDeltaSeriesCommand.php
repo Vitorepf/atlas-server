@@ -14,22 +14,25 @@ use Illuminate\Console\Command;
 use Throwable;
 
 /**
- * L3-14 — a SÉRIE TEMPORAL do exponencial + o relatório final N×M da campanha Fable.
+ * L3-14 / EVI-09 — série temporal append-only do ACOS (ex campanha Fable).
  *
- * Onde {@see AtlasFableDeltaCommand} dá uma fotografia única (HOJE vs Marco Zero), este
+ * Onde {@see AtlasAcosDeltaCommand} dá uma fotografia única (HOJE vs Marco Zero), este
  * comando MANTÉM uma série append-only (uma linha por dia) num JSONL durável no Evidence
  * Ledger. Cada snapshot é resolvido das MESMAS fontes vivas (scorecard resolved-evidence,
  * tabela do Loop, runtime semântico, modo do capture gate) — nunca declarado.
  *
  * O --report emite a tendência primeiro-vs-último de cada métrica: o número que prova
- * (ou refuta) que a campanha compôs. Sem série, "está crescendo" é narrativa; com ela,
+ * (ou refuta) que o ACOS compôs. Sem série, "está crescendo" é narrativa; com ela,
  * é trajetória auditável.
  */
-class AtlasFableDeltaSeriesCommand extends Command
+class AtlasAcosDeltaSeriesCommand extends Command
 {
     use EmitsCanonicalJson;
 
-    protected $signature = 'atlas:fable:delta-series
+    /** @var list<string> */
+    protected $aliases = ['atlas:fable:delta-series'];
+
+    protected $signature = 'atlas:acos:delta-series
         {--baseline= : Caminho do JSON do Marco Zero (default: o congelado de 12/06)}
         {--series= : Caminho do JSONL da série (default: storage evidence)}
         {--date= : Data do snapshot YYYY-MM-DD (default: hoje)}
@@ -37,14 +40,14 @@ class AtlasFableDeltaSeriesCommand extends Command
         {--report : Emite o relatório final N×M (tendência primeiro-vs-último)}
         {--json : Saída JSON canônica}';
 
-    protected $description = 'Mantém a série temporal de deltas da campanha Fable (append-only, idempotente por data) e emite o relatório final N×M de tendência por evidência resolvida.';
+    protected $description = 'Mantém a série temporal de deltas do ACOS (append-only, idempotente por data) e emite o relatório N×M de tendência por evidência resolvida.';
 
     public function handle(): int
     {
         $baselinePath = trim((string) $this->option('baseline'))
             ?: storage_path('app/atlas/evidence/marco-zero-fable-2026-06-11.json');
         $seriesPath = trim((string) $this->option('series'))
-            ?: storage_path('app/atlas/evidence/fable-delta-series.jsonl');
+            ?: storage_path('app/atlas/evidence/acos-delta-series.jsonl');
 
         $baseline = $this->readBaseline($baselinePath);
         if ($baseline === null) {
@@ -74,7 +77,7 @@ class AtlasFableDeltaSeriesCommand extends Command
         }
 
         $payload = [
-            'schema_version' => 'atlas.fable.delta_series.v1',
+            'schema_version' => 'atlas.acos.delta_series.v1',
             'status' => 'ok',
             'today' => $snapshot,
             'series_length' => count($series),
@@ -122,12 +125,12 @@ class AtlasFableDeltaSeriesCommand extends Command
             return $today;
         }
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
-            throw new \InvalidArgumentException('atlas:fable:delta-series --date must be YYYY-MM-DD, got: '.$date);
+            throw new \InvalidArgumentException('atlas:acos:delta-series --date must be YYYY-MM-DD, got: '.$date);
         }
         // EVI-04: refuse silent rewrite of a past day unless tests opt in.
         if ($date !== $today && ! filter_var((string) $this->option('allow-past-date'), FILTER_VALIDATE_BOOLEAN)) {
             throw new \InvalidArgumentException(
-                'atlas:fable:delta-series refuses --date='.$date.' (today='.$today.'). '
+                'atlas:acos:delta-series refuses --date='.$date.' (today='.$today.'). '
                 .'Catch-up is same-day only; past days stay lost. Tests may pass --allow-past-date.'
             );
         }
@@ -353,9 +356,9 @@ class AtlasFableDeltaSeriesCommand extends Command
     private function emitReport(array $snapshot, array $series, array $trend): int
     {
         $report = [
-            'schema_version' => 'atlas.fable.delta_series.report.v1',
+            'schema_version' => 'atlas.acos.delta_series.report.v1',
             'status' => 'ok',
-            'title' => 'Relatório final N×M — campanha Fable (tendência resolvida por evidência)',
+            'title' => 'Relatório N×M — ACOS delta series (tendência resolvida por evidência)',
             'series_length' => count($series),
             'today' => $snapshot,
             'trend' => $trend,
@@ -394,7 +397,7 @@ class AtlasFableDeltaSeriesCommand extends Command
     private function blocked(string $status, string $message): int
     {
         $payload = [
-            'schema_version' => 'atlas.fable.delta_series.v1',
+            'schema_version' => 'atlas.acos.delta_series.v1',
             'status' => 'blocked',
             'reason' => $status,
             'message' => $message,

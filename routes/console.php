@@ -166,28 +166,26 @@ Schedule::command('atlas:cognition:mint-pipeline-receipts --limit=30 --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.cognition.mint_pipeline_receipts_enabled', true));
 
-// L3-14 · Série diária do delta N×M da campanha Fable — a foto persistida de
-// HOJE-vs-Marco-Zero (waste, merges, custo, scorecard, recall semântico). Idempotente
-// por data; alimenta o relatório final que decide pagar API Fable.
-Schedule::command('atlas:fable:delta-series --json')
+// EVI-09 · Série diária do delta N×M do ACOS — foto persistida de HOJE-vs-Marco-Zero.
+Schedule::command('atlas:acos:delta-series --json')
     ->dailyAt('05:10')
     ->withoutOverlapping()
-    ->when(static fn (): bool => (bool) config('atlas.fable.delta_series_enabled', true));
+    ->when(static fn (): bool => (bool) config('atlas.acos.delta_series_enabled', config('atlas.fable.delta_series_enabled', true)));
 
 // EVI-04 · Catch-up same-day (hourly). LOAD-BEARING when(): appendSnapshot is REPLACE
 // per date — without the guard, hourly re-measure would overwrite the 05:10 sample.
 // Only runs when today's line is missing AND local hour >= 6. Never backfills past days.
-Schedule::command('atlas:fable:delta-series --json')
+Schedule::command('atlas:acos:delta-series --json')
     ->hourly()
     ->withoutOverlapping()
     ->when(static function (): bool {
-        if (! (bool) config('atlas.fable.delta_series_enabled', true)) {
+        if (! (bool) config('atlas.acos.delta_series_enabled', config('atlas.fable.delta_series_enabled', true))) {
             return false;
         }
         if ((int) date('G') < 6) {
             return false;
         }
-        $path = storage_path('app/atlas/evidence/fable-delta-series.jsonl');
+        $path = storage_path('app/atlas/evidence/acos-delta-series.jsonl');
         $today = date('Y-m-d');
 
         return ! \App\Support\AtlasJsonlDatePresence::hasDate($path, $today);

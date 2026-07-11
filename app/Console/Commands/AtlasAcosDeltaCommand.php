@@ -14,18 +14,20 @@ use Illuminate\Console\Command;
 use Throwable;
 
 /**
- * L2-7 — o medidor do exponencial: compara o estado de HOJE com o Marco Zero congelado
- * no Evidence Ledger (12/06). Cada métrica é resolvida de fonte viva (scorecard, tabelas
- * do Loop, runtime semântico) — nunca declarada. Sem número, "está melhorando" é
- * narrativa; com este comando, é delta auditável.
+ * L2-7 / EVI-09 — medidor one-shot do ACOS: compara HOJE vs Marco Zero congelado.
+ * Cada métrica é resolvida de fonte viva (scorecard, tabelas do Loop, runtime
+ * semântico) — nunca declarada.
  */
-class AtlasFableDeltaCommand extends Command
+class AtlasAcosDeltaCommand extends Command
 {
-    protected $signature = 'atlas:fable:delta
+    /** @var list<string> */
+    protected $aliases = ['atlas:fable:delta'];
+
+    protected $signature = 'atlas:acos:delta
         {--baseline= : Caminho do JSON do Marco Zero (default: o congelado de 12/06)}
         {--json : Saída JSON canônica}';
 
-    protected $description = 'Compara o estado atual com o Marco Zero da campanha Fable (deltas resolvidos por evidência viva).';
+    protected $description = 'Compara o estado atual com o Marco Zero (deltas resolvidos por evidência viva).';
 
     public function handle(): int
     {
@@ -47,7 +49,7 @@ class AtlasFableDeltaCommand extends Command
         $b = $baseline['baseline'] ?? [];
 
         $report = [
-            'schema_version' => 'atlas.fable.delta.v1',
+            'schema_version' => 'atlas.acos.delta.v1',
             'baseline_recorded_at' => $baseline['recorded_at'] ?? null,
             'metrics' => [
                 'scorecard_overall' => $this->metric(

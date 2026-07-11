@@ -12,7 +12,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
 /**
- * L3-14: a SÉRIE TEMPORAL + o relatório final N×M da campanha Fable. Congelado:
+ * L3-14 / EVI-09: série temporal append-only do ACOS + relatório N×M.
  * - um snapshot acrescenta UMA linha à série (append-only);
  * - re-rodar a MESMA data NÃO duplica (idempotente por data);
  * - --report emite tendência primeiro-vs-último com delta;
@@ -21,7 +21,7 @@ use Tests\TestCase;
  * Fontes vivas (scorecard, tabela do Loop, runtime semântico) são resolvidas, nunca
  * declaradas — o teste prova a mecânica da série, não chumba números de métrica.
  */
-final class AtlasFableDeltaSeriesCommandTest extends TestCase
+final class AtlasAcosDeltaSeriesCommandTest extends TestCase
 {
     private string $baseline;
 
@@ -32,7 +32,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
         parent::setUp();
         $tag = bin2hex(random_bytes(4));
         $this->baseline = sys_get_temp_dir().'/marco-zero-series-'.$tag.'.json';
-        $this->series = sys_get_temp_dir().'/fable-delta-series-'.$tag.'.jsonl';
+        $this->series = sys_get_temp_dir().'/acos-delta-series-'.$tag.'.jsonl';
 
         file_put_contents($this->baseline, json_encode([
             'recorded_at' => '2026-06-11',
@@ -88,7 +88,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
         $this->snap('2026-06-13');
 
         $out = new BufferedOutput;
-        $exit = Artisan::call('atlas:fable:delta-series', [
+        $exit = Artisan::call('atlas:acos:delta-series', [
             '--baseline' => $this->baseline,
             '--series' => $this->series,
             '--date' => '2026-06-13',
@@ -99,7 +99,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
 
         $this->assertSame(0, $exit);
         $report = json_decode($out->fetch(), true);
-        $this->assertSame('atlas.fable.delta_series.report.v1', $report['schema_version']);
+        $this->assertSame('atlas.acos.delta_series.report.v1', $report['schema_version']);
         $this->assertSame('ok', $report['status']);
 
         $trend = $report['trend'];
@@ -119,7 +119,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
     public function test_missing_baseline_is_honest_blocked_exit_zero(): void
     {
         $out = new BufferedOutput;
-        $exit = Artisan::call('atlas:fable:delta-series', [
+        $exit = Artisan::call('atlas:acos:delta-series', [
             '--baseline' => '/nonexistent/marco-zero.json',
             '--series' => $this->series,
             '--date' => '2026-06-12',
@@ -134,11 +134,29 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
         $this->assertFileDoesNotExist($this->series, 'sem baseline, nada é gravado na série');
     }
 
+    public function test_legacy_fable_alias_runs_same_command(): void
+    {
+        $this->seedMergedImpactReceipt();
+        $out = new BufferedOutput;
+        $exit = Artisan::call('atlas:fable:delta-series', [
+            '--baseline' => $this->baseline,
+            '--series' => $this->series,
+            '--date' => '2026-06-12',
+            '--allow-past-date' => '1',
+            '--json' => true,
+        ], $out);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode($out->fetch(), true);
+        $this->assertSame('atlas.acos.delta_series.v1', $payload['schema_version']);
+        $this->assertSame('ok', $payload['status']);
+    }
+
     private function snap(string $date): int
     {
         $this->seedMergedImpactReceipt();
 
-        return Artisan::call('atlas:fable:delta-series', [
+        return Artisan::call('atlas:acos:delta-series', [
             '--baseline' => $this->baseline,
             '--series' => $this->series,
             '--date' => $date,
@@ -150,7 +168,7 @@ final class AtlasFableDeltaSeriesCommandTest extends TestCase
     public function test_past_date_without_allow_flag_is_refused(): void
     {
         $out = new BufferedOutput;
-        $exit = Artisan::call('atlas:fable:delta-series', [
+        $exit = Artisan::call('atlas:acos:delta-series', [
             '--baseline' => $this->baseline,
             '--series' => $this->series,
             '--date' => '2026-06-27',
