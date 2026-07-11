@@ -195,8 +195,18 @@ final class AtlasAcosWatchdogSlicesTest extends TestCase
 
     public function test_engineering_enforce_readiness_command_returns_not_ready_without_storage_receipt_shortcuts(): void
     {
-        $exit = Artisan::call('atlas:engineering:enforce-readiness', ['--json' => true]);
-        $payload = json_decode(trim(Artisan::output()), true);
+        $originalStoragePath = storage_path();
+        $tmpStorage = sys_get_temp_dir().'/atlas-eng-readiness-empty-'.bin2hex(random_bytes(4));
+        @mkdir($tmpStorage, 0o755, true);
+
+        $this->app->useStoragePath($tmpStorage);
+        try {
+            $exit = Artisan::call('atlas:engineering:enforce-readiness', ['--json' => true]);
+            $payload = json_decode(trim(Artisan::output()), true);
+        } finally {
+            $this->app->useStoragePath($originalStoragePath);
+            $this->deleteDirectory($tmpStorage);
+        }
 
         $this->assertSame(Command::FAILURE, $exit);
         $this->assertSame('atlas.engineering.enforce_readiness.v1', $payload['schema_version']);
@@ -230,5 +240,21 @@ final class AtlasAcosWatchdogSlicesTest extends TestCase
         Schema::dropIfExists('atlas_ledger_events');
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
         (require database_path('migrations/2026_05_19_050000_extend_atlas_ledger_events_with_timeline_fields.php'))->up();
+    }
+
+    private function deleteDirectory(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        $items = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($items as $item) {
+            $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+        @rmdir($dir);
     }
 }

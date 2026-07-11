@@ -19,6 +19,7 @@ use App\Services\Ai\Programming\Forge\Intelligence\ForgeFailureIntelligenceServi
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeOutcomeMemoryService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeSpecialistWorkcellRouterService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeWorkPacketCapabilityOrchestrator;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
@@ -460,6 +461,7 @@ class ForgeWorkPacketExecutionCycleService
 
         $enforcing = $this->forgeExecutionGateEnforcing();
         $sovereign = $this->sovereignGateVerdict($cycle, $gateResult, $enforcing);
+        $this->recordForgeSovereignVerdict($cycle, $sovereign);
         if ($enforcing && ($sovereign['promoted'] ?? false) !== true) {
             // ENFORCE-mode (opt-in via config): a completion the sovereign floor refuses does NOT
             // certify-complete. Default is OBSERVE-mode (records the verdict, never blocks) so the
@@ -611,6 +613,36 @@ class ForgeWorkPacketExecutionCycleService
     }
 
     /**
+     * @param  array<string,mixed>  $sovereign
+     */
+    private function recordForgeSovereignVerdict(AiForgeWorkPacketExecutionCycle $cycle, array $sovereign): void
+    {
+        try {
+            $execution = is_array($sovereign['execution_evidence'] ?? null)
+                ? $sovereign['execution_evidence']
+                : [];
+            AppendOnlyJsonlStore::appendSilently($this->forgeSovereignVerdictPath(), [
+                'schema_version' => 'atlas.engineering_kernel.forge_sovereign_verdict.v1',
+                'recorded_at' => now()->toIso8601String(),
+                'cycle_uuid' => (string) $cycle->uuid,
+                'work_packet_id' => (string) $cycle->work_packet_canonical_id,
+                'mode' => (string) ($sovereign['mode'] ?? 'observe'),
+                'promoted' => ($sovereign['promoted'] ?? false) === true,
+                'blockers' => array_values(array_map('strval', (array) ($sovereign['blockers'] ?? []))),
+                'receipt_ref' => (string) ($sovereign['receipt_ref'] ?? ''),
+                'tests_run' => (int) ($execution['tests_run'] ?? 0),
+                'assertions_executed' => (int) ($execution['assertions_executed'] ?? 0),
+                'commands' => array_values(array_map('strval', (array) ($execution['commands'] ?? []))),
+                'selected_tests' => array_values(array_map('strval', (array) ($execution['selected_tests'] ?? []))),
+                'counts_parseable' => ($execution['counts_parseable'] ?? false) === true,
+                'evidence_provenance' => (string) ($execution['evidence_provenance'] ?? ($sovereign['evidence_provenance'] ?? 'unproven')),
+            ], AppendOnlyJsonlStore::DEFAULT_JSON_FLAGS);
+        } catch (\Throwable) {
+            // Readiness telemetry is fail-open; completion truth remains in the persisted cycle.
+        }
+    }
+
+    /**
      * Evidência REAL capturada pelo harness — parseada da saída phpunit que o
      * ciclo registrou em gate_result.execution, nunca dos zeros hard-coded nem
      * do gate_result atestado pelo executor sozinho.
@@ -676,6 +708,11 @@ class ForgeWorkPacketExecutionCycleService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function forgeSovereignVerdictPath(): string
+    {
+        return storage_path('app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl');
     }
 
     /**

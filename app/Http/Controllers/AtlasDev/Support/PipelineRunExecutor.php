@@ -1540,6 +1540,8 @@ final class PipelineRunExecutor implements RunExecutor
             $advisory = $consult->consultBeforeSpawn([
                 'provider' => SonnetClaudeCliAdapter::PROVIDER,
                 'surface' => ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
+                'executor' => 'dev',
+                'actor' => 'dev',
                 'prompt' => $promptProjection->renderedPromptText,
                 'kind' => 'atlas_dev_run',
             ]);

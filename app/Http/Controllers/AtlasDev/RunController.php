@@ -346,6 +346,8 @@ final class RunController extends Controller
                 $consult->consultBeforeSpawn([
                     'provider' => $taskContract->providerLock->provider,
                     'surface' => 'atlas_dev_legacy_run_controller',
+                    'executor' => 'dev',
+                    'actor' => 'dev',
                     'prompt' => $promptProjection->renderedPromptText,
                     'kind' => 'atlas_dev_run',
                 ]);

@@ -144,6 +144,8 @@ final class ProviderGovernanceConsult
         //    seam) so the bypass rate falls honestly. The advisory is captured
         //    for audit; recording NEVER blocks the spawn.
         $this->coverage->recordConsulted($provider, $surface, [
+            'executor' => $this->labelOrNull($ctx['executor'] ?? null),
+            'actor' => $this->labelOrNull($ctx['actor'] ?? null),
             'adml_verdict' => $admlVerdict,
             'adml_route' => $admlRoute,
             'pre_cost_units' => isset($cost['pre_cost_units']) ? (float) $cost['pre_cost_units'] : null,
@@ -174,6 +176,17 @@ final class ProviderGovernanceConsult
             'would_have_blocked_reason' => $wouldHaveBlockedReason,
             'candidate_hard_units' => $candidateHardUnits,
         ];
+    }
+
+    private function labelOrNull(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $label = strtolower(trim((string) $value));
+
+        return $label !== '' ? $label : null;
     }
 
     /**

@@ -417,6 +417,8 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             return app(ProviderGovernanceConsult::class)->consultBeforeSpawn([
                 'provider' => $this->provider(),
                 'surface' => ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
+                'executor' => 'forge',
+                'actor' => 'forge',
                 'prompt' => (string) ($prompt ?? ''),
                 'kind' => 'atlas_programming',
             ]);

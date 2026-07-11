@@ -124,8 +124,21 @@ final class ProviderGovernanceCoverageLedger
     private function record(string $path, string $provider, string $surface, array $context): void
     {
         try {
+            $recordedAt = function_exists('now')
+                ? now()->toIso8601String()
+                : (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format(\DateTimeInterface::ATOM);
+            $context['recorded_at'] ??= $recordedAt;
+            $executor = $this->executorFromSurface($surface);
+            if (! isset($context['executor']) && $executor !== null) {
+                $context['executor'] = $executor;
+            }
+            if (! isset($context['actor']) && isset($context['executor'])) {
+                $context['actor'] = $context['executor'];
+            }
+
             AppendOnlyJsonlStore::appendSilently($this->logPath(), [
                 'schema_version' => self::SCHEMA,
+                'recorded_at' => $recordedAt,
                 'path' => $path,
                 'covered' => $path === self::PATH_COVERED,
                 // governed = manager-resolved OR consulted-the-shared-seam.
@@ -138,6 +151,18 @@ final class ProviderGovernanceCoverageLedger
             // Measurement is best-effort — a ledger error must never break a
             // provider call. ponytail: swallow, the meter is not a gate.
         }
+    }
+
+    private function executorFromSurface(string $surface): ?string
+    {
+        $surface = strtolower($surface);
+        foreach (['dev', 'forge', 'autonomos'] as $executor) {
+            if (str_contains($surface, $executor)) {
+                return $executor;
+            }
+        }
+
+        return null;
     }
 
     /**
