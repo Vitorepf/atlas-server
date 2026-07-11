@@ -81,7 +81,9 @@ final readonly class EngineeringOutcome
         }
         if ($status === 'completed_read_only') {
             if (($evidenceBundle['status'] ?? null) !== 'accepted'
-                || data_get($evidenceBundle, 'gate_verdict.status') !== CertVerdict::PROMOTE) {
+                || data_get($evidenceBundle, 'gate_verdict.status') !== CertVerdict::PROMOTE
+                || trim((string) ($evidenceBundle['acceptance_authority_ref'] ?? '')) === ''
+                || preg_match('/^[a-f0-9]{64}$/', (string) ($evidenceBundle['acceptance_authority_event_hash'] ?? '')) !== 1) {
                 throw new InvalidArgumentException('completed_read_only_requires_authoritative_acceptance');
             }
             foreach ($dispositions as $disposition) {

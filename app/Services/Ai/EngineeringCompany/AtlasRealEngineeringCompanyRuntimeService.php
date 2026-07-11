@@ -12,9 +12,9 @@ use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasRealEngineeringCompanyRuntimeService
 {
@@ -45,6 +45,15 @@ class AtlasRealEngineeringCompanyRuntimeService
         'qa_test_engineer',
         'release_delivery_manager',
         'learning_memory_manager',
+    ];
+
+    /** Canonical Quality Foundry certification roster; legacy ROLES remains execution migration debt. */
+    public const QUALITY_ROLES = [
+        'product_strategy', 'product_management', 'domain_research', 'ux_research',
+        'interaction_design', 'visual_design', 'architecture', 'backend', 'frontend',
+        'mobile', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience',
+        'devops_sre', 'observability', 'release', 'documentation_dx',
+        'maintenance_simplification', 'outcome_analysis', 'evidence_audit', 'final_certification',
     ];
 
     /**

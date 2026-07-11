@@ -23,6 +23,7 @@ final class TypedEngineeringContractTest extends TestCase
 
     public function test_legacy_nine_role_company_roster_is_not_quality_foundry_roster(): void
     {
+        $this->assertSame(AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLES, EngineeringRoleRoster::OFFICIAL_ROLES);
         $this->assertNotSame(EngineeringRoleRoster::OFFICIAL_ROLES, AtlasRealEngineeringCompanyRuntimeService::ROLES);
         $this->assertCount(9, AtlasRealEngineeringCompanyRuntimeService::ROLES, 'Phase 1 migration remains explicit.');
     }
@@ -276,7 +277,7 @@ final class TypedEngineeringContractTest extends TestCase
             'status' => 'completed_read_only',
             'correlated_hashes' => $hashes,
             'role_dispositions' => $dispositions,
-            'evidence_bundle' => ['hash' => $hashes['evidence'], 'status' => 'accepted', 'gate_verdict' => ['status' => 'promote']],
+            'evidence_bundle' => ['hash' => $hashes['evidence'], 'status' => 'accepted', 'gate_verdict' => ['status' => 'promote'], 'acceptance_authority_ref' => 'acceptance-event', 'acceptance_authority_event_hash' => hash('sha256', 'acceptance-event')],
             'provider_receipt' => ['status' => 'not_applicable_read_only'],
             'sandbox_receipt' => ['status' => 'not_applicable_read_only'],
             'release_receipt' => ['status' => 'not_applicable_read_only', 'hash' => $hashes['release']],

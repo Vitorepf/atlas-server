@@ -130,7 +130,7 @@ final class EliteExecutorKernel
             throw new \RuntimeException('canonical_engineering_ledger_unavailable');
         }
 
-        [$acceptanceInput, $dispositions] = $this->resolveAuthoritativeEvidence($order, $orderHash);
+        [$acceptanceInput, $dispositions, $evidenceEvent] = $this->resolveAuthoritativeEvidence($order, $orderHash);
         $acceptanceHash = CanonicalKernelPayload::hash($acceptanceInput);
         $bundle = AcceptanceBundle::fromArray($acceptanceInput);
         $execution = (array) ($acceptanceInput['execution'] ?? []);
@@ -143,6 +143,7 @@ final class EliteExecutorKernel
             default => throw new \InvalidArgumentException('execution_order_mode_unreachable'),
         };
         $freshAndVerified = $proof['proven_real'] && $falseClaimVerdict['status'] === 'pass' && $gateVerdict->promoted();
+        $acceptanceAuthorityEvent = $this->authority()->issueAcceptanceVerdict($gateVerdict, $order, $evidenceEvent, $this->authorityContext($order));
         $uncertainties = $freshAndVerified ? [] : ['authoritative_acceptance_refused'];
         if (! $freshAndVerified) {
             $dispositions = $this->blockingDispositions($order, 'authoritative_acceptance_refused');
@@ -167,7 +168,7 @@ final class EliteExecutorKernel
                 'release' => $releaseHash,
             ],
             'role_dispositions' => $dispositions,
-            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => $freshAndVerified ? 'accepted' : 'unknown_or_refused', 'gate_verdict' => $gateVerdict->toArray()],
+            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => $freshAndVerified ? 'accepted' : 'unknown_or_refused', 'gate_verdict' => $gateVerdict->toArray(), 'acceptance_authority_ref' => $acceptanceAuthorityEvent->event_id, 'acceptance_authority_event_hash' => (string) $acceptanceAuthorityEvent->getAttribute('event_hash')],
             'provider_receipt' => ['status' => 'not_applicable_read_only'],
             'sandbox_receipt' => ['status' => 'not_applicable_read_only'],
             'release_receipt' => ['status' => 'not_applicable_read_only', 'hash' => $releaseHash],
@@ -251,7 +252,7 @@ final class EliteExecutorKernel
         return EngineeringOutcome::fromArray((array) ($payload['outcome'] ?? []));
     }
 
-    /** @return array{0:array<string,mixed>,1:array<string,array<string,mixed>>} */
+    /** @return array{0:array<string,mixed>,1:array<string,array<string,mixed>>,2:AtlasLedgerEvent} */
     private function resolveAuthoritativeEvidence(ExecutionOrder $order, string $orderHash): array
     {
         $rosterHash = CanonicalKernelPayload::hash($order->roleRoster);
@@ -262,10 +263,14 @@ final class EliteExecutorKernel
             throw new \InvalidArgumentException('decision_event_roster_mismatch');
         }
 
-        $acceptance = $this->boundEvent((string) $order->evidencePolicy['acceptance_event_id'], 'acceptance.evidence.recorded', $order, $orderHash, $rosterHash);
+        $acceptanceEvent = $this->ledger()->eventById((string) $order->evidencePolicy['acceptance_event_id']);
+        $acceptance = $this->boundEvent((string) $order->evidencePolicy['acceptance_event_id'], 'evidence.bundle.recorded', $order, $orderHash, $rosterHash);
         $bundle = $acceptance['acceptance_bundle'] ?? null;
         if (! is_array($bundle) || $bundle === []) {
             throw new \InvalidArgumentException('acceptance_event_bundle_missing');
+        }
+        if ($acceptanceEvent === null) {
+            throw new \InvalidArgumentException('acceptance_event_missing');
         }
 
         $dispositions = [];
@@ -281,7 +286,7 @@ final class EliteExecutorKernel
             ];
         }
 
-        return [$bundle, EngineeringRoleRoster::validateDispositions($dispositions)];
+        return [$bundle, EngineeringRoleRoster::validateDispositions($dispositions), $acceptanceEvent];
     }
 
     /** @return array<string,mixed> */
@@ -293,7 +298,7 @@ final class EliteExecutorKernel
         }
         $kind = match ($eventName) {
             'decision.issued' => 'decision',
-            'acceptance.evidence.recorded' => 'acceptance',
+            'evidence.bundle.recorded' => 'evidence_bundle',
             'role.disposition.recorded' => 'role_disposition',
             default => throw new \InvalidArgumentException('canonical_evidence_event_kind_invalid'),
         };
@@ -354,6 +359,15 @@ final class EliteExecutorKernel
     private function authority(): KernelEvidenceAuthority
     {
         return $this->evidenceAuthority ?? app(KernelEvidenceAuthority::class);
+    }
+
+    /** @return array<string,mixed> */
+    private function authorityContext(ExecutionOrder $order): array
+    {
+        return [
+            'envelope_id' => $order->runId, 'correlation_id' => $order->idempotencyKey,
+            'scope_type' => 'engineering_delivery', 'scope_id' => $order->deliveryId,
+        ];
     }
 
     /** @return array<string,array<string,mixed>> */

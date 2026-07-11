@@ -4,18 +4,27 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\EngineeringKernel;
 
+use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
+use App\Services\Ai\Kernel\Decision\DecisionBudgets;
+use App\Services\Ai\Kernel\Decision\DecisionProviderSelection;
+use App\Services\Ai\Kernel\Decision\DecisionReceipt;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
+use App\Services\Ai\Kernel\Decision\DecisionRepairPolicy;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
@@ -32,8 +41,28 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
     protected function tearDown(): void
     {
+        CarbonImmutable::setTestNow();
         Schema::dropIfExists('atlas_ledger_events');
         parent::tearDown();
+    }
+
+    #[DataProvider('historicalReplayWindows')]
+    public function test_historical_outcome_replay_does_not_expire(string $window): void
+    {
+        $outcome = app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($this->orderData()));
+        CarbonImmutable::setTestNow(CarbonImmutable::now()->add($window));
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+
+        $replay = app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($this->orderData(false)));
+
+        $this->assertSame($outcome->outcomeHash, $replay->outcomeHash);
+    }
+
+    /** @return iterable<string,array{string}> */
+    public static function historicalReplayWindows(): iterable
+    {
+        yield '25 hours' => ['25 hours'];
+        yield '150 days' => ['150 days'];
     }
 
     public function test_read_only_order_executes_idempotently_with_correlated_evidence(): void
@@ -261,7 +290,9 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
     private function evidenceHash(): string
     {
-        return CanonicalKernelPayload::hash($this->honestAcceptanceBundle());
+        $event = app(AtlasEvidenceLedger::class)->eventById('acceptance-read-only');
+
+        return CanonicalKernelPayload::hash((array) data_get($event?->payload, 'acceptance_bundle', []));
     }
 
     /** @return array<string,mixed> */
@@ -289,23 +320,34 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $orderHash = ExecutionOrder::fromArray($orderData)->canonicalHash();
         $context = ['envelope_id' => $orderData['run_id'], 'correlation_id' => $orderData['idempotency_key'], 'scope_type' => 'engineering_delivery', 'scope_id' => $orderData['delivery_id'], 'emitter_stage' => 'test.fixture'];
         $authority = app(KernelEvidenceAuthority::class);
-        $authority->issue('decision', LedgerEventType::DecisionIssued, [
-            'event_name' => 'decision.issued', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
-            'spec_hash' => $orderData['spec_hash'], 'authority_hash' => CanonicalKernelPayload::hash($orderData['authority_envelope']),
-            'role_roster' => $orderData['role_roster'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
-        ], ['event_id' => 'decision-read-only'] + $context);
-        $authority->issue('acceptance', LedgerEventType::GateEvaluated, [
-            'event_name' => 'acceptance.evidence.recorded', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
-            'spec_hash' => $orderData['spec_hash'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
-            'acceptance_bundle' => $this->honestAcceptanceBundle(),
-        ], ['event_id' => 'acceptance-read-only'] + $context);
+        $order = ExecutionOrder::fromArray($orderData);
+        $authority->issueDecision($this->decisionReceipt($orderData), $order, ['event_id' => 'decision-read-only'] + $context);
+        $authority->issueEvidenceBundle(AcceptanceBundle::fromArray($this->honestAcceptanceBundle()), $order, ['event_id' => 'acceptance-read-only'] + $context);
         foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
-            $authority->issue('role_disposition', LedgerEventType::GateEvaluated, [
-                'event_name' => 'role.disposition.recorded', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
-                'spec_hash' => $orderData['spec_hash'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
-                'role' => $role, 'disposition' => $dispositions[$role],
-            ], ['event_id' => $eventId] + $context);
+            $roleRun = new AiEngineeringCompanyRoleRun;
+            $roleRun->forceFill(['role_id' => $role, 'role_hash' => hash('sha256', 'role-run-'.$role), 'evidence_refs' => ['evidence:'.$role], 'output' => ['disposition' => $dispositions[$role]]]);
+            $authority->issueRoleDisposition($roleRun, $order, ['event_id' => $eventId] + $context);
         }
+    }
+
+    /** @param array<string,mixed> $orderData */
+    private function decisionReceipt(array $orderData): DecisionReceipt
+    {
+        $issued = CarbonImmutable::now()->subSecond();
+        $expires = $issued->addHour();
+        $receiptHash = DecisionReceiptHash::hash([
+            'receipt_id' => 'kernel-decision', 'envelope_id' => $orderData['run_id'], 'schema_version' => DecisionReceipt::SCHEMA_VERSION,
+            'issued_at' => $issued->toISOString(), 'expires_at' => $expires->toISOString(), 'dry_run' => false,
+            'signed_by' => 'atlas.decide.v2', 'inputs_hash' => hash('sha256', 'inputs'), 'parent_receipt_id' => null,
+        ]);
+
+        return new DecisionReceipt(
+            receiptId: 'kernel-decision', envelopeId: $orderData['run_id'], schemaVersion: DecisionReceipt::SCHEMA_VERSION,
+            issuedAt: $issued, expiresAt: $expires, dryRun: false, signedBy: 'atlas.decide.v2', domain: 'programming', flow: 'atlas.dev', risk: 'medium',
+            providerSelection: DecisionProviderSelection::fromArray([]), budgets: DecisionBudgets::fromArray([]), requiredGates: [], requiredEvidence: ['summary'],
+            repairPolicy: DecisionRepairPolicy::fromArray(['enabled' => false]), inputsHash: hash('sha256', 'inputs'), receiptHash: $receiptHash,
+            parentReceiptId: null, chainHash: DecisionReceiptHash::hash(['parent_chain_hash' => null, 'receipt_hash' => $receiptHash]), metadata: [],
+        );
     }
 }
 

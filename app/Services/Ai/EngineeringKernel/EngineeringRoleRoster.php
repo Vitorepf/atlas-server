@@ -4,17 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel;
 
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use InvalidArgumentException;
 
 final class EngineeringRoleRoster
 {
-    public const OFFICIAL_ROLES = [
-        'product_strategy', 'product_management', 'domain_research', 'ux_research',
-        'interaction_design', 'visual_design', 'architecture', 'backend', 'frontend',
-        'mobile', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience',
-        'devops_sre', 'observability', 'release', 'documentation_dx',
-        'maintenance_simplification', 'outcome_analysis', 'evidence_audit', 'final_certification',
-    ];
+    public const OFFICIAL_ROLES = AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLES;
 
     /**
      * @param  array<string,mixed>  $roster
