@@ -56,7 +56,7 @@ final class AtlasTaskCommitVerificationGate
 
     /**
      * @param  list<string>  $allowedFiles  the task's server-truth write scope (what the committer will commit)
-     * @return array{passed:bool, blocked:bool, reason:string, failed_check:string, detail:string, checks:array<string,string>}
+     * @return array{passed:bool, blocked:bool, reason:string, failed_check:string, detail:string, checks:array<string,string>, proof_strength:string, fail_open_reason:string, execution_evidence:array<string,mixed>}
      */
     public function verify(array $allowedFiles, string $taskPacketId): array
     {
@@ -110,12 +110,23 @@ final class AtlasTaskCommitVerificationGate
         // non-zero exit WITHOUT a real failure marker is a RUNNER/env problem (bad option, missing DB, fatal
         // before tests run) ⇒ FAIL OPEN. This is the hard lesson from the `--without-tty` regression that
         // wedged every worker: the gate must never block a good worker because its own runner could not run.
+        $executionEvidence = $this->executionEvidenceForScope($testFiles, $checks['boot'] ?? '');
+
         if ($testFiles !== [] && $checks['boot'] === 'pass') {
-            $t = ($this->runner)(array_merge([PHP_BINARY, 'artisan', 'test'], $testFiles), $repo, 600.0);
+            $testCmd = array_merge([PHP_BINARY, 'artisan', 'test'], $testFiles);
+            $t = ($this->runner)($testCmd, $repo, 600.0);
             if ($t['ran'] && ! $t['ok'] && $this->outputShowsRealTestFailure($t['out'])) {
                 return $this->blocked('task_tests_failed', 'artisan test', $this->tail($t['out']), $checks + ['task_tests' => 'fail'], 'boot_proven');
             }
             $checks['task_tests'] = ($t['ran'] && ! $t['ok']) ? 'fail_open_runner_error' : 'pass';
+            if ($t['ran']) {
+                $executionEvidence = $this->executionEvidenceFromRunnerOutput(
+                    $testFiles,
+                    $testCmd,
+                    $t['out'],
+                    ($checks['task_tests'] ?? '') === 'pass',
+                );
+            }
         } else {
             $checks['task_tests'] = 'skip';
         }
@@ -135,7 +146,7 @@ final class AtlasTaskCommitVerificationGate
             $failOpenReason = '';
         }
 
-        return $this->passed('verified', $checks, $proofStrength, $failOpenReason);
+        return $this->passed('verified', $checks, $proofStrength, $failOpenReason, $executionEvidence);
     }
 
     private function isTestPath(string $path): bool
@@ -190,16 +201,88 @@ final class AtlasTaskCommitVerificationGate
             || preg_match('/^\s*(FAIL|⨯)\s/m', $out) === 1;
     }
 
-    /** @param array<string,string> $checks */
-    private function blocked(string $reason, string $failedCheck, string $detail, array $checks, string $proofStrength = 'syntax_only'): array
+    /**
+     * Parse REAL phpunit / artisan test counts from runner output. [0,0,false] when not parseable —
+     * honest: unknown counts never become invented numbers (ENG-04 harness capture).
+     *
+     * @return array{0:int,1:int,2:bool}
+     */
+    public static function parseRunCounts(string $output): array
     {
-        return ['passed' => false, 'blocked' => true, 'reason' => $reason, 'failed_check' => $failedCheck, 'detail' => $detail, 'checks' => $checks, 'proof_strength' => $proofStrength, 'fail_open_reason' => ''];
+        if (preg_match('/OK \((\d+) tests?, (\d+) assertions?\)/', $output, $m) === 1
+            || preg_match('/Tests:\s*(\d+)[^\n]*?Assertions:\s*(\d+)/', $output, $m) === 1) {
+            return [(int) $m[1], (int) $m[2], true];
+        }
+        if (preg_match('/(\d+)\s+passed\s*\((\d+)\s+assertions?\)/', $output, $m) === 1) {
+            return [(int) $m[1], (int) $m[2], true];
+        }
+
+        return [0, 0, false];
+    }
+
+    /**
+     * @param  list<string>  $testFiles
+     * @return array<string,mixed>
+     */
+    private function executionEvidenceForScope(array $testFiles, string $bootCheck): array
+    {
+        if ($testFiles === []) {
+            return [
+                'tests_run' => 0,
+                'assertions_executed' => 0,
+                'counts_parseable' => false,
+                'commands' => $bootCheck === 'pass' ? [PHP_BINARY.' artisan about --only=environment'] : [],
+                'selected_tests' => [],
+                'claimed_status' => 'boot_verified',
+                'output_tail' => '',
+            ];
+        }
+
+        return [
+            'tests_run' => 0,
+            'assertions_executed' => 0,
+            'counts_parseable' => false,
+            'commands' => [],
+            'selected_tests' => $testFiles,
+            'claimed_status' => 'passed',
+            'output_tail' => '',
+        ];
+    }
+
+    /**
+     * @param  list<string>  $testFiles
+     * @param  list<string>  $testCmd
+     * @return array<string,mixed>
+     */
+    private function executionEvidenceFromRunnerOutput(array $testFiles, array $testCmd, string $output, bool $claimedPass): array
+    {
+        [$testsRun, $assertions, $parseable] = self::parseRunCounts($output);
+
+        return [
+            'tests_run' => $testsRun,
+            'assertions_executed' => $assertions,
+            'counts_parseable' => $parseable,
+            'commands' => [implode(' ', array_map('strval', $testCmd))],
+            'selected_tests' => $testFiles,
+            'claimed_status' => $claimedPass ? 'passed' : 'unknown',
+            'output_tail' => $this->tail($output),
+        ];
     }
 
     /** @param array<string,string> $checks */
-    private function passed(string $reason, array $checks, string $proofStrength = 'boot_proven', string $failOpenReason = ''): array
+    private function blocked(string $reason, string $failedCheck, string $detail, array $checks, string $proofStrength = 'syntax_only'): array
     {
-        return ['passed' => true, 'blocked' => false, 'reason' => $reason, 'failed_check' => '', 'detail' => '', 'checks' => $checks, 'proof_strength' => $proofStrength, 'fail_open_reason' => $failOpenReason];
+        return ['passed' => false, 'blocked' => true, 'reason' => $reason, 'failed_check' => $failedCheck, 'detail' => $detail, 'checks' => $checks, 'proof_strength' => $proofStrength, 'fail_open_reason' => '', 'execution_evidence' => []];
+    }
+
+    /**
+     * @param  array<string,string>  $checks
+     * @param  array<string,mixed>  $executionEvidence
+     * @return array<string,mixed>
+     */
+    private function passed(string $reason, array $checks, string $proofStrength = 'boot_proven', string $failOpenReason = '', array $executionEvidence = []): array
+    {
+        return ['passed' => true, 'blocked' => false, 'reason' => $reason, 'failed_check' => '', 'detail' => '', 'checks' => $checks, 'proof_strength' => $proofStrength, 'fail_open_reason' => $failOpenReason, 'execution_evidence' => $executionEvidence];
     }
 
     private function tail(string $out, int $max = 1200): string

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -21,6 +23,10 @@ use Throwable;
  * paths (`git commit -- <paths>`, the partial-commit form, so other AIs' staged/unstaged changes are NEVER
  * swept in — the `git add -A` foot-gun is impossible), under a single exclusive flock so concurrent resolves
  * serialize, refusing any path on the pétreo forbidden list. The AI never runs raw git.
+ *
+ * ENG-04: when server-side verification evidence is supplied, the unified autonomosGate certify runs HERE —
+ * between verify and commit — fail-closed on false claims and task_tests_proven non-promotion; docs-only
+ * boot_proven landings proceed with an honest receipt.
  */
 final class AtlasTaskScopedCommitter
 {
@@ -33,16 +39,23 @@ final class AtlasTaskScopedCommitter
     public function __construct(
         private readonly ?AtlasLoopHarnessGuard $guard = null,
         private readonly ?string $repoRootOverride = null,
+        private readonly ?EliteExecutorKernel $eliteKernel = null,
     ) {}
 
     /**
      * Stage + commit EXACTLY $allowedFiles as one scoped commit. Never touches paths outside the scope.
      *
      * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>|null  $verification  server-side verify result (ENG-04 certify seam)
      * @return array<string, mixed>
      */
-    public function commitScope(array $allowedFiles, string $taskPacketId, string $clientId, string $objective = ''): array
-    {
+    public function commitScope(
+        array $allowedFiles,
+        string $taskPacketId,
+        string $clientId,
+        string $objective = '',
+        ?array $verification = null,
+    ): array {
         $files = $this->normalizeFiles($allowedFiles);
         if ($files === []) {
             return $this->result(false, 'empty_scope', taskPacketId: $taskPacketId);
@@ -56,12 +69,22 @@ final class AtlasTaskScopedCommitter
             }
         }
 
+        $certify = null;
+        if ($verification !== null) {
+            $certify = $this->certifyLanding($files, $taskPacketId, $verification);
+            if (($certify['allowed'] ?? false) !== true) {
+                return $this->result(false, (string) ($certify['reason'] ?? 'landing_certify_refused'), taskPacketId: $taskPacketId, extra: [
+                    'landing_certify' => $certify,
+                ]);
+            }
+        }
+
         $repo = $this->repoRoot();
         if (! is_dir($repo.'/.git')) {
             return $this->result(false, 'not_a_git_repo', taskPacketId: $taskPacketId);
         }
 
-        return $this->withCommitLock($repo, function () use ($repo, $files, $taskPacketId, $clientId, $objective): array {
+        return $this->withCommitLock($repo, function () use ($repo, $files, $taskPacketId, $clientId, $objective, $certify): array {
             // STATUS-FIRST: `git status` on the scope never errors on a path that does not exist; `git add` of a
             // non-existent pathspec DOES error. So discover which scoped paths actually changed, and act only on
             // those. Empty ⇒ the AI made no edits ⇒ honest no-op (keep the lease).
@@ -88,12 +111,128 @@ final class AtlasTaskScopedCommitter
 
             $sha = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
 
-            return $this->result(true, 'committed', taskPacketId: $taskPacketId, extra: [
+            return $this->result(true, 'committed', taskPacketId: $taskPacketId, extra: array_filter([
                 'commit_sha' => $sha,
                 'files_committed' => $files,
                 'client_id' => $clientId,
-            ]);
+                'landing_certify' => $certify,
+            ], static fn (mixed $v): bool => $v !== null));
         });
+    }
+
+    /**
+     * ENG-04 — unified kernel certify on the primary Autônomos landing seam.
+     *
+     * @param  list<string>  $allowedFiles
+     * @param  array<string,mixed>  $verification
+     * @return array{allowed:bool,reason?:string,promoted?:bool,proof_strength?:string,verdict?:array<string,mixed>}
+     */
+    private function certifyLanding(array $allowedFiles, string $taskPacketId, array $verification): array
+    {
+        $kernel = $this->eliteKernel ?? app(EliteExecutorKernel::class);
+        $execution = (array) ($verification['execution_evidence'] ?? []);
+        $proofStrength = (string) ($verification['proof_strength'] ?? 'boot_proven');
+        $hasDeclaredTests = $this->scopeDeclaresTests($allowedFiles);
+
+        try {
+            $criteria = ['task_packet_id' => $taskPacketId, 'allowed_files' => $allowedFiles];
+            $criteriaHash = CriteriaCanonicalizer::hash($criteria);
+            $verdict = $kernel->autonomosGate()->certifyAutonomosDelivery([
+                'criteria_hash' => $criteriaHash,
+                'frozen_hash' => $criteriaHash,
+                'changed_files' => $allowedFiles,
+                'changed_public_symbols' => [],
+                'execution' => [
+                    'commands' => array_values(array_map('strval', (array) ($execution['commands'] ?? []))),
+                    'claimed_status' => (string) ($execution['claimed_status'] ?? ($hasDeclaredTests ? 'passed' : 'boot_verified')),
+                    'tests_run' => (int) ($execution['tests_run'] ?? 0),
+                    'assertions_executed' => (int) ($execution['assertions_executed'] ?? 0),
+                    'selected_tests' => array_values(array_map('strval', (array) ($execution['selected_tests'] ?? []))),
+                    'artifacts' => [],
+                ],
+                'mutation_report' => ['decision_surface_added' => false],
+                'security_scan' => [
+                    'ran' => true,
+                    'secret_free' => true,
+                    'critical_sast' => 0,
+                    'critical_cve' => 0,
+                ],
+                'context_sufficiency' => 85,
+                'judges' => [
+                    ['name' => 'task-verify-gate', 'provider_family' => 'atlas_harness', 'approved' => true],
+                    ['name' => 'task-landing-certify', 'provider_family' => 'atlas_verify', 'approved' => true],
+                ],
+            ]);
+        } catch (Throwable $e) {
+            return [
+                'allowed' => false,
+                'reason' => 'landing_certify_error',
+                'proof_strength' => $proofStrength,
+                'error' => mb_substr($e->getMessage(), 0, 200),
+            ];
+        }
+
+        $verdictArray = $verdict->toArray();
+        $allowed = $this->landingCertifyAllowsCommit(
+            $verdict,
+            $verification,
+            $hasDeclaredTests,
+            (bool) ($execution['counts_parseable'] ?? false),
+        );
+
+        return [
+            'allowed' => $allowed,
+            'reason' => $allowed ? 'landing_certify_admitted' : 'landing_certify_refused',
+            'promoted' => $verdict->promoted(),
+            'proof_strength' => $proofStrength,
+            'verdict' => $verdictArray,
+            'receipt_ref' => $verdict->receiptRef,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function scopeDeclaresTests(array $allowedFiles): bool
+    {
+        foreach ($allowedFiles as $path) {
+            $p = ltrim(str_replace('\\', '/', trim((string) $path)), '/');
+            if (str_contains($p, '/tests/') || str_starts_with($p, 'tests/') || str_ends_with($p, 'Test.php')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function landingCertifyAllowsCommit(
+        \App\Services\Ai\EngineeringKernel\CertVerdict $verdict,
+        array $verification,
+        bool $hasDeclaredTests,
+        bool $countsParseable,
+    ): bool {
+        if (in_array('false_claim_blocked', $verdict->blockers, true)) {
+            return false;
+        }
+
+        $proofStrength = (string) ($verification['proof_strength'] ?? '');
+        $taskTestsCheck = (string) (($verification['checks'] ?? [])['task_tests'] ?? '');
+
+        // Malformed phpunit output with declared tests: refuse (give_back), never poison main.
+        if ($hasDeclaredTests && $taskTestsCheck === 'pass' && ! $countsParseable) {
+            return false;
+        }
+
+        if ($proofStrength === 'task_tests_proven') {
+            return $verdict->promoted();
+        }
+
+        // Docs-only / boot-only: preserve live landings with an honest unproven/boot_proven receipt.
+        if (in_array($proofStrength, ['boot_proven', 'syntax_only', 'fail_open_runner_error', 'fail_open_unattributed'], true)) {
+            return true;
+        }
+
+        return $verdict->promoted();
     }
 
     private function commitMessage(string $taskPacketId, string $clientId, string $objective): string

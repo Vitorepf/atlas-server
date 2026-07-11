@@ -581,7 +581,13 @@ final class AtlasTaskServingService
                 ]);
             }
 
-            $commit = $this->committer->commitScope((array) $scope['allowed_files'], $taskPacketId, $clientId, (string) $scope['objective']);
+            $commit = $this->committer->commitScope(
+                (array) $scope['allowed_files'],
+                $taskPacketId,
+                $clientId,
+                (string) $scope['objective'],
+                isset($verification) && is_array($verification) ? $verification : null,
+            );
 
             if (($commit['committed'] ?? false) !== true) {
                 // Commit did not land — KEEP the lease so the AI can fix and re-report (no work lost).
