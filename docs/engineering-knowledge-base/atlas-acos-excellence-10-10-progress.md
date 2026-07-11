@@ -48,7 +48,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 |---|---|---|---|
 | COM-01 | ✅ | 0177b45a5d | ledger pack + namespace canônico refs |
 | ENG-04 | ✅ | 872591fe9 | certify no landing Autônomos |
-| EVI-09 | ⬜ | — | — |
+| EVI-09 | ✅ | 248cb34a13 | rename fable→acos delta-series |
 | EVI-05 | ⬜ | — | — |
 | EVI-06 | ⬜ | — | — |
 | EVI-03 | ⬜ | — | — |
@@ -56,9 +56,9 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | MEM-04 | ✅ | 83f1b48 | ALL_RECALLED (5 decisões pétreas via atlas:memory:add) |
 | RAG-01 | ⬜ | — | — |
 | RAG-04 | ⬜ | — | — |
-| CPT-01 | ⬜ | — | — |
+| CPT-01 | ✅ | 5962afd83 | must_keep extractor always-merge |
 | FEE-06 | ⬜ | — | — |
-| ENG-01 | ⬜ | — | — |
+| ENG-01 | ✅ | f6eae43f42 | AWIS gate no PipelineRunExecutor |
 | ENG-10 | ⬜ | — | — |
 | OPE-05 | ⬜ | — | — |
 | OPE-03 | ⬜ | — | — |
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 17/98 · Faltam: 81 · Próximo: EVI-09**
+**Feitas: 21/98 · Faltam: 77 · Próximo: EVI-05**
