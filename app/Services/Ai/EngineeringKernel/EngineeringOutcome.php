@@ -79,6 +79,16 @@ final readonly class EngineeringOutcome
             && ($uncertainties !== [] || array_any($dispositions, static fn (array $entry): bool => $entry['status'] === 'block'))) {
             throw new InvalidArgumentException('completed_read_only_requires_unblocked_certain_dispositions');
         }
+        if ($status === 'completed_read_only') {
+            if (($evidenceBundle['status'] ?? null) !== 'accepted'
+                || data_get($evidenceBundle, 'gate_verdict.status') !== CertVerdict::PROMOTE) {
+                throw new InvalidArgumentException('completed_read_only_requires_authoritative_acceptance');
+            }
+            foreach ($dispositions as $disposition) {
+                CanonicalKernelPayload::requireString($disposition, 'receipt_ref');
+                CanonicalKernelPayload::requireHash($disposition, 'receipt_event_hash');
+            }
+        }
         $elapsed = $data['elapsed_ms'] ?? null;
         if (! is_int($elapsed) || $elapsed < 0) {
             throw new InvalidArgumentException('elapsed_ms_invalid');

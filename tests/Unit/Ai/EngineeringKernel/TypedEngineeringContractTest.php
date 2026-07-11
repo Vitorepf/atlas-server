@@ -78,6 +78,18 @@ final class TypedEngineeringContractTest extends TestCase
         yield 'unknown field' => [static function (array &$data): void {
             $data['caller_claim'] = 'trusted';
         }];
+        yield 'absolute scope' => [static function (array &$data): void {
+            $data['allowed_scope'] = ['/tmp/escape'];
+        }];
+        yield 'traversal scope' => [static function (array &$data): void {
+            $data['allowed_scope'] = ['../escape'];
+        }];
+        yield 'overlapping scope' => [static function (array &$data): void {
+            $data['forbidden_scope'] = ['docs/README.md'];
+        }];
+        yield 'embedded caller evidence' => [static function (array &$data): void {
+            $data['evidence_policy']['acceptance_bundle'] = ['claimed' => 'green'];
+        }];
     }
 
     public function test_engineering_outcome_refuses_unknown_status_and_claim_eligibility(): void
@@ -154,6 +166,18 @@ final class TypedEngineeringContractTest extends TestCase
         $this->assertSame('held_for_causal_adjudication', $receipt->status);
     }
 
+    public function test_observation_refuses_non_canonical_iso_timestamp(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('observed_at_invalid');
+        OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
+            'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
+            'window' => '0h', 'observed_at' => '2026-07-11T00:00:00Z',
+            'metrics' => ['status' => 'ok'], 'provenance' => ['source' => 'test'],
+        ]);
+    }
+
     /** @return array<string,mixed> */
     private function validOrder(): array
     {
@@ -164,7 +188,7 @@ final class TypedEngineeringContractTest extends TestCase
             $dispositions[$role] = ['status' => 'pass', 'evidence_hash' => hash('sha256', $role), 'signature' => hash('sha256', 'sign-'.$role)];
         }
         $rosterHash = CanonicalKernelPayload::hash($roles);
-        $authority = ['kind' => 'read_only', 'role_roster_catalog_hash' => $rosterHash];
+        $authority = ['kind' => 'read_only'];
 
         return [
             'schema_version' => 'atlas.execution_order.v2',
@@ -183,13 +207,12 @@ final class TypedEngineeringContractTest extends TestCase
             'allowed_scope' => ['docs/README.md'],
             'forbidden_scope' => ['.env'],
             'authority_envelope' => $authority,
-            'decision_receipt' => ['hash' => hash('sha256', 'decision'), 'authority_hash' => CanonicalKernelPayload::hash($authority), 'role_roster_catalog_hash' => $rosterHash],
+            'decision_receipt' => ['decision_event_id' => 'decision-event-unit'],
             'operator_contract' => ['presence' => 'intent_and_authority'],
             'role_roster' => $roles,
-            'role_roster_catalog_hash' => $rosterHash,
             'provider_route' => ['provider' => 'none', 'model' => 'none'],
             'tool_permissions' => ['read' => true, 'mutate' => false],
-            'evidence_policy' => ['required' => true, 'fresh' => true, 'status' => 'verified', 'evidence_hash' => hash('sha256', 'evidence'), 'role_dispositions' => $dispositions],
+            'evidence_policy' => ['acceptance_event_id' => 'acceptance-event-unit', 'role_disposition_event_ids' => array_fill_keys(array_keys($dispositions), 'role-event-unit')],
             'release_policy' => ['kind' => 'none_read_only'],
             'rollback_policy' => ['kind' => 'none_read_only'],
             'outcome_policy' => ['windows' => ['0h', '24h', '7d', '30d', '90d', '150d']],
@@ -208,6 +231,8 @@ final class TypedEngineeringContractTest extends TestCase
                 'status' => 'pass',
                 'evidence_hash' => hash('sha256', $role),
                 'signature' => hash('sha256', 'sign-'.$role),
+                'receipt_ref' => 'role-event-'.$role,
+                'receipt_event_hash' => hash('sha256', 'event-'.$role),
             ];
         }
 
@@ -228,7 +253,7 @@ final class TypedEngineeringContractTest extends TestCase
             'status' => 'completed_read_only',
             'correlated_hashes' => $hashes,
             'role_dispositions' => $dispositions,
-            'evidence_bundle' => ['hash' => $hashes['evidence']],
+            'evidence_bundle' => ['hash' => $hashes['evidence'], 'status' => 'accepted', 'gate_verdict' => ['status' => 'promote']],
             'provider_receipt' => ['status' => 'not_applicable_read_only'],
             'sandbox_receipt' => ['status' => 'not_applicable_read_only'],
             'release_receipt' => ['status' => 'not_applicable_read_only', 'hash' => $hashes['release']],

@@ -12,6 +12,8 @@ use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Shared elite kernel surface for Dev · Forge · Autônomos.
@@ -84,6 +86,16 @@ final class EliteExecutorKernel
 
     public function execute(ExecutionOrder $order): EngineeringOutcome
     {
+        try {
+            return Cache::lock('atlas:engineering-kernel:idempotency:'.hash('sha256', $order->idempotencyKey), 30)
+                ->block(1, fn (): EngineeringOutcome => $this->executeLocked($order));
+        } catch (LockTimeoutException) {
+            throw new \RuntimeException('engineering_execution_idempotency_lock_unavailable');
+        }
+    }
+
+    private function executeLocked(ExecutionOrder $order): EngineeringOutcome
+    {
         $orderHash = $order->canonicalHash();
         $existing = $this->durableReplay($order);
         if ($existing !== null) {
@@ -98,66 +110,33 @@ final class EliteExecutorKernel
             'event_name' => 'execution.started',
             'order_hash' => $orderHash,
             'idempotency_key' => $order->idempotencyKey,
-            'role_roster_catalog_hash' => $order->roleRosterCatalogHash,
+            'role_roster_catalog_hash' => CanonicalKernelPayload::hash($order->roleRoster),
         ]);
         if ($started === null) {
             throw new \RuntimeException('canonical_engineering_ledger_unavailable');
         }
 
-        $policy = $order->evidencePolicy;
-        $acceptanceInput = $policy['acceptance_bundle'] ?? null;
-        $freshAndVerified = false;
-        $acceptanceHash = null;
-        $gateVerdict = null;
-        if (is_array($acceptanceInput) && $acceptanceInput !== []) {
-            $acceptanceHash = CanonicalKernelPayload::hash($acceptanceInput);
-            $freshAndVerified = ($policy['required'] ?? false) === true
-                && ($policy['fresh'] ?? false) === true
-                && ($policy['status'] ?? null) === 'verified'
-                && is_string($policy['evidence_hash'] ?? null)
-                && hash_equals($acceptanceHash, $policy['evidence_hash']);
-            if ($freshAndVerified) {
-                $bundle = AcceptanceBundle::fromArray($acceptanceInput);
-                $execution = (array) ($acceptanceInput['execution'] ?? []);
-                $proof = $this->outcomeProof->assess('success', $execution);
-                $falseClaimVerdict = $this->falseClaim->evaluate($bundle->execution);
-                try {
-                    $this->assertHonestOutcome(['status' => 'success', 'execution' => $execution], $order->mode);
-                    $gateVerdict = match ($order->mode) {
-                        'dev' => $this->devAdapter->certify($bundle, TrustLevel::Dev),
-                        'forge' => $this->forgeAdapter->certify($bundle, TrustLevel::Forge),
-                        'autonomos' => $this->autonomosAdapter->certify($bundle, TrustLevel::Autonomos),
-                        default => throw new \InvalidArgumentException('execution_order_mode_unreachable'),
-                    };
-                    $freshAndVerified = $proof['proven_real']
-                        && $falseClaimVerdict['status'] === 'pass'
-                        && $gateVerdict->promoted();
-                } catch (\RuntimeException) {
-                    $freshAndVerified = false;
-                }
-            }
-        }
-
-        $uncertainties = [];
-        $dispositions = $policy['role_dispositions'] ?? null;
-        if (! $freshAndVerified || ! is_array($dispositions)) {
-            $uncertainties[] = 'read_only_evidence_missing_stale_or_unknown';
-            $dispositions = $this->blockingDispositions($order, 'read_only_evidence_missing_stale_or_unknown');
-        } else {
-            try {
-                $dispositions = EngineeringRoleRoster::validateDispositions($dispositions);
-                if (array_keys($dispositions) !== array_keys($order->roleRoster)) {
-                    throw new \InvalidArgumentException('role_dispositions_do_not_match_order_roster');
-                }
-            } catch (\InvalidArgumentException $exception) {
-                $uncertainties[] = $exception->getMessage();
-                $dispositions = $this->blockingDispositions($order, $exception->getMessage());
-            }
+        [$acceptanceInput, $dispositions] = $this->resolveAuthoritativeEvidence($order, $orderHash);
+        $acceptanceHash = CanonicalKernelPayload::hash($acceptanceInput);
+        $bundle = AcceptanceBundle::fromArray($acceptanceInput);
+        $execution = (array) ($acceptanceInput['execution'] ?? []);
+        $proof = $this->outcomeProof->assess('success', $execution);
+        $falseClaimVerdict = $this->falseClaim->evaluate($bundle->execution);
+        $gateVerdict = match ($order->mode) {
+            'dev' => $this->devAdapter->certify($bundle, TrustLevel::Dev),
+            'forge' => $this->forgeAdapter->certify($bundle, TrustLevel::Forge),
+            'autonomos' => $this->autonomosAdapter->certify($bundle, TrustLevel::Autonomos),
+            default => throw new \InvalidArgumentException('execution_order_mode_unreachable'),
+        };
+        $freshAndVerified = $proof['proven_real'] && $falseClaimVerdict['status'] === 'pass' && $gateVerdict->promoted();
+        $uncertainties = $freshAndVerified ? [] : ['authoritative_acceptance_refused'];
+        if (! $freshAndVerified) {
+            $dispositions = $this->blockingDispositions($order, 'authoritative_acceptance_refused');
         }
 
         $hasBlock = array_any($dispositions, static fn (array $entry): bool => $entry['status'] === 'block');
         $status = $uncertainties !== [] ? 'held' : ($hasBlock ? 'blocked' : 'completed_read_only');
-        $evidenceHash = $acceptanceHash ?? hash('sha256', 'unknown-evidence:'.$orderHash);
+        $evidenceHash = $acceptanceHash;
         $releaseHash = hash('sha256', 'read-only:no-release:'.$orderHash);
         $outcome = EngineeringOutcome::fromArray([
             'schema_version' => 'atlas.engineering_outcome.v2',
@@ -174,7 +153,7 @@ final class EliteExecutorKernel
                 'release' => $releaseHash,
             ],
             'role_dispositions' => $dispositions,
-            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => $freshAndVerified ? 'accepted' : 'unknown_or_refused', 'gate_verdict' => $gateVerdict?->toArray()],
+            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => $freshAndVerified ? 'accepted' : 'unknown_or_refused', 'gate_verdict' => $gateVerdict->toArray()],
             'provider_receipt' => ['status' => 'not_applicable_read_only'],
             'sandbox_receipt' => ['status' => 'not_applicable_read_only'],
             'release_receipt' => ['status' => 'not_applicable_read_only', 'hash' => $releaseHash],
@@ -190,35 +169,34 @@ final class EliteExecutorKernel
 
         $this->recordEvent(LedgerEventType::GateEvaluated, $order, [
             'event_name' => 'acceptance.adjudicated', 'order_hash' => $orderHash,
-            'evidence_hash' => $evidenceHash, 'status' => $status, 'gate_verdict' => $gateVerdict?->toArray(),
+            'evidence_hash' => $evidenceHash, 'status' => $status, 'gate_verdict' => $gateVerdict->toArray(),
         ]);
         $this->recordEvent(LedgerEventType::EvidencePacked, $order, [
             'event_name' => 'evidence.packed', 'order_hash' => $orderHash, 'evidence_hash' => $evidenceHash,
         ]);
-        $this->recordEvent(LedgerEventType::OperationCompleted, $order, [
+        $completed = $this->recordEvent(LedgerEventType::OperationCompleted, $order, [
             'schema_version' => 'atlas.engineering_kernel.execution_receipt.v2',
             'event_name' => 'engineering.outcome.recorded',
             'idempotency_key' => $order->idempotencyKey,
             'order_hash' => $orderHash,
             'outcome' => $outcome->toArray(),
         ]);
+        if ($completed === null) {
+            throw new \RuntimeException('engineering_outcome_ledger_append_failed');
+        }
 
         return $outcome;
     }
 
     public function observeOutcome(OutcomeObservation $observation): OutcomeLearningReceipt
     {
-        $known = collect($this->ledger()->eventsForScope('engineering_delivery', $observation->deliveryId, 500))
-            ->contains(function (array $event) use ($observation): bool {
-                $payload = (array) ($event['payload'] ?? []);
-                $outcome = (array) ($payload['outcome'] ?? []);
-
-                return ($payload['event_name'] ?? null) === 'engineering.outcome.recorded'
-                    && hash_equals((string) ($payload['order_hash'] ?? ''), $observation->orderHash)
-                    && hash_equals((string) ($outcome['outcome_hash'] ?? ''), $observation->outcomeHash)
-                    && hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash);
-            });
-        if (! $known) {
+        $known = $this->ledger()->latestForScope('engineering_delivery', $observation->deliveryId, 'engineering.outcome.recorded');
+        $payload = $known === null ? [] : (array) $known->payload;
+        $outcome = (array) ($payload['outcome'] ?? []);
+        if ($known === null || ! $this->ledger()->eventIntegrityValid($known)
+            || ! hash_equals((string) ($payload['order_hash'] ?? ''), $observation->orderHash)
+            || ! hash_equals((string) ($outcome['outcome_hash'] ?? ''), $observation->outcomeHash)
+            || ! hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash)) {
             throw new \InvalidArgumentException('outcome_observation_unknown_correlation');
         }
         $event = $this->ledger()->record(LedgerEventType::SloObserved, [
@@ -242,20 +220,91 @@ final class EliteExecutorKernel
 
     private function durableReplay(ExecutionOrder $order): ?EngineeringOutcome
     {
-        foreach ($this->ledger()->eventsForScope('engineering_delivery', $order->deliveryId, 500) as $event) {
-            $payload = (array) ($event['payload'] ?? []);
-            if (($payload['event_name'] ?? null) !== 'engineering.outcome.recorded'
-                || ($payload['idempotency_key'] ?? null) !== $order->idempotencyKey) {
-                continue;
-            }
-            if (! hash_equals((string) ($payload['order_hash'] ?? ''), $order->canonicalHash())) {
-                throw new \InvalidArgumentException('idempotency_key_reused_with_changed_order');
-            }
-
-            return EngineeringOutcome::fromArray((array) ($payload['outcome'] ?? []));
+        $event = $this->ledger()->latestForCorrelation($order->idempotencyKey, 'engineering.outcome.recorded');
+        if ($event === null) {
+            return null;
+        }
+        if (! $this->ledger()->eventIntegrityValid($event)) {
+            throw new \InvalidArgumentException('idempotency_receipt_integrity_invalid');
+        }
+        $payload = (array) $event->payload;
+        if (! hash_equals((string) ($payload['order_hash'] ?? ''), $order->canonicalHash())) {
+            throw new \InvalidArgumentException('idempotency_key_reused_with_changed_order');
         }
 
-        return null;
+        return EngineeringOutcome::fromArray((array) ($payload['outcome'] ?? []));
+    }
+
+    /** @return array{0:array<string,mixed>,1:array<string,array<string,mixed>>} */
+    private function resolveAuthoritativeEvidence(ExecutionOrder $order, string $orderHash): array
+    {
+        $rosterHash = CanonicalKernelPayload::hash($order->roleRoster);
+        $decision = $this->boundEvent((string) $order->decisionReceipt['decision_event_id'], 'decision.issued', $order, $orderHash, $rosterHash);
+        if (! hash_equals((string) ($decision['authority_hash'] ?? ''), CanonicalKernelPayload::hash($order->authorityEnvelope))
+            || ! hash_equals((string) ($decision['role_roster_catalog_hash'] ?? ''), $rosterHash)
+            || CanonicalKernelPayload::hash((array) ($decision['role_roster'] ?? [])) !== $rosterHash) {
+            throw new \InvalidArgumentException('decision_event_roster_mismatch');
+        }
+
+        $acceptance = $this->boundEvent((string) $order->evidencePolicy['acceptance_event_id'], 'acceptance.evidence.recorded', $order, $orderHash, $rosterHash);
+        $bundle = $acceptance['acceptance_bundle'] ?? null;
+        if (! is_array($bundle) || $bundle === []) {
+            throw new \InvalidArgumentException('acceptance_event_bundle_missing');
+        }
+
+        $dispositions = [];
+        foreach ($order->evidencePolicy['role_disposition_event_ids'] as $role => $eventId) {
+            $payload = $this->boundEvent((string) $eventId, 'role.disposition.recorded', $order, $orderHash, $rosterHash);
+            if (($payload['role'] ?? null) !== $role || ! is_array($payload['disposition'] ?? null)) {
+                throw new \InvalidArgumentException('role_disposition_event_mismatch');
+            }
+            $event = $this->ledger()->eventById((string) $eventId);
+            $dispositions[$role] = $payload['disposition'] + [
+                'receipt_ref' => (string) $eventId,
+                'receipt_event_hash' => (string) ($event?->getAttribute('event_hash') ?? ''),
+            ];
+        }
+
+        return [$bundle, EngineeringRoleRoster::validateDispositions($dispositions)];
+    }
+
+    /** @return array<string,mixed> */
+    private function boundEvent(string $eventId, string $eventName, ExecutionOrder $order, string $orderHash, string $rosterHash): array
+    {
+        $event = $this->ledger()->eventById($eventId);
+        if ($event === null || ! $this->ledger()->eventIntegrityValid($event)) {
+            throw new \InvalidArgumentException('canonical_evidence_event_missing_or_invalid');
+        }
+        $payload = $this->eventPayload($event);
+        if (($payload['event_name'] ?? null) !== $eventName
+            || $event->getAttribute('scope_type') !== 'engineering_delivery'
+            || $event->getAttribute('scope_id') !== $order->deliveryId
+            || ($payload['delivery_id'] ?? null) !== $order->deliveryId
+            || ! hash_equals((string) ($payload['order_hash'] ?? ''), $orderHash)
+            || ! hash_equals((string) ($payload['spec_hash'] ?? ''), $order->specHash)
+            || ! hash_equals((string) ($payload['role_roster_catalog_hash'] ?? ''), $rosterHash)) {
+            throw new \InvalidArgumentException('canonical_evidence_event_binding_invalid');
+        }
+
+        return $payload;
+    }
+
+    /** @return array<string,mixed> */
+    private function eventPayload(AtlasLedgerEvent $event): array
+    {
+        $raw = $event->getAttribute('payload');
+        if (! is_array($raw)) {
+            throw new \InvalidArgumentException('canonical_evidence_event_payload_invalid');
+        }
+        $payload = [];
+        foreach ($raw as $key => $value) {
+            if (! is_string($key)) {
+                throw new \InvalidArgumentException('canonical_evidence_event_payload_invalid');
+            }
+            $payload[$key] = $value;
+        }
+
+        return $payload;
     }
 
     /** @param array<string,mixed> $payload */
@@ -263,7 +312,7 @@ final class EliteExecutorKernel
     {
         return $this->ledger()->record($type, $payload, [
             'envelope_id' => $order->runId,
-            'correlation_id' => $order->deliveryId,
+            'correlation_id' => $order->idempotencyKey,
             'receipt_id' => $order->idempotencyKey,
             'scope_type' => 'engineering_delivery',
             'scope_id' => $order->deliveryId,

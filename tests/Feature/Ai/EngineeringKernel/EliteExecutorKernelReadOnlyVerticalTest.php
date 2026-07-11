@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\EngineeringKernel;
 
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -68,11 +72,58 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     public function test_caller_verified_flags_without_real_acceptance_bundle_never_promote(): void
     {
         $data = $this->orderData();
-        unset($data['evidence_policy']['acceptance_bundle']);
+        $data['evidence_policy']['acceptance_bundle'] = $this->honestAcceptanceBundle();
 
-        $outcome = app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
+        $this->expectException(InvalidArgumentException::class);
+        ExecutionOrder::fromArray($data);
+    }
 
-        $this->assertSame('held', $outcome->status);
+    public function test_same_idempotency_key_with_different_delivery_is_globally_refused(): void
+    {
+        app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($this->orderData()));
+        $changed = $this->orderData(false);
+        $changed['delivery_id'] = 'other-delivery';
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('idempotency_key_reused_with_changed_order');
+        app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($changed));
+    }
+
+    public function test_concurrent_execution_cannot_cross_atomic_idempotency_section(): void
+    {
+        $data = $this->orderData();
+        $lock = Cache::lock('atlas:engineering-kernel:idempotency:'.hash('sha256', $data['idempotency_key']), 30);
+        $this->assertTrue($lock->get());
+        try {
+            app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
+            $this->fail('Concurrent execution must not enter the idempotency critical section.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('engineering_execution_idempotency_lock_unavailable', $exception->getMessage());
+        } finally {
+            $lock->release();
+        }
+    }
+
+    public function test_final_outcome_is_never_returned_when_canonical_append_fails(): void
+    {
+        $data = $this->orderData();
+        $this->app->instance(AtlasEvidenceLedger::class, new FinalAppendFailingEvidenceLedger(app(AtlasEvidenceLedger::class)));
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('engineering_outcome_ledger_append_failed');
+        app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
+    }
+
+    public function test_invented_roster_is_refused_against_decision_event(): void
+    {
+        $data = $this->orderData();
+        $firstRole = array_key_first($data['role_roster']);
+        $data['role_roster'][$firstRole]['depth'] = 'invented_unbound_depth';
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('canonical_evidence_event_binding_invalid');
+        app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
     }
 
     public function test_replay_is_reconstructed_from_canonical_ledger_after_new_kernel_instance(): void
@@ -88,30 +139,24 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
     public function test_missing_or_stale_evidence_never_completes_read_only(): void
     {
-        $kernel = app(EliteExecutorKernel::class);
         $data = $this->orderData();
         $data['evidence_policy']['fresh'] = false;
 
-        $outcome = $kernel->execute(ExecutionOrder::fromArray($data));
-
-        $this->assertSame('held', $outcome->status);
-        $this->assertNotEmpty($outcome->uncertainties);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('evidence_policy_caller_narrative_forbidden');
+        ExecutionOrder::fromArray($data);
     }
 
     public function test_dispositions_for_a_different_roster_are_held_not_implicitly_accepted(): void
     {
         $data = $this->orderData();
-        $dispositions = $data['evidence_policy']['role_dispositions'];
-        $first = array_key_first($dispositions);
-        $entry = $dispositions[$first];
-        unset($dispositions[$first]);
-        $dispositions['foreign_role'] = $entry;
-        $data['evidence_policy']['role_dispositions'] = $dispositions;
+        $eventIds = $data['evidence_policy']['role_disposition_event_ids'];
+        $roles = array_keys($eventIds);
+        $data['evidence_policy']['role_disposition_event_ids'][$roles[0]] = $eventIds[$roles[1]];
 
-        $outcome = app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
-
-        $this->assertSame('held', $outcome->status);
-        $this->assertContains('role_dispositions_do_not_match_order_roster', $outcome->uncertainties);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('canonical_evidence_event_binding_invalid');
+        app(EliteExecutorKernel::class)->execute(ExecutionOrder::fromArray($data));
     }
 
     public function test_observe_outcome_returns_typed_non_claiming_learning_receipt(): void
@@ -152,7 +197,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     }
 
     /** @return array<string,mixed> */
-    private function orderData(): array
+    private function orderData(bool $seedEvidence = true): array
     {
         $roles = [];
         $dispositions = [];
@@ -164,11 +209,9 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
                 'signature' => hash('sha256', 'signature-'.$role),
             ];
         }
-        $rosterHash = hash('sha256', json_encode(CanonicalKernelPayload::normalize($roles), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $authority = ['kind' => 'read_only', 'role_roster_catalog_hash' => $rosterHash];
-        $authorityHash = hash('sha256', json_encode(CanonicalKernelPayload::normalize($authority), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $authority = ['kind' => 'read_only'];
 
-        return [
+        $data = [
             'schema_version' => 'atlas.execution_order.v2',
             'run_id' => 'run-read-only',
             'delivery_id' => 'delivery-read-only',
@@ -185,20 +228,12 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'allowed_scope' => ['README.md'],
             'forbidden_scope' => ['.env'],
             'authority_envelope' => $authority,
-            'decision_receipt' => ['hash' => hash('sha256', 'read-only-decision'), 'authority_hash' => $authorityHash, 'role_roster_catalog_hash' => $rosterHash],
+            'decision_receipt' => ['decision_event_id' => 'decision-read-only'],
             'operator_contract' => ['presence' => 'intent_and_authority'],
             'role_roster' => $roles,
-            'role_roster_catalog_hash' => $rosterHash,
             'provider_route' => ['provider' => 'none', 'model' => 'none'],
             'tool_permissions' => ['read' => true, 'mutate' => false],
-            'evidence_policy' => [
-                'required' => true,
-                'status' => 'verified',
-                'fresh' => true,
-                'evidence_hash' => $this->evidenceHash(),
-                'role_dispositions' => $dispositions,
-                'acceptance_bundle' => $this->honestAcceptanceBundle(),
-            ],
+            'evidence_policy' => ['acceptance_event_id' => 'acceptance-read-only', 'role_disposition_event_ids' => array_combine(self::ROLE_IDS, array_map(static fn (string $role): string => 'role-'.substr(hash('sha256', $role), 0, 20), self::ROLE_IDS))],
             'release_policy' => ['kind' => 'none_read_only'],
             'rollback_policy' => ['kind' => 'none_read_only'],
             'outcome_policy' => ['windows' => ['0h', '24h', '7d', '30d', '90d', '150d']],
@@ -206,6 +241,11 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'idempotency_key' => 'read-only-key',
             'budget_posture' => 'unbounded_quality_first',
         ];
+        if ($seedEvidence) {
+            $this->seedCanonicalEvidence($data, $dispositions);
+        }
+
+        return $data;
     }
 
     private function evidenceHash(): string
@@ -226,5 +266,58 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'judges' => [['name' => 'a', 'provider_family' => 'anthropic', 'approved' => true], ['name' => 'b', 'provider_family' => 'openai', 'approved' => true]],
             'context_sufficiency' => 90,
         ];
+    }
+
+    /** @param array<string,mixed> $orderData @param array<string,array<string,mixed>> $dispositions */
+    private function seedCanonicalEvidence(array $orderData, array $dispositions): void
+    {
+        $ledger = app(AtlasEvidenceLedger::class);
+        if ($ledger->eventById('decision-read-only') !== null) {
+            return;
+        }
+        $orderHash = ExecutionOrder::fromArray($orderData)->canonicalHash();
+        $context = ['envelope_id' => $orderData['run_id'], 'correlation_id' => $orderData['idempotency_key'], 'scope_type' => 'engineering_delivery', 'scope_id' => $orderData['delivery_id'], 'emitter_stage' => 'test.fixture'];
+        $ledger->record(LedgerEventType::DecisionIssued, [
+            'event_name' => 'decision.issued', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
+            'spec_hash' => $orderData['spec_hash'], 'authority_hash' => CanonicalKernelPayload::hash($orderData['authority_envelope']),
+            'role_roster' => $orderData['role_roster'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
+        ], ['event_id' => 'decision-read-only'] + $context);
+        $ledger->record(LedgerEventType::GateEvaluated, [
+            'event_name' => 'acceptance.evidence.recorded', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
+            'spec_hash' => $orderData['spec_hash'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
+            'acceptance_bundle' => $this->honestAcceptanceBundle(),
+        ], ['event_id' => 'acceptance-read-only'] + $context);
+        foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
+            $ledger->record(LedgerEventType::GateEvaluated, [
+                'event_name' => 'role.disposition.recorded', 'delivery_id' => $orderData['delivery_id'], 'order_hash' => $orderHash,
+                'spec_hash' => $orderData['spec_hash'], 'role_roster_catalog_hash' => CanonicalKernelPayload::hash($orderData['role_roster']),
+                'role' => $role, 'disposition' => $dispositions[$role],
+            ], ['event_id' => $eventId] + $context);
+        }
+    }
+}
+
+final class FinalAppendFailingEvidenceLedger extends AtlasEvidenceLedger
+{
+    public function __construct(private readonly AtlasEvidenceLedger $inner) {}
+
+    public function record(LedgerEventType $type, array $payload, array $context = []): ?AtlasLedgerEvent
+    {
+        return $type === LedgerEventType::OperationCompleted ? null : $this->inner->record($type, $payload, $context);
+    }
+
+    public function eventById(string $eventId): ?AtlasLedgerEvent
+    {
+        return $this->inner->eventById($eventId);
+    }
+
+    public function latestForCorrelation(string $correlationId, ?string $eventName = null): ?AtlasLedgerEvent
+    {
+        return $this->inner->latestForCorrelation($correlationId, $eventName);
+    }
+
+    public function eventIntegrityValid(AtlasLedgerEvent $event): bool
+    {
+        return $this->inner->eventIntegrityValid($event);
     }
 }

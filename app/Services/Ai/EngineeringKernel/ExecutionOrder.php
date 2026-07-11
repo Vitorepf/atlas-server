@@ -42,7 +42,6 @@ final readonly class ExecutionOrder
         public array $decisionReceipt,
         public array $operatorContract,
         public array $roleRoster,
-        public string $roleRosterCatalogHash,
         public array $providerRoute,
         public array $toolPermissions,
         public array $evidencePolicy,
@@ -72,22 +71,14 @@ final readonly class ExecutionOrder
         }
 
         $allowedScope = self::stringList($data, 'allowed_scope', false);
-        $forbiddenScope = self::stringList($data, 'forbidden_scope', true);
+        $forbiddenScope = self::stringList($data, 'forbidden_scope', false);
+        if (array_intersect($allowedScope, $forbiddenScope) !== []) {
+            throw new InvalidArgumentException('allowed_forbidden_scope_overlap');
+        }
         $authority = CanonicalKernelPayload::requireArray($data, 'authority_envelope');
         CanonicalKernelPayload::requireString($authority, 'kind');
         $roster = EngineeringRoleRoster::validateRoster(CanonicalKernelPayload::requireArray($data, 'role_roster'));
-        $rosterHash = CanonicalKernelPayload::requireHash($data, 'role_roster_catalog_hash');
-        if (! hash_equals($rosterHash, CanonicalKernelPayload::hash($roster))) {
-            throw new InvalidArgumentException('role_roster_catalog_hash_mismatch');
-        }
-        if (! hash_equals($rosterHash, CanonicalKernelPayload::requireHash($authority, 'role_roster_catalog_hash'))) {
-            throw new InvalidArgumentException('authority_roster_catalog_unbound');
-        }
         $decisionReceipt = self::decisionReceipt($data);
-        if (! hash_equals($rosterHash, CanonicalKernelPayload::requireHash($decisionReceipt, 'role_roster_catalog_hash'))
-            || ! hash_equals(CanonicalKernelPayload::hash($authority), CanonicalKernelPayload::requireHash($decisionReceipt, 'authority_hash'))) {
-            throw new InvalidArgumentException('decision_receipt_authority_or_roster_unbound');
-        }
 
         return new self(
             schemaVersion: $schema,
@@ -109,7 +100,6 @@ final readonly class ExecutionOrder
             decisionReceipt: $decisionReceipt,
             operatorContract: self::requiredNested($data, 'operator_contract', ['presence']),
             roleRoster: $roster,
-            roleRosterCatalogHash: $rosterHash,
             providerRoute: self::requiredNested($data, 'provider_route', ['provider', 'model']),
             toolPermissions: self::toolPermissions($data),
             evidencePolicy: self::evidencePolicy($data),
@@ -145,7 +135,6 @@ final readonly class ExecutionOrder
             'decision_receipt' => $this->decisionReceipt,
             'operator_contract' => $this->operatorContract,
             'role_roster' => $this->roleRoster,
-            'role_roster_catalog_hash' => $this->roleRosterCatalogHash,
             'provider_route' => $this->providerRoute,
             'tool_permissions' => $this->toolPermissions,
             'evidence_policy' => $this->evidencePolicy,
@@ -167,7 +156,7 @@ final readonly class ExecutionOrder
     private static function decisionReceipt(array $data): array
     {
         $receipt = CanonicalKernelPayload::requireArray($data, 'decision_receipt');
-        CanonicalKernelPayload::requireHash($receipt, 'hash');
+        CanonicalKernelPayload::requireString($receipt, 'decision_event_id');
 
         return $receipt;
     }
@@ -175,7 +164,7 @@ final readonly class ExecutionOrder
     /** @param array<string,mixed> $data */
     private static function assertExactFields(array $data): void
     {
-        $expected = ['schema_version', 'run_id', 'delivery_id', 'mode', 'risk_class', 'complexity_band', 'duration_regime', 'work_topology', 'product_intent_verdict_hash', 'spec_hash', 'world_model_snapshot_hash', 'workspace', 'base_commit', 'allowed_scope', 'forbidden_scope', 'authority_envelope', 'decision_receipt', 'operator_contract', 'role_roster', 'role_roster_catalog_hash', 'provider_route', 'tool_permissions', 'evidence_policy', 'release_policy', 'rollback_policy', 'outcome_policy', 'experiment_ref', 'idempotency_key', 'budget_posture'];
+        $expected = ['schema_version', 'run_id', 'delivery_id', 'mode', 'risk_class', 'complexity_band', 'duration_regime', 'work_topology', 'product_intent_verdict_hash', 'spec_hash', 'world_model_snapshot_hash', 'workspace', 'base_commit', 'allowed_scope', 'forbidden_scope', 'authority_envelope', 'decision_receipt', 'operator_contract', 'role_roster', 'provider_route', 'tool_permissions', 'evidence_policy', 'release_policy', 'rollback_policy', 'outcome_policy', 'experiment_ref', 'idempotency_key', 'budget_posture'];
         $extra = array_diff(array_keys($data), $expected);
         if ($extra !== []) {
             throw new InvalidArgumentException('execution_order_unknown_fields');
@@ -193,6 +182,13 @@ final readonly class ExecutionOrder
             if (! is_string($item) || trim($item) === '') {
                 throw new InvalidArgumentException("{$key}_invalid_string");
             }
+            if (str_starts_with($item, '/') || str_contains($item, '\\') || str_contains('/'.$item.'/', '/../') || str_contains('/'.$item.'/', '/./') || $item !== trim($item, '/')) {
+                throw new InvalidArgumentException("{$key}_must_be_normalized_relative_paths");
+            }
+        }
+
+        if (count(array_unique($value)) !== count($value)) {
+            throw new InvalidArgumentException("{$key}_duplicate_path");
         }
 
         return array_values($value);
@@ -235,14 +231,18 @@ final readonly class ExecutionOrder
     private static function evidencePolicy(array $data): array
     {
         $policy = CanonicalKernelPayload::requireArray($data, 'evidence_policy');
-        if (! is_bool($policy['required'] ?? null) || ! is_bool($policy['fresh'] ?? null)) {
-            throw new InvalidArgumentException('evidence_policy_flags_invalid');
+        if (array_diff(array_keys($policy), ['acceptance_event_id', 'role_disposition_event_ids']) !== []) {
+            throw new InvalidArgumentException('evidence_policy_caller_narrative_forbidden');
         }
-        CanonicalKernelPayload::requireString($policy, 'status');
-        CanonicalKernelPayload::requireHash($policy, 'evidence_hash');
-        CanonicalKernelPayload::requireArray($policy, 'role_dispositions');
-        if (array_key_exists('acceptance_bundle', $policy) && ! is_array($policy['acceptance_bundle'])) {
-            throw new InvalidArgumentException('evidence_policy_acceptance_bundle_invalid');
+        CanonicalKernelPayload::requireString($policy, 'acceptance_event_id');
+        $roleEvents = CanonicalKernelPayload::requireArray($policy, 'role_disposition_event_ids');
+        if (count($roleEvents) !== 22 || array_keys($roleEvents) !== array_keys(CanonicalKernelPayload::requireArray($data, 'role_roster'))) {
+            throw new InvalidArgumentException('role_disposition_event_ids_mismatch');
+        }
+        foreach ($roleEvents as $eventId) {
+            if (! is_string($eventId) || trim($eventId) === '') {
+                throw new InvalidArgumentException('role_disposition_event_id_invalid');
+            }
         }
 
         return $policy;

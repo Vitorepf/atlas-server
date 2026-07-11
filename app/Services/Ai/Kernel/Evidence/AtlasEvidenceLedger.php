@@ -42,10 +42,10 @@ class AtlasEvidenceLedger
 
         $payload = $this->canonicalize($payload);
         $occurredAt = isset($context['occurred_at'])
-            ? (function () use ($context): \Carbon\CarbonImmutable {
+            ? (function () use ($context): CarbonImmutable {
                 try {
                     return CarbonImmutable::parse($context['occurred_at']);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
                     return CarbonImmutable::now();
                 }
             })()
@@ -167,6 +167,63 @@ class AtlasEvidenceLedger
             ->map(fn (AtlasLedgerEvent $event): array => $event->toArray())
             ->values()
             ->all();
+    }
+
+    public function eventById(string $eventId): ?AtlasLedgerEvent
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        return AtlasLedgerEvent::query()->whereKey($eventId)->first();
+    }
+
+    public function latestForCorrelation(string $correlationId, ?string $eventName = null): ?AtlasLedgerEvent
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        return AtlasLedgerEvent::query()
+            ->where('correlation_id', $correlationId)
+            ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('event_id')
+            ->first();
+    }
+
+    public function latestForScope(string $scopeType, string $scopeId, ?string $eventName = null): ?AtlasLedgerEvent
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        return AtlasLedgerEvent::query()
+            ->where('scope_type', $scopeType)
+            ->where('scope_id', $scopeId)
+            ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('event_id')
+            ->first();
+    }
+
+    public function eventIntegrityValid(AtlasLedgerEvent $event): bool
+    {
+        $rawPayload = $event->payload;
+        if (! is_array($rawPayload)) {
+            return false;
+        }
+        $payload = $this->canonicalize($rawPayload);
+        if (! hash_equals((string) $event->payload_hash, $this->payloadHash($payload))) {
+            return false;
+        }
+
+        // The persisted datetime column may truncate writer microseconds, so recomputing the
+        // envelope hash from the hydrated row is not stable across supported databases. Payload
+        // bytes are re-hashed above; the sealed event hash must still be a canonical SHA-256.
+        $eventHash = $event->getAttribute('event_hash');
+
+        return $eventHash === null || preg_match('/^[a-f0-9]{64}$/', (string) $eventHash) === 1;
     }
 
     public function recordEnvelopeCreated(OperationEnvelope $envelope): ?AtlasLedgerEvent

@@ -29,7 +29,8 @@ final readonly class OutcomeObservation
             throw new InvalidArgumentException('schema_version_invalid');
         }
         $observedAt = CanonicalKernelPayload::requireString($data, 'observed_at');
-        if (date_create_immutable($observedAt) === false) {
+        $parsed = \DateTimeImmutable::createFromFormat(DATE_ATOM, $observedAt);
+        if ($parsed === false || $parsed->format(DATE_ATOM) !== $observedAt) {
             throw new InvalidArgumentException('observed_at_invalid');
         }
 
