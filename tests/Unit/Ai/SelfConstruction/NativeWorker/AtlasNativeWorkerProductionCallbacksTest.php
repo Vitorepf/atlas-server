@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\NativeWorker;
 
+use App\Console\Commands\AtlasSelfConstructionRuntimeDaemonCommand;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks;
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use Tests\TestCase;
 
 final class AtlasNativeWorkerProductionCallbacksTest extends TestCase
@@ -18,21 +20,21 @@ final class AtlasNativeWorkerProductionCallbacksTest extends TestCase
         $this->assertIsCallable($callbacks['patch_materializer']);
     }
 
-    public function test_runtime_daemon_resolve_callbacks_defaults_to_production_bindings(): void
+    public function test_runtime_daemon_builds_typed_productive_cycle_without_callback_resolution(): void
     {
         if (app()->bound('atlas.self_construction.runtime_daemon.action_callbacks')) {
             app()->offsetUnset('atlas.self_construction.runtime_daemon.action_callbacks');
         }
 
-        $command = app(\App\Console\Commands\AtlasSelfConstructionRuntimeDaemonCommand::class);
-        $method = new \ReflectionMethod($command, 'resolveCallbacks');
+        $command = app(AtlasSelfConstructionRuntimeDaemonCommand::class);
+        $this->assertFalse(method_exists($command, 'resolveCallbacks'));
+        $method = new \ReflectionMethod($command, 'productiveCycle');
         $method->setAccessible(true);
-        /** @var array<string,callable> $callbacks */
-        $callbacks = $method->invoke($command);
+        $cycle = $method->invoke($command);
 
-        $this->assertArrayHasKey('claim_callback', $callbacks);
-        $this->assertArrayHasKey('report_callback', $callbacks);
-        $this->assertArrayHasKey('patch_materializer', $callbacks);
-        $this->assertIsCallable($callbacks['claim_callback']);
+        $this->assertInstanceOf(
+            AtlasSelfConstructionRuntimeDaemonCycle::class,
+            $cycle,
+        );
     }
 }

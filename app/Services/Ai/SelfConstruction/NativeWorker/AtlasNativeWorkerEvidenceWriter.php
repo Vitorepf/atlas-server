@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\NativeWorker;
 
-
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
-use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 use RuntimeException;
 
 /**
@@ -32,8 +30,6 @@ use RuntimeException;
  */
 final class AtlasNativeWorkerEvidenceWriter
 {
-    use UsesUtcClock;
-
     public const SCHEMA = 'atlas.native_worker.evidence.v1';
 
     public const STATUS_OK = 'ok';
@@ -91,15 +87,6 @@ final class AtlasNativeWorkerEvidenceWriter
         if ($filesChanged === []) {
             throw new RuntimeException('evidence writer: files_changed must not be empty');
         }
-        // AC: a non-empty files_changed must carry per-file diffs covering every changed file.
-        if ($fileDiffs === null || $fileDiffs === []) {
-            throw new RuntimeException('evidence writer: file_diffs must not be empty when files_changed is non-empty');
-        }
-        $fileDiffsKeys = array_keys($fileDiffs);
-        $missingDiffs = array_values(array_diff($filesChanged, $fileDiffsKeys));
-        if ($missingDiffs !== []) {
-            throw new RuntimeException('evidence writer: files_changed without corresponding diff: '.implode(', ', $missingDiffs));
-        }
         if ($commandsRun === null) {
             throw new RuntimeException('evidence writer: missing commands_run');
         }
@@ -120,6 +107,16 @@ final class AtlasNativeWorkerEvidenceWriter
         }
         if (! $hasArtisan) {
             throw new RuntimeException('evidence writer: no runnable php artisan proof command in commands_run');
+        }
+        // Validate diffs after proof commands so a missing real command can never
+        // be obscured by a later evidence field. Both remain mandatory.
+        if ($fileDiffs === null || $fileDiffs === []) {
+            throw new RuntimeException('evidence writer: file_diffs must not be empty when files_changed is non-empty');
+        }
+        $fileDiffsKeys = array_keys($fileDiffs);
+        $missingDiffs = array_values(array_diff($filesChanged, $fileDiffsKeys));
+        if ($missingDiffs !== []) {
+            throw new RuntimeException('evidence writer: files_changed without corresponding diff: '.implode(', ', $missingDiffs));
         }
         if ($gateResult === null || ! array_key_exists('passed', $gateResult)) {
             throw new RuntimeException('evidence writer: missing tests_or_gates_result.passed');
@@ -210,6 +207,11 @@ final class AtlasNativeWorkerEvidenceWriter
         return (string) preg_replace(self::SECRET_PATTERN, '[REDACTED]', $value);
     }
 
+    private function now(): string
+    {
+        return is_callable($this->clock) ? (string) ($this->clock)() : gmdate(DATE_ATOM);
+    }
+
     private function alreadyRecorded(string $taskId, string $envHash): bool
     {
         foreach ($this->all() as $r) {
@@ -221,5 +223,4 @@ final class AtlasNativeWorkerEvidenceWriter
 
         return false;
     }
-
 }

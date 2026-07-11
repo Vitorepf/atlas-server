@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionNativeActionExecutor;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonState;
 use Illuminate\Console\Command;
@@ -13,13 +14,12 @@ use Throwable;
  * Atlas-native control surface for the final Self-Construction runtime daemon.
  *
  * status / plan are READ-ONLY (no apply, no callback).
- * tick / run-once default to dry_run unless --apply is passed.
+ * tick / run-once default to the productive typed native executor; --dry-run is diagnostic only.
  * pause / resume / stop emit deterministic state events and do NOT require an operator for ordinary
  * forward progress when no pause/stop is currently active.
  *
  * The command refuses to invoke any provider, git, external coding tool, network or unrestricted
- * shell — it merely projects the daemon's facts and (when --apply) runs INJECTED Atlas-native
- * callbacks bound through the container (`atlas.self_construction.runtime_daemon.action_callbacks`).
+ * shell. Productive actions run only through the injected typed Atlas-native executor.
  */
 final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 {
@@ -28,7 +28,8 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
         {action : status|plan|tick|run-once|pause|resume|stop}
         {--facts= : Path to a JSON facts file or - for STDIN}
         {--max-cycles=1 : max ticks to drive in run-once (>=1)}
-        {--apply : Run the real Atlas-native callback path; default is dry-run}
+        {--apply : Deprecated compatibility flag; productive tick/run-once already apply}
+        {--dry-run : Explicit diagnostic mode; never mutates}
         {--json : Emit machine-readable JSON}';
 
     /** @var string */
@@ -41,7 +42,7 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
     public function handle(): int
     {
         $action = (string) $this->argument('action');
-        $apply = (bool) $this->option('apply');
+        $apply = in_array($action, ['tick', 'run-once'], true) && ! (bool) $this->option('dry-run');
         $maxCycles = max(1, (int) $this->option('max-cycles'));
 
         $facts = $this->readFacts((string) ($this->option('facts') ?? ''));
@@ -52,14 +53,12 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
         }
         $facts ??= [];
 
-        $callbacks = $this->resolveCallbacks();
-
         try {
             $payload = match ($action) {
                 'status' => $this->statusAction($facts),
                 'plan' => $this->planAction($facts),
-                'tick' => $this->tickAction($facts, $apply, $callbacks),
-                'run-once' => $this->runOnceAction($facts, $apply, $callbacks, $maxCycles),
+                'tick' => $this->tickAction($facts, $apply),
+                'run-once' => $this->runOnceAction($facts, $apply, $maxCycles),
                 'pause' => $this->controlAction($facts, ['type' => 'pause_requested']),
                 'resume' => $this->controlAction($facts, ['type' => 'resume']),
                 'stop' => $this->controlAction($facts, ['type' => 'stop_requested']),
@@ -122,13 +121,12 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 
     /**
      * @param  array<string,mixed>  $facts
-     * @param  array<string,callable>  $callbacks
      * @return array<string,mixed>
      */
-    private function tickAction(array $facts, bool $apply, array $callbacks): array
+    private function tickAction(array $facts, bool $apply): array
     {
-        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
-        $verdict = $cycle->tick($facts, ['apply' => $apply, 'action_callbacks' => $callbacks]);
+        $cycle = $this->productiveCycle();
+        $verdict = $cycle->tick($facts, ['apply' => $apply]);
 
         return $this->withOwnership([
             'status' => 'ok',
@@ -149,18 +147,17 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 
     /**
      * @param  array<string,mixed>  $facts
-     * @param  array<string,callable>  $callbacks
      * @return array<string,mixed>
      */
-    private function runOnceAction(array $facts, bool $apply, array $callbacks, int $maxCycles): array
+    private function runOnceAction(array $facts, bool $apply, int $maxCycles): array
     {
         $ticks = [];
         $state = is_array($facts['daemon_state'] ?? null) ? $facts['daemon_state'] : [];
-        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+        $cycle = $this->productiveCycle();
 
         for ($i = 0; $i < $maxCycles; $i++) {
             $tickFacts = array_replace($facts, ['daemon_state' => $state]);
-            $verdict = $cycle->tick($tickFacts, ['apply' => $apply, 'action_callbacks' => $callbacks]);
+            $verdict = $cycle->tick($tickFacts, ['apply' => $apply]);
             $ticks[] = $verdict;
             $state = $verdict['next_state'];
             if (! (bool) ($state['next_tick_allowed'] ?? false)) {
@@ -204,24 +201,11 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
         ]);
     }
 
-    /**
-     * @return array<string,callable>
-     */
-    private function resolveCallbacks(): array
+    private function productiveCycle(): AtlasSelfConstructionRuntimeDaemonCycle
     {
-        if (app()->bound('atlas.self_construction.runtime_daemon.action_callbacks')) {
-            $bound = app('atlas.self_construction.runtime_daemon.action_callbacks');
-            if (is_array($bound)) {
-                $filtered = array_filter($bound, 'is_callable');
-                if ($filtered !== []) {
-                    return $filtered;
-                }
-            }
-        }
-
-        // Productive default: Atlas-native Task Serving callbacks (not test doubles).
-        return app(\App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks::class)
-            ->forClient('atlas-self-construction-runtime-daemon');
+        return new AtlasSelfConstructionRuntimeDaemonCycle(
+            actionExecutor: app(AtlasSelfConstructionNativeActionExecutor::class),
+        );
     }
 
     /**
@@ -249,7 +233,7 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
     }
 
     /**
-     * @return array<string,mixed>|null|false  null = no facts, false = invalid path
+     * @return array<string,mixed>|null|false null = no facts, false = invalid path
      */
     private function readFacts(string $path): array|false|null
     {

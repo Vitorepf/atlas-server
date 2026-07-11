@@ -4,11 +4,48 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\RuntimeDaemon;
 
+use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionNativeActionExecutor;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
 {
+    public function test_native_executor_cannot_resolve_before_independent_canary_receipt(): void
+    {
+        $executor = new class extends AtlasSelfConstructionNativeActionExecutor
+        {
+            public function execute(array $action, array $state): array
+            {
+                return ['status' => 'resolved', 'verification_receipt' => 'self-certified'];
+            }
+        };
+
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle(actionExecutor: $executor))
+            ->tick($this->readyFacts(), ['apply' => true]);
+
+        $this->assertSame([], $out['applied_actions']);
+        $this->assertSame('independent_verification_receipt_missing', $out['blocked_actions'][0]['error']);
+        $this->assertTrue($out['action_feedback'][0]['retryable']);
+    }
+
+    public function test_provider_timeout_is_held_and_never_resolved(): void
+    {
+        $executor = new class extends AtlasSelfConstructionNativeActionExecutor
+        {
+            public function execute(array $action, array $state): array
+            {
+                throw new \RuntimeException('provider_timeout');
+            }
+        };
+
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle(actionExecutor: $executor))
+            ->tick($this->readyFacts(), ['apply' => true]);
+
+        $this->assertSame([], $out['applied_actions']);
+        $this->assertSame('provider_timeout', $out['blocked_actions'][0]['error']);
+        $this->assertTrue($out['action_feedback'][0]['retryable']);
+    }
+
     private function readyState(): array
     {
         return [
@@ -33,7 +70,9 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $called = 0;
         $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
         $out = $cycle->tick($this->readyFacts(), [
-            'action_callbacks' => ['native_tick' => function () use (&$called) { $called++; }],
+            'action_callbacks' => ['native_tick' => function () use (&$called) {
+                $called++;
+            }],
         ]);
 
         $this->assertSame(AtlasSelfConstructionRuntimeDaemonCycle::SCHEMA, $out['schema_version']);
@@ -53,7 +92,9 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
             'apply' => true,
             'action_callbacks' => [
                 'native_tick' => static fn (array $a, array $s): array => ['ok' => true],
-                'native_audit' => static function (): array { throw new \RuntimeException('audit boom'); },
+                'native_audit' => static function (): array {
+                    throw new \RuntimeException('audit boom');
+                },
             ],
         ]);
 
@@ -80,8 +121,12 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         ]]), [
             'apply' => true,
             'action_callbacks' => [
-                'git' => function () use (&$touched) { $touched = true; },
-                'operator_action' => function () use (&$touched) { $touched = true; },
+                'git' => function () use (&$touched) {
+                    $touched = true;
+                },
+                'operator_action' => function () use (&$touched) {
+                    $touched = true;
+                },
             ],
         ]);
 
@@ -163,18 +208,18 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $out = $cycle->tick($this->readyFacts([
             'planned_actions' => [],
             'unattended_verdict' => [
-                'recovery_needed'  => true,
+                'recovery_needed' => true,
                 'critical_blocker' => false,
-                'classification'   => 'stale_brain_heartbeat',
-                'severity'         => 'medium',
-                'reasons'          => ['brain_quota_stall_reason_stale_brain_heartbeat'],
+                'classification' => 'stale_brain_heartbeat',
+                'severity' => 'medium',
+                'reasons' => ['brain_quota_stall_reason_stale_brain_heartbeat'],
             ],
         ]), [
             'apply' => true,
             'action_callbacks' => [
                 'atlas_native_brain_recovery' => static fn (array $a): array => [
                     'recovered' => true,
-                    'class'     => $a['verdict_classification'],
+                    'class' => $a['verdict_classification'],
                 ],
             ],
         ]);
@@ -189,21 +234,21 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
     {
         $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
         $out = $cycle->tick($this->readyFacts([
-            'planned_actions'    => [['kind' => 'git']],
+            'planned_actions' => [['kind' => 'git']],
             'unattended_verdict' => [
-                'recovery_needed'  => true,
+                'recovery_needed' => true,
                 'critical_blocker' => false,
-                'classification'   => 'stale_brain_heartbeat',
+                'classification' => 'stale_brain_heartbeat',
             ],
         ]), [
             'apply' => true,
             'action_callbacks' => [
-                'git'                         => static fn () => ['ok' => true],
-                'atlas_native_brain_recovery'  => static fn () => ['ok' => true],
+                'git' => static fn () => ['ok' => true],
+                'atlas_native_brain_recovery' => static fn () => ['ok' => true],
             ],
         ]);
 
-        $appliedKinds  = array_column($out['applied_actions'], 'kind');
+        $appliedKinds = array_column($out['applied_actions'], 'kind');
         $withheldKinds = array_column($out['withheld_actions'], 'kind');
 
         $this->assertNotContains('git', $appliedKinds);
@@ -228,7 +273,7 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $fb = $out['action_feedback'];
         $this->assertCount(1, $fb);
         $this->assertSame('native_tick', $fb[0]['kind']);
-        $this->assertSame('withheld',    $fb[0]['outcome_class']);
+        $this->assertSame('withheld', $fb[0]['outcome_class']);
         $this->assertTrue($fb[0]['retryable']);
         $this->assertStringContainsString('native_tick', $fb[0]['next_safe_action']);
         $this->assertIsArray($fb[0]['receipt_refs']);
@@ -281,7 +326,7 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertArrayHasKey('blocked', $fb);
         $this->assertSame('native_tick', $fb['blocked']['kind']);
         $this->assertTrue($fb['blocked']['retryable']);
-        $this->assertStringContainsString('inspect_callback_error', $fb['blocked']['next_safe_action']);
+        $this->assertStringContainsString('inspect_native_executor_error', $fb['blocked']['next_safe_action']);
     }
 
     public function test_feedback_entry_has_all_required_keys(): void

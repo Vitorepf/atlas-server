@@ -17,9 +17,8 @@ use Throwable;
  * Refuses any action whose `kind` is in {@see REFUSED_ACTION_KINDS}: operator, human, external provider,
  * Claude / Codex / Cursor, git, network, unrestricted shell. These NEVER fire, even with a callback.
  *
- * Apply mode is opt-in (`options.apply === true`). Even then, ONLY injected Atlas-native callbacks
- * (`options.action_callbacks[kind]`) may run, and only for ready ticks (no safety_stop, no pause/stop
- * request, no stale heartbeat, no critical blocker from the unattended supervisor).
+ * Apply mode runs only the typed Atlas-native executor and only for ready ticks. Callback options
+ * are an explicitly test-environment-only compatibility harness and cannot be selected by production.
  */
 final class AtlasSelfConstructionRuntimeDaemonCycle
 {
@@ -37,19 +36,23 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         'unrestricted_shell',
     ];
 
-    public function __construct(private readonly ?AtlasSelfConstructionRuntimeDaemonState $stateReducer = null)
-    {
-    }
+    public function __construct(
+        private readonly ?AtlasSelfConstructionRuntimeDaemonState $stateReducer = null,
+        private readonly ?AtlasSelfConstructionNativeActionExecutor $actionExecutor = null,
+    ) {}
 
     /**
-     * @param  array<string,mixed>  $facts {daemon_state?, heartbeat_event, planned_actions?, unattended_verdict?, native_pool_receipt?}
-     * @param  array<string,mixed>  $options {apply?:bool, action_callbacks?:array<string,callable>}
+     * @param  array<string,mixed>  $facts  {daemon_state?, heartbeat_event, planned_actions?, unattended_verdict?, native_pool_receipt?}
+     * @param  array<string,mixed>  $options  {apply?:bool, action_callbacks?:array<string,callable>}
      * @return array<string,mixed>
      */
     public function tick(array $facts, array $options = []): array
     {
         $apply = (bool) ($options['apply'] ?? false);
-        $callbacks = is_array($options['action_callbacks'] ?? null) ? $options['action_callbacks'] : [];
+        $testCallbacks = app()->environment('testing') && ! $this->actionExecutor instanceof AtlasSelfConstructionNativeActionExecutor
+            && is_array($options['action_callbacks'] ?? null)
+            ? $options['action_callbacks']
+            : [];
 
         $state = is_array($facts['daemon_state'] ?? null) ? $facts['daemon_state'] : [];
         $heartbeatEvent = is_array($facts['heartbeat_event'] ?? null) ? $facts['heartbeat_event'] : ['type' => 'heartbeat'];
@@ -61,16 +64,16 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         $nextState = $reducer->reduce($state, $heartbeatEvent);
 
         $unattendedCriticalBlocker = (bool) ($unattended['critical_blocker'] ?? false);
-        $unattendedRecoveryNeeded  = (bool) ($unattended['recovery_needed'] ?? false);
+        $unattendedRecoveryNeeded = (bool) ($unattended['recovery_needed'] ?? false);
 
         // Recoverable brain stall → inject as atlas-native planned action (not critical; allowed kinds only)
         if ($unattendedRecoveryNeeded && ! $unattendedCriticalBlocker) {
             $plannedActions[] = [
-                'kind'                    => 'atlas_native_brain_recovery',
-                'verdict_classification'  => (string) ($unattended['classification'] ?? ''),
-                'verdict_severity'        => (string) ($unattended['severity'] ?? ''),
-                'verdict_reasons'         => (array) ($unattended['reasons'] ?? []),
-                'source'                  => 'unattended_verdict',
+                'kind' => 'atlas_native_brain_recovery',
+                'verdict_classification' => (string) ($unattended['classification'] ?? ''),
+                'verdict_severity' => (string) ($unattended['severity'] ?? ''),
+                'verdict_reasons' => (array) ($unattended['reasons'] ?? []),
+                'source' => 'unattended_verdict',
             ];
         }
         $nextTickAllowed = (bool) ($nextState['next_tick_allowed'] ?? false);
@@ -126,8 +129,8 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
 
                 continue;
             }
-            $callback = $callbacks[$kind] ?? null;
-            if (! is_callable($callback)) {
+            $testCallback = $testCallbacks[$kind] ?? null;
+            if (! $this->actionExecutor instanceof AtlasSelfConstructionNativeActionExecutor && ! is_callable($testCallback)) {
                 $withheldActions[] = [
                     'kind' => $kind,
                     'reason' => 'no_callback_supplied',
@@ -136,7 +139,16 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
                 continue;
             }
             try {
-                $result = $callback($action, $nextState);
+                $result = $this->actionExecutor instanceof AtlasSelfConstructionNativeActionExecutor
+                    ? $this->actionExecutor->execute($action, $nextState)
+                    : $testCallback($action, $nextState);
+                if (($result['status'] ?? null) === 'resolved') {
+                    foreach (['independent_verification_receipt', 'release_receipt', 'canary_receipt'] as $requiredReceipt) {
+                        if (trim((string) ($result[$requiredReceipt] ?? '')) === '') {
+                            throw new \RuntimeException($requiredReceipt.'_missing');
+                        }
+                    }
+                }
                 $appliedActions[] = [
                     'kind' => $kind,
                     'result' => is_array($result) ? $result : ['ok' => true],
@@ -277,35 +289,35 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
                 $refs[] = (string) $a['result']['receipt'];
             }
             $feedback[] = [
-                'kind'             => $kind,
-                'outcome_class'    => 'applied',
-                'retryable'        => false,
+                'kind' => $kind,
+                'outcome_class' => 'applied',
+                'retryable' => false,
                 'next_safe_action' => 'verify_applied_outcome:'.$kind,
-                'receipt_refs'     => $refs,
+                'receipt_refs' => $refs,
             ];
         }
 
         foreach ($withheldActions as $w) {
-            $kind   = (string) ($w['kind'] ?? '');
+            $kind = (string) ($w['kind'] ?? '');
             $reason = (string) ($w['reason'] ?? '');
             [$retryable, $next] = $this->withheldRetryProfile($reason, $kind);
             $feedback[] = [
-                'kind'             => $kind,
-                'outcome_class'    => 'withheld',
-                'retryable'        => $retryable,
+                'kind' => $kind,
+                'outcome_class' => 'withheld',
+                'retryable' => $retryable,
                 'next_safe_action' => $next,
-                'receipt_refs'     => [],
+                'receipt_refs' => [],
             ];
         }
 
         foreach ($blockedActions as $b) {
             $kind = (string) ($b['kind'] ?? '');
             $feedback[] = [
-                'kind'             => $kind,
-                'outcome_class'    => 'blocked',
-                'retryable'        => true,
-                'next_safe_action' => 'inspect_callback_error_and_retry:'.$kind,
-                'receipt_refs'     => [],
+                'kind' => $kind,
+                'outcome_class' => 'blocked',
+                'retryable' => true,
+                'next_safe_action' => 'inspect_native_executor_error_and_retry:'.$kind,
+                'receipt_refs' => [],
             ];
         }
 

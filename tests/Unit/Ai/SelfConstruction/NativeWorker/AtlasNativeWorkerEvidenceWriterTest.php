@@ -30,7 +30,9 @@ final class AtlasNativeWorkerEvidenceWriterTest extends TestCase
 
     protected function tearDown(): void
     {
-        @unlink($this->ledgerPath);
+        if (is_file($this->ledgerPath)) {
+            unlink($this->ledgerPath);
+        }
         parent::tearDown();
     }
 
@@ -41,6 +43,7 @@ final class AtlasNativeWorkerEvidenceWriterTest extends TestCase
             'envelope_hash' => $envelopeHash,
             'runtime_owner' => AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER,
             'files_changed' => ['app/Foo.php'],
+            'file_diffs' => ['app/Foo.php' => 'diff --git a/app/Foo.php b/app/Foo.php'],
             'commands_run' => [['command' => '/opt/homebrew/bin/php artisan test tests/Unit/FooTest.php', 'exit_code' => 0]],
             'tests_or_gates_result' => ['passed' => true, 'gate' => 'phpunit', 'count' => 1],
             'scope_deviations' => [],
