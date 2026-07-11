@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Models\AtlasDevFailureCapsule;
+use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
@@ -1545,5 +1546,73 @@ final class AtlasTaskServingService
         }
 
         return ['ok' => true, 'compose' => $composeAudit ?? []];
+    }
+
+    /**
+     * OUTC-01(b): server-side verified outcome — anchored on scoped commit + verification,
+     * NEVER on the worker's self-declared --outcome claim.
+     *
+     * @param  array<string,mixed>  $scope
+     * @param  array<string,mixed>  $commit
+     * @param  array<string,mixed>|null  $verification
+     * @return array<string,mixed>|null
+     */
+    private function recordServerSideOutcomeSpine(
+        string $taskPacketId,
+        array $scope,
+        array $commit,
+        ?array $verification,
+        bool $verified,
+    ): ?array {
+        if (! (bool) config('atlas.aemor.engineering_outcome_enabled', true)) {
+            return null;
+        }
+
+        try {
+            $allowed = array_values(array_map('strval', (array) ($scope['allowed_files'] ?? [])));
+            $committed = array_values(array_map('strval', (array) ($commit['files_committed'] ?? [])));
+            $scopeOk = $committed !== [] && array_diff($committed, $allowed) === [];
+            $serverVerified = $verified
+                && ($commit['committed'] ?? false) === true
+                && trim((string) ($commit['commit_sha'] ?? '')) !== ''
+                && $scopeOk
+                && ($verification === null || ($verification['passed'] ?? false) === true);
+
+            $evidenceRefs = array_values(array_filter([
+                $serverVerified ? 'commit:'.((string) ($commit['commit_sha'] ?? '')) : null,
+                'task_packet:'.$taskPacketId,
+                $scopeOk ? 'scope_verified:files_subset_allowed' : 'scope_unverified:files_not_subset',
+                isset($verification['execution_evidence']['tests_run'])
+                    ? 'tests_run:'.(int) $verification['execution_evidence']['tests_run']
+                    : null,
+            ]));
+
+            if ($evidenceRefs === []) {
+                $evidenceRefs = ['task_packet:'.$taskPacketId, 'verified:false'];
+            }
+
+            return app(AtlasEngineeringOutcomeRecorder::class)->record([
+                'executor' => 'autonomos',
+                'objective' => (string) ($scope['objective'] ?? 'Autônomos task landing'),
+                'workspace' => base_path(),
+                'surface_id' => 'task_serving',
+                'scope_type' => 'task',
+                'scope_id' => $taskPacketId,
+                'run_id' => $taskPacketId,
+                'status' => $serverVerified ? 'succeeded' : 'blocked',
+                'summary' => $serverVerified
+                    ? 'Autônomos task landed with server-side verified scoped commit.'
+                    : 'Autônomos task reported without server-side verification (claim not confirmed).',
+                'evidence_refs' => $evidenceRefs,
+                'metrics' => [
+                    'tests_passed' => $serverVerified && (int) data_get($verification, 'execution_evidence.tests_run', 0) > 0,
+                    'attribution_reviewed' => true,
+                    'server_verified' => $serverVerified,
+                ],
+                'verified' => $serverVerified,
+            ]);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

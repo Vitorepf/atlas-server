@@ -341,6 +341,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Engineering run conductor (OUTC-01)
+    |--------------------------------------------------------------------------
+    | LIVE runs feed the compounding pipeline by default; set compound=false to
+    | opt out per run. SHADOW never compounds regardless.
+    */
+    'engineering_conductor' => [
+        'compound_default_live' => (bool) env('ATLAS_ENGINEERING_CONDUCTOR_COMPOUND_DEFAULT_LIVE', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Context-window / retrieval budget kernels
     |--------------------------------------------------------------------------
     | Three pure deterministic kernels under App\Services\Ai\Context\,
@@ -2184,8 +2195,8 @@ return [
         // the central compounding loop THROUGH the conductor
         // (recordExternalEngineeringOutcome — same substance gates as live
         // runs; the conductor stays the only recordExecution caller).
-        // Default OFF, mirroring the opt-in `compound` option.
-        'forge_compounding_bridge_enabled' => (bool) env('ATLAS_PATAMAR4_FORGE_COMPOUNDING_BRIDGE_ENABLED', false),
+        // OUTC-01(c): default ON for real Forge executions; simulation stays quarantined.
+        'forge_compounding_bridge_enabled' => (bool) env('ATLAS_PATAMAR4_FORGE_COMPOUNDING_BRIDGE_ENABLED', true),
         'scheduler_heartbeat_enabled' => (bool) env('ATLAS_PATAMAR4_SCHEDULER_HEARTBEAT_ENABLED', true),
         'scheduler_ensure_launchd_enabled' => (bool) env('ATLAS_PATAMAR4_SCHEDULER_ENSURE_LAUNCHD_ENABLED', true),
         'reconciliation_enabled' => (bool) env('ATLAS_PATAMAR4_RECONCILIATION_ENABLED', true),

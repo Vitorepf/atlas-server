@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aemor;
 
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 /**
@@ -165,7 +168,9 @@ class AtlasEngineeringOutcomeRecorder
                 'promotion_policy' => [
                     'auto_promote' => false,
                     'operator_review_required' => true,
+                    'note' => 'AEMOR deltas stay pending; compounding auto-promote is a separate governed path',
                 ],
+                'spine' => $this->fanOutSpineWriters($input, $status, $evidenceRefs, (string) ($episode['episode_id'] ?? '')),
             ];
         } catch (Throwable $exception) {
             return [
@@ -202,5 +207,84 @@ class AtlasEngineeringOutcomeRecorder
             'status' => 'degraded',
             'reason' => $reason,
         ];
+    }
+
+    /**
+     * OUTC-01 spine fan-out: the same harness-captured outcome also lands in
+     * ai_run_outcomes and live_outcomes.jsonl — one writer, three sinks.
+     *
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function fanOutSpineWriters(array $input, string $status, array $evidenceRefs, string $episodeId): array
+    {
+        $result = [
+            'ai_run_outcome' => ['recorded' => false],
+            'live_outcome' => ['recorded' => false],
+        ];
+
+        $executor = strtolower(trim((string) ($input['executor'] ?? '')));
+        $runId = trim((string) ($input['run_id'] ?? $input['scope_id'] ?? $episodeId));
+        if ($runId === '') {
+            $runId = 'engineering-'.substr(hash('sha256', json_encode($input)), 0, 16);
+        }
+
+        $flowId = match ($executor) {
+            'dev' => 'atlas_dev',
+            'forge' => 'atlas_forge',
+            'autonomos' => 'atlas_autonomos',
+            default => 'engineering_'.$executor,
+        };
+
+        $outcomeStatus = match ($status) {
+            'succeeded' => 'passed',
+            'failed' => 'failed',
+            default => 'blocked',
+        };
+
+        try {
+            if (DatabaseTableAvailability::has('ai_run_outcomes')) {
+                $evaluator = app(AtlasCompoundingOutcomeEvaluator::class);
+                $outcome = $evaluator->evaluate([
+                    'run_id' => $runId,
+                    'flow_id' => $flowId,
+                    'outcome_status' => $outcomeStatus,
+                    'evidence_refs' => $evidenceRefs,
+                    'execution_quality' => data_get($input, 'metrics.tests_passed') === true ? 90 : 40,
+                    'evidence_quality' => $evidenceRefs === [] ? 35 : 90,
+                    'verified' => (bool) ($input['verified'] ?? ($outcomeStatus === 'passed')),
+                ]);
+                $result['ai_run_outcome'] = [
+                    'recorded' => true,
+                    'id' => $outcome->id,
+                    'outcome_hash' => $outcome->outcome_hash,
+                ];
+            }
+        } catch (Throwable) {
+            // fail-open
+        }
+
+        try {
+            $feedback = app(AtlasDecideLiveOutcomeFeedbackService::class);
+            $liveResult = match ($outcomeStatus) {
+                'passed' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'failed' => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                default => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+            };
+            $record = $feedback->record([
+                'task_category' => $executor === 'dev' ? 'programming' : $executor,
+                'role' => (string) ($input['surface_id'] ?? $executor),
+                'provider' => (string) ($input['provider'] ?? 'local'),
+                'result' => $liveResult,
+                'proven_real' => (bool) ($input['verified'] ?? false) && $outcomeStatus === 'passed',
+                'quality_score' => data_get($input, 'metrics.tests_passed') === true ? 1.0 : 0.0,
+                'actor' => 'engineering_outcome_spine:'.$executor,
+            ]);
+            $result['live_outcome'] = ['recorded' => true, 'receipt' => $record];
+        } catch (Throwable) {
+            // fail-open
+        }
+
+        return $result;
     }
 }

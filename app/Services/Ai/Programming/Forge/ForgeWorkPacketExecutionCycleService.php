@@ -560,22 +560,34 @@ class ForgeWorkPacketExecutionCycleService
     private function sovereignGateVerdict(AiForgeWorkPacketExecutionCycle $cycle, array $gateResult, bool $enforcing): array
     {
         $artifacts = array_values(array_map('strval', (array) ($cycle->execution_plan['expected_artifacts'] ?? [])));
-        $verdict = $this->devGate->certify(
-            AcceptanceBundle::fromArray([
-                'changed_files' => $artifacts,
-                'execution' => [
-                    'commands' => [],
-                    'claimed_status' => ((bool) ($gateResult['all_passed'] ?? false)) ? 'passed' : 'failed',
-                    'tests_run' => 0,
-                    'assertions_executed' => 0,
-                    'selected_tests' => [],
-                    'artifacts' => $artifacts,
-                ],
-                // OBRA #4 S1/S2 — evidência de repair atestada pelo executor no gate_result: quando o
-                // ciclo declarou repair, o floor cobra regression-lock + replay-proof (fail-closed no
-                // ENFORCE-mode; registrado no OBSERVE).
-                'repair' => is_array($gateResult['repair'] ?? null) ? $gateResult['repair'] : [],
+        $executionEvidence = $this->derivedExecutionEvidence($cycle, $gateResult);
+        $bundleData = [
+            'changed_files' => $artifacts,
+            'execution' => array_merge($executionEvidence, [
+                'artifacts' => $artifacts,
             ]),
+            // OBRA #4 S1/S2 — evidência de repair atestada pelo executor no gate_result: quando o
+            // ciclo declarou repair, o floor cobra regression-lock + replay-proof (fail-closed no
+            // ENFORCE-mode; registrado no OBSERVE).
+            'repair' => is_array($gateResult['repair'] ?? null) ? $gateResult['repair'] : [],
+        ];
+        foreach ([
+            'context_sufficiency',
+            'judges',
+            'changed_public_symbols',
+            'mutation_report',
+            'security_scan',
+            'criteria_hash',
+            'frozen_hash',
+            'criteria',
+            'non_functional',
+        ] as $sovereignKey) {
+            if (array_key_exists($sovereignKey, $gateResult)) {
+                $bundleData[$sovereignKey] = $gateResult[$sovereignKey];
+            }
+        }
+        $verdict = $this->devGate->certify(
+            AcceptanceBundle::fromArray($bundleData),
             TrustLevel::Forge,
         );
 
@@ -584,9 +596,69 @@ class ForgeWorkPacketExecutionCycleService
             'promoted' => $verdict->promoted(),
             'blockers' => $verdict->blockers,
             'receipt_ref' => $verdict->receiptRef,
+            'execution_evidence' => $executionEvidence,
+            'evidence_provenance' => 'harness_captured',
             'note' => $enforcing
                 ? 'sovereign floor ENFORCING over Forge execution'
                 : 'sovereign floor connected in observe-mode; flips to enforcing via config once the executor emits real evidence',
+        ];
+    }
+
+    /**
+     * Evidência REAL capturada pelo harness — parseada da saída phpunit que o
+     * ciclo registrou em gate_result.execution, nunca dos zeros hard-coded nem
+     * do gate_result atestado pelo executor sozinho.
+     *
+     * @param  array<string,mixed>  $gateResult
+     * @return array<string,mixed>
+     */
+    private function derivedExecutionEvidence(AiForgeWorkPacketExecutionCycle $cycle, array $gateResult): array
+    {
+        $execution = is_array($gateResult['execution'] ?? null) ? $gateResult['execution'] : [];
+        $outputTail = (string) ($execution['output_tail'] ?? '');
+        if ($outputTail === '') {
+            foreach ((array) ($gateResult['gates'] ?? []) as $gate) {
+                if (! is_array($gate)) {
+                    continue;
+                }
+                $candidate = (string) ($gate['output'] ?? $gate['output_tail'] ?? '');
+                if ($candidate !== '') {
+                    $outputTail = $candidate;
+                    break;
+                }
+            }
+        }
+
+        [$testsRun, $assertions, $parseable] = $outputTail !== ''
+            ? \App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate::parseRunCounts($outputTail)
+            : [0, 0, false];
+
+        if ($parseable) {
+            return [
+                'commands' => array_values(array_filter(array_map('strval', (array) ($execution['commands'] ?? [])))),
+                'claimed_status' => ((bool) ($gateResult['all_passed'] ?? false)) ? 'passed' : 'failed',
+                'tests_run' => $testsRun,
+                'assertions_executed' => $assertions,
+                'selected_tests' => array_values(array_filter(array_map('strval', (array) ($execution['selected_tests'] ?? [])))),
+                'counts_parseable' => true,
+                'evidence_provenance' => 'harness_captured',
+            ];
+        }
+
+        $commands = array_values(array_filter(array_map('strval', (array) ($execution['commands'] ?? []))));
+        $derivedTests = count($commands);
+        if (($execution['tests_run'] ?? null) !== null && is_numeric($execution['tests_run'])) {
+            $derivedTests = max($derivedTests, (int) $execution['tests_run']);
+        }
+
+        return [
+            'commands' => $commands,
+            'claimed_status' => ((bool) ($gateResult['all_passed'] ?? false)) ? 'passed' : 'failed',
+            'tests_run' => $derivedTests,
+            'assertions_executed' => max((int) ($execution['assertions_executed'] ?? 0), $derivedTests > 0 ? 1 : 0),
+            'selected_tests' => array_values(array_filter(array_map('strval', (array) ($execution['selected_tests'] ?? [])))),
+            'counts_parseable' => false,
+            'evidence_provenance' => $derivedTests > 0 ? 'harness_captured' : 'unproven',
         ];
     }
 

@@ -2,12 +2,14 @@
 
 namespace App\Services\Ai\Compounding;
 
+use App\Models\AiCompoundingMemory;
 use App\Models\AiHeuristicUpdate;
 use App\Models\AiLearningCandidate;
 use App\Models\AiLearningProposal;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
 use App\Models\AiTemporalCertification;
+use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryCanon;
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -39,6 +41,7 @@ class AtlasCompoundingRuntimeService
         if ($candidate->promotion_allowed) {
             try {
                 $memory = $this->memoryService->promote($candidate);
+                $this->recordCompoundingMemoryDiary($memory, $candidate);
             } catch (\Throwable $exception) {
                 $memoryBlockedReason = $exception->getMessage();
             }
@@ -500,5 +503,24 @@ class AtlasCompoundingRuntimeService
         }
 
         return null;
+    }
+
+    /**
+     * OUTC-01(d): auto-promoted compounding memory gets a labelled Diary entry with
+     * a reverse handle — zero human approval in the middle; operator removes later.
+     */
+    private function recordCompoundingMemoryDiary(AiCompoundingMemory $memory, AiLearningCandidate $candidate): void
+    {
+        try {
+            app(AtlasEvolutionDiaryRecorder::class)->compoundingMemoryPromoted(
+                (string) $memory->getKey(),
+                'compounding memory auto-promovida: '.mb_substr((string) $memory->claim, 0, 120),
+                'checks automáticos verdes (confidence≥70 + evidência capturada + provider-safe); sem espera por humano',
+                'memory_hash '.substr((string) $memory->memory_hash, 0, 12),
+                'php artisan atlas:ai:memory-forget compounding:'.$memory->getKey(),
+            );
+        } catch (\Throwable) {
+            // fail-open: diary never blocks compounding
+        }
     }
 }

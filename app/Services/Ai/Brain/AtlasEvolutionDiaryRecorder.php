@@ -43,6 +43,26 @@ class AtlasEvolutionDiaryRecorder
         });
     }
 
+    /**
+     * OUTC-01(d): compounding memory auto-promote → labelled Diary entry with explicit
+     * reverse handle for the weekly digest / operator review-after.
+     */
+    public function compoundingMemoryPromoted(
+        string $memoryId,
+        string $oQue,
+        string $porQue,
+        ?string $evidencia = null,
+        ?string $reverseHandle = null,
+    ): void {
+        $this->safe(fn () => $this->diary()->record(
+            'promocao-memoria',
+            $oQue,
+            $porQue,
+            $evidencia,
+            $reverseHandle,
+        ));
+    }
+
     /** Auto-construction integrates a new organ (requires_human_approval=false) → `orgao-novo`. */
     public function newOrgan(string $oQue, string $porQue, ?string $evidencia = null, ?string $idReversao = null): void
     {

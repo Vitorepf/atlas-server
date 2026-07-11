@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Models\AiJob;
+use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
@@ -1227,6 +1228,42 @@ final class PipelineRunExecutor implements RunExecutor
                 ]);
             } catch (\Throwable) {
                 // fail-open
+            }
+        }
+
+        // OUTC-01(a): engineering outcome spine — AEMOR episode+outcome anchored on REAL gate
+        // results (author≠judge). Gated by atlas.aemor; fail-open; skipped in unit tests unless
+        // an explicit recorder instance is bound (same guard as ADML write side above).
+        if ($admlRecordable && (! app()->runningUnitTests() || app()->bound(AtlasEngineeringOutcomeRecorder::class))) {
+            try {
+                $passed = $receipt->completion->status === CompletionSummary::STATUS_PASSED;
+                $evidenceRefs = array_values(array_filter([
+                    'verification_receipt:'.$runId,
+                    'scope_guard:'.$scopeReceipt->taskContractHash,
+                    count($verificationResult->tests) > 0 ? 'tests_run:'.count($verificationResult->tests) : null,
+                ]));
+                app(AtlasEngineeringOutcomeRecorder::class)->record([
+                    'executor' => 'dev',
+                    'objective' => $envelope->normalizedIntent !== '' ? $envelope->normalizedIntent : 'Atlas Dev pipeline run',
+                    'workspace' => $envelope->workspace,
+                    'surface_id' => $taskKind !== '' ? $taskKind : 'atlas_dev_pipeline',
+                    'scope_type' => 'engineering_run',
+                    'scope_id' => $runId,
+                    'run_id' => $runId,
+                    'provider' => $callResult->actualProvider,
+                    'status' => $passed ? 'succeeded' : ($receipt->completion->status === CompletionSummary::STATUS_NEEDS_REVIEW ? 'blocked' : 'failed'),
+                    'summary' => 'Dev pipeline finished with '.$receipt->completion->status.' (verification='.$verificationResult->aggregateStatus.').',
+                    'evidence_refs' => $evidenceRefs,
+                    'metrics' => [
+                        'tests_passed' => $passed,
+                        'attribution_reviewed' => true,
+                        'verification_status' => $verificationResult->aggregateStatus,
+                    ],
+                    'verified' => $passed,
+                    'provider_calls_made' => $providerCalls > 0,
+                ]);
+            } catch (\Throwable) {
+                // fail-open: outcome spine must never break the run
             }
         }
 

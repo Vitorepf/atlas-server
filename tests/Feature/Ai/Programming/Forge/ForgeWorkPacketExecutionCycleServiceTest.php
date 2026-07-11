@@ -37,6 +37,7 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
 
     protected function tearDown(): void
     {
+        config()->set('atlas.engineering_kernel.forge_execution_gate_enforcing', false);
         $this->reservationMigration()->down();
         $this->dropForgeLongHorizonStateTable();
         parent::tearDown();
@@ -316,6 +317,68 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
             'baseline_hash',
         );
         $intake->intake_hash = $originalBaseline;
+    }
+
+    public function test_real_phpunit_evidence_threads_harness_captured_counts_and_promotes_in_observe_and_enforce(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+        $gateResult = $this->gateWithHarnessCapturedPhpunitEvidence();
+
+        $observeCycle = $this->cycles->complete($cycle, [
+            ['kind' => 'work_packet_receipts', 'ref' => 'wpr://1'],
+            ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
+        ], $gateResult, $state);
+
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_SUCCESS, $observeCycle->status);
+        $sovereign = $observeCycle->next_action['sovereign_engineering_gate'] ?? null;
+        $this->assertIsArray($sovereign);
+        $this->assertSame('observe', $sovereign['mode']);
+        $this->assertTrue($sovereign['promoted']);
+        $this->assertSame('harness_captured', $sovereign['evidence_provenance']);
+        $this->assertGreaterThan(0, (int) ($sovereign['execution_evidence']['tests_run'] ?? 0));
+        $this->assertNotContains('false_claim_blocked', (array) ($sovereign['blockers'] ?? []));
+
+        config()->set('atlas.engineering_kernel.forge_execution_gate_enforcing', true);
+        [$intake2, $packet2, $state2] = $this->bootstrap();
+        $plan2 = $this->cycles->planExecution($packet2, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
+        $cycle2 = $this->cycles->startCycle($intake2, $packet2, $plan2, $state2);
+        $enforceCycle = $this->cycles->complete($cycle2, [
+            ['kind' => 'work_packet_receipts', 'ref' => 'wpr://2'],
+            ['kind' => 'verification_receipt', 'ref' => 'vr://2'],
+        ], $gateResult, $state2);
+
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_SUCCESS, $enforceCycle->status);
+        $enforceSovereign = $enforceCycle->next_action['sovereign_engineering_gate'] ?? null;
+        $this->assertSame('enforce', $enforceSovereign['mode'] ?? null);
+        $this->assertTrue($enforceSovereign['promoted'] ?? false);
+    }
+
+    public function test_claimed_pass_with_zero_tests_hits_false_claim_blocked(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+        ]);
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $gateResult = $this->passingGate();
+
+        $cycle = $this->cycles->complete($cycle, [
+            ['kind' => 'work_packet_receipts', 'ref' => 'wpr://1'],
+            ['kind' => 'verification_receipt', 'ref' => 'vr://1'],
+        ], $gateResult, $state);
+
+        $sovereign = $cycle->next_action['sovereign_engineering_gate'] ?? null;
+        $this->assertIsArray($sovereign);
+        $this->assertFalse($sovereign['promoted']);
+        $this->assertContains('false_claim_blocked', (array) ($sovereign['blockers'] ?? []));
+        $this->assertSame(0, (int) ($sovereign['execution_evidence']['tests_run'] ?? -1));
     }
 
     public function test_complete_records_sovereign_gate_observe_verdict_without_blocking(): void
@@ -688,6 +751,38 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
             'all_passed' => true,
             'failure_reasons' => [],
         ];
+    }
+
+    /**
+     * Harness-captured phpunit output + sovereign bundle fields the floor needs to promote.
+     *
+     * @return array<string,mixed>
+     */
+    private function gateWithHarnessCapturedPhpunitEvidence(): array
+    {
+        return array_merge($this->passingGate(), [
+            'criteria_hash' => 'forge-outc-01-criteria',
+            'frozen_hash' => 'forge-outc-01-criteria',
+            'context_sufficiency' => 90,
+            'judges' => [
+                ['name' => 'judge-a', 'provider_family' => 'anthropic', 'approved' => true],
+                ['name' => 'judge-b', 'provider_family' => 'openai', 'approved' => true],
+            ],
+            'changed_public_symbols' => [
+                ['symbol' => 'ForgePacket', 'has_criterion' => true, 'has_test' => true],
+            ],
+            'mutation_report' => ['decision_surface_added' => false],
+            'security_scan' => [
+                'ran' => true,
+                'secret_free' => true,
+                'critical_sast' => 0,
+                'critical_cve' => 0,
+            ],
+            'execution' => [
+                'commands' => ['vendor/bin/phpunit tests/Feature/FooTest.php'],
+                'output_tail' => "OK (5 tests, 15 assertions)\n",
+            ],
+        ]);
     }
 
     private function reservationMigration(): object

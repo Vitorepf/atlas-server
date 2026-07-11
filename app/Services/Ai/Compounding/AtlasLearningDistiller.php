@@ -19,6 +19,11 @@ class AtlasLearningDistiller
             ?? $this->defaultClaim($outcome);
         $confidence = $this->score($signals['confidence'] ?? null, $outcome->evidence_quality);
         $decision = $evidenceRefs === [] ? 'hold' : ($confidence >= 70 ? 'promote' : 'hold');
+        $missingEvidence = match (true) {
+            $evidenceRefs === [] => ['evidence_refs'],
+            $confidence < 70 => ['confidence_below_70'],
+            default => [],
+        };
 
         // Capture quality gate no CHOKEPOINT da memória (T1.2): TODO produtor de
         // recordExecution passa por aqui antes de virar memória. enforce ⇒ claim
@@ -51,6 +56,7 @@ class AtlasLearningDistiller
             'payload' => [
                 'signals' => $signals,
                 'outcome_hash' => $outcome->outcome_hash,
+                'missing_evidence' => $missingEvidence,
                 'capture_quality' => $mode === 'off' ? null : [
                     'admit' => $gate['admit'],
                     'reason' => $gate['reason'],

@@ -434,22 +434,30 @@ final class AtlasEngineeringRunConductorService
 
         $quality = $winner['quality_score'] ?? null;
 
+        $confidenceSignal = is_numeric($quality) ? (float) $quality : null;
+        $autoPromoteReady = $evidenceRefs !== []
+            && $confidenceSignal !== null
+            && (int) round($confidenceSignal * 100) >= 70;
+
         return [
             'schema_version' => self::COMPOUNDING_CANDIDATE_SCHEMA,
             'claim' => 'route '.((string) ($winner['provider'] ?? 'unknown')).' produced a success outcome for task_category='.((string) ($dispatch['task_category'] ?? '')),
             'flow_id' => (string) ($dispatch['task_category'] ?? ''),
             'provider' => $winner['provider'] ?? null,
             'model' => $winner['model'] ?? null,
-            'confidence_signal' => is_numeric($quality) ? (float) $quality : null,
+            'confidence_signal' => $confidenceSignal,
             'evidence_refs' => $evidenceRefs,
             'revalidation_policy' => 'revalidate_on_failure_or_expiry',
-            // The compounding PIPELINE owns promotion (evidence + confidence>=70 +
-            // revalidation gate via AtlasCompoundingMemoryService::promote). The
-            // conductor only emits a pipeline-ready signal — it never promotes
-            // here, which would be a parallel mechanism the canon forbids.
-            'promotion_allowed' => false,
+            // OUTC-01(d): automatic checks (confidence≥70 + real evidence) auto-promote
+            // via AtlasCompoundingRuntimeService — no manual --promote in the middle.
+            'promotion_allowed' => $autoPromoteReady,
+            'auto_promote_on_checks' => true,
             'pipeline_ready' => $evidenceRefs !== [],
             'requires' => ['evidence_refs', 'confidence>=70', 'revalidation_policy'],
+            'missing_evidence' => $autoPromoteReady ? [] : array_values(array_filter([
+                $evidenceRefs === [] ? 'evidence_refs' : null,
+                ($confidenceSignal === null || (int) round($confidenceSignal * 100) < 70) ? 'confidence_below_70' : null,
+            ])),
         ];
     }
 
@@ -796,7 +804,7 @@ final class AtlasEngineeringRunConductorService
     {
         if ($this->compoundingRuntime === null
             || $mode !== self::MODE_LIVE
-            || ($options['compound'] ?? false) !== true
+            || ! $this->compoundEnabled($options, $mode)
             || $status !== self::STATUS_EXECUTED) {
             return null;
         }
@@ -1122,5 +1130,23 @@ final class AtlasEngineeringRunConductorService
         }
 
         return $input;
+    }
+
+    /**
+     * OUTC-01(d): LIVE runs compound by default; explicit compound=false opts out.
+     * SHADOW always stays off regardless. Swarm auto-composer remains compound=false.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    private function compoundEnabled(array $options, string $mode): bool
+    {
+        if ($mode !== self::MODE_LIVE) {
+            return false;
+        }
+        if (array_key_exists('compound', $options)) {
+            return ($options['compound'] ?? false) === true;
+        }
+
+        return (bool) config('atlas.engineering_conductor.compound_default_live', true);
     }
 }
