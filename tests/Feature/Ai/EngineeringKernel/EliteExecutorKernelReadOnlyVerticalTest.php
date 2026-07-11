@@ -20,6 +20,7 @@ use App\Services\Ai\EngineeringKernel\EngineeringFinalCertifier;
 use App\Services\Ai\EngineeringKernel\EngineeringQualityCourt;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\EngineeringKernel\HermeticSandboxPort;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
 use App\Services\Ai\EngineeringKernel\ProviderPort;
@@ -90,6 +91,31 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame('', $candidate->sandboxRoot);
         $this->assertFalse($candidate->authorityEligible);
         $this->assertContains('provider_exception:RuntimeException', $candidate->blockers);
+    }
+
+    public function test_mutative_candidate_sandbox_exception_is_blocked_without_release_authority(): void
+    {
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->method('invoke')->willReturn([
+            'status' => 'ok',
+            'provider_invoked' => true,
+            'patch_plan' => ['allowed_files' => $this->orderData()['allowed_scope']],
+        ]);
+        $sandbox = $this->createMock(HermeticSandboxPort::class);
+        $sandbox->expects($this->once())->method('execute')->willThrowException(new \RuntimeException('sandbox unavailable'));
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->instance(HermeticSandboxPort::class, $sandbox);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+        $candidate = $this->app->make(EliteExecutorKernel::class)
+            ->prepareMutativeCandidate(ExecutionOrder::fromArray($data));
+
+        $this->assertSame('blocked', $candidate->status);
+        $this->assertFalse($candidate->authorityEligible);
+        $this->assertSame('', $candidate->sandboxRoot);
+        $this->assertContains('sandbox_exception:RuntimeException', $candidate->blockers);
     }
 
     public function test_mutative_candidate_malformed_ok_provider_contract_has_zero_sandbox(): void

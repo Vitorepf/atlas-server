@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
+use App\Services\Ai\EngineeringKernel\HermeticSandboxPort;
 use Closure;
 use Symfony\Component\Process\Process;
 
 /** Executes a proposal only inside an isolated disposable filesystem root. */
-final class AtlasSelfConstructionHermeticSandboxApplyService
+final class AtlasSelfConstructionHermeticSandboxApplyService implements HermeticSandboxPort
 {
     private const MANIFEST = '.atlas-native-manifest.json';
 

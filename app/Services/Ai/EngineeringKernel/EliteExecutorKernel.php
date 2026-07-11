@@ -41,7 +41,7 @@ final class EliteExecutorKernel
         private readonly ?AtlasEvidenceLedger $evidenceLedger = null,
         private readonly ?KernelEvidenceAuthority $evidenceAuthority = null,
         private readonly ?ProviderPort $providerPort = null,
-        private readonly ?AtlasSelfConstructionHermeticSandboxApplyService $mutativeSandbox = null,
+        private readonly ?HermeticSandboxPort $mutativeSandbox = null,
         private readonly ?AtlasRealEngineeringExecutionKernelService $realExecution = null,
     ) {}
 
@@ -362,7 +362,8 @@ final class EliteExecutorKernel
         if ($providerFiles !== $allowed || array_intersect($providerFiles, $order->forbiddenScope) !== []) {
             return VerifiedMutativeCandidate::blocked($order, ['provider_scope_mismatch'], $provider);
         }
-        $sandbox = ($this->mutativeSandbox ?? app(AtlasSelfConstructionHermeticSandboxApplyService::class))->execute([
+        try {
+            $sandbox = ($this->mutativeSandbox ?? app(AtlasSelfConstructionHermeticSandboxApplyService::class))->execute([
             'idempotency_key' => $order->idempotencyKey,
             'source_repo' => $order->workspace,
             'base_commit' => $order->baseCommit,
@@ -371,7 +372,10 @@ final class EliteExecutorKernel
             'allowed_files' => $allowed,
             'patch_plan' => (array) ($provider['patch_plan'] ?? []),
             'provider_receipt' => $provider,
-        ]);
+            ]);
+        } catch (\Throwable $e) {
+            return VerifiedMutativeCandidate::blocked($order, ['sandbox_exception:'.$e::class], $provider);
+        }
         if (($sandbox['applied'] ?? false) !== true || ($sandbox['replayed'] ?? false) === true) {
             return VerifiedMutativeCandidate::blocked($order, ['sandbox_'.(string) ($sandbox['reason'] ?? 'refused')], $provider);
         }
