@@ -50,6 +50,7 @@ class AtlasMemoryContextComposer
         $candidates = $this->dropParetoDominatedCandidates($candidates);
 
         usort($candidates, fn (array $left, array $right): int => ($right['score'] <=> $left['score'])
+            ?: (($right['health_score'] ?? 0) <=> ($left['health_score'] ?? 0))
             ?: strcmp((string) $left['source'], (string) $right['source'])
             ?: strcmp((string) $left['title'], (string) $right['title']));
 
@@ -88,6 +89,7 @@ class AtlasMemoryContextComposer
                 'freshness' => $candidate['freshness'],
                 'audit' => $candidate['audit'],
                 'audit_trail' => $candidate['audit'],
+                'explain' => $candidate['explain'],
             ];
 
             $budget -= Str::length($excerpt);
@@ -147,34 +149,43 @@ class AtlasMemoryContextComposer
 
             $type = (string) ($item['type'] ?? 'memory');
             $scope = (string) ($item['scope_type'] ?? $item['scope'] ?? 'global');
-            $score = $this->scorer->score([
-                'source' => 'registry',
-                'type' => $type,
-                'scope_type' => $scope,
-                'priority' => $item['priority'] ?? null,
-                'importance' => $item['importance'] ?? null,
-                'confidence' => $item['confidence'] ?? null,
-                'hybrid_score' => $item['hybrid_score'] ?? null,
-            ]);
 
             $decay = $this->decayScorer->score([
-                'positive_count' => $item['positive_count'] ?? 0,
+                'positive_count' => $item['positive_explicit_count'] ?? ($item['positive_count'] ?? 0),
                 'negative_count' => $item['negative_count'] ?? 0,
                 'wrong_context_count' => $item['wrong_context_count'] ?? 0,
                 'stale_count' => $item['stale_count'] ?? 0,
+                'base_priority' => $item['priority'] ?? null,
                 'recorded_at_age_days' => $this->ageDaysFromTimestamp($item['recorded_at'] ?? null),
                 'last_used_at_age_days' => $this->ageDaysFromTimestamp($item['last_used_at'] ?? null),
                 'recall_eval_hit_rate' => $item['recall_eval_hit_rate'] ?? null,
             ]);
+            $effectivePriority = (int) $decay['effective_priority'];
 
             // Feedback-driven lifecycle: archived/inactivated memories never reach the recall
             // candidate pool; a degraded memory is halved so healthier memories rank above it.
             if (in_array($decay['lifecycle_action'], ['archive', 'inactivate'], true)) {
                 return null;
             }
-            if ($decay['lifecycle_action'] === 'degrade') {
-                $score /= 2;
-            }
+
+            $item['effective_priority'] = $effectivePriority;
+            $item['health_score'] = (int) $decay['health_score'];
+            data_set($item, 'explain.feedback_decay', [
+                'health_score' => (int) $decay['health_score'],
+                'effective_priority' => $effectivePriority,
+                'lifecycle_action' => (string) $decay['lifecycle_action'],
+                'staleness' => (string) $decay['staleness'],
+                'threshold_reasons' => $decay['threshold_reasons'],
+            ]);
+            $rankingScore = $this->scorer->score([
+                'source' => 'registry',
+                'type' => $type,
+                'scope_type' => $scope,
+                'priority' => $effectivePriority,
+                'importance' => $item['importance'] ?? null,
+                'confidence' => $item['confidence'] ?? null,
+                'hybrid_score' => $item['hybrid_score'] ?? null,
+            ]) * ($decay['lifecycle_action'] === 'degrade' ? 0.5 : 1.0);
 
             return $this->candidate(
                 'registry',
@@ -185,7 +196,7 @@ class AtlasMemoryContextComposer
                 (string) ($item['title'] ?? $item['summary'] ?? $type),
                 (string) ($item['summary'] ?? ''),
                 $text,
-                $score,
+                $rankingScore,
                 (string) ($item['reason'] ?? 'memoria canonica do registry'),
                 $item,
             );
@@ -343,10 +354,13 @@ class AtlasMemoryContextComposer
             'summary' => $summary,
             'text' => $text,
             'score' => $score,
+            'effective_priority' => is_numeric($raw['effective_priority'] ?? null) ? (int) $raw['effective_priority'] : null,
+            'health_score' => is_numeric($raw['health_score'] ?? null) ? (int) $raw['health_score'] : null,
             'reason' => $reason,
             'lineage' => $this->lineage($source, $sourceRefType, $sourceRefId, $raw),
             'freshness' => $this->freshness($raw),
             'audit' => $this->audit($raw),
+            'explain' => is_array($raw['explain'] ?? null) ? $raw['explain'] : [],
         ];
     }
 
