@@ -1,6 +1,6 @@
 # ACOS Excellence 10/10 — Progresso da obra
 
-Estado durável dos 97 slices. Atualizar a cada land.
+Estado durável dos 98 slices. Atualizar a cada land.
 
 ## Baseline de partida (2026-07-11, head `e9246cf510`)
 
@@ -32,7 +32,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | EVI-04 | ✅ | 89391f7e20 | suite 7/7 + schedule:list fable:delta-series=2 |
 | FEE-02 | ✅ | 83036ee77 | fake-green removido; metrics_verified |
 | TAXO-01 | ✅ | 6cc56ff1b | taxonomia única + dual-read |
-| PIP-01 | ⬜ | — | — |
+| PIP-01 | ✅ | 81468f962 | freshness v2 FQN-anchored + --explain + dual-read |
 | PIP-03 | ✅ | 388e340bd | ambiguous_test_ref não persiste receipt |
 | ENG-02 | ✅ | 8e47c0082d | chave forge_execution_gate_enforcing default OFF + ledger ABERTO-até-ENG-02 |
 | RAG-09 | ✅ | 2f7cf187b | linker_evidence via ledger vivo |
@@ -42,12 +42,13 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | MED-01 | ✅ | c37ecb353b | atlas:measure:dual-read + ledger schema |
 | VOL-01 | ✅ | 69417bae2 | volume check + janela_faminta |
 
-### Onda 1 — Seams + medidores (18)
+### Onda 1 — Seams + medidores (19)
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
 | COM-01 | ⬜ | — | — |
 | ENG-04 | ⬜ | — | — |
+| EVI-09 | ⬜ | — | — |
 | EVI-05 | ⬜ | — | — |
 | EVI-06 | ⬜ | — | — |
 | EVI-03 | ⬜ | — | — |
@@ -150,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 13/97 · Faltam: 84 · Próximo: PIP-01**
+**Feitas: 14/98 · Faltam: 84 · Próximo: COM-01 (onda 1)**
