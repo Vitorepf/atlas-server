@@ -193,7 +193,7 @@ class AiCompactionServiceCompactForScopeTest extends TestCase
         $afterReceipts = AtlasLongHorizonCompactionReceipt::query()->count();
         $this->assertSame($beforeReceipts + 1, $afterReceipts);
         $this->assertFalse(
-            \Illuminate\Support\Facades\Schema::hasTable('ai_compactions'),
+            Schema::hasTable('ai_compactions'),
             'fixture must not create the legacy table; absence proves compactForScope did not implicitly require it',
         );
     }
@@ -260,6 +260,26 @@ class AiCompactionServiceCompactForScopeTest extends TestCase
         $decoded = json_decode((string) $json, true);
         $this->assertSame(AtlasLongHorizonCanon::COMPACTION_RECEIPT_SCHEMA_VERSION, $decoded['schema_version']);
         $this->assertSame($out['receipt_hash'], $decoded['receipt_hash']);
+    }
+
+    public function test_missing_receipts_table_fails_open_without_persisting(): void
+    {
+        Schema::dropIfExists('atlas_long_horizon_compaction_receipts');
+
+        $out = $this->service->compactForScope([
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_FORGE_OBRA,
+            'scope_id' => 'obra-table-missing',
+            'must_keep_items' => [
+                ['id' => 'mk-1', 'kind' => 'decision', 'digest' => 'fail open, never throw'],
+            ],
+        ]);
+
+        $this->assertFalse($out['persisted']);
+        $this->assertNull($out['compaction_receipt_id']);
+        $this->assertNotSame('', (string) $out['receipt_uuid']);
+        $this->assertSame(64, strlen((string) $out['receipt_hash']));
+        $this->assertSame(1.0, $out['must_keep_coverage']);
+        $this->assertTrue($out['write_allowed']);
     }
 
     public function test_invalid_scope_type_throws(): void
