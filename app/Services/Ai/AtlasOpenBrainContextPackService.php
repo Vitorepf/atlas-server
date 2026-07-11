@@ -792,9 +792,9 @@ class AtlasOpenBrainContextPackService
 
         foreach ($events as $event) {
             $payload = is_array($event->payload) ? $event->payload : [];
-            $roi = (array) (data_get($payload, 'context_roi') ?: data_get($payload, 'payload.context_roi', []));
-            $attribution = (array) (data_get($payload, 'context_ref_attribution') ?: data_get($payload, 'payload.context_ref_attribution', []));
-            $nextPolicy = (array) (data_get($payload, 'next_context_policy') ?: data_get($payload, 'payload.next_context_policy', []));
+            $roi = $this->feedbackPayloadArray($payload, 'context_roi');
+            $attribution = $this->feedbackPayloadArray($payload, 'context_ref_attribution');
+            $nextPolicy = $this->feedbackPayloadArray($payload, 'next_context_policy');
             $missed = $this->stringList($event->missed_required_sources ?? []);
             $hasRoiSignal = $roi !== [] || $attribution !== [];
             $hasPolicySignal = $nextPolicy !== [];
@@ -853,7 +853,9 @@ class AtlasOpenBrainContextPackService
 
             $actions = array_merge($actions, $this->stringList(data_get($nextPolicy, 'actions', [])));
             $deferSections = array_merge($deferSections, $this->stringList(data_get($nextPolicy, 'defer_sections', [])));
-            $demoteContextRefs = array_merge($demoteContextRefs, $this->stringList(data_get($nextPolicy, 'demote_context_refs', [])));
+            if ($this->feedbackEventAllowsDemotion($event, $payload, $attribution, $roi)) {
+                $demoteContextRefs = array_merge($demoteContextRefs, $this->stringList(data_get($nextPolicy, 'demote_context_refs', [])));
+            }
             $sourceTypeStats = $this->mergeSourceTypeStats($sourceTypeStats, $attribution);
             if ((string) $event->feedback_hash !== '') {
                 $feedbackHashes[] = (string) $event->feedback_hash;
@@ -954,15 +956,86 @@ class AtlasOpenBrainContextPackService
     {
         $payload = is_array($event->payload) ? $event->payload : [];
 
-        return (bool) data_get(
-            $payload,
+        foreach ([
             'measured',
-            data_get(
-                $payload,
-                'payload.measured',
-                data_get($payload, 'payload.context_roi.measured', data_get($payload, 'context_roi.measured', false)),
-            ),
-        );
+            'payload.measured',
+            'payload.payload.measured',
+            'context_roi.measured',
+            'payload.context_roi.measured',
+            'payload.payload.context_roi.measured',
+            'context_ref_attribution.measured',
+            'payload.context_ref_attribution.measured',
+            'payload.payload.context_ref_attribution.measured',
+        ] as $path) {
+            $value = data_get($payload, $path);
+            if ($value !== null) {
+                return (bool) $value;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function feedbackPayloadArray(array $payload, string $key): array
+    {
+        foreach ([$key, 'payload.'.$key, 'payload.payload.'.$key] as $path) {
+            $value = data_get($payload, $path);
+            if (is_array($value)) {
+                return $value;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function feedbackPayloadString(array $payload, string $key): string
+    {
+        foreach ([$key, 'payload.'.$key, 'payload.payload.'.$key] as $path) {
+            $value = data_get($payload, $path);
+            if (is_scalar($value) && trim((string) $value) !== '') {
+                return trim((string) $value);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $attribution
+     * @param  array<string,mixed>  $roi
+     */
+    private function feedbackEventAllowsDemotion(AiRagFeedbackEvent $event, array $payload, array $attribution, array $roi): bool
+    {
+        if (! $this->feedbackEventMeasured($event)) {
+            return false;
+        }
+
+        $usageBasis = strtolower(trim($this->feedbackPayloadString($payload, 'usage_basis')));
+        if ($usageBasis === '') {
+            $usageBasis = strtolower(trim((string) data_get($attribution, 'usage_basis', data_get($roi, 'usage_basis', ''))));
+        }
+
+        return ! $this->usageBasisIsInferred($usageBasis);
+    }
+
+    private function usageBasisIsInferred(string $usageBasis): bool
+    {
+        $usageBasis = strtolower(trim($usageBasis));
+        if ($usageBasis === '') {
+            return false;
+        }
+
+        return str_contains($usageBasis, 'inferred')
+            || str_starts_with($usageBasis, 'synthetic')
+            || str_starts_with($usageBasis, 'unmeasured');
     }
 
     /**
@@ -1567,6 +1640,7 @@ class AtlasOpenBrainContextPackService
             $id,
             $filePath,
             $filePath !== '' && $symbol !== '' ? $filePath.'::'.$symbol : '',
+            AtlasCanonicalContextRef::fromCodeItem($item),
         ]);
     }
 
@@ -2437,15 +2511,37 @@ class AtlasOpenBrainContextPackService
      */
     private function matchesDemotedRef(array $candidateRefs, array $demoteRefs): bool
     {
-        foreach ($candidateRefs as $candidateRef) {
-            foreach ($demoteRefs as $demoteRef) {
-                if ($candidateRef !== '' && hash_equals($candidateRef, $demoteRef)) {
-                    return true;
-                }
+        $candidateSet = array_fill_keys($this->contextRefMatchForms($candidateRefs), true);
+        foreach ($this->contextRefMatchForms($demoteRefs) as $demoteRef) {
+            if (isset($candidateSet[$demoteRef])) {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<int,string>  $refs
+     * @return array<int,string>
+     */
+    private function contextRefMatchForms(array $refs): array
+    {
+        $forms = [];
+        foreach (AtlasCanonicalContextRef::uniqueStrings($refs) as $ref) {
+            $forms[] = $ref;
+
+            if (! $this->isSha256Hex($ref)) {
+                $forms[] = hash('sha256', $ref);
+            }
+        }
+
+        return AtlasCanonicalContextRef::uniqueStrings($forms);
+    }
+
+    private function isSha256Hex(string $ref): bool
+    {
+        return preg_match('/^[a-f0-9]{64}$/', $ref) === 1;
     }
 
     /**

@@ -1151,6 +1151,149 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         );
     }
 
+    public function testFeedbackDemotionFiltersMeasuredCodeRefsByHashAndCanonicalForms(): void
+    {
+        $this->bootCompoundingSchema();
+
+        $hashOnlyItem = [
+            'id' => 'sym:FeedbackDemotionHashOnly',
+            'symbol_type' => 'class',
+            'file_path' => 'app/Services/Ai/FeedbackDemotionHashOnly.php',
+        ];
+        $this->seedCodeRow(
+            'class',
+            'FeedbackDemotionHashOnly',
+            $hashOnlyItem['file_path'],
+            'class FeedbackDemotionHashOnly',
+        );
+        $hashOnlyRef = AtlasCanonicalContextRef::fromCodeItem($hashOnlyItem);
+        $hashOnlyContextRefHash = hash('sha256', $hashOnlyRef);
+        $this->recordFeedbackDemotionPolicy(
+            'receipt-aobg-feedback-demotion-hash',
+            'aobg.feedback_demotion_hash',
+            $hashOnlyContextRefHash,
+            true,
+            'explicit_used_refs',
+        );
+
+        $hashOnlyPack = $this->service()->packFor('FeedbackDemotionHashOnly', [
+            'flow_id' => 'aobg.feedback_demotion_hash',
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertNotContains('sym:FeedbackDemotionHashOnly', array_column($hashOnlyPack['code_graph'], 'id'));
+        $this->assertGreaterThanOrEqual(1, data_get($hashOnlyPack, 'context_hygiene.feedback_demoted'));
+        $this->assertContains($hashOnlyContextRefHash, data_get($hashOnlyPack, 'context_delivery_policy.demote_context_refs'));
+
+        $canonicalItem = [
+            'id' => 'sym:FeedbackDemotionCanonical',
+            'symbol_type' => 'class',
+            'file_path' => 'app/Services/Ai/FeedbackDemotionCanonical.php',
+        ];
+        $this->seedCodeRow(
+            'class',
+            'FeedbackDemotionCanonical',
+            $canonicalItem['file_path'],
+            'class FeedbackDemotionCanonical',
+        );
+        $canonicalRef = AtlasCanonicalContextRef::fromCodeItem($canonicalItem);
+        $this->recordFeedbackDemotionPolicy(
+            'receipt-aobg-feedback-demotion-canonical',
+            'aobg.feedback_demotion_canonical',
+            $canonicalRef,
+            true,
+            'explicit_used_refs',
+        );
+
+        $canonicalPack = $this->service()->packFor('FeedbackDemotionCanonical', [
+            'flow_id' => 'aobg.feedback_demotion_canonical',
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertNotContains('sym:FeedbackDemotionCanonical', array_column($canonicalPack['code_graph'], 'id'));
+        $this->assertGreaterThanOrEqual(1, data_get($canonicalPack, 'context_hygiene.feedback_demoted'));
+        $this->assertContains($canonicalRef, data_get($canonicalPack, 'context_delivery_policy.demote_context_refs'));
+    }
+
+    public function testFeedbackDemotionFiltersMeasuredMemoryRefsByHashForm(): void
+    {
+        $this->bootCompoundingSchema();
+        Schema::table('atlas_memory_entries', function (Blueprint $table): void {
+            $table->string('content_hash', 64)->nullable();
+        });
+
+        $contentHash = hash('sha256', 'feedback-demotion-memory-content');
+        $canonicalRef = 'memory:'.substr(hash('sha256', $contentHash), 0, 32);
+        $contextRefHash = hash('sha256', $canonicalRef);
+        $this->seedMemory(
+            'mem-feedback-demotion-hash',
+            'Feedback demotion memory hash fixture',
+            true,
+            'normal',
+            'Feedback demotion memory hash summary',
+            'Feedback demotion memory hash body',
+        );
+        AtlasMemoryEntry::query()
+            ->where('source_id', 'mem-feedback-demotion-hash')
+            ->update(['content_hash' => $contentHash]);
+        $this->recordFeedbackDemotionPolicy(
+            'receipt-aobg-feedback-demotion-memory',
+            'aobg.feedback_demotion_memory',
+            $contextRefHash,
+            true,
+            'explicit_used_refs',
+        );
+
+        $pack = $this->service()->packFor('Feedback demotion memory hash', [
+            'flow_id' => 'aobg.feedback_demotion_memory',
+            'budget' => 3000,
+            'memory_budget' => 2000,
+        ]);
+
+        $this->assertSame([], $pack['memory']);
+        $this->assertSame(1, data_get($pack, 'provenance.memory.feedback_demoted_count'));
+        $this->assertGreaterThanOrEqual(1, data_get($pack, 'context_hygiene.feedback_demoted'));
+        $this->assertContains($contextRefHash, data_get($pack, 'context_delivery_policy.demote_context_refs'));
+    }
+
+    public function testFeedbackDemotionIgnoresSyntheticUnmeasuredDemoteRefs(): void
+    {
+        $this->bootCompoundingSchema();
+
+        $item = [
+            'id' => 'sym:FeedbackDemotionSynthetic',
+            'symbol_type' => 'class',
+            'file_path' => 'app/Services/Ai/FeedbackDemotionSynthetic.php',
+        ];
+        $this->seedCodeRow(
+            'class',
+            'FeedbackDemotionSynthetic',
+            $item['file_path'],
+            'class FeedbackDemotionSynthetic',
+        );
+        $canonicalRef = AtlasCanonicalContextRef::fromCodeItem($item);
+        $this->recordFeedbackDemotionPolicy(
+            'receipt-aobg-feedback-demotion-synthetic',
+            'aobg.feedback_demotion_synthetic',
+            $canonicalRef,
+            false,
+            'non_passing_outcome_inferred_partial',
+        );
+
+        $pack = $this->service()->packFor('FeedbackDemotionSynthetic', [
+            'flow_id' => 'aobg.feedback_demotion_synthetic',
+            'budget' => 3000,
+            'code_budget' => 2000,
+        ]);
+
+        $this->assertContains('sym:FeedbackDemotionSynthetic', array_column($pack['code_graph'], 'id'));
+        $this->assertSame(0, data_get($pack, 'provenance.code_graph.feedback_demoted_count'));
+        $this->assertSame(0, data_get($pack, 'context_hygiene.feedback_demoted'));
+        $this->assertNotContains($canonicalRef, data_get($pack, 'context_delivery_policy.demote_context_refs'));
+    }
+
     public function test_context_pack_filters_demoted_memory_refs_by_published_content_hash_ref(): void
     {
         $this->bootCompoundingSchema();
@@ -1186,7 +1329,19 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             'outcome_status' => 'partial',
             'payload' => [
                 'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'measured' => true,
+                'usage_basis' => 'explicit_used_refs',
+                'context_roi' => [
+                    'measured' => true,
+                    'roi_score' => 0.42,
+                    'use_ratio' => 0.50,
+                    'quality_band' => 'mixed',
+                    'context_sufficiency' => 60,
+                    'post_execution_utility' => 20,
+                ],
                 'context_ref_attribution' => [
+                    'measured' => true,
+                    'usage_basis' => 'explicit_used_refs',
                     'noise_refs' => [
                         ['ref' => $publishedRef, 'source_type' => 'memory'],
                     ],
@@ -1245,7 +1400,19 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             'outcome_status' => 'partial',
             'payload' => [
                 'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'measured' => true,
+                'usage_basis' => 'explicit_used_refs',
+                'context_roi' => [
+                    'measured' => true,
+                    'roi_score' => 0.42,
+                    'use_ratio' => 0.50,
+                    'quality_band' => 'mixed',
+                    'context_sufficiency' => 60,
+                    'post_execution_utility' => 20,
+                ],
                 'context_ref_attribution' => [
+                    'measured' => true,
+                    'usage_basis' => 'explicit_used_refs',
                     'noise_refs' => [
                         ['ref' => $publishedRef, 'source_type' => 'memory'],
                     ],
@@ -2191,7 +2358,19 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             'outcome_status' => 'partial',
             'payload' => [
                 'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'measured' => true,
+                'usage_basis' => 'explicit_used_refs',
+                'context_roi' => [
+                    'measured' => true,
+                    'roi_score' => 0.42,
+                    'use_ratio' => 0.50,
+                    'quality_band' => 'mixed',
+                    'context_sufficiency' => 80,
+                    'post_execution_utility' => 60,
+                ],
                 'context_ref_attribution' => [
+                    'measured' => true,
+                    'usage_basis' => 'explicit_used_refs',
                     'delivered_refs' => [
                         ['ref' => 'app:useful', 'source_type' => 'code_intelligence'],
                         ['ref' => 'tools:rivals', 'source_type' => 'code_intelligence'],
@@ -2211,6 +2390,73 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
                     'demote_context_refs' => [
                         'app/Services/Ai/Noisy/ContextRequirements.php::ContextRequirements',
                     ],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+    }
+
+    private function recordFeedbackDemotionPolicy(
+        string $receiptId,
+        string $flowId,
+        string $demoteRef,
+        bool $measured,
+        string $usageBasis,
+    ): void {
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => $receiptId,
+            'flow_id' => $flowId,
+            'query_plan_hash' => hash('sha256', $receiptId),
+            'included_sources' => 1,
+            'used_sources' => $measured ? 1 : 0,
+            'noise_sources' => 1,
+            'missed_required_sources' => [],
+            'context_sufficiency' => $measured ? 80 : 0,
+            'post_execution_utility' => $measured ? 60 : 0,
+            'source_utility' => [],
+            'outcome_status' => 'partial',
+            'measured' => $measured,
+            'context_roi' => [
+                'measured' => $measured,
+                'roi_score' => $measured ? 0.42 : null,
+                'use_ratio' => $measured ? 1.0 : 0.0,
+                'quality_band' => $measured ? 'mixed' : 'unmeasured',
+                'context_sufficiency' => $measured ? 80 : 0,
+                'post_execution_utility' => $measured ? 60 : null,
+            ],
+            'context_ref_attribution' => [
+                'measured' => $measured,
+                'usage_basis' => $usageBasis,
+                'delivered_count' => 1,
+                'used_count' => $measured ? 1 : 0,
+                'unused_count' => 0,
+                'noise_count' => 1,
+                'use_ratio' => $measured ? 1.0 : 0.0,
+                'waste_ratio' => 1.0,
+                'noise_refs' => [
+                    ['ref' => $demoteRef, 'source_type' => 'code_intelligence'],
+                ],
+            ],
+            'next_context_policy' => [
+                'actions' => ['demote_noise_context_refs'],
+                'demote_context_refs' => [$demoteRef],
+                'auto_apply' => false,
+            ],
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'measured' => $measured,
+                'usage_basis' => $usageBasis,
+                'context_roi' => [
+                    'measured' => $measured,
+                ],
+                'context_ref_attribution' => [
+                    'measured' => $measured,
+                    'usage_basis' => $usageBasis,
+                ],
+                'next_context_policy' => [
+                    'actions' => ['demote_noise_context_refs'],
+                    'demote_context_refs' => [$demoteRef],
                     'auto_apply' => false,
                 ],
                 'raw_text_exposed' => false,
