@@ -90,6 +90,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasVerifiedContextExecutionLoopService
   - command: atlas:verified-context-execution
+  - test: AtlasVerifiedContextExecutionLoopServiceTest
 required_tests:
   - "php artisan atlas:verified-context-execution certify --json"
   - "php artisan atlas:verified-context-execution shadow --json"

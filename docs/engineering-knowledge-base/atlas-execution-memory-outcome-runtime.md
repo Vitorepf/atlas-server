@@ -115,8 +115,9 @@ evidence:
   - docs/engineering-knowledge-base/atlas-programming-superiority-contracts.md
 evidence_refs:
   - symbol: AtlasAemorRuntimeService
+  - symbol: AtlasAemorCertificationService
   - command: atlas:aemor
-  - test: AtlasAemorRuntimeServiceTest
+  - test: AtlasAemorCertificationTestExecutionTest
 required_tests:
   - "php artisan atlas:aemor:certify --json --strict"
   - "php artisan test tests/Feature/Ai/Aemor"

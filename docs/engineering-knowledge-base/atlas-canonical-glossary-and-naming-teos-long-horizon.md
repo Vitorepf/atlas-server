@@ -56,8 +56,8 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-canonical-glossary-and-naming.md
 evidence_refs:
-  - symbol: ForgeLongHorizonStateService
-  - test: ForgeLongHorizonStateServiceTest
+  - symbol: LongHorizonContinuityCertificationService
+  - test: LongHorizonContinuityCertificationServiceTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

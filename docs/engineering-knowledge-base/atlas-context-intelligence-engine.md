@@ -114,6 +114,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasContextOperationsRuntimeService
   - command: atlas:context-intelligence:certify
+  - test: AtlasContextOperationsRuntimeServiceTest
 required_tests:
   - "php artisan atlas:engineering:knowledge docs-health --json"
   - "php artisan atlas:context-intelligence:certify --json --strict"

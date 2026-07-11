@@ -6,7 +6,6 @@ namespace App\Services\Ai\Cognition\Watchdog;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
-use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasAemorExecutionEpisode;
 use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasLongHorizonCompactionReceipt;
@@ -24,7 +23,6 @@ use App\Services\Ai\Reality\AtlasRealityGraphStatusService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 final class AtlasAcosWatchdogHealthService
@@ -235,7 +233,11 @@ final class AtlasAcosWatchdogHealthService
         $recallAt5 = data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5');
         $improperFloorDiscards = (int) data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0);
         $coverageRatio = (float) data_get($aurg, 'coverage.memory_cross_layer_coverage_ratio', 0.0);
-        $preFilterConcentration = (float) data_get($quality, 'ratios.recall_concentration_ratio', 0.0);
+        $preFilterConcentration = (float) data_get(
+            $quality,
+            'ratios.pre_filter_recall_concentration_ratio',
+            data_get($quality, 'ratios.recall_concentration_ratio', 0.0),
+        );
         $issues = [];
         if ($retrievalEval < self::RAG_RETRIEVAL_EVAL_FLOOR) {
             $issues[] = 'retrieval_eval_below_floor';
@@ -425,11 +427,11 @@ final class AtlasAcosWatchdogHealthService
                 'certified' => (bool) ($crossWeek['certified'] ?? false),
                 'blockers' => (array) ($crossWeek['blockers'] ?? []),
             ],
-                'rollback_trigger' => [
-                    'id' => 'cpt_09_compaction_enforce',
-                    'condition' => '>=1 critical must_keep cut after enforcement flip',
-                    'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
-                ],
+            'rollback_trigger' => [
+                'id' => 'cpt_09_compaction_enforce',
+                'condition' => '>=1 critical must_keep cut after enforcement flip',
+                'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
+            ],
             'thresholds' => [
                 'window_days' => self::COMPACTION_WINDOW_DAYS,
                 'min_compactions' => self::COMPACTION_MIN_RECEIPTS,

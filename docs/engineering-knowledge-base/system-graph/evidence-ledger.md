@@ -62,9 +62,9 @@ governs:
 evidence:
   - docs/engineering-knowledge-base/atlas-ai-telemetry-evidence-performance.md
 evidence_refs:
-  - symbol: AtlasEvidenceLedgerContractService
+  - symbol: AtlasEvidenceLedger
   - command: atlas:aaeos:evidence-ledger-contract
-  - test: AtlasEvidenceLedgerContractTest
+  - test: EvidenceLedgerTest
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true

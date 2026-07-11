@@ -476,6 +476,8 @@ class AtlasMemoryQualityService
                 'recall_usage_window_total' => 0,
                 'entries_recalled' => 0,
                 'top_entry_recall_count' => 0,
+                'pre_filter_recall_usage_total' => 0,
+                'pre_filter_top_entry_recall_count' => 0,
                 'active_entries_never_recalled' => count($activeEntryIds),
                 'stale_never_recalled_active' => $this->staleNeverRecalledCount($active, collect()),
                 'thin_never_recalled_active' => $this->thinNeverRecalledCount($active, collect()),
@@ -487,6 +489,8 @@ class AtlasMemoryQualityService
                 'all_time_recall_usage_total' => 0,
                 'all_time_entries_recalled' => 0,
                 'all_time_top_entry_recall_count' => 0,
+                'all_time_pre_filter_recall_usage_total' => 0,
+                'all_time_pre_filter_top_entry_recall_count' => 0,
                 'all_time_active_entries_never_recalled' => count($activeEntryIds),
                 'all_time_recall_feedback_total' => 0,
                 'all_time_recall_negative_feedback' => 0,
@@ -505,6 +509,8 @@ class AtlasMemoryQualityService
                 'recall_usage_window_total' => 0,
                 'entries_recalled' => 0,
                 'top_entry_recall_count' => 0,
+                'pre_filter_recall_usage_total' => 0,
+                'pre_filter_top_entry_recall_count' => 0,
                 'active_entries_never_recalled' => 0,
                 'stale_never_recalled_active' => 0,
                 'thin_never_recalled_active' => 0,
@@ -516,6 +522,8 @@ class AtlasMemoryQualityService
                 'all_time_recall_usage_total' => 0,
                 'all_time_entries_recalled' => 0,
                 'all_time_top_entry_recall_count' => 0,
+                'all_time_pre_filter_recall_usage_total' => 0,
+                'all_time_pre_filter_top_entry_recall_count' => 0,
                 'all_time_active_entries_never_recalled' => 0,
                 'all_time_recall_feedback_total' => 0,
                 'all_time_recall_negative_feedback' => 0,
@@ -529,6 +537,10 @@ class AtlasMemoryQualityService
             ->whereIn('memory_entry_id', $activeEntryIds)
             ->where('source_type', 'memory_recall');
         $query = (clone $allTimeQuery)->where('created_at', '>=', now()->subDays($windowDays));
+        $allTimePreFilterQuery = AtlasMemoryEntryUsage::query()
+            ->whereIn('memory_entry_id', $activeEntryIds)
+            ->where('source_type', AtlasMemoryUsageService::SOURCE_TYPE_RECALLED_PRE_FILTER);
+        $preFilterQuery = (clone $allTimePreFilterQuery)->where('created_at', '>=', now()->subDays($windowDays));
         $recalledIds = (clone $query)
             ->distinct()
             ->pluck('memory_entry_id')
@@ -567,6 +579,20 @@ class AtlasMemoryQualityService
             ->limit(1)
             ->get()
             ->value('aggregate_count') ?? 0);
+        $preFilterTopEntryRecallCount = (int) ((clone $preFilterQuery)
+            ->selectRaw('memory_entry_id, COUNT(*) as aggregate_count')
+            ->groupBy('memory_entry_id')
+            ->orderByDesc('aggregate_count')
+            ->limit(1)
+            ->get()
+            ->value('aggregate_count') ?? 0);
+        $allTimePreFilterTopEntryRecallCount = (int) ((clone $allTimePreFilterQuery)
+            ->selectRaw('memory_entry_id, COUNT(*) as aggregate_count')
+            ->groupBy('memory_entry_id')
+            ->orderByDesc('aggregate_count')
+            ->limit(1)
+            ->get()
+            ->value('aggregate_count') ?? 0);
 
         return [
             'table_present' => 1,
@@ -576,6 +602,8 @@ class AtlasMemoryQualityService
             'recall_usage_window_total' => (clone $query)->count(),
             'entries_recalled' => $recalledIds->count(),
             'top_entry_recall_count' => $topEntryRecallCount,
+            'pre_filter_recall_usage_total' => (clone $preFilterQuery)->count(),
+            'pre_filter_top_entry_recall_count' => $preFilterTopEntryRecallCount,
             'active_entries_never_recalled' => max(0, count($activeEntryIds) - $recalledIds->count()),
             'stale_never_recalled_active' => $this->staleNeverRecalledCount($active, $recalledIds),
             'thin_never_recalled_active' => $this->thinNeverRecalledCount($active, $recalledIds),
@@ -587,6 +615,8 @@ class AtlasMemoryQualityService
             'all_time_recall_usage_total' => (clone $allTimeQuery)->count(),
             'all_time_entries_recalled' => $allTimeRecalledIds->count(),
             'all_time_top_entry_recall_count' => $allTimeTopEntryRecallCount,
+            'all_time_pre_filter_recall_usage_total' => (clone $allTimePreFilterQuery)->count(),
+            'all_time_pre_filter_top_entry_recall_count' => $allTimePreFilterTopEntryRecallCount,
             'all_time_active_entries_never_recalled' => max(0, count($activeEntryIds) - $allTimeRecalledIds->count()),
             'all_time_recall_feedback_total' => (clone $allTimeExplicitFeedback)->count(),
             'all_time_recall_negative_feedback' => (clone $allTimeFeedback)->whereIn('feedback_action', $negative)->count(),
@@ -766,6 +796,10 @@ class AtlasMemoryQualityService
             // D5 — share of recalls piling on the single most-recalled entry (the wiper's
             // degenerate-retrieval signature). 0.9 ⇒ 90% of recalls return one memory.
             'recall_concentration_ratio' => $this->ratio((int) ($retrievalEval['top_entry_recall_count'] ?? 0), max(1, (int) ($retrievalEval['recall_usage_total'] ?? 0))),
+            'pre_filter_recall_concentration_ratio' => $this->ratio(
+                (int) ($retrievalEval['pre_filter_top_entry_recall_count'] ?? 0),
+                max(1, (int) ($retrievalEval['pre_filter_recall_usage_total'] ?? 0)),
+            ),
             'open_relation_ratio' => $this->ratio((int) $relations['open'], $active),
             'source_orphan_ratio' => $this->ratio((int) $sourceIntegrity['orphaned'], $checked),
             'global_scope_ratio' => $this->ratio(
@@ -1243,6 +1277,7 @@ class AtlasMemoryQualityService
             'score' => $snapshot->score,
             'source_type' => $snapshot->source_type,
             'snapshot_at' => $snapshot->snapshot_at?->toJSON(),
+            'metadata' => $snapshot->metadata ?? [],
         ] : null;
     }
 

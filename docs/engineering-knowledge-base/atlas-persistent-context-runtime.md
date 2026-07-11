@@ -101,6 +101,7 @@ evidence:
 evidence_refs:
   - symbol: AtlasPersistentContextRuntimeService
   - command: atlas:persistent-context
+  - test: AtlasPersistentContextRuntimeServiceTest
 required_tests:
   - "php artisan test tests/Feature/Ai/PersistentContext"
   - "php artisan atlas:persistent-context:certify --json --strict"
