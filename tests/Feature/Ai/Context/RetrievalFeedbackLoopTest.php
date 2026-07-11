@@ -482,6 +482,66 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertSame(PipelineRunExecutor::POST_EXECUTION_UTILITY_FORMULA_VERSION, data_get($event->payload, 'payload.formula_version'));
     }
 
+    public function test_MissedResolution_repromotes_source_type_then_resolves_after_subsequent_delivery(): void
+    {
+        $missedPack = $this->recordDeliveredPack('missed-resolution-initial', [
+            ['id' => 'sym:OnlyCode', 'file_path' => 'app/OnlyCode.php', 'symbol_type' => 'class'],
+        ]);
+        $initialRef = AtlasCanonicalContextRef::deliveredFromPack($missedPack)[0];
+
+        app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'measured miss for memory source',
+            'flow_id' => 'missed.resolution',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $missedPack['context_pack_hash'],
+            'used_context_refs' => [$initialRef],
+            'missed_required_sources' => [['source_type' => 'memory', 'reason' => 'needed_memory_source']],
+            'post_execution_utility' => 42,
+            'attribution_quality' => 'gate_verified',
+            'record' => true,
+        ]);
+
+        $policyMethod = new ReflectionMethod(AtlasOpenBrainContextPackService::class, 'contextDeliveryPolicy');
+        $policyMethod->setAccessible(true);
+        $policy = $policyMethod->invoke(app(AtlasOpenBrainContextPackService::class), [
+            'flow_id' => 'missed.resolution',
+        ]);
+
+        $this->assertContains('memory', $policy['expand_source_types']);
+        $this->assertSame('bounded_source_mix_only', data_get($policy, 'evidence.auto_apply_scope'));
+        $this->assertFalse(data_get($policy, 'evidence.ref_repromotion_enabled'));
+        $this->assertSame(1, data_get($policy, 'evidence.unresolved_missed_count'));
+
+        $resolvedPack = $this->recordDeliveredPackWithSections('missed-resolution-memory', memory: [[
+            'id' => 'mem-resolution',
+            'type' => 'decision',
+            'title' => 'Memory context that resolves the miss',
+            'content_hash' => hash('sha256', 'memory-context-that-resolves-the-miss'),
+        ]]);
+        $resolvedRef = AtlasCanonicalContextRef::deliveredFromPack($resolvedPack)[0];
+
+        app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'memory source delivered after miss',
+            'flow_id' => 'missed.resolution',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $resolvedPack['context_pack_hash'],
+            'used_context_refs' => [$resolvedRef],
+            'post_execution_utility' => 88,
+            'attribution_quality' => 'gate_verified',
+            'record' => true,
+        ]);
+
+        $firstEvent = AiRagFeedbackEvent::query()->oldest('created_at')->firstOrFail();
+        $this->assertSame('resolved', data_get($firstEvent->payload, 'payload.missed_resolution.status'));
+        $this->assertSame(['memory'], data_get($firstEvent->payload, 'payload.missed_resolution.resolved_source_types'));
+
+        $resolvedPolicy = $policyMethod->invoke(app(AtlasOpenBrainContextPackService::class), [
+            'flow_id' => 'missed.resolution',
+        ]);
+
+        $this->assertSame(0, data_get($resolvedPolicy, 'evidence.unresolved_missed_count'));
+    }
+
     private function runOutcome(string $runId, string $flowId, string $status, int $quality): AiRunOutcome
     {
         return AiRunOutcome::query()->create([
@@ -510,12 +570,22 @@ final class RetrievalFeedbackLoopTest extends TestCase
      */
     private function recordDeliveredPack(string $hash, array $codeGraph): array
     {
+        return $this->recordDeliveredPackWithSections($hash, codeGraph: $codeGraph);
+    }
+
+    /**
+     * @param  array<int,array<string,string>>  $codeGraph
+     * @param  array<int,array<string,mixed>>  $memory
+     * @return array<string,mixed>
+     */
+    private function recordDeliveredPackWithSections(string $hash, array $codeGraph = [], array $memory = []): array
+    {
         $ledgerPath = $this->configureDeliveredPackLedger();
         $pack = [
             'context_pack_hash' => $hash,
             'code_graph' => $codeGraph,
             'reality_graph_paths' => [],
-            'memory' => [],
+            'memory' => $memory,
             'budget' => ['total_budget_chars' => 1000],
             'context_delivery_policy' => ['status' => 'test'],
             'generated_at' => now()->toJSON(),

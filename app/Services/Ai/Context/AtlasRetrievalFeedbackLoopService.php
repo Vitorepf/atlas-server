@@ -35,6 +35,7 @@ final class AtlasRetrievalFeedbackLoopService
     public function __construct(
         private readonly AtlasContextFreshnessQualityGateService $freshnessQualityGate,
         private readonly AtlasRagFeedbackService $ragFeedbackService,
+        private readonly AtlasContextFeedbackSignalPolicy $feedbackSignalPolicy,
     ) {}
 
     /**
@@ -79,6 +80,9 @@ final class AtlasRetrievalFeedbackLoopService
         $persisted = $record
             ? $this->persistFeedback($feedbackEvent, $roi, $missed, $noise, $contextRefAttribution, $nextContextPolicy, $outcomeStatus, $input)
             : null;
+        if ($persisted instanceof AiRagFeedbackEvent) {
+            $this->resolvePriorMisses($persisted, $deliveredPackLedger);
+        }
         $learningCandidate = $this->learningCandidate($feedbackEvent, $roi, $missed, $noise, $contextRefAttribution, $nextContextPolicy, $persisted);
         $measured = (bool) ($roi['measured'] ?? false) && (bool) ($contextRefAttribution['measured'] ?? false);
 
@@ -322,6 +326,7 @@ final class AtlasRetrievalFeedbackLoopService
                 'delivery' => (string) ($contextRefAttribution['delivery_basis'] ?? 'unknown'),
             ],
             'delivered_pack_hashes' => (array) ($deliveredPackLedger['hashes'] ?? []),
+            'applied_policy_snapshot' => $this->appliedPolicySnapshot($deliveredPackLedger),
             'source_utility' => $this->sourceUtility((array) data_get($gate, 'freshness_report.items', []), $noise, $input),
             'failure_reason' => $this->failureReason($input, $outcomeStatus, $missed, $noise),
         ];
@@ -372,6 +377,7 @@ final class AtlasRetrievalFeedbackLoopService
                 'usage_basis' => (string) ($feedbackEvent['usage_basis'] ?? 'unknown'),
                 'measurement_basis' => (array) ($feedbackEvent['measurement_basis'] ?? []),
                 'delivered_pack_hashes' => (array) ($feedbackEvent['delivered_pack_hashes'] ?? []),
+                'applied_policy_snapshot' => (array) ($feedbackEvent['applied_policy_snapshot'] ?? []),
                 'context_roi' => $roi,
                 'context_ref_attribution' => $contextRefAttribution,
                 'next_context_policy' => $nextContextPolicy,
@@ -1026,8 +1032,93 @@ final class AtlasRetrievalFeedbackLoopService
             'minimum_context_roi_target' => 0.70,
             'provider_safe' => true,
             'auto_apply' => false,
+            'auto_apply_scope' => 'bounded_source_mix_only',
+            'specific_ref_repromotion_enabled' => (bool) config('atlas.aobg.repromote_specific_refs_enabled', false),
             'requires_review' => $actions !== ['keep_current_pack'],
         ];
+    }
+
+    /**
+     * @param  array{hit:bool,hashes:array<int,string>,delivered_refs:array<int,string>,entries:array<int,array<string,mixed>>}  $deliveredPackLedger
+     * @return array<string,mixed>
+     */
+    private function appliedPolicySnapshot(array $deliveredPackLedger): array
+    {
+        $entries = (array) ($deliveredPackLedger['entries'] ?? []);
+        if ($entries === []) {
+            return [];
+        }
+
+        if (count($entries) === 1) {
+            return (array) ($entries[0]['policy_snapshot'] ?? []);
+        }
+
+        return [
+            'schema_version' => 'atlas.aobg.applied_policy_snapshot_union.v1',
+            'pack_count' => count($entries),
+            'snapshots' => array_values(array_filter(array_map(
+                static fn (array $entry): array => (array) ($entry['policy_snapshot'] ?? []),
+                $entries,
+            ))),
+        ];
+    }
+
+    /**
+     * @param  array{hit:bool,hashes:array<int,string>,delivered_refs:array<int,string>,entries:array<int,array<string,mixed>>}  $deliveredPackLedger
+     */
+    private function resolvePriorMisses(AiRagFeedbackEvent $current, array $deliveredPackLedger): void
+    {
+        $deliveredSourceTypes = [];
+        foreach ((array) ($deliveredPackLedger['delivered_refs'] ?? []) as $ref) {
+            $sourceType = $this->feedbackSignalPolicy->sourceTypeFromRef((string) $ref);
+            if ($sourceType !== null) {
+                $deliveredSourceTypes[$sourceType] = true;
+            }
+        }
+        if ($deliveredSourceTypes === []) {
+            return;
+        }
+
+        AiRagFeedbackEvent::query()
+            ->where('flow_id', $current->flow_id)
+            ->where('id', '!=', $current->id)
+            ->latest('created_at')
+            ->limit(50)
+            ->get()
+            ->each(function (AiRagFeedbackEvent $event) use ($deliveredSourceTypes, $current): void {
+                if (! $this->feedbackSignalPolicy->isMeasuredAggregateEligible($event)) {
+                    return;
+                }
+
+                $missed = $this->scalarStringList($event->missed_required_sources ?? []);
+                if ($missed === []) {
+                    return;
+                }
+
+                $alreadyResolved = $this->scalarStringList(data_get($event->payload, 'payload.missed_resolution.resolved_source_types', []));
+                $newlyResolved = [];
+                foreach ($missed as $sourceType) {
+                    if (isset($deliveredSourceTypes[$sourceType]) && ! in_array($sourceType, $alreadyResolved, true)) {
+                        $newlyResolved[] = $sourceType;
+                    }
+                }
+                if ($newlyResolved === []) {
+                    return;
+                }
+
+                $resolved = array_values(array_unique(array_merge($alreadyResolved, $newlyResolved)));
+                $payload = is_array($event->payload) ? $event->payload : [];
+                $payload['payload'] = (array) ($payload['payload'] ?? []);
+                $payload['payload']['missed_resolution'] = [
+                    'schema_version' => 'atlas.aucri.missed_resolution.v1',
+                    'status' => count(array_diff($missed, $resolved)) === 0 ? 'resolved' : 'partially_resolved',
+                    'resolved_source_types' => $resolved,
+                    'resolved_by_feedback_hash' => (string) $current->feedback_hash,
+                    'resolved_by_delivered_pack_hashes' => (array) data_get($current->payload, 'payload.delivered_pack_hashes', []),
+                    'resolution_scope' => 'source_type',
+                ];
+                $event->forceFill(['payload' => $payload])->save();
+            });
     }
 
     /**
