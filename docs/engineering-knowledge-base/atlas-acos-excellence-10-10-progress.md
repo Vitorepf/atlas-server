@@ -130,19 +130,19 @@ de memória/promoção; nada a refatorar do modelo antigo.
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| WDG-01 | ⬜ | — | — |
-| MEM-09 | ⬜ | — | — |
-| FEE-13 | ⬜ | — | — |
-| RAG-10 | ⬜ | — | — |
-| RAG-12 | ⬜ | — | — |
-| COM-10 | ⬜ | — | — |
-| CPT-09 | ⬜ | — | — |
-| PIP-08 | ⬜ | — | — |
-| OPE-08 | ⬜ | — | — |
-| OPE-10 | ⬜ | — | — |
-| ENG-11 | ⬜ | — | — |
-| ENG-12 | ⬜ | — | — |
-| EVI-08 | ⬜ | — | — |
+| WDG-01 | ✅ | e756aaad9 | framework checks-plugin |
+| MEM-09 | ✅ | ce6a9adc4f | quality --check + plugin |
+| FEE-13 | ✅ | ce6a9adc4f | learning cadence check |
+| RAG-10 | ✅ | ce6a9adc4f | AURG coverage gate |
+| RAG-12 | ✅ | ce6a9adc4f | RAG anti-masking watchdog |
+| COM-10 | ✅ | ce6a9adc4f | feedback-health |
+| CPT-09 | ✅ | ce6a9adc4f | compaction soak-watch |
+| PIP-08 | ✅ | ce6a9adc4f | scorecard stability check |
+| OPE-08 | ✅ | ce6a9adc4f | lift cycle closure |
+| OPE-10 | ✅ | ce6a9adc4f | pipeline diagnosis |
+| ENG-11 | ✅ | ce6a9adc4f | enforce-readiness [MEDIDOR] |
+| ENG-12 | ✅ | 099725c66 | end-to-end scorecard [MEDIDOR] |
+| EVI-08 | ✅ | 099725c66 | longitudinal evidence gate doc |
 
 ### Onda 5 — Flips + certificação + re-prova (6)
 
@@ -155,4 +155,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 79/98 · Faltam: 19 · Próximo: WDG-01 (onda 4) — onda 3 COMPLETA**
+**Feitas: 92/98 · Faltam: 6 · Próximo: onda 5 (PIP-07 CPT-10 ADV-01; ENG flips PRECISAM OK)**
