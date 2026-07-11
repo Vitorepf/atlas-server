@@ -14,6 +14,7 @@ use App\Models\AiRealExecutionRepairAttempt;
 use App\Models\AiRealExecutionRivalsBenchmark;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AiRealExecutionWorktree;
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
@@ -27,7 +28,12 @@ use App\Services\Ai\EngineeringKernel\NonFunctional\ArchitectureRegressionProbe;
 use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 use App\Services\Ai\EngineeringKernel\RoleDisposition;
 use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
+use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
+use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
 use App\Services\Engineering\CodeGraph\CodeGraphSecretScanner;
@@ -556,6 +562,86 @@ class AtlasRealEngineeringExecutionKernelService
         );
     }
 
+    public function adjudicateAndPersistProductSpecBackendAuthority(
+        AiEngineeringCompanyEngagement $engagement,
+        AiEngineeringCompanyCycle $cycle,
+        CandidateQualityCase $case,
+        SpecDraft $draft,
+        IntentEnvelope $intent,
+    ): AiEngineeringCompanyRoleRun {
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()
+            || (string) $engagement->getKey() !== $case->engagementRecordId || (string) $cycle->getKey() !== $case->cycleRecordId) {
+            throw new \InvalidArgumentException('product_spec_authority_binding_invalid');
+        }
+        $decision = $this->adjudicateProductSpecAuthority($draft, $intent, TrustLevel::from($case->order->mode));
+        if (($decision['status'] ?? null) !== 'freeze' || ($decision['spec_hash'] ?? null) !== $case->order->specHash) {
+            throw new \InvalidArgumentException('product_spec_authority_not_frozen');
+        }
+        $backendContracts = array_values(array_filter(array_map(
+            static fn (array $criterion): mixed => $criterion['backend_contract'] ?? null, $draft->acceptanceCriteria,
+        ), 'is_array'));
+        if (count($backendContracts) !== 1) {
+            throw new \InvalidArgumentException('product_spec_backend_contract_unexpressible');
+        }
+        $contract = $backendContracts[0];
+        if (array_keys($contract) !== ['schema_version', 'spec_hash', 'profile', 'entrypoint', 'symbols', 'permitted_includes', 'effects', 'cases']
+            || ($contract['schema_version'] ?? null) !== 'atlas.backend_contract.v1' || ($contract['spec_hash'] ?? null) !== $case->order->specHash) {
+            throw new \InvalidArgumentException('product_spec_backend_contract_invalid');
+        }
+        $root = $this->ownedAtlasArtifactRoot($case->candidate->sandboxRoot);
+        $artifactPath = $root.'/product-spec-backend-contract-'.$case->caseHash.'.json';
+        File::put($artifactPath, json_encode($contract, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $issued = CarbonImmutable::now()->startOfSecond();
+        $receipt = ['schema_version' => AtlasRealEngineeringCompanyRuntimeService::ROLE_SCHEMA,
+            'purpose' => 'product_spec_backend_contract_authority', 'owner_domain' => self::BACKEND_SPEC_COURT_OWNER_DOMAIN,
+            'owner_version' => self::BACKEND_SPEC_COURT_OWNER_VERSION,
+            'owner_identity' => 'App\\Services\\Ai\\EngineeringKernel\\Spec\\SovereignSpecFloor',
+            'issued_at' => $issued->toAtomString(), 'expires_at' => $issued->addHour()->toAtomString(),
+            'binding' => $this->backendOwnerBinding($case),
+            'product_authority' => ['intent_hash' => $intent->productAuthorityHash(), 'truth_hash' => $decision['truth_hash'] ?? null,
+                'spec_receipt' => $decision['spec_receipt'] ?? null, 'world_snapshot_hash' => $case->order->worldModelSnapshotHash,
+                'world_observed_at' => $intent->worldObservedAt, 'sources' => $intent->sources, 'provenance' => $intent->provenance],
+            'contract_artifact' => ['path' => $artifactPath, 'sha256' => hash_file('sha256', $artifactPath)]];
+        $receiptBodyHash = EngineeringCompanyHash::make($receipt);
+        try {
+            return DB::transaction(function () use ($receipt, $receiptBodyHash, $engagement, $cycle, $case, $issued): AiEngineeringCompanyRoleRun {
+                $event = app(AtlasEvidenceLedger::class)->record(LedgerEventType::GateEvaluated, [
+                    'event_name' => 'product_spec.backend_contract.authorized', 'receipt_body_hash' => $receiptBodyHash,
+                    'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId, 'case_hash' => $case->caseHash,
+                    'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+                    'workspace' => $case->order->workspace, 'owner_domain' => self::BACKEND_SPEC_COURT_OWNER_DOMAIN,
+                    'owner_version' => self::BACKEND_SPEC_COURT_OWNER_VERSION,
+                ], ['event_id' => 'product-spec-'.substr($receiptBodyHash, 0, 20), 'scope_type' => 'engineering_delivery',
+                    'scope_id' => $case->order->deliveryId, 'emitter_stage' => self::BACKEND_SPEC_COURT_OWNER_DOMAIN,
+                    'emitter_version' => self::BACKEND_SPEC_COURT_OWNER_VERSION, 'occurred_at' => $issued->toAtomString()]);
+                if (! $event instanceof AtlasLedgerEvent || ! app(AtlasEvidenceLedger::class)->eventIntegrityValid($event)) {
+                    throw new \InvalidArgumentException('product_spec_authority_ledger_unavailable');
+                }
+                $eventOccurredAt = CarbonImmutable::parse($event->getAttribute('occurred_at'));
+                $receipt['ledger_event'] = ['event_id' => $event->event_id, 'event_hash' => $event->getAttribute('event_hash'),
+                    'payload_hash' => $event->payload_hash, 'occurred_at' => $eventOccurredAt->toISOString()];
+                $receipt['producer'] = $this->candidateOwnerProducerSeal($receipt, self::BACKEND_SPEC_COURT_OWNER_DOMAIN);
+                $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+                $id = 'product_spec_'.substr(RealExecutionHash::make([$case->caseHash, $receipt['hash']]), 0, 24);
+
+                return AiEngineeringCompanyRoleRun::query()->create(['engagement_record_id' => $engagement->getKey(),
+                    'cycle_record_id' => $cycle->getKey(), 'role_run_id' => $id, 'role_id' => 'product_management', 'status' => 'passed',
+                    'responsibilities' => [], 'output' => ['spec_hash' => $case->order->specHash],
+                    'evidence_refs' => ['contract:'.$receipt['contract_artifact']['sha256'], 'ledger:'.$event->event_id],
+                    'receipt' => $receipt, 'role_hash' => $receipt['hash']]);
+            }, 3);
+        } catch (\Throwable $exception) {
+            @unlink($artifactPath);
+            throw $exception;
+        }
+    }
+
+    /** @return array<string,mixed> */
+    protected function adjudicateProductSpecAuthority(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): array
+    {
+        return app(AtlasSpecGateAdapter::class)->adjudicateProductAuthority($draft, $intent, $lane);
+    }
+
     /** @return array{row_id:string,receipt_hash:string,contract:array<string,mixed>,artifact:array<string,string>}|null */
     private function backendSpecCourtAuthorityReceipt(CandidateQualityCase $case): ?array
     {
@@ -596,12 +682,34 @@ class AtlasRealEngineeringExecutionKernelService
             return null;
         }
         $unsigned = array_diff_key($receipt, ['hash' => true]);
+        $ledgerRef = $receipt['ledger_event'] ?? null;
+        $ledger = is_array($ledgerRef) ? AtlasLedgerEvent::query()->where('event_id', (string) ($ledgerRef['event_id'] ?? ''))->first() : null;
+        $ledgerOccurredAt = $ledger instanceof AtlasLedgerEvent ? CarbonImmutable::parse($ledger->getAttribute('occurred_at')) : null;
+        $ledgerEnvelopeHash = $ledger instanceof AtlasLedgerEvent ? AtlasEvidenceLedger::computeEventHash([
+            'event_id' => $ledger->event_id, 'event_type' => $ledger->event_type, 'envelope_id' => $ledger->envelope_id,
+            'correlation_id' => $ledger->correlation_id, 'causation_id' => $ledger->causation_id,
+            'scope_type' => $ledger->getAttribute('scope_type'), 'scope_id' => $ledger->getAttribute('scope_id'), 'payload_hash' => $ledger->payload_hash,
+            'occurred_at' => $ledgerOccurredAt?->toISOString(),
+        ]) : '';
         if (! is_array($contract) || array_keys($contract) !== ['schema_version', 'spec_hash', 'profile', 'entrypoint', 'symbols', 'permitted_includes', 'effects', 'cases']
             || ($contract['schema_version'] ?? null) !== 'atlas.backend_contract.v1' || ($contract['spec_hash'] ?? null) !== $case->order->specHash
             || ! is_array($contract['symbols']) || ! is_array($contract['permitted_includes']) || ! is_array($contract['effects']) || ! is_array($contract['cases'])
             || ! hash_equals((string) $row->role_hash, (string) ($receipt['hash'] ?? ''))
             || ! hash_equals((string) ($receipt['hash'] ?? ''), EngineeringCompanyHash::make($unsigned))
-            || ! $this->candidateOwnerProducerSealValid($unsigned, self::BACKEND_SPEC_COURT_OWNER_DOMAIN)) {
+            || ! $this->candidateOwnerProducerSealValid($unsigned, self::BACKEND_SPEC_COURT_OWNER_DOMAIN)
+            || ! $ledger instanceof AtlasLedgerEvent || ! app(AtlasEvidenceLedger::class)->eventIntegrityValid($ledger)
+            || $ledger->event_type !== LedgerEventType::GateEvaluated->value || $ledger->emitter_stage !== self::BACKEND_SPEC_COURT_OWNER_DOMAIN
+            || $ledger->emitter_version !== self::BACKEND_SPEC_COURT_OWNER_VERSION || $ledger->getAttribute('scope_type') !== 'engineering_delivery'
+            || $ledger->getAttribute('scope_id') !== $case->order->deliveryId || ! hash_equals((string) $ledger->getAttribute('event_hash'), $ledgerEnvelopeHash)
+            || ($ledgerRef['occurred_at'] ?? null) !== $ledgerOccurredAt?->toISOString()
+            || $ledgerOccurredAt === null || $ledgerOccurredAt->lt($issued) || $ledgerOccurredAt->gt($expires)
+            || ($ledgerRef['event_hash'] ?? null) !== $ledger->getAttribute('event_hash') || ($ledgerRef['payload_hash'] ?? null) !== $ledger->payload_hash
+            || data_get($ledger->payload, 'receipt_body_hash') !== EngineeringCompanyHash::make(array_diff_key($unsigned, ['ledger_event' => true, 'producer' => true]))
+            || data_get($ledger->payload, 'run_id') !== $case->order->runId || data_get($ledger->payload, 'delivery_id') !== $case->order->deliveryId
+            || data_get($ledger->payload, 'workspace') !== $case->order->workspace || data_get($ledger->payload, 'case_hash') !== $case->caseHash
+            || data_get($ledger->payload, 'order_hash') !== $case->order->canonicalHash() || data_get($ledger->payload, 'spec_hash') !== $case->order->specHash
+            || data_get($ledger->payload, 'owner_domain') !== self::BACKEND_SPEC_COURT_OWNER_DOMAIN
+            || data_get($ledger->payload, 'owner_version') !== self::BACKEND_SPEC_COURT_OWNER_VERSION) {
             return null;
         }
 

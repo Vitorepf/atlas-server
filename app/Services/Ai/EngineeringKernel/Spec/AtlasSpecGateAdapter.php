@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\Spec;
 
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\Product\AtlasProductTruthCompilerService;
 
 /**
  * Engineering Kernel adapter: promotes the real AtlasDev spec machinery through the sovereign spec
@@ -34,6 +35,26 @@ final class AtlasSpecGateAdapter implements SpecAdversary
     public function contest(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): SpecVerdict
     {
         return $this->floor->contest($draft, $intent, $lane);
+    }
+
+    /** @return array<string,mixed> */
+    public function adjudicateProductAuthority(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): array
+    {
+        $truth = (new AtlasProductTruthCompilerService)->compile(['human_request' => $intent->rawGoal]);
+        $gaps = array_values(array_unique([...$intent->productAuthorityGaps(), ...$draft->authorityGaps(),
+            'product_truth_resolver_unavailable', 'world_model_resolver_unavailable']));
+        $verdict = $this->contest($draft, $intent, $lane);
+        if (($truth['status'] ?? null) !== 'ready') {
+            $gaps[] = 'product_truth_not_ready';
+        }
+        if (! $verdict->frozen()) {
+            $gaps[] = 'spec_not_frozen:'.$verdict->status;
+        }
+        $specHash = hash('sha256', $intent->productAuthorityHash().$draft->authorityHash());
+
+        return ['status' => $gaps === [] ? 'freeze' : 'hold', 'gaps' => array_values(array_unique($gaps)),
+            'spec_hash' => $specHash, 'truth_hash' => $truth['truth_hash'] ?? null,
+            'spec_receipt' => SpecReceipt::seal($verdict, $lane), 'product_truth' => $truth];
     }
 
     /**

@@ -26,6 +26,8 @@ use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\EngineeringKernel\RoleDisposition;
 use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
+use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
+use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\EngineeringKernel\VerifiedMutativeCandidate;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
@@ -38,6 +40,7 @@ use App\Services\Ai\RealExecution\RealExecutionHash;
 use App\Services\Engineering\CodeGraph\CodeGraphSecretScanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -199,6 +202,54 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $engagement = $company->createEngagement('candidate quality court persistence');
         $cycle = $company->createCycle($engagement);
         $qualityCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $candidate, $engagement, $cycle);
+        $contract = ['schema_version' => 'atlas.backend_contract.v1', 'spec_hash' => $qualityCase->order->specHash,
+            'profile' => 'fixture', 'entrypoint' => 'app/Candidate.php', 'symbols' => [], 'permitted_includes' => [], 'effects' => [],
+            'cases' => [['id' => 'fixture', 'expected_type' => 'string', 'expected_value_hash' => hash('sha256', serialize('after')),
+                'expected_error' => null, 'expected_effects' => []]]];
+        $draft = SpecDraft::fromArray(['intent_text' => 'fixture', 'acceptance_criteria' => [['id' => 'fixture', 'backend_contract' => $contract]]]);
+        $intent = IntentEnvelope::fromArray(['raw_goal' => 'fixture']);
+        $authorityService = new class extends AtlasRealEngineeringExecutionKernelService
+        {
+            protected function adjudicateProductSpecAuthority(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): array
+            {
+                return ['status' => 'freeze', 'spec_hash' => $draft->acceptanceCriteria[0]['backend_contract']['spec_hash'],
+                    'truth_hash' => hash('sha256', 'truth'), 'spec_receipt' => ['status' => 'freeze']];
+            }
+        };
+        foreach (['null', 'throw'] as $ledgerFailure) {
+            $ledger = $this->createMock(AtlasEvidenceLedger::class);
+            $ledger->method('record')->willReturnCallback(static function () use ($ledgerFailure): mixed {
+                if ($ledgerFailure === 'throw') {
+                    throw new \RuntimeException('ledger down');
+                }
+
+                return null;
+            });
+            $this->app->instance(AtlasEvidenceLedger::class, $ledger);
+            try {
+                $authorityService->adjudicateAndPersistProductSpecBackendAuthority($engagement, $cycle, $qualityCase, $draft, $intent);
+                $this->fail('ledger failure accepted: '.$ledgerFailure);
+            } catch (\Throwable) {
+                $this->assertSame(0, AiEngineeringCompanyRoleRun::query()->where('receipt->purpose', 'product_spec_backend_contract_authority')->count());
+                $this->assertFileDoesNotExist($candidate->sandboxRoot.'/.atlas/product-spec-backend-contract-'.$qualityCase->caseHash.'.json');
+            }
+        }
+        $this->app->forgetInstance(AtlasEvidenceLedger::class);
+        $authorityRow = $authorityService->adjudicateAndPersistProductSpecBackendAuthority($engagement, $cycle, $qualityCase, $draft, $intent);
+        $authorityReceipt = $authorityRow->receipt;
+        $authorityEventId = (string) data_get($authorityReceipt, 'ledger_event.event_id');
+        $authorityProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'backendSpecCourtAuthorityReceipt');
+        $this->assertIsArray($authorityProbe->invoke($authorityService, $qualityCase));
+        $eventOriginal = DB::table('atlas_ledger_events')->where('event_id', $authorityEventId)->first();
+        $this->assertNotNull($eventOriginal);
+        foreach (['payload_hash' => str_repeat('0', 64), 'event_type' => 'spoofed', 'occurred_at' => now()->subHours(2)] as $column => $badValue) {
+            DB::table('atlas_ledger_events')->where('event_id', $authorityEventId)->update([$column => $badValue]);
+            $this->assertNull($authorityProbe->invoke($authorityService, $qualityCase), 'tampered authority event accepted: '.$column);
+            DB::table('atlas_ledger_events')->where('event_id', $authorityEventId)->update([$column => $eventOriginal->{$column}]);
+        }
+        $authorityRow->delete();
+        DB::table('atlas_ledger_events')->where('event_id', $authorityEventId)->delete();
+        @unlink((string) data_get($authorityReceipt, 'contract_artifact.path'));
         $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'qa_testing')->status);
         $missingPrior = app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase);
         $this->assertSame('block', $missingPrior->status);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\EngineeringKernel\Spec;
 
+use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
 use App\Services\Ai\EngineeringKernel\Spec\DivergenceStatus;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
@@ -84,5 +85,49 @@ final class SpecAdversaryContractTest extends TestCase
 
         self::assertSame(SpecVerdict::REFUSE, $refuse->status);
         self::assertContains('oracle_adequacy', $refuse->gaps);
+    }
+
+    public function test_product_authority_intent_fails_closed_on_missing_metric_provenance_and_stale_world(): void
+    {
+        $intent = IntentEnvelope::fromArray(['raw_goal' => 'implementar backend', 'problem' => 'p', 'user' => 'u', 'value' => 'v',
+            'success_window' => '7d', 'sources' => ['s'], 'constraints' => ['c'], 'hypotheses' => ['h'], 'falsifiers' => ['f'],
+            'release_policy' => ['canary'], 'outcome_policy' => ['7d'], 'world_observed_at' => '2020-01-01T00:00:00+00:00']);
+
+        self::assertContains('missing_metric', $intent->productAuthorityGaps());
+        self::assertContains('missing_provenance', $intent->productAuthorityGaps());
+        self::assertContains('stale_world_model', $intent->productAuthorityGaps());
+    }
+
+    public function test_product_authority_detects_contradiction_and_spec_hash_covers_all_nfr_dimensions(): void
+    {
+        $intent = IntentEnvelope::fromArray(['constraints' => ['never write'], 'non_goals' => ['never write']]);
+        self::assertContains('contradictory_constraints', $intent->productAuthorityGaps());
+
+        $base = ['intent_text' => 'x', 'acceptance_criteria' => [['id' => 'a']], 'invariants' => ['i'],
+            'non_functional_requirements' => ['n'], 'security' => ['s'], 'accessibility' => ['a'], 'observability' => ['o'],
+            'compatibility' => ['c'], 'migration' => ['m'], 'rollback' => ['r'], 'oracles' => ['q'], 'invalidity_conditions' => ['x']];
+        $changed = $base;
+        $changed['rollback'] = ['different'];
+        self::assertNotSame(SpecDraft::fromArray($base)->authorityHash(), SpecDraft::fromArray($changed)->authorityHash());
+    }
+
+    public function test_product_authority_api_has_no_caller_verdict_parameter(): void
+    {
+        $parameters = (new \ReflectionMethod(AtlasSpecGateAdapter::class, 'adjudicateProductAuthority'))->getParameters();
+        self::assertSame(['draft', 'intent', 'lane'], array_map(static fn (\ReflectionParameter $parameter): string => $parameter->getName(), $parameters));
+    }
+
+    public function test_default_court_resolvers_hold_even_when_caller_supplies_favorable_strings(): void
+    {
+        $decision = (new AtlasSpecGateAdapter)->adjudicateProductAuthority(
+            SpecDraft::fromArray(['intent_text' => 'x', 'acceptance_criteria' => [['id' => 'a']]]),
+            IntentEnvelope::fromArray(['raw_goal' => 'implementar x', 'problem' => 'p', 'user' => 'u', 'value' => 'v', 'metric' => 'm',
+                'success_window' => '7d', 'sources' => ['s'], 'provenance' => ['p'], 'constraints' => ['c'], 'hypotheses' => ['h'],
+                'falsifiers' => ['f'], 'release_policy' => ['r'], 'outcome_policy' => ['o'], 'world_observed_at' => now()->toAtomString()]),
+            TrustLevel::Dev,
+        );
+        self::assertSame('hold', $decision['status']);
+        self::assertContains('product_truth_resolver_unavailable', $decision['gaps']);
+        self::assertContains('world_model_resolver_unavailable', $decision['gaps']);
     }
 }
