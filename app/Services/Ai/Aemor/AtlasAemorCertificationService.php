@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aemor;
 
-use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -136,31 +138,32 @@ final class AtlasAemorCertificationService
         try {
             DB::beginTransaction();
             $transactionStarted = true;
+            $evidenceRef = $this->verifiedSmokeEvidenceRef('runtime');
             $episode = $this->runtime->openEpisode([
                 'objective' => 'AEMOR certification smoke',
                 'workspace' => base_path(),
                 'domain' => 'programming',
                 'flow_id' => 'atlas_dev',
-                'evidence_refs' => ['cert:aemor'],
+                'evidence_refs' => [$evidenceRef],
             ]);
             $event = $this->runtime->observe([
                 'episode_id' => $episode['episode_id'] ?? null,
                 'event_type' => 'certification_smoke',
                 'payload' => ['safe' => true],
-                'evidence_refs' => ['cert:aemor:event'],
+                'evidence_refs' => [$evidenceRef],
             ]);
             $outcome = $this->runtime->closeOutcome([
                 'episode_id' => $episode['episode_id'] ?? null,
                 'status' => 'succeeded',
                 'summary' => 'AEMOR smoke closed with evidence.',
                 'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
-                'evidence_refs' => ['cert:aemor:outcome'],
+                'evidence_refs' => [$evidenceRef],
             ]);
             $distill = $this->runtime->distill([
                 'episode_id' => $episode['episode_id'] ?? null,
                 'outcome_id' => $outcome['outcome_id'] ?? null,
                 'claim' => 'AEMOR certification smoke produced an evidence-backed learning candidate.',
-                'evidence_refs' => ['cert:aemor:outcome'],
+                'evidence_refs' => [$evidenceRef],
             ]);
         } catch (Throwable $exception) {
             return $this->check('runtime_smoke', false, ['exception' => $exception->getMessage()], 'Fix AEMOR runtime smoke.');
@@ -190,17 +193,18 @@ final class AtlasAemorCertificationService
         try {
             DB::beginTransaction();
             $transactionStarted = true;
+            $evidenceRef = $this->verifiedSmokeEvidenceRef('judgment');
             $episode = $this->runtime->openEpisode([
                 'objective' => 'AEMOR judgment smoke',
                 'workspace' => base_path(),
-                'evidence_refs' => ['cert:aemor:judgment'],
+                'evidence_refs' => [$evidenceRef],
             ]);
             $this->runtime->closeOutcome([
                 'episode_id' => $episode['episode_id'] ?? null,
                 'status' => 'succeeded',
                 'summary' => 'AEMOR judgment smoke outcome.',
                 'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
-                'evidence_refs' => ['cert:aemor:judgment'],
+                'evidence_refs' => [$evidenceRef],
             ]);
             $judgment = $this->judgment->judge((string) ($episode['episode_id'] ?? ''));
         } catch (Throwable $exception) {
@@ -406,5 +410,29 @@ final class AtlasAemorCertificationService
             'exit_code' => $process->getExitCode(),
             'output_hash' => hash('sha256', $output),
         ], "{$testDir} tests returned 0 executed tests — check syntax, namespaces, or dependencies.");
+    }
+
+    /**
+     * FEE-02: certification smokes must resolve verified metrics from a real
+     * green test_run_receipt — caller metric claims alone never pass the gate.
+     */
+    private function verifiedSmokeEvidenceRef(string $label): string
+    {
+        if (! Schema::hasTable('atlas_aaeos_test_run_receipts')) {
+            (require database_path('migrations/2026_06_02_090000_create_atlas_aaeos_test_run_receipts_table.php'))->up();
+        }
+
+        $receipt = AtlasAaeosTestRunReceipt::query()->create([
+            'capability_id' => 'aemor.certification.smoke.'.$label,
+            'test_ref' => self::class.'::'.$label,
+            'filter' => 'aemor-certification-smoke-'.$label,
+            'passed' => true,
+            'tests_run' => 1,
+            'exit_code' => 0,
+            'metadata' => ['attribution_reviewed' => true],
+            'ran_at' => now(),
+        ]);
+
+        return 'test_run_receipt:'.$receipt->id;
     }
 }

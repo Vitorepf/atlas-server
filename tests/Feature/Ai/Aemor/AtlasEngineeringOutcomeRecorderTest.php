@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Aemor;
 
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,24 +20,32 @@ final class AtlasEngineeringOutcomeRecorderTest extends TestCase
         parent::setUp();
         $this->createAemorTables();
         (require database_path('migrations/2026_07_09_153500_repair_missing_ai_memory_deltas_table.php'))->up();
+        if (! Schema::hasTable('atlas_aaeos_test_run_receipts')) {
+            (require database_path('migrations/2026_06_02_090000_create_atlas_aaeos_test_run_receipts_table.php'))->up();
+        }
     }
 
     protected function tearDown(): void
     {
         Schema::dropIfExists('ai_memory_deltas');
+        Schema::dropIfExists('atlas_aaeos_test_run_receipts');
         $this->dropAemorTables();
         parent::tearDown();
     }
 
     public function test_successful_engineering_outcome_uses_one_aemor_envelope_and_stays_pending_review(): void
     {
+        $receipt = $this->greenTestReceipt();
+
         $result = app(AtlasEngineeringOutcomeRecorder::class)->record([
             'executor' => 'autonomos',
             'objective' => 'Land a scoped change with evidence.',
             'workspace' => base_path(),
             'status' => 'succeeded',
             'summary' => 'Scoped change passed verification.',
-            'evidence_refs' => ['test:green', 'commit:abc'],
+            // FEE-02: caller metric claims are ignored unless evidence resolves
+            // a green test_run_receipt (or ledger verification).
+            'evidence_refs' => ['test_run_receipt:'.$receipt->id, 'commit:abc'],
             'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
             'context_utility' => ['helpful_sources' => ['memory'], 'missing_sources' => []],
             'learning_claim' => 'Scoped commits with server-side verification prevent unrelated work from landing.',
@@ -106,5 +115,19 @@ final class AtlasEngineeringOutcomeRecorderTest extends TestCase
         $this->assertSame('shadow_skipped', data_get($result, 'learning.status'));
         $this->assertDatabaseCount('atlas_aemor_execution_episodes', 1);
         $this->assertDatabaseCount('ai_memory_deltas', 0);
+    }
+
+    private function greenTestReceipt(): AtlasAaeosTestRunReceipt
+    {
+        return AtlasAaeosTestRunReceipt::query()->create([
+            'capability_id' => 'aemor.recorder.green',
+            'test_ref' => self::class.'::test_successful_engineering_outcome_uses_one_aemor_envelope_and_stays_pending_review',
+            'filter' => 'test_successful_engineering_outcome_uses_one_aemor_envelope_and_stays_pending_review',
+            'passed' => true,
+            'tests_run' => 1,
+            'exit_code' => 0,
+            'metadata' => ['attribution_reviewed' => true],
+            'ran_at' => now(),
+        ]);
     }
 }
