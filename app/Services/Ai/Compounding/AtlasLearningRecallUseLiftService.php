@@ -7,6 +7,7 @@ namespace App\Services\Ai\Compounding;
 use App\Models\AiCompoundingMemory;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 
@@ -46,7 +47,8 @@ final class AtlasLearningRecallUseLiftService
             ->active()
             ->get(['id', 'memory_hash', 'claim', 'flow_id', 'confidence'])
             ->all();
-        $memoryKeys = $this->memoryKeys($memories);
+        $atlasMemoryEntries = $this->atlasMemoryEntries();
+        $memoryKeys = $this->memoryKeys($memories, $atlasMemoryEntries);
 
         $events = AiRagFeedbackEvent::query()
             ->orderByDesc('created_at')
@@ -76,6 +78,7 @@ final class AtlasLearningRecallUseLiftService
         $liveDodMet = $measurementReady && count($passingWithRecall) >= $minPassingUse && $lift > 0.0;
         $blockers = $this->blockers(
             memoryCount: count($memories),
+            atlasMemoryEntryCount: count($atlasMemoryEntries),
             withCount: (int) $withMetrics['case_count'],
             withoutCount: (int) $withoutMetrics['case_count'],
             passingWithCount: count($passingWithRecall),
@@ -93,6 +96,7 @@ final class AtlasLearningRecallUseLiftService
             'measurement' => [
                 'evaluation_mode' => 'existing_compounding_rag_feedback_ab',
                 'active_compounding_memory_count' => count($memories),
+                'active_atlas_memory_entry_count' => count($atlasMemoryEntries),
                 'feedback_event_count' => count($events),
                 'min_cases_per_arm' => $minCases,
                 'min_passing_memory_use' => $minPassingUse,
@@ -173,10 +177,31 @@ final class AtlasLearningRecallUseLiftService
     }
 
     /**
-     * @param  list<AiCompoundingMemory>  $memories
-     * @return array<string,true>
+     * @return list<AtlasMemoryEntry>
      */
-    private function memoryKeys(array $memories): array
+    private function atlasMemoryEntries(): array
+    {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+            return [];
+        }
+
+        $columns = ['id'];
+        if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'content_hash')) {
+            $columns[] = 'content_hash';
+        }
+
+        return AtlasMemoryEntry::query()
+            ->active()
+            ->get($columns)
+            ->all();
+    }
+
+    /**
+     * @param  list<AiCompoundingMemory>  $memories
+     * @param  list<AtlasMemoryEntry>  $atlasMemoryEntries
+     * @return array<string,string>
+     */
+    private function memoryKeys(array $memories, array $atlasMemoryEntries): array
     {
         $keys = [];
         foreach ($memories as $memory) {
@@ -186,7 +211,18 @@ final class AtlasLearningRecallUseLiftService
                 }
                 $value = trim($value);
                 foreach ([$value, 'memory:'.$value, 'compounding_memory:'.$value, 'ai_compounding_memory:'.$value] as $key) {
-                    $keys[$key] = true;
+                    $keys[$key] = 'ai_compounding_memory';
+                }
+            }
+        }
+        foreach ($atlasMemoryEntries as $entry) {
+            foreach ([$entry->id, $entry->content_hash ?? null] as $value) {
+                if (! is_string($value) || trim($value) === '') {
+                    continue;
+                }
+                $value = trim($value);
+                foreach ([$value, 'memory:'.$value, 'atlas_memory_entry:'.$value] as $key) {
+                    $keys[$key] = 'atlas_memory_entry';
                 }
             }
         }
@@ -195,18 +231,20 @@ final class AtlasLearningRecallUseLiftService
     }
 
     /**
-     * @param  array<string,true>  $memoryKeys
+     * @param  array<string,string>  $memoryKeys
      * @return array<string,mixed>
      */
     private function eventPayload(AiRagFeedbackEvent $event, array $memoryKeys): array
     {
         $sourceUtility = $this->sourceUtility($event->source_utility);
         $matched = [];
+        $matchedSources = [];
         foreach ($sourceUtility as $key => $value) {
             if (! isset($memoryKeys[$key]) || ! $this->utilityIsPositive($value)) {
                 continue;
             }
             $matched[] = hash('sha256', (string) $key);
+            $matchedSources[$memoryKeys[$key]] = true;
         }
 
         $outcome = null;
@@ -226,6 +264,7 @@ final class AtlasLearningRecallUseLiftService
             'evidence_quality' => $outcome?->evidence_quality,
             'memory_recall_used' => $matched !== [],
             'matched_memory_ref_hashes' => $matched,
+            'matched_memory_sources' => array_keys($matchedSources),
             'created_at' => $event->created_at?->toIso8601String(),
         ];
     }
@@ -296,11 +335,11 @@ final class AtlasLearningRecallUseLiftService
     /**
      * @return list<string>
      */
-    private function blockers(int $memoryCount, int $withCount, int $withoutCount, int $passingWithCount, int $minCases, int $minPassingUse, float $lift): array
+    private function blockers(int $memoryCount, int $atlasMemoryEntryCount, int $withCount, int $withoutCount, int $passingWithCount, int $minCases, int $minPassingUse, float $lift): array
     {
         $blockers = [];
-        if ($memoryCount === 0) {
-            $blockers[] = 'no_active_compounding_memory';
+        if (($memoryCount + $atlasMemoryEntryCount) === 0) {
+            $blockers[] = 'no_active_memory_spine_entry';
         }
         if ($withCount < $minCases) {
             $blockers[] = 'insufficient_memory_recall_use_cases';
