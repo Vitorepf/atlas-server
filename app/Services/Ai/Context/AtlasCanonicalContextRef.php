@@ -138,6 +138,62 @@ final class AtlasCanonicalContextRef
     }
 
     /**
+     * @param  array<string,mixed>  $item
+     */
+    public static function isCompoundingMemoryServedItem(array $item): bool
+    {
+        $sourceType = strtolower(trim((string) ($item['source_type'] ?? '')));
+
+        return in_array($sourceType, ['ai_compounding_memory', 'compounding'], true)
+            || str_starts_with($sourceType, 'compounding');
+    }
+
+    /**
+     * Lift-compatible ref for AiCompoundingMemory served in the pack.
+     *
+     * @param  array<string,mixed>  $item
+     */
+    public static function compoundingMemoryLiftRef(array $item): ?string
+    {
+        if (! self::isCompoundingMemoryServedItem($item)) {
+            return null;
+        }
+
+        foreach (['source_ref_id', 'source_id', 'memory_id', 'id', 'content_hash', 'memory_hash', 'candidate_id'] as $key) {
+            $value = trim((string) ($item[$key] ?? ''));
+            if ($value === '' || str_starts_with($value, 'ahri_')) {
+                continue;
+            }
+
+            if (str_starts_with(strtolower($value), 'compounding_memory:')) {
+                return self::normalize($value);
+            }
+
+            return 'compounding_memory:'.$value;
+        }
+
+        return null;
+    }
+
+    public static function normalizeCompoundingMemoryRef(string $ref): string
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return '';
+        }
+
+        if (str_starts_with(strtolower($ref), 'compounding_memory:')) {
+            return self::normalize($ref);
+        }
+
+        if (str_contains($ref, ':')) {
+            return '';
+        }
+
+        return 'compounding_memory:'.$ref;
+    }
+
+    /**
      * @return array<int,string>
      */
     public static function mentionForms(string $ref): array

@@ -77,7 +77,7 @@ final class AtlasRetrievalFeedbackLoopService
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $this->status($gate, $roi, $missed, $noise, $contextRefAttribution, $outcomeStatus),
             'generated_at' => Carbon::now()->toIso8601String(),
-            'feedback_event' => $feedbackEvent,
+            'feedback_event' => $this->providerSafeFeedbackEvent($feedbackEvent),
             'context_roi' => $roi,
             'context_ref_attribution' => $contextRefAttribution,
             'next_context_policy' => $nextContextPolicy,
@@ -387,9 +387,23 @@ final class AtlasRetrievalFeedbackLoopService
     private function sourceUtility(array $items, array $noise, array $input = []): array
     {
         $noiseHashes = $this->itemStringColumn($noise, 'source_ref_hash');
+        $explicitUsedKeys = $this->explicitUsedUtilityKeys($input);
         $utility = [];
 
         foreach ($items as $item) {
+            $compoundingRef = AtlasCanonicalContextRef::compoundingMemoryLiftRef($item);
+            if ($compoundingRef !== null) {
+                if (in_array((string) ($item['source_ref_hash'] ?? ''), $noiseHashes, true)) {
+                    $utility[$compoundingRef] = 'noise';
+                } elseif (isset($explicitUsedKeys[$compoundingRef])) {
+                    $utility[$compoundingRef] = 'used';
+                } else {
+                    $utility[$compoundingRef] = 'included';
+                }
+
+                continue;
+            }
+
             $hash = (string) ($item['source_ref_hash'] ?? '');
             if ($hash === '') {
                 continue;
@@ -397,8 +411,14 @@ final class AtlasRetrievalFeedbackLoopService
             $utility[$hash] = in_array($hash, $noiseHashes, true) ? 'noise' : 'useful';
         }
 
+        foreach ($this->compoundingMemoryDeliveredRefs($input) as $ref) {
+            if (! isset($utility[$ref])) {
+                $utility[$ref] = isset($explicitUsedKeys[$ref]) ? 'used' : 'included';
+            }
+        }
+
         foreach ($this->inputContextRefEntries($input['used_context_refs'] ?? [], 'explicit_used') as $entry) {
-            $ref = (string) ($entry['ref'] ?? '');
+            $ref = (string) ($entry['lift_ref'] ?? $entry['ref'] ?? '');
             if ($ref !== '') {
                 $utility[$ref] = 'used';
             }
@@ -409,13 +429,65 @@ final class AtlasRetrievalFeedbackLoopService
         }
 
         foreach ($this->inputContextRefEntries($input['noise_context_refs'] ?? [], 'explicit_noise') as $entry) {
-            $ref = (string) ($entry['ref'] ?? '');
+            $ref = (string) ($entry['lift_ref'] ?? $entry['ref'] ?? '');
             if ($ref !== '') {
                 $utility[$ref] = 'noise';
             }
         }
 
         return $utility;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<string,true>
+     */
+    private function explicitUsedUtilityKeys(array $input): array
+    {
+        $keys = [];
+        foreach ($this->scalarStringList($input['used_ref_hashes'] ?? []) as $hash) {
+            $keys[$hash] = true;
+        }
+
+        foreach ($this->inputContextRefEntries($input['used_context_refs'] ?? [], 'explicit_used') as $entry) {
+            $ref = (string) ($entry['lift_ref'] ?? $entry['ref'] ?? '');
+            if ($ref !== '') {
+                $keys[$ref] = true;
+            }
+        }
+
+        foreach ($this->scalarStringList($input['used_context_refs'] ?? []) as $raw) {
+            $normalized = AtlasCanonicalContextRef::normalizeCompoundingMemoryRef($raw);
+            if ($normalized !== '') {
+                $keys[$normalized] = true;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array<int,string>
+     */
+    private function compoundingMemoryDeliveredRefs(array $input): array
+    {
+        $refs = [];
+        foreach ($this->inputContextRefEntries($input['delivered_context_refs'] ?? [], 'explicit_delivered') as $entry) {
+            $liftRef = (string) ($entry['lift_ref'] ?? '');
+            if ($liftRef !== '') {
+                $refs[] = $liftRef;
+            }
+        }
+
+        foreach ($this->scalarStringList($input['delivered_context_refs'] ?? []) as $raw) {
+            $normalized = AtlasCanonicalContextRef::normalizeCompoundingMemoryRef($raw);
+            if ($normalized !== '') {
+                $refs[] = $normalized;
+            }
+        }
+
+        return array_values(array_unique($refs));
     }
 
     /**
@@ -748,7 +820,12 @@ final class AtlasRetrievalFeedbackLoopService
         $entries = [];
         foreach ($items as $item) {
             if (is_scalar($item)) {
-                $entry = $this->contextRefEntry((string) $item, $this->inferredSourceType((string) $item), $basis);
+                $rawRef = (string) $item;
+                $entry = $this->contextRefEntry(
+                    $rawRef,
+                    $this->inferredSourceType($rawRef),
+                    $basis,
+                );
             } elseif (is_array($item)) {
                 $rawRef = (string) ($item['ref'] ?? $item['source_ref'] ?? $item['path'] ?? $item['id'] ?? $item['source_ref_hash'] ?? $item['ref_hash'] ?? '');
                 $entry = $this->contextRefEntry(
@@ -783,6 +860,9 @@ final class AtlasRetrievalFeedbackLoopService
         }
 
         $refHash = $sourceRefHash !== '' ? $sourceRefHash : MissionCanonicalHash::sha256($rawRef);
+        $liftRef = str_starts_with(strtolower($rawRef), 'compounding_memory:')
+            ? AtlasCanonicalContextRef::normalizeCompoundingMemoryRef($rawRef)
+            : '';
         $ref = $rawRef !== '' ? $this->providerSafeContextRef($rawRef) : 'hash:'.substr($refHash, 0, 24);
         $entry = [
             'key' => $sourceType.'|'.$refHash.'|'.$ref,
@@ -791,6 +871,9 @@ final class AtlasRetrievalFeedbackLoopService
             'source_type' => $sourceType !== '' ? $sourceType : 'unknown',
             'basis' => $basis,
         ];
+        if ($liftRef !== '') {
+            $entry['lift_ref'] = $liftRef;
+        }
 
         foreach ($extra as $key => $value) {
             if (is_scalar($value) && trim((string) $value) !== '') {
@@ -801,11 +884,33 @@ final class AtlasRetrievalFeedbackLoopService
         return $entry;
     }
 
+    /**
+     * @param  array<string,mixed>  $feedbackEvent
+     * @return array<string,mixed>
+     */
+    private function providerSafeFeedbackEvent(array $feedbackEvent): array
+    {
+        $sourceUtility = [];
+        foreach ((array) ($feedbackEvent['source_utility'] ?? []) as $key => $value) {
+            if (str_starts_with(strtolower((string) $key), 'compounding_memory:')) {
+                continue;
+            }
+            $sourceUtility[$key] = $value;
+        }
+        $feedbackEvent['source_utility'] = $sourceUtility;
+
+        return $feedbackEvent;
+    }
+
     private function providerSafeContextRef(string $rawRef): string
     {
         $rawRef = trim($rawRef);
         if ($rawRef === '') {
             return '';
+        }
+
+        if (str_starts_with(strtolower($rawRef), 'compounding_memory:')) {
+            return 'hash:'.substr(MissionCanonicalHash::sha256($rawRef), 0, 24);
         }
 
         if (strlen($rawRef) > 160 || ! preg_match('/^[A-Za-z0-9_.:\/#@=\-]+$/', $rawRef)) {
@@ -843,7 +948,7 @@ final class AtlasRetrievalFeedbackLoopService
     private function publicContextRefs(array $refs): array
     {
         return array_values(array_map(static function (array $entry): array {
-            unset($entry['key']);
+            unset($entry['key'], $entry['lift_ref']);
 
             return $entry;
         }, array_slice($refs, 0, self::MAX_CONTEXT_ATTRIBUTION_REFS)));
