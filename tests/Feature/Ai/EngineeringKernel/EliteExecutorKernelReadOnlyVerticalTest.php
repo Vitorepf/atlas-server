@@ -281,7 +281,13 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $missingPrior = app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase);
         $this->assertSame('block', $missingPrior->status);
         $this->assertSame('prior_21_not_all_pass_or_na', $missingPrior->reason);
-        $persistedVerdict = $company->adjudicateMutativeCandidate($engagement, $cycle, $qualityCase);
+        $governed = $kernel->governMutativeCandidate(
+            ExecutionOrder::fromArray($data), $candidate, $engagement, $cycle,
+        );
+        $persistedVerdict = $governed['verdict'];
+        $this->assertFalse($governed['governance']['admitted']);
+        $this->assertNull($governed['governance']['authorized_merge_action']);
+        $this->assertNotEmpty($governed['governance']['blockers'], json_encode($governed['governance']));
         $persisted = AiEngineeringCompanyRoleRun::query()
             ->where('engagement_record_id', $engagement->getKey())
             ->whereIn('role_id', self::ROLE_IDS)

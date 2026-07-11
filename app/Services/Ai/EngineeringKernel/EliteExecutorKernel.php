@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel;
 
+use App\Models\AiEngineeringCompanyCycle;
+use App\Models\AiEngineeringCompanyEngagement;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringKernel\Adapters\AgentExecutionProviderPortAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
@@ -16,6 +19,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -415,6 +419,60 @@ final class EliteExecutorKernel
             $verification->providerIdentity, $verification->authorIdentity, $verification->verifierIdentity,
             ['mutative_22_role_court_receipt_absent'], false,
         );
+    }
+
+    public function adjudicateMutativeCandidate(
+        ExecutionOrder $order,
+        VerifiedMutativeCandidate $candidate,
+        AiEngineeringCompanyEngagement $engagement,
+        AiEngineeringCompanyCycle $cycle,
+    ): QualityCourtVerdict {
+        $case = CandidateQualityCase::fromCandidate($order, $candidate, $engagement, $cycle);
+
+        return app(AtlasRealEngineeringCompanyRuntimeService::class)
+            ->adjudicateMutativeCandidate($engagement, $cycle, $case);
+    }
+
+    /** @return array{verdict:QualityCourtVerdict,governance:array<string,mixed>} */
+    public function governMutativeCandidate(
+        ExecutionOrder $order,
+        VerifiedMutativeCandidate $candidate,
+        AiEngineeringCompanyEngagement $engagement,
+        AiEngineeringCompanyCycle $cycle,
+    ): array {
+        $verdict = $this->adjudicateMutativeCandidate($order, $candidate, $engagement, $cycle);
+        $hasBlockingRole = array_any($verdict->dispositions, static fn (RoleDisposition $disposition): bool => $disposition->status === 'block');
+        $passed = $candidate->status === 'behaviorally_verified_pending_quality_court'
+            && ! $hasBlockingRole
+            && $verdict->authorityEligible;
+        $evidenceHash = CanonicalKernelPayload::hash([
+            'candidate_hash' => $candidate->candidateHash,
+            'verification_hash' => $candidate->verificationHash,
+            'case_hash' => $verdict->caseHash,
+            'authority_eligible' => $verdict->authorityEligible,
+        ]);
+        $governance = app(AtlasTaskCommitGovernanceChain::class)->govern([
+            'task_packet_id' => $order->deliveryId,
+            'project_id' => $order->workspace,
+            'changed_files' => $candidate->files,
+            'verification' => [
+                'passed' => $passed,
+                'evidence_hash' => $evidenceHash,
+                'checks' => ['quality_court' => $passed ? 'pass' : 'fail'],
+                'planned_commands' => [],
+                'replay_results' => [],
+            ],
+            'budget_posture' => $order->budgetPosture,
+            'base_commit' => $candidate->baseCommit,
+            'tree_hash' => $candidate->treeHash,
+            'lease_id' => (string) ($order->authorityEnvelope['lease_id'] ?? ''),
+            'lease_owner' => (string) ($order->authorityEnvelope['lease_owner'] ?? ''),
+            'fencing_token' => (int) ($order->authorityEnvelope['fencing_token'] ?? 0),
+            'candidate_hash' => $candidate->candidateHash,
+            'verification_hash' => $candidate->verificationHash,
+        ]);
+
+        return ['verdict' => $verdict, 'governance' => $governance];
     }
 
     public function devGate(): AtlasDevGateAdapter
