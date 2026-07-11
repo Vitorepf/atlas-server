@@ -63,6 +63,7 @@ trait CreatesLongHorizonPersistenceTables
             $table->json('recovery_queries');
             $table->json('evidence_refs');
             $table->string('summary_hash', 64);
+            $table->decimal('context_retention_score', 5, 4)->nullable();
             $table->decimal('quality_score', 4, 3)->nullable();
             $table->json('detected_contradictions');
             $table->json('stale_risks');

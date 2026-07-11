@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -78,6 +81,7 @@ final class AtlasTokenEconomyRuntimeService
             'provider_model_selection' => $providerSelection,
             'quality_check' => $quality,
             'enforcement' => $enforcement,
+            'retention' => $this->retentionReport(),
             'compiled_ref' => [
                 'schema_version' => AtlasContextCompilerRuntimeService::SCHEMA_VERSION,
                 'status' => (string) ($compiled['status'] ?? 'unknown'),
@@ -708,6 +712,46 @@ final class AtlasTokenEconomyRuntimeService
         $check['receipt_hash'] = MissionCanonicalHash::sha256($check);
 
         return $check;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function retentionReport(): array
+    {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')
+            || ! Schema::hasColumn('atlas_long_horizon_compaction_receipts', 'context_retention_score')) {
+            return [
+                'schema_version' => 'atlas.context_retention.runtime.v1',
+                'status' => 'unavailable',
+                'receipt_count' => 0,
+                'average_context_retention_score' => null,
+                'compaction_loss_rate' => null,
+            ];
+        }
+
+        $receipts = AtlasLongHorizonCompactionReceipt::query()
+            ->latest('created_at')
+            ->limit(200)
+            ->get(['context_retention_score', 'unresolved_loss']);
+        $count = $receipts->count();
+        $scores = $receipts
+            ->pluck('context_retention_score')
+            ->filter(static fn ($score): bool => is_numeric($score))
+            ->map(static fn ($score): float => (float) $score)
+            ->values();
+        $lossCount = $receipts->filter(
+            static fn (AtlasLongHorizonCompactionReceipt $receipt): bool => count((array) $receipt->unresolved_loss) > 0,
+        )->count();
+
+        return [
+            'schema_version' => 'atlas.context_retention.runtime.v1',
+            'status' => 'ready',
+            'receipt_count' => $count,
+            'scored_receipt_count' => $scores->count(),
+            'average_context_retention_score' => $scores->isEmpty() ? null : round((float) $scores->avg(), 4),
+            'compaction_loss_rate' => $count === 0 ? null : round($lossCount / max(1, $count), 4),
+        ];
     }
 
     private function provider(string $provider): string

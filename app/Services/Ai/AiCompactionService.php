@@ -10,6 +10,8 @@ use App\Models\AiSession;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
 use App\Models\AtlasLongHorizonCompactionReceipt;
+use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
+use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Compaction\CompactionMustKeepExtractor;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -24,7 +26,11 @@ class AiCompactionService
 {
     private const TRANSACTION_ATTEMPTS = 5;
 
-    public function __construct(private readonly CompactionMustKeepExtractor $mustKeepExtractor) {}
+    public function __construct(
+        private readonly CompactionMustKeepExtractor $mustKeepExtractor,
+        private readonly ?SegmentImportanceRanker $segmentRanker = null,
+        private readonly ?SummaryFidelityCoverageScorer $retentionScorer = null,
+    ) {}
 
     public function maybeAutoCompact(AiThread $thread, AiSession $session): ?AiCompaction
     {
@@ -93,7 +99,8 @@ class AiCompactionService
             ->first();
 
         $quality = $this->qualityContext($thread);
-        $summary = $this->summary($thread, $compactableMessages, $state, $quality);
+        $summaryResult = $this->summary($thread, $compactableMessages, $state, $quality, $metadata);
+        $summary = $summaryResult['summary'];
         $structured = $this->structuredState($thread, $compactableMessages, $state, $quality) + [
             'protected_skill_context' => [
                 'message_count' => $protectedMessages->count(),
@@ -103,6 +110,8 @@ class AiCompactionService
         ];
         $tokenBefore = (int) $compactableMessages->sum('token_estimate');
         $tokenAfter = max(1, (int) ceil(mb_strlen($summary) / 4));
+        $qualityGateStatus = $this->qualityGateStatus($structured);
+        $summaryOverwriteAllowed = $qualityGateStatus !== 'needs_review';
 
         $compaction = AiCompaction::query()->create([
             'thread_id' => $thread->id,
@@ -115,7 +124,7 @@ class AiCompactionService
             'structured_state' => $structured,
             'token_estimate_before' => $tokenBefore,
             'token_estimate_after' => $tokenAfter,
-            'quality_gate_status' => $this->qualityGateStatus($structured),
+            'quality_gate_status' => $qualityGateStatus,
             'provider' => data_get($metadata, 'provider'),
             'model' => data_get($metadata, 'model'),
             'metadata' => array_merge($metadata, [
@@ -123,6 +132,8 @@ class AiCompactionService
                 'compression_ratio_estimate' => $tokenBefore > 0 ? round($tokenAfter / $tokenBefore, 4) : null,
                 'protected_skill_message_count' => $protectedMessages->count(),
                 'protected_skill_names' => $protectedSkillNames,
+                'candidate_summary_hash' => hash('sha256', $summary),
+                'thread_summary_overwrite_skipped' => ! $summaryOverwriteAllowed,
             ]),
         ]);
 
@@ -134,6 +145,7 @@ class AiCompactionService
             state: $state,
             reason: $reason,
             metadata: $metadata,
+            rankedDrops: $summaryResult['dropped_segments'],
         );
         if (($conversationReceipt['status'] ?? null) === 'persisted') {
             $compaction->update([
@@ -144,12 +156,12 @@ class AiCompactionService
                     'long_horizon_compaction_receipt_coverage' => $conversationReceipt['must_keep_coverage'] ?? null,
                     'long_horizon_compaction_receipt_loss_risk' => $conversationReceipt['loss_risk'] ?? null,
                     'long_horizon_compaction_receipt_write_allowed' => $conversationReceipt['write_allowed'] ?? null,
+                    'context_retention_score' => $conversationReceipt['context_retention_score'] ?? null,
                 ]),
             ]);
         }
 
-        $thread->update([
-            'summary' => $summary,
+        $threadUpdate = [
             'metadata' => array_merge($thread->metadata ?? [], [
                 'last_compaction_id' => $compaction->id,
                 'last_compaction_reason' => $compaction->reason,
@@ -169,7 +181,11 @@ class AiCompactionService
                 'last_compaction_receipt_id' => $conversationReceipt['compaction_receipt_id'] ?? null,
                 'last_compaction_receipt_hash' => $conversationReceipt['receipt_hash'] ?? null,
             ]),
-        ]);
+        ];
+        if ($summaryOverwriteAllowed) {
+            $threadUpdate['summary'] = $summary;
+        }
+        $thread->update($threadUpdate);
 
         return $compaction->refresh();
     }
@@ -186,6 +202,7 @@ class AiCompactionService
         ?AiSessionState $state,
         string $reason,
         array $metadata,
+        array $rankedDrops = [],
     ): array {
         if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
             return [
@@ -200,6 +217,8 @@ class AiCompactionService
                 $mustKeepItems,
                 $summary,
             );
+            $unresolvedLoss = $this->mergeUnresolvedLoss($unresolvedLoss, $rankedDrops);
+            $discardedItems = $this->mergeUnresolvedLoss($discardedItems, $rankedDrops);
 
             $mustKeepCoverageStatus = $mustKeepItems === []
                 ? CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS
@@ -207,6 +226,7 @@ class AiCompactionService
             $mustKeepCoverage = $mustKeepItems === []
                 ? 0.0
                 : round(count($retainedItems) / max(1, count($mustKeepItems)), 3);
+            $retention = $this->retentionScore($mustKeepItems, $summary);
 
             $touchedCriticalKind = false;
             foreach ($unresolvedLoss as $loss) {
@@ -261,6 +281,7 @@ class AiCompactionService
                 'recovery_queries' => $this->mergeRecoveryQueries([], $unresolvedLoss),
                 'evidence_refs' => $evidenceRefs,
                 'summary_hash' => $summaryHash,
+                'context_retention_score' => $retention['context_retention_score'],
                 'quality_score' => $this->deriveQualityScore($mustKeepCoverage, $unresolvedLoss, []),
                 'detected_contradictions' => [],
                 'stale_risks' => [],
@@ -278,6 +299,8 @@ class AiCompactionService
                 'loss_risk' => $lossRisk,
                 'write_allowed' => $writeAllowed,
                 'loss_policy_reasons' => $lossPolicy['reasons'],
+                'context_retention_score' => $retention['context_retention_score'],
+                'retention' => $retention,
             ];
         } catch (\Throwable $e) {
             return [
@@ -323,6 +346,61 @@ class AiCompactionService
         return [$retained, $discarded, $unresolvedLoss];
     }
 
+    /**
+     * @param  list<array<string,mixed>>  $left
+     * @param  list<array<string,mixed>>  $right
+     * @return list<array<string,mixed>>
+     */
+    private function mergeUnresolvedLoss(array $left, array $right): array
+    {
+        $merged = [];
+        foreach (array_merge($left, $right) as $loss) {
+            if (! is_array($loss)) {
+                continue;
+            }
+            $id = (string) ($loss['id'] ?? '');
+            $kind = (string) ($loss['kind'] ?? 'fact');
+            if ($id === '') {
+                continue;
+            }
+            $merged[$kind.':'.$id] = [
+                'id' => $id,
+                'kind' => $kind,
+                'digest' => $loss['digest'] ?? null,
+                'reason' => (string) ($loss['reason'] ?? AtlasLongHorizonCanon::DISCARDED_REASON_BUDGET_PRESSURE),
+            ];
+        }
+
+        return array_values($merged);
+    }
+
+    /**
+     * @param  list<array{id:string,kind:string,digest:?string,payload:mixed}>  $requiredItems
+     * @return array<string,mixed>
+     */
+    private function retentionScore(array $requiredItems, string $summary): array
+    {
+        return ($this->retentionScorer ?? new SummaryFidelityCoverageScorer)->score(
+            array_map(
+                static fn (array $item): array => [
+                    'id' => $item['id'],
+                    'kind' => $item['kind'],
+                    'digest' => $item['digest'] ?? null,
+                ],
+                $requiredItems,
+            ),
+            $this->summaryTextForRetentionScore($summary),
+        );
+    }
+
+    private function summaryTextForRetentionScore(string $summary): string
+    {
+        $marker = "\nATENCAO unresolved_loss";
+        $pos = mb_strpos($summary, $marker);
+
+        return $pos === false ? $summary : mb_substr($summary, 0, $pos);
+    }
+
     private function protectedSkillNames($messages): array
     {
         return $messages
@@ -337,7 +415,11 @@ class AiCompactionService
             ->all();
     }
 
-    private function summary(AiThread $thread, $messages, ?AiSessionState $state, array $quality): string
+    /**
+     * @param  array<string,mixed>  $metadata
+     * @return array{summary:string,dropped_segments:list<array<string,mixed>>}
+     */
+    private function summary(AiThread $thread, $messages, ?AiSessionState $state, array $quality, array $metadata = []): array
     {
         $parts = [];
         $parts[] = 'Thread: '.$thread->title;
@@ -350,30 +432,6 @@ class AiCompactionService
             $parts[] = 'Fase atual: '.$state->current_phase;
         }
 
-        $decisions = collect($state?->decisions ?? [])->pluck('text')->filter()->take(6)->values();
-        if ($decisions->isNotEmpty()) {
-            $parts[] = 'Decisoes preservadas: '.$decisions->implode(' | ');
-        }
-
-        $openLoops = collect($state?->open_loops ?? [])->pluck('text')->filter()->take(6)->values();
-        if ($openLoops->isNotEmpty()) {
-            $parts[] = 'Pendencias/open loops: '.$openLoops->implode(' | ');
-        }
-
-        $nextSteps = collect($state?->next_steps ?? [])->pluck('text')->filter()->take(6)->values();
-        if ($nextSteps->isNotEmpty()) {
-            $parts[] = 'Proximos passos: '.$nextSteps->implode(' | ');
-        }
-
-        $recent = $messages
-            ->take(-6)
-            ->map(fn (AiMessage $message): string => "{$message->role}: ".Str::limit(trim($message->content), 320, '...'))
-            ->implode(' || ');
-
-        if ($recent !== '') {
-            $parts[] = 'Ultimos turnos relevantes: '.$recent;
-        }
-
         $qualityNotes = collect($quality['recent_evaluations'] ?? [])
             ->filter(fn (array $evaluation): bool => ($evaluation['status'] ?? null) !== 'passed')
             ->map(fn (array $evaluation): string => "score {$evaluation['score']} {$evaluation['status']} flags=".implode(',', $evaluation['flags'] ?? []))
@@ -384,7 +442,128 @@ class AiCompactionService
             $parts[] = 'Notas de qualidade a preservar: '.$qualityNotes;
         }
 
-        return Str::limit(implode("\n", $parts), 12000, '...');
+        $fixedTokenEstimate = max(1, (int) ceil(mb_strlen(implode("\n", $parts)) / 4));
+        $requestedBudget = isset($metadata['summary_token_budget']) && is_numeric($metadata['summary_token_budget'])
+            ? (int) $metadata['summary_token_budget']
+            : 3000;
+        $segmentBudget = max(0, $requestedBudget - $fixedTokenEstimate);
+
+        $segments = $this->conversationSummarySegments($messages, $state);
+        $selection = ($this->segmentRanker ?? new SegmentImportanceRanker)->select($segments, $segmentBudget);
+        $keptIds = array_flip((array) ($selection['kept_ids'] ?? []));
+        $kept = [];
+        $dropped = [];
+        foreach ($segments as $segment) {
+            if (isset($keptIds[$segment['id']])) {
+                $kept[] = $segment;
+            } else {
+                $dropped[] = $this->segmentLoss($segment);
+            }
+        }
+
+        $byKind = collect($kept)->groupBy('kind');
+        $decisions = $byKind->get('decision', collect())->pluck('text')->filter()->values();
+        if ($decisions->isNotEmpty()) {
+            $parts[] = 'Decisoes preservadas: '.$decisions->implode(' | ');
+        }
+
+        $openLoops = $byKind->get('blocker', collect())->pluck('text')->filter()->values();
+        if ($openLoops->isNotEmpty()) {
+            $parts[] = 'Pendencias/open loops: '.$openLoops->implode(' | ');
+        }
+
+        $nextSteps = $byKind->get('dod', collect())->pluck('text')->filter()->values();
+        if ($nextSteps->isNotEmpty()) {
+            $parts[] = 'Proximos passos: '.$nextSteps->implode(' | ');
+        }
+
+        $recent = $byKind->get('conversation_turn', collect())
+            ->map(static fn (array $segment): string => (string) $segment['text'])
+            ->implode(' || ');
+        if ($recent !== '') {
+            $parts[] = 'Ultimos turnos relevantes: '.$recent;
+        }
+
+        return [
+            'summary' => Str::limit(implode("\n", $parts), 12000, '...'),
+            'dropped_segments' => $dropped,
+        ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function conversationSummarySegments($messages, ?AiSessionState $state): array
+    {
+        $segments = [];
+        $appendState = function (array $entries, string $kind, string $prefix) use (&$segments): void {
+            $total = count($entries);
+            foreach (array_values($entries) as $index => $entry) {
+                if (! is_array($entry)) {
+                    continue;
+                }
+                $text = trim((string) ($entry['text'] ?? $entry['value'] ?? ''));
+                if ($text === '') {
+                    continue;
+                }
+                $id = isset($entry['id']) && is_string($entry['id']) && trim($entry['id']) !== ''
+                    ? trim($entry['id'])
+                    : "summary:{$prefix}:{$index}";
+                $segments[] = [
+                    'id' => $id,
+                    'kind' => $kind,
+                    'text' => $text,
+                    'digest' => Str::limit($text, 280, '...'),
+                    'recency_rank' => max(0, $total - $index - 1),
+                    'token_estimate' => max(20, (int) ceil(mb_strlen($text) / 4) + 8),
+                    'has_evidence_ref' => isset($entry['evidence_ref']) || isset($entry['evidence_refs']),
+                    'links_decision_or_blocker' => in_array($kind, ['decision', 'blocker'], true),
+                    'importance' => is_numeric($entry['importance'] ?? null) ? (float) $entry['importance'] : 0.0,
+                ];
+            }
+        };
+
+        $appendState(array_values($state?->decisions ?? []), 'decision', 'decision');
+        $appendState(array_values($state?->open_loops ?? []), 'blocker', 'open_loop');
+        $appendState(array_values($state?->next_steps ?? []), 'dod', 'next_step');
+
+        $messageCount = $messages->count();
+        foreach ($messages->values() as $index => $message) {
+            if (! $message instanceof AiMessage) {
+                continue;
+            }
+            $text = "{$message->role}: ".Str::limit(trim($message->content), 320, '...');
+            if (trim($text) === '') {
+                continue;
+            }
+            $segments[] = [
+                'id' => 'turn:'.($message->id ?? $index),
+                'kind' => 'conversation_turn',
+                'text' => $text,
+                'digest' => $text,
+                'recency_rank' => max(0, $messageCount - $index - 1),
+                'token_estimate' => max(20, (int) ceil(mb_strlen($text) / 4) + 8),
+                'has_evidence_ref' => false,
+                'links_decision_or_blocker' => false,
+                'importance' => 0.0,
+            ];
+        }
+
+        return $segments;
+    }
+
+    /**
+     * @param  array<string,mixed>  $segment
+     * @return array<string,mixed>
+     */
+    private function segmentLoss(array $segment): array
+    {
+        return [
+            'id' => (string) ($segment['id'] ?? ''),
+            'kind' => (string) ($segment['kind'] ?? 'fact'),
+            'digest' => $segment['digest'] ?? null,
+            'reason' => AtlasLongHorizonCanon::DISCARDED_REASON_BUDGET_PRESSURE,
+        ];
     }
 
     private function structuredState(AiThread $thread, $messages, ?AiSessionState $state, array $quality): array
@@ -605,6 +784,7 @@ class AiCompactionService
             staleRisks: $staleRisks,
         );
         $summaryHash = hash('sha256', $summary);
+        $retention = $this->retentionScore($mustKeepItems, $summary);
 
         $dominantDiscardReason = $this->dominantDiscardReason($forcedDiscards);
         $recoveryQueries = $this->mergeRecoveryQueries($callerRecoveryQueries, $unresolvedLoss);
@@ -637,6 +817,7 @@ class AiCompactionService
             'recovery_queries' => $recoveryQueries,
             'evidence_refs' => $evidenceRefs,
             'summary_hash' => $summaryHash,
+            'context_retention_score' => $retention['context_retention_score'],
             'quality_score' => $qualityScore,
             'detected_contradictions' => $detectedContradictions,
             'stale_risks' => $staleRisks,
@@ -676,6 +857,8 @@ class AiCompactionService
             'detected_contradictions' => $detectedContradictions,
             'stale_risks' => $staleRisks,
             'source_context_refs' => $sourceContextRefs,
+            'context_retention_score' => $retention['context_retention_score'],
+            'retention' => $retention,
             'quality_score' => $qualityScore,
             'write_allowed' => $writeAllowed,
             'actor_alias' => $actorAlias,
@@ -862,7 +1045,7 @@ class AiCompactionService
         if ($unresolvedLoss !== []) {
             $losses = array_map(
                 static fn (array $i): string => '['.(string) $i['kind'].':'.(string) $i['id'].'] reason='.(string) $i['reason']
-                    .' digest='.Str::limit((string) ($i['digest'] ?? ''), 120, '...'),
+                    .' recovery_query=rehydrate '.(string) $i['kind'].':'.(string) $i['id'].' from canonical sources',
                 array_slice($unresolvedLoss, 0, 12),
             );
             $parts[] = "ATENCAO unresolved_loss (write bloqueado quando contem decision/blocker/dod/risk_critical):\n - "

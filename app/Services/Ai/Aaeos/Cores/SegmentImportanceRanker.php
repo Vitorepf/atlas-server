@@ -46,6 +46,7 @@ final class SegmentImportanceRanker
      * Composite score = kindWeight + 0.5/(1+recency_rank)
      *   + (has_evidence_ref ? +0.20 : 0)
      *   + (links_decision_or_blocker ? +0.30 : 0)
+     *   + explicit importance hint (importance / 100, capped 0..1)
      *   + dedup_penalty (0 for first dup_group member, -0.5 each subsequent,
      *     cumulatively capped at -1.0; null dup_group never penalised).
      *
@@ -182,11 +183,12 @@ final class SegmentImportanceRanker
             $hasEvidenceRef = $this->boolField($row, 'has_evidence_ref');
             $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
             $dupGroup = $this->nullableStringField($row, 'dup_group');
+            $importance = max(0.0, min(1.0, (float) $this->numericField($row, 'importance') / 100.0));
 
             $kindWeight = $this->kindWeight($kind);
             $dedupPenalty = $this->dedupPenalty($dupGroup, $dupGroupSeen);
 
-            $base = $kindWeight + 0.5 / (1 + max($recencyRank, 0));
+            $base = $kindWeight + 0.5 / (1 + max($recencyRank, 0)) + $importance;
 
             if ($hasEvidenceRef) {
                 $base += self::EVIDENCE_REF_BONUS;
@@ -297,6 +299,16 @@ final class SegmentImportanceRanker
         }
 
         return 0;
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     */
+    private function numericField(array $row, string $key): float
+    {
+        $value = $row[$key] ?? 0.0;
+
+        return is_numeric($value) ? (float) $value : 0.0;
     }
 
     /**
