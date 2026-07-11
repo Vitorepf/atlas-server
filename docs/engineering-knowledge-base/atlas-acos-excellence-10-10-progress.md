@@ -63,7 +63,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | OPE-05 | ⬜ | — | — |
 | OPE-03 | ⬜ | — | — |
 | OPE-06 | ⬜ | — | — |
-| SUB-01 | ⬜ | — | — |
+| SUB-01 | ✅ | pending | phpunit 2/2 + ledger receipt com dump hash |
 | ROL-01 | ⬜ | — | — |
 
 ### Onda 2 — Produtores reais (22)

@@ -127,6 +127,10 @@ use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateDumpRunner;
+use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreProofRunner;
+use App\Services\Ai\Memory\Substrate\PgDumpAtlasMemorySubstrateDumpRunner;
+use App\Services\Ai\Memory\Substrate\PgsqlAtlasMemorySubstrateRestoreProofRunner;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Obra\DeterministicObraDecomposer;
 use App\Services\Ai\Obra\ObraDecomposer;
@@ -242,6 +246,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(AtlasMemorySubstrateDumpRunner::class, PgDumpAtlasMemorySubstrateDumpRunner::class);
+        $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
+
         $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
 
         $this->app->afterResolving(function (mixed $resolved): void {

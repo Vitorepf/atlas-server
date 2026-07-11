@@ -76,6 +76,17 @@ Schedule::command('atlas:failure:weekly-red-snapshot --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.ai.suite_red_snapshot.schedule_enabled', false));
 
+// SUB-01 · Verified memory-substrate snapshot (pg_dump + series JSONLs + restore proof).
+// Read-only against live; destination outside the live Laravel tree.
+Schedule::command('atlas:memory:substrate-snapshot --json')
+    ->weeklyOn(
+        max(0, min(6, (int) config('atlas.cognition.substrate_snapshot.schedule_day', 0))),
+        (string) config('atlas.cognition.substrate_snapshot.schedule_time', '04:30'),
+    )
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.cognition.substrate_snapshot.enabled', true)
+        && (bool) config('atlas.cognition.substrate_snapshot.schedule_enabled', true));
+
 // Hermes Capability Registry drift capture: probe the local Hermes daily and persist the manifest +
 // quarantined CapabilityCandidates (read-only; never enables a capability). Gated off by default so it
 // runs only when the operator opts in — this is the "Atlas auto-detects Hermes changes" heartbeat.

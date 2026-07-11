@@ -47,6 +47,7 @@ enum LedgerEventType: string
     case ConstelacaoPositionsServed = 'CONSTELACAO_POSITIONS_SERVED';
     case SloObserved = 'SLO_OBSERVED';
     case MeasureDualReadRecorded = 'MEASURE_DUAL_READ_RECORDED';
+    case MemorySubstrateSnapshotRecorded = 'MEMORY_SUBSTRATE_SNAPSHOT_RECORDED';
     case LocalRagPlanCreated = 'LOCAL_RAG_PLAN_CREATED';
     case LocalRagQualityCorpusEvaluated = 'LOCAL_RAG_QUALITY_CORPUS_EVALUATED';
     case LocalRagGraphPromotionBlocked = 'LOCAL_RAG_GRAPH_PROMOTION_BLOCKED';

@@ -1904,6 +1904,34 @@ return [
         // L6-9: gate honesto para o claim "ACOS 10/10 real". Ele não cunha
         // receipts nem backfilla tempo; só permite completion quando o scorecard
         // resolved-evidence e a delta-series append-only sustentam >=30 dias.
+        // SUB-01 · Verified snapshot/backup of memory substrate (tables + series JSONLs).
+        // Destination lives outside the live Laravel tree (atlas.storage_path).
+        'substrate_snapshot' => [
+            'enabled' => (bool) env('ATLAS_COGNITION_SUBSTRATE_SNAPSHOT_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_COGNITION_SUBSTRATE_SNAPSHOT_SCHEDULE_ENABLED', true),
+            'schedule_day' => max(0, min(6, (int) env('ATLAS_COGNITION_SUBSTRATE_SNAPSHOT_SCHEDULE_DAY', 0))),
+            'schedule_time' => (string) env('ATLAS_COGNITION_SUBSTRATE_SNAPSHOT_SCHEDULE_TIME', '04:30'),
+            'destination_root' => (string) env(
+                'ATLAS_COGNITION_SUBSTRATE_SNAPSHOT_ROOT',
+                rtrim((string) env('ATLAS_STORAGE_PATH', '/var/atlas/storage'), '/').'/substrate-snapshots',
+            ),
+            'tables' => [
+                'atlas_memory_entries',
+                'atlas_memory_entry_usages',
+                'atlas_memory_entry_relations',
+                'atlas_verbatim_memories',
+                'atlas_decision_receipts',
+                'atlas_memory_quality_snapshots',
+                'atlas_memory_provider_projection_audits',
+            ],
+            'series_jsonls' => [
+                storage_path('app/atlas/evidence/fable-delta-series.jsonl'),
+                storage_path('app/atlas/evidence/acos-delta-series.jsonl'),
+                'live_outcomes:',
+                storage_path('atlas/scheduler/heartbeat.jsonl'),
+            ],
+        ],
+
         'acos_long_horizon_gate' => [
             'enabled' => (bool) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_ENABLED', true),
             'schedule_enabled' => (bool) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SCHEDULE_ENABLED', true),
