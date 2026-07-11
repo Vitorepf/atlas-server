@@ -57,28 +57,28 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | RAG-01 | ✅ | e3730223d | usage no ponto de entrega [MEDIDOR] |
 | RAG-04 | ✅ | 88b3fbc112 | multi-item memory no pack |
 | CPT-01 | ✅ | 5962afd83 | must_keep extractor always-merge |
-| FEE-06 | ✅ | pending | PipelineMemoryRefsNoiseTest 3/3 |
+| FEE-06 | ✅ | aa963e5130 | PipelineMemoryRefsNoiseTest 3/3 |
 | ENG-01 | ✅ | f6eae43f42 | AWIS gate no PipelineRunExecutor |
 | ENG-10 | ✅ | be4d2954b | would-have-blocked telemetry [MEDIDOR] |
 | OPE-05 | ✅ | 85a64991fa | MCP tool-usage telemetry |
 | OPE-03 | ✅ | fe0b338fe8 | compounding lift served≠used |
 | OPE-06 | ✅ | f60c7e36ab | evolution-score lift real [MEDIDOR] |
-| SUB-01 | ✅ | pending | phpunit 2/2 + ledger receipt com dump hash |
+| SUB-01 | ✅ | 84a8532e03 | phpunit + ledger receipt com dump hash |
 | ROL-01 | ✅ | 1d7506b5e | 6 gatilhos rollback pré-declarados |
 
 ### Onda 2 — Produtores reais (22)
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| OUTC-01 | ⬜ | — | — |
-| ENG-05 | ⬜ | — | — |
-| ENG-06 | ⬜ | — | — |
+| OUTC-01 | ✅ | d3dbb77412 | 4 suites outcome spine + LIVE auto-promote |
+| ENG-05 | ✅ | 047221c35c | single main-merge.lock + close evidence fallback |
+| ENG-06 | ✅ | 356685355e | AWIS gate on AtlasTaskServingService::next |
 | COM-02 | ⬜ | — | — |
 | COM-03 | ⬜ | — | — |
 | COM-04 | ⬜ | — | — |
 | COM-06 | ⬜ | — | — |
 | MEM-05 | ⬜ | — | — |
-| MEM-02 | ⬜ | — | — |
+| MEM-02 | ✅ | 2cdea34c1f | relation verbs related/compatible/scoped/supersedes |
 | RAG-02 | ⬜ | — | — |
 | RAG-11 | ⬜ | — | — |
 | RAG-07 | ⬜ | — | — |
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 33/98 · Faltam: 65 · Próximo: OUTC-01 (onda 2)**
+**Feitas: 37/98 · Faltam: 61 · Próximo: COM-03 (onda 2)**
