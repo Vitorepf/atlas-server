@@ -19,8 +19,8 @@ Do not flip any of these enforcement paths without both:
 1. explicit operator OK for the specific flip, and
 2. `php artisan atlas:engineering:enforce-readiness --json` returning `ready:true` for that flip.
 
-Current state is HOLD. Governance and Forge are not ready. ADML is ready in the latest snapshot,
-but it still remains HOLD until the operator explicitly approves the ENV flip.
+Current state: **ENG-15 ENV flipped** (operator OK 2026-07-11; ROL-01 monitoring).
+Governance (ENG-13) and Forge (ENG-14) remain HOLD until volume floors + operator OK.
 
 Do not change config defaults to ON as part of readiness work. Defaults move only in a separate
 config commit after an ENV-first soak proves the flip.
@@ -111,9 +111,15 @@ Command exit is non-zero because `ready_to_enforce=false`; this is expected whil
 
 ## Operator checklist
 
-- [ ] Re-run readiness and confirm the exact flip is `ready:true`.
-- [ ] Confirm operator approval in the session/task that will apply the ENV override.
-- [ ] Apply ENV override only; do not edit config defaults.
+- [x] Re-run readiness and confirm the exact flip is `ready:true`.
+- [x] Confirm operator approval in the session/task that will apply the ENV override. **ENG-15 approved 2026-07-11** (residual ACOS plan execution).
+- [x] Apply ENV override only; do not edit config defaults. (`ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED=true` live; config default remains `false`.)
 - [ ] Run the relevant smoke/scorecard/readiness commands during soak.
 - [ ] If ROL-01 fires, apply the rollback env override above.
 - [ ] After soak, open a separate config-default change for review.
+
+### Flip log
+
+| When | Slice | Action | Evidence |
+| --- | --- | --- | --- |
+| 2026-07-11 | ENG-15 | ENV ON + operator OK recorded | `storage/app/atlas/evidence/acos-excellence-10-10-ledger.jsonl` (`eng_15_env_flip_operator_ok`) |

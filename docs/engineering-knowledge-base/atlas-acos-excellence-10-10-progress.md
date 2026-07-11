@@ -150,9 +150,9 @@ de memória/promoção; nada a refatorar do modelo antigo.
 |---|---|---|---|
 | ENG-13 | ⏸️ | 435f0363d | HOLD — readiness not_ready (soak volume); runbook landado; flip só com OK |
 | ENG-14 | ⏸️ | 435f0363d | HOLD — forge promoted cycles <20; runbook; flip só com OK |
-| ENG-15 | ⏸️ | 435f0363d | HOLD — adml ready:true mas flip só com OK do operador |
+| ENG-15 | ✅ | ENV flip | Operator OK 2026-07-11 · `ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED=true` · ROL-01 armed/monitoring · config default still false (ENV-first soak) |
 | PIP-07 | ✅ | 3b35d8358a | strict exit=0 · pipeline=10 · overall=10 · claims=0 |
 | CPT-10 | ✅ | ecad83721 | atlas:compaction:certify (anti-vácuo) |
 | ADV-01 | ✅ | 435f0363d | 6 vereditos externos no JSONL + atlas:acos:adv-reproof |
 
-**Feitas: 95/98 implementados · 3 HOLD (ENG flips aguardam OK+soak) · plano código 100% landado**
+**Feitas: 96/98 implementados · 2 HOLD (ENG-13/14 aguardam volume+OK) · ENG-15 ENV flipped**
