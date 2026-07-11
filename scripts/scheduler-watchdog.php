@@ -16,9 +16,10 @@ declare(strict_types=1);
  *   (c) new "PHP Fatal error" blocks in launchd.err.log
  *   (d) operational volume (VOL-01) via read-only artisan — alert "janela faminta"
  *   (e) rollback triggers (ROL-01) via read-only artisan — alert on simulated/fired condition
+ *   (f) ACOS long-horizon gate receipt warnings (EVI-07) — warning-only echo
  *
  * On failure: append watchdog-alarm.jsonl, kickstart patient, local notify.
- * Volume and rollback warnings do NOT kickstart the scheduler (operational hunger ≠ patient death).
+ * Warning-only checks do NOT kickstart the scheduler (operational hunger ≠ patient death).
  * Kill-switch: storage/atlas/scheduler/watchdog-disabled → exit 0 silent.
  *
  * Env overrides (tests + install):
@@ -28,9 +29,9 @@ declare(strict_types=1);
  *   ATLAS_WATCHDOG_THRESHOLD_SECONDS, ATLAS_WATCHDOG_COOLDOWN_SECONDS,
  *   ATLAS_WATCHDOG_BOOT_TIMEOUT_SECONDS, ATLAS_WATCHDOG_DRY_RUN,
  *   ATLAS_WATCHDOG_VOLUME_CHECK, ATLAS_WATCHDOG_VOLUME_CMD,
- *   ATLAS_WATCHDOG_ROLLBACK_CHECK, ATLAS_WATCHDOG_ROLLBACK_CMD
+ *   ATLAS_WATCHDOG_ROLLBACK_CHECK, ATLAS_WATCHDOG_ROLLBACK_CMD,
+ *   ATLAS_WATCHDOG_ACOS_LONG_HORIZON_RECEIPT
  */
-
 $root = rtrim((string) (getenv('ATLAS_WATCHDOG_ROOT') ?: dirname(__DIR__)), '/');
 $storage = rtrim((string) (getenv('ATLAS_WATCHDOG_STORAGE') ?: $root.'/storage/atlas/scheduler'), '/');
 $php = (string) (getenv('ATLAS_WATCHDOG_PHP') ?: PHP_BINARY);
@@ -124,6 +125,18 @@ if ($boot['ok']) {
     }
 }
 
+$longHorizon = acosLongHorizonGateWarning($root);
+if (($longHorizon['alert'] ?? false) === true) {
+    $warnings[] = [
+        'check' => 'acos_long_horizon_gate_warning',
+        'alert_code' => 'acos_long_horizon_gate_warning',
+        'receipt_path' => $longHorizon['receipt_path'] ?? null,
+        'receipt_status' => $longHorizon['status'] ?? null,
+        'receipt_certified' => $longHorizon['certified'] ?? null,
+        'receipt_warnings' => $longHorizon['warnings'] ?? [],
+    ];
+}
+
 $result = [
     'schema_version' => 'atlas.scheduler.watchdog.v1',
     'checked_at' => gmdate('c', $now),
@@ -143,8 +156,8 @@ if ($failures === [] && $warnings === []) {
 if ($failures === [] && $warnings !== []) {
     if (! $dryRun) {
         appendJsonl($alarmPath, $result + [
-            'action' => 'volume_warning',
-            'notified' => notifyLocal('Atlas volume watchdog: janela faminta'),
+            'action' => 'warning',
+            'notified' => notifyLocal(warningMessage($warnings)),
         ]);
     } else {
         $result['dry_run'] = true;
@@ -418,6 +431,52 @@ function notifyLocal(string $message): bool
     @system($cmd.' >/dev/null 2>&1', $code);
 
     return $code === 0;
+}
+
+/** @param list<array<string,mixed>> $warnings */
+function warningMessage(array $warnings): string
+{
+    $checks = array_values(array_filter(
+        array_map(static fn (array $warning): string => (string) ($warning['check'] ?? ''), $warnings),
+        static fn (string $check): bool => $check !== '',
+    ));
+
+    return 'Atlas scheduler watchdog warning: '.($checks === [] ? 'warning' : implode(',', $checks));
+}
+
+/** @return array<string,mixed> */
+function acosLongHorizonGateWarning(string $root): array
+{
+    $path = getenv('ATLAS_WATCHDOG_ACOS_LONG_HORIZON_RECEIPT');
+    if (! is_string($path) || trim($path) === '') {
+        $path = $root.'/storage/app/atlas/evidence/acos-long-horizon-gate.json';
+    }
+
+    if (! is_file($path)) {
+        return ['alert' => false, 'skipped' => true, 'reason' => 'receipt_missing', 'receipt_path' => $path];
+    }
+
+    $raw = file_get_contents($path);
+    $receipt = is_string($raw) ? json_decode($raw, true) : null;
+    if (! is_array($receipt)) {
+        return ['alert' => false, 'skipped' => true, 'reason' => 'receipt_invalid_json', 'receipt_path' => $path];
+    }
+
+    $warnings = array_values(array_filter(
+        (array) ($receipt['warnings'] ?? []),
+        static fn (mixed $warning): bool => is_scalar($warning) && trim((string) $warning) !== '',
+    ));
+    if ($warnings === []) {
+        return ['alert' => false, 'receipt_path' => $path];
+    }
+
+    return [
+        'alert' => true,
+        'receipt_path' => $path,
+        'status' => $receipt['status'] ?? null,
+        'certified' => $receipt['certified'] ?? null,
+        'warnings' => array_map(static fn (mixed $warning): string => (string) $warning, $warnings),
+    ];
 }
 
 /**

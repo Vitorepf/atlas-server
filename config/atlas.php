@@ -2079,6 +2079,8 @@ return [
             'min_days' => max(1, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_DAYS', 30)),
             'min_overall' => max(0.0, min(10.0, (float) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_OVERALL', 9.5))),
             'min_pipeline' => max(0.0, min(10.0, (float) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MIN_PIPELINE', 9.5))),
+            // EVI-07: early-warning margin above floors (read-only visibility; does not alter blockers).
+            'warning_margin' => 0.15,
             // Freshness bound (calendar days): the latest delta-series day must be
             // within this window of "today" or the gate rejects it as stale. Any
             // future-dated row is always rejected. Mechanical does_not_backfill_time.

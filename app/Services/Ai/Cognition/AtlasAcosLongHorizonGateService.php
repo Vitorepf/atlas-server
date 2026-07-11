@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
-use Illuminate\Support\Carbon;
 use DateTimeImmutable;
+use Illuminate\Support\Carbon;
 use Throwable;
 
 /**
@@ -43,6 +43,7 @@ final class AtlasAcosLongHorizonGateService
         $minDays = max(1, (int) ($options['min_days'] ?? $cfg['min_days'] ?? 30));
         $minOverall = max(0.0, min(10.0, (float) ($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5)));
         $minPipeline = max(0.0, min(10.0, (float) ($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5)));
+        $warningMargin = max(0.0, min(10.0, (float) ($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15)));
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
         $maxGapDays = max(1, (int) ($options['max_gap_days'] ?? $cfg['max_gap_days'] ?? 1));
         $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
@@ -61,7 +62,7 @@ final class AtlasAcosLongHorizonGateService
             ],
         };
 
-        $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $maxLatestStaleDays, $maxGapDays, $today, $seriesPath);
+        $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $warningMargin, $maxLatestStaleDays, $maxGapDays, $today, $seriesPath);
         $blockers = $assessment['blockers'];
         $certified = $blockers === [];
         $status = $certified ? 'acos_long_horizon_ready' : 'insufficient_long_horizon_evidence';
@@ -70,6 +71,7 @@ final class AtlasAcosLongHorizonGateService
             'min_days' => $minDays,
             'min_overall' => $minOverall,
             'min_pipeline' => $minPipeline,
+            'warning_margin' => $warningMargin,
             'max_latest_stale_days' => $maxLatestStaleDays,
             'max_gap_days' => $maxGapDays,
             'series_path' => $seriesPath,
@@ -81,7 +83,7 @@ final class AtlasAcosLongHorizonGateService
      * @param  list<array<string,mixed>>  $series
      * @return array<string,mixed>
      */
-    private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, int $maxLatestStaleDays, int $maxGapDays, DateTimeImmutable $today, string $seriesPath): array
+    private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, float $warningMargin, int $maxLatestStaleDays, int $maxGapDays, DateTimeImmutable $today, string $seriesPath): array
     {
         $overall = (float) data_get($scorecard, 'score.overall_out_of_10', 0.0);
         $pipeline = (float) data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0);
@@ -158,6 +160,14 @@ final class AtlasAcosLongHorizonGateService
             $blockers[] = 'backfilled_sample_detected';
         }
 
+        $warnings = [];
+        if ($overall < ($minOverall + $warningMargin)) {
+            $warnings[] = 'scorecard_overall_near_floor';
+        }
+        if ($pipeline < ($minPipeline + $warningMargin)) {
+            $warnings[] = 'pipeline_score_near_floor';
+        }
+
         return [
             'overall_score' => round($overall, 3),
             'pipeline_score' => round($pipeline, 3),
@@ -183,10 +193,12 @@ final class AtlasAcosLongHorizonGateService
                 'min_days' => $minDays,
                 'min_overall' => $minOverall,
                 'min_pipeline' => $minPipeline,
+                'warning_margin' => $warningMargin,
                 'max_latest_stale_days' => $maxLatestStaleDays,
                 'max_gap_days' => $maxGapDays,
             ],
             'blockers' => $blockers,
+            'warnings' => $warnings,
         ];
     }
 
@@ -558,6 +570,7 @@ final class AtlasAcosLongHorizonGateService
             'generated_at' => Carbon::now()->toIso8601String(),
             'assessment' => $assessment,
             'blockers' => $blockers,
+            'warnings' => array_values((array) ($assessment['warnings'] ?? [])),
             'config' => $config,
             'evidence' => [
                 'scorecard_schema' => (string) data_get($scorecard, 'schema_version', ''),
@@ -584,6 +597,7 @@ final class AtlasAcosLongHorizonGateService
             'fixture' => $fixture,
             'assessment' => $assessment,
             'blockers' => $blockers,
+            'warnings' => array_values((array) ($assessment['warnings'] ?? [])),
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;

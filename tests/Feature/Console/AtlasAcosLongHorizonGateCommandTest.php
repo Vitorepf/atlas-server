@@ -22,6 +22,7 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
             'atlas.cognition.acos_long_horizon_gate.min_days' => 30,
             'atlas.cognition.acos_long_horizon_gate.min_overall' => 9.5,
             'atlas.cognition.acos_long_horizon_gate.min_pipeline' => 9.5,
+            'atlas.cognition.acos_long_horizon_gate.warning_margin' => 0.15,
         ]);
     }
 
@@ -209,6 +210,81 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
         $this->assertSame([], $payload['blockers']);
         $this->assertSame(0, data_get($payload, 'assessment.future_dated_rows'));
         $this->assertSame(0, data_get($payload, 'assessment.latest_staleness_days'));
+    }
+
+    public function test_near_floor_scores_emit_warnings_without_changing_certification_or_blockers(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->scorecardWithScores(9.55, 9.55, 'i'),
+            'series' => $this->healthySeries($today, 9.55),
+        ]);
+
+        $this->assertTrue($payload['certified']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertSame([
+            'scorecard_overall_near_floor',
+            'pipeline_score_near_floor',
+        ], $payload['warnings']);
+        $this->assertSame(0.15, data_get($payload, 'config.warning_margin'));
+        $this->assertSame(0.15, data_get($payload, 'assessment.floors.warning_margin'));
+    }
+
+    public function test_floor_broken_scores_keep_blockers_and_also_emit_warnings(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->scorecardWithScores(9.55, 9.4, 'j'),
+            'series' => $this->healthySeries($today, 9.55),
+        ]);
+
+        $this->assertFalse($payload['certified']);
+        $this->assertContains('pipeline_score_below_floor', $payload['blockers']);
+        $this->assertContains('pipeline_score_near_floor', $payload['warnings']);
+        $this->assertContains('scorecard_overall_near_floor', $payload['warnings']);
+    }
+
+    public function test_comfortable_scores_have_no_warnings(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->scorecardWithScores(9.8, 9.8, 'k'),
+            'series' => $this->healthySeries($today, 9.8),
+        ]);
+
+        $this->assertTrue($payload['certified']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertSame([], $payload['warnings']);
+    }
+
+    public function test_command_receipt_persists_warning_array(): void
+    {
+        $receipt = storage_path('framework/testing/acos-long-horizon-warning-gate.json');
+        File::delete($receipt);
+
+        $exit = Artisan::call('atlas:cognition:acos-long-horizon-gate', [
+            '--fixture' => 'mature',
+            '--receipt' => $receipt,
+            '--write-receipt' => true,
+            '--json' => true,
+        ]);
+
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $persisted = json_decode((string) file_get_contents($receipt), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertFileExists($receipt);
+        $this->assertArrayHasKey('warnings', $persisted);
+        $this->assertSame($persisted['warnings'], $payload['warnings']);
     }
 
     public function test_one_missing_day_in_certification_window_blocks_with_series_gap_exceeds_floor(): void
@@ -434,13 +510,40 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
      */
     private function highScorecard(string $hashSeed): array
     {
+        return $this->scorecardWithScores(9.8, 9.8, $hashSeed);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function scorecardWithScores(float $overall, float $pipeline, string $hashSeed): array
+    {
         return [
             'schema_version' => 'atlas.cognition.scorecard.v3',
             'score' => [
-                'overall_out_of_10' => 9.8,
-                'dimensions' => ['pipeline' => ['score_out_of_10' => 9.8]],
+                'overall_out_of_10' => $overall,
+                'dimensions' => ['pipeline' => ['score_out_of_10' => $pipeline]],
             ],
             'scorecard_hash' => 'sha256:'.str_repeat($hashSeed, 64),
         ];
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function healthySeries(\DateTimeImmutable $today, float $overall): array
+    {
+        $series = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            $series[] = [
+                'date' => $date,
+                'recorded_at' => $date.'T00:00:00+00:00',
+                'metrics' => ['scorecard_overall' => $overall],
+                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+        }
+
+        return $series;
     }
 }

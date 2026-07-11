@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Scheduler;
 
 use App\Console\Commands\AtlasSchedulerInstallWatchdogCommand;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 /**
@@ -227,6 +228,36 @@ class SchedulerWatchdogScriptTest extends TestCase
         $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
     }
 
+    public function test_acos_long_horizon_receipt_warnings_emit_warning_without_kickstart(): void
+    {
+        $this->writeHeartbeat(gmdate('c'));
+        $receiptPath = $this->tmp.'/acos-long-horizon-gate.json';
+        file_put_contents($receiptPath, json_encode([
+            'schema_version' => 'atlas.cognition.acos_long_horizon_gate.v1',
+            'status' => 'acos_long_horizon_ready',
+            'certified' => true,
+            'warnings' => ['pipeline_score_near_floor'],
+        ], JSON_UNESCAPED_SLASHES));
+
+        $out = $this->runWatchdog([
+            'ATLAS_WATCHDOG_ARTISAN' => $this->okArtisan,
+            'ATLAS_WATCHDOG_THRESHOLD_SECONDS' => '300',
+            'ATLAS_WATCHDOG_COOLDOWN_SECONDS' => '0',
+            'ATLAS_WATCHDOG_VOLUME_CHECK' => '0',
+            'ATLAS_WATCHDOG_ROLLBACK_CHECK' => '0',
+            'ATLAS_WATCHDOG_ACOS_LONG_HORIZON_RECEIPT' => $receiptPath,
+        ]);
+
+        $payload = json_decode($out['stdout'], true);
+        $this->assertIsArray($payload);
+        $this->assertSame('warning', $payload['status']);
+        $this->assertContains('acos_long_horizon_gate_warning', array_column($payload['warnings'] ?? [], 'check'));
+        $this->assertSame(['pipeline_score_near_floor'], $payload['warnings'][0]['receipt_warnings'] ?? null);
+        $this->assertFileDoesNotExist($this->kickLog);
+        $this->assertFileExists($this->notifyLog);
+        $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
+    }
+
     public function test_uninstall_removes_agent_and_plist(): void
     {
         $home = $this->tmp;
@@ -261,13 +292,13 @@ class SchedulerWatchdogScriptTest extends TestCase
 
     public function test_install_dry_run_renders_plist_with_absolute_paths(): void
     {
-        $exit = \Illuminate\Support\Facades\Artisan::call('atlas:scheduler:install-watchdog', [
+        $exit = Artisan::call('atlas:scheduler:install-watchdog', [
             '--dry-run' => true,
             '--json' => true,
             '--skip-legacy-bootout' => true,
         ]);
         $this->assertSame(0, $exit);
-        $payload = json_decode(\Illuminate\Support\Facades\Artisan::output(), true);
+        $payload = json_decode(Artisan::output(), true);
         $this->assertIsArray($payload);
         $this->assertSame('install', $payload['action']);
         $this->assertTrue($payload['dry_run']);
