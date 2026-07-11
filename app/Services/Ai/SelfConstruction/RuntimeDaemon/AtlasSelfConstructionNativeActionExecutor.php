@@ -8,6 +8,7 @@ use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionRuntime;
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerRecoverableProductionRuntime;
 
 /**
  * Typed productive seam for daemon actions.
@@ -38,7 +39,19 @@ class AtlasSelfConstructionNativeActionExecutor
                 return ['status' => 'held', 'reason' => 'provider_route_missing', 'retryable' => true];
             }
             $runtime = $this->production ?? app(AtlasNativeWorkerProductionCallbacks::class);
-            $claim = $runtime->claim('atlas-self-construction-runtime-daemon');
+            $clientId = 'atlas-self-construction-runtime-daemon';
+            $claim = null;
+            if ($runtime instanceof AtlasNativeWorkerRecoverableProductionRuntime) {
+                $claim = $runtime->resume($clientId);
+                if (is_array($claim) && ! $runtime->renew(
+                    $clientId,
+                    (string) ($claim['task_packet_id'] ?? ''),
+                    (string) ($claim['lease_id'] ?? ''),
+                )) {
+                    return ['status' => 'held', 'reason' => 'lease_recovery_failed', 'retryable' => true];
+                }
+            }
+            $claim ??= $runtime->claim($clientId);
             if (! is_array($claim)) {
                 return ['status' => 'held', 'reason' => 'no_claimable_task', 'retryable' => true];
             }
@@ -81,7 +94,10 @@ class AtlasSelfConstructionNativeActionExecutor
             if (($providerReceipt['status'] ?? 'ok') !== 'ok' || ($providerReceipt['exhausted'] ?? false) === true) {
                 return ['status' => 'held', 'reason' => 'provider_fallback_exhausted', 'retryable' => true];
             }
-            if (! $sandbox->stageProvider($idempotencyKey, $providerReceipt)) {
+            if (! $sandbox->stageProvider($idempotencyKey, $providerReceipt, [
+                'task_packet_id' => (string) ($claim['task_packet_id'] ?? ''),
+                'lease_id' => (string) ($claim['lease_id'] ?? ''),
+            ])) {
                 return ['status' => 'held', 'reason' => 'provider_receipt_conflict', 'retryable' => false, 'idempotency_key' => $idempotencyKey];
             }
             $sandboxReceipt = $sandbox->execute([
@@ -89,6 +105,8 @@ class AtlasSelfConstructionNativeActionExecutor
                 'allowed_files' => (array) ($claim['allowed_files'] ?? []),
                 'patch_plan' => (array) ($providerReceipt['patch_plan'] ?? []),
                 'provider_receipt' => $providerReceipt,
+                'task_packet_id' => (string) ($claim['task_packet_id'] ?? ''),
+                'lease_id' => (string) ($claim['lease_id'] ?? ''),
             ]);
             if (($sandboxReceipt['applied'] ?? false) !== true) {
                 return [

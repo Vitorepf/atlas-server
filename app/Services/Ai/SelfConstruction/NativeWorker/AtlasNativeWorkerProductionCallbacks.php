@@ -13,7 +13,7 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionN
  * Elite Factory v2 P0-19: production apply mode must not depend on test-only
  * container callbacks. These callables bind to the live Task Serving contract.
  */
-final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerProductionRuntime
+final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerRecoverableProductionRuntime
 {
     public const SCHEMA_VERSION = 'atlas.native_worker.production_callbacks.v1';
 
@@ -75,5 +75,16 @@ final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerPro
     public function materialize(array $patchPlan): array
     {
         return $this->patchMaterializer->materialize($patchPlan);
+    }
+
+    /** @return array<string,mixed>|null */
+    public function resume(string $clientId): ?array
+    {
+        return $this->serving->resume($clientId);
+    }
+
+    public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+    {
+        return $this->serving->renew($clientId, $taskPacketId, $leaseId);
     }
 }

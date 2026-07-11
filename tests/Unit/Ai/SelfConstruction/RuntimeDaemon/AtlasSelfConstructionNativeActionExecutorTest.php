@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\SelfConstruction\RuntimeDaemon;
 
 use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionRuntime;
+use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerRecoverableProductionRuntime;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionNativeActionExecutor;
 use PHPUnit\Framework\TestCase;
 
@@ -164,5 +165,114 @@ final class AtlasSelfConstructionNativeActionExecutorTest extends TestCase
         self::assertSame('provider_fallback_exhausted', $result['reason']);
         self::assertTrue($result['retryable']);
         self::assertArrayNotHasKey('native_worker_cycle_hash', $result);
+    }
+
+    public function test_restart_resumes_and_renews_existing_daemon_lease_before_claiming_new_work(): void
+    {
+        $runtime = new class implements AtlasNativeWorkerRecoverableProductionRuntime
+        {
+            public int $claims = 0;
+
+            public int $renewals = 0;
+
+            public function resume(string $clientId): ?array
+            {
+                return ['task_packet_id' => 'task-resume', 'lease_id' => 'lease-resume', 'allowed_files' => ['app/X.php']];
+            }
+
+            public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+            {
+                $this->renewals++;
+
+                return $clientId === 'atlas-self-construction-runtime-daemon' && $taskPacketId === 'task-resume' && $leaseId === 'lease-resume';
+            }
+
+            public function claim(string $clientId): ?array
+            {
+                $this->claims++;
+
+                return null;
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                return [];
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                return [];
+            }
+        };
+        $provider = new class implements ProviderPort
+        {
+            public function invoke(array $request): array
+            {
+                return ['status' => 'ok', 'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => [[
+                    'path' => 'app/X.php', 'mode' => 'create', 'next' => 'resumed',
+                ]]]];
+            }
+        };
+
+        $result = (new AtlasSelfConstructionNativeActionExecutor(production: $runtime, provider: $provider))
+            ->execute(['kind' => 'native_tick', 'provider' => 'test', 'model' => 'model'], []);
+
+        self::assertSame('governed_release_and_canary_pending', $result['reason']);
+        self::assertSame(0, $runtime->claims);
+        self::assertSame(1, $runtime->renewals);
+    }
+
+    public function test_restart_does_not_execute_or_claim_when_existing_lease_cannot_be_renewed(): void
+    {
+        $providerCalls = 0;
+        $runtime = new class implements AtlasNativeWorkerRecoverableProductionRuntime
+        {
+            public int $claims = 0;
+
+            public function resume(string $clientId): ?array
+            {
+                return ['task_packet_id' => 'task-old', 'lease_id' => 'lease-old'];
+            }
+
+            public function renew(string $clientId, string $taskPacketId, string $leaseId): bool
+            {
+                return false;
+            }
+
+            public function claim(string $clientId): ?array
+            {
+                $this->claims++;
+
+                return null;
+            }
+
+            public function report(string $clientId, array $outcome): array
+            {
+                return [];
+            }
+
+            public function materialize(array $patchPlan): array
+            {
+                return [];
+            }
+        };
+        $provider = new class($providerCalls) implements ProviderPort
+        {
+            public function __construct(private int &$calls) {}
+
+            public function invoke(array $request): array
+            {
+                $this->calls++;
+
+                return ['status' => 'ok'];
+            }
+        };
+
+        $result = (new AtlasSelfConstructionNativeActionExecutor(production: $runtime, provider: $provider))
+            ->execute(['kind' => 'native_tick', 'provider' => 'test', 'model' => 'model'], []);
+
+        self::assertSame('lease_recovery_failed', $result['reason']);
+        self::assertSame(0, $runtime->claims);
+        self::assertSame(0, $providerCalls);
     }
 }

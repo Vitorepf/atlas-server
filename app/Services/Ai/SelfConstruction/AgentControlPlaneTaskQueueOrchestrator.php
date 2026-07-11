@@ -1151,6 +1151,20 @@ final class AgentControlPlaneTaskQueueOrchestrator
         return $this->envelope('lease_renewal', ['renewal' => $renewal]);
     }
 
+    /** @return list<array<string,mixed>> */
+    public function activeLeasesForAgent(string $agentId): array
+    {
+        return array_map(function (array $lease): array {
+            $packet = $this->queue->get((string) ($lease['task_packet_id'] ?? ''));
+
+            return $lease + [
+                'allowed_files' => array_values(array_map('strval', (array) data_get($packet, 'task_packet.allowed_files', []))),
+                'authority_hash' => (string) data_get($packet, 'task_packet.metadata.authority_hash', ''),
+                'envelope_hash' => (string) data_get($packet, 'task_packet.metadata.envelope_hash', ''),
+            ];
+        }, $this->leases->activeLeases(['agent_id' => $agentId]));
+    }
+
     /**
      * @param  array<string, mixed>  $options
      * @return array<string, mixed>

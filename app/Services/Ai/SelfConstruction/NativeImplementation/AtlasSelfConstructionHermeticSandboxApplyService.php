@@ -32,6 +32,11 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
         }
         chmod($sandbox, 0o700);
 
+        $boundManifest = $this->reconcile($key);
+        if (is_array($boundManifest) && ! $this->claimIdentityMatches($boundManifest, $input)) {
+            return ['applied' => false, 'dry_run' => false, 'reason' => 'manifest_claim_mismatch', 'sandbox_root' => $sandbox];
+        }
+
         $proposal = ($this->materializer ?? new AtlasSelfConstructionNativePatchMaterializer)
             ->materialize((array) ($input['patch_plan'] ?? []));
         if (($proposal['accepted'] ?? false) !== true) {
@@ -57,7 +62,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             }
         }
         if ($alreadyApplied) {
-            return [
+            $replayed = [
                 'applied' => true,
                 'replayed' => true,
                 'dry_run' => false,
@@ -65,6 +70,11 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
                 'idempotency_receipt' => $idempotencyReceipt,
                 'diffs' => $proposal['diffs'] ?? [],
             ];
+            if (! $this->persistAppliedManifest($sandbox, $key, $input, $proposal, [], $idempotencyReceipt)) {
+                return array_replace($replayed, ['applied' => false, 'reason' => 'reconciliation_uncertain']);
+            }
+
+            return $replayed;
         }
 
         $files = [];
@@ -95,15 +105,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             'diffs' => $proposal['diffs'] ?? [],
             'idempotency_receipt' => $idempotencyReceipt,
         ];
-        $persisted = $this->writeManifest($sandbox, [
-            'schema' => 'atlas.native_manifest.v1',
-            'state' => 'applied',
-            'idempotency_key' => $key,
-            'provider_receipt' => (array) ($input['provider_receipt'] ?? []),
-            'provider_hash' => hash('sha256', (string) json_encode((array) ($input['provider_receipt'] ?? []), JSON_UNESCAPED_SLASHES)),
-            'apply_hash' => hash('sha256', (string) json_encode($apply, JSON_UNESCAPED_SLASHES)),
-            'evidence_hash' => $idempotencyReceipt,
-        ]);
+        $persisted = $this->persistAppliedManifest($sandbox, $key, $input, $proposal, $apply, $idempotencyReceipt);
 
         if (! $persisted) {
             return array_replace($result, ['applied' => false, 'reason' => 'reconciliation_uncertain']);
@@ -125,13 +127,25 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             || ! hash_equals($key, (string) ($decoded['idempotency_key'] ?? ''))) {
             return null;
         }
-        $providerHash = hash('sha256', (string) json_encode((array) ($decoded['provider_receipt'] ?? []), JSON_UNESCAPED_SLASHES));
+        $providerHash = $this->hash((array) ($decoded['provider_receipt'] ?? []));
+        $identity = ['task_packet_id' => (string) ($decoded['task_packet_id'] ?? ''), 'lease_id' => (string) ($decoded['lease_id'] ?? '')];
+        if (! hash_equals($providerHash, (string) ($decoded['provider_hash'] ?? ''))
+            || ! hash_equals($this->hash($identity), (string) ($decoded['identity_hash'] ?? ''))) {
+            return null;
+        }
+        if (($decoded['state'] ?? null) === 'applied') {
+            if (! hash_equals($this->hash((array) ($decoded['apply_receipt'] ?? [])), (string) ($decoded['apply_hash'] ?? ''))
+                || ! hash_equals($this->hash((array) ($decoded['evidence_receipt'] ?? [])), (string) ($decoded['evidence_hash'] ?? ''))
+                || ! $this->postimagesMatch(dirname($path), (array) ($decoded['postimage_hashes'] ?? []))) {
+                return null;
+            }
+        }
 
-        return hash_equals($providerHash, (string) ($decoded['provider_hash'] ?? '')) ? $decoded : null;
+        return $decoded;
     }
 
     /** @param array<string,mixed> $receipt */
-    public function stageProvider(string $key, array $receipt): bool
+    public function stageProvider(string $key, array $receipt, array $claim = []): bool
     {
         $sandbox = sys_get_temp_dir().'/atlas-native-sandbox-'.substr(hash('sha256', $key), 0, 24);
         if (! is_dir($sandbox) && ! mkdir($sandbox, 0o700, true) && ! is_dir($sandbox)) {
@@ -143,18 +157,96 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
         $existing = $this->reconcile($key);
         $hash = hash('sha256', (string) json_encode($receipt, JSON_UNESCAPED_SLASHES));
         if (is_array($existing)) {
-            return hash_equals((string) ($existing['provider_hash'] ?? ''), $hash);
+            return hash_equals((string) ($existing['provider_hash'] ?? ''), $hash)
+                && $this->claimIdentityMatches($existing, $claim);
         }
+
+        $identity = ['task_packet_id' => (string) ($claim['task_packet_id'] ?? ''), 'lease_id' => (string) ($claim['lease_id'] ?? '')];
 
         return $this->writeManifest($sandbox, [
             'schema' => 'atlas.native_manifest.v1',
             'state' => 'provider_staged',
             'idempotency_key' => $key,
+            'task_packet_id' => (string) ($claim['task_packet_id'] ?? ''),
+            'lease_id' => (string) ($claim['lease_id'] ?? ''),
+            'identity_hash' => $this->hash($identity),
             'provider_receipt' => $receipt,
             'provider_hash' => $hash,
             'apply_hash' => null,
             'evidence_hash' => null,
         ]);
+    }
+
+    /** @param array<string,mixed> $input @param array<string,mixed> $proposal @param array<string,mixed> $apply */
+    private function persistAppliedManifest(string $sandbox, string $key, array $input, array $proposal, array $apply, string $idempotencyReceipt): bool
+    {
+        $provider = (array) ($input['provider_receipt'] ?? []);
+        $existing = $this->reconcile($key);
+        if (is_array($existing) && ! hash_equals((string) ($existing['provider_hash'] ?? ''), $this->hash($provider))) {
+            return false;
+        }
+        $postimages = [];
+        foreach ((array) ($proposal['files'] ?? []) as $file) {
+            if (! is_array($file) || trim((string) ($file['path'] ?? '')) === '') {
+                continue;
+            }
+            $path = (string) $file['path'];
+            $postimages[$path] = hash('sha256', (string) ($file['contents'] ?? ''));
+        }
+        ksort($postimages);
+        $applyReceipt = $apply !== [] ? $apply : ['replayed' => true, 'postimage_hashes' => $postimages];
+        $evidenceReceipt = ['idempotency_receipt' => $idempotencyReceipt, 'postimage_hashes' => $postimages];
+
+        $identity = [
+            'task_packet_id' => (string) ($input['task_packet_id'] ?? $existing['task_packet_id'] ?? ''),
+            'lease_id' => (string) ($input['lease_id'] ?? $existing['lease_id'] ?? ''),
+        ];
+
+        return $this->writeManifest($sandbox, [
+            'schema' => 'atlas.native_manifest.v1', 'state' => 'applied', 'idempotency_key' => $key,
+            'task_packet_id' => $identity['task_packet_id'], 'lease_id' => $identity['lease_id'],
+            'identity_hash' => $this->hash($identity),
+            'provider_receipt' => $provider, 'provider_hash' => $this->hash($provider),
+            'apply_receipt' => $applyReceipt, 'apply_hash' => $this->hash($applyReceipt),
+            'evidence_receipt' => $evidenceReceipt, 'evidence_hash' => $this->hash($evidenceReceipt),
+            'postimage_hashes' => $postimages,
+        ]);
+    }
+
+    /** @param array<string,string> $postimages */
+    private function postimagesMatch(string $sandbox, array $postimages): bool
+    {
+        if ($postimages === []) {
+            return false;
+        }
+        foreach ($postimages as $relative => $expected) {
+            $path = $sandbox.'/'.(string) $relative;
+            if (! is_file($path) || is_link($path) || ! hash_equals((string) $expected, (string) hash_file('sha256', $path))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /** @param array<string,mixed> $value */
+    private function hash(array $value): string
+    {
+        return hash('sha256', (string) json_encode($value, JSON_UNESCAPED_SLASHES));
+    }
+
+    /** @param array<string,mixed> $manifest @param array<string,mixed> $claim */
+    private function claimIdentityMatches(array $manifest, array $claim): bool
+    {
+        foreach (['task_packet_id', 'lease_id'] as $field) {
+            $expected = (string) ($manifest[$field] ?? '');
+            $actual = (string) ($claim[$field] ?? '');
+            if ($expected !== '' && ! hash_equals($expected, $actual)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @param array<string,mixed> $manifest */

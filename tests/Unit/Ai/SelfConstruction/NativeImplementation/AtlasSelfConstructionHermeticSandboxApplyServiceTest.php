@@ -107,4 +107,58 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
         self::assertSame($first, $restarted['provider_receipt']);
         self::assertFalse($service->stageProvider($key, $changed));
     }
+
+    public function test_restart_promotes_provider_staged_manifest_after_postimage_was_applied(): void
+    {
+        $key = 'promote-staged-'.bin2hex(random_bytes(4));
+        $receipt = ['status' => 'ok', 'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => [[
+            'path' => 'app/X.php', 'mode' => 'create', 'next' => 'stable',
+        ]]]];
+        $service = new AtlasSelfConstructionHermeticSandboxApplyService;
+        self::assertTrue($service->stageProvider($key, $receipt, ['task_packet_id' => 'task-1', 'lease_id' => 'lease-1']));
+
+        $first = $service->execute([
+            'idempotency_key' => $key,
+            'task_packet_id' => 'task-1',
+            'lease_id' => 'lease-1',
+            'allowed_files' => ['app/X.php'],
+            'patch_plan' => $receipt['patch_plan'],
+            'provider_receipt' => $receipt,
+        ]);
+        self::assertTrue($first['applied']);
+
+        $manifest = (new AtlasSelfConstructionHermeticSandboxApplyService)->reconcile($key);
+        self::assertSame('applied', $manifest['state']);
+        self::assertSame('task-1', $manifest['task_packet_id']);
+        self::assertSame('lease-1', $manifest['lease_id']);
+        self::assertNotEmpty($manifest['postimage_hashes']);
+    }
+
+    public function test_forged_applied_manifest_is_rejected_for_every_bound_hash(): void
+    {
+        $key = 'forged-manifest-'.bin2hex(random_bytes(4));
+        $receipt = ['status' => 'ok', 'patch_plan' => ['allowed_files' => ['X.php'], 'patches' => [[
+            'path' => 'X.php', 'mode' => 'create', 'next' => 'truth',
+        ]]]];
+        $service = new AtlasSelfConstructionHermeticSandboxApplyService;
+        self::assertTrue($service->stageProvider($key, $receipt, ['task_packet_id' => 'task-f', 'lease_id' => 'lease-f']));
+        self::assertTrue($service->execute([
+            'idempotency_key' => $key, 'task_packet_id' => 'task-f', 'lease_id' => 'lease-f',
+            'allowed_files' => ['X.php'], 'patch_plan' => $receipt['patch_plan'], 'provider_receipt' => $receipt,
+        ])['applied']);
+
+        $sandbox = sys_get_temp_dir().'/atlas-native-sandbox-'.substr(hash('sha256', $key), 0, 24);
+        $manifestPath = $sandbox.'/.atlas-native-manifest.json';
+        $original = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+        foreach (['identity_hash', 'provider_hash', 'apply_hash', 'evidence_hash'] as $field) {
+            $forged = $original;
+            $forged[$field] = str_repeat('0', 64);
+            file_put_contents($manifestPath, json_encode($forged, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+            self::assertNull((new AtlasSelfConstructionHermeticSandboxApplyService)->reconcile($key), $field.' forgery accepted');
+        }
+
+        file_put_contents($manifestPath, json_encode($original, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        file_put_contents($sandbox.'/X.php', 'tampered');
+        self::assertNull((new AtlasSelfConstructionHermeticSandboxApplyService)->reconcile($key), 'postimage forgery accepted');
+    }
 }

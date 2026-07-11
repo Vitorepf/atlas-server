@@ -259,6 +259,53 @@ final class AtlasTaskServingService
         ]));
     }
 
+    /** Return the sole canonical active lease owned by this client, or null when none exists. */
+    public function resume(string $clientId): ?array
+    {
+        $leases = $this->orchestrator->activeLeasesForAgent($clientId);
+        if ($leases === []) {
+            return null;
+        }
+
+        usort($leases, static fn (array $left, array $right): int => strcmp(
+            (string) ($left['lease_id'] ?? ''),
+            (string) ($right['lease_id'] ?? ''),
+        ));
+
+        $lease = $leases[0];
+        $taskPacketId = trim((string) ($lease['task_packet_id'] ?? ''));
+        $leaseId = trim((string) ($lease['lease_id'] ?? ''));
+        if ($taskPacketId === '' || $leaseId === '') {
+            return null;
+        }
+
+        return [
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'lease_expires_at' => (string) ($lease['expires_at'] ?? ''),
+            'allowed_files' => array_values(array_map('strval', (array) ($lease['allowed_files'] ?? []))),
+            'authority_hash' => (string) ($lease['authority_hash'] ?? ''),
+            'envelope_hash' => (string) ($lease['envelope_hash'] ?? ''),
+            'recovered' => true,
+        ];
+    }
+
+    public function renew(string $clientId, string $taskPacketId, string $leaseId, int $ttlSeconds = 900): bool
+    {
+        $active = $this->orchestrator->activeLeasesForAgent($clientId);
+        $matches = array_values(array_filter($active, static fn (array $lease): bool =>
+            hash_equals($taskPacketId, (string) ($lease['task_packet_id'] ?? ''))
+            && hash_equals($leaseId, (string) ($lease['lease_id'] ?? ''))
+        ));
+        if (count($matches) !== 1) {
+            return false;
+        }
+
+        $result = $this->orchestrator->renewLease($leaseId, $clientId, max(60, $ttlSeconds));
+
+        return (string) data_get($result, 'renewal.status', '') === 'ok';
+    }
+
     /** Record the serve outcome on the R2 sentinel (if wired), then return the envelope unchanged. */
     private function served(string $clientId, array $envelope): array
     {
