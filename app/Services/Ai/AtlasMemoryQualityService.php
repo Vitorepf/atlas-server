@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Models\AtlasMemoryQualitySnapshot;
+use App\Services\Ai\Memory\AtlasMemoryRationalePolicy;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
@@ -293,17 +294,7 @@ class AtlasMemoryQualityService
                 return $title !== '' && $title === trim((string) ($entry->summary ?? ''));
             })->count(),
             'with_rationale_active' => $active->filter(function (AtlasMemoryEntry $entry): bool {
-                $body = mb_strtolower(trim((string) ($entry->body ?? '')));
-                if ($body === '') {
-                    return false;
-                }
-                foreach (['porqu', 'because', 'why:', '**why', 'motivo', 'razão', 'razao'] as $marker) {
-                    if (str_contains($body, $marker)) {
-                        return true;
-                    }
-                }
-
-                return false;
+                return AtlasMemoryRationalePolicy::hasRationale((string) ($entry->body ?? ''));
             })->count(),
         ];
     }
