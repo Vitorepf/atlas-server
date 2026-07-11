@@ -118,6 +118,33 @@ MD);
             ->assertFailed();
     }
 
+    public function test_short_prefix_resolves_and_ambiguous_prefix_fails(): void
+    {
+        foreach (['aaaaaaaa-0000-4000-8000-000000000001', 'aaaabbbb-0000-4000-8000-000000000002'] as $i => $id) {
+            AiLearningCandidate::query()->forceCreate([
+                'id' => $id,
+                'schema_version' => \App\Services\Ai\Compounding\AtlasObraLessonHarvester::SCHEMA_VERSION,
+                'status' => 'held_for_evidence',
+                'decision' => 'hold',
+                'claim' => 'lição '.$i,
+                'candidate_hash' => str_repeat((string) $i, 64),
+                'receipt_hash' => str_repeat((string) $i, 64),
+            ]);
+        }
+
+        // Prefixo compartilhado entre dois candidates → recusa explícita, sem erro SQL.
+        $this->artisan('atlas:compounding:review-lessons', ['--reject' => 'aaaa', '--reason' => 'x'])
+            ->expectsOutputToContain('ambíguo')
+            ->assertFailed();
+
+        // Prefixo curto não-uuid que desambigua → resolve (contrato documentado).
+        $this->artisan('atlas:compounding:review-lessons', ['--reject' => 'aaaaaaaa', '--reason' => 'lição duplicada'])
+            ->assertSuccessful();
+
+        $this->assertSame('rejected', AiLearningCandidate::query()->findOrFail('aaaaaaaa-0000-4000-8000-000000000001')->status);
+        $this->assertSame('hold', AiLearningCandidate::query()->findOrFail('aaaabbbb-0000-4000-8000-000000000002')->decision);
+    }
+
     public function test_explicit_reject_requires_reason_and_marks_candidate(): void
     {
         $candidate = $this->harvestOneCandidate();

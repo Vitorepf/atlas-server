@@ -96,8 +96,14 @@ class AtlasCompoundingReviewLessonsCommand extends Command
 
     private function decide(string $ref, callable $action): int
     {
+        // Coluna id é uuid nativo no Postgres: '=' com não-uuid dá 22P02 e
+        // LIKE sem cast dá 42883 — daí o branch por Str::isUuid + CAST.
         $matches = $this->quarantine()
-            ->where(fn ($query) => $query->whereKey($ref)->orWhere('id', 'like', $ref.'%'))
+            ->when(
+                Str::isUuid($ref),
+                fn ($query) => $query->whereKey($ref),
+                fn ($query) => $query->whereRaw('CAST(id AS TEXT) LIKE ?', [Str::lower($ref).'%']),
+            )
             ->limit(2)
             ->get();
 
