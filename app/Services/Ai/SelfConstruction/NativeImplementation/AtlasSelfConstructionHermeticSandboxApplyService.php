@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
+use Closure;
+
 /** Executes a proposal only inside an isolated disposable filesystem root. */
 final class AtlasSelfConstructionHermeticSandboxApplyService
 {
@@ -11,6 +13,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
 
     public function __construct(
         private readonly ?AtlasSelfConstructionNativePatchMaterializer $materializer = null,
+        private readonly ?Closure $manifestWriter = null,
     ) {}
 
     /** @param array<string,mixed> $input @return array<string,mixed> */
@@ -92,7 +95,8 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             'diffs' => $proposal['diffs'] ?? [],
             'idempotency_receipt' => $idempotencyReceipt,
         ];
-        $this->writeManifest($sandbox, [
+        $persisted = $this->writeManifest($sandbox, [
+            'schema' => 'atlas.native_manifest.v1',
             'state' => 'applied',
             'idempotency_key' => $key,
             'provider_receipt' => (array) ($input['provider_receipt'] ?? []),
@@ -100,6 +104,10 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             'apply_hash' => hash('sha256', (string) json_encode($apply, JSON_UNESCAPED_SLASHES)),
             'evidence_hash' => $idempotencyReceipt,
         ]);
+
+        if (! $persisted) {
+            return $result + ['applied' => false, 'reason' => 'reconciliation_uncertain'];
+        }
 
         return $result;
     }
@@ -112,8 +120,14 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             return null;
         }
         $decoded = json_decode((string) file_get_contents($path), true);
+        if (! is_array($decoded) || ($decoded['schema'] ?? null) !== 'atlas.native_manifest.v1'
+            || ! in_array(($decoded['state'] ?? null), ['provider_staged', 'applied'], true)
+            || ! hash_equals($key, (string) ($decoded['idempotency_key'] ?? ''))) {
+            return null;
+        }
+        $providerHash = hash('sha256', (string) json_encode((array) ($decoded['provider_receipt'] ?? []), JSON_UNESCAPED_SLASHES));
 
-        return is_array($decoded) && hash_equals($key, (string) ($decoded['idempotency_key'] ?? '')) ? $decoded : null;
+        return hash_equals($providerHash, (string) ($decoded['provider_hash'] ?? '')) ? $decoded : null;
     }
 
     /** @param array<string,mixed> $receipt */
@@ -133,6 +147,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
         }
 
         return $this->writeManifest($sandbox, [
+            'schema' => 'atlas.native_manifest.v1',
             'state' => 'provider_staged',
             'idempotency_key' => $key,
             'provider_receipt' => $receipt,
@@ -145,6 +160,9 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
     /** @param array<string,mixed> $manifest */
     private function writeManifest(string $sandbox, array $manifest): bool
     {
+        if ($this->manifestWriter instanceof Closure) {
+            return (bool) ($this->manifestWriter)($sandbox, $manifest);
+        }
         $path = $sandbox.'/'.self::MANIFEST;
         if (is_link($path)) {
             return false;

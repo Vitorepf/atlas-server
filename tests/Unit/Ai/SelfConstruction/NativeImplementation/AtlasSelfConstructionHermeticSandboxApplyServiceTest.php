@@ -9,6 +9,15 @@ use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCase
 {
+    public function test_apply_is_uncertain_when_applied_manifest_cannot_be_persisted(): void
+    {
+        $service = new AtlasSelfConstructionHermeticSandboxApplyService(manifestWriter: fn (): bool => false);
+        $result = $service->execute(['idempotency_key' => 'write-fail-'.bin2hex(random_bytes(4)), 'allowed_files' => ['X.php'],
+            'patch_plan' => ['allowed_files' => ['X.php'], 'patches' => [['path' => 'X.php', 'mode' => 'create', 'next' => 'x']]]]);
+        self::assertFalse($result['applied']);
+        self::assertSame('reconciliation_uncertain', $result['reason']);
+    }
+
     public function test_provider_supplied_commands_are_never_executed(): void
     {
         $main = sys_get_temp_dir().'/atlas-main-'.bin2hex(random_bytes(4));
