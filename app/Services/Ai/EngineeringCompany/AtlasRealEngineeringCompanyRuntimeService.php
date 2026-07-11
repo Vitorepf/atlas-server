@@ -11,9 +11,14 @@ use App\Models\AiEngineeringCompanyReleasePack;
 use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionTestRun;
+use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
+use App\Services\Ai\EngineeringKernel\EngineeringFinalCertifier;
+use App\Services\Ai\EngineeringKernel\EngineeringQualityCourt;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
-use App\Services\Ai\EngineeringKernel\ReadOnlyFinalCertifier;
-use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
+use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\EngineeringKernel\QualityCourtVerdict;
+use App\Services\Ai\EngineeringKernel\RoleDisposition;
+use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -260,8 +265,8 @@ class AtlasRealEngineeringCompanyRuntimeService
         }
         $evidenceRefs = ['verification:'.$verification->test_hash];
         $disposition = $roleId === 'final_certification'
-            ? app(ReadOnlyFinalCertifier::class)->certify($order, $verification, $priorRoleRuns)
-            : app(ReadOnlyQualityCourt::class)->adjudicateRole($order, $verification, $roleId);
+            ? app(EngineeringFinalCertifier::class)->certify($order, $verification, $priorRoleRuns)
+            : app(EngineeringQualityCourt::class)->adjudicateRole($order, $verification, $roleId);
         $roleRunId = 'aecompquality_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $cycle->cycle_id, $roleId, microtime(true)]), 0, 22);
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
             'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()];
@@ -279,6 +284,90 @@ class AtlasRealEngineeringCompanyRuntimeService
             'role_id' => $roleId, 'status' => $receipt['status'], 'responsibilities' => [], 'output' => $output,
             'evidence_refs' => $evidenceRefs, 'receipt' => $receipt, 'role_hash' => $receipt['hash'],
         ]);
+    }
+
+    public function adjudicateMutativeCandidate(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): QualityCourtVerdict
+    {
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()) {
+            throw new \InvalidArgumentException('mutative_quality_case_company_owner_invalid');
+        }
+        $dispositions = [];
+        foreach (array_slice(self::QUALITY_ROLES, 0, 21) as $role) {
+            $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+            $this->persistMutativeDisposition($engagement, $cycle, $case, $disposition, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN, 'v1');
+            $dispositions[$role] = $disposition;
+        }
+        $final = app(EngineeringFinalCertifier::class)->certifyCandidate($case);
+        $this->persistMutativeDisposition($engagement, $cycle, $case, $final, EngineeringFinalCertifier::MUTATIVE_DOMAIN, 'v1');
+        $dispositions['final_certification'] = $final;
+        $verdict = new QualityCourtVerdict($case->caseHash, $case->candidate->candidateHash, $dispositions, false);
+        $persisted = AiEngineeringCompanyRoleRun::query()
+            ->where('engagement_record_id', $engagement->getKey())
+            ->whereIn('role_id', self::QUALITY_ROLES)
+            ->get();
+        if ($persisted->count() !== 22 || $persisted->pluck('role_id')->unique()->count() !== 22
+            || $persisted->contains(static function (AiEngineeringCompanyRoleRun $run) use ($case): bool {
+                $unsigned = array_diff_key((array) $run->receipt, ['hash' => true]);
+
+                return data_get($run->receipt, 'binding.case_hash') !== $case->caseHash
+                    || ! hash_equals((string) $run->role_hash, EngineeringCompanyHash::make($unsigned));
+            })) {
+            throw new \InvalidArgumentException('mutative_quality_receipt_reload_invalid');
+        }
+
+        return $verdict;
+    }
+
+    private function persistMutativeDisposition(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case, RoleDisposition $disposition, string $ownerDomain, string $ownerVersion): void
+    {
+        $role = $disposition->role;
+        $roleRunId = 'aecompmut_'.substr(EngineeringCompanyHash::make([$case->caseHash, $role]), 0, 24);
+        if (AiEngineeringCompanyRoleRun::query()->where('role_run_id', $roleRunId)->exists()) {
+            throw new \InvalidArgumentException('mutative_quality_role_duplicate');
+        }
+        $evidenceRefs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.(string) $case->candidate->verificationReceipt['hash']];
+        $issuedAt = now()->startOfSecond();
+        $expiresAt = $issuedAt->copy()->addHour();
+        $typed = RoleEvidenceReceipt::issue(
+            $case, $disposition, $ownerDomain, $ownerVersion, $issuedAt->toAtomString(), $expiresAt->toAtomString(), $evidenceRefs,
+        );
+        $output = ['disposition' => $disposition->toArray(), 'role_evidence_receipt' => $typed->toArray()];
+        $binding = [
+            'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'diff_hash' => $case->candidate->diffHash, 'tree_hash' => $case->candidate->treeHash,
+            'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey(),
+        ];
+        $receipt = [
+            'schema_version' => self::ROLE_SCHEMA, 'purpose' => 'mutative_candidate_quality_adjudication',
+            'owner_domain' => $ownerDomain, 'owner_version' => $ownerVersion,
+            'issued_at' => $issuedAt->toAtomString(), 'expires_at' => $expiresAt->toAtomString(),
+            'role_run_id' => $roleRunId, 'role_id' => $role,
+            'status' => $disposition->status === 'pass' ? 'passed' : ($disposition->status === 'not_applicable' ? 'not_applicable' : 'blocked'),
+            'output' => $output, 'evidence_refs' => $evidenceRefs, 'binding' => $binding,
+            'disposition' => $disposition->toArray(),
+        ];
+        $receipt['producer'] = $this->mutativeOwnerSeal($receipt, $ownerDomain);
+        $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+        $roleRun = AiEngineeringCompanyRoleRun::query()->create([
+            'engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(),
+            'role_run_id' => $roleRunId, 'role_id' => $role, 'status' => $receipt['status'],
+            'responsibilities' => [], 'output' => $output, 'evidence_refs' => $evidenceRefs,
+            'receipt' => $receipt, 'role_hash' => $receipt['hash'],
+        ]);
+        app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($roleRun, $case, []);
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,string> */
+    private function mutativeOwnerSeal(array $payload, string $domain): array
+    {
+        $key = $this->qualityProducerKeyMaterial();
+        $seal = ['domain' => $domain, 'key_id' => 'app-key-'.substr(hash('sha256', $key), 0, 16), 'payload_hash' => EngineeringCompanyHash::make($payload)];
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+        $seal['signature'] = hash_hmac('sha256', EngineeringCompanyHash::make($seal), hash_hmac('sha256', $domain, $authorityKey, true));
+
+        return $seal;
     }
 
     /** @param array<string,mixed> $payload @return array<string,string> */

@@ -12,9 +12,11 @@ use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\RealExecution\RealExecutionHash;
 use InvalidArgumentException;
 
-final class ReadOnlyQualityCourt
+final class EngineeringQualityCourt
 {
     public const VERIFIER_DOMAIN = 'atlas.engineering_kernel.read_only_quality_court.v1';
+
+    public const MUTATIVE_ABSENCE_DOMAIN = 'atlas.engineering_kernel.mutative_owner_absence_court.v1';
 
     private const CORE_ROLES = ['qa_testing', 'evidence_audit', 'final_certification'];
 
@@ -32,6 +34,36 @@ final class ReadOnlyQualityCourt
 
     /** @return array<string,mixed> */
     public function adjudicateRole(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role): array
+    {
+        return $this->adjudicateReadOnlyRole($order, $testRun, $role);
+    }
+
+    public function adjudicateMutativeRole(CandidateQualityCase $case, string $role): RoleDisposition
+    {
+        if ($role === 'final_certification' || ! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)) {
+            throw new InvalidArgumentException('mutative_quality_role_invalid');
+        }
+        $payload = $this->mutativeAbsencePayload($case, $role);
+
+        return RoleDisposition::ownerEvidenceAbsent(
+            $case, $role, self::MUTATIVE_ABSENCE_DOMAIN,
+            $this->sign(self::MUTATIVE_ABSENCE_DOMAIN, $payload),
+        );
+    }
+
+    /** @param array<string,mixed> $disposition */
+    public function mutativeDispositionValid(CandidateQualityCase $case, string $role, array $disposition): bool
+    {
+        try {
+            return $role !== 'final_certification'
+                && $this->adjudicateMutativeRole($case, $role)->toArray() === $disposition;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private function adjudicateReadOnlyRole(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role): array
     {
         if ($role === 'final_certification') {
             throw new InvalidArgumentException('final_certification_requires_separate_owner');
@@ -66,11 +98,24 @@ final class ReadOnlyQualityCourt
         return $payload;
     }
 
+    /** @return array<string,string> */
+    private function mutativeAbsencePayload(CandidateQualityCase $case, string $role): array
+    {
+        return [
+            'purpose' => 'mutative_owner_evidence_absence',
+            'role' => $role, 'status' => 'block', 'reason' => 'owner_evidence_absent',
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'candidate_hash' => $case->candidate->candidateHash, 'diff_hash' => $case->candidate->diffHash,
+            'tree_hash' => $case->candidate->treeHash, 'case_hash' => $case->caseHash,
+            'signer_context' => self::MUTATIVE_ABSENCE_DOMAIN,
+        ];
+    }
+
     /** @param array<string,mixed> $disposition */
     public function dispositionValid(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role, array $disposition): bool
     {
         if ($role === 'final_certification') {
-            return app(ReadOnlyFinalCertifier::class)->dispositionValid($order, $testRun, $disposition);
+            return app(EngineeringFinalCertifier::class)->dispositionValid($order, $testRun, $disposition);
         }
         try {
             return $this->adjudicateRole($order, $testRun, $role) === $disposition;

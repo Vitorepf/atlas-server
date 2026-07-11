@@ -13,16 +13,21 @@ use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
+use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\EngineeringFinalCertifier;
+use App\Services\Ai\EngineeringKernel\EngineeringQualityCourt;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
 use App\Services\Ai\EngineeringKernel\ProviderPort;
-use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
+use App\Services\Ai\EngineeringKernel\RoleDisposition;
+use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\EngineeringKernel\VerifiedMutativeCandidate;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
@@ -152,6 +157,117 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $tampered[$field] = $field === 'producer' ? array_replace((array) $tampered[$field], ['signature' => str_repeat('0', 64)]) : str_repeat('0', 64);
             $this->assertFalse($authority->verifyMutativeVerificationReceipt($tampered), 'tamper accepted: '.$field);
         }
+
+        $qualityCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $candidate, $authority);
+        $missingPrior = app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase);
+        $this->assertSame('block', $missingPrior->status);
+        $this->assertSame('prior_21_not_all_pass_or_na', $missingPrior->reason);
+        $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
+        $engagement = $company->createEngagement('candidate quality court persistence');
+        $cycle = $company->createCycle($engagement);
+        $persistedVerdict = $company->adjudicateMutativeCandidate($engagement, $cycle, $qualityCase);
+        $persisted = AiEngineeringCompanyRoleRun::query()
+            ->where('engagement_record_id', $engagement->getKey())
+            ->whereIn('role_id', self::ROLE_IDS)
+            ->get();
+
+        $this->assertCount(22, $persisted);
+        $this->assertFalse($persistedVerdict->authorityEligible);
+        $this->assertSame(self::ROLE_IDS, array_keys($persistedVerdict->dispositions));
+        $this->assertSame(['block'], array_values(array_unique(array_map(static fn ($disposition): string => $disposition->status, $persistedVerdict->dispositions))));
+        $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['qa_testing']->reason);
+        $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['evidence_audit']->reason);
+        $this->assertSame('prior_21_not_all_pass_or_na', $persistedVerdict->dispositions['final_certification']->reason);
+        $this->assertSame(22, $persisted->pluck('role_id')->unique()->count());
+        $this->assertTrue($persisted->every(fn (AiEngineeringCompanyRoleRun $run): bool => data_get($run->receipt, 'binding.case_hash') === $qualityCase->caseHash
+            && data_get($run->receipt, 'binding.candidate_hash') === $candidate->candidateHash
+            && data_get($run->receipt, 'binding.diff_hash') === $candidate->diffHash
+            && data_get($run->receipt, 'binding.tree_hash') === $candidate->treeHash));
+        $this->assertSame(22, AtlasLedgerEvent::query()
+            ->where('emitter_stage', KernelEvidenceAuthority::EMITTER_STAGE)
+            ->get()
+            ->filter(fn (AtlasLedgerEvent $event): bool => data_get($event->payload, 'event_name') === 'role.mutative_disposition.recorded'
+                && data_get($event->payload, 'case_hash') === $qualityCase->caseHash)
+            ->count());
+        $certifier = app(EngineeringFinalCertifier::class);
+        $beforeDuplicate = $certifier->certifyCandidate($qualityCase);
+        $duplicate = $persisted->firstWhere('role_id', 'product_management')->replicate();
+        $duplicate->role_run_id = 'duplicate-'.Str::uuid();
+        $duplicateReceipt = $duplicate->receipt;
+        $duplicateReceipt['role_run_id'] = $duplicate->role_run_id;
+        unset($duplicateReceipt['hash'], $duplicateReceipt['producer']);
+        $sealMethod = new \ReflectionMethod(AtlasRealEngineeringCompanyRuntimeService::class, 'mutativeOwnerSeal');
+        $duplicateReceipt['producer'] = $sealMethod->invoke($company, $duplicateReceipt, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN);
+        $duplicateReceipt['hash'] = EngineeringCompanyHash::make($duplicateReceipt);
+        $duplicate->receipt = $duplicateReceipt;
+        $duplicate->role_hash = $duplicateReceipt['hash'];
+        $duplicate->save();
+        $this->assertNotSame($beforeDuplicate->signature, $certifier->certifyCandidate($qualityCase)->signature);
+        $duplicate->delete();
+
+        $this->assertInvalidArgumentMessage(
+            fn () => $company->adjudicateMutativeCandidate($engagement, $cycle, $qualityCase),
+            'mutative_quality_role_duplicate',
+        );
+        $changed = new VerifiedMutativeCandidate(
+            $candidate->status, $candidate->orderHash, $candidate->candidateHash, $candidate->baseCommit,
+            $candidate->treeHash, str_repeat('0', 64), $candidate->files, $candidate->sandboxRoot,
+            $candidate->providerReceipt, $candidate->sandboxReceipt, $candidate->verificationReceipt,
+            $candidate->blockers, false,
+        );
+        $this->assertInvalidArgumentMessage(
+            fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $changed, $authority),
+            'candidate_quality_case_binding_invalid',
+        );
+        foreach (['outside_artifact', 'provider_as_verifier'] as $attack) {
+            $attackedReceipt = $candidate->verificationReceipt;
+            if ($attack === 'outside_artifact') {
+                $attackedReceipt['junit_artifact']['path'] = $repo.'/tests/CandidateBehaviorTest.php';
+                $attackedReceipt['junit_artifact']['sha256'] = hash_file('sha256', $repo.'/tests/CandidateBehaviorTest.php');
+            } else {
+                $attackedReceipt['independent_from_provider'] = false;
+            }
+            $attacked = new VerifiedMutativeCandidate(
+                $candidate->status, $candidate->orderHash, $candidate->candidateHash, $candidate->baseCommit,
+                $candidate->treeHash, $candidate->diffHash, $candidate->files, $candidate->sandboxRoot,
+                $candidate->providerReceipt, $candidate->sandboxReceipt, $attackedReceipt,
+                $candidate->blockers, false,
+            );
+            $this->assertInvalidArgumentMessage(
+                fn () => CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($data), $attacked, $authority),
+                'candidate_quality_case_binding_invalid',
+            );
+        }
+        $forged = $persisted->firstWhere('role_id', 'product_strategy');
+        $forgedOutput = $forged->output;
+        $forgedOutput['disposition']['status'] = 'pass';
+        $forged->forceFill(['output' => $forgedOutput])->save();
+        $this->assertInvalidArgumentMessage(
+            fn () => $authority->issueMutativeRoleDisposition($forged, $qualityCase, []),
+            'kernel_mutative_role_receipt_binding_invalid',
+        );
+        $this->assertSame('block', app(EngineeringFinalCertifier::class)->certifyCandidate($qualityCase)->status);
+        $wrongDomain = $persisted->firstWhere('role_id', 'domain_research');
+        $wrongDomainReceipt = $wrongDomain->receipt;
+        $wrongDomainReceipt['owner_domain'] = 'atlas.engineering_kernel.provider_as_verifier.v1';
+        $wrongDomain->forceFill(['receipt' => $wrongDomainReceipt])->save();
+        $this->assertFalse($authority->mutativeRoleReceiptValid(
+            $wrongDomain, $qualityCase, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN, 'v1',
+        ));
+        $expired = $persisted->firstWhere('role_id', 'ux_research');
+        $expiredReceipt = $expired->receipt;
+        $expiredReceipt['expires_at'] = now()->subMinute()->startOfSecond()->toAtomString();
+        $expired->forceFill(['receipt' => $expiredReceipt])->save();
+        $this->assertFalse($authority->mutativeRoleReceiptValid(
+            $expired, $qualityCase, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN, 'v1',
+        ));
+        $certifierParameters = array_map(
+            static fn (\ReflectionParameter $parameter): string => $parameter->getName(),
+            (new \ReflectionMethod(EngineeringFinalCertifier::class, 'certifyCandidate'))->getParameters(),
+        );
+        $this->assertSame(['case'], $certifierParameters);
+        $this->assertTrue((new \ReflectionClass(RoleDisposition::class))->getConstructor()?->isPrivate());
+        $this->assertTrue((new \ReflectionClass(RoleEvidenceReceipt::class))->getConstructor()?->isPrivate());
         $artifactValidator = new \ReflectionMethod(EliteExecutorKernel::class, 'artifactValid');
         $junit = $candidate->verificationReceipt['behavioral']['junit_artifact'];
         $originalJunit = file_get_contents($junit['path']);
@@ -441,13 +557,13 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $junit = (string) data_get($test->receipt, 'junit_artifact.path');
         $junitContent = (string) file_get_contents($junit);
         unlink($junit);
-        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'evidence_audit',
+        $this->assertFalse(app(EngineeringQualityCourt::class)->dispositionValid($order, $test, 'evidence_audit',
             (array) data_get(AiEngineeringCompanyRoleRun::query()->where('role_id', 'evidence_audit')->first()?->output, 'disposition')));
         file_put_contents($junit, $junitContent);
 
         $changed = $data;
         $changed['spec_hash'] = hash('sha256', 'stale-spec');
-        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid(ExecutionOrder::fromArray($changed), $test, 'evidence_audit', []));
+        $this->assertFalse(app(EngineeringQualityCourt::class)->dispositionValid(ExecutionOrder::fromArray($changed), $test, 'evidence_audit', []));
     }
 
     public function test_court_refuses_forged_not_applicable_and_author_as_judge(): void
@@ -455,14 +571,14 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $data = $this->orderData();
         $order = ExecutionOrder::fromArray($data);
         $test = AiRealExecutionTestRun::query()->latest('created_at')->firstOrFail();
-        $valid = app(ReadOnlyQualityCourt::class)->adjudicateRole($order, $test, 'appsec_privacy');
+        $valid = app(EngineeringQualityCourt::class)->adjudicateRole($order, $test, 'appsec_privacy');
         $forged = $valid;
         $forged['justification'] = 'caller_waived';
-        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $forged));
+        $this->assertFalse(app(EngineeringQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $forged));
 
         $author = $valid;
         $author['signer_context'] = AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER;
-        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $author));
+        $this->assertFalse(app(EngineeringQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $author));
     }
 
     public function test_insufficient_explicit_applicability_cannot_reach_final_certifier(): void
@@ -728,6 +844,16 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
         return app(DecisionReceiptIssuer::class)->issue($envelope, ['ttl_seconds' => 3600, 'domain' => 'programming',
             'flow' => 'atlas.'.$orderData['mode'], 'risk' => $risk, 'required_evidence' => ['summary'], 'metadata' => $metadata]);
+    }
+
+    private function assertInvalidArgumentMessage(callable $operation, string $message): void
+    {
+        try {
+            $operation();
+            $this->fail('Expected InvalidArgumentException: '.$message);
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame($message, $exception->getMessage());
+        }
     }
 }
 

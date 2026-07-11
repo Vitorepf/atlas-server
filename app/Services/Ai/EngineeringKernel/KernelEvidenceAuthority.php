@@ -64,7 +64,7 @@ final class KernelEvidenceAuthority
     public function issueEvidenceBundle(AiRealExecutionTestRun $testRun, array $roleRuns, ExecutionOrder $order, array $context): AtlasLedgerEvent
     {
         $persisted = $this->persistedTestRun($testRun, $order);
-        $derived = $this->bundleArray(app(ReadOnlyQualityCourt::class)->buildBundle($order, $persisted, $roleRuns));
+        $derived = $this->bundleArray(app(EngineeringQualityCourt::class)->buildBundle($order, $persisted, $roleRuns));
 
         return $this->issue('evidence_bundle', LedgerEventType::EvidencePacked, $this->bindingPayload($order) + [
             'event_name' => 'evidence.bundle.recorded',
@@ -108,7 +108,7 @@ final class KernelEvidenceAuthority
             || ($unsigned['binding'] ?? null) !== $expectedBinding
             || ($unsigned['disposition'] ?? null) !== $output['disposition']
             || ! $verification instanceof AiRealExecutionTestRun
-            || ! app(ReadOnlyQualityCourt::class)->dispositionValid($order, $verification, $role, $output['disposition'])
+            || ! app(EngineeringQualityCourt::class)->dispositionValid($order, $verification, $role, $output['disposition'])
             || ! $this->producerSealValid($unsigned, AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLE_PRODUCER, false)) {
             throw new InvalidArgumentException('kernel_role_run_receipt_binding_invalid');
         }
@@ -117,6 +117,92 @@ final class KernelEvidenceAuthority
             'event_name' => 'role.disposition.recorded', 'role' => $role,
             'role_hash' => $roleHash, 'evidence_refs' => $evidenceRefs, 'disposition' => $output['disposition'],
         ], $context);
+    }
+
+    /** @param array<string,mixed> $context */
+    public function issueMutativeRoleDisposition(AiEngineeringCompanyRoleRun $roleRun, CandidateQualityCase $case, array $context): AtlasLedgerEvent
+    {
+        $persisted = $roleRun->exists ? AiEngineeringCompanyRoleRun::query()->find($roleRun->getKey()) : null;
+        if (! $persisted instanceof AiEngineeringCompanyRoleRun) {
+            throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid');
+        }
+        $receipt = $persisted->getAttribute('receipt');
+        $output = $persisted->getAttribute('output');
+        if (! is_array($receipt) || ! is_array($output) || ! is_array($output['disposition'] ?? null)) {
+            throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid');
+        }
+        $role = (string) $persisted->role_id;
+        $domain = $role === 'final_certification' ? EngineeringFinalCertifier::MUTATIVE_DOMAIN : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN;
+        if (! $this->mutativeRoleReceiptValid($persisted, $case, $domain, 'v1')) {
+            throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid');
+        }
+        $hash = (string) $persisted->role_hash;
+
+        return $this->issue('role_disposition', LedgerEventType::GateEvaluated, $this->bindingPayload($case->order) + [
+            'event_name' => 'role.mutative_disposition.recorded', 'case_hash' => $case->caseHash,
+            'candidate_hash' => $case->candidate->candidateHash, 'diff_hash' => $case->candidate->diffHash,
+            'tree_hash' => $case->candidate->treeHash, 'role' => $role,
+            'role_hash' => $hash, 'disposition' => $output['disposition'],
+        ], $context);
+    }
+
+    public function mutativeRoleReceiptValid(AiEngineeringCompanyRoleRun $persisted, CandidateQualityCase $case, string $expectedDomain, string $expectedVersion): bool
+    {
+        $receipt = $persisted->getAttribute('receipt');
+        $output = $persisted->getAttribute('output');
+        if (! is_array($receipt) || ! is_array($output) || ! is_array($output['disposition'] ?? null)) {
+            return false;
+        }
+        $role = (string) $persisted->role_id;
+        $expectedBinding = [
+            'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'diff_hash' => $case->candidate->diffHash, 'tree_hash' => $case->candidate->treeHash,
+            'engagement_record_id' => (string) $persisted->engagement_record_id,
+            'cycle_record_id' => (string) $persisted->cycle_record_id,
+        ];
+        $issuedAt = (string) ($receipt['issued_at'] ?? '');
+        $expiresAt = (string) ($receipt['expires_at'] ?? '');
+        try {
+            $issued = CarbonImmutable::createFromFormat(DATE_ATOM, $issuedAt);
+            $expires = CarbonImmutable::createFromFormat(DATE_ATOM, $expiresAt);
+        } catch (\Throwable) {
+            return false;
+        }
+        $disposition = $output['disposition'];
+        $expectedTypedReceipt = RoleEvidenceReceipt::issue(
+            $case,
+            $role === 'final_certification'
+                ? app(EngineeringFinalCertifier::class)->certifyCandidate($case)
+                : app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role),
+            $expectedDomain, $expectedVersion, $issuedAt, $expiresAt,
+            ['candidate:'.$case->candidate->candidateHash, 'verification:'.(string) $case->candidate->verificationReceipt['hash']],
+        )->toArray();
+        $sealedReceipt = array_diff_key($receipt, ['hash' => true]);
+        if (($receipt['purpose'] ?? null) !== 'mutative_candidate_quality_adjudication'
+            || ($receipt['owner_domain'] ?? null) !== $expectedDomain || ($receipt['owner_version'] ?? null) !== $expectedVersion
+            || $issued === null || $expires === null || CarbonImmutable::now()->lt($issued) || CarbonImmutable::now()->gte($expires)
+            || ($receipt['role_id'] ?? null) !== $role || ($receipt['status'] ?? null) !== $persisted->status
+            || ($disposition['role'] ?? null) !== $role
+            || ($receipt['binding'] ?? null) !== $expectedBinding
+            || ($receipt['evidence_refs'] ?? null) !== ['candidate:'.$case->candidate->candidateHash, 'verification:'.(string) $case->candidate->verificationReceipt['hash']]
+            || ($receipt['output'] ?? null) !== $output || ($receipt['disposition'] ?? null) !== ($output['disposition'] ?? null)
+            || ($output['role_evidence_receipt'] ?? null) !== $expectedTypedReceipt
+            || ($role === 'final_certification'
+                ? ! app(EngineeringFinalCertifier::class)->mutativeDispositionValid($case, $disposition)
+                : ! app(EngineeringQualityCourt::class)->mutativeDispositionValid($case, $role, $disposition))
+            || ! $this->producerSealValid($sealedReceipt, $expectedDomain, false)) {
+            return false;
+        }
+        $unsigned = $receipt;
+        $hash = (string) ($unsigned['hash'] ?? '');
+        $unsigned = array_diff_key($unsigned, ['hash' => true]);
+        if (! hash_equals((string) $persisted->role_hash, $hash) || ! hash_equals($hash, EngineeringCompanyHash::make($unsigned))) {
+            return false;
+        }
+
+        return true;
     }
 
     /** @param array<string,mixed> $context */

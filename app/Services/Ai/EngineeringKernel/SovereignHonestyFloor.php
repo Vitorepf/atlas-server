@@ -433,7 +433,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
             }
         }
 
-        return $this->courtSignatureValid($receipt, ReadOnlyQualityCourt::VERIFIER_DOMAIN);
+        return $this->courtSignatureValid($receipt, EngineeringQualityCourt::VERIFIER_DOMAIN);
     }
 
     private function deterministicCourtsValid(mixed $receipts): bool
@@ -454,7 +454,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
             }
         }
         sort($contexts);
-        $expected = [ReadOnlyFinalCertifier::DOMAIN, ReadOnlyQualityCourt::VERIFIER_DOMAIN];
+        $expected = [EngineeringFinalCertifier::DOMAIN, EngineeringQualityCourt::VERIFIER_DOMAIN];
         sort($expected);
 
         if ($contexts !== $expected) {
@@ -465,14 +465,14 @@ final class SovereignHonestyFloor implements AcceptanceGate
             $byRole[(string) ($receipt['role'] ?? '')] = $receipt['signer_context'] ?? null;
         }
 
-        return $byRole === ['evidence_audit' => ReadOnlyQualityCourt::VERIFIER_DOMAIN, 'final_certification' => ReadOnlyFinalCertifier::DOMAIN];
+        return $byRole === ['evidence_audit' => EngineeringQualityCourt::VERIFIER_DOMAIN, 'final_certification' => EngineeringFinalCertifier::DOMAIN];
     }
 
     /** @param array<string,mixed> $receipt */
     private function courtSignatureValid(array $receipt, string $domain): bool
     {
         if (($receipt['signer_context'] ?? null) !== $domain
-            || ! in_array($domain, [ReadOnlyQualityCourt::VERIFIER_DOMAIN, ReadOnlyFinalCertifier::DOMAIN], true)) {
+            || ! in_array($domain, [EngineeringQualityCourt::VERIFIER_DOMAIN, EngineeringFinalCertifier::DOMAIN], true)) {
             return false;
         }
         $signature = (string) ($receipt['signature'] ?? '');

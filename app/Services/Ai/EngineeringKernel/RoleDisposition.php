@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\EngineeringKernel;
+
+use InvalidArgumentException;
+
+final readonly class RoleDisposition
+{
+    public const STATUSES = ['pass', 'block', 'not_applicable'];
+
+    private function __construct(
+        public string $role,
+        public string $status,
+        public string $reason,
+        public string $orderHash,
+        public string $specHash,
+        public string $candidateHash,
+        public string $diffHash,
+        public string $treeHash,
+        public string $signerContext,
+        public string $signature,
+    ) {
+        if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)
+            || ! in_array($status, self::STATUSES, true)
+            || $reason === '' || $signerContext === '' || $signature === ''
+            || array_any([$orderHash, $specHash, $candidateHash, $diffHash], static fn (string $hash): bool => preg_match('/^[a-f0-9]{64}$/', $hash) !== 1)
+            || preg_match('/^[a-f0-9]{40,64}$/', $treeHash) !== 1) {
+            throw new InvalidArgumentException('role_disposition_invalid');
+        }
+    }
+
+    public static function ownerEvidenceAbsent(CandidateQualityCase $case, string $role, string $signerContext, string $signature): self
+    {
+        return new self(
+            $role, 'block', 'owner_evidence_absent', $case->order->canonicalHash(), $case->order->specHash,
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash,
+            $signerContext, $signature,
+        );
+    }
+
+    public static function finalPriorReceiptsBlocked(CandidateQualityCase $case, string $signerContext, string $signature): self
+    {
+        return new self(
+            'final_certification', 'block', 'prior_21_not_all_pass_or_na', $case->order->canonicalHash(), $case->order->specHash,
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash,
+            $signerContext, $signature,
+        );
+    }
+
+    /** @return array<string,string> */
+    public function toArray(): array
+    {
+        return [
+            'role' => $this->role, 'status' => $this->status, 'reason' => $this->reason,
+            'order_hash' => $this->orderHash, 'spec_hash' => $this->specHash,
+            'candidate_hash' => $this->candidateHash, 'diff_hash' => $this->diffHash,
+            'tree_hash' => $this->treeHash, 'signer_context' => $this->signerContext,
+            'signature' => $this->signature,
+        ];
+    }
+}
