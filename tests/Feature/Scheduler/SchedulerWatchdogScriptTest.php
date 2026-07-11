@@ -101,6 +101,7 @@ class SchedulerWatchdogScriptTest extends TestCase
         $this->assertIsArray($payload);
         $this->assertSame('healthy', $payload['status']);
         $this->assertSame([], $payload['failures']);
+        $this->assertSame([], $payload['warnings'] ?? []);
         $this->assertFileDoesNotExist($this->tmp.'/storage/watchdog-alarm.jsonl');
         $this->assertFileDoesNotExist($this->kickLog);
     }
@@ -155,6 +156,36 @@ class SchedulerWatchdogScriptTest extends TestCase
         $payload = json_decode($out['stdout'], true);
         $this->assertIsArray($payload);
         $this->assertContains('php_fatal_in_err_log', array_column($payload['failures'] ?? [], 'check'));
+    }
+
+    public function test_volume_janela_faminta_emits_warning_without_kickstart(): void
+    {
+        $this->writeHeartbeat(gmdate('c'));
+        $volumeFixture = json_encode([
+            'schema_version' => 'atlas.acos.operational_volume.v1',
+            'status' => 'alert',
+            'alert' => true,
+            'alert_code' => 'janela_faminta',
+            'windows' => [
+                'dev' => ['count' => 0, 'threshold' => 3],
+                'forge' => ['count' => 0, 'threshold' => 5],
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+        $volumeCmd = 'printf %s '.escapeshellarg($volumeFixture);
+
+        $out = $this->runWatchdog([
+            'ATLAS_WATCHDOG_ARTISAN' => $this->okArtisan,
+            'ATLAS_WATCHDOG_THRESHOLD_SECONDS' => '300',
+            'ATLAS_WATCHDOG_COOLDOWN_SECONDS' => '0',
+            'ATLAS_WATCHDOG_VOLUME_CMD' => $volumeCmd,
+        ]);
+
+        $payload = json_decode($out['stdout'], true);
+        $this->assertIsArray($payload);
+        $this->assertSame('warning', $payload['status']);
+        $this->assertContains('operational_volume_janela_faminta', array_column($payload['warnings'] ?? [], 'check'));
+        $this->assertFileDoesNotExist($this->kickLog);
+        $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
     }
 
     public function test_uninstall_removes_agent_and_plist(): void
