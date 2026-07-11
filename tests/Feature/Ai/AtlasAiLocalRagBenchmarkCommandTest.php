@@ -850,6 +850,62 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertStringNotContainsString('abcdefghijklmno', $output);
     }
 
+    public function test_Rag05_memory_recall_golden_set_is_frozen_and_scores_recall_without_floor_discards(): void
+    {
+        $this->createLocalRagTables();
+        $this->createMemoryTables();
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
+
+        $fixture = json_decode(
+            (string) file_get_contents(base_path('tests/Fixtures/Context/memory_recall_golden/v1.json')),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+
+        foreach ((array) $fixture['cases'] as $index => $case) {
+            $n = $index + 1;
+            app(AtlasMemoryRegistryService::class)->record([
+                'memory_type' => 'technical_context',
+                'scope_type' => 'global',
+                'title' => 'RAG05 seeded memory '.$n,
+                'body' => 'Provider safe RAG05 seed for query: '.$case['query'].' This entry is the required golden memory for '.$case['case_id'].'.',
+                'summary' => 'Golden recall seed '.$n.' for '.$case['case_id'].'.',
+                'priority' => 100 - $n,
+                'importance' => 5,
+                'confidence' => 0.95,
+                'privacy_class' => 'normal',
+                'external_ai_allowed' => true,
+                'source_type' => 'ai_memory_delta',
+                'source_id' => sprintf('golden-memory-%03d', $n),
+                'metadata' => [
+                    'promotion_receipt' => ['schema_version' => 'atlas.memory.promotion_receipt.v1'],
+                ],
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:local-rag-benchmark', ['--json' => true]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.memory_recall_golden_set.v1', data_get($payload, 'memory_recall_golden.schema_version'));
+        $this->assertSame('memory_recall_golden_2026_07_rag05_seed', data_get($payload, 'memory_recall_golden.frozen_set_id'));
+        $this->assertTrue(data_get($payload, 'memory_recall_golden.provider_safe_reviewed'));
+        $this->assertTrue(data_get($payload, 'memory_recall_golden.judge_differs_from_author'));
+        $this->assertGreaterThanOrEqual(25, data_get($payload, 'memory_recall_golden.case_count'));
+        $this->assertGreaterThanOrEqual(0.80, data_get($payload, 'memory_recall_golden.recall_at_5'));
+        $this->assertGreaterThanOrEqual(0.80, data_get($payload, 'memory_recall_golden.recall_at_3'));
+        $this->assertSame(0, data_get($payload, 'memory_recall_golden.improper_floor_discards'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'memory_recall_golden.frozen_set_hash'));
+        $this->assertFalse(data_get($payload, 'memory_recall_golden.raw_query_persisted'));
+        $this->assertFalse(data_get($payload, 'memory_recall_golden.raw_context_persisted'));
+        $this->assertTrue(data_get($payload, 'memory_recall_corpus.self_retrieval_sanity'));
+        $this->assertSame('memory_recall', data_get($payload, 'memory_recall_golden.cases.0.surface'));
+        $this->assertArrayHasKey('source_ref_hash', data_get($payload, 'memory_recall_golden.cases.0.must_include.0'));
+        $this->assertStringNotContainsString((string) data_get($fixture, 'cases.0.query'), $output);
+        $this->assertStringNotContainsString('Bearer', $output);
+    }
+
     public function test_benchmark_uses_governed_provider_safe_memory_fallback_when_no_promoted_corpus_exists(): void
     {
         $this->createLocalRagTables();

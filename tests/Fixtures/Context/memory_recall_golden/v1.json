@@ -1,0 +1,387 @@
+{
+  "schema_version": "atlas.memory_recall_golden_set.v1",
+  "frozen_set_id": "memory_recall_golden_2026_07_rag05_seed",
+  "provider_safe_reviewed": true,
+  "author": "implementation_agent",
+  "judge": "external_judge_required_before_certification",
+  "judge_differs_from_author": true,
+  "raw_query_persisted": false,
+  "raw_context_persisted": false,
+  "cases": [
+    {
+      "case_id": "memory-golden-001-context-policy-measured-only",
+      "query": "Which memory explains why context budget policy must ignore low quality inferred feedback?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "3af5f9342de25a0203ebec1af9318a692cf106086526a35fb5e5777a5edfbb38"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "context-policy-measured-only"
+      ]
+    },
+    {
+      "case_id": "memory-golden-002-policy-trend-roi",
+      "query": "Where is the policy trend linked to observed retrieval ROI over later feedback?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "699be6475d5e42b121251daace3b526df61e1248e95a79d7f1e693733ecb8b02"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "policy-trend-roi"
+      ]
+    },
+    {
+      "case_id": "memory-golden-003-missed-source-resolution",
+      "query": "What context says a missed source should become resolved only after that source is delivered?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "ca1ee6bf88bce340d31d590e96b3cef3cf06436003ee97d41ecd73bd3c79bf2f"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "missed-source-resolution"
+      ]
+    },
+    {
+      "case_id": "memory-golden-004-compaction-recovery",
+      "query": "Which note describes replaying compaction recovery queries to restore lost items?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "11706a55e01a86c960be25741e9b71d6072fe76ccdd502a0b620b9de0541f515"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "compaction-recovery"
+      ]
+    },
+    {
+      "case_id": "memory-golden-005-golden-recall-floor",
+      "query": "What memory guards against relevance floor discarding a required recall result?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "16e603698ccb085190481c388814208ab9edd78b3d812132908529764f4cfa2c"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "golden-recall-floor"
+      ]
+    },
+    {
+      "case_id": "memory-golden-006-provider-safe-golden",
+      "query": "Where is provider safe review required for recall golden cases?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "8dd6088146894407efa66adbf26ade24267d4a585816c409f1187aaacf2e6302"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "provider-safe-golden"
+      ]
+    },
+    {
+      "case_id": "memory-golden-007-author-judge-freeze",
+      "query": "What entry says the golden set must be frozen by a reviewer separate from the author?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "4a4cd222b79492d29945567a0203412813215baee49d57834282f7e52d457004"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "author-judge-freeze"
+      ]
+    },
+    {
+      "case_id": "memory-golden-008-source-type-bounds",
+      "query": "Which context bounds repromotion to source type instead of exact ref by default?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "23e3165c2da953731e0d4f922bb343a275ad4faad2fa15d7bb8b6829acb0274a"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "source-type-bounds"
+      ]
+    },
+    {
+      "case_id": "memory-golden-009-formula-reset",
+      "query": "What memory says changing formula version resets trend comparison?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "4a1f9e48d09084952a9beb6bc95a109ed15137b21d488ddb39ec238ced44992d"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "formula-reset"
+      ]
+    },
+    {
+      "case_id": "memory-golden-010-empty-window-honesty",
+      "query": "Which note says empty policy windows are reported as empty rather than interpolated?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "dbe3e0a387382b31d71746ff83c0eeecd852765a23ab7d1824df9177892e1556"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "empty-window-honesty"
+      ]
+    },
+    {
+      "case_id": "memory-golden-011-total-event-floor",
+      "query": "Where is the total event count floor described as mandatory for measured share?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "e93723cd66687b82966a8e9833ba3edf1768abdf420d57530f61440d69dd24ef"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "total-event-floor"
+      ]
+    },
+    {
+      "case_id": "memory-golden-012-synthetic-share",
+      "query": "What memory describes exposing synthetic share in context policy evidence?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "0e4bfba2fbe82bbcc32a30d0eeab4b2017e773fe2d5151a8ca99ff4c10ee4e18"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "synthetic-share"
+      ]
+    },
+    {
+      "case_id": "memory-golden-013-bucket-minimum",
+      "query": "Which entry requires minimum measured samples per source bucket before reducing budget?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "eae181161f79eaa1275de2de56957b2245a8ec9afc02f15f50ea96b72d735a9f"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "bucket-minimum"
+      ]
+    },
+    {
+      "case_id": "memory-golden-014-read-only-recovery",
+      "query": "What note says compaction recovery executor must never write recovered content directly?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "f264268381a4500df94924d7a2b3d7ff267a302462007726b4369c9f166e03d1"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "read-only-recovery"
+      ]
+    },
+    {
+      "case_id": "memory-golden-015-promotion-guard",
+      "query": "Which memory names LongHorizonMemoryPromotionGuard as the gate before promoting recovered content?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "0741f86ae82b13f777643c44a540219f9869638cc457a3e7672c01fad038febe"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "promotion-guard"
+      ]
+    },
+    {
+      "case_id": "memory-golden-016-recall-at-five",
+      "query": "Where is recall at five used as the golden memory recall landing metric?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "0daf777d1e0b2887edda1af21c31fe4bcacd54a06587fc67ae01d794f1876b12"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "recall-at-five"
+      ]
+    },
+    {
+      "case_id": "memory-golden-017-recall-at-three",
+      "query": "Which context reports recall at three for the memory golden set?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "c6b93763b57577f769b64d2104edf8c2cf1d53b96bdbbda41d87c55b831682d0"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "recall-at-three"
+      ]
+    },
+    {
+      "case_id": "memory-golden-018-improper-floor-discard",
+      "query": "What entry tracks improper floor discards as a hard failure?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "c44b0dc66f0750dce1b08a68c5e12fbe5c7ae07cbe394d9c7a76836f29d3bb96"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "improper-floor-discard"
+      ]
+    },
+    {
+      "case_id": "memory-golden-019-hand-rewritten-query",
+      "query": "Which memory says recall golden queries are rewritten by hand rather than copied from targets?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "6a04be538ee7593516f1807a9a2c8366dded6fcbac18a42210eae02086c73817"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "hand-rewritten-query"
+      ]
+    },
+    {
+      "case_id": "memory-golden-020-must-include-ref-hash",
+      "query": "Where do must include labels use source reference hashes?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "75048e8e31fb95257f2b15d36ddf08cc76eecd69c01ff32677ca23e2a4c1124d"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "must-include-ref-hash"
+      ]
+    },
+    {
+      "case_id": "memory-golden-021-self-retrieval-sanity",
+      "query": "What memory keeps the self retrieval corpus only as embedding regression sanity?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "0c348d6b2f364444a5c340e404221f03366e71de64b9aed5dda580ab3c5e0d59"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "self-retrieval-sanity"
+      ]
+    },
+    {
+      "case_id": "memory-golden-022-frozen-set-hash",
+      "query": "Which context records a frozen set hash in the ledger?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "2a6b78248a3985d420a14f00846ce1f7be2203577a874d24cfaa3c629b955708"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "frozen-set-hash"
+      ]
+    },
+    {
+      "case_id": "memory-golden-023-no-raw-query-ledger",
+      "query": "Where is the rule that raw queries must not be persisted in reports or ledger?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "051b01d0a14238495aaaca2a7d7bcbbf8c372fdb3d406d5c58fa63d4598b9ffa"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "no-raw-query-ledger"
+      ]
+    },
+    {
+      "case_id": "memory-golden-024-gate-verified-only",
+      "query": "What entry says gate verified events are the reliable aggregate input?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "f33e367dfba36c9687fb341c7a24c698dc9719fb76b016b2cdaa84e51c93e6e2"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "gate-verified-only"
+      ]
+    },
+    {
+      "case_id": "memory-golden-025-transcript-inferred-excluded",
+      "query": "Which memory excludes transcript inferred feedback from ten out of ten aggregates?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "f7ebe77580124013ca34be15ffa3bc4601ae61415b1533499ef7e34be70c2ce2"
+        }
+      ],
+      "tags": [
+        "acos",
+        "rag-05",
+        "transcript-inferred-excluded"
+      ]
+    }
+  ]
+}
