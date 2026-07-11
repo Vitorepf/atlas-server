@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
+use App\Services\Ai\Context\AtlasCanonicalContextRef;
+use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use App\Services\Ai\Context\AtlasRetrievalFusionService;
@@ -318,6 +320,10 @@ class AtlasOpenBrainContextPackService
 
         if ((bool) config('atlas.aobg.progressive_disclosure_enabled', true)) {
             $pack['progressive_disclosure'] = $this->progressiveDisclosureManifest();
+        }
+
+        if ((bool) config('atlas.aobg.delivered_pack_ledger.enabled', true)) {
+            AtlasDeliveredPackLedger::fromConfig()->record($pack);
         }
 
         return $pack;
@@ -2221,19 +2227,7 @@ class AtlasOpenBrainContextPackService
      */
     private function memoryItemRefs(array $item): array
     {
-        $hash = trim((string) ($item['content_hash'] ?? ''));
-        $sourceType = trim((string) ($item['source_type'] ?? ''));
-
-        return $this->uniqueStrings([
-            $hash,
-            $hash !== '' ? 'memory:'.substr(hash('sha256', $hash), 0, 32) : '',
-            $sourceType !== '' && $hash !== '' ? $sourceType.':'.$hash : '',
-            $this->hashedContextRef('memory', [
-                'type' => (string) ($item['type'] ?? ''),
-                'title' => (string) ($item['title'] ?? ''),
-            ]),
-            (string) ($item['title'] ?? ''),
-        ]);
+        return AtlasCanonicalContextRef::memoryItemForms($item);
     }
 
     /**
@@ -2417,44 +2411,7 @@ class AtlasOpenBrainContextPackService
      */
     private function deliveredContextRefs(array $pack): array
     {
-        $refs = [];
-
-        foreach ((array) ($pack['code_graph'] ?? []) as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-            $refs[] = $this->hashedContextRef('code', [
-                'id' => (string) ($item['id'] ?? ''),
-                'file_path' => (string) ($item['file_path'] ?? ''),
-                'symbol_type' => (string) ($item['symbol_type'] ?? ''),
-            ]);
-        }
-
-        foreach ((array) ($pack['reality_graph_paths'] ?? []) as $path) {
-            if (! is_array($path)) {
-                continue;
-            }
-            $refs[] = $this->hashedContextRef('graph', [
-                'source' => (string) ($path['source'] ?? ''),
-                'target' => (string) ($path['target'] ?? ''),
-                'hops' => $this->normalizeHops($path['hops'] ?? []),
-            ]);
-        }
-
-        foreach ((array) ($pack['memory'] ?? []) as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-            $contentHash = (string) ($item['content_hash'] ?? '');
-            $refs[] = $contentHash !== ''
-                ? 'memory:'.substr(hash('sha256', $contentHash), 0, 32)
-                : $this->hashedContextRef('memory', [
-                    'type' => (string) ($item['type'] ?? ''),
-                    'title' => (string) ($item['title'] ?? ''),
-                ]);
-        }
-
-        return array_slice($this->uniqueStrings($refs), 0, 32);
+        return AtlasCanonicalContextRef::deliveredFromPack($pack);
     }
 
     /**
@@ -2467,14 +2424,6 @@ class AtlasOpenBrainContextPackService
             static fn (string $ref): string => str_contains($ref, ':') ? strstr($ref, ':', true) ?: 'unknown' : 'unknown',
             $refs,
         ));
-    }
-
-    private function hashedContextRef(string $type, mixed $payload): string
-    {
-        return $type.':'.substr(hash('sha256', (string) json_encode(
-            $this->canonicalize($payload),
-            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        )), 0, 32);
     }
 
     private function canonicalize(mixed $value): mixed

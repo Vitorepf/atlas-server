@@ -13,6 +13,8 @@ use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
+use App\Services\Ai\Context\AtlasCanonicalContextRef;
+use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -66,6 +68,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         config()->set('atlas.aurg.enabled', true);
         config()->set('atlas.aurg.query_rank_enabled', false); // deterministic, no runtime
         config()->set('atlas.aobg.include_runtime_compose', false);
+        config()->set('atlas.aobg.delivered_pack_ledger.enabled', false);
     }
 
     protected function tearDown(): void
@@ -320,6 +323,51 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('## Context feedback request', $pack['markdown']);
         $this->assertStringContainsString('context_pack_hash='.substr($pack['context_pack_hash'], 0, 16), $pack['markdown']);
         $this->assertStringContainsString('no raw logs or source text', $pack['markdown']);
+    }
+
+    public function test_DeliveredPackLedger_persists_canonical_refs_and_supports_multi_hash_lookup(): void
+    {
+        $ledgerPath = $this->configureDeliveredPackLedger();
+
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-ledger-a', 'Embedding decision ledger note A', true, 'normal');
+        $this->seedMemory('mem-ledger-b', 'Embedding decision ledger note B', true, 'normal');
+
+        $packA = $this->service()->packFor('embedding decision ledger A');
+        $packB = $this->service()->packFor('embedding decision ledger B');
+
+        $expectedA = AtlasCanonicalContextRef::deliveredFromPack($packA);
+        $expectedB = AtlasCanonicalContextRef::deliveredFromPack($packB);
+
+        $this->assertNotEmpty($expectedA);
+        $this->assertNotEmpty($expectedB);
+        foreach ([...$expectedA, ...$expectedB] as $ref) {
+            $this->assertTrue(AtlasCanonicalContextRef::isCanonical($ref), 'delivered ref must use canonical namespace: '.$ref);
+        }
+
+        $ledger = new AtlasDeliveredPackLedger($ledgerPath);
+        $entryA = $ledger->lookup((string) $packA['context_pack_hash']);
+        $entryB = $ledger->lookup((string) $packB['context_pack_hash']);
+
+        $this->assertNotNull($entryA);
+        $this->assertNotNull($entryB);
+        $this->assertSame($expectedA, $entryA['delivered_refs'] ?? null);
+        $this->assertSame($expectedB, $entryB['delivered_refs'] ?? null);
+        $this->assertSame($expectedA, $packA['context_feedback_request']['delivered_context_refs']);
+        $this->assertSame($expectedB, $packB['context_feedback_request']['delivered_context_refs']);
+        $this->assertSame((array) ($packA['budget'] ?? []), $entryA['budgets'] ?? null);
+        $this->assertSame((array) ($packA['context_delivery_policy'] ?? []), $entryA['policy_snapshot'] ?? null);
+
+        $union = $ledger->lookupMany([
+            (string) $packA['context_pack_hash'],
+            (string) $packB['context_pack_hash'],
+        ]);
+
+        $this->assertSame(
+            AtlasCanonicalContextRef::uniqueStrings([...$expectedA, ...$expectedB]),
+            $union['delivered_refs'],
+        );
     }
 
     public function test_feedback_request_preserves_bare_flow_id_without_relabeling_domain(): void
@@ -1839,6 +1887,18 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
     private function service(): AtlasOpenBrainContextPackService
     {
         return $this->app->make(AtlasOpenBrainContextPackService::class);
+    }
+
+    private function configureDeliveredPackLedger(): string
+    {
+        $dir = sys_get_temp_dir().'/atlas-delivered-pack-ledger-'.bin2hex(random_bytes(6));
+        mkdir($dir, 0o755, true);
+        $this->tempDirs[] = $dir;
+        $path = $dir.'/delivered-pack-ledger.jsonl';
+        config()->set('atlas.aobg.delivered_pack_ledger.enabled', true);
+        config()->set('atlas.aobg.delivered_pack_ledger.path', $path);
+
+        return $path;
     }
 
     /** Symbols table WITH the W-1 workspace_id column (so scoping is exercised). */
