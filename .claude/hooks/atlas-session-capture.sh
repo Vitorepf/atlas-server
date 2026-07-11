@@ -117,7 +117,9 @@ else
 fi
 
 # ARFL->ACRS closed loop (Obra #13 item 4): distil the injected context_pack_hash
-# markers from the SAME transcript into one persisted retrieval-feedback event. Fail-open.
+# markers from the SAME transcript into one persisted retrieval-feedback event, joining
+# delivered refs through the COM-01 ledger and deriving outcome only from structured Bash
+# tool-result exit codes. Fail-open.
 php artisan atlas:context:feedback-auto "--transcript=$TRANSCRIPT" --json >/dev/null 2>&1 || true
 
 # D4 (Obra #18): implicit-feedback inference — a memory RECALLED this session AND present
