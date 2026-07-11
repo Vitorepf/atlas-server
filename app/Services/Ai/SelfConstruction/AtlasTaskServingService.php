@@ -26,6 +26,8 @@ use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostAggregator;
 use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroCostLedger;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Closure;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
@@ -82,6 +84,9 @@ final class AtlasTaskServingService
 
     private readonly AtlasRefactorProofGate $refactorProofGate;
 
+    /** @var array<string,mixed>|null */
+    private ?array $awisGateCache = null;
+
     public function __construct(
         private readonly AgentControlPlaneTaskQueueOrchestrator $orchestrator,
         private readonly ?AtlasTaskServingSentinel $sentinel = null,
@@ -96,6 +101,7 @@ final class AtlasTaskServingService
         ?AtlasRefactorProofGate $refactorProofGate = null,
         private readonly ?EliteExecutorKernel $eliteKernel = null,
         private readonly ?AtlasContextRuntime $contextRuntime = null,
+        private readonly ?AwisExecutionGatePort $awisGate = null,
     ) {
         $this->refactorProofGate = $refactorProofGate ?? new AtlasRefactorProofGate;
         $this->inspector = $inspector ?? new AtlasTaskPacketQualityInspector;
@@ -132,6 +138,11 @@ final class AtlasTaskServingService
         $clientId = trim($clientId);
         if ($clientId === '') {
             return $this->served('', $this->envelope('invalid_client', '', null, ['reason' => 'client_id_required']));
+        }
+
+        $awisBlocked = $this->awisExecutionBlockedEnvelope($clientId);
+        if ($awisBlocked !== null) {
+            return $this->served($clientId, $awisBlocked);
         }
 
         $filters = $this->safeFilters($filters);
@@ -312,6 +323,57 @@ final class AtlasTaskServingService
         $this->sentinel?->recordServe($clientId, (string) ($envelope['status'] ?? ''));
 
         return $envelope;
+    }
+
+    /**
+     * ENG-06 — AWIS gate on the mutative task-serving seam (claim before provider touches files).
+     * Cached per service instance so workers do not re-pay certification on every poll.
+     *
+     * @return array<string,mixed>|null blocked envelope, or null when execution may proceed
+     */
+    private function awisExecutionBlockedEnvelope(string $clientId): ?array
+    {
+        $gate = $this->cachedAwisGateVerdict();
+        if (($gate['allowed'] ?? false) === true) {
+            return null;
+        }
+
+        return $this->envelope('awis_execution_blocked', $clientId, null, [
+            'give_back' => true,
+            'reason' => 'awis_workspace_not_certified_for_task_serving',
+            'awis_execution_gate' => $gate,
+            'recertify_hint' => 'php artisan atlas:workspace-intelligence certify --workspace='.base_path(),
+            'retry_after_seconds' => self::DEFAULT_RETRY_AFTER_SECONDS,
+        ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function cachedAwisGateVerdict(): array
+    {
+        if ($this->awisGateCache !== null) {
+            return $this->awisGateCache;
+        }
+
+        try {
+            $gateService = $this->awisGate ?? app(AwisExecutionGatePort::class);
+            $this->awisGateCache = $gateService->gate(
+                workspace: base_path(),
+                mode: 'dev',
+                task: 'atlas autonomos task serving',
+            );
+        } catch (Throwable $e) {
+            $this->awisGateCache = [
+                'schema_version' => AtlasWorkspaceIntelligenceExecutionGateService::SCHEMA_VERSION,
+                'allowed' => false,
+                'status' => 'blocked',
+                'blockers' => ['awis_execution_gate_failed_closed'],
+                'error' => mb_substr($e->getMessage(), 0, 200),
+            ];
+        }
+
+        return $this->awisGateCache;
     }
 
     /**
@@ -697,6 +759,13 @@ final class AtlasTaskServingService
                 'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
                 'governance' => $governance,
                 'result' => $resolved,
+                'outcome_spine' => $this->recordServerSideOutcomeSpine(
+                    $taskPacketId,
+                    $scope,
+                    $commit,
+                    isset($verification) && is_array($verification) ? $verification : null,
+                    true,
+                ),
             ], $evidenceContractMode !== 'off' ? ['evidence_contract' => $evidenceContractVerdict] : [],
                 $refactorProof !== null ? ['refactor_proof' => $refactorProof] : []));
         }
@@ -705,6 +774,7 @@ final class AtlasTaskServingService
             $result = $this->orchestrator->completeDryRun($taskPacketId, $leaseId, (array) ($payload['evidence'] ?? []));
             $event = (string) ($result['event'] ?? '');
             $closed = str_contains($event, 'completed') && ! str_contains($event, 'blocked');
+            $scope = $this->orchestrator->taskScope($taskPacketId);
 
             return $this->reportEnvelope('reported', $clientId, [
                 'outcome' => 'success',
@@ -713,6 +783,14 @@ final class AtlasTaskServingService
                 'lease_id' => $leaseId,
                 'orchestrator_event' => $event,
                 'result' => $result,
+                'verified' => false,
+                'outcome_spine' => $this->recordServerSideOutcomeSpine(
+                    $taskPacketId,
+                    is_array($scope) ? $scope : [],
+                    [],
+                    null,
+                    false,
+                ),
             ]);
         }
 
