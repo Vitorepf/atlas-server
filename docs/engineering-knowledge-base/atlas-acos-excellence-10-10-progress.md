@@ -48,7 +48,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 |---|---|---|---|
 | COM-01 | ✅ | 0177b45a5d | ledger pack + namespace canônico refs |
 | ENG-04 | ✅ | 872591fe9 | certify no landing Autônomos |
-| EVI-09 | ✅ | 248cb34a13 | rename fable→acos delta-series |
+| EVI-09 | ✅ | 248cb34a13 (+follow-up) | rename fable→acos; leftovers vivos fechados; 6 aceites verdes |
 | EVI-05 | ✅ | 9fdbe5560 | contiguidade + anti-backfill [MEDIDOR] |
 | EVI-06 | ✅ | ebc7b91ae | series_day_below_floor [MEDIDOR] |
 | EVI-03 | ✅ | c2586c0166 | boot-smoke pregate + landing |

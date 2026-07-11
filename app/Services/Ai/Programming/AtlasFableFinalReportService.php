@@ -38,7 +38,7 @@ final class AtlasFableFinalReportService
         $baselinePath = $this->stringOrNull($options['baseline_path'] ?? null)
             ?? storage_path('app/atlas/evidence/marco-zero-fable-2026-06-11.json');
         $seriesPath = $this->stringOrNull($options['series_path'] ?? null)
-            ?? storage_path('app/atlas/evidence/fable-delta-series.jsonl');
+            ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl');
         $date = $this->stringOrNull($options['date'] ?? null) ?? Carbon::now()->toDateString();
         $hours = max(1, min(168, (int) ($options['hours'] ?? 24)));
 

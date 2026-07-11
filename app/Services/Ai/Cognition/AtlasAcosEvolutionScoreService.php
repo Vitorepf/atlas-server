@@ -50,7 +50,7 @@ class AtlasAcosEvolutionScoreService
     /** Comandos-órgão cuja presença agendada é exigida pela cadência H2.1. */
     private const SCHEDULED_ORGANS = [
         'atlas:cognition:mint-pipeline-receipts',
-        'atlas:fable:delta-series',
+        'atlas:acos:delta-series',
         'atlas:engineering:refactor-census',
         'acos-harvest-obra-lessons',
     ];
@@ -214,7 +214,7 @@ class AtlasAcosEvolutionScoreService
         ];
 
         $gateFresh = $this->fileFresh(storage_path('app/atlas/evidence/acos-long-horizon-gate.json'), self::GATE_FRESH_SECONDS);
-        $seriesFresh = $this->fileFresh(storage_path('app/atlas/evidence/fable-delta-series.jsonl'), self::GATE_FRESH_SECONDS);
+        $seriesFresh = $this->fileFresh(storage_path('app/atlas/evidence/acos-delta-series.jsonl'), self::GATE_FRESH_SECONDS);
         $signals[] = [
             'signal' => 'gates_auditados',
             'points' => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),

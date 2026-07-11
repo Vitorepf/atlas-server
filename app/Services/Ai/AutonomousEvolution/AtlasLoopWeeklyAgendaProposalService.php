@@ -275,7 +275,7 @@ final class AtlasLoopWeeklyAgendaProposalService
     {
         try {
             $output = new BufferedOutput;
-            $exitCode = Artisan::call('atlas:fable:delta-series', [
+            $exitCode = Artisan::call('atlas:acos:delta-series', [
                 '--report' => true,
                 '--json' => true,
             ], $output);
@@ -410,7 +410,7 @@ final class AtlasLoopWeeklyAgendaProposalService
                 'Restaurar cobertura de custo antes de roteamento ou governador',
                 "Cost coverage is {$costCoverage}% across {$costEvents} telemetry event(s).",
                 'Repair measured cost capture before starting L5-6 or L5-7.',
-                ['atlas:loop:morning-digest --json', 'atlas:fable:delta-series --report --json'],
+                ['atlas:loop:morning-digest --json', 'atlas:acos:delta-series --report --json'],
             );
         }
 

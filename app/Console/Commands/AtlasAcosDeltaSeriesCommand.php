@@ -36,7 +36,7 @@ class AtlasAcosDeltaSeriesCommand extends Command
         {--baseline= : Caminho do JSON do Marco Zero (default: o congelado de 12/06)}
         {--series= : Caminho do JSONL da série (default: storage evidence)}
         {--date= : Data do snapshot YYYY-MM-DD (default: hoje)}
-        {--allow-past-date= : Set 1 to allow --date != today (TESTS ONLY — EVI-04)}
+        {--allow-past-date= : Passe 1 para permitir --date ≠ hoje (SÓ TESTES — EVI-04)}
         {--report : Emite o relatório final N×M (tendência primeiro-vs-último)}
         {--json : Saída JSON canônica}';
 
@@ -125,13 +125,13 @@ class AtlasAcosDeltaSeriesCommand extends Command
             return $today;
         }
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
-            throw new \InvalidArgumentException('atlas:acos:delta-series --date must be YYYY-MM-DD, got: '.$date);
+            throw new \InvalidArgumentException('atlas:acos:delta-series --date deve ser YYYY-MM-DD, recebido: '.$date);
         }
-        // EVI-04: refuse silent rewrite of a past day unless tests opt in.
+        // EVI-04: recusa rewrite silencioso de dia passado, salvo opt-in de teste.
         if ($date !== $today && ! filter_var((string) $this->option('allow-past-date'), FILTER_VALIDATE_BOOLEAN)) {
             throw new \InvalidArgumentException(
-                'atlas:acos:delta-series refuses --date='.$date.' (today='.$today.'). '
-                .'Catch-up is same-day only; past days stay lost. Tests may pass --allow-past-date.'
+                'atlas:acos:delta-series recusa --date='.$date.' (hoje='.$today.'). '
+                .'Catch-up é só same-day; dia perdido fica perdido. Testes podem passar --allow-past-date=1.'
             );
         }
 
