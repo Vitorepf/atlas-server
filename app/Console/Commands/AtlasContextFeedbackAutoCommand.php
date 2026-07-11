@@ -71,7 +71,10 @@ final class AtlasContextFeedbackAutoCommand extends Command
             $delivered = $this->deliveredContextRefsForTranscriptHashes($hashes);
             $resolvedHashes = (array) ($delivered['resolved_hashes'] ?? []);
             $captureHashes = $resolvedHashes !== [] ? $resolvedHashes : $hashes;
-            $deliveredRefs = (array) ($delivered['delivered_refs'] ?? []);
+            $deliveredRefs = AtlasCanonicalContextRef::uniqueStrings([
+                ...(array) ($delivered['delivered_refs'] ?? []),
+                ...$this->deliveredMemoryRefsFromTranscriptMarkers($contents),
+            ]);
             $usedRefs = $this->inferUsedContextRefs($deliveredRefs, $contents);
             $outcome = $this->inferStructuredOutcome($contents);
 
@@ -125,6 +128,110 @@ final class AtlasContextFeedbackAutoCommand extends Command
         } catch (Throwable) {
             return ['resolved_hashes' => [], 'delivered_refs' => []];
         }
+    }
+
+    /**
+     * UserPromptSubmit can inject the full pack marker before the delivered-pack
+     * ledger exists or can be resolved. Extract only provider-safe memory ids and
+     * slugs from structured JSON markers; prose remains ignored.
+     *
+     * @return array<int,string>
+     */
+    private function deliveredMemoryRefsFromTranscriptMarkers(string $transcript): array
+    {
+        $refs = [];
+        foreach (preg_split('/\R/', $transcript) ?: [] as $line) {
+            $decoded = json_decode(trim($line), true);
+            if (! is_array($decoded)) {
+                continue;
+            }
+
+            foreach ($this->memoryRefsFromMarkerNode($decoded) as $ref) {
+                $refs[] = $ref;
+            }
+        }
+
+        return AtlasCanonicalContextRef::uniqueStrings($refs);
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function memoryRefsFromMarkerNode(mixed $node): array
+    {
+        if (! is_array($node)) {
+            return [];
+        }
+
+        $refs = [];
+        foreach (['delivered_context_refs', 'context_refs'] as $key) {
+            foreach ($this->flattenMarkerScalars($node[$key] ?? []) as $value) {
+                if ($this->isProviderSafeMemoryMarkerRef($value)) {
+                    $refs[] = $value;
+                }
+            }
+        }
+
+        foreach ((array) ($node['memory'] ?? []) as $memory) {
+            if (! is_array($memory)) {
+                continue;
+            }
+            $id = trim((string) ($memory['id'] ?? ''));
+            if ($id !== '' && $this->isProviderSafeMemoryMarkerRef($id)) {
+                $refs[] = $id;
+            }
+            $slug = trim((string) ($memory['slug'] ?? ''));
+            if ($slug !== '') {
+                $refs[] = 'memory:'.$slug;
+            }
+        }
+
+        foreach ($node as $value) {
+            foreach ($this->memoryRefsFromMarkerNode($value) as $ref) {
+                $refs[] = $ref;
+            }
+        }
+
+        return $refs;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function flattenMarkerScalars(mixed $value): array
+    {
+        if (is_scalar($value)) {
+            return [trim((string) $value)];
+        }
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($value as $item) {
+            foreach ($this->flattenMarkerScalars($item) as $scalar) {
+                $strings[] = $scalar;
+            }
+        }
+
+        return $strings;
+    }
+
+    private function isProviderSafeMemoryMarkerRef(string $ref): bool
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return false;
+        }
+        $lower = strtolower($ref);
+        if (str_starts_with($lower, 'memory:')
+            || str_starts_with($lower, 'atlas_memory_entry:')
+            || str_starts_with($lower, 'compounding_memory:')
+            || str_starts_with($lower, 'ai_compounding_memory:')) {
+            return true;
+        }
+
+        return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $ref) === 1;
     }
 
     /**

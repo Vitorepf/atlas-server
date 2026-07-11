@@ -95,6 +95,56 @@ final class ContextFeedbackAutoCommandTest extends TestCase
         }
     }
 
+    public function test_user_prompt_submit_pack_marker_memory_refs_are_captured_without_structured_outcome(): void
+    {
+        $this->bootCompoundingSchema();
+        $hash = str_repeat('e', 64);
+        $memoryId = '019f5191-c035-7128-b128-487e985126e5';
+        $transcript = tempnam(sys_get_temp_dir(), 'atlas-feedback-auto-pack-marker-');
+        file_put_contents($transcript, implode("\n", [
+            'UserPromptSubmit injected Atlas pack marker context_pack_hash='.substr($hash, 0, 16),
+            json_encode([
+                'context_feedback_request' => [
+                    'delivered_context_refs' => [
+                        'memory:lift-ref-abc123',
+                    ],
+                ],
+                'memory' => [
+                    [
+                        'id' => $memoryId,
+                        'slug' => 'loop-morto-autonomos-vivo',
+                    ],
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'Resumo final em prosa: testes passaram, sem tool result estruturado.',
+        ]));
+
+        try {
+            $exit = Artisan::call('atlas:context:feedback-auto', [
+                '--transcript' => $transcript,
+                '--json' => true,
+            ]);
+            $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+            $this->assertSame(0, $exit);
+            $this->assertSame('captured', $payload['status']);
+            $this->assertSame('unknown', $payload['outcome']);
+            $this->assertEqualsCanonicalizing([
+                'memory:lift-ref-abc123',
+                $memoryId,
+                'memory:loop-morto-autonomos-vivo',
+            ], $payload['delivered_context_refs']);
+
+            $event = AiRagFeedbackEvent::query()->where('flow_id', 'claude.session.auto')->firstOrFail();
+            $this->assertSame('unknown', $event->outcome_status);
+            $eventDeliveredRefs = data_get($event->payload, 'payload.context_ref_attribution.delivered_refs.*.ref');
+            $this->assertEmpty(array_diff($payload['delivered_context_refs'], $eventDeliveredRefs));
+        } finally {
+            @unlink($transcript);
+            $this->dropCompoundingSchema();
+        }
+    }
+
     public function test_structured_bash_exit_code_derives_outcome_and_transcript_inferred_quality(): void
     {
         $this->bootCompoundingSchema();
