@@ -40,6 +40,7 @@ final class AtlasTaskScopedCommitter
         private readonly ?AtlasLoopHarnessGuard $guard = null,
         private readonly ?string $repoRootOverride = null,
         private readonly ?EliteExecutorKernel $eliteKernel = null,
+        private readonly ?AtlasArtisanBootSmokeGate $bootSmokeGate = null,
     ) {}
 
     /**
@@ -84,7 +85,17 @@ final class AtlasTaskScopedCommitter
             return $this->result(false, 'not_a_git_repo', taskPacketId: $taskPacketId);
         }
 
-        return $this->withCommitLock($repo, function () use ($repo, $files, $taskPacketId, $clientId, $objective, $certify): array {
+        $bootSmoke = ($this->bootSmokeGate ?? app(AtlasArtisanBootSmokeGate::class))
+            ->differentialForScopedCommit($repo, $files);
+        if (($bootSmoke['introduced_failure'] ?? false) === true) {
+            return $this->result(false, 'boot_smoke_introduced_failure', taskPacketId: $taskPacketId, extra: [
+                'give_back' => true,
+                'boot_smoke' => $bootSmoke,
+                'stderr' => (string) data_get($bootSmoke, 'snapshot.stderr_tail', ''),
+            ]);
+        }
+
+        return $this->withCommitLock($repo, function () use ($repo, $files, $taskPacketId, $clientId, $objective, $certify, $bootSmoke): array {
             // STATUS-FIRST: `git status` on the scope never errors on a path that does not exist; `git add` of a
             // non-existent pathspec DOES error. So discover which scoped paths actually changed, and act only on
             // those. Empty ⇒ the AI made no edits ⇒ honest no-op (keep the lease).
@@ -116,6 +127,7 @@ final class AtlasTaskScopedCommitter
                 'files_committed' => $files,
                 'client_id' => $clientId,
                 'landing_certify' => $certify,
+                'boot_smoke' => ($bootSmoke['warning'] ?? null) !== null ? $bootSmoke : null,
             ], static fn (mixed $v): bool => $v !== null));
         });
     }

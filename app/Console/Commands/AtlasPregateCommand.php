@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Engineering\EngineeringQualityScanService;
+use App\Services\Ai\SelfConstruction\AtlasArtisanBootSmokeGate;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
@@ -65,6 +66,14 @@ class AtlasPregateCommand extends Command
             $stan = $this->proc(['vendor/bin/phpstan', 'analyse', '--no-progress', '--memory-limit=3G', ...$php], 120);
             $checks[] = ['tool' => 'phpstan', 'ok' => $stan['code'] === 0, 'output' => $stan['code'] === 0 ? null : trim($stan['out'] ?: $stan['err'])];
         }
+
+        // 4) EVI-03 — artisan boot smoke in an isolated subprocess (live tree).
+        $boot = app(AtlasArtisanBootSmokeGate::class)->smokeLiveTree(base_path());
+        $checks[] = [
+            'tool' => 'artisan boot smoke',
+            'ok' => ($boot['ok'] ?? false) === true,
+            'output' => ($boot['ok'] ?? false) === true ? null : (string) ($boot['stderr_tail'] ?? 'boot_smoke_failed'),
+        ];
 
         $elapsed = round(microtime(true) - $started, 2);
         $ok = ! collect($checks)->contains(fn ($c) => ($c['ok'] ?? true) === false);
