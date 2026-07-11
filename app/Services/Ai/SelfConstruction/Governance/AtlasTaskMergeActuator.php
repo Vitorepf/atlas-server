@@ -6,10 +6,15 @@ namespace App\Services\Ai\SelfConstruction\Governance;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
+use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPolicy;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -74,6 +79,8 @@ final class AtlasTaskMergeActuator
 
     public const ACTION_REVERT_TASK = 'revert_task';
 
+    public const ACTION_COMMIT = 'commit';
+
     private const LOCK_TIMEOUT_SECONDS = 15.0;
 
     private const LOCK_POLL_MICROSECONDS = 50_000;
@@ -81,13 +88,21 @@ final class AtlasTaskMergeActuator
     /** @var (\Closure(string):list<string>)|null */
     private readonly ?\Closure $allowedFilesResolver;
 
+    /** @var (\Closure(string,int):bool)|null */
+    private readonly ?\Closure $leaseValidator;
+
     public function __construct(
         private readonly ?AtlasLoopHarnessGuard $guard = null,
         private readonly ?string $repoRootOverride = null,
         private readonly ?AtlasMergeGovernorReleaseDecisionLedger $ledgerOverride = null,
         ?\Closure $allowedFilesResolver = null,
+        private readonly ?AtlasEvidenceLedger $evidenceLedger = null,
+        private readonly ?AtlasTaskScopedCommitter $scopedCommitter = null,
+        ?\Closure $leaseValidator = null,
+        private readonly ?KernelEvidenceAuthority $kernelEvidenceAuthority = null,
     ) {
         $this->allowedFilesResolver = $allowedFilesResolver;
+        $this->leaseValidator = $leaseValidator;
     }
 
     /**
@@ -189,6 +204,9 @@ final class AtlasTaskMergeActuator
      */
     public function act(AuthorizedMergeAction $action): array
     {
+        if ($action->action === self::ACTION_COMMIT) {
+            return $this->actCommit($action);
+        }
         if ($action->action !== self::ACTION_REVERT_TASK) {
             return $this->zeroEffect($action->taskPacketId, $action->dryRun(), 'unsupported_action', [
                 'action' => $action->action,
@@ -266,6 +284,199 @@ final class AtlasTaskMergeActuator
                 'settlement' => $settlement,
             ];
         });
+    }
+
+    /** @return array<string,mixed> */
+    private function actCommit(AuthorizedMergeAction $action): array
+    {
+        $committer = $this->scopedCommitter ?? new AtlasTaskScopedCommitter(repoRootOverride: $this->repoRoot());
+
+        return $committer->withGovernedCommitLock(fn (): array => $this->actCommitUnderGovernedLock($action, $committer));
+    }
+
+    /** @return array<string,mixed> */
+    private function actCommitUnderGovernedLock(AuthorizedMergeAction $action, AtlasTaskScopedCommitter $committer): array
+    {
+        $validated = $this->validateCanonicalCommitAuthority($action);
+        if (($validated['ok'] ?? false) !== true) {
+            return $this->zeroEffect($action->taskPacketId, false, (string) ($validated['reason'] ?? self::REASON_AUTHORITY_NOT_PERSISTED), $validated);
+        }
+
+        $result = $committer->commitScope(
+            $action->files,
+            $action->taskPacketId,
+            (string) ($action->metadata['client_id'] ?? 'atlas-merge-governor'),
+            (string) ($action->metadata['objective'] ?? 'land verified candidate'),
+            governedLockAlreadyHeld: true,
+            preEffectGuard: fn (): bool => ($this->validateCanonicalCommitAuthority($action)['ok'] ?? false) === true,
+        );
+        if (($result['committed'] ?? false) !== true) {
+            return array_merge($result, ['zero_effect' => true, 'authorized_merge_action' => $action->toArray()]);
+        }
+
+        $sha = (string) ($result['commit_sha'] ?? '');
+        try {
+            $settlement = $this->canonicalLedger()->record(LedgerEventType::ReleaseLanded, [
+                'event_name' => 'release.landed',
+                'task_packet_id' => $action->taskPacketId,
+                'authorization_event_id' => $action->canonicalEventId,
+                'authorization_event_hash' => $action->canonicalEventHash,
+                'nonce' => $action->nonce,
+                'commit_sha' => $sha,
+                'changed_files' => $action->files,
+                'scope_hash' => $action->scopeHash,
+                'provenance' => ['emitter' => 'atlas.merge_actuator', 'sovereign' => true],
+            ], [
+                'correlation_id' => $action->nonce,
+                'causation_id' => $action->canonicalEventId,
+                'scope_type' => 'task_packet',
+                'scope_id' => $action->taskPacketId,
+                'emitter_stage' => 'atlas.merge_actuator',
+            ]);
+        } catch (Throwable $e) {
+            $settlement = null;
+            $settlementError = $e::class;
+        }
+        if ($settlement === null) {
+            return [
+                'schema' => self::SCHEMA,
+                'task_packet_id' => $action->taskPacketId,
+                'committed' => true,
+                'release_uncertain' => true,
+                'resolved' => false,
+                'reason' => self::REASON_POST_EFFECT_PERSISTENCE_FAILED,
+                'commit_sha' => $sha,
+                'files' => $action->files,
+                'settlement_error' => $settlementError ?? 'canonical_ledger_unavailable',
+            ];
+        }
+
+        return [
+            'schema' => self::SCHEMA,
+            'task_packet_id' => $action->taskPacketId,
+            'committed' => true,
+            'resolved' => false,
+            'status' => 'landed_pending_canary',
+            'commit_sha' => $sha,
+            'files' => $action->files,
+            'settlement_event_id' => (string) $settlement->event_id,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function validateCanonicalCommitAuthority(AuthorizedMergeAction $action): array
+    {
+        if ($action->authorityHash === '' || ! $action->authorityHashValid()) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED];
+        }
+        if ($action->revoked) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_REVOKED];
+        }
+        if ($action->canonicalEventId === '' || $action->canonicalEventHash === '' || $action->nonce === '') {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_NOT_PERSISTED];
+        }
+        if ($action->expiresAt === '' || strtotime($action->expiresAt) === false || strtotime($action->expiresAt) <= time()) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_STALE];
+        }
+
+        $ledger = $this->canonicalLedger();
+        $event = $ledger->eventById($action->canonicalEventId);
+        $authority = $this->kernelEvidenceAuthority ?? app(KernelEvidenceAuthority::class);
+        if ($event === null || ! $authority->verifyReleaseAuthorization($event)) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_NOT_PERSISTED];
+        }
+        $persistedHash = (string) ($event->event_hash ?: $event->payload_hash);
+        if (! hash_equals($persistedHash, $action->canonicalEventHash)) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED];
+        }
+        $payload = is_array($event->payload) ? $event->payload : [];
+        $bindings = [
+            'event_name' => 'release.authorized',
+            'task_packet_id' => $action->taskPacketId,
+            'action' => self::ACTION_COMMIT,
+            'candidate_hash' => $action->candidateHash,
+            'decision_hash' => $action->decisionHash,
+            'verification_hash' => $action->verificationHash,
+            'rollback_hash' => $action->rollbackHash,
+            'scope_hash' => $action->scopeHash,
+            'base_commit' => $action->baseCommit,
+            'tree_hash' => $action->treeHash,
+            'lease_id' => $action->leaseId,
+            'lease_owner' => (string) ($action->metadata['lease_owner'] ?? ''),
+            'fencing_token' => $action->fencingToken,
+            'nonce' => $action->nonce,
+            'issued_at' => $action->issuedAt,
+            'expires_at' => $action->expiresAt,
+        ];
+        foreach ($bindings as $key => $expected) {
+            if (($payload[$key] ?? null) !== $expected) {
+                return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED, 'binding' => $key];
+            }
+        }
+        $eventFiles = array_values(array_map('strval', (array) ($payload['changed_files'] ?? [])));
+        sort($eventFiles, SORT_STRING);
+        $actionFiles = $action->files;
+        sort($actionFiles, SORT_STRING);
+        if ($eventFiles !== $actionFiles || ! str_starts_with((string) ($payload['rollback_posture'] ?? ''), 'revertible:')) {
+            return ['ok' => false, 'reason' => self::REASON_AUTHORITY_TAMPERED, 'binding' => 'files_or_rollback_posture'];
+        }
+        if ($ledger->latestForCorrelation($action->nonce, 'release.landed') !== null) {
+            return ['ok' => false, 'reason' => 'authority_nonce_replayed'];
+        }
+
+        $repo = $this->repoRoot();
+        $head = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
+        if ($head === '' || ! hash_equals($action->baseCommit, $head)) {
+            return ['ok' => false, 'reason' => 'stale_base_commit'];
+        }
+        $files = $action->files;
+        sort($files, SORT_STRING);
+        if ($files === [] || ! hash_equals($action->scopeHash, $this->canonicalScopeHash($files))) {
+            return ['ok' => false, 'reason' => self::REASON_OUT_OF_SCOPE_FILE];
+        }
+        $allowed = $this->resolveAllowedFiles($action->taskPacketId);
+        sort($allowed, SORT_STRING);
+        if ($allowed === [] || $files !== $allowed) {
+            return ['ok' => false, 'reason' => self::REASON_OUT_OF_SCOPE_FILE];
+        }
+        $diff = (string) $this->git($repo, array_merge(['diff', '--binary', '--'], $files))['out'];
+        if (! hash_equals($action->treeHash, hash('sha256', $diff))) {
+            return ['ok' => false, 'reason' => 'stale_candidate_tree'];
+        }
+        if (! $this->leaseIsLive($action->leaseId, (string) ($action->metadata['lease_owner'] ?? ''), $action->fencingToken)) {
+            return ['ok' => false, 'reason' => 'lost_lease_or_fencing'];
+        }
+
+        return ['ok' => true];
+    }
+
+    /** @param list<string> $files */
+    private function canonicalScopeHash(array $files): string
+    {
+        return hash('sha256', (string) json_encode(array_values($files), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private function canonicalLedger(): AtlasEvidenceLedger
+    {
+        return $this->evidenceLedger ?? app(AtlasEvidenceLedger::class);
+    }
+
+    private function leaseIsLive(string $leaseId, string $leaseOwner, int $fencingToken): bool
+    {
+        if ($this->leaseValidator !== null) {
+            return ($this->leaseValidator)($leaseId, $fencingToken, $leaseOwner);
+        }
+        if ($leaseId === '' || $leaseOwner === '' || $fencingToken < 1 || ! Schema::hasTable('atlas_task_scope_reservations')) {
+            return false;
+        }
+
+        return DB::table('atlas_task_scope_reservations')
+            ->where('id', $leaseId)
+            ->where('state', 'active')
+            ->where('lease_owner', $leaseOwner)
+            ->where('fencing_token', $fencingToken)
+            ->where('lease_expires_at', '>', now())
+            ->exists();
     }
 
     /**

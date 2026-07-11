@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Governance;
 
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
+use App\Services\Ai\EngineeringKernel\CanonicalReleaseAuthorizationRequest;
+use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPolicy;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRiskClassifier;
@@ -12,6 +16,7 @@ use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRollbackPla
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtFalseGreenDetector;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtGateReplayPlan;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -19,7 +24,7 @@ use Throwable;
  * about-to-land commit and RECORDS the verdict, so the Merge Governor and the Verification Court finally run
  * on real, live deliveries instead of sitting as standalone CLIs nobody calls.
  *
- * It sits in {@see \App\Services\Ai\SelfConstruction\AtlasTaskServingService::report()} between the Fase-2
+ * It sits in {@see AtlasTaskServingService::report()} between the Fase-2
  * server verification and the scoped commit, and chains four pure organs + two append-only ledgers:
  *   RiskClassifier (blast radius) → RollbackPlanGate (revertibility) → AdmissionPolicy (admit/reject/repair/block)
  *   → VerdictLedger (court record) + ReleaseDecisionLedger (governor record).
@@ -62,6 +67,8 @@ final class AtlasTaskCommitGovernanceChain
         private readonly ?AtlasVerificationCourtFalseGreenDetector $falseGreenDetector = null,
         private readonly ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
         private readonly ?AtlasVerificationCourtGateReplayPlan $replayPlan = null,
+        private readonly ?AtlasEvidenceLedger $evidenceLedger = null,
+        private readonly ?KernelEvidenceAuthority $kernelEvidenceAuthority = null,
     ) {
         $this->clock = $clock ?? static fn (): string => now()->toIso8601String();
     }
@@ -247,7 +254,7 @@ final class AtlasTaskCommitGovernanceChain
             }
 
             $enforcedBlock = $mode === self::MODE_ENFORCE && ! $admitted;
-            $authority = $admitted ? $this->authorizedActionFromRecorded($recorded, $changed, $budgetPosture) : null;
+            $authority = $admitted ? $this->authorizedActionFromRecorded($recorded, $changed, $budgetPosture, $context) : null;
 
             return $this->envelope($mode, $admitted, $enforcedBlock, $decision, (string) $risk['risk_level'], $blockers, $recorded, null, $replayVerdict, $planHash, $missingRerun, $authority);
         } catch (Throwable $e) {
@@ -373,11 +380,52 @@ final class AtlasTaskCommitGovernanceChain
      * @param  list<string>  $changed
      * @return array<string,mixed>|null
      */
-    private function authorizedActionFromRecorded(array $recorded, array $changed, string $budgetPosture): ?array
+    private function authorizedActionFromRecorded(array $recorded, array $changed, string $budgetPosture, array $context): ?array
     {
         $row = is_array($recorded['release_row'] ?? null) ? $recorded['release_row'] : null;
         $ledgerPath = trim((string) ($recorded['release_ledger_path'] ?? ''));
         if ($row === null || $ledgerPath === '') {
+            return null;
+        }
+
+        $baseCommit = trim((string) ($context['base_commit'] ?? ''));
+        $treeHash = trim((string) ($context['tree_hash'] ?? ''));
+        $leaseId = trim((string) ($context['lease_id'] ?? ''));
+        $leaseOwner = trim((string) ($context['lease_owner'] ?? ''));
+        $fencingToken = (int) ($context['fencing_token'] ?? 0);
+        if ($baseCommit === '' || $treeHash === '' || $leaseId === '' || $leaseOwner === '' || $fencingToken < 1) {
+            return null;
+        }
+
+        $scopeHash = $this->deterministicHash($changed);
+        $nonce = (string) Str::uuid();
+        $issuedAt = trim((string) ($row['decided_at'] ?? ($this->clock)()));
+        $expiresAt = date(DATE_ATOM, strtotime($issuedAt) + 300);
+        try {
+            $authority = $this->kernelEvidenceAuthority ?? app(KernelEvidenceAuthority::class);
+            $event = $authority->issueReleaseAuthorization(new CanonicalReleaseAuthorizationRequest(
+                releaseLedgerPath: $ledgerPath,
+                decisionHash: (string) ($row['decision_hash'] ?? ''),
+                files: $changed,
+                scopeHash: $scopeHash,
+                baseCommit: $baseCommit,
+                treeHash: $treeHash,
+                leaseId: $leaseId,
+                leaseOwner: $leaseOwner,
+                fencingToken: $fencingToken,
+                nonce: $nonce,
+                issuedAt: $issuedAt,
+                expiresAt: $expiresAt,
+                context: [
+                    'correlation_id' => $nonce,
+                    'scope_type' => 'task_packet',
+                    'scope_id' => (string) ($row['task_packet_id'] ?? ''),
+                ],
+            ));
+        } catch (Throwable) {
+            return null;
+        }
+        if ($event === null) {
             return null;
         }
 
@@ -390,6 +438,17 @@ final class AtlasTaskCommitGovernanceChain
                 // This posture may buy more verification work upstream, but never a broader
                 // authority class, longer TTL, or wider MergeActuator permission.
                 'budget_posture' => $budgetPosture !== '' ? $budgetPosture : 'default',
+                'lease_owner' => $leaseOwner,
+            ],
+            canonicalBinding: [
+                'event_id' => (string) $event->event_id,
+                'event_hash' => (string) ($event->event_hash ?: $event->payload_hash),
+                'nonce' => $nonce,
+                'base_commit' => $baseCommit,
+                'tree_hash' => $treeHash,
+                'scope_hash' => $scopeHash,
+                'lease_id' => $leaseId,
+                'fencing_token' => $fencingToken,
             ],
         )->toArray();
     }

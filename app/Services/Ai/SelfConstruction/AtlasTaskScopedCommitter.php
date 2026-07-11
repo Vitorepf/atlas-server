@@ -6,6 +6,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
+use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use Symfony\Component\Process\Process;
@@ -63,6 +64,8 @@ final class AtlasTaskScopedCommitter
         string $clientId,
         string $objective = '',
         ?array $verification = null,
+        bool $governedLockAlreadyHeld = false,
+        ?callable $preEffectGuard = null,
     ): array {
         $files = $this->normalizeFiles($allowedFiles);
         if ($files === []) {
@@ -102,7 +105,7 @@ final class AtlasTaskScopedCommitter
             ]);
         }
 
-        return $this->withCommitLock($repo, function () use ($repo, $files, $taskPacketId, $clientId, $objective, $certify, $bootSmoke): array {
+        $effect = function () use ($repo, $files, $taskPacketId, $clientId, $objective, $certify, $bootSmoke, $preEffectGuard): array {
             // STATUS-FIRST: `git status` on the scope never errors on a path that does not exist; `git add` of a
             // non-existent pathspec DOES error. So discover which scoped paths actually changed, and act only on
             // those. Empty ⇒ the AI made no edits ⇒ honest no-op (keep the lease).
@@ -112,6 +115,12 @@ final class AtlasTaskScopedCommitter
             $changed = $this->changedPaths((string) $status['out']);
             if ($changed === []) {
                 return $this->result(false, 'nothing_to_commit_in_scope', taskPacketId: $taskPacketId);
+            }
+
+            // Final sovereign replay at the mutation boundary. The Governor supplies this
+            // while holding the same merge lock, closing lease/base/tree takeover races.
+            if ($preEffectGuard !== null && $preEffectGuard() !== true) {
+                return $this->result(false, 'governed_pre_effect_revalidation_failed', taskPacketId: $taskPacketId);
             }
 
             // Stage ONLY the changed scoped paths.
@@ -136,7 +145,15 @@ final class AtlasTaskScopedCommitter
                 'landing_certify' => $certify,
                 'boot_smoke' => ($bootSmoke['warning'] ?? null) !== null ? $bootSmoke : null,
             ], static fn (mixed $v): bool => $v !== null));
-        });
+        };
+
+        return $governedLockAlreadyHeld ? $effect() : $this->withCommitLock($repo, $effect);
+    }
+
+    /** @param callable():array<string,mixed> $callback @return array<string,mixed> */
+    public function withGovernedCommitLock(callable $callback): array
+    {
+        return $this->withCommitLock($this->repoRoot(), $callback);
     }
 
     /**
@@ -225,7 +242,7 @@ final class AtlasTaskScopedCommitter
     }
 
     private function landingCertifyAllowsCommit(
-        \App\Services\Ai\EngineeringKernel\CertVerdict $verdict,
+        CertVerdict $verdict,
         array $verification,
         bool $hasDeclaredTests,
         bool $countsParseable,
@@ -320,6 +337,7 @@ final class AtlasTaskScopedCommitter
         foreach ($entries as $entry) {
             if ($skipNext) {
                 $skipNext = false;
+
                 continue;
             }
             if (strlen($entry) < 3) {

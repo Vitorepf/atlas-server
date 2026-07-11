@@ -9,10 +9,12 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate;
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Obra\AtlasBlastRadiusService;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 /**
@@ -33,6 +35,7 @@ final class PreLandSeamTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        (require database_path('migrations/2026_07_09_160000_repair_missing_atlas_ledger_events_table.php'))->up();
         $this->tmp = sys_get_temp_dir().'/atlas_preland_'.uniqid('', true);
         @mkdir($this->tmp, 0775, true);
         $this->feedback = new AtlasDecideLiveOutcomeFeedbackService;
@@ -45,6 +48,7 @@ final class PreLandSeamTest extends TestCase
             @unlink($f);
         }
         @rmdir($this->tmp);
+        Schema::dropIfExists('atlas_ledger_events');
         parent::tearDown();
     }
 
@@ -187,6 +191,7 @@ final class PreLandSeamTest extends TestCase
             releaseLedger: new AtlasMergeGovernorReleaseDecisionLedger($this->tmp.'/release.jsonl'),
             clock: static fn (): string => '2026-01-01T00:00:00+00:00',
             modeOverride: AtlasTaskCommitGovernanceChain::MODE_ENFORCE,
+            evidenceLedger: $this->app->make(AtlasEvidenceLedger::class),
         );
 
         $out = $chain->govern([
@@ -195,6 +200,11 @@ final class PreLandSeamTest extends TestCase
             'changed_files' => ['app/Services/Ai/EngineeringKernel/MergeActuator.php'],
             'verification' => ['passed' => true, 'evidence_hash' => 'ev-authority'],
             'budget_posture' => 'unbounded_quality_first',
+            'base_commit' => str_repeat('a', 40),
+            'tree_hash' => str_repeat('b', 64),
+            'lease_id' => 'lease-authority',
+            'lease_owner' => 'owner-authority',
+            'fencing_token' => 7,
         ]);
 
         $this->assertTrue($out['admitted']);
@@ -205,6 +215,12 @@ final class PreLandSeamTest extends TestCase
         $this->assertSame('commit', $action->action);
         $this->assertSame('unbounded_quality_first', $action->metadata['budget_posture']);
         $this->assertSame(['app/Services/Ai/EngineeringKernel/MergeActuator.php'], $action->files);
+        $this->assertNotSame('', $action->canonicalEventId);
+        $this->assertNotSame('', $action->canonicalEventHash);
+        $event = $this->app->make(AtlasEvidenceLedger::class)->eventById($action->canonicalEventId);
+        $this->assertNotNull($event);
+        $this->assertSame('release.authorized', data_get($event?->payload, 'event_name'));
+        $this->assertSame($action->nonce, data_get($event?->payload, 'nonce'));
         $this->assertNotEmpty((new AtlasMergeGovernorReleaseDecisionLedger($this->tmp.'/release.jsonl'))->all());
     }
 }

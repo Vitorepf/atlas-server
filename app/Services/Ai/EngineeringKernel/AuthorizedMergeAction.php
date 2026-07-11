@@ -40,6 +40,14 @@ final readonly class AuthorizedMergeAction
         public ?string $settlementLedgerPath = null,
         public array $metadata = [],
         public string $authorityHash = '',
+        public string $canonicalEventId = '',
+        public string $canonicalEventHash = '',
+        public string $nonce = '',
+        public string $baseCommit = '',
+        public string $treeHash = '',
+        public string $scopeHash = '',
+        public string $leaseId = '',
+        public int $fencingToken = 0,
     ) {
         if ($this->action === '') {
             throw new InvalidArgumentException('authorized merge action: missing action');
@@ -71,6 +79,7 @@ final readonly class AuthorizedMergeAction
         int $ttlSeconds = 300,
         ?string $settlementLedgerPath = null,
         array $metadata = [],
+        array $canonicalBinding = [],
     ): self {
         $taskId = trim((string) ($row['task_packet_id'] ?? ''));
         $candidateHash = trim((string) ($row['candidate_hash'] ?? ''));
@@ -94,6 +103,14 @@ final readonly class AuthorizedMergeAction
             expiresAt: $expiresAt,
             settlementLedgerPath: $settlementLedgerPath,
             metadata: $metadata,
+            canonicalEventId: (string) ($canonicalBinding['event_id'] ?? ''),
+            canonicalEventHash: (string) ($canonicalBinding['event_hash'] ?? ''),
+            nonce: (string) ($canonicalBinding['nonce'] ?? ''),
+            baseCommit: (string) ($canonicalBinding['base_commit'] ?? ''),
+            treeHash: (string) ($canonicalBinding['tree_hash'] ?? ''),
+            scopeHash: (string) ($canonicalBinding['scope_hash'] ?? ''),
+            leaseId: (string) ($canonicalBinding['lease_id'] ?? ''),
+            fencingToken: (int) ($canonicalBinding['fencing_token'] ?? 0),
         );
 
         if ((string) ($row['decision'] ?? '') !== AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED) {
@@ -124,6 +141,14 @@ final readonly class AuthorizedMergeAction
             settlementLedgerPath: isset($payload['settlement_ledger_path']) ? (string) $payload['settlement_ledger_path'] : null,
             metadata: is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
             authorityHash: (string) ($payload['authority_hash'] ?? ''),
+            canonicalEventId: (string) ($payload['canonical_event_id'] ?? ''),
+            canonicalEventHash: (string) ($payload['canonical_event_hash'] ?? ''),
+            nonce: (string) ($payload['nonce'] ?? ''),
+            baseCommit: (string) ($payload['base_commit'] ?? ''),
+            treeHash: (string) ($payload['tree_hash'] ?? ''),
+            scopeHash: (string) ($payload['scope_hash'] ?? ''),
+            leaseId: (string) ($payload['lease_id'] ?? ''),
+            fencingToken: (int) ($payload['fencing_token'] ?? 0),
         );
     }
 
@@ -149,6 +174,14 @@ final readonly class AuthorizedMergeAction
             'settlement_ledger_path' => $this->settlementLedgerPath,
             'metadata' => $this->metadata,
             'authority_hash' => $this->authorityHash !== '' ? $this->authorityHash : $this->computeAuthorityHash(),
+            'canonical_event_id' => $this->canonicalEventId,
+            'canonical_event_hash' => $this->canonicalEventHash,
+            'nonce' => $this->nonce,
+            'base_commit' => $this->baseCommit,
+            'tree_hash' => $this->treeHash,
+            'scope_hash' => $this->scopeHash,
+            'lease_id' => $this->leaseId,
+            'fencing_token' => $this->fencingToken,
         ];
     }
 
@@ -184,6 +217,14 @@ final readonly class AuthorizedMergeAction
             revoked: $this->revoked,
             settlementLedgerPath: $this->settlementLedgerPath,
             metadata: array_replace($this->metadata, $metadata),
+            canonicalEventId: $this->canonicalEventId,
+            canonicalEventHash: $this->canonicalEventHash,
+            nonce: $this->nonce,
+            baseCommit: $this->baseCommit,
+            treeHash: $this->treeHash,
+            scopeHash: $this->scopeHash,
+            leaseId: $this->leaseId,
+            fencingToken: $this->fencingToken,
         )->withAuthorityHash();
     }
 
@@ -206,6 +247,14 @@ final readonly class AuthorizedMergeAction
             revoked: $this->revoked,
             settlementLedgerPath: $path,
             metadata: $this->metadata,
+            canonicalEventId: $this->canonicalEventId,
+            canonicalEventHash: $this->canonicalEventHash,
+            nonce: $this->nonce,
+            baseCommit: $this->baseCommit,
+            treeHash: $this->treeHash,
+            scopeHash: $this->scopeHash,
+            leaseId: $this->leaseId,
+            fencingToken: $this->fencingToken,
         )->withAuthorityHash();
     }
 
@@ -228,6 +277,14 @@ final readonly class AuthorizedMergeAction
             revoked: $revoked,
             settlementLedgerPath: $this->settlementLedgerPath,
             metadata: $this->metadata,
+            canonicalEventId: $this->canonicalEventId,
+            canonicalEventHash: $this->canonicalEventHash,
+            nonce: $this->nonce,
+            baseCommit: $this->baseCommit,
+            treeHash: $this->treeHash,
+            scopeHash: $this->scopeHash,
+            leaseId: $this->leaseId,
+            fencingToken: $this->fencingToken,
         )->withAuthorityHash();
     }
 
@@ -250,6 +307,14 @@ final readonly class AuthorizedMergeAction
             revoked: $this->revoked,
             settlementLedgerPath: $this->settlementLedgerPath,
             metadata: $this->metadata,
+            canonicalEventId: $this->canonicalEventId,
+            canonicalEventHash: $this->canonicalEventHash,
+            nonce: $this->nonce,
+            baseCommit: $this->baseCommit,
+            treeHash: $this->treeHash,
+            scopeHash: $this->scopeHash,
+            leaseId: $this->leaseId,
+            fencingToken: $this->fencingToken,
         )->withAuthorityHash();
     }
 
@@ -285,6 +350,14 @@ final readonly class AuthorizedMergeAction
             settlementLedgerPath: $this->settlementLedgerPath,
             metadata: $this->metadata,
             authorityHash: $this->computeAuthorityHash(),
+            canonicalEventId: $this->canonicalEventId,
+            canonicalEventHash: $this->canonicalEventHash,
+            nonce: $this->nonce,
+            baseCommit: $this->baseCommit,
+            treeHash: $this->treeHash,
+            scopeHash: $this->scopeHash,
+            leaseId: $this->leaseId,
+            fencingToken: $this->fencingToken,
         );
     }
 
@@ -309,6 +382,14 @@ final readonly class AuthorizedMergeAction
             'revoked' => $this->revoked,
             'settlement_ledger_path' => $this->settlementLedgerPath,
             'metadata' => $this->metadata,
+            'canonical_event_id' => $this->canonicalEventId,
+            'canonical_event_hash' => $this->canonicalEventHash,
+            'nonce' => $this->nonce,
+            'base_commit' => $this->baseCommit,
+            'tree_hash' => $this->treeHash,
+            'scope_hash' => $this->scopeHash,
+            'lease_id' => $this->leaseId,
+            'fencing_token' => $this->fencingToken,
         ];
     }
 

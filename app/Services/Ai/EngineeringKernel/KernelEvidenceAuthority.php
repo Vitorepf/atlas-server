@@ -16,6 +16,8 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\RealExecution\RealExecutionHash;
+use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPolicy;
+use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
@@ -123,6 +125,49 @@ final class KernelEvidenceAuthority
         ], $context);
     }
 
+    public function issueReleaseAuthorization(CanonicalReleaseAuthorizationRequest $request): AtlasLedgerEvent
+    {
+        $row = null;
+        foreach ((new AtlasMergeGovernorReleaseDecisionLedger($request->releaseLedgerPath))->all() as $candidate) {
+            if (hash_equals((string) ($candidate['decision_hash'] ?? ''), $request->decisionHash)) {
+                $row = $candidate;
+                break;
+            }
+        }
+        if (! is_array($row)
+            || ($row['decision'] ?? null) !== AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED
+            || ! hash_equals((string) ($row['decision_hash'] ?? ''), $request->decisionHash)
+            || ! str_starts_with((string) ($row['rollback_posture'] ?? ''), 'revertible:')) {
+            throw new InvalidArgumentException('release_authorization_governor_decision_not_persisted_admitted');
+        }
+
+        return $this->issue('release_authorization', LedgerEventType::ReleaseAuthorized, [
+            'event_name' => 'release.authorized',
+            'task_packet_id' => (string) ($row['task_packet_id'] ?? ''),
+            'action' => 'commit',
+            'candidate_hash' => (string) ($row['candidate_hash'] ?? ''),
+            'decision_hash' => (string) ($row['decision_hash'] ?? ''),
+            'verification_hash' => (string) ($row['verification_hash'] ?? ''),
+            'rollback_hash' => (string) ($row['rollback_hash'] ?? ''),
+            'rollback_posture' => (string) ($row['rollback_posture'] ?? ''),
+            'changed_files' => $request->files,
+            'scope_hash' => $request->scopeHash,
+            'base_commit' => $request->baseCommit,
+            'tree_hash' => $request->treeHash,
+            'lease_id' => $request->leaseId,
+            'lease_owner' => $request->leaseOwner,
+            'fencing_token' => $request->fencingToken,
+            'nonce' => $request->nonce,
+            'issued_at' => $request->issuedAt,
+            'expires_at' => $request->expiresAt,
+        ], $request->context, 300);
+    }
+
+    public function verifyReleaseAuthorization(AtlasLedgerEvent $event): bool
+    {
+        return $this->verifyEvent($event, 'release_authorization');
+    }
+
     /** @param array<string,mixed> $payload @param array<string,mixed> $context */
     private function issue(string $kind, LedgerEventType $type, array $payload, array $context, int $validForSeconds = 3600): AtlasLedgerEvent
     {
@@ -146,6 +191,7 @@ final class KernelEvidenceAuthority
             'decision' => LedgerEventType::DecisionIssued,
             'evidence_bundle' => LedgerEventType::EvidencePacked,
             'acceptance', 'role_disposition' => LedgerEventType::GateEvaluated,
+            'release_authorization' => LedgerEventType::ReleaseAuthorized,
             default => null,
         };
         if ($expectedType === null || $event->event_type !== $expectedType->value
@@ -264,6 +310,7 @@ final class KernelEvidenceAuthority
         $allowed = ($kind === 'decision' && $type === LedgerEventType::DecisionIssued)
             || ($kind === 'evidence_bundle' && $type === LedgerEventType::EvidencePacked)
             || (in_array($kind, ['acceptance', 'role_disposition'], true) && $type === LedgerEventType::GateEvaluated);
+        $allowed = $allowed || ($kind === 'release_authorization' && $type === LedgerEventType::ReleaseAuthorized);
         if (! $allowed) {
             throw new InvalidArgumentException('kernel_evidence_authority_kind_type_forbidden');
         }

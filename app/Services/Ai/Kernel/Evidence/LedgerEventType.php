@@ -37,6 +37,8 @@ enum LedgerEventType: string
     case RepairCompleted = 'REPAIR_COMPLETED';
     case EscalationRequested = 'ESCALATION_REQUESTED';
     case EvidencePacked = 'EVIDENCE_PACKED';
+    case ReleaseAuthorized = 'RELEASE_AUTHORIZED';
+    case ReleaseLanded = 'RELEASE_LANDED';
     case CompressionApplied = 'COMPRESSION_APPLIED';
     case CcrOriginalStored = 'CCR_ORIGINAL_STORED';
     case CcrOriginalRetrieved = 'CCR_ORIGINAL_RETRIEVED';
