@@ -473,5 +473,5 @@ enquanto houver qualquer gap.
 ## ACOS scorecard claim stamp
 
 <!-- atlas:acos-scorecard-claims:start -->
-{"schema":"atlas.acos.scorecard_claims.v1","source":"AtlasCognitionScoreCardService::build()","overall_score":8.88,"pipeline_score":6.65,"scorecard_hash":"sha256:48f3ae8fb9e21a1e447a41dbf443c9e3143fc18ae9b6ffbf16e13bef46334426","partial_facets":["AAA","AACM","AARF","ABDD","ACCR","ACDM","ACFA","ACFD","ACK","ACL8","ACMF","ACMF-SE","ACOP","ACPFR","ACRS","ACTG","ACVS","ADGW","ADTI4","AGPF","AGRN","AHRI","AKIF","AKIF-OCR","ALMR","ANCF","APCP","APDR","ARCLG","ARDR","AREBA","ARFL","ARPTL","ASAR","ASCB","ASCB-EX","ASCB-PP","ASEF","ASI-L7","ASOS","ASPD","ASPR","ASWC","ASWE","ATBS","ATDC","AURG","AURG-4D","G0","G1","G2","G3","G5","G6","G7","G8","MEM-DELTA","MEM-RECALL","TEOS-I3","TEOS-I4"],"partial_facet_count":60,"updated_at":"2026-07-11T16:34:18+00:00","note":"Doc stamp mirror only; runtime scorecard is authoritative."}
+{"schema":"atlas.acos.scorecard_claims.v1","source":"AtlasCognitionScoreCardService::build()","overall_score":10,"pipeline_score":10,"scorecard_hash":"sha256:c347207f423c524d1eea672bffdc8356df373dfbed2a63d6c6eeb81d1abe4211","partial_facets":[],"partial_facet_count":0,"updated_at":"2026-07-11T19:50:59+00:00","note":"Doc stamp mirror only; runtime scorecard is authoritative."}
 <!-- atlas:acos-scorecard-claims:end -->
