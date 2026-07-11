@@ -55,6 +55,11 @@ final class AtlasProviderCoverageCommand extends Command
         $this->line(sprintf('    covered  (manager get)   : %d', $summary['covered']));
         $this->line(sprintf('    consulted (shared seam)  : %d', $summary['consulted']));
         $this->line(sprintf('  bypass  (blind muscle)     : %d (%.1f%%)', $summary['bypass'], $summary['bypass_rate'] * 100));
+        $this->line(sprintf('  would_have_blocked         : %d (%.1f%% of consulted)', $summary['would_have_blocked_total'], $summary['would_have_blocked_rate'] * 100));
+        $this->line(sprintf('  false_positives (codified) : %d', $summary['false_positive_total']));
+        if ($summary['candidate_hard_units'] !== null) {
+            $this->line(sprintf('  candidate hard units       : %.6f (%s)', $summary['candidate_hard_units'], $summary['candidate_derivation']['source'] ?? 'unknown'));
+        }
 
         if ($summary['by_surface'] !== []) {
             $this->line('  by surface:');

@@ -36,6 +36,18 @@ final class ProviderGovernanceCoverageLedger
 {
     public const SCHEMA = 'atlas.ai.governance.provider_coverage.v1';
 
+    /**
+     * ENG-10 — operational false-positive definition (codified, not manual).
+     * A would-have-blocked advisory on a consult that later completed green
+     * with post-cost at or below the pre-cost estimate is counted as FP.
+     */
+    public const FP_DEFINITION = 'would_have_blocked=true on a consult that completed green with post_cost_units <= pre_cost_units (within expected pre-cost estimate)';
+
+    /** Default percentile when deriving the candidate hard ceiling from ledger traffic. */
+    public const CANDIDATE_DEFAULT_PERCENTILE = 0.99;
+
+    public const REASON_COST_GUARD_CANDIDATE_HARD_EXCEEDED = 'cost_guard_candidate_hard_exceeded';
+
     public const PATH_COVERED = 'covered';
 
     public const PATH_BYPASS = 'bypass';
@@ -140,6 +152,10 @@ final class ProviderGovernanceCoverageLedger
      * @return array{
      *   total:int, covered:int, consulted:int, bypass:int, governed:int,
      *   bypass_rate:float, covered_rate:float, governed_rate:float,
+     *   would_have_blocked_total:int, would_have_blocked_rate:float,
+     *   false_positive_total:int, false_positive_rate:float,
+     *   fp_definition:string,
+     *   candidate_hard_units:?float, candidate_derivation:array<string,mixed>,
      *   by_surface:array<string,array{covered:int,consulted:int,bypass:int}>,
      *   by_provider:array<string,array{covered:int,consulted:int,bypass:int}>
      * }
@@ -151,6 +167,9 @@ final class ProviderGovernanceCoverageLedger
         $counts = [self::PATH_COVERED => 0, self::PATH_CONSULTED => 0, self::PATH_BYPASS => 0];
         $bySurface = [];
         $byProvider = [];
+        $wouldHaveBlockedTotal = 0;
+        $falsePositiveTotal = 0;
+        $observedPreCosts = [];
         foreach ($rows as $row) {
             $path = (string) ($row['path'] ?? '');
             if (! array_key_exists($path, $counts)) {
@@ -158,11 +177,23 @@ final class ProviderGovernanceCoverageLedger
             }
             $surface = (string) ($row['surface'] ?? 'unknown');
             $provider = (string) ($row['provider'] ?? 'unknown');
+            $context = is_array($row['context'] ?? null) ? $row['context'] : [];
             $bySurface[$surface] ??= ['covered' => 0, 'consulted' => 0, 'bypass' => 0];
             $byProvider[$provider] ??= ['covered' => 0, 'consulted' => 0, 'bypass' => 0];
             $counts[$path]++;
             $bySurface[$surface][$path]++;
             $byProvider[$provider][$path]++;
+
+            if (isset($context['pre_cost_units']) && is_numeric($context['pre_cost_units'])) {
+                $observedPreCosts[] = (float) $context['pre_cost_units'];
+            }
+
+            if (($context['would_have_blocked'] ?? false) === true) {
+                $wouldHaveBlockedTotal++;
+                if ($this->isFalsePositive($context)) {
+                    $falsePositiveTotal++;
+                }
+            }
         }
 
         $covered = $counts[self::PATH_COVERED];
@@ -170,6 +201,7 @@ final class ProviderGovernanceCoverageLedger
         $bypass = $counts[self::PATH_BYPASS];
         $governed = $covered + $consulted;
         $total = $governed + $bypass;
+        $candidateDerivation = $this->candidateDerivationSnapshot($observedPreCosts);
 
         return [
             'total' => $total,
@@ -181,9 +213,166 @@ final class ProviderGovernanceCoverageLedger
             'bypass_rate' => $total > 0 ? round($bypass / $total, 4) : 0.0,
             'covered_rate' => $total > 0 ? round($covered / $total, 4) : 0.0,
             'governed_rate' => $total > 0 ? round($governed / $total, 4) : 0.0,
+            'would_have_blocked_total' => $wouldHaveBlockedTotal,
+            'would_have_blocked_rate' => $consulted > 0
+                ? round($wouldHaveBlockedTotal / $consulted, 4)
+                : 0.0,
+            'false_positive_total' => $falsePositiveTotal,
+            'false_positive_rate' => $wouldHaveBlockedTotal > 0
+                ? round($falsePositiveTotal / $wouldHaveBlockedTotal, 4)
+                : 0.0,
+            'fp_definition' => self::FP_DEFINITION,
+            'candidate_hard_units' => $candidateDerivation['candidate_hard_units'],
+            'candidate_derivation' => $candidateDerivation,
             'by_surface' => $bySurface,
             'by_provider' => $byProvider,
         ];
+    }
+
+    /**
+     * ENG-10 — derive the candidate hard ceiling from observed pre-cost traffic.
+     * Returns null when the ledger has no cost samples (honest: no invented threshold).
+     *
+     * @param  list<float>  $observedPreCosts  Optional pre-collected samples; when
+     *                                         empty, reads the ledger.
+     */
+    public function deriveCandidateHardUnits(array $observedPreCosts = []): ?float
+    {
+        if ($observedPreCosts === []) {
+            $observedPreCosts = $this->observedPreCostUnits();
+        }
+
+        return $this->percentile($observedPreCosts, $this->candidatePercentile());
+    }
+
+    /**
+     * @param  list<float>  $observedPreCosts
+     * @return array{
+     *   source:string, percentile:float, samples:int,
+     *   env_override:bool, candidate_hard_units:?float
+     * }
+     */
+    public function candidateDerivationSnapshot(array $observedPreCosts = []): array
+    {
+        $envOverride = $this->envCandidateHardUnits();
+        if ($envOverride > 0.0) {
+            return [
+                'source' => 'env_override',
+                'percentile' => $this->candidatePercentile(),
+                'samples' => count($observedPreCosts !== [] ? $observedPreCosts : $this->observedPreCostUnits()),
+                'env_override' => true,
+                'candidate_hard_units' => $envOverride,
+            ];
+        }
+
+        if ($observedPreCosts === []) {
+            $observedPreCosts = $this->observedPreCostUnits();
+        }
+
+        $derived = $this->percentile($observedPreCosts, $this->candidatePercentile());
+
+        return [
+            'source' => $derived !== null ? 'ledger_percentile' : 'insufficient_samples',
+            'percentile' => $this->candidatePercentile(),
+            'samples' => count($observedPreCosts),
+            'env_override' => false,
+            'candidate_hard_units' => $derived,
+        ];
+    }
+
+    /**
+     * Resolve the effective candidate hard ceiling for would-have-blocked simulation.
+     */
+    public function resolveCandidateHardUnits(): float
+    {
+        $envOverride = $this->envCandidateHardUnits();
+        if ($envOverride > 0.0) {
+            return $envOverride;
+        }
+
+        return $this->deriveCandidateHardUnits() ?? 0.0;
+    }
+
+    /**
+     * ENG-10 — codified false-positive check for a single consult context payload.
+     *
+     * @param  array<string,mixed>  $context
+     */
+    public function isFalsePositive(array $context): bool
+    {
+        if (($context['would_have_blocked'] ?? false) !== true) {
+            return false;
+        }
+
+        if (($context['completion_outcome'] ?? null) !== 'green') {
+            return false;
+        }
+
+        if (! isset($context['pre_cost_units'], $context['post_cost_units'])
+            || ! is_numeric($context['pre_cost_units'])
+            || ! is_numeric($context['post_cost_units'])) {
+            return false;
+        }
+
+        return (float) $context['post_cost_units'] <= (float) $context['pre_cost_units'];
+    }
+
+    /** @return list<float> */
+    private function observedPreCostUnits(): array
+    {
+        $costs = [];
+        foreach (AppendOnlyJsonlStore::read($this->logPath()) as $row) {
+            $context = is_array($row['context'] ?? null) ? $row['context'] : [];
+            if (isset($context['pre_cost_units']) && is_numeric($context['pre_cost_units'])) {
+                $costs[] = (float) $context['pre_cost_units'];
+            }
+        }
+
+        return $costs;
+    }
+
+    private function envCandidateHardUnits(): float
+    {
+        $guard = function_exists('config') ? config('atlas.ai.cache.cost_guard', []) : [];
+        $guard = is_array($guard) ? $guard : [];
+
+        return (float) ($guard['hard_units_candidate'] ?? 0);
+    }
+
+    private function candidatePercentile(): float
+    {
+        $guard = function_exists('config') ? config('atlas.ai.cache.cost_guard', []) : [];
+        $guard = is_array($guard) ? $guard : [];
+        $percentile = (float) ($guard['hard_units_candidate_percentile'] ?? self::CANDIDATE_DEFAULT_PERCENTILE);
+
+        return max(0.0, min(1.0, $percentile));
+    }
+
+    /**
+     * Linear-interpolated percentile.
+     *
+     * @param  list<float>  $values
+     */
+    private function percentile(array $values, float $q): ?float
+    {
+        if ($values === []) {
+            return null;
+        }
+
+        sort($values);
+        $n = count($values);
+        if ($n === 1) {
+            return $values[0];
+        }
+
+        $rank = $q * ($n - 1);
+        $low = (int) floor($rank);
+        $high = (int) ceil($rank);
+        if ($low === $high) {
+            return $values[$low];
+        }
+
+        return $values[$low] + ($values[$high] - $values[$low]) * ($rank - $low);
     }
 
     /** Clear the ledger to start a fresh measurement window. */

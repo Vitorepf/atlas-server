@@ -1253,6 +1253,14 @@ return [
             'cost_guard' => [
                 'soft_units' => (float) env('ATLAS_AI_CALL_COST_GUARD_SOFT_UNITS', 0),
                 'hard_units' => (float) env('ATLAS_AI_CALL_COST_GUARD_HARD_UNITS', 0),
+                // ENG-10 — advisory would-have-blocked meter. When 0, the candidate
+                // ceiling is DERIVED from the p99 of observed pre_cost_units in the
+                // provider coverage ledger (never a hand-picked zero). Override only
+                // for operator tuning or tests; production flip (ENG-13) uses the
+                // derived/validated candidate, not a guess.
+                'hard_units_candidate' => (float) env('ATLAS_AI_CALL_COST_GUARD_HARD_UNITS_CANDIDATE', 0),
+                // Percentile used when deriving the candidate from ledger traffic.
+                'hard_units_candidate_percentile' => (float) env('ATLAS_AI_CALL_COST_GUARD_HARD_UNITS_CANDIDATE_PERCENTILE', 0.99),
             ],
         ],
 

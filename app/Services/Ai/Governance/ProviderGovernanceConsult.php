@@ -56,7 +56,9 @@ final class ProviderGovernanceConsult
      *   provider:string, surface:string, adml_verdict:string, adml_route:?string,
      *   kernel_decision:string, admission_decision:string,
      *   trust_budget:array<string,mixed>, cost:array<string,mixed>,
-     *   enforce:bool, should_block:bool, reason:?string
+     *   enforce:bool, should_block:bool, reason:?string,
+     *   would_have_blocked:bool, would_have_blocked_reason:?string,
+     *   candidate_hard_units:float
      * }
      */
     public function consultBeforeSpawn(array $ctx): array
@@ -129,18 +131,31 @@ final class ProviderGovernanceConsult
             default => null,
         };
 
+        // ENG-10 — advisory would-have-blocked meter: simulate enforce ON with the
+        // candidate hard ceiling (derived from ledger traffic or env override).
+        // Never blocks the spawn — only records what WOULD have happened.
+        [$wouldHaveBlocked, $wouldHaveBlockedReason, $candidateHardUnits] = $this->simulateWouldHaveBlocked(
+            $cost,
+            $trustDenied,
+            $kernelBlocked,
+        );
+
         // 4. Record the muscle execution as CONSULTED (governed via the shared
         //    seam) so the bypass rate falls honestly. The advisory is captured
         //    for audit; recording NEVER blocks the spawn.
         $this->coverage->recordConsulted($provider, $surface, [
             'adml_verdict' => $admlVerdict,
             'adml_route' => $admlRoute,
+            'pre_cost_units' => isset($cost['pre_cost_units']) ? (float) $cost['pre_cost_units'] : null,
             'cost_soft_warn' => (bool) ($cost['soft_warn'] ?? false),
             'cost_hard_exceeded' => $hardExceeded,
             'kernel_decision' => $kernelDecision,
             'trust_budget_verdict' => (string) ($trustBudget['verdict'] ?? ''),
             'enforce' => $enforce,
             'blocked' => $shouldBlock,
+            'would_have_blocked' => $wouldHaveBlocked,
+            'would_have_blocked_reason' => $wouldHaveBlockedReason,
+            'candidate_hard_units' => $candidateHardUnits,
         ]);
 
         return [
@@ -155,7 +170,33 @@ final class ProviderGovernanceConsult
             'enforce' => $enforce,
             'should_block' => $shouldBlock,
             'reason' => $reason,
+            'would_have_blocked' => $wouldHaveBlocked,
+            'would_have_blocked_reason' => $wouldHaveBlockedReason,
+            'candidate_hard_units' => $candidateHardUnits,
         ];
+    }
+
+    /**
+     * ENG-10 — simulate enforce=true with the candidate hard ceiling.
+     *
+     * @param  array<string,mixed>  $cost
+     * @return array{0:bool,1:?string,2:float}
+     */
+    private function simulateWouldHaveBlocked(array $cost, bool $trustDenied, bool $kernelBlocked): array
+    {
+        $candidateHardUnits = $this->coverage->resolveCandidateHardUnits();
+        $preCostUnits = (float) ($cost['pre_cost_units'] ?? 0.0);
+        $candidateHardExceeded = $candidateHardUnits > 0.0 && $preCostUnits > $candidateHardUnits;
+
+        $wouldHaveBlocked = $candidateHardExceeded || $trustDenied || $kernelBlocked;
+        $wouldHaveBlockedReason = match (true) {
+            $kernelBlocked => 'constitutional_kernel_block',
+            $trustDenied => 'trust_budget_exceeded',
+            $candidateHardExceeded => ProviderGovernanceCoverageLedger::REASON_COST_GUARD_CANDIDATE_HARD_EXCEEDED,
+            default => null,
+        };
+
+        return [$wouldHaveBlocked, $wouldHaveBlockedReason, $candidateHardUnits];
     }
 
     /**
