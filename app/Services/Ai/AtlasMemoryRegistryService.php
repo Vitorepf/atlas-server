@@ -107,6 +107,9 @@ class AtlasMemoryRegistryService
             'at' => now()->toJSON(),
         ], fn (mixed $value): bool => $value !== null && $value !== '');
         data_set($metadata, 'curation_history', $history);
+        if (is_array($attributes['metadata'] ?? null)) {
+            data_set($attributes, 'metadata.curation_history', $history);
+        }
 
         $current = array_intersect_key($entry->getAttributes(), array_flip($entry->getFillable()));
         $merged = array_merge($current, [
