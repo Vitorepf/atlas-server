@@ -10,6 +10,7 @@ use App\Models\AiEngineeringCompanyQaRun;
 use App\Models\AiEngineeringCompanyReleasePack;
 use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
+use App\Models\AiRealExecutionTestRun;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
@@ -248,13 +249,16 @@ class AtlasRealEngineeringCompanyRuntimeService
         ]);
     }
 
-    /** @param array<string,mixed> $disposition @param list<string> $evidenceRefs */
-    public function recordQualityDisposition(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, ExecutionOrder $order, string $roleId, array $disposition, array $evidenceRefs): AiEngineeringCompanyRoleRun
+    public function executeQualityRole(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, ExecutionOrder $order, string $roleId, AiRealExecutionTestRun $verification): AiEngineeringCompanyRoleRun
     {
         if (! $engagement->exists || ! $cycle->exists || ! in_array($roleId, self::QUALITY_ROLES, true)
-            || $evidenceRefs === [] || ! in_array($disposition['status'] ?? null, ['pass', 'block', 'not_applicable'], true)) {
+            || ! $verification->exists || $verification->test_hash === null) {
             throw new \InvalidArgumentException('quality_role_disposition_invalid');
         }
+        $evidenceRefs = ['verification:'.$verification->test_hash];
+        $disposition = ['status' => 'block', 'evidence_hash' => (string) $verification->test_hash,
+            'signature' => EngineeringCompanyHash::make([$roleId, $verification->test_hash, 'independent_role_oracle_unavailable']),
+            'reason' => 'independent_role_oracle_unavailable'];
         $roleRunId = 'aecompquality_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $cycle->cycle_id, $roleId, microtime(true)]), 0, 22);
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
             'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()];

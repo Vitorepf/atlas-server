@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel;
 
 use App\Models\AiEngineeringCompanyRoleRun;
+use App\Models\AiRealExecutionPatchRun;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
@@ -312,6 +313,9 @@ final class KernelEvidenceAuthority
         unset($unsigned['hash']);
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId,
             'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash];
+        $patch = AiRealExecutionPatchRun::query()->find($persisted->patch_run_record_id);
+        $junitPath = data_get($unsigned, 'junit_artifact.path');
+        $junitHash = data_get($unsigned, 'junit_artifact.sha256');
         if ($persisted->status !== 'passed' || $persisted->exit_code !== 0
             || ! hash_equals((string) $persisted->test_hash, $hash)
             || ! hash_equals($hash, RealExecutionHash::make($unsigned))
@@ -323,6 +327,12 @@ final class KernelEvidenceAuthority
             || ($unsigned['goal_record_id'] ?? null) !== (string) $persisted->goal_record_id
             || ($unsigned['patch_run_record_id'] ?? null) !== (string) $persisted->patch_run_record_id
             || $persisted->goal_record_id === null || $persisted->patch_run_record_id === null
+            || ! $patch instanceof AiRealExecutionPatchRun
+            || ($unsigned['target'] ?? null) !== 'typed_contract_smoke'
+            || ($unsigned['base_commit'] ?? null) !== $order->baseCommit
+            || ($unsigned['patch_hash'] ?? null) !== $patch->patch_hash
+            || ! is_string($junitPath) || ! is_file($junitPath) || ! is_string($junitHash)
+            || ! hash_equals($junitHash, (string) hash_file('sha256', $junitPath))
             || ! is_array($unsigned['acceptance_bundle'] ?? null)
             || ! $this->producerSealValid($unsigned, AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER, true)) {
             throw new InvalidArgumentException('kernel_test_run_receipt_binding_invalid');

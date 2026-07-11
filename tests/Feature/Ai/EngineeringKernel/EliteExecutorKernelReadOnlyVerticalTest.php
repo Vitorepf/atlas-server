@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\EngineeringKernel;
 
 use App\Models\AiAutonomousEngineeringGoal;
 use App\Models\AiEngineeringCompanyRoleRun;
+use App\Models\AiRealExecutionPatchRun;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
@@ -83,7 +84,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $first = $kernel->execute($order);
         $replay = $kernel->execute(ExecutionOrder::fromArray($order->toArray()));
 
-        $this->assertSame('completed_read_only', $first->status);
+        $this->assertSame('held', $first->status);
         $this->assertSame($first->outcomeHash, $replay->outcomeHash);
         $this->assertSame($order->productIntentVerdictHash, $first->correlatedHashes['intent']);
         $this->assertSame($order->specHash, $first->correlatedHashes['spec']);
@@ -222,6 +223,32 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             ExecutionOrder::fromArray($data),
             [],
         );
+    }
+
+    public function test_verification_producer_refuses_caller_selected_command_target(): void
+    {
+        $method = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'produceKernelVerification');
+        $names = array_map(static fn (\ReflectionParameter $parameter): string => $parameter->getName(), $method->getParameters());
+        $this->assertNotContains('command', $names);
+        $this->assertNotContains('acceptanceFacts', $names);
+        $data = $this->orderData();
+        $goal = AiAutonomousEngineeringGoal::query()->latest('created_at')->firstOrFail();
+        $patch = AiRealExecutionPatchRun::query()->latest('created_at')->firstOrFail();
+
+        $this->expectException(InvalidArgumentException::class);
+        app(AtlasRealEngineeringExecutionKernelService::class)->produceKernelVerification(
+            $goal, $patch, ExecutionOrder::fromArray($data), 'php -r "exit(0);"',
+        );
+    }
+
+    public function test_public_role_writer_exposes_no_caller_disposition_or_evidence_parameters(): void
+    {
+        $method = new \ReflectionMethod(AtlasRealEngineeringCompanyRuntimeService::class, 'executeQualityRole');
+        $names = array_map(static fn (\ReflectionParameter $parameter): string => $parameter->getName(), $method->getParameters());
+
+        $this->assertNotContains('disposition', $names);
+        $this->assertNotContains('evidenceRefs', $names);
+        $this->assertFalse(method_exists(AtlasRealEngineeringCompanyRuntimeService::class, 'recordQualityDisposition'));
     }
 
     public function test_fabricated_bundle_counts_cannot_override_persisted_receipt(): void
@@ -421,23 +448,19 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $authority = app(KernelEvidenceAuthority::class);
         $order = ExecutionOrder::fromArray($orderData);
         $authority->issueDecision($decision, $order, ['event_id' => 'decision-read-only'] + $context);
-        $bundle = $this->honestAcceptanceBundle();
         $autonomous = app(AtlasAutonomousEngineeringService::class)->run('Hermetic kernel verification fixture', ['step_status' => 'passed']);
         $goal = AiAutonomousEngineeringGoal::query()->findOrFail((string) data_get($autonomous, 'goal.id'));
         $real = app(AtlasRealEngineeringExecutionKernelService::class);
         $worktree = $real->createWorktree($goal, $autonomous);
         $patch = $real->executePatch($goal, $worktree, $autonomous);
-        $facts = $this->canonicalBundle($bundle);
-        unset($facts['execution']);
-        $testRun = $real->produceKernelVerification($goal, $patch, $order,
-            [PHP_BINARY, 'artisan', 'test', 'tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php', '--filter=observation_refuses_non_canonical', '--colors=never'], $facts);
+        $testRun = $real->produceKernelVerification($goal, $patch, $order, 'typed_contract_smoke');
         $persistedBundle = (array) data_get($testRun->receipt, 'acceptance_bundle');
         $authority->issueEvidenceBundle(AcceptanceBundle::fromArray($persistedBundle), $testRun, $order, ['event_id' => 'acceptance-read-only'] + $context);
         $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
         $engagement = $company->createEngagement('Quality Foundry kernel verification');
         $cycle = $company->createCycle($engagement);
         foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
-            $roleRun = $company->recordQualityDisposition($engagement, $cycle, $order, $role, $dispositions[$role], ['evidence:'.$role]);
+            $roleRun = $company->executeQualityRole($engagement, $cycle, $order, $role, $testRun);
             $authority->issueRoleDisposition($roleRun, $order, ['event_id' => $eventId] + $context);
         }
     }
@@ -447,23 +470,6 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     {
         return ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId,
             'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash];
-    }
-
-    /** @param array<string,mixed> $bundle @return array<string,mixed> */
-    private function canonicalBundle(array $bundle): array
-    {
-        $typed = AcceptanceBundle::fromArray($bundle);
-
-        return [
-            'criteria_hash' => $typed->criteriaHash, 'frozen_hash' => $typed->frozenHash,
-            'changed_files' => $typed->changedFiles, 'changed_public_symbols' => $typed->changedPublicSymbols,
-            'execution' => ['commands' => $typed->execution->commands, 'claimed_status' => $typed->execution->claimedStatus,
-                'tests_run' => $typed->execution->testsRun, 'assertions_executed' => $typed->execution->assertionsExecuted,
-                'selected_tests' => $typed->execution->selectedTests, 'artifacts' => $typed->execution->artifacts],
-            'mutation_report' => $typed->mutationReport, 'security_scan' => $typed->securityScan,
-            'judges' => $typed->judges, 'context_sufficiency' => $typed->contextSufficiency,
-            'non_functional' => $typed->nonFunctional, 'criteria' => $typed->criteria, 'repair' => $typed->repair,
-        ];
     }
 
     /** @param array<string,mixed> $orderData */

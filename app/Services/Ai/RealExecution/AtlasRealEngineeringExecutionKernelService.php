@@ -247,15 +247,17 @@ class AtlasRealEngineeringExecutionKernelService
     /**
      * Runs a bounded real test command and persists certifying evidence. The lint-only
      * runImpactedTests path intentionally never calls this producer.
-     *
-     * @param  list<string>  $command
-     * @param  array<string,mixed>  $acceptanceFacts
      */
-    public function produceKernelVerification(AiAutonomousEngineeringGoal $goal, AiRealExecutionPatchRun $patch, ExecutionOrder $order, array $command, array $acceptanceFacts): AiRealExecutionTestRun
+    public function produceKernelVerification(AiAutonomousEngineeringGoal $goal, AiRealExecutionPatchRun $patch, ExecutionOrder $order, string $target): AiRealExecutionTestRun
     {
-        if (! $goal->exists || ! $patch->exists || $command === []) {
+        $targets = [
+            'typed_contract_smoke' => ['tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php', 'observation_refuses_non_canonical'],
+        ];
+        if (! $goal->exists || ! $patch->exists || ! isset($targets[$target])) {
             throw new \InvalidArgumentException('kernel_verification_owner_invalid');
         }
+        [$testPath, $filter] = $targets[$target];
+        $command = [PHP_BINARY, 'artisan', 'test', $testPath, '--filter='.$filter, '--colors=never', '--log-junit='.storage_path('framework/testing/kernel-'.$order->runId.'.xml')];
         $process = new Process($command, base_path());
         $process->setTimeout(60);
         $process->run();
@@ -270,13 +272,22 @@ class AtlasRealEngineeringExecutionKernelService
         $testRunId = 'aerekernel_'.substr(RealExecutionHash::make([$goal->goal_id, $patch->patch_run_id, microtime(true)]), 0, 24);
         $selectedTests = [implode(' ', $command)];
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash];
-        $bundle = $acceptanceFacts;
-        $bundle['execution'] = ['commands' => $selectedTests, 'claimed_status' => 'passed', 'tests_run' => $tests,
-            'assertions_executed' => $assertions, 'selected_tests' => $selectedTests, 'artifacts' => []];
+        $junit = storage_path('framework/testing/kernel-'.$order->runId.'.xml');
+        if (! is_file($junit) || hash_file('sha256', $junit) === false) {
+            throw new \RuntimeException('kernel_verification_junit_missing');
+        }
+        $bundle = ['criteria_hash' => $order->specHash, 'frozen_hash' => $order->specHash,
+            'changed_files' => (array) $patch->changed_files, 'changed_public_symbols' => [],
+            'execution' => ['commands' => $selectedTests, 'claimed_status' => 'passed', 'tests_run' => $tests,
+                'assertions_executed' => $assertions, 'selected_tests' => $selectedTests, 'artifacts' => []]];
+        $bundle += ['mutation_report' => [], 'security_scan' => [], 'judges' => [], 'context_sufficiency' => 0,
+            'non_functional' => [], 'criteria' => [], 'repair' => []];
         $receipt = ['schema_version' => self::TEST_SCHEMA, 'test_run_id' => $testRunId, 'status' => 'passed',
             'selected_tests' => $selectedTests, 'evidence_refs' => ['process:'.hash('sha256', $output)],
             'binding' => $binding, 'acceptance_bundle' => $bundle,
-            'goal_record_id' => (string) $goal->getKey(), 'patch_run_record_id' => (string) $patch->getKey()];
+            'goal_record_id' => (string) $goal->getKey(), 'patch_run_record_id' => (string) $patch->getKey(),
+            'target' => $target, 'base_commit' => $order->baseCommit, 'patch_hash' => $patch->patch_hash,
+            'junit_artifact' => ['path' => $junit, 'sha256' => hash_file('sha256', $junit)]];
         $receipt['producer'] = $this->producerSeal(self::KERNEL_VERIFICATION_PRODUCER, $receipt);
         $receipt['hash'] = RealExecutionHash::make($receipt);
 
