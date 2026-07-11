@@ -29,17 +29,17 @@ de memória/promoção; nada a refatorar do modelo antigo.
 |---|---|---|---|
 | EVI-01 | ✅ | 29801e9cd | suite 8/8 + launchctl exit=0 runs=2 |
 | EVI-02 | ✅ | a100e5bf74 | suite 3/3: exit≠0 + fatal → heal; healthy sem heal |
-| EVI-04 | ✅ | (pending) | suite 7/7 + schedule:list fable:delta-series=2 |
-| FEE-02 | ⬜ | — | — |
+| EVI-04 | ✅ | 89391f7e20 | suite 7/7 + schedule:list fable:delta-series=2 |
+| FEE-02 | ✅ | 83036ee77 | fake-green removido; metrics_verified |
 | TAXO-01 | ⬜ | — | — |
 | PIP-01 | ⬜ | — | — |
-| PIP-03 | ⬜ | — | — |
+| PIP-03 | ✅ | 388e340bd | ambiguous_test_ref não persiste receipt |
 | ENG-02 | ✅ | 8e47c0082d | chave forge_execution_gate_enforcing default OFF + ledger ABERTO-até-ENG-02 |
 | RAG-09 | ⬜ | — | — |
 | COM-09 | ⬜ | — | — |
 | FEE-12 | ⬜ | — | — |
 | OPE-02 | ⬜ | — | — |
-| MED-01 | ⬜ | — | — |
+| MED-01 | ✅ | c37ecb353b | atlas:measure:dual-read + ledger schema |
 | VOL-01 | ⬜ | — | — |
 
 ### Onda 1 — Seams + medidores (18)
@@ -150,4 +150,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 4/97 · Faltam: 93 · Próximo: MED-01**
+**Feitas: 8/97 · Faltam: 89 · Próximo: TAXO-01**
