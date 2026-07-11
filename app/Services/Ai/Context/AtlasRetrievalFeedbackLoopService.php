@@ -28,6 +28,8 @@ final class AtlasRetrievalFeedbackLoopService
 
     public const LEARNING_CANDIDATE_SCHEMA = 'atlas.aucri.retrieval_learning_candidate.v1';
 
+    public const EXPLICIT_UTILITY_FORMULA_VERSION = 'atlas.context.explicit_post_execution_utility.v1';
+
     private const MAX_CONTEXT_ATTRIBUTION_REFS = 32;
 
     public function __construct(
@@ -238,6 +240,7 @@ final class AtlasRetrievalFeedbackLoopService
             ? max(0, min(100, (int) round((float) $input['post_execution_utility'])))
             : null;
         $measured = $hasExplicitUtility && $attributionMeasured;
+        $formulaVersion = $hasExplicitUtility ? $this->utilityFormulaVersion($input) : null;
         $useRatio = $included === 0 ? 0.0 : $usedCount / $included;
         $noisePenalty = $included === 0 ? 0.0 : min(0.40, $noiseCount / max(1, $included));
         $missPenalty = min(0.35, $missedCount * 0.10);
@@ -261,6 +264,7 @@ final class AtlasRetrievalFeedbackLoopService
                 'source' => 'freshness_quality_gate_auxiliary',
             ],
             'post_execution_utility' => $utility,
+            'formula_version' => $formulaVersion,
             'use_ratio' => round($useRatio, 4),
             'roi_score' => $roiScore === null ? null : round($roiScore, 4),
             'quality_band' => match (true) {
@@ -309,6 +313,7 @@ final class AtlasRetrievalFeedbackLoopService
             'missed_required_sources' => array_values(array_map(static fn (array $item): string => (string) $item['source_type'], $missed)),
             'context_sufficiency' => $roi['context_sufficiency'] ?? null,
             'post_execution_utility' => $roi['post_execution_utility'] ?? null,
+            'formula_version' => $roi['formula_version'] ?? null,
             'measured' => $measured,
             'usage_basis' => (string) ($contextRefAttribution['usage_basis'] ?? 'unknown'),
             'measurement_basis' => [
@@ -363,6 +368,7 @@ final class AtlasRetrievalFeedbackLoopService
                 'freshness_quality_gate_hash' => $feedbackEvent['freshness_quality_gate_hash'],
                 'measured' => (bool) ($feedbackEvent['measured'] ?? false),
                 'attribution_quality' => (string) ($feedbackEvent['attribution_quality'] ?? 'low'),
+                'formula_version' => $feedbackEvent['formula_version'] ?? null,
                 'usage_basis' => (string) ($feedbackEvent['usage_basis'] ?? 'unknown'),
                 'measurement_basis' => (array) ($feedbackEvent['measurement_basis'] ?? []),
                 'delivered_pack_hashes' => (array) ($feedbackEvent['delivered_pack_hashes'] ?? []),
@@ -569,6 +575,20 @@ final class AtlasRetrievalFeedbackLoopService
         }
 
         return $outcomeStatus === 'passed' ? null : 'non_passing_outcome';
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     */
+    private function utilityFormulaVersion(array $input): string
+    {
+        foreach (['post_execution_utility_formula_version', 'formula_version'] as $key) {
+            if (is_scalar($input[$key] ?? null) && trim((string) $input[$key]) !== '') {
+                return trim((string) $input[$key]);
+            }
+        }
+
+        return self::EXPLICIT_UTILITY_FORMULA_VERSION;
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasContextRuntime;
+use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
@@ -111,10 +112,59 @@ use Symfony\Component\Process\Process;
  */
 final class PipelineRunExecutor implements RunExecutor
 {
+    public const POST_EXECUTION_UTILITY_FORMULA_VERSION = 'atlas.dev.post_execution_utility.v1';
+
     public function __construct(
         private readonly Container $container,
         private readonly ReceiptStorage $storage,
     ) {}
+
+    /**
+     * COM-11 frozen post-execution utility formula v1.
+     *
+     * Utility is a deterministic measurement, not a goal-shaped score:
+     *   - no delivered refs means no measurement;
+     *   - any unresolved missed source or non-passing verified outcome zeros utility;
+     *   - otherwise utility is 100 * used_ratio * budget_consumed_ratio.
+     *
+     * The budget factor prevents inflating utility by delivering tiny packs:
+     * when the delivered-pack ledger exposes estimated_chars/total_chars, the
+     * used ratio is scaled by the fraction of the requested budget actually
+     * consumed; unknown budget data is treated as 1.0 for backward-compatible
+     * attribution over older packs.
+     *
+     * @return array{post_execution_utility:int,formula_version:string,used_ratio:float,budget_consumed_ratio:float}|null
+     */
+    public static function postExecutionUtilityMeasurement(
+        int $usedCount,
+        int $deliveredCount,
+        int $unresolvedMissedCount,
+        string $outcomeStatus,
+        ?int $estimatedChars = null,
+        ?int $totalBudgetChars = null,
+    ): ?array {
+        if ($deliveredCount <= 0) {
+            return null;
+        }
+
+        $usedRatio = max(0.0, min(1.0, $usedCount / max(1, $deliveredCount)));
+        $budgetConsumedRatio = 1.0;
+        if ($estimatedChars !== null && $estimatedChars > 0 && $totalBudgetChars !== null && $totalBudgetChars > 0) {
+            $budgetConsumedRatio = max(0.0, min(1.0, $estimatedChars / $totalBudgetChars));
+        }
+
+        $utility = 0;
+        if ($unresolvedMissedCount <= 0 && $outcomeStatus === 'passed') {
+            $utility = (int) round(100 * $usedRatio * $budgetConsumedRatio);
+        }
+
+        return [
+            'post_execution_utility' => max(0, min(100, $utility)),
+            'formula_version' => self::POST_EXECUTION_UTILITY_FORMULA_VERSION,
+            'used_ratio' => round($usedRatio, 4),
+            'budget_consumed_ratio' => round($budgetConsumedRatio, 4),
+        ];
+    }
 
     public function execute(
         OperationEnvelope $envelope,
@@ -1333,24 +1383,42 @@ final class PipelineRunExecutor implements RunExecutor
                         $attributionQuality = 'diffed';
                     }
 
-                    app(AtlasRetrievalFeedbackLoopService::class)->capture([
+                    $outcomeStatus = $passed
+                        ? 'passed'
+                        : ($receipt->completion->status === CompletionSummary::STATUS_NEEDS_REVIEW ? 'partial' : 'failed');
+                    $contextPackHash = $this->contextPackHash($runId);
+                    $budget = $this->contextPackBudgetForUtility($contextPackHash);
+                    $utilityMeasurement = self::postExecutionUtilityMeasurement(
+                        usedCount: count($used),
+                        deliveredCount: count($delivered),
+                        unresolvedMissedCount: 0,
+                        outcomeStatus: $outcomeStatus,
+                        estimatedChars: $budget['estimated_chars'],
+                        totalBudgetChars: $budget['total_budget_chars'],
+                    );
+
+                    $feedbackInput = [
                         'objective' => $envelope->normalizedIntent,
                         'workspace' => $envelope->workspace,
                         'task_type' => $taskKind !== '' ? $taskKind : 'dev',
                         'domain' => 'atlas',
                         'risk_level' => strtolower($riskLevel),
-                        'outcome_status' => $passed
-                            ? 'passed'
-                            : ($receipt->completion->status === CompletionSummary::STATUS_NEEDS_REVIEW ? 'partial' : 'failed'),
-                        'context_pack_hash' => $this->contextPackHash($runId),
-                        'retrieval_receipt_id' => $this->contextPackHash($runId),
+                        'outcome_status' => $outcomeStatus,
+                        'context_pack_hash' => $contextPackHash,
+                        'retrieval_receipt_id' => $contextPackHash,
                         'delivered_context_refs' => $delivered,
                         'used_context_refs' => $used,
                         'noise_context_refs' => $passed ? array_values(array_diff($pathRefs, $usedPath)) : [],
-                        'attribution_quality' => $attributionQuality,
+                        'attribution_quality' => $utilityMeasurement !== null && $used !== [] ? 'gate_verified' : $attributionQuality,
                         'flow_id' => 'atlas.dev',
                         'record' => true,
-                    ]);
+                    ];
+                    if ($utilityMeasurement !== null) {
+                        $feedbackInput['post_execution_utility'] = $utilityMeasurement['post_execution_utility'];
+                        $feedbackInput['post_execution_utility_formula_version'] = $utilityMeasurement['formula_version'];
+                    }
+
+                    app(AtlasRetrievalFeedbackLoopService::class)->capture($feedbackInput);
                 }
             } catch (\Throwable) {
                 // fail-open
@@ -4176,6 +4244,28 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return 'atlas-dev:context_pack:unknown';
+    }
+
+    /**
+     * @return array{estimated_chars:?int,total_budget_chars:?int}
+     */
+    private function contextPackBudgetForUtility(string $contextPackHash): array
+    {
+        try {
+            $entry = AtlasDeliveredPackLedger::fromConfig()->lookup($contextPackHash);
+            $budgets = is_array($entry) ? (array) ($entry['budgets'] ?? []) : [];
+            $estimated = is_numeric($budgets['estimated_chars'] ?? null) ? (int) $budgets['estimated_chars'] : null;
+            $total = is_numeric($budgets['total_chars'] ?? null)
+                ? (int) $budgets['total_chars']
+                : (is_numeric($budgets['requested_total_chars'] ?? null) ? (int) $budgets['requested_total_chars'] : null);
+
+            return [
+                'estimated_chars' => $estimated !== null && $estimated > 0 ? $estimated : null,
+                'total_budget_chars' => $total !== null && $total > 0 ? $total : null,
+            ];
+        } catch (Throwable) {
+            return ['estimated_chars' => null, 'total_budget_chars' => null];
+        }
     }
 
     private function providerTimeoutSeconds(?LightTaskContract $taskContract = null): int

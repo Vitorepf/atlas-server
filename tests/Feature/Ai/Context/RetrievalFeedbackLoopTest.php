@@ -7,6 +7,7 @@ namespace Tests\Feature\Ai\Context;
 use App\Models\AiCompoundingMemory;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
+use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
@@ -393,6 +394,92 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertNotSame(86, data_get($payload, 'context_roi.post_execution_utility'));
         $this->assertNotSame(92, data_get($payload, 'context_roi.context_sufficiency'));
         $this->assertSame('unmeasured', data_get($payload, 'context_roi.quality_band'));
+    }
+
+    public function test_MeasuredUtility_formula_is_monotonic_and_versioned(): void
+    {
+        $lowUse = PipelineRunExecutor::postExecutionUtilityMeasurement(
+            usedCount: 1,
+            deliveredCount: 4,
+            unresolvedMissedCount: 0,
+            outcomeStatus: 'passed',
+            estimatedChars: 800,
+            totalBudgetChars: 1000,
+        );
+        $highUse = PipelineRunExecutor::postExecutionUtilityMeasurement(
+            usedCount: 3,
+            deliveredCount: 4,
+            unresolvedMissedCount: 0,
+            outcomeStatus: 'passed',
+            estimatedChars: 800,
+            totalBudgetChars: 1000,
+        );
+        $failed = PipelineRunExecutor::postExecutionUtilityMeasurement(
+            usedCount: 3,
+            deliveredCount: 4,
+            unresolvedMissedCount: 0,
+            outcomeStatus: 'failed',
+            estimatedChars: 800,
+            totalBudgetChars: 1000,
+        );
+        $missed = PipelineRunExecutor::postExecutionUtilityMeasurement(
+            usedCount: 3,
+            deliveredCount: 4,
+            unresolvedMissedCount: 1,
+            outcomeStatus: 'passed',
+            estimatedChars: 800,
+            totalBudgetChars: 1000,
+        );
+        $noData = PipelineRunExecutor::postExecutionUtilityMeasurement(
+            usedCount: 0,
+            deliveredCount: 0,
+            unresolvedMissedCount: 0,
+            outcomeStatus: 'passed',
+        );
+
+        $this->assertGreaterThan($lowUse['post_execution_utility'], $highUse['post_execution_utility']);
+        $this->assertLessThan($highUse['post_execution_utility'], $failed['post_execution_utility']);
+        $this->assertSame(0, $missed['post_execution_utility']);
+        $this->assertNull($noData);
+        $this->assertSame(PipelineRunExecutor::POST_EXECUTION_UTILITY_FORMULA_VERSION, $highUse['formula_version']);
+    }
+
+    public function test_MeasuredUtility_events_carry_formula_version(): void
+    {
+        $pack = $this->recordDeliveredPack('measured-utility-formula-version', [
+            ['id' => 'sym:FormulaOne', 'file_path' => 'app/FormulaOne.php', 'symbol_type' => 'class'],
+            ['id' => 'sym:FormulaTwo', 'file_path' => 'app/FormulaTwo.php', 'symbol_type' => 'class'],
+        ]);
+        $usedRefs = [AtlasCanonicalContextRef::deliveredFromPack($pack)[0]];
+
+        $measurement = PipelineRunExecutor::postExecutionUtilityMeasurement(
+            usedCount: 1,
+            deliveredCount: 2,
+            unresolvedMissedCount: 0,
+            outcomeStatus: 'passed',
+            estimatedChars: 500,
+            totalBudgetChars: 1000,
+        );
+
+        $payload = app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'measured utility formula version',
+            'flow_id' => 'atlas.dev',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $pack['context_pack_hash'],
+            'used_context_refs' => $usedRefs,
+            'post_execution_utility' => $measurement['post_execution_utility'],
+            'post_execution_utility_formula_version' => $measurement['formula_version'],
+            'attribution_quality' => 'gate_verified',
+            'record' => true,
+        ]);
+
+        $this->assertTrue(data_get($payload, 'measured'));
+        $this->assertSame(PipelineRunExecutor::POST_EXECUTION_UTILITY_FORMULA_VERSION, data_get($payload, 'context_roi.formula_version'));
+        $this->assertSame(PipelineRunExecutor::POST_EXECUTION_UTILITY_FORMULA_VERSION, data_get($payload, 'feedback_event.formula_version'));
+
+        $event = AiRagFeedbackEvent::query()->firstOrFail();
+        $this->assertSame(PipelineRunExecutor::POST_EXECUTION_UTILITY_FORMULA_VERSION, data_get($event->payload, 'payload.context_roi.formula_version'));
+        $this->assertSame(PipelineRunExecutor::POST_EXECUTION_UTILITY_FORMULA_VERSION, data_get($event->payload, 'payload.formula_version'));
     }
 
     private function runOutcome(string $runId, string $flowId, string $status, int $quality): AiRunOutcome
