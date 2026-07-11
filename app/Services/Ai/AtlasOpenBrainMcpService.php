@@ -45,12 +45,15 @@ use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -104,6 +107,8 @@ class AtlasOpenBrainMcpService
     public const COMPATIBILITY_ALIASES = [
         'atlas_open_brain_context_pack' => 'atlas_context_pack',
     ];
+
+    public const MCP_TOOL_USAGE_EVENT_NAME = 'open_brain.mcp_tool_call';
 
     private string $processStartedAt;
 
@@ -1302,7 +1307,7 @@ class AtlasOpenBrainMcpService
         }
 
         try {
-            return match ($name) {
+            $response = match ($name) {
                 'atlas_memory_recall' => $this->toolResponse($id, $this->memoryRecall($arguments)),
                 'atlas_open_brain_context_pack' => $this->toolResponse($id, $this->contextPack($arguments)),
                 'atlas_context_expand' => $this->toolResponse($id, $this->contextExpand($arguments)),
@@ -1370,11 +1375,58 @@ class AtlasOpenBrainMcpService
                 'atlas_task_report' => $this->toolResponse($id, $this->taskReport($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
+            $this->recordMcpToolUsageTelemetry($name, $this->mcpToolCallStatus($response));
+
+            return $response;
         } catch (Throwable $exception) {
+            $this->recordMcpToolUsageTelemetry($name, 'error');
+
             return $this->toolError($id, $exception->getMessage(), [
                 'tool' => $name,
                 'exception' => class_basename($exception),
             ]);
+        }
+    }
+
+    /**
+     * OPE-05 — append-only per-tool usage on ai_telemetry_events. Fail-open.
+     *
+     * @param  array<string,mixed>  $response
+     */
+    private function mcpToolCallStatus(array $response): string
+    {
+        if (array_key_exists('error', $response)) {
+            return 'error';
+        }
+
+        if ((bool) data_get($response, 'result.isError', false)) {
+            return 'error';
+        }
+
+        return 'ok';
+    }
+
+    private function recordMcpToolUsageTelemetry(string $toolName, string $status): void
+    {
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
+            return;
+        }
+
+        try {
+            app(AiTelemetryCollector::class)->record([
+                'event_key' => 'open_brain:mcp_tool:'.Str::uuid(),
+                'surface' => 'server',
+                'runtime' => 'laravel',
+                'event_name' => self::MCP_TOOL_USAGE_EVENT_NAME,
+                'event_phase' => $status,
+                'metadata' => [
+                    'tool_name' => $toolName,
+                    'called_at' => now()->toIso8601String(),
+                    'status' => $status,
+                ],
+            ]);
+        } catch (Throwable) {
+            // fail-open: telemetry must never block tool execution
         }
     }
 
