@@ -85,9 +85,19 @@ final class AtlasSelfConstructionNativePatchMaterializer
 
                 continue;
             }
+            if ($mode === 'modify' && hash_equals($previous, $next)) {
+                $blockers[] = 'no_op_patch:'.$path;
+
+                continue;
+            }
 
             $seenPaths[$path] = true;
-            $files[] = ['path' => $path, 'contents' => $next];
+            $files[] = array_filter([
+                'path' => $path,
+                'contents' => $next,
+                'mode' => $mode,
+                'expected_preimage_hash' => $mode === 'modify' ? hash('sha256', $previous) : null,
+            ], static fn (mixed $value): bool => $value !== null);
             $diffs[] = [
                 'path' => $path,
                 'unified_diff' => $this->renderUnifiedDiff($path, $mode === 'create' ? '' : $previous, $next),

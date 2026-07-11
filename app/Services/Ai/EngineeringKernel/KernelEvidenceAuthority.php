@@ -198,6 +198,16 @@ final class KernelEvidenceAuthority
         return $this->verifyEvent($event, 'release_authorization');
     }
 
+    /** @param array<string,mixed> $receipt */
+    public function verifyMutativeVerificationReceipt(array $receipt): bool
+    {
+        $hash = (string) ($receipt['hash'] ?? '');
+        unset($receipt['hash']);
+
+        return $hash !== '' && hash_equals($hash, RealExecutionHash::make($receipt))
+            && $this->producerSealValid($receipt, AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER, true);
+    }
+
     /** @param array<string,mixed> $payload @param array<string,mixed> $context */
     private function issue(string $kind, LedgerEventType $type, array $payload, array $context, int $validForSeconds = 3600): AtlasLedgerEvent
     {

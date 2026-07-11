@@ -320,6 +320,151 @@ class AtlasRealEngineeringExecutionKernelService
         return is_string($decoded) ? $decoded : '';
     }
 
+    /** Independent mutative verification inside the hermetic candidate git root. @param list<string> $files @return array<string,mixed> */
+    public function verifyHermeticCandidate(ExecutionOrder $order, string $sandbox, array $allowedFiles, array $appliedPaths): array
+    {
+        if (! is_dir($sandbox.'/.git') || $allowedFiles === [] || $appliedPaths === []) {
+            throw new \InvalidArgumentException('hermetic_candidate_invalid');
+        }
+        sort($allowedFiles, SORT_STRING);
+        sort($appliedPaths, SORT_STRING);
+        if (array_diff($appliedPaths, $allowedFiles) !== [] || array_intersect($appliedPaths, $order->forbiddenScope) !== []) {
+            throw new \InvalidArgumentException('hermetic_candidate_applied_scope_invalid');
+        }
+        $files = $appliedPaths;
+        $base = trim((new Process(['git', 'rev-parse', 'HEAD'], $sandbox))->mustRun()->getOutput());
+        if (! hash_equals($order->baseCommit, $base)) {
+            throw new \InvalidArgumentException('hermetic_candidate_stale_base');
+        }
+        $statusBytes = (new Process(['git', 'status', '--porcelain=v2', '-z', '--untracked-files=all'], $sandbox))->mustRun()->getOutput();
+        $actualFiles = $this->porcelainV2Paths($statusBytes);
+        sort($actualFiles, SORT_STRING);
+        if ($actualFiles !== $appliedPaths) {
+            throw new \InvalidArgumentException('hermetic_candidate_diff_scope_mismatch');
+        }
+        $commands = [];
+        foreach ($files as $file) {
+            if (! str_ends_with($file, '.php') || ! is_file($sandbox.'/'.$file) || is_link($sandbox.'/'.$file)) {
+                throw new \InvalidArgumentException('hermetic_candidate_file_not_verifiable');
+            }
+            $commands[] = [PHP_BINARY, '-l', $file];
+        }
+        $commands[] = ['git', 'diff', '--check', '--', ...$files];
+        $results = [];
+        foreach ($commands as $command) {
+            $process = new Process($command, $sandbox);
+            $process->setTimeout(60);
+            $process->run();
+            $results[] = [
+                'command' => $command,
+                'command_hash' => RealExecutionHash::make($command),
+                'exit_code' => $process->getExitCode(),
+                'output_hash' => hash('sha256', $process->getOutput().$process->getErrorOutput()),
+                'passed' => $process->isSuccessful(),
+            ];
+        }
+        $passed = ! array_any($results, static fn (array $result): bool => $result['passed'] !== true);
+        $junitDir = $sandbox.'/.atlas';
+        File::ensureDirectoryExists($junitDir);
+        $junit = $junitDir.'/mutative-mechanical.xml';
+        $failures = $passed ? 0 : 1;
+        File::put($junit, '<?xml version="1.0" encoding="UTF-8"?><testsuite name="atlas-mutative-independent" tests="'.count($results).'" failures="'.$failures.'"></testsuite>');
+        $behavioralProfile = trim((string) ($order->evidencePolicy['behavioral_profile'] ?? ''));
+        $behavioralTarget = ['kernel_candidate_fixture_v1' => 'tests/CandidateBehaviorTest.php'][$behavioralProfile] ?? '';
+        $behavioral = ['status' => 'missing', 'passed' => false];
+        if ($behavioralTarget !== '') {
+            $targetPath = $sandbox.'/'.$behavioralTarget;
+            if (in_array($behavioralTarget, $files, true)) {
+                throw new \InvalidArgumentException('behavioral_oracle_is_mutative');
+            }
+            $baseTarget = new Process(['git', 'show', $base.':'.$behavioralTarget], $sandbox);
+            $baseTarget->run();
+            if (! $baseTarget->isSuccessful() || ! is_file($targetPath) || is_link($targetPath)
+                || ! hash_equals(hash('sha256', $baseTarget->getOutput()), (string) hash_file('sha256', $targetPath))) {
+                throw new \InvalidArgumentException('behavioral_oracle_not_frozen_at_base');
+            }
+            $runner = PHP_BINARY;
+            if (! is_file($targetPath) || is_link($targetPath) || ! is_file($runner) || is_link($runner)) {
+                throw new \InvalidArgumentException('behavioral_target_or_runner_unavailable');
+            }
+            $behavioralJunit = $junitDir.'/mutative-behavioral.xml';
+            $command = [$runner, $targetPath];
+            $process = new Process($command, $sandbox);
+            $process->setTimeout(60);
+            $process->run();
+            File::put($behavioralJunit, '<?xml version="1.0" encoding="UTF-8"?><testsuite name="atlas-frozen-behavioral-profile" tests="1" failures="'.($process->isSuccessful() ? '0' : '1').'"></testsuite>');
+            $behavioral = [
+                'status' => $process->isSuccessful() ? 'passed' : 'failed',
+                'passed' => $process->isSuccessful(),
+                'target' => $behavioralTarget,
+                'target_hash' => hash_file('sha256', $targetPath),
+                'runner_path' => $runner,
+                'runner_hash' => hash_file('sha256', $runner),
+                'sandbox_toolchain' => 'self_contained_frozen_php_assertion',
+                'runner_version' => PHP_VERSION,
+                'command_hash' => RealExecutionHash::make($command),
+                'exit_code' => $process->getExitCode(),
+                'output_hash' => hash('sha256', $process->getOutput().$process->getErrorOutput()),
+                'junit_artifact' => is_file($behavioralJunit)
+                    ? ['path' => $behavioralJunit, 'sha256' => hash_file('sha256', $behavioralJunit)] : null,
+            ];
+        }
+        $artifactDir = $sandbox.'/.atlas';
+        $tempIndex = $artifactDir.'/candidate.index';
+        File::copy($sandbox.'/.git/index', $tempIndex);
+        $treeProcess = new Process(['git', 'add', '-A', '--', ...$files], $sandbox, ['GIT_INDEX_FILE' => $tempIndex]);
+        $treeProcess->mustRun();
+        (new Process(['git', 'diff', '--cached', '--check', $base, '--', ...$files], $sandbox, ['GIT_INDEX_FILE' => $tempIndex]))->mustRun();
+        $diff = (new Process(['git', 'diff', '--cached', '--binary', $base, '--', ...$files], $sandbox, ['GIT_INDEX_FILE' => $tempIndex]))->mustRun()->getOutput();
+        $treeSha = trim((new Process(['git', 'write-tree'], $sandbox, ['GIT_INDEX_FILE' => $tempIndex]))->mustRun()->getOutput());
+        @unlink($tempIndex);
+        $diffArtifact = $artifactDir.'/candidate.diff';
+        File::put($diffArtifact, $diff);
+        $receipt = [
+            'schema_version' => 'atlas.mutative_candidate.verification.v1',
+            'verifier' => self::KERNEL_VERIFICATION_PRODUCER,
+            'order_hash' => $order->canonicalHash(), 'base_commit' => $base,
+            'files' => $files, 'commands' => $results, 'passed' => $passed,
+            'behavioral' => $behavioral,
+            'diff_hash' => hash('sha256', $diff),
+            'diff_artifact' => ['path' => $diffArtifact, 'sha256' => hash_file('sha256', $diffArtifact), 'bytes' => filesize($diffArtifact)],
+            'tree_hash' => $treeSha,
+            'junit_artifact' => ['path' => $junit, 'sha256' => hash_file('sha256', $junit)],
+            'independent_from_provider' => true,
+        ];
+        $receipt['producer'] = $this->producerSeal(self::KERNEL_VERIFICATION_PRODUCER, $receipt);
+        $receipt['hash'] = RealExecutionHash::make($receipt);
+
+        return $receipt;
+    }
+
+    /** @return list<string> */
+    private function porcelainV2Paths(string $bytes): array
+    {
+        $paths = [];
+        foreach (explode("\0", $bytes) as $record) {
+            if ($record === '') {
+                continue;
+            }
+            if (str_starts_with($record, '? ')) {
+                $paths[] = substr($record, 2);
+            } elseif (str_starts_with($record, '1 ')) {
+                $parts = explode(' ', $record, 9);
+                if (isset($parts[8])) {
+                    $paths[] = $parts[8];
+                }
+            } else {
+                throw new \InvalidArgumentException('hermetic_candidate_status_record_unsupported');
+            }
+        }
+
+        $paths = array_values(array_unique($paths));
+        $paths = array_values(array_filter($paths, static fn (string $path): bool => $path !== '.atlas-native-manifest.json'));
+        sort($paths, SORT_STRING);
+
+        return $paths;
+    }
+
     public function repair(AiAutonomousEngineeringGoal $goal, AiRealExecutionPatchRun $patch, AiRealExecutionTestRun $test): AiRealExecutionRepairAttempt
     {
         $repairId = 'aerepair_'.substr(RealExecutionHash::make([$goal->goal_id, $test->test_run_id]), 0, 24);

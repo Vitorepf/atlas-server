@@ -25,13 +25,11 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
 
     public const HASH_ALGO = 'sha256';
 
-    public function __construct(private readonly string $projectRoot)
-    {
-    }
+    public function __construct(private readonly string $projectRoot) {}
 
     /**
-     * @param  array<string,mixed>  $preflight                    output of AtlasSelfConstructionNativeImplementationReleasePreflight
-     * @param  array<string,mixed>  $proposal                     {allowed_files, files:list<{path, contents, expected_preimage_hash?, mode?}>}
+     * @param  array<string,mixed>  $preflight  output of AtlasSelfConstructionNativeImplementationReleasePreflight
+     * @param  array<string,mixed>  $proposal  {allowed_files, files:list<{path, contents, expected_preimage_hash?, mode?}>}
      * @return array<string,mixed>
      */
     public function apply(array $preflight, array $proposal): array
@@ -106,6 +104,10 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
 
                     continue;
                 }
+            } elseif ($mode === 'create' && (file_exists($absolutePath) || is_link($absolutePath))) {
+                $blockers[] = 'create_target_already_exists:'.$path;
+
+                continue;
             }
 
             $dir = \dirname($absolutePath);
@@ -119,6 +121,12 @@ final class AtlasSelfConstructionNativeScopedPatchApplyRunner
             $bytes = @file_put_contents($tempPath, $contents, LOCK_EX);
             if ($bytes === false) {
                 $blockers[] = 'write_failed:'.$path;
+
+                continue;
+            }
+            if ($mode === 'create' && (file_exists($absolutePath) || is_link($absolutePath))) {
+                @unlink($tempPath);
+                $blockers[] = 'create_target_raced:'.$path;
 
                 continue;
             }

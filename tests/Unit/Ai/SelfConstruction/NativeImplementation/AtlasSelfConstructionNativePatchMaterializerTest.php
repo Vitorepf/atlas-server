@@ -24,10 +24,22 @@ final class AtlasSelfConstructionNativePatchMaterializerTest extends TestCase
         $this->assertTrue($r['accepted']);
         $this->assertSame([], $r['blockers']);
         $this->assertCount(1, $r['files']);
+        $this->assertSame('create', $r['files'][0]['mode']);
         $this->assertSame('src/new.php', $r['files'][0]['path']);
         // Create diff shows 0 previous lines
         $this->assertStringContainsString('-1,0', $r['diffs'][0]['unified_diff']);
         $this->assertStringContainsString('+1,2', $r['diffs'][0]['unified_diff']);
+    }
+
+    public function test_no_op_modify_is_rejected(): void
+    {
+        $r = $this->materialize([
+            'allowed_files' => ['same.php'],
+            'patches' => [['path' => 'same.php', 'mode' => 'modify', 'previous' => "same\n", 'next' => "same\n"]],
+        ]);
+
+        $this->assertFalse($r['accepted']);
+        $this->assertContains('no_op_patch:same.php', $r['blockers']);
     }
 
     public function test_modify_file_virtual_input_emits_diff_with_removals_and_additions(): void
@@ -39,6 +51,8 @@ final class AtlasSelfConstructionNativePatchMaterializerTest extends TestCase
 
         $this->assertTrue($r['accepted']);
         $this->assertCount(1, $r['files']);
+        $this->assertSame('modify', $r['files'][0]['mode']);
+        $this->assertSame(hash('sha256', "old content\n"), $r['files'][0]['expected_preimage_hash']);
         $this->assertStringContainsString('-old content', $r['diffs'][0]['unified_diff']);
         $this->assertStringContainsString('+new content', $r['diffs'][0]['unified_diff']);
     }

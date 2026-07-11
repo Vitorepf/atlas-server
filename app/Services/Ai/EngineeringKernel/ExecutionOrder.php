@@ -231,7 +231,7 @@ final readonly class ExecutionOrder
     private static function evidencePolicy(array $data): array
     {
         $policy = CanonicalKernelPayload::requireArray($data, 'evidence_policy');
-        if (array_diff(array_keys($policy), ['acceptance_event_id', 'role_disposition_event_ids']) !== []) {
+        if (array_diff(array_keys($policy), ['acceptance_event_id', 'role_disposition_event_ids', 'behavioral_profile']) !== []) {
             throw new InvalidArgumentException('evidence_policy_caller_narrative_forbidden');
         }
         CanonicalKernelPayload::requireString($policy, 'acceptance_event_id');
@@ -243,6 +243,9 @@ final readonly class ExecutionOrder
             if (! is_string($eventId) || trim($eventId) === '') {
                 throw new InvalidArgumentException('role_disposition_event_id_invalid');
             }
+        }
+        if (array_key_exists('behavioral_profile', $policy)) {
+            CanonicalKernelPayload::requireEnum($policy, 'behavioral_profile', ['kernel_candidate_fixture_v1']);
         }
 
         return $policy;

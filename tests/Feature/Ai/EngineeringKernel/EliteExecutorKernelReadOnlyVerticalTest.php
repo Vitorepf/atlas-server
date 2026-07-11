@@ -19,6 +19,7 @@ use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
+use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
@@ -34,6 +35,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
@@ -41,6 +43,157 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     private const ROLE_IDS = EngineeringRoleRoster::OFFICIAL_ROLES;
 
     private ?string $canonicalRunId = null;
+
+    public function test_mutative_candidate_provider_refusal_has_zero_sandbox_authority(): void
+    {
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->expects($this->once())->method('invoke')->willReturn([
+            'status' => 'unavailable', 'provider_invoked' => true, 'executes_provider' => true,
+        ]);
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+
+        $candidate = $this->app->make(EliteExecutorKernel::class)
+            ->prepareMutativeCandidate(ExecutionOrder::fromArray($data));
+
+        $this->assertSame('blocked', $candidate->status);
+        $this->assertFalse($candidate->authorityEligible);
+        $this->assertSame('', $candidate->sandboxRoot);
+        $this->assertContains('provider_unavailable', $candidate->blockers);
+    }
+
+    public function test_mutative_candidate_provider_timeout_has_zero_sandbox_candidate(): void
+    {
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->method('invoke')->willThrowException(new \RuntimeException('timeout'));
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+
+        $kernel = $this->app->make(EliteExecutorKernel::class);
+        $candidate = $kernel->prepareMutativeCandidate(ExecutionOrder::fromArray($data));
+
+        $this->assertSame('blocked', $candidate->status);
+        $this->assertSame('', $candidate->sandboxRoot);
+        $this->assertFalse($candidate->authorityEligible);
+        $this->assertContains('provider_exception:RuntimeException', $candidate->blockers);
+    }
+
+    public function test_mutative_candidate_malformed_ok_provider_contract_has_zero_sandbox(): void
+    {
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->method('invoke')->willReturn(['status' => 'ok', 'provider_invoked' => true]);
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+
+        $kernel = $this->app->make(EliteExecutorKernel::class);
+        $candidate = $kernel->prepareMutativeCandidate(ExecutionOrder::fromArray($data));
+
+        $this->assertSame('blocked', $candidate->status);
+        $this->assertSame('', $candidate->sandboxRoot);
+        $this->assertContains('provider_scope_mismatch', $candidate->blockers);
+    }
+
+    public function test_mutative_candidate_is_built_in_real_git_sandbox_with_independent_receipt_but_no_authority(): void
+    {
+        $repo = sys_get_temp_dir().'/atlas-mutative-source-'.uniqid('', true);
+        mkdir($repo.'/app', 0775, true);
+        mkdir($repo.'/tests', 0775, true);
+        file_put_contents($repo.'/tests/CandidateBehaviorTest.php', "<?php\nexit((require dirname(__DIR__).'/app/Candidate.php') === 'after' ? 0 : 1);\n");
+        foreach ([['init', '-b', 'main'], ['config', 'user.email', 'atlas@test.local'], ['config', 'user.name', 'Atlas Test'], ['add', '.'], ['commit', '-m', 'base']] as $args) {
+            (new Process(['git', ...$args], $repo))->mustRun();
+        }
+        $base = trim((new Process(['git', 'rev-parse', 'HEAD'], $repo))->mustRun()->getOutput());
+        $providerResult = [
+            'status' => 'ok', 'provider_invoked' => true, 'provider' => 'fixture', 'model' => 'fixture-model',
+            'output_hash' => hash('sha256', 'provider-output'),
+            'patch_plan' => ['allowed_files' => ['app/Candidate.php', 'app/Unused.php'], 'patches' => [[
+                'path' => 'app/Candidate.php', 'mode' => 'create', 'next' => "<?php\nreturn 'after';\n",
+            ]]],
+        ];
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->method('invoke')->willReturn($providerResult);
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+        $data['workspace'] = $repo;
+        $data['base_commit'] = $base;
+        $data['allowed_scope'] = ['app/Candidate.php', 'app/Unused.php'];
+        $data['forbidden_scope'] = ['.env'];
+        $data['provider_route'] = ['provider' => 'fixture', 'model' => 'fixture-model'];
+        $data['idempotency_key'] = 'mutative-'.Str::uuid();
+        $data['evidence_policy']['behavioral_profile'] = 'kernel_candidate_fixture_v1';
+
+        $kernel = $this->app->make(EliteExecutorKernel::class);
+        $candidate = $kernel->prepareMutativeCandidate(ExecutionOrder::fromArray($data));
+
+        $this->assertSame('behaviorally_verified_pending_quality_court', $candidate->status, json_encode($candidate));
+        $this->assertFalse($candidate->authorityEligible);
+        $this->assertContains('mutative_22_role_court_receipt_absent', $candidate->blockers);
+        $this->assertDirectoryExists($candidate->sandboxRoot.'/.git');
+        $this->assertFileDoesNotExist($repo.'/app/Candidate.php');
+        $this->assertSame("<?php\nreturn 'after';\n", file_get_contents($candidate->sandboxRoot.'/app/Candidate.php'));
+        $this->assertTrue($candidate->verificationReceipt['independent_from_provider']);
+        $this->assertTrue($candidate->verificationReceipt['behavioral']['passed']);
+        $this->assertFileExists($candidate->verificationReceipt['junit_artifact']['path']);
+        $this->assertNotSame('', $candidate->candidateHash);
+        $this->assertSame(['app/Candidate.php'], $candidate->files);
+
+        $authority = $this->app->make(KernelEvidenceAuthority::class);
+        $this->assertTrue($authority->verifyMutativeVerificationReceipt($candidate->verificationReceipt));
+        foreach (['hash', 'producer', 'diff_hash'] as $field) {
+            $tampered = $candidate->verificationReceipt;
+            $tampered[$field] = $field === 'producer' ? array_replace((array) $tampered[$field], ['signature' => str_repeat('0', 64)]) : str_repeat('0', 64);
+            $this->assertFalse($authority->verifyMutativeVerificationReceipt($tampered), 'tamper accepted: '.$field);
+        }
+        $artifactValidator = new \ReflectionMethod(EliteExecutorKernel::class, 'artifactValid');
+        $junit = $candidate->verificationReceipt['behavioral']['junit_artifact'];
+        $originalJunit = file_get_contents($junit['path']);
+        file_put_contents($junit['path'], 'tampered');
+        $this->assertFalse($artifactValidator->invoke($kernel, $junit, $candidate->sandboxRoot));
+        file_put_contents($junit['path'], $originalJunit);
+        $outside = $repo.'/outside-artifact';
+        file_put_contents($outside, 'outside');
+        $this->assertFalse($artifactValidator->invoke($kernel, ['path' => $outside, 'sha256' => hash_file('sha256', $outside)], $candidate->sandboxRoot));
+
+        $redProvider = $this->createMock(ProviderPort::class);
+        $red = $providerResult;
+        $red['patch_plan']['patches'][0]['next'] = "<?php\nreturn 'wrong';\n";
+        $redProvider->method('invoke')->willReturn($red);
+        $this->app->instance(ProviderPort::class, $redProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $redData = $data;
+        $redData['idempotency_key'] = 'mutative-red-'.Str::uuid();
+        $redCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($redData));
+        $this->assertSame('blocked', $redCandidate->status);
+        $this->assertContains('behavioral_verification_refused', $redCandidate->blockers);
+
+        $oracleProvider = $this->createMock(ProviderPort::class);
+        $oracleProvider->method('invoke')->willReturn([
+            'status' => 'ok', 'provider_invoked' => true, 'provider' => 'fixture', 'model' => 'fixture-model',
+            'patch_plan' => ['allowed_files' => ['tests/CandidateBehaviorTest.php'], 'patches' => [[
+                'path' => 'tests/CandidateBehaviorTest.php', 'mode' => 'modify',
+                'previous' => file_get_contents($repo.'/tests/CandidateBehaviorTest.php'),
+                'next' => "<?php\nexit(0);\n",
+            ]]],
+        ]);
+        $this->app->instance(ProviderPort::class, $oracleProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $oracleData = $data;
+        $oracleData['idempotency_key'] = 'mutative-oracle-'.Str::uuid();
+        $oracleData['allowed_scope'] = ['tests/CandidateBehaviorTest.php'];
+        $oracleCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($oracleData));
+        $this->assertSame('blocked', $oracleCandidate->status);
+        $this->assertStringContainsString('behavioral_oracle_is_mutative', implode('|', $oracleCandidate->blockers));
+
+        (new Process(['rm', '-rf', $repo, $candidate->sandboxRoot, $redCandidate->sandboxRoot, $oracleCandidate->sandboxRoot]))->mustRun();
+    }
 
     protected function setUp(): void
     {

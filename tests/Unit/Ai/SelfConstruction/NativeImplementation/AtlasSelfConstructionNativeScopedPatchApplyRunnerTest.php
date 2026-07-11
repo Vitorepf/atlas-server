@@ -10,6 +10,25 @@ use Tests\TestCase;
 
 final class AtlasSelfConstructionNativeScopedPatchApplyRunnerTest extends TestCase
 {
+    public function test_create_never_overwrites_existing_file(): void
+    {
+        $root = sys_get_temp_dir().'/atlas-scoped-create-existing-'.bin2hex(random_bytes(4));
+        mkdir($root, 0o700, true);
+        file_put_contents($root.'/Existing.php', 'original');
+
+        $result = (new AtlasSelfConstructionNativeScopedPatchApplyRunner($root))->apply(
+            ['decision' => 'allow'],
+            ['allowed_files' => ['Existing.php'], 'files' => [[
+                'path' => 'Existing.php', 'mode' => 'create', 'contents' => 'attacker',
+                'patch_artifact_hash' => hash('sha256', 'attacker'),
+            ]]],
+        );
+
+        self::assertTrue($result['refused']);
+        self::assertContains('create_target_already_exists:Existing.php', $result['blockers']);
+        self::assertSame('original', file_get_contents($root.'/Existing.php'));
+    }
+
     private string $root = '';
 
     protected function setUp(): void

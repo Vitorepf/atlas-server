@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel;
 
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\EngineeringKernel\Adapters\AgentExecutionProviderPortAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
@@ -12,6 +14,8 @@ use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +39,128 @@ final class EliteExecutorKernel
         private readonly AtlasAutonomosGateAdapter $autonomosAdapter,
         private readonly ?AtlasEvidenceLedger $evidenceLedger = null,
         private readonly ?KernelEvidenceAuthority $evidenceAuthority = null,
+        private readonly ?ProviderPort $providerPort = null,
+        private readonly ?AtlasSelfConstructionHermeticSandboxApplyService $mutativeSandbox = null,
+        private readonly ?AtlasRealEngineeringExecutionKernelService $realExecution = null,
     ) {}
+
+    public function prepareMutativeCandidate(ExecutionOrder $order): VerifiedMutativeCandidate
+    {
+        if (($order->toolPermissions['mutate'] ?? false) !== true) {
+            return VerifiedMutativeCandidate::blocked($order, ['mutative_permission_required']);
+        }
+        $guard = new AtlasLoopHarnessGuard;
+        foreach ($order->allowedScope as $file) {
+            if ($guard->isForbiddenSelfTarget($file)) {
+                return VerifiedMutativeCandidate::blocked($order, ['forbidden_self_target:'.$file]);
+            }
+        }
+        try {
+            $provider = ($this->providerPort ?? app(AgentExecutionProviderPortAdapter::class))->invoke([
+                'execute_provider' => true,
+                'provider' => (string) ($order->providerRoute['provider'] ?? ''),
+                'model' => (string) ($order->providerRoute['model'] ?? ''),
+                'prompt' => 'Produce the structured patch_plan for frozen spec '.$order->specHash.'. Do not claim verification.',
+                'claim' => ['allowed_files' => $order->allowedScope],
+            ]);
+        } catch (\Throwable $e) {
+            return VerifiedMutativeCandidate::blocked($order, ['provider_exception:'.$e::class]);
+        }
+        if (($provider['status'] ?? null) !== 'ok') {
+            return VerifiedMutativeCandidate::blocked($order, ['provider_'.(string) ($provider['status'] ?? 'refused')], $provider);
+        }
+
+        $providerFiles = array_values(array_map('strval', (array) data_get($provider, 'patch_plan.allowed_files', [])));
+        sort($providerFiles, SORT_STRING);
+        $allowed = $order->allowedScope;
+        sort($allowed, SORT_STRING);
+        if ($providerFiles !== $allowed || array_intersect($providerFiles, $order->forbiddenScope) !== []) {
+            return VerifiedMutativeCandidate::blocked($order, ['provider_scope_mismatch'], $provider);
+        }
+        $sandbox = ($this->mutativeSandbox ?? app(AtlasSelfConstructionHermeticSandboxApplyService::class))->execute([
+            'idempotency_key' => $order->idempotencyKey,
+            'source_repo' => $order->workspace,
+            'base_commit' => $order->baseCommit,
+            'task_packet_id' => $order->deliveryId,
+            'lease_id' => (string) ($order->authorityEnvelope['lease_id'] ?? ''),
+            'allowed_files' => $allowed,
+            'patch_plan' => (array) ($provider['patch_plan'] ?? []),
+            'provider_receipt' => $provider,
+        ]);
+        if (($sandbox['applied'] ?? false) !== true || ($sandbox['replayed'] ?? false) === true) {
+            return VerifiedMutativeCandidate::blocked($order, ['sandbox_'.(string) ($sandbox['reason'] ?? 'refused')], $provider);
+        }
+        $sandboxRoot = (string) ($sandbox['sandbox_root'] ?? '');
+        try {
+            $verification = ($this->realExecution ?? app(AtlasRealEngineeringExecutionKernelService::class))
+                ->verifyHermeticCandidate(
+                    $order,
+                    $sandboxRoot,
+                    $allowed,
+                    array_values(array_map(static fn (array $row): string => (string) ($row['path'] ?? ''), (array) data_get($sandbox, 'apply_receipt.applied_files', []))),
+                );
+        } catch (\Throwable $e) {
+            return new VerifiedMutativeCandidate('blocked', $order->canonicalHash(), '', $order->baseCommit, '', '', $allowed, $sandboxRoot, $provider, $sandbox, [], ['independent_verification_error:'.$e::class.':'.$e->getMessage()], false);
+        }
+        $appliedPaths = array_values(array_map(static fn (array $row): string => (string) ($row['path'] ?? ''), (array) data_get($sandbox, 'apply_receipt.applied_files', [])));
+        sort($appliedPaths, SORT_STRING);
+        $verificationFiles = array_values(array_map('strval', (array) ($verification['files'] ?? [])));
+        sort($verificationFiles, SORT_STRING);
+        $diffArtifact = (array) ($verification['diff_artifact'] ?? []);
+        $junitArtifact = (array) ($verification['junit_artifact'] ?? []);
+        $commands = (array) ($verification['commands'] ?? []);
+        $artifactsValid = $this->artifactValid($diffArtifact, $sandboxRoot) && $this->artifactValid($junitArtifact, $sandboxRoot)
+            && hash_equals((string) ($verification['diff_hash'] ?? ''), (string) ($diffArtifact['sha256'] ?? ''));
+        $bindingValid = ($verification['order_hash'] ?? null) === $order->canonicalHash()
+            && ($verification['base_commit'] ?? null) === $order->baseCommit
+            && $appliedPaths !== []
+            && $verificationFiles === $appliedPaths
+            && array_diff($appliedPaths, $allowed) === []
+            && array_intersect($appliedPaths, $order->forbiddenScope) === []
+            && count($commands) >= 2
+            && ! array_any($commands, static fn (mixed $result): bool => ! is_array($result) || ($result['passed'] ?? false) !== true);
+        if (($verification['passed'] ?? false) !== true || ($verification['independent_from_provider'] ?? false) !== true
+            || ! $artifactsValid || ! $bindingValid || ! $this->authority()->verifyMutativeVerificationReceipt($verification)) {
+            return new VerifiedMutativeCandidate('blocked', $order->canonicalHash(), '', $order->baseCommit, '', '', $appliedPaths, $sandboxRoot, $provider, $sandbox, $verification, ['independent_verification_refused'], false);
+        }
+        $behavioral = (array) ($verification['behavioral'] ?? []);
+        if (($behavioral['status'] ?? null) === 'missing') {
+            return new VerifiedMutativeCandidate('held', $order->canonicalHash(), '', $order->baseCommit, '', '', $appliedPaths, $sandboxRoot, $provider, $sandbox, $verification, ['behavioral_target_required'], false);
+        }
+        $behavioralArtifact = is_array($behavioral['junit_artifact'] ?? null) ? $behavioral['junit_artifact'] : [];
+        $behavioralTarget = (string) ($behavioral['target'] ?? '');
+        if (($behavioral['passed'] ?? false) !== true || ($behavioral['target'] ?? null) !== $behavioralTarget
+            || ! $this->artifactValid($behavioralArtifact, $sandboxRoot)
+            || ! hash_equals((string) ($behavioral['target_hash'] ?? ''), (string) hash_file('sha256', $sandboxRoot.'/'.$behavioralTarget))) {
+            return new VerifiedMutativeCandidate('blocked', $order->canonicalHash(), '', $order->baseCommit, '', '', $appliedPaths, $sandboxRoot, $provider, $sandbox, $verification, ['behavioral_verification_refused'], false);
+        }
+        $candidateHash = CanonicalKernelPayload::hash([
+            'order_hash' => $order->canonicalHash(), 'base_commit' => $order->baseCommit,
+            'tree_hash' => $verification['tree_hash'], 'diff_hash' => $verification['diff_hash'],
+            'files' => $appliedPaths, 'verification_hash' => $verification['hash'], 'behavioral_hash' => CanonicalKernelPayload::hash($behavioral),
+        ]);
+
+        // Slice B intentionally stops before the sovereign mutative 22-role court and Governor.
+        return new VerifiedMutativeCandidate(
+            'behaviorally_verified_pending_quality_court', $order->canonicalHash(), $candidateHash, $order->baseCommit,
+            (string) $verification['tree_hash'], (string) $verification['diff_hash'], $appliedPaths, $sandboxRoot,
+            $provider, $sandbox, $verification, ['mutative_22_role_court_receipt_absent'], false,
+        );
+    }
+
+    /** @param array<string,mixed> $artifact */
+    private function artifactValid(array $artifact, string $sandboxRoot): bool
+    {
+        $path = (string) ($artifact['path'] ?? '');
+        $hash = (string) ($artifact['sha256'] ?? '');
+
+        $real = $path !== '' ? realpath($path) : false;
+        $artifactRoot = realpath($sandboxRoot.'/.atlas');
+
+        return $real !== false && $artifactRoot !== false && str_starts_with($real, $artifactRoot.'/')
+            && $hash !== '' && is_file($path) && ! is_link($path)
+            && hash_equals($hash, (string) hash_file('sha256', $path));
+    }
 
     public function devGate(): AtlasDevGateAdapter
     {

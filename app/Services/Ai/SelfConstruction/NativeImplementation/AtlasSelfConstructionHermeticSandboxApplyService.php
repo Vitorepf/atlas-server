@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
 use Closure;
+use Symfony\Component\Process\Process;
 
 /** Executes a proposal only inside an isolated disposable filesystem root. */
 final class AtlasSelfConstructionHermeticSandboxApplyService
@@ -31,6 +32,34 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_symlink_detected'];
         }
         chmod($sandbox, 0o700);
+
+        $sourceRepo = rtrim(trim((string) ($input['source_repo'] ?? '')), '/');
+        if ($sourceRepo !== '') {
+            $sourceReal = realpath($sourceRepo);
+            $expectedBase = trim((string) ($input['base_commit'] ?? ''));
+            if ($sourceReal === false || ! is_dir($sourceReal.'/.git') || is_link($sourceRepo) || is_link($sourceReal.'/vendor')) {
+                return ['applied' => false, 'dry_run' => false, 'reason' => 'source_git_baseline_invalid'];
+            }
+            if (is_dir($sandbox.'/.git') && ! $this->sandboxIdentityValid($sandbox, $sourceReal, $expectedBase, $key)) {
+                $this->removeTree($sandbox);
+            }
+            if (! is_dir($sandbox.'/.git')) {
+                $this->removeTree($sandbox);
+                $clone = new Process(['git', 'clone', '--no-local', '--no-hardlinks', '--quiet', $sourceReal, $sandbox]);
+                $clone->setTimeout(60);
+                $clone->run();
+                if (! $clone->isSuccessful() || ! is_dir($sandbox.'/.git') || is_link($sandbox.'/vendor')) {
+                    return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_git_clone_failed'];
+                }
+            }
+            $actualBase = trim((string) (new Process(['git', 'rev-parse', 'HEAD'], $sandbox))->mustRun()->getOutput());
+            $origin = trim((string) (new Process(['git', 'remote', 'get-url', 'origin'], $sandbox))->mustRun()->getOutput());
+            if ($expectedBase === '' || ! hash_equals($expectedBase, $actualBase) || realpath($origin) !== $sourceReal) {
+                $this->removeTree($sandbox);
+
+                return ['applied' => false, 'dry_run' => false, 'reason' => 'sandbox_base_commit_mismatch'];
+            }
+        }
 
         $boundManifest = $this->reconcile($key);
         if (is_array($boundManifest) && ! $this->claimIdentityMatches($boundManifest, $input)) {
@@ -210,7 +239,47 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
             'apply_receipt' => $applyReceipt, 'apply_hash' => $this->hash($applyReceipt),
             'evidence_receipt' => $evidenceReceipt, 'evidence_hash' => $this->hash($evidenceReceipt),
             'postimage_hashes' => $postimages,
+            'source_repo_realpath' => realpath((string) ($input['source_repo'] ?? '')) ?: null,
+            'source_repo_hash' => hash('sha256', (string) (realpath((string) ($input['source_repo'] ?? '')) ?: '')),
+            'base_commit' => (string) ($input['base_commit'] ?? ''),
+            'clone_provenance' => 'git_clone_no_local_no_hardlinks',
         ]);
+    }
+
+    private function sandboxIdentityValid(string $sandbox, string $sourceReal, string $base, string $key): bool
+    {
+        $manifest = $this->reconcile($key);
+        if (! is_array($manifest)
+            || ($manifest['source_repo_realpath'] ?? null) !== $sourceReal
+            || ($manifest['source_repo_hash'] ?? null) !== hash('sha256', $sourceReal)
+            || ($manifest['base_commit'] ?? null) !== $base
+            || ($manifest['clone_provenance'] ?? null) !== 'git_clone_no_local_no_hardlinks') {
+            return false;
+        }
+        $head = new Process(['git', 'rev-parse', 'HEAD'], $sandbox);
+        $origin = new Process(['git', 'remote', 'get-url', 'origin'], $sandbox);
+        $head->run();
+        $origin->run();
+
+        return $head->isSuccessful() && $origin->isSuccessful()
+            && trim($head->getOutput()) === $base
+            && realpath(trim($origin->getOutput())) === $sourceReal;
+    }
+
+    private function removeTree(string $path): void
+    {
+        $ownedRoot = rtrim(sys_get_temp_dir(), '/').'/';
+        $normalized = str_replace('\\', '/', $path);
+        if (! str_starts_with($normalized, $ownedRoot.'atlas-native-sandbox-')
+            || str_contains(substr($normalized, strlen($ownedRoot)), '/')) {
+            throw new \RuntimeException('sandbox_quarantine_outside_owned_temp_root');
+        }
+        if (! file_exists($path) && ! is_link($path)) {
+            return;
+        }
+        $process = new Process(['rm', '-rf', '--', $path]);
+        $process->setTimeout(30);
+        $process->run();
     }
 
     /** @param array<string,string> $postimages */

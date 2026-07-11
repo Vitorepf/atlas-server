@@ -6,9 +6,55 @@ namespace Tests\Unit\Ai\SelfConstruction\NativeImplementation;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
 
 final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCase
 {
+    public function test_planted_git_directory_is_quarantined_and_recloned_from_bound_source(): void
+    {
+        [$source, $base] = $this->gitSource('planted');
+        $key = 'planted-git-'.bin2hex(random_bytes(4));
+        $sandbox = sys_get_temp_dir().'/atlas-native-sandbox-'.substr(hash('sha256', $key), 0, 24);
+        mkdir($sandbox.'/.git', 0o700, true);
+        file_put_contents($sandbox.'/owned', 'attacker');
+
+        $result = (new AtlasSelfConstructionHermeticSandboxApplyService)->execute($this->gitInput($key, $source, $base));
+
+        self::assertTrue($result['applied']);
+        self::assertFileDoesNotExist($sandbox.'/owned');
+        self::assertSame($base, trim((new Process(['git', 'rev-parse', 'HEAD'], $sandbox))->mustRun()->getOutput()));
+    }
+
+    public function test_same_key_with_different_source_or_base_never_reuses_candidate(): void
+    {
+        [$sourceA, $baseA] = $this->gitSource('a');
+        [$sourceB, $baseB] = $this->gitSource('b');
+        $key = 'source-swap-'.bin2hex(random_bytes(4));
+        $service = new AtlasSelfConstructionHermeticSandboxApplyService;
+        self::assertTrue($service->execute($this->gitInput($key, $sourceA, $baseA))['applied']);
+
+        $swapped = $service->execute($this->gitInput($key, $sourceB, $baseB));
+
+        self::assertTrue($swapped['applied']);
+        self::assertFalse($swapped['replayed']);
+        self::assertSame($baseB, trim((new Process(['git', 'rev-parse', 'HEAD'], $swapped['sandbox_root']))->mustRun()->getOutput()));
+    }
+
+    public function test_source_vendor_symlink_is_refused_and_never_shared(): void
+    {
+        [$source, $base] = $this->gitSource('vendor-link');
+        $outside = sys_get_temp_dir().'/atlas-vendor-outside-'.bin2hex(random_bytes(3));
+        mkdir($outside, 0o700, true);
+        symlink($outside, $source.'/vendor');
+
+        $result = (new AtlasSelfConstructionHermeticSandboxApplyService)->execute(
+            $this->gitInput('vendor-link-'.bin2hex(random_bytes(3)), $source, $base),
+        );
+
+        self::assertFalse($result['applied']);
+        self::assertSame('source_git_baseline_invalid', $result['reason']);
+    }
+
     public function test_apply_is_uncertain_when_applied_manifest_cannot_be_persisted(): void
     {
         $service = new AtlasSelfConstructionHermeticSandboxApplyService(manifestWriter: fn (): bool => false);
@@ -16,6 +62,31 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
             'patch_plan' => ['allowed_files' => ['X.php'], 'patches' => [['path' => 'X.php', 'mode' => 'create', 'next' => 'x']]]]);
         self::assertFalse($result['applied']);
         self::assertSame('reconciliation_uncertain', $result['reason']);
+    }
+
+    /** @return array{string,string} */
+    private function gitSource(string $suffix): array
+    {
+        $repo = sys_get_temp_dir().'/atlas-hermetic-source-'.$suffix.'-'.bin2hex(random_bytes(3));
+        mkdir($repo.'/app', 0o700, true);
+        file_put_contents($repo.'/app/X.php', "<?php\nreturn 'before';\n");
+        foreach ([['init', '-b', 'main'], ['config', 'user.email', 'atlas@test.local'], ['config', 'user.name', 'Atlas Test'], ['add', '.'], ['commit', '-m', 'base']] as $args) {
+            (new Process(['git', ...$args], $repo))->mustRun();
+        }
+
+        return [$repo, trim((new Process(['git', 'rev-parse', 'HEAD'], $repo))->mustRun()->getOutput())];
+    }
+
+    /** @return array<string,mixed> */
+    private function gitInput(string $key, string $source, string $base): array
+    {
+        return [
+            'idempotency_key' => $key, 'source_repo' => $source, 'base_commit' => $base,
+            'allowed_files' => ['app/X.php'],
+            'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => [[
+                'path' => 'app/X.php', 'mode' => 'modify', 'previous' => "<?php\nreturn 'before';\n", 'next' => "<?php\nreturn 'after';\n",
+            ]]],
+        ];
     }
 
     public function test_provider_supplied_commands_are_never_executed(): void
