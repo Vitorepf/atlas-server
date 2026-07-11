@@ -41,12 +41,13 @@ final class MemoryQualityRetrievalWindowTest extends TestCase
         $oldEntry = $this->createActiveEntry('Old recall entry');
 
         $this->insertUsage($recentEntry, now()->subDays(5), 'useful');
-        $this->insertUsage($oldEntry, now()->subDays(45), 'wrong_context');
+        $this->insertUsage($oldEntry, now()->subDays(60), 'wrong_context');
 
         $scorecard = app(AtlasMemoryQualityService::class)->scorecard();
         $retrieval = (array) data_get($scorecard, 'counts.retrieval_eval');
 
-        $this->assertSame(30, $retrieval['window_days']);
+        $this->assertSame(45, $retrieval['window_days']);
+        $this->assertSame(1, $retrieval['recall_usage_window_total']);
         $this->assertSame(1, $retrieval['recall_usage_total']);
         $this->assertSame(1, $retrieval['entries_recalled']);
         $this->assertSame(1, $retrieval['active_entries_never_recalled']);

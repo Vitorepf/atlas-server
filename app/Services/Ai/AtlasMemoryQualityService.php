@@ -16,6 +16,8 @@ use Illuminate\Support\Str;
 
 class AtlasMemoryQualityService
 {
+    private const FEEDBACK_NO_SIGNAL_SCORE = 50;
+
     public function __construct(
         private readonly AtlasMemoryPrivacyService $privacy,
         private readonly MemoryQueryInput $input,
@@ -60,7 +62,7 @@ class AtlasMemoryQualityService
         $ratios = $this->ratios($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval);
         $components = $this->components($counts, $relations, $feedback, $sourceIntegrity, $retrievalEval, $ratios);
         $score = MemoryHealthCompositePolicy::compose($components)['composite_score'];
-        $issues = $this->issues($counts, $relations, $feedback, $deltas, $sourceIntegrity, $retrievalEval, $score);
+        $issues = $this->issues($counts, $relations, $feedback, $deltas, $sourceIntegrity, $retrievalEval, $ratios, $score);
         $statusPolicy = MemoryQualityStatusPolicy::classify(
             (int) ($counts['active'] ?? 0),
             $score,
@@ -371,57 +373,97 @@ class AtlasMemoryQualityService
      */
     private function feedbackCounts(array $activeEntryIds): array
     {
+        $windowDays = $this->memoryQualityWindowDays();
+        $minSignalUsage = $this->memoryQualityWindowSignalFloor();
+
         if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [
                 'table_present' => 0,
+                'window_days' => $windowDays,
+                'min_signal_usage' => $minSignalUsage,
                 'usage_total' => 0,
+                'usage_window_total' => 0,
                 'feedback_total' => 0,
+                'feedback_window_total' => 0,
                 'positive' => 0,
+                'positive_window' => 0,
                 'positive_explicit' => 0,
+                'positive_explicit_window' => 0,
                 'positive_implicit' => 0,
+                'positive_implicit_window' => 0,
                 'ignored_implicit' => 0,
+                'ignored_implicit_window' => 0,
                 'negative' => 0,
+                'negative_window' => 0,
                 'wrong_context' => 0,
+                'wrong_context_window' => 0,
                 'stale' => 0,
+                'stale_window' => 0,
             ];
         }
 
         if ($activeEntryIds === []) {
             return [
                 'table_present' => 1,
+                'window_days' => $windowDays,
+                'min_signal_usage' => $minSignalUsage,
                 'usage_total' => 0,
+                'usage_window_total' => 0,
                 'feedback_total' => 0,
+                'feedback_window_total' => 0,
                 'positive' => 0,
+                'positive_window' => 0,
                 'positive_explicit' => 0,
+                'positive_explicit_window' => 0,
                 'positive_implicit' => 0,
+                'positive_implicit_window' => 0,
                 'ignored_implicit' => 0,
+                'ignored_implicit_window' => 0,
                 'negative' => 0,
+                'negative_window' => 0,
                 'wrong_context' => 0,
+                'wrong_context_window' => 0,
                 'stale' => 0,
+                'stale_window' => 0,
             ];
         }
 
         $query = AtlasMemoryEntryUsage::query()
             ->whereIn('memory_entry_id', $activeEntryIds);
+        $windowQuery = (clone $query)->where('created_at', '>=', now()->subDays($windowDays));
 
         $feedback = (clone $query)->whereNotNull('feedback_action');
+        $windowFeedback = (clone $windowQuery)->whereNotNull('feedback_action');
         $positiveExplicit = AtlasMemoryEntryUsage::positiveExplicitFeedbackActions();
         $positiveImplicit = AtlasMemoryEntryUsage::positiveImplicitFeedbackActions();
         $negative = AtlasMemoryEntryUsage::negativeFeedbackActions();
         $positiveExplicitCount = (clone $feedback)->whereIn('feedback_action', $positiveExplicit)->count();
         $positiveImplicitCount = (clone $feedback)->whereIn('feedback_action', $positiveImplicit)->count();
+        $positiveExplicitWindowCount = (clone $windowFeedback)->whereIn('feedback_action', $positiveExplicit)->count();
+        $positiveImplicitWindowCount = (clone $windowFeedback)->whereIn('feedback_action', $positiveImplicit)->count();
 
         return [
             'table_present' => 1,
+            'window_days' => $windowDays,
+            'min_signal_usage' => $minSignalUsage,
             'usage_total' => (clone $query)->count(),
+            'usage_window_total' => (clone $windowQuery)->count(),
             'feedback_total' => (clone $feedback)->count(),
+            'feedback_window_total' => (clone $windowFeedback)->count(),
             'positive' => $positiveExplicitCount + $positiveImplicitCount,
+            'positive_window' => $positiveExplicitWindowCount + $positiveImplicitWindowCount,
             'positive_explicit' => $positiveExplicitCount,
+            'positive_explicit_window' => $positiveExplicitWindowCount,
             'positive_implicit' => $positiveImplicitCount,
+            'positive_implicit_window' => $positiveImplicitWindowCount,
             'ignored_implicit' => (clone $feedback)->where('feedback_action', 'ignored_implicit')->count(),
+            'ignored_implicit_window' => (clone $windowFeedback)->where('feedback_action', 'ignored_implicit')->count(),
             'negative' => (clone $feedback)->whereIn('feedback_action', $negative)->count(),
+            'negative_window' => (clone $windowFeedback)->whereIn('feedback_action', $negative)->count(),
             'wrong_context' => (clone $feedback)->where('feedback_action', 'wrong_context')->count(),
+            'wrong_context_window' => (clone $windowFeedback)->where('feedback_action', 'wrong_context')->count(),
             'stale' => (clone $feedback)->where('feedback_action', 'stale')->count(),
+            'stale_window' => (clone $windowFeedback)->where('feedback_action', 'stale')->count(),
         ];
     }
 
@@ -432,13 +474,15 @@ class AtlasMemoryQualityService
      */
     private function retrievalEvalCounts(array $activeEntryIds, Collection $active): array
     {
-        $windowDays = max(1, (int) config('atlas.semantic_memory.retrieval_eval_window_days', 30));
+        $windowDays = $this->memoryQualityWindowDays();
 
         if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [
                 'table_present' => 0,
                 'window_days' => $windowDays,
+                'min_signal_usage' => $this->memoryQualityWindowSignalFloor(),
                 'recall_usage_total' => 0,
+                'recall_usage_window_total' => 0,
                 'entries_recalled' => 0,
                 'top_entry_recall_count' => 0,
                 'active_entries_never_recalled' => count($activeEntryIds),
@@ -465,7 +509,9 @@ class AtlasMemoryQualityService
             return [
                 'table_present' => 1,
                 'window_days' => $windowDays,
+                'min_signal_usage' => $this->memoryQualityWindowSignalFloor(),
                 'recall_usage_total' => 0,
+                'recall_usage_window_total' => 0,
                 'entries_recalled' => 0,
                 'top_entry_recall_count' => 0,
                 'active_entries_never_recalled' => 0,
@@ -534,7 +580,9 @@ class AtlasMemoryQualityService
         return [
             'table_present' => 1,
             'window_days' => $windowDays,
+            'min_signal_usage' => $this->memoryQualityWindowSignalFloor(),
             'recall_usage_total' => (clone $query)->count(),
+            'recall_usage_window_total' => (clone $query)->count(),
             'entries_recalled' => $recalledIds->count(),
             'top_entry_recall_count' => $topEntryRecallCount,
             'active_entries_never_recalled' => max(0, count($activeEntryIds) - $recalledIds->count()),
@@ -603,6 +651,16 @@ class AtlasMemoryQualityService
     private function memoryTextKey(string $value): string
     {
         return preg_replace('/\s+/', ' ', mb_strtolower(trim($value))) ?? '';
+    }
+
+    private function memoryQualityWindowDays(): int
+    {
+        return max(1, (int) config('atlas.semantic_memory.recall_concentration_window_days', 45));
+    }
+
+    private function memoryQualityWindowSignalFloor(): int
+    {
+        return max(1, (int) config('atlas.semantic_memory.recall_concentration_min_recalls', 50));
     }
 
     /**
@@ -702,7 +760,7 @@ class AtlasMemoryQualityService
     private function ratios(array $counts, array $relations, array $feedback, array $sourceIntegrity, array $retrievalEval): array
     {
         $active = max(1, (int) $counts['active']);
-        $feedbackTotal = max(1, (int) $feedback['feedback_total']);
+        $feedbackTotal = max(1, (int) ($feedback['feedback_window_total'] ?? $feedback['feedback_total'] ?? 0));
         $recallFeedbackTotal = max(1, (int) $retrievalEval['recall_feedback_total']);
         $checked = max(1, (int) $sourceIntegrity['checked']);
 
@@ -711,7 +769,7 @@ class AtlasMemoryQualityService
             'blocked_ratio' => $this->ratio((int) $counts['provider_blocked_active'], $active),
             'stale_unused_ratio' => $this->ratio((int) $counts['stale_unused_active'], $active),
             'privacy_review_needed_ratio' => $this->ratio((int) $counts['privacy_review_needed'], $active),
-            'negative_feedback_ratio' => $this->ratio((int) $feedback['negative'], $feedbackTotal),
+            'negative_feedback_ratio' => $this->ratio((int) ($feedback['negative_window'] ?? $feedback['negative'] ?? 0), $feedbackTotal),
             'retrieval_recall_coverage_ratio' => $this->ratio((int) $retrievalEval['entries_recalled'], max(1, (int) $retrievalEval['entries_recalled'] + (int) ($retrievalEval['stale_never_recalled_active'] ?? 0))),
             'retrieval_negative_feedback_ratio' => $this->ratio((int) $retrievalEval['recall_negative_feedback'], $recallFeedbackTotal),
             // D5 — share of recalls piling on the single most-recalled entry (the wiper's
@@ -745,8 +803,8 @@ class AtlasMemoryQualityService
             + ((int) $sourceIntegrity['orphaned'] * 15));
 
         $activeForRatio = max(1, $active);
-        $usageTotal = (int) ($feedback['usage_total'] ?? 0);
-        $feedbackTotal = (int) ($feedback['feedback_total'] ?? 0);
+        $usageTotal = (int) ($feedback['usage_window_total'] ?? $feedback['usage_total'] ?? 0);
+        $feedbackTotal = (int) ($feedback['feedback_window_total'] ?? $feedback['feedback_total'] ?? 0);
 
         return [
             'readiness' => $active > 0 ? 100 : 0,
@@ -756,7 +814,12 @@ class AtlasMemoryQualityService
             // D5 — the feedback dimension is now the FILL rate, not a free 72. A system
             // with many usages and ZERO feedback (the wiper: 0/18320) is a dead write and
             // scores ~0 here; it rises only when real feedback_action is recorded (D4).
-            'feedback' => $this->feedbackComponent($usageTotal, $feedbackTotal, (float) ($ratios['negative_feedback_ratio'] ?? 0.0)),
+            'feedback' => $this->feedbackComponent(
+                $usageTotal,
+                $feedbackTotal,
+                (float) ($ratios['negative_feedback_ratio'] ?? 0.0),
+                (int) ($feedback['min_signal_usage'] ?? $this->memoryQualityWindowSignalFloor()),
+            ),
             // D5 — retrieval quality is coverage MINUS negative feedback MINUS the
             // degenerate-concentration penalty: a store whose recalls all pile on one
             // entry is NOT well-retrieved, however high its nominal coverage. Honest, not
@@ -789,10 +852,10 @@ class AtlasMemoryQualityService
      * otherwise the fraction of usages that carry a feedback_action, docked by the
      * negative-feedback ratio. The wiper (0 feedback over 18 320 usages) scores ~0.
      */
-    private function feedbackComponent(int $usageTotal, int $feedbackTotal, float $negativeRatio): int
+    private function feedbackComponent(int $usageTotal, int $feedbackTotal, float $negativeRatio, int $minSignalUsage): int
     {
-        if ($usageTotal <= 0) {
-            return 50;
+        if ($usageTotal < max(1, $minSignalUsage)) {
+            return self::FEEDBACK_NO_SIGNAL_SCORE;
         }
         // Obra 3 / MEM-03 OPT-01: log-scaled fill so sparse-but-real feedback is not
         // crushed by historical recall volume (wiper-era usage piles). Still docks
@@ -815,7 +878,7 @@ class AtlasMemoryQualityService
      * @param  array<string,int>  $sourceIntegrity
      * @return array<int,array<string,mixed>>
      */
-    private function issues(array $counts, array $relations, array $feedback, array $deltas, array $sourceIntegrity, array $retrievalEval, int $score): array
+    private function issues(array $counts, array $relations, array $feedback, array $deltas, array $sourceIntegrity, array $retrievalEval, array $ratios, int $score): array
     {
         $issues = [];
         if ($counts['active'] < 1) {
