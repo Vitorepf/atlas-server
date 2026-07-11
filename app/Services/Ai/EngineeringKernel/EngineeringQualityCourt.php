@@ -55,6 +55,20 @@ final class EngineeringQualityCourt
                 return app(AtlasRealEngineeringExecutionKernelService::class)->candidateQaDisposition($case);
             }
         }
+        if ($role === 'architecture') {
+            $rows = AiEngineeringCompanyRoleRun::query()
+                ->where('engagement_record_id', $case->engagementRecordId)
+                ->where('cycle_record_id', $case->cycleRecordId)
+                ->where('role_id', 'architecture')->get()
+                ->filter(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'binding.case_hash') === $case->caseHash);
+            $owner = $rows->count() === 1 ? $rows->first() : null;
+            if ($owner instanceof AiEngineeringCompanyRoleRun
+                && app(AtlasRealEngineeringExecutionKernelService::class)->candidateArchitectureOwnerReceiptValid($owner, $case)) {
+                $evidence = (array) data_get($owner->receipt, 'architecture_evidence', []);
+
+                return app(AtlasRealEngineeringExecutionKernelService::class)->candidateArchitectureDisposition($case, $evidence);
+            }
+        }
         $payload = $this->mutativeAbsencePayload($case, $role);
 
         return RoleDisposition::ownerEvidenceAbsent(

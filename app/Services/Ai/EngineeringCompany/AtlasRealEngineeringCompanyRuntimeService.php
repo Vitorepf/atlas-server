@@ -294,6 +294,14 @@ class AtlasRealEngineeringCompanyRuntimeService
         }
         $dispositions = [];
         foreach (array_slice(self::QUALITY_ROLES, 0, 21) as $role) {
+            if ($role === 'architecture') {
+                $architectureRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateArchitectureOwnerReceipt($engagement, $cycle, $case);
+                $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($architectureRun, $case, []);
+                $dispositions[$role] = $disposition;
+
+                continue;
+            }
             if ($role === 'qa_testing') {
                 $qaRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateQaOwnerReceipt($engagement, $cycle, $case);
                 $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);

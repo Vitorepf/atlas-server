@@ -33,9 +33,11 @@ final class EngineeringFinalCertifier
         $persistedValid = $candidates->count() === 21 && $rows->count() === 21;
         foreach ($expectedRoles as $role) {
             $row = $rows->get($role);
-            $ownerDomain = $role === 'qa_testing'
-                ? AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN
-                : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN;
+            $ownerDomain = match ($role) {
+                'qa_testing' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN,
+                'architecture' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
+                default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+            };
             if (! $row instanceof AiEngineeringCompanyRoleRun
                 || ! app(KernelEvidenceAuthority::class)->mutativeRoleReceiptValid($row, $case, $ownerDomain, 'v1')) {
                 $persistedValid = false;

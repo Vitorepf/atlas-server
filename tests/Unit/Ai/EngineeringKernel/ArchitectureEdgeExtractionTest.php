@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\EngineeringKernel;
 
 use App\Services\Ai\EngineeringKernel\NonFunctional\ArchitectureRegressionProbe;
+use PhpParser\Error;
 use PHPUnit\Framework\TestCase;
 
 final class ArchitectureEdgeExtractionTest extends TestCase
@@ -114,5 +115,77 @@ final class ArchitectureEdgeExtractionTest extends TestCase
         $edges = ArchitectureRegressionProbe::edgesFromSources($sources);
 
         $this->assertCount(0, $edges);
+    }
+
+    public function test_ast_extracts_fqcn_static_extends_implements_and_attributes(): void
+    {
+        $source = <<<'PHP'
+            <?php
+            namespace App\Services\Ai\EngineeringKernel\Sub;
+            #[\App\Models\AuditAttribute]
+            final class Dangerous extends \App\Models\BaseModel implements \Illuminate\Http\Responsable
+            {
+                public function run(): void
+                {
+                    \App\Models\User::query();
+                    new \Illuminate\Database\Connection();
+                }
+            }
+            PHP;
+
+        $targets = array_column(ArchitectureRegressionProbe::edgesFromSources(['Dangerous.php' => $source]), 'to');
+
+        $this->assertContains('App\Models\AuditAttribute', $targets);
+        $this->assertContains('App\Models\BaseModel', $targets);
+        $this->assertContains('Illuminate\Http\Responsable', $targets);
+        $this->assertContains('App\Models\User', $targets);
+        $this->assertContains('Illuminate\Database\Connection', $targets);
+        $this->assertCount(5, ArchitectureRegressionProbe::violations(
+            ArchitectureRegressionProbe::edgesFromSources(['Dangerous.php' => $source]),
+        ));
+    }
+
+    public function test_ast_ignores_dependency_like_text_in_comments_and_strings(): void
+    {
+        $source = <<<'PHP'
+            <?php
+            namespace App\Services\Ai\EngineeringKernel\Sub;
+            // \App\Models\User::query();
+            final class Safe
+            {
+                public string $text = '\\Illuminate\\Database\\Connection';
+            }
+            PHP;
+
+        $this->assertSame([], ArchitectureRegressionProbe::edgesFromSources(['Safe.php' => $source]));
+    }
+
+    public function test_exact_kernel_root_namespace_is_governed_for_fqcn_extends_and_static_calls(): void
+    {
+        $source = <<<'PHP'
+            <?php
+            namespace App\Services\Ai\EngineeringKernel;
+            final class RootDanger extends \App\Models\BaseModel
+            {
+                public function run(): void
+                {
+                    \App\Models\User::query();
+                    \Illuminate\Database\Connection::class;
+                }
+            }
+            PHP;
+
+        $edges = ArchitectureRegressionProbe::edgesFromSources(['RootDanger.php' => $source]);
+
+        $this->assertCount(3, ArchitectureRegressionProbe::violations($edges));
+    }
+
+    public function test_unsupported_php_syntax_fails_closed(): void
+    {
+        $this->expectException(Error::class);
+
+        ArchitectureRegressionProbe::edgesFromSources([
+            'Broken.php' => '<?php namespace App\\Services\\Ai\\EngineeringKernel; class {',
+        ]);
     }
 }

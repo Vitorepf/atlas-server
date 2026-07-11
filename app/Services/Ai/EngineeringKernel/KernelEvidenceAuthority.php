@@ -135,6 +135,7 @@ final class KernelEvidenceAuthority
         $domain = match ($role) {
             'final_certification' => EngineeringFinalCertifier::MUTATIVE_DOMAIN,
             'qa_testing' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN,
+            'architecture' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
             default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
         };
         if (! $this->mutativeRoleReceiptValid($persisted, $case, $domain, 'v1')) {
@@ -162,6 +163,11 @@ final class KernelEvidenceAuthority
             return $expectedDomain === AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN
                 && $expectedVersion === AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_VERSION
                 && app(AtlasRealEngineeringExecutionKernelService::class)->candidateQaOwnerReceiptValid($persisted, $case);
+        }
+        if ($role === 'architecture') {
+            return $expectedDomain === AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN
+                && $expectedVersion === AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_VERSION
+                && app(AtlasRealEngineeringExecutionKernelService::class)->candidateArchitectureOwnerReceiptValid($persisted, $case);
         }
         $expectedBinding = [
             'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,

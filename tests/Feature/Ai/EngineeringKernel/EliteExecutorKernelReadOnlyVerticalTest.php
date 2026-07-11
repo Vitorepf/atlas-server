@@ -164,6 +164,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $candidate->verificationHash);
         $this->assertSame($candidate->verificationHash, $verificationOwner->test_hash);
         $this->assertSame($candidate->candidateHash, data_get($verificationOwner->receipt, 'binding.candidate_hash'));
+        $this->assertSame(hash_file('sha256', $candidate->sandboxRoot.'/app/Candidate.php'), data_get($verificationOwner->receipt, 'binding.source_hashes')['app/Candidate.php'] ?? null);
         $this->assertSame(RealExecutionHash::make($providerResult), data_get($verificationOwner->receipt, 'identities.provider_receipt_hash'));
         $this->assertNotSame(data_get($verificationOwner->receipt, 'identities.author'), data_get($verificationOwner->receipt, 'identities.verifier'));
         $this->assertNotSame(data_get($verificationOwner->receipt, 'identities.provider'), data_get($verificationOwner->receipt, 'identities.verifier'));
@@ -193,15 +194,43 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $persistedVerdict->dispositions,
             static fn ($disposition): bool => $disposition->status === 'block',
         ));
-        $this->assertSame(['qa_testing'], $passingRoles);
-        $this->assertCount(21, $blockingRoles);
+        $this->assertSame(['architecture', 'qa_testing'], $passingRoles);
+        $this->assertCount(20, $blockingRoles);
         $this->assertContains('final_certification', $blockingRoles);
+        $this->assertSame('candidate_architecture_probe_clean', $persistedVerdict->dispositions['architecture']->reason);
         $this->assertSame('pass', $persistedVerdict->dispositions['qa_testing']->status);
         $this->assertSame('candidate_mechanical_and_behavioral_verification_passed', $persistedVerdict->dispositions['qa_testing']->reason);
         $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['evidence_audit']->reason);
         $this->assertSame('prior_21_not_all_pass_or_na', $persistedVerdict->dispositions['final_certification']->reason);
         $this->assertSame(22, $persisted->pluck('role_id')->unique()->count());
         $qaOwner = $persisted->firstWhere('role_id', 'qa_testing');
+        $architectureOwner = $persisted->firstWhere('role_id', 'architecture');
+        $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN, data_get($architectureOwner->receipt, 'owner_domain'));
+        $this->assertSame($qualityCase->caseHash, data_get($architectureOwner->receipt, 'architecture_evidence.case_hash'));
+        $this->assertSame($candidate->treeHash, data_get($architectureOwner->receipt, 'architecture_evidence.tree_hash'));
+        $this->assertSame([], data_get($architectureOwner->receipt, 'architecture_evidence.violations'));
+        $this->assertFileExists((string) data_get($architectureOwner->receipt, 'architecture_evidence.raw_artifact.path'));
+        $this->assertNotSame($candidate->providerIdentity, data_get($architectureOwner->receipt, 'owner_identity'));
+        $this->assertNotSame($candidate->authorIdentity, data_get($architectureOwner->receipt, 'owner_identity'));
+        $originalArchitectureReceipt = $architectureOwner->receipt;
+        foreach (['stale', 'changed_probe_contract'] as $architectureAttack) {
+            $attackedArchitectureReceipt = $originalArchitectureReceipt;
+            if ($architectureAttack === 'stale') {
+                $attackedArchitectureReceipt['expires_at'] = now()->subMinute()->startOfSecond()->toAtomString();
+            } else {
+                $attackedArchitectureReceipt['architecture_evidence']['probe_contract_hash'] = str_repeat('0', 64);
+            }
+            $architectureOwner->forceFill(['receipt' => $attackedArchitectureReceipt])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'architecture')->status, $architectureAttack);
+            $architectureOwner->forceFill(['receipt' => $originalArchitectureReceipt])->save();
+        }
+        $architectureArtifactPath = (string) data_get($originalArchitectureReceipt, 'architecture_evidence.raw_artifact.path');
+        $architectureArtifact = file_get_contents($architectureArtifactPath);
+        $this->assertIsString($architectureArtifact);
+        unlink($architectureArtifactPath);
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'architecture')->status, 'architecture_artifact_unavailable');
+        file_put_contents($architectureArtifactPath, $architectureArtifact);
+        $this->assertSame('pass', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'architecture')->status);
         $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN, data_get($qaOwner->receipt, 'owner_domain'));
         $this->assertSame($candidate->baseCommit, data_get($qaOwner->receipt, 'qa_evidence.base_commit'));
         $this->assertSame($candidate->files, data_get($qaOwner->receipt, 'qa_evidence.files'));
@@ -404,6 +433,83 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $this->assertSame('blocked', $identityCandidate->status, $identityAttack);
             $this->assertTrue(array_any($identityCandidate->blockers, static fn (string $blocker): bool => str_contains($blocker, 'hermetic_candidate_verifier_independence_invalid')), $identityAttack);
         }
+
+        $unsafeProvider = $this->createMock(ProviderPort::class);
+        $unsafeResult = $providerResult;
+        $unsafeResult['patch_plan']['patches'][0]['next'] = <<<'PHP'
+            <?php
+            namespace App\Services\Ai\EngineeringKernel\UnsafeFixture;
+            use App\Models\User;
+            return 'after';
+            PHP;
+        $unsafeProvider->method('invoke')->willReturn($unsafeResult);
+        $this->app->instance(ProviderPort::class, $unsafeProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $unsafeData = $data;
+        $unsafeData['idempotency_key'] = 'mutative-architecture-unsafe-'.Str::uuid();
+        $unsafeCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($unsafeData));
+        $this->assertSame('behaviorally_verified_pending_quality_court', $unsafeCandidate->status);
+        $unsafeEngagement = $company->createEngagement('forbidden architecture dependency');
+        $unsafeCycle = $company->createCycle($unsafeEngagement);
+        $unsafeCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($unsafeData), $unsafeCandidate, $unsafeEngagement, $unsafeCycle);
+        $unsafeVerdict = $company->adjudicateMutativeCandidate($unsafeEngagement, $unsafeCycle, $unsafeCase);
+        $this->assertSame('block', $unsafeVerdict->dispositions['architecture']->status);
+        $this->assertSame('candidate_architecture_forbidden_dependency', $unsafeVerdict->dispositions['architecture']->reason);
+        $this->assertNotEmpty(data_get(
+            AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $unsafeEngagement->getKey())->where('role_id', 'architecture')->firstOrFail()->receipt,
+            'architecture_evidence.violations',
+        ));
+
+        $toctouProvider = $this->createMock(ProviderPort::class);
+        $toctouProvider->method('invoke')->willReturn($providerResult);
+        $this->app->instance(ProviderPort::class, $toctouProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $toctouData = $data;
+        $toctouData['idempotency_key'] = 'mutative-architecture-toctou-'.Str::uuid();
+        $toctouCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($toctouData));
+        $toctouEngagement = $company->createEngagement('post verification architecture mutation');
+        $toctouCycle = $company->createCycle($toctouEngagement);
+        $toctouCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($toctouData), $toctouCandidate, $toctouEngagement, $toctouCycle);
+        file_put_contents($toctouCandidate->sandboxRoot.'/app/Candidate.php', <<<'PHP'
+            <?php
+            namespace App\Services\Ai\EngineeringKernel\UnsafeAfterVerification;
+            use App\Models\User;
+            return 'after';
+            PHP);
+        $this->assertInvalidArgumentMessage(
+            fn () => app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateArchitectureOwnerReceipt($toctouEngagement, $toctouCycle, $toctouCase),
+            'mutative_verification_owner_invalid',
+        );
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($toctouCase, 'architecture')->status);
+
+        $raceProvider = $this->createMock(ProviderPort::class);
+        $raceProvider->method('invoke')->willReturn($providerResult);
+        $this->app->instance(ProviderPort::class, $raceProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $raceData = $data;
+        $raceData['idempotency_key'] = 'mutative-architecture-race-'.Str::uuid();
+        $raceCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($raceData));
+        $raceEngagement = $company->createEngagement('architecture immutable tree race');
+        $raceCycle = $company->createCycle($raceEngagement);
+        $raceCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($raceData), $raceCandidate, $raceEngagement, $raceCycle);
+        $raceService = new class($raceCandidate->sandboxRoot.'/app/Candidate.php') extends AtlasRealEngineeringExecutionKernelService
+        {
+            public function __construct(private readonly string $livePath) {}
+
+            protected function afterArchitectureCandidateVerified(CandidateQualityCase $case): void
+            {
+                file_put_contents($this->livePath, <<<'PHP'
+                    <?php
+                    namespace App\Services\Ai\EngineeringKernel;
+                    use App\Models\User;
+                    return 'after';
+                    PHP);
+            }
+        };
+        $raceOwner = $raceService->persistCandidateArchitectureOwnerReceipt($raceEngagement, $raceCycle, $raceCase);
+        $this->assertSame('passed', $raceOwner->status);
+        $this->assertSame([], data_get($raceOwner->receipt, 'architecture_evidence.violations'));
+        $this->assertStringContainsString('App\Models\User', (string) file_get_contents($raceCandidate->sandboxRoot.'/app/Candidate.php'));
 
         $oracleProvider = $this->createMock(ProviderPort::class);
         $oracleProvider->method('invoke')->willReturn([

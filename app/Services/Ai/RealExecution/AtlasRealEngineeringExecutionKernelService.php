@@ -23,6 +23,7 @@ use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\MutativeVerificationReference;
+use App\Services\Ai\EngineeringKernel\NonFunctional\ArchitectureRegressionProbe;
 use App\Services\Ai\EngineeringKernel\RoleDisposition;
 use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
@@ -46,6 +47,10 @@ class AtlasRealEngineeringExecutionKernelService
     public const CANDIDATE_QA_OWNER_DOMAIN = 'atlas.real_execution.candidate_qa_owner.v1';
 
     public const CANDIDATE_QA_OWNER_VERSION = 'v1';
+
+    public const CANDIDATE_ARCHITECTURE_OWNER_DOMAIN = 'atlas.real_execution.candidate_architecture_owner.v1';
+
+    public const CANDIDATE_ARCHITECTURE_OWNER_VERSION = 'v1';
 
     public const REPAIR_SCHEMA = 'atlas.ai.real_execution.repair_attempt.v1';
 
@@ -448,6 +453,10 @@ class AtlasRealEngineeringExecutionKernelService
         ]);
         $verificationRunId = 'aere_mutative_'.substr(RealExecutionHash::make([$order->runId, $candidateHash]), 0, 24);
         $issuedAt = CarbonImmutable::now()->startOfSecond();
+        $sourceHashes = [];
+        foreach ($files as $file) {
+            $sourceHashes[$file] = hash_file('sha256', $sandbox.'/'.$file);
+        }
         $receipt = [
             'schema_version' => 'atlas.mutative_candidate.verification.v1',
             'verification_run_id' => $verificationRunId,
@@ -458,7 +467,8 @@ class AtlasRealEngineeringExecutionKernelService
             'binding' => ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId,
                 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
                 'candidate_hash' => $candidateHash, 'base_commit' => $base,
-                'tree_hash' => $treeSha, 'diff_hash' => hash('sha256', $diff), 'files' => $files],
+                'tree_hash' => $treeSha, 'diff_hash' => hash('sha256', $diff), 'files' => $files,
+                'source_hashes' => $sourceHashes],
             'sandbox_root' => $sandbox, 'commands' => $results, 'passed' => $passed,
             'behavioral' => $behavioral,
             'diff_artifact' => ['path' => $diffArtifact, 'sha256' => hash_file('sha256', $diffArtifact), 'bytes' => filesize($diffArtifact)],
@@ -484,6 +494,221 @@ class AtlasRealEngineeringExecutionKernelService
             $verificationRunId, $receipt['hash'], $candidateHash,
             $providerIdentity, $authorIdentity, $verifierIdentity,
         );
+    }
+
+    public function persistCandidateArchitectureOwnerReceipt(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): AiEngineeringCompanyRoleRun
+    {
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()
+            || (string) $engagement->getKey() !== $case->engagementRecordId || (string) $cycle->getKey() !== $case->cycleRecordId) {
+            throw new \InvalidArgumentException('candidate_architecture_owner_binding_invalid');
+        }
+        $evidence = $this->candidateArchitectureEvidence($case, true);
+        $disposition = $this->candidateArchitectureDisposition($case, $evidence);
+        $roleRunId = 'aerearch_'.substr(RealExecutionHash::make([$case->caseHash, 'architecture']), 0, 24);
+        if (AiEngineeringCompanyRoleRun::query()->where('role_run_id', $roleRunId)->exists()) {
+            throw new \InvalidArgumentException('candidate_architecture_owner_duplicate');
+        }
+        $issued = CarbonImmutable::now()->startOfSecond();
+        $expires = $issued->addHour();
+        $evidenceRefs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash,
+            'architecture_artifact:'.(string) data_get($evidence, 'raw_artifact.sha256')];
+        $typed = RoleEvidenceReceipt::issue(
+            $case, $disposition, self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN, self::CANDIDATE_ARCHITECTURE_OWNER_VERSION,
+            $issued->toAtomString(), $expires->toAtomString(), $evidenceRefs,
+        );
+        $output = ['disposition' => $disposition->toArray(), 'role_evidence_receipt' => $typed->toArray()];
+        $binding = $this->candidateOwnerBinding($case);
+        $receipt = [
+            'schema_version' => AtlasRealEngineeringCompanyRuntimeService::ROLE_SCHEMA,
+            'purpose' => 'candidate_architecture_owner_evidence',
+            'owner_domain' => self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
+            'owner_version' => self::CANDIDATE_ARCHITECTURE_OWNER_VERSION,
+            'owner_identity' => ArchitectureRegressionProbe::class,
+            'issued_at' => $issued->toAtomString(), 'expires_at' => $expires->toAtomString(),
+            'role_run_id' => $roleRunId, 'role_id' => 'architecture',
+            'status' => $disposition->status === 'pass' ? 'passed' : ($disposition->status === 'not_applicable' ? 'not_applicable' : 'blocked'),
+            'output' => $output, 'evidence_refs' => $evidenceRefs, 'binding' => $binding,
+            'disposition' => $disposition->toArray(), 'architecture_evidence' => $evidence,
+        ];
+        $receipt['producer'] = $this->candidateOwnerProducerSeal($receipt, self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN);
+        $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+
+        return AiEngineeringCompanyRoleRun::query()->create([
+            'engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(),
+            'role_run_id' => $roleRunId, 'role_id' => 'architecture', 'status' => $receipt['status'],
+            'responsibilities' => [], 'output' => $output, 'evidence_refs' => $evidenceRefs,
+            'receipt' => $receipt, 'role_hash' => $receipt['hash'],
+        ]);
+    }
+
+    public function candidateArchitectureOwnerReceiptValid(AiEngineeringCompanyRoleRun $row, CandidateQualityCase $case): bool
+    {
+        $persisted = $row->exists ? AiEngineeringCompanyRoleRun::query()->find($row->getKey()) : null;
+        $receipt = $persisted?->receipt;
+        if (! $persisted instanceof AiEngineeringCompanyRoleRun || ! is_array($receipt)
+            || $persisted->role_id !== 'architecture' || (string) $persisted->engagement_record_id !== $case->engagementRecordId
+            || (string) $persisted->cycle_record_id !== $case->cycleRecordId) {
+            return false;
+        }
+        try {
+            $issued = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['issued_at'] ?? ''));
+            $expires = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['expires_at'] ?? ''));
+            $expectedEvidence = $this->candidateArchitectureEvidence($case, false);
+            $expectedDisposition = $this->candidateArchitectureDisposition($case, $expectedEvidence);
+        } catch (\Throwable) {
+            return false;
+        }
+        $evidenceRefs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash,
+            'architecture_artifact:'.(string) data_get($expectedEvidence, 'raw_artifact.sha256')];
+        $expectedTyped = RoleEvidenceReceipt::issue(
+            $case, $expectedDisposition, self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN, self::CANDIDATE_ARCHITECTURE_OWNER_VERSION,
+            (string) $receipt['issued_at'], (string) $receipt['expires_at'], $evidenceRefs,
+        )->toArray();
+        $output = $persisted->output;
+        $unsigned = array_diff_key($receipt, ['hash' => true]);
+
+        return is_array($output) && $issued !== null && $expires !== null
+            && ! CarbonImmutable::now()->lt($issued) && CarbonImmutable::now()->lt($expires)
+            && ($receipt['purpose'] ?? null) === 'candidate_architecture_owner_evidence'
+            && ($receipt['owner_domain'] ?? null) === self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN
+            && ($receipt['owner_version'] ?? null) === self::CANDIDATE_ARCHITECTURE_OWNER_VERSION
+            && ($receipt['owner_identity'] ?? null) === ArchitectureRegressionProbe::class
+            && ($receipt['binding'] ?? null) === $this->candidateOwnerBinding($case)
+            && ($receipt['architecture_evidence'] ?? null) === $expectedEvidence
+            && ($receipt['evidence_refs'] ?? null) === $evidenceRefs
+            && ($output['disposition'] ?? null) === $expectedDisposition->toArray()
+            && ($output['role_evidence_receipt'] ?? null) === $expectedTyped
+            && ($receipt['output'] ?? null) === $output && ($receipt['disposition'] ?? null) === $output['disposition']
+            && hash_equals((string) $persisted->role_hash, (string) ($receipt['hash'] ?? ''))
+            && hash_equals((string) ($receipt['hash'] ?? ''), EngineeringCompanyHash::make($unsigned))
+            && $this->candidateOwnerProducerSealValid($unsigned, self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN);
+    }
+
+    /** @param array<string,mixed> $evidence */
+    public function candidateArchitectureDisposition(CandidateQualityCase $case, array $evidence): RoleDisposition
+    {
+        $violations = (array) ($evidence['violations'] ?? []);
+        $applicable = ($evidence['applicable'] ?? false) === true;
+        $status = ! $applicable ? 'not_applicable' : ($violations === [] ? 'pass' : 'block');
+        $reason = ! $applicable ? 'no_php_architecture_surface_changed' : ($violations === [] ? 'candidate_architecture_probe_clean' : 'candidate_architecture_forbidden_dependency');
+        $payload = ['purpose' => 'candidate_architecture_disposition', 'case_hash' => $case->caseHash,
+            'evidence_hash' => RealExecutionHash::make($evidence), 'status' => $status, 'reason' => $reason,
+            'owner_identity' => ArchitectureRegressionProbe::class];
+
+        return RoleDisposition::architectureCandidateAdjudicated(
+            $case, $status, $reason, self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
+            $this->candidateOwnerSignature($payload, self::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN),
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function candidateArchitectureEvidence(CandidateQualityCase $case, bool $writeArtifact): array
+    {
+        $verification = $this->verifiedMutativeVerificationReceipt($case->verification, $case->order, $writeArtifact);
+        $verificationBinding = (array) data_get($verification->receipt, 'binding', []);
+        $signedSourceHashes = (array) ($verificationBinding['source_hashes'] ?? []);
+        $signedTree = (string) ($verificationBinding['tree_hash'] ?? '');
+        $this->afterArchitectureCandidateVerified($case);
+        $candidateSources = [];
+        $baseSources = [];
+        foreach ($case->candidate->files as $file) {
+            if (! str_ends_with($file, '.php')) {
+                continue;
+            }
+            $candidate = new Process(['git', 'show', $signedTree.':'.$file], $case->candidate->sandboxRoot);
+            $candidate->run();
+            if (! $candidate->isSuccessful()) {
+                throw new \InvalidArgumentException('candidate_architecture_source_unavailable');
+            }
+            $candidateSources[$file] = $candidate->getOutput();
+            if (! hash_equals((string) ($signedSourceHashes[$file] ?? ''), hash('sha256', $candidateSources[$file]))) {
+                throw new \InvalidArgumentException('candidate_architecture_signed_source_mismatch');
+            }
+            $base = new Process(['git', 'show', $case->candidate->baseCommit.':'.$file], $case->candidate->sandboxRoot);
+            $base->run();
+            $baseSources[$file] = $base->isSuccessful() ? $base->getOutput() : '';
+        }
+        $baseEdges = ArchitectureRegressionProbe::edgesFromSources($baseSources);
+        $candidateEdges = ArchitectureRegressionProbe::edgesFromSources($candidateSources);
+        $baseHashes = array_map(static fn (array $edge): string => RealExecutionHash::make($edge), $baseEdges);
+        $addedEdges = array_values(array_filter($candidateEdges, static fn (array $edge): bool => ! in_array(RealExecutionHash::make($edge), $baseHashes, true)));
+        $rules = ArchitectureRegressionProbe::defaultRules();
+        $violations = ArchitectureRegressionProbe::violations($addedEdges, $rules);
+        $contractPath = (new \ReflectionClass(ArchitectureRegressionProbe::class))->getFileName();
+        if (! is_string($contractPath) || ! is_file($contractPath)) {
+            throw new \InvalidArgumentException('candidate_architecture_probe_unavailable');
+        }
+        $raw = ['schema_version' => 'atlas.candidate_architecture_probe.v1', 'case_hash' => $case->caseHash,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'candidate_hash' => $case->candidate->candidateHash, 'base_commit' => $case->candidate->baseCommit,
+            'diff_hash' => $case->candidate->diffHash, 'tree_hash' => $case->candidate->treeHash,
+            'files' => $case->candidate->files,
+            'base_source_hashes' => array_map(static fn (string $source): string => hash('sha256', $source), $baseSources),
+            'candidate_source_hashes' => array_map(static fn (string $source): string => hash('sha256', $source), $candidateSources),
+            'base_edges' => $baseEdges, 'candidate_edges' => $candidateEdges, 'added_edges' => $addedEdges,
+            'rules' => $rules, 'violations' => $violations, 'probe_class' => ArchitectureRegressionProbe::class,
+            'architecture_policy_hash' => RealExecutionHash::make(['spec_hash' => $case->order->specHash, 'rules' => $rules]),
+            'probe_contract_hash' => hash_file('sha256', $contractPath), 'owner_identity' => ArchitectureRegressionProbe::class];
+        $artifactPath = $case->candidate->sandboxRoot.'/.atlas/architecture-probe-'.$case->caseHash.'.json';
+        if ($writeArtifact) {
+            File::put($artifactPath, json_encode($raw, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        }
+        if (! is_file($artifactPath) || is_link($artifactPath)) {
+            throw new \InvalidArgumentException('candidate_architecture_artifact_unavailable');
+        }
+
+        return $raw + ['applicable' => $candidateSources !== [], 'violations' => $violations,
+            'raw_artifact' => ['path' => $artifactPath, 'sha256' => hash_file('sha256', $artifactPath)]];
+    }
+
+    protected function afterArchitectureCandidateVerified(CandidateQualityCase $case): void
+    {
+        // Race-test seam. Production performs no action before immutable tree reads.
+    }
+
+    /** @return array<string,mixed> */
+    private function candidateOwnerBinding(CandidateQualityCase $case): array
+    {
+        return ['run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'base_commit' => $case->candidate->baseCommit, 'diff_hash' => $case->candidate->diffHash,
+            'tree_hash' => $case->candidate->treeHash, 'files' => $case->candidate->files,
+            'engagement_record_id' => $case->engagementRecordId, 'cycle_record_id' => $case->cycleRecordId];
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function candidateOwnerSignature(array $payload, string $domain): string
+    {
+        return hash_hmac('sha256', RealExecutionHash::make($payload), hash_hmac('sha256', $domain, $this->producerKeyMaterial(), true));
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,string> */
+    private function candidateOwnerProducerSeal(array $payload, string $domain): array
+    {
+        $key = $this->producerKeyMaterial();
+        $seal = ['domain' => $domain, 'key_id' => 'app-key-'.substr(hash('sha256', $key), 0, 16), 'payload_hash' => EngineeringCompanyHash::make($payload)];
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+        $seal['signature'] = hash_hmac('sha256', EngineeringCompanyHash::make($seal), hash_hmac('sha256', $domain, $authorityKey, true));
+
+        return $seal;
+    }
+
+    /** @param array<string,mixed> $unsigned */
+    private function candidateOwnerProducerSealValid(array $unsigned, string $domain): bool
+    {
+        $producer = $unsigned['producer'] ?? null;
+        if (! is_array($producer) || ($producer['domain'] ?? null) !== $domain) {
+            return false;
+        }
+        $payload = array_diff_key($unsigned, ['producer' => true]);
+        $signature = (string) ($producer['signature'] ?? '');
+        $seal = array_diff_key($producer, ['signature' => true]);
+        $key = $this->producerKeyMaterial();
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+
+        return hash_equals((string) ($producer['payload_hash'] ?? ''), EngineeringCompanyHash::make($payload))
+            && hash_equals($signature, hash_hmac('sha256', EngineeringCompanyHash::make($seal), hash_hmac('sha256', $domain, $authorityKey, true)));
     }
 
     public function persistCandidateQaOwnerReceipt(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): AiEngineeringCompanyRoleRun
@@ -541,6 +766,11 @@ class AtlasRealEngineeringExecutionKernelService
 
     public function verifiedMutativeVerification(MutativeVerificationReference $reference, ExecutionOrder $order): AiRealExecutionTestRun
     {
+        return $this->verifiedMutativeVerificationReceipt($reference, $order, true);
+    }
+
+    private function verifiedMutativeVerificationReceipt(MutativeVerificationReference $reference, ExecutionOrder $order, bool $requireLiveWorkspace): AiRealExecutionTestRun
+    {
         $row = AiRealExecutionTestRun::query()->where('test_run_id', $reference->runId)->first();
         $receipt = $row?->receipt;
         if (! $row instanceof AiRealExecutionTestRun || ! is_array($receipt)
@@ -572,7 +802,8 @@ class AtlasRealEngineeringExecutionKernelService
             || $reference->authorIdentity === $reference->verifierIdentity
             || ! hash_equals($reference->receiptHash, RealExecutionHash::make($unsigned))
             || ! $this->qaVerificationProducerSealValid($unsigned)
-            || ! $this->mutativeVerificationArtifactsValid($receipt)) {
+            || ! $this->mutativeVerificationArtifactsValid($receipt)
+            || ($requireLiveWorkspace && ! $this->mutativeVerificationWorkspaceMatches($receipt))) {
             throw new \InvalidArgumentException('mutative_verification_owner_invalid');
         }
 
@@ -623,6 +854,42 @@ class AtlasRealEngineeringExecutionKernelService
 
         return is_file($runner) && ! is_link($runner)
             && hash_equals((string) data_get($receipt, 'behavioral.runner_hash', ''), (string) hash_file('sha256', $runner));
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function mutativeVerificationWorkspaceMatches(array $receipt): bool
+    {
+        $sandbox = (string) ($receipt['sandbox_root'] ?? '');
+        $binding = $receipt['binding'] ?? null;
+        $files = is_array($binding) && is_array($binding['files'] ?? null) ? array_values(array_map('strval', $binding['files'])) : [];
+        $sourceHashes = is_array($binding) && is_array($binding['source_hashes'] ?? null) ? $binding['source_hashes'] : [];
+        $base = is_array($binding) ? (string) ($binding['base_commit'] ?? '') : '';
+        if ($sandbox === '' || ! is_dir($sandbox.'/.git') || $files === [] || $base === '' || array_keys($sourceHashes) !== $files) {
+            return false;
+        }
+        foreach ($files as $file) {
+            $path = $sandbox.'/'.$file;
+            if (! is_file($path) || is_link($path)
+                || ! hash_equals((string) ($sourceHashes[$file] ?? ''), (string) hash_file('sha256', $path))) {
+                return false;
+            }
+        }
+        $index = $sandbox.'/.atlas/revalidate-'.bin2hex(random_bytes(8)).'.index';
+        if (! File::copy($sandbox.'/.git/index', $index)) {
+            return false;
+        }
+        try {
+            (new Process(['git', 'add', '-A', '--', ...$files], $sandbox, ['GIT_INDEX_FILE' => $index]))->mustRun();
+            $tree = trim((new Process(['git', 'write-tree'], $sandbox, ['GIT_INDEX_FILE' => $index]))->mustRun()->getOutput());
+            $diff = (new Process(['git', 'diff', '--cached', '--binary', $base, '--', ...$files], $sandbox, ['GIT_INDEX_FILE' => $index]))->mustRun()->getOutput();
+
+            return hash_equals((string) ($binding['tree_hash'] ?? ''), $tree)
+                && hash_equals((string) ($binding['diff_hash'] ?? ''), hash('sha256', $diff));
+        } catch (\Throwable) {
+            return false;
+        } finally {
+            @unlink($index);
+        }
     }
 
     public function candidateQaOwnerReceiptValid(AiEngineeringCompanyRoleRun $row, CandidateQualityCase $case): bool

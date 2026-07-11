@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\NonFunctional;
 
+use PhpParser\Node;
+use PhpParser\NodeFinder;
+use PhpParser\NodeTraverser;
+use PhpParser\NodeVisitor\NameResolver;
+use PhpParser\NodeVisitor\ParentConnectingVisitor;
+use PhpParser\ParserFactory;
+
 /**
  * Engineering Kernel probe (Obra #3): a PURE, deterministic detector of architectural regression —
  * a newly-added import edge that crosses a forbidden layer boundary.
@@ -33,7 +40,8 @@ final class ArchitectureRegressionProbe
     }
 
     /**
-     * Regex-parse raw PHP sources into import edges {from, to}.
+     * Parse raw PHP sources into dependency edges {from, to}. Syntax errors deliberately bubble so
+     * callers cannot turn an unsupported program into an implicit clean result.
      *
      * @param  array<string,string>  $sources  map of path => raw PHP source
      * @return list<array{from:string,to:string}>
@@ -41,56 +49,59 @@ final class ArchitectureRegressionProbe
     public static function edgesFromSources(array $sources): array
     {
         $edges = [];
-        foreach ($sources as $path => $source) {
+        $parser = (new ParserFactory)->createForHostVersion();
+        foreach ($sources as $source) {
             if (! is_string($source)) {
                 continue;
             }
-
-            // Extract the declared namespace
-            $namespace = '';
-            if (preg_match('/^\s*namespace\s+([^;]+);/m', $source, $m)) {
-                $namespace = trim($m[1]);
-            }
-            if ($namespace === '') {
-                continue;
-            }
-
-            // 1. Simple use statements: use Foo\Bar;  or  use \Foo\Bar as Baz;
-            if (preg_match_all('/^\s*use\s+(\\\\?)([A-Za-z_\\\\][A-Za-z0-9_\\\\]*)(?:\s+as\s+\w+)?\s*;/m', $source, $simpleMatches, PREG_SET_ORDER)) {
-                foreach ($simpleMatches as $match) {
-                    $edges[] = [
-                        'from' => $namespace,
-                        'to' => $match[2],
-                    ];
+            $statements = $parser->parse($source) ?? [];
+            $traverser = new NodeTraverser;
+            $traverser->addVisitor(new NameResolver);
+            $traverser->addVisitor(new ParentConnectingVisitor);
+            $statements = $traverser->traverse($statements);
+            foreach ((new NodeFinder)->findInstanceOf($statements, Node\Name::class) as $name) {
+                $parent = $name->getAttribute('parent');
+                if ($parent instanceof Node\Stmt\Namespace_ && $parent->name === $name) {
+                    continue;
                 }
-            }
-
-            // 2. Grouped use statements: use App\Foo\{Bar, Baz};
-            if (preg_match_all('/^\s*use\s+(\\\\?)([A-Za-z_\\\\][A-Za-z0-9_\\\\]*)\{([^}]+)\}\s*;/m', $source, $groupedMatches, PREG_SET_ORDER)) {
-                foreach ($groupedMatches as $match) {
-                    $prefix = $match[1].$match[2];
-                    $members = explode(',', $match[3]);
-                    foreach ($members as $member) {
-                        $member = trim($member);
-                        if ($member === '') {
-                            continue;
-                        }
-                        $edges[] = [
-                            'from' => $namespace,
-                            'to' => ltrim($prefix.$member, '\\'),
-                        ];
-                    }
+                if ($parent instanceof Node\Stmt\GroupUse && $parent->prefix === $name) {
+                    continue;
                 }
+                $namespace = self::containingNamespace($name);
+                $group = $parent instanceof Node\Stmt\UseUse ? $parent->getAttribute('parent') : null;
+                if ($group instanceof Node\Stmt\GroupUse) {
+                    $target = $group->prefix->toString().'\\'.$name->toString();
+                } else {
+                    $target = $name->getAttribute('resolvedName');
+                    $target = $target instanceof Node\Name ? $target->toString() : $name->toString();
+                }
+                if ($namespace === '' || $target === '' || in_array(strtolower($target), ['self', 'static', 'parent'], true)) {
+                    continue;
+                }
+                $edges[hash('sha256', $namespace."\0".$target)] = ['from' => $namespace, 'to' => ltrim($target, '\\')];
             }
         }
 
-        return $edges;
+        return array_values($edges);
+    }
+
+    private static function containingNamespace(Node $node): string
+    {
+        $parent = $node->getAttribute('parent');
+        while ($parent instanceof Node) {
+            if ($parent instanceof Node\Stmt\Namespace_) {
+                return $parent->name?->toString() ?? '';
+            }
+            $parent = $parent->getAttribute('parent');
+        }
+
+        return '';
     }
 
     /**
-     * @param  list<array{from:string,to:string}>  $addedEdges   import edges the diff ADDS
+     * @param  list<array{from:string,to:string}>  $addedEdges  import edges the diff ADDS
      * @param  list<array{from:string,to:string}>|null  $forbiddenRules  null => defaults
-     * @return list<string>  human-readable violating edges (empty = clean)
+     * @return list<string> human-readable violating edges (empty = clean)
      */
     public static function violations(array $addedEdges, ?array $forbiddenRules = null): array
     {
@@ -105,12 +116,19 @@ final class ArchitectureRegressionProbe
             foreach ($rules as $rule) {
                 $rf = (string) ($rule['from'] ?? '');
                 $rt = (string) ($rule['to'] ?? '');
-                if ($rf !== '' && $rt !== '' && str_starts_with($from, $rf) && str_starts_with($to, $rt)) {
+                if ($rf !== '' && $rt !== '' && self::namespaceMatches($from, $rf) && self::namespaceMatches($to, $rt)) {
                     $out[] = $from.' -> '.$to.' [forbidden: '.$rf.'* -> '.$rt.'*]';
                 }
             }
         }
 
         return array_values(array_unique($out));
+    }
+
+    private static function namespaceMatches(string $namespace, string $configuredRoot): bool
+    {
+        $root = rtrim($configuredRoot, '\\');
+
+        return $root !== '' && ($namespace === $root || str_starts_with($namespace, $root.'\\'));
     }
 }
