@@ -39,6 +39,8 @@ final class EngineeringFinalCertifier
                 'data' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_DATA_OWNER_DOMAIN,
                 'appsec_privacy' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_APPSEC_PRIVACY_OWNER_DOMAIN,
                 'performance_resilience' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN,
+                'backend' => data_get($row?->receipt, 'owner_domain') === AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN
+                    ? AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
                 default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
             };
             if (! $row instanceof AiEngineeringCompanyRoleRun

@@ -235,6 +235,90 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $dataOwner = $persisted->firstWhere('role_id', 'data');
         $appsecOwner = $persisted->firstWhere('role_id', 'appsec_privacy');
         $performanceOwner = $persisted->firstWhere('role_id', 'performance_resilience');
+        $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['backend']->reason);
+        try {
+            app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateBackendOwnerReceipt($engagement, $cycle, $qualityCase);
+            $this->fail('backend owner cannot self-issue Product/Spec Court authority');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('candidate_backend_product_spec_contract_authority_absent', $exception->getMessage());
+        }
+        $verificationWithBoolean = $verificationReceipt;
+        $verificationWithBoolean['backend_contract_authority'] = ['authenticated' => true, 'spec_hash' => $qualityCase->order->specHash];
+        $verificationOwner->forceFill(['receipt' => $verificationWithBoolean])->save();
+        try {
+            app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateBackendOwnerReceipt($engagement, $cycle, $qualityCase);
+            $this->fail('verifier-generated authority boolean cannot issue backend owner');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertSame('candidate_backend_product_spec_contract_authority_absent', $exception->getMessage());
+        }
+        $verificationOwner->forceFill(['receipt' => $verificationReceipt])->save();
+        $backendBindingMethod = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'backendOwnerBinding');
+        $producerSealMethod = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'candidateOwnerProducerSeal');
+        $backendContractFixture = ['schema_version' => 'atlas.backend_contract.v1', 'spec_hash' => $qualityCase->order->specHash,
+            'profile' => 'test_only', 'entrypoint' => 'app/Candidate.php', 'symbols' => [], 'permitted_includes' => [], 'effects' => [],
+            'cases' => [['id' => 'test', 'expected_type' => 'string', 'expected_value_hash' => hash('sha256', serialize('after')),
+                'expected_error' => null, 'expected_effects' => []]]];
+        $outsideContractPath = sys_get_temp_dir().'/atlas-backend-contract-outside-'.uniqid().'.json';
+        file_put_contents($outsideContractPath, json_encode($backendContractFixture, JSON_THROW_ON_ERROR));
+        $courtReceipt = ['schema_version' => AtlasRealEngineeringCompanyRuntimeService::ROLE_SCHEMA,
+            'purpose' => 'product_spec_backend_contract_authority',
+            'owner_domain' => AtlasRealEngineeringExecutionKernelService::BACKEND_SPEC_COURT_OWNER_DOMAIN,
+            'owner_version' => AtlasRealEngineeringExecutionKernelService::BACKEND_SPEC_COURT_OWNER_VERSION,
+            'owner_identity' => 'App\\Services\\Ai\\EngineeringKernel\\Spec\\SovereignSpecFloor',
+            'issued_at' => now()->startOfSecond()->toAtomString(), 'expires_at' => now()->startOfSecond()->addHour()->toAtomString(),
+            'binding' => $backendBindingMethod->invoke(app(AtlasRealEngineeringExecutionKernelService::class), $qualityCase),
+            'contract_artifact' => ['path' => $outsideContractPath, 'sha256' => hash_file('sha256', $outsideContractPath)]];
+        $courtReceipt['producer'] = $producerSealMethod->invoke(app(AtlasRealEngineeringExecutionKernelService::class), $courtReceipt,
+            AtlasRealEngineeringExecutionKernelService::BACKEND_SPEC_COURT_OWNER_DOMAIN);
+        $courtReceipt['hash'] = EngineeringCompanyHash::make($courtReceipt);
+        $courtRow = AiEngineeringCompanyRoleRun::query()->create(['engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(),
+            'role_run_id' => 'backend-spec-court-negative-'.uniqid(), 'role_id' => 'product_management', 'status' => 'passed',
+            'responsibilities' => [], 'output' => [], 'evidence_refs' => [], 'receipt' => $courtReceipt, 'role_hash' => $courtReceipt['hash']]);
+        foreach (['outside_path', 'artifact_tamper', 'stale_receipt'] as $courtAttack) {
+            $attackedReceipt = $courtReceipt;
+            if ($courtAttack === 'artifact_tamper') {
+                $insidePath = $qualityCase->candidate->sandboxRoot.'/.atlas/backend-contract-authority.json';
+                file_put_contents($insidePath, json_encode($backendContractFixture, JSON_THROW_ON_ERROR));
+                $attackedReceipt['contract_artifact'] = ['path' => $insidePath, 'sha256' => hash_file('sha256', $insidePath)];
+            } elseif ($courtAttack === 'stale_receipt') {
+                $attackedReceipt['issued_at'] = now()->subHours(2)->startOfSecond()->toAtomString();
+                $attackedReceipt['expires_at'] = now()->subHour()->startOfSecond()->toAtomString();
+            }
+            unset($attackedReceipt['producer'], $attackedReceipt['hash']);
+            $attackedReceipt['producer'] = $producerSealMethod->invoke(app(AtlasRealEngineeringExecutionKernelService::class), $attackedReceipt,
+                AtlasRealEngineeringExecutionKernelService::BACKEND_SPEC_COURT_OWNER_DOMAIN);
+            $attackedReceipt['hash'] = EngineeringCompanyHash::make($attackedReceipt);
+            $courtRow->forceFill(['receipt' => $attackedReceipt, 'role_hash' => $attackedReceipt['hash']])->save();
+            if ($courtAttack === 'artifact_tamper') {
+                file_put_contents((string) data_get($attackedReceipt, 'contract_artifact.path'), "\n", FILE_APPEND);
+            }
+            try {
+                app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateBackendOwnerReceipt($engagement, $cycle, $qualityCase);
+                $this->fail('invalid Product/Spec Court receipt accepted: '.$courtAttack);
+            } catch (InvalidArgumentException $exception) {
+                $this->assertSame('candidate_backend_product_spec_contract_authority_absent', $exception->getMessage(), $courtAttack);
+            }
+        }
+        $courtRow->delete();
+        @unlink($outsideContractPath);
+        $backendProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'analyzeBackendPhpSource');
+        $missingTypes = $backendProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '<?php function broken($value) { return $value; }');
+        $this->assertFalse((bool) ($missingTypes['safe'] ?? true));
+        $this->assertContains('missing_return_type', $missingTypes['findings'] ?? []);
+        $this->assertContains('missing_parameter_type', $missingTypes['findings'] ?? []);
+        $errorPath = $backendProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '<?php return @file_get_contents("x");');
+        $this->assertContains('forbidden_errorsuppress', $errorPath['findings'] ?? []);
+        $dynamicInclude = $backendProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '<?php $path="x.php"; return include $path;');
+        $this->assertContains('dynamic_include_forbidden', $dynamicInclude['findings'] ?? []);
+        $backendProfile = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'runBackendContractProfile');
+        $specContract = ['schema_version' => 'atlas.backend_contract.v1', 'spec_hash' => $qualityCase->order->specHash,
+            'profile' => 'test_only', 'entrypoint' => 'app/Candidate.php', 'symbols' => [], 'permitted_includes' => [], 'effects' => [],
+            'cases' => [['id' => 'test', 'expected_type' => 'string', 'expected_value_hash' => hash('sha256', serialize('after')),
+                'expected_error' => null, 'expected_effects' => []]]];
+        $wrongOutput = $backendProfile->invoke(app(AtlasRealEngineeringExecutionKernelService::class), "<?php return 'wrong';", $specContract);
+        $this->assertSame('contract_case_mismatch', $wrongOutput['status'] ?? null);
+        $wrongError = $backendProfile->invoke(app(AtlasRealEngineeringExecutionKernelService::class), "<?php throw new RuntimeException('wrong');", $specContract);
+        $this->assertSame('contract_case_mismatch', $wrongError['status'] ?? null);
         $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN, data_get($performanceOwner->receipt, 'owner_domain'));
         $this->assertSame(5, data_get($performanceOwner->receipt, 'performance_evidence.policy.repetitions'));
         $this->assertTrue((bool) data_get($performanceOwner->receipt, 'performance_evidence.measurements.recovery_passed'));
