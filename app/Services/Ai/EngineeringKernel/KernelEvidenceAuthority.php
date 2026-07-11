@@ -27,7 +27,11 @@ final class KernelEvidenceAuthority
 
     public const SCHEMA = 'atlas.engineering_kernel.evidence_authority.v1';
 
-    public function __construct(private readonly AtlasEvidenceLedger $ledger, private readonly DecisionReceiptRuntimeGuard $decisionGuard) {}
+    public function __construct(
+        private readonly AtlasEvidenceLedger $ledger,
+        private readonly DecisionReceiptRuntimeGuard $decisionGuard,
+        private readonly ?AtlasMergeGovernorReleaseDecisionLedger $governorReleaseLedger = null,
+    ) {}
 
     /** @param array<string,mixed> $context */
     public function issueDecision(DecisionReceipt $receipt, ExecutionOrder $order, array $context): AtlasLedgerEvent
@@ -128,15 +132,34 @@ final class KernelEvidenceAuthority
     public function issueReleaseAuthorization(CanonicalReleaseAuthorizationRequest $request): AtlasLedgerEvent
     {
         $row = null;
-        foreach ((new AtlasMergeGovernorReleaseDecisionLedger($request->releaseLedgerPath))->all() as $candidate) {
+        foreach ($this->trustedGovernorReleaseLedger()->all() as $candidate) {
             if (hash_equals((string) ($candidate['decision_hash'] ?? ''), $request->decisionHash)) {
                 $row = $candidate;
                 break;
             }
         }
+        $binding = is_array($row['prepare_binding'] ?? null) ? $row['prepare_binding'] : [];
+        $expectedBinding = [
+            'task_packet_id' => $request->taskPacketId,
+            'candidate_hash' => $request->candidateHash,
+            'verification_hash' => $request->verificationHash,
+            'rollback_hash' => $request->rollbackHash,
+            'changed_files' => $request->files,
+            'scope_hash' => $request->scopeHash,
+            'base_commit' => $request->baseCommit,
+            'tree_hash' => $request->treeHash,
+            'lease_id' => $request->leaseId,
+            'lease_owner' => $request->leaseOwner,
+            'fencing_token' => $request->fencingToken,
+        ];
         if (! is_array($row)
+            || ($row['schema'] ?? null) !== AtlasMergeGovernorReleaseDecisionLedger::SCHEMA
             || ($row['decision'] ?? null) !== AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED
             || ! hash_equals((string) ($row['decision_hash'] ?? ''), $request->decisionHash)
+            || $binding !== $expectedBinding
+            || ! hash_equals((string) ($row['candidate_hash'] ?? ''), $request->candidateHash)
+            || ! hash_equals((string) ($row['verification_hash'] ?? ''), $request->verificationHash)
+            || ! hash_equals((string) ($row['rollback_hash'] ?? ''), $request->rollbackHash)
             || ! str_starts_with((string) ($row['rollback_posture'] ?? ''), 'revertible:')) {
             throw new InvalidArgumentException('release_authorization_governor_decision_not_persisted_admitted');
         }
@@ -161,6 +184,13 @@ final class KernelEvidenceAuthority
             'issued_at' => $request->issuedAt,
             'expires_at' => $request->expiresAt,
         ], $request->context, 300);
+    }
+
+    private function trustedGovernorReleaseLedger(): AtlasMergeGovernorReleaseDecisionLedger
+    {
+        return $this->governorReleaseLedger ?? new AtlasMergeGovernorReleaseDecisionLedger(
+            storage_path('atlas/governance/merge-governor-release-decision-ledger.jsonl'),
+        );
     }
 
     public function verifyReleaseAuthorization(AtlasLedgerEvent $event): bool

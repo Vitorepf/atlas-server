@@ -11,8 +11,11 @@ final readonly class CanonicalReleaseAuthorizationRequest
 {
     /** @param list<string> $files @param array<string,mixed> $context */
     public function __construct(
-        public string $releaseLedgerPath,
         public string $decisionHash,
+        public string $taskPacketId,
+        public string $candidateHash,
+        public string $verificationHash,
+        public string $rollbackHash,
         public array $files,
         public string $scopeHash,
         public string $baseCommit,
@@ -25,7 +28,8 @@ final readonly class CanonicalReleaseAuthorizationRequest
         public string $expiresAt,
         public array $context,
     ) {
-        if ($this->releaseLedgerPath === '' || $this->decisionHash === '' || $this->files === []
+        if ($this->decisionHash === '' || $this->taskPacketId === '' || $this->candidateHash === ''
+            || $this->verificationHash === '' || $this->rollbackHash === '' || $this->files === []
             || $this->scopeHash === '' || $this->baseCommit === '' || $this->treeHash === ''
             || $this->leaseId === '' || $this->leaseOwner === '' || $this->fencingToken < 1
             || $this->nonce === '' || $this->issuedAt === '' || $this->expiresAt === '') {

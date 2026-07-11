@@ -8,6 +8,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\EngineeringKernel\CanonicalReleaseAuthorizationRequest;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
@@ -78,14 +79,86 @@ final class CanonicalCommitActuationTest extends TestCase
         $this->assertSame(CanonicalReleaseAuthorizationRequest::class, $parameter->getType()?->getName());
 
         $request = new CanonicalReleaseAuthorizationRequest(
-            releaseLedgerPath: $this->repo.'/missing-governor.jsonl', decisionHash: str_repeat('a', 64),
+            decisionHash: str_repeat('a', 64), taskPacketId: 'task', candidateHash: str_repeat('e', 64),
+            verificationHash: str_repeat('f', 64), rollbackHash: str_repeat('0', 64),
             files: ['app/target.txt'], scopeHash: str_repeat('b', 64), baseCommit: str_repeat('c', 40),
             treeHash: str_repeat('d', 64), leaseId: 'lease', leaseOwner: 'owner', fencingToken: 1,
             nonce: 'nonce', issuedAt: date(DATE_ATOM), expiresAt: date(DATE_ATOM, time() + 300), context: [],
         );
 
         $this->expectException(InvalidArgumentException::class);
-        $this->app->make(KernelEvidenceAuthority::class)->issueReleaseAuthorization($request);
+        $authority = new KernelEvidenceAuthority(
+            $this->app->make(AtlasEvidenceLedger::class),
+            $this->app->make(DecisionReceiptRuntimeGuard::class),
+            new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/missing-governor.jsonl'),
+        );
+        $authority->issueReleaseAuthorization($request);
+    }
+
+    public function test_release_signer_rejects_alternate_ledger_and_every_substituted_prepare_binding(): void
+    {
+        $trusted = new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/trusted-release.jsonl');
+        $binding = [
+            'task_packet_id' => 'task-bound', 'candidate_hash' => str_repeat('1', 64),
+            'verification_hash' => str_repeat('2', 64), 'rollback_hash' => str_repeat('3', 64),
+            'changed_files' => ['app/target.txt'], 'scope_hash' => str_repeat('4', 64),
+            'base_commit' => str_repeat('5', 40), 'tree_hash' => str_repeat('6', 64),
+            'lease_id' => 'lease-bound', 'lease_owner' => 'owner-bound', 'fencing_token' => 9,
+        ];
+        $row = $trusted->append([
+            'task_packet_id' => $binding['task_packet_id'], 'candidate_hash' => $binding['candidate_hash'],
+            'decision' => 'admitted', 'reasons' => [], 'risk_level' => 'low',
+            'verification_hash' => $binding['verification_hash'], 'rollback_hash' => $binding['rollback_hash'],
+            'changed_files_hash' => hash('sha256', 'files'), 'project_lane' => ['project_id' => 'atlas-server'],
+            'decided_at' => date(DATE_ATOM), 'evidence_refs' => ['verification:test'],
+            'rollback_posture' => 'revertible:git_revert_scoped_commit', 'rejected_alternatives' => [],
+            'post_release_learning_hooks' => [], 'prepare_binding' => $binding,
+        ])['row'];
+        $authority = new KernelEvidenceAuthority(
+            $this->app->make(AtlasEvidenceLedger::class),
+            $this->app->make(DecisionReceiptRuntimeGuard::class),
+            $trusted,
+        );
+        $make = static fn (array $overrides = []): CanonicalReleaseAuthorizationRequest => new CanonicalReleaseAuthorizationRequest(
+            decisionHash: (string) ($overrides['decision_hash'] ?? $row['decision_hash']),
+            taskPacketId: (string) ($overrides['task_packet_id'] ?? $binding['task_packet_id']),
+            candidateHash: (string) ($overrides['candidate_hash'] ?? $binding['candidate_hash']),
+            verificationHash: (string) ($overrides['verification_hash'] ?? $binding['verification_hash']),
+            rollbackHash: (string) ($overrides['rollback_hash'] ?? $binding['rollback_hash']),
+            files: (array) ($overrides['changed_files'] ?? $binding['changed_files']),
+            scopeHash: (string) ($overrides['scope_hash'] ?? $binding['scope_hash']),
+            baseCommit: (string) ($overrides['base_commit'] ?? $binding['base_commit']),
+            treeHash: (string) ($overrides['tree_hash'] ?? $binding['tree_hash']),
+            leaseId: (string) ($overrides['lease_id'] ?? $binding['lease_id']),
+            leaseOwner: (string) ($overrides['lease_owner'] ?? $binding['lease_owner']),
+            fencingToken: (int) ($overrides['fencing_token'] ?? $binding['fencing_token']),
+            nonce: 'nonce-bound', issuedAt: date(DATE_ATOM), expiresAt: date(DATE_ATOM, time() + 300), context: [],
+        );
+        $this->assertNotNull($authority->issueReleaseAuthorization($make()));
+
+        $mutations = [
+            ['changed_files' => ['app/other.php']], ['scope_hash' => str_repeat('a', 64)],
+            ['base_commit' => str_repeat('b', 40)], ['tree_hash' => str_repeat('c', 64)],
+            ['lease_owner' => 'attacker'], ['fencing_token' => 10],
+            ['candidate_hash' => str_repeat('d', 64)], ['verification_hash' => str_repeat('e', 64)],
+        ];
+        foreach ($mutations as $mutation) {
+            try {
+                $authority->issueReleaseAuthorization($make($mutation));
+                $this->fail('substituted binding was signed: '.json_encode($mutation));
+            } catch (InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+
+        $alternate = new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/attacker-release.jsonl');
+        $attackerRow = $alternate->append(array_replace($row, ['decided_at' => date(DATE_ATOM, time() + 1)]))['row'];
+        try {
+            $authority->issueReleaseAuthorization($make(['decision_hash' => $attackerRow['decision_hash']]));
+            $this->fail('alternate ledger decision was trusted');
+        } catch (InvalidArgumentException) {
+            $this->addToAssertionCount(1);
+        }
     }
 
     public function test_jsonl_authority_without_canonical_event_has_zero_git_effect(): void
@@ -260,11 +333,17 @@ final class CanonicalCommitActuationTest extends TestCase
 
     private function authorizedAction(AtlasEvidenceLedger $ledger): AuthorizedMergeAction
     {
+        $releaseLedger = new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/release.jsonl');
         $chain = new AtlasTaskCommitGovernanceChain(
             verdictLedger: new AtlasVerificationCourtVerdictLedger($this->repo.'/verdict.jsonl'),
-            releaseLedger: new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/release.jsonl'),
+            releaseLedger: $releaseLedger,
             modeOverride: AtlasTaskCommitGovernanceChain::MODE_ENFORCE,
             evidenceLedger: $ledger,
+            kernelEvidenceAuthority: new KernelEvidenceAuthority(
+                $ledger,
+                $this->app->make(DecisionReceiptRuntimeGuard::class),
+                $releaseLedger,
+            ),
         );
         $governed = $chain->govern([
             'task_packet_id' => 'packet-commit', 'project_id' => 'atlas-server',

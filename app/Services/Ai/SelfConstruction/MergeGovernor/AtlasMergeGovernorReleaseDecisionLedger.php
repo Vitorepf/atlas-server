@@ -16,12 +16,12 @@ use RuntimeException;
  *   - VALIDATES: task_packet_id, candidate_hash, decision (allowlist), reasons, verification_hash,
  *     rollback_hash, project_lane, decided_at — missing/invalid ⇒ throws and DOES NOT WRITE.
  *   - IDEMPOTENT: duplicate decision_hash returns status=already_recorded without appending.
- *   - DETERMINISTIC: decision_hash = sha256 over canonical {task_packet_id, candidate_hash, decision,
- *     reasons (sorted), verification_hash, rollback_hash, project_lane.project_id, decided_at}.
+ *   - DETERMINISTIC: decision_hash binds the decision fields and, for v2 prepare decisions,
+ *     the complete sovereign prepare_binding used by release authorization.
  */
 final class AtlasMergeGovernorReleaseDecisionLedger
 {
-    public const SCHEMA = 'atlas.mergegovernor.release_decision.v1';
+    public const SCHEMA = 'atlas.mergegovernor.release_decision.v2';
 
     public const STATUS_OK = 'ok';
 
@@ -106,6 +106,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         $rejectedAlternatives = is_array($payload['rejected_alternatives'] ?? null) ? array_values(array_map('strval', $payload['rejected_alternatives'])) : [];
         $rollbackPosture = (string) ($payload['rollback_posture'] ?? '');
         $postReleaseLearningHooks = is_array($payload['post_release_learning_hooks'] ?? null) ? array_values(array_map('strval', $payload['post_release_learning_hooks'])) : [];
+        $prepareBinding = is_array($payload['prepare_binding'] ?? null) ? $payload['prepare_binding'] : [];
 
         if ($evidenceRefs === []) {
             throw new RuntimeException('release decision: missing evidence_refs');
@@ -115,7 +116,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
         }
 
         sort($reasons, SORT_STRING);
-        $decisionHash = $this->computeHash($taskId, $candHash, $decision, $reasons, $riskLevel, $verHash, $rollbackHash, $changedFilesHash, $laneProj, $decidedAt);
+        $decisionHash = $this->computeHash($taskId, $candHash, $decision, $reasons, $riskLevel, $verHash, $rollbackHash, $changedFilesHash, $laneProj, $decidedAt, $prepareBinding);
 
         $row = [
             'schema' => self::SCHEMA,
@@ -134,6 +135,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             'rejected_alternatives' => $rejectedAlternatives,
             'rollback_posture' => $rollbackPosture,
             'post_release_learning_hooks' => $postReleaseLearningHooks,
+            'prepare_binding' => $prepareBinding,
         ];
 
         $duplicate = null;
@@ -176,6 +178,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
                 (string) ($entry['changed_files_hash'] ?? ''),
                 (string) ($entry['project_lane']['project_id'] ?? ''),
                 (string) ($entry['decided_at'] ?? ''),
+                is_array($entry['prepare_binding'] ?? null) ? $entry['prepare_binding'] : [],
             );
             if ($recomputed !== (string) ($entry['decision_hash'] ?? '')) {
                 $issues[] = [
@@ -207,7 +210,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
     }
 
     /**
-     * @return list<array<string,mixed>>  newest-first (lexicographic on decided_at desc)
+     * @return list<array<string,mixed>> newest-first (lexicographic on decided_at desc)
      */
     public function listChronological(?string $sinceIso = null, ?string $untilIso = null): array
     {
@@ -229,7 +232,7 @@ final class AtlasMergeGovernorReleaseDecisionLedger
     private function computeHash(
         string $taskId, string $candHash, string $decision, array $reasons,
         string $riskLevel, string $verHash, string $rollbackHash, string $changedFilesHash,
-        string $laneProj, string $decidedAt,
+        string $laneProj, string $decidedAt, array $prepareBinding = [],
     ): string {
         $canonical = [
             'candidate_hash' => $candHash,
@@ -243,9 +246,11 @@ final class AtlasMergeGovernorReleaseDecisionLedger
             'task_packet_id' => $taskId,
             'verification_hash' => $verHash,
         ];
+        if ($prepareBinding !== []) {
+            $canonical['prepare_binding_hash'] = hash('sha256', (string) json_encode($prepareBinding, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        }
         ksort($canonical);
 
         return hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
-
 }

@@ -8,7 +8,9 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate;
 use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
+use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Obra\AtlasBlastRadiusService;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
@@ -186,12 +188,19 @@ final class PreLandSeamTest extends TestCase
 
     public function test_prepare_phase_persists_authorized_action_without_budget_posture_escalation(): void
     {
+        $releaseLedger = new AtlasMergeGovernorReleaseDecisionLedger($this->tmp.'/release.jsonl');
+        $evidenceLedger = $this->app->make(AtlasEvidenceLedger::class);
         $chain = new AtlasTaskCommitGovernanceChain(
             verdictLedger: new AtlasVerificationCourtVerdictLedger($this->tmp.'/verdict.jsonl'),
-            releaseLedger: new AtlasMergeGovernorReleaseDecisionLedger($this->tmp.'/release.jsonl'),
+            releaseLedger: $releaseLedger,
             clock: static fn (): string => '2026-01-01T00:00:00+00:00',
             modeOverride: AtlasTaskCommitGovernanceChain::MODE_ENFORCE,
-            evidenceLedger: $this->app->make(AtlasEvidenceLedger::class),
+            evidenceLedger: $evidenceLedger,
+            kernelEvidenceAuthority: new KernelEvidenceAuthority(
+                $evidenceLedger,
+                $this->app->make(DecisionReceiptRuntimeGuard::class),
+                $releaseLedger,
+            ),
         );
 
         $out = $chain->govern([

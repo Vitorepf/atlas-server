@@ -234,7 +234,7 @@ final class AtlasTaskCommitGovernanceChain
                 $blockers = array_values(array_unique([...$blockers, 'false_green_replay_contradiction', ...$replayVerdict['reasons']]));
             }
 
-            $recorded = $this->record($taskId, $projectId, $decision, $blockers, $ledgerEvidenceHash, $risk, $rollback, $changed, $checks, $planHash, $evidenceRefs);
+            $recorded = $this->record($taskId, $projectId, $decision, $blockers, $ledgerEvidenceHash, $risk, $rollback, $changed, $checks, $planHash, $evidenceRefs, $context);
             $ledgerBlockers = $this->ledgerErrorBlockers($recorded);
             if ($ledgerBlockers !== []) {
                 return $this->envelope(
@@ -307,7 +307,7 @@ final class AtlasTaskCommitGovernanceChain
      * @param  list<string>  $evidenceRefs
      * @return array{verdict_ledger:string, release_ledger:string}
      */
-    private function record(string $taskId, string $projectId, string $decision, array $blockers, string $evidenceHash, array $risk, array $rollback, array $changed, array $checks, ?string $gateReplayPlanHash = null, array $evidenceRefs = []): array
+    private function record(string $taskId, string $projectId, string $decision, array $blockers, string $evidenceHash, array $risk, array $rollback, array $changed, array $checks, ?string $gateReplayPlanHash = null, array $evidenceRefs = [], array $prepareContext = []): array
     {
         if ($taskId === '') {
             return ['verdict_ledger' => 'skipped_no_task_id', 'release_ledger' => 'skipped_no_task_id'];
@@ -324,6 +324,21 @@ final class AtlasTaskCommitGovernanceChain
             : $this->deterministicHash(['risk' => $risk, 'rollback' => $rollback]);
         $outcomeHash = $this->deterministicHash(['decision' => $decision, 'blockers' => $blockers, 'checks' => $checks]);
         $candidateHash = $this->deterministicHash(['changed' => $changed, 'evidence' => $evidenceHash]);
+        $verificationHash = $evidenceHash !== '' ? $evidenceHash : $candidateHash;
+        $rollbackHash = $this->deterministicHash($rollback);
+        $prepareBinding = [
+            'task_packet_id' => $taskId,
+            'candidate_hash' => $candidateHash,
+            'verification_hash' => $verificationHash,
+            'rollback_hash' => $rollbackHash,
+            'changed_files' => $changed,
+            'scope_hash' => $this->deterministicHash($changed),
+            'base_commit' => trim((string) ($prepareContext['base_commit'] ?? '')),
+            'tree_hash' => trim((string) ($prepareContext['tree_hash'] ?? '')),
+            'lease_id' => trim((string) ($prepareContext['lease_id'] ?? '')),
+            'lease_owner' => trim((string) ($prepareContext['lease_owner'] ?? '')),
+            'fencing_token' => (int) ($prepareContext['fencing_token'] ?? 0),
+        ];
 
         $verdictStatus = 'error';
         try {
@@ -350,8 +365,8 @@ final class AtlasTaskCommitGovernanceChain
                 'decision' => $decision,
                 'reasons' => $reasons,
                 'risk_level' => (string) ($risk['risk_level'] ?? ''),
-                'verification_hash' => $evidenceHash !== '' ? $evidenceHash : $candidateHash,
-                'rollback_hash' => $this->deterministicHash($rollback),
+                'verification_hash' => $verificationHash,
+                'rollback_hash' => $rollbackHash,
                 'changed_files_hash' => $this->deterministicHash($changed),
                 'project_lane' => ['project_id' => $projectId],
                 'decided_at' => $decidedAt,
@@ -359,6 +374,7 @@ final class AtlasTaskCommitGovernanceChain
                 'rollback_posture' => $this->rollbackPosture($rollback),
                 'rejected_alternatives' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? [] : ['release_without_governance_clearance'],
                 'post_release_learning_hooks' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? ['task_outcome_learning_candidate'] : [],
+                'prepare_binding' => $prepareBinding,
             ]);
             $releaseStatus = (string) ($releaseAppend['status'] ?? 'error');
             $releaseRow = is_array($releaseAppend['row'] ?? null) ? $releaseAppend['row'] : null;
@@ -404,8 +420,11 @@ final class AtlasTaskCommitGovernanceChain
         try {
             $authority = $this->kernelEvidenceAuthority ?? app(KernelEvidenceAuthority::class);
             $event = $authority->issueReleaseAuthorization(new CanonicalReleaseAuthorizationRequest(
-                releaseLedgerPath: $ledgerPath,
                 decisionHash: (string) ($row['decision_hash'] ?? ''),
+                taskPacketId: (string) ($row['task_packet_id'] ?? ''),
+                candidateHash: (string) ($row['candidate_hash'] ?? ''),
+                verificationHash: (string) ($row['verification_hash'] ?? ''),
+                rollbackHash: (string) ($row['rollback_hash'] ?? ''),
                 files: $changed,
                 scopeHash: $scopeHash,
                 baseCommit: $baseCommit,
