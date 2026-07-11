@@ -287,7 +287,8 @@ class AtlasRealEngineeringExecutionKernelService
             'binding' => $binding, 'acceptance_bundle' => $bundle,
             'goal_record_id' => (string) $goal->getKey(), 'patch_run_record_id' => (string) $patch->getKey(),
             'target' => $target, 'base_commit' => $order->baseCommit, 'patch_hash' => $patch->patch_hash,
-            'junit_artifact' => ['path' => $junit, 'sha256' => hash_file('sha256', $junit)]];
+            'junit_artifact' => ['path' => $junit, 'sha256' => hash_file('sha256', $junit)],
+            'frozen_order' => $order->toArray()];
         $receipt['producer'] = $this->producerSeal(self::KERNEL_VERIFICATION_PRODUCER, $receipt);
         $receipt['hash'] = RealExecutionHash::make($receipt);
 

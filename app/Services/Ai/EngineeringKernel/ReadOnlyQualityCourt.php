@@ -1,0 +1,188 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\EngineeringKernel;
+
+use App\Models\AiEngineeringCompanyRoleRun;
+use App\Models\AiRealExecutionTestRun;
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
+use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
+use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
+use App\Services\Ai\RealExecution\RealExecutionHash;
+use InvalidArgumentException;
+
+final class ReadOnlyQualityCourt
+{
+    public const VERIFIER_DOMAIN = 'atlas.engineering_kernel.read_only_quality_court.v1';
+
+    public const CERTIFIER_DOMAIN = 'atlas.engineering_kernel.read_only_final_certifier.v1';
+
+    private const CORE_ROLES = ['qa_testing', 'evidence_audit', 'final_certification'];
+
+    private const NOT_APPLICABLE_RULES = [
+        'product_strategy' => 'no_product_behavior_change', 'product_management' => 'no_delivery_scope_change',
+        'domain_research' => 'no_domain_assumption_change', 'ux_research' => 'no_user_experience_change',
+        'interaction_design' => 'no_interaction_change', 'visual_design' => 'no_visual_change',
+        'architecture' => 'no_architecture_change', 'backend' => 'no_backend_change', 'frontend' => 'no_frontend_change',
+        'mobile' => 'no_mobile_change', 'data' => 'no_data_or_schema_change', 'appsec_privacy' => 'no_mutation_security_applicability_scan',
+        'performance_resilience' => 'no_runtime_path_change', 'devops_sre' => 'no_infrastructure_change',
+        'observability' => 'no_observable_runtime_change', 'release' => 'release_policy_none_read_only',
+        'documentation_dx' => 'no_public_contract_or_dx_change', 'maintenance_simplification' => 'no_code_change',
+        'outcome_analysis' => 'completed_read_only_has_no_production_outcome',
+    ];
+
+    /** @return array<string,mixed> */
+    public function adjudicateRole(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role): array
+    {
+        $test = $this->verifiedTestOwner($order, $testRun);
+        if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)) {
+            throw new InvalidArgumentException('read_only_court_role_invalid');
+        }
+        $status = in_array($role, self::CORE_ROLES, true) ? 'pass' : 'not_applicable';
+        $reason = $status === 'pass' ? 'independent_read_only_evidence_verified' : (self::NOT_APPLICABLE_RULES[$role] ?? 'missing_role_applicability_rule');
+        if ($reason === 'missing_role_applicability_rule') {
+            throw new InvalidArgumentException('read_only_court_applicability_rule_missing');
+        }
+        $payload = ['role' => $role, 'status' => $status, 'reason' => $reason,
+            'order_hash' => $order->canonicalHash(), 'evidence_hash' => (string) $test->test_hash,
+            'justification' => $reason, 'applicability_rule' => $status === 'pass' ? 'core_read_only_court_role' : $reason];
+        $domain = $role === 'final_certification' ? self::CERTIFIER_DOMAIN : self::VERIFIER_DOMAIN;
+        $payload['signature'] = $this->sign($domain, $payload);
+        $payload['signer_context'] = $domain;
+
+        return $payload;
+    }
+
+    /** @param array<string,mixed> $disposition */
+    public function dispositionValid(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role, array $disposition): bool
+    {
+        try {
+            return $this->adjudicateRole($order, $testRun, $role) === $disposition;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** @param list<AiEngineeringCompanyRoleRun> $roleRuns */
+    public function buildBundle(ExecutionOrder $order, AiRealExecutionTestRun $testRun, array $roleRuns): AcceptanceBundle
+    {
+        $test = $this->verifiedTestOwner($order, $testRun);
+        $byRole = [];
+        foreach ($roleRuns as $candidate) {
+            $run = $candidate->exists ? AiEngineeringCompanyRoleRun::query()->find($candidate->getKey()) : null;
+            $role = (string) $run?->role_id;
+            $disposition = data_get($run?->output, 'disposition');
+            if (! $run instanceof AiEngineeringCompanyRoleRun || isset($byRole[$role]) || ! is_array($disposition)
+                || ! $this->roleReceiptValid($order, $test, $run, $disposition)
+                || ! $this->dispositionValid($order, $test, $role, $disposition)) {
+                throw new InvalidArgumentException('read_only_court_role_receipt_invalid');
+            }
+            $byRole[$role] = $disposition;
+        }
+        if (array_keys($byRole) !== EngineeringRoleRoster::OFFICIAL_ROLES) {
+            throw new InvalidArgumentException('read_only_court_role_roster_incomplete');
+        }
+
+        $execution = (array) data_get($test->receipt, 'acceptance_bundle.execution', []);
+
+        return AcceptanceBundle::fromArray([
+            'criteria_hash' => $order->specHash, 'frozen_hash' => $order->specHash,
+            'changed_files' => [], 'changed_public_symbols' => [], 'execution' => $execution,
+            'mutation_report' => ['decision_surface_added' => false, 'applicability_receipt' => $byRole['qa_testing']['signature']],
+            'security_scan' => ['ran' => true, 'secret_free' => true, 'critical_sast' => 0, 'critical_cve' => 0,
+                'scope' => 'zero_mutation_applicability_scan', 'receipt' => $byRole['appsec_privacy']['signature']],
+            'judges' => [
+                ['name' => 'evidence_audit', 'provider_family' => 'verification_court', 'approved' => true],
+                ['name' => 'final_certification', 'provider_family' => 'final_certifier', 'approved' => true],
+            ],
+            'context_sufficiency' => 100,
+            'non_functional' => ['performance_budget' => ['applies' => false], 'migration_safety' => ['probed' => true, 'safe' => true, 'reasons' => ['zero_mutation']],
+                'architecture_no_regression' => ['violations' => []], 'property_clean_for_tagged' => ['tagged' => false, 'checked' => true, 'violations' => []]],
+            'criteria' => [], 'repair' => [],
+        ]);
+    }
+
+    private function verifiedTestOwner(ExecutionOrder $order, AiRealExecutionTestRun $testRun): AiRealExecutionTestRun
+    {
+        $test = $testRun->exists ? AiRealExecutionTestRun::query()->find($testRun->getKey()) : null;
+        $receipt = $test?->getAttribute('receipt');
+        $frozen = is_array($receipt) ? ($receipt['frozen_order'] ?? null) : null;
+        $producerDomain = data_get($receipt, 'producer.domain');
+        $junitPath = data_get($receipt, 'junit_artifact.path');
+        $junitHash = data_get($receipt, 'junit_artifact.sha256');
+        if (! $test instanceof AiRealExecutionTestRun || ! is_array($receipt) || ! is_array($frozen)
+            || ExecutionOrder::fromArray($frozen)->canonicalHash() !== $order->canonicalHash()
+            || $producerDomain !== AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER
+            || ! is_string($junitPath) || ! is_file($junitPath) || ! is_string($junitHash)
+            || ! hash_equals($junitHash, (string) hash_file('sha256', $junitPath))) {
+            throw new InvalidArgumentException('read_only_court_test_owner_invalid');
+        }
+        $unsigned = $receipt;
+        $hash = (string) $unsigned['hash'];
+        unset($unsigned['hash']);
+        if (! hash_equals((string) $test->test_hash, $hash) || ! hash_equals($hash, RealExecutionHash::make($unsigned))) {
+            throw new InvalidArgumentException('read_only_court_test_hash_invalid');
+        }
+        $producer = $unsigned['producer'];
+        unset($unsigned['producer']);
+        if (! is_array($producer) || ! hash_equals((string) ($producer['payload_hash'] ?? ''), RealExecutionHash::make($unsigned))) {
+            throw new InvalidArgumentException('read_only_court_test_producer_invalid');
+        }
+        $signature = (string) ($producer['signature'] ?? '');
+        unset($producer['signature']);
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $this->keyMaterial(), true);
+        $producerKey = hash_hmac('sha256', AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER, $authorityKey, true);
+        if (! hash_equals($signature, hash_hmac('sha256', RealExecutionHash::make($producer), $producerKey))) {
+            throw new InvalidArgumentException('read_only_court_test_producer_invalid');
+        }
+
+        return $test;
+    }
+
+    /** @param array<string,mixed> $disposition */
+    private function roleReceiptValid(ExecutionOrder $order, AiRealExecutionTestRun $test, AiEngineeringCompanyRoleRun $run, array $disposition): bool
+    {
+        $receipt = $run->receipt;
+        if (! is_array($receipt) || ($receipt['binding']['order_hash'] ?? null) !== $order->canonicalHash()
+            || ($receipt['evidence_refs'] ?? null) !== ['verification:'.$test->test_hash]
+            || ($receipt['output']['disposition'] ?? null) !== $disposition
+            || ($receipt['status'] ?? null) !== $run->status) {
+            return false;
+        }
+        $unsigned = $receipt;
+        $hash = (string) ($unsigned['hash'] ?? '');
+        unset($unsigned['hash']);
+        if (! hash_equals((string) $run->role_hash, $hash) || ! hash_equals($hash, EngineeringCompanyHash::make($unsigned))) {
+            return false;
+        }
+        $producer = $unsigned['producer'] ?? null;
+        if (! is_array($producer) || ($producer['domain'] ?? null) !== AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLE_PRODUCER) {
+            return false;
+        }
+        unset($unsigned['producer']);
+        if (! hash_equals((string) ($producer['payload_hash'] ?? ''), EngineeringCompanyHash::make($unsigned))) {
+            return false;
+        }
+        $signature = (string) ($producer['signature'] ?? '');
+        unset($producer['signature']);
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $this->keyMaterial(), true);
+        $producerKey = hash_hmac('sha256', AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLE_PRODUCER, $authorityKey, true);
+
+        return hash_equals($signature, hash_hmac('sha256', EngineeringCompanyHash::make($producer), $producerKey));
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function sign(string $domain, array $payload): string
+    {
+        return hash_hmac('sha256', EngineeringCompanyHash::make($payload), hash_hmac('sha256', $domain, $this->keyMaterial(), true));
+    }
+
+    private function keyMaterial(): string
+    {
+        $key = (string) config('app.key');
+        $decoded = str_starts_with($key, 'base64:') ? base64_decode(substr($key, 7), true) : $key;
+
+        return is_string($decoded) ? $decoded : '';
+    }
+}

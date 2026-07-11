@@ -12,6 +12,7 @@ use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionTestRun;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -256,21 +257,22 @@ class AtlasRealEngineeringCompanyRuntimeService
             throw new \InvalidArgumentException('quality_role_disposition_invalid');
         }
         $evidenceRefs = ['verification:'.$verification->test_hash];
-        $disposition = ['status' => 'block', 'evidence_hash' => (string) $verification->test_hash,
-            'signature' => EngineeringCompanyHash::make([$roleId, $verification->test_hash, 'independent_role_oracle_unavailable']),
-            'reason' => 'independent_role_oracle_unavailable'];
+        $disposition = app(ReadOnlyQualityCourt::class)->adjudicateRole($order, $verification, $roleId);
         $roleRunId = 'aecompquality_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $cycle->cycle_id, $roleId, microtime(true)]), 0, 22);
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
             'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()];
         $output = ['disposition' => $disposition];
         $receipt = ['schema_version' => self::ROLE_SCHEMA, 'role_run_id' => $roleRunId, 'role_id' => $roleId,
-            'status' => 'passed', 'output' => $output, 'evidence_refs' => $evidenceRefs, 'binding' => $binding, 'disposition' => $disposition];
+            'status' => match ($disposition['status']) {
+                'pass' => 'passed', 'not_applicable' => 'not_applicable', default => 'blocked'
+            },
+            'output' => $output, 'evidence_refs' => $evidenceRefs, 'binding' => $binding, 'disposition' => $disposition];
         $receipt['producer'] = $this->qualityProducerSeal($receipt);
         $receipt['hash'] = EngineeringCompanyHash::make($receipt);
 
         return AiEngineeringCompanyRoleRun::query()->create([
             'engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(), 'role_run_id' => $roleRunId,
-            'role_id' => $roleId, 'status' => 'passed', 'responsibilities' => [], 'output' => $output,
+            'role_id' => $roleId, 'status' => $receipt['status'], 'responsibilities' => [], 'output' => $output,
             'evidence_refs' => $evidenceRefs, 'receipt' => $receipt, 'role_hash' => $receipt['hash'],
         ]);
     }

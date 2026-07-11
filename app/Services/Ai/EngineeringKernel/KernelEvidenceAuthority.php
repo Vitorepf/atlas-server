@@ -54,13 +54,11 @@ final class KernelEvidenceAuthority
     }
 
     /** @param array<string,mixed> $context */
-    public function issueEvidenceBundle(AcceptanceBundle $bundle, AiRealExecutionTestRun $testRun, ExecutionOrder $order, array $context): AtlasLedgerEvent
+    /** @param list<AiEngineeringCompanyRoleRun> $roleRuns @param array<string,mixed> $context */
+    public function issueEvidenceBundle(AiRealExecutionTestRun $testRun, array $roleRuns, ExecutionOrder $order, array $context): AtlasLedgerEvent
     {
         $persisted = $this->persistedTestRun($testRun, $order);
-        $derived = $this->bundleFromTestRun($persisted);
-        if (! hash_equals(CanonicalKernelPayload::hash($this->bundleArray($bundle)), CanonicalKernelPayload::hash($derived))) {
-            throw new InvalidArgumentException('kernel_evidence_bundle_owner_mismatch');
-        }
+        $derived = $this->bundleArray(app(ReadOnlyQualityCourt::class)->buildBundle($order, $persisted, $roleRuns));
 
         return $this->issue('evidence_bundle', LedgerEventType::EvidencePacked, $this->bindingPayload($order) + [
             'event_name' => 'evidence.bundle.recorded',
@@ -96,11 +94,15 @@ final class KernelEvidenceAuthority
         $unsigned = $receipt;
         $receiptHash = (string) ($unsigned['hash'] ?? '');
         unset($unsigned['hash']);
+        $verificationHash = is_string($evidenceRefs[0] ?? null) && str_starts_with($evidenceRefs[0], 'verification:') ? substr($evidenceRefs[0], 13) : '';
+        $verification = AiRealExecutionTestRun::query()->where('test_hash', $verificationHash)->first();
         if (! hash_equals($roleHash, $receiptHash) || ! hash_equals($roleHash, EngineeringCompanyHash::make($unsigned))
             || ($unsigned['role_id'] ?? null) !== $role || ($unsigned['status'] ?? null) !== $roleRun->status
             || ($unsigned['evidence_refs'] ?? null) !== $evidenceRefs || ($unsigned['output'] ?? null) !== $output
             || ($unsigned['binding'] ?? null) !== $expectedBinding
             || ($unsigned['disposition'] ?? null) !== $output['disposition']
+            || ! $verification instanceof AiRealExecutionTestRun
+            || ! app(ReadOnlyQualityCourt::class)->dispositionValid($order, $verification, $role, $output['disposition'])
             || ! $this->producerSealValid($unsigned, AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLE_PRODUCER, false)) {
             throw new InvalidArgumentException('kernel_role_run_receipt_binding_invalid');
         }
@@ -347,12 +349,6 @@ final class KernelEvidenceAuthority
         }
 
         return $persisted;
-    }
-
-    /** @return array<string,mixed> */
-    private function bundleFromTestRun(AiRealExecutionTestRun $testRun): array
-    {
-        return (array) data_get($testRun->receipt, 'acceptance_bundle', []);
     }
 
     /** @param array<string,mixed> $receipt */

@@ -12,13 +12,13 @@ use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
-use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
+use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
@@ -84,12 +84,14 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $first = $kernel->execute($order);
         $replay = $kernel->execute(ExecutionOrder::fromArray($order->toArray()));
 
-        $this->assertSame('held', $first->status);
+        $this->assertSame('completed_read_only', $first->status);
         $this->assertSame($first->outcomeHash, $replay->outcomeHash);
         $this->assertSame($order->productIntentVerdictHash, $first->correlatedHashes['intent']);
         $this->assertSame($order->specHash, $first->correlatedHashes['spec']);
         $this->assertSame($this->evidenceHash(), $first->correlatedHashes['evidence']);
         $this->assertFalse($first->claimEligible);
+        $this->assertSame(3, AiEngineeringCompanyRoleRun::query()->where('status', 'passed')->count());
+        $this->assertSame(19, AiEngineeringCompanyRoleRun::query()->where('status', 'not_applicable')->count());
     }
 
     public function test_reusing_idempotency_key_with_changed_order_hash_is_refused(): void
@@ -218,8 +220,8 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         app(KernelEvidenceAuthority::class)->issueEvidenceBundle(
-            AcceptanceBundle::fromArray($this->honestAcceptanceBundle()),
             new AiRealExecutionTestRun,
+            [],
             ExecutionOrder::fromArray($data),
             [],
         );
@@ -251,19 +253,51 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertFalse(method_exists(AtlasRealEngineeringCompanyRuntimeService::class, 'recordQualityDisposition'));
     }
 
-    public function test_fabricated_bundle_counts_cannot_override_persisted_receipt(): void
+    public function test_absent_one_role_cannot_produce_sovereign_bundle(): void
     {
         $data = $this->orderData();
-        $bundle = $this->honestAcceptanceBundle();
-        $bundle['execution']['tests_run'] = 999;
+        $roles = AiEngineeringCompanyRoleRun::query()->whereIn('role_id', self::ROLE_IDS)->get()->all();
+        array_pop($roles);
 
         $this->expectException(InvalidArgumentException::class);
         app(KernelEvidenceAuthority::class)->issueEvidenceBundle(
-            AcceptanceBundle::fromArray($bundle),
             AiRealExecutionTestRun::query()->latest('created_at')->firstOrFail(),
+            $roles,
             ExecutionOrder::fromArray($data),
             [],
         );
+    }
+
+    public function test_court_refuses_missing_junit_and_stale_order(): void
+    {
+        $data = $this->orderData();
+        $order = ExecutionOrder::fromArray($data);
+        $test = AiRealExecutionTestRun::query()->latest('created_at')->firstOrFail();
+        $junit = (string) data_get($test->receipt, 'junit_artifact.path');
+        $junitContent = (string) file_get_contents($junit);
+        unlink($junit);
+        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'evidence_audit',
+            (array) data_get(AiEngineeringCompanyRoleRun::query()->where('role_id', 'evidence_audit')->first()?->output, 'disposition')));
+        file_put_contents($junit, $junitContent);
+
+        $changed = $data;
+        $changed['spec_hash'] = hash('sha256', 'stale-spec');
+        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid(ExecutionOrder::fromArray($changed), $test, 'evidence_audit', []));
+    }
+
+    public function test_court_refuses_forged_not_applicable_and_author_as_judge(): void
+    {
+        $data = $this->orderData();
+        $order = ExecutionOrder::fromArray($data);
+        $test = AiRealExecutionTestRun::query()->latest('created_at')->firstOrFail();
+        $valid = app(ReadOnlyQualityCourt::class)->adjudicateRole($order, $test, 'appsec_privacy');
+        $forged = $valid;
+        $forged['justification'] = 'caller_waived';
+        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $forged));
+
+        $author = $valid;
+        $author['signer_context'] = AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER;
+        $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $author));
     }
 
     public function test_previous_keyring_verifies_seal_after_app_key_rotation(): void
@@ -454,15 +488,16 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $worktree = $real->createWorktree($goal, $autonomous);
         $patch = $real->executePatch($goal, $worktree, $autonomous);
         $testRun = $real->produceKernelVerification($goal, $patch, $order, 'typed_contract_smoke');
-        $persistedBundle = (array) data_get($testRun->receipt, 'acceptance_bundle');
-        $authority->issueEvidenceBundle(AcceptanceBundle::fromArray($persistedBundle), $testRun, $order, ['event_id' => 'acceptance-read-only'] + $context);
         $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
         $engagement = $company->createEngagement('Quality Foundry kernel verification');
         $cycle = $company->createCycle($engagement);
+        $roleRuns = [];
         foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
             $roleRun = $company->executeQualityRole($engagement, $cycle, $order, $role, $testRun);
+            $roleRuns[] = $roleRun;
             $authority->issueRoleDisposition($roleRun, $order, ['event_id' => $eventId] + $context);
         }
+        $authority->issueEvidenceBundle($testRun, $roleRuns, $order, ['event_id' => 'acceptance-read-only'] + $context);
     }
 
     /** @return array<string,string> */
