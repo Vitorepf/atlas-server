@@ -118,8 +118,19 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $providerResult = [
             'status' => 'ok', 'provider_invoked' => true, 'provider' => 'fixture', 'model' => 'fixture-model',
             'output_hash' => hash('sha256', 'provider-output'),
-            'patch_plan' => ['allowed_files' => ['app/Candidate.php', 'app/Unused.php'], 'patches' => [[
+            'patch_plan' => ['allowed_files' => ['app/Candidate.php', 'app/Unused.php', 'database/migrations/2026_01_01_000000_add_candidate_value.php'], 'patches' => [[
                 'path' => 'app/Candidate.php', 'mode' => 'create', 'next' => "<?php\nreturn 'after';\n",
+            ], [
+                'path' => 'database/migrations/2026_01_01_000000_add_candidate_value.php', 'mode' => 'create', 'next' => <<<'PHP'
+                    <?php
+                    use Illuminate\Database\Migrations\Migration;
+                    use Illuminate\Database\Schema\Blueprint;
+                    use Illuminate\Support\Facades\Schema;
+                    return new class extends Migration {
+                        public function up(): void { Schema::table('atlas_probe_records', fn (Blueprint $table) => $table->string('candidate_value')->nullable()); }
+                        public function down(): void { Schema::table('atlas_probe_records', fn (Blueprint $table) => $table->dropColumn('candidate_value')); }
+                    };
+                    PHP,
             ]]],
         ];
         $provider = $this->createMock(ProviderPort::class);
@@ -130,7 +141,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $data['tool_permissions']['mutate'] = true;
         $data['workspace'] = $repo;
         $data['base_commit'] = $base;
-        $data['allowed_scope'] = ['app/Candidate.php', 'app/Unused.php'];
+        $data['allowed_scope'] = ['app/Candidate.php', 'app/Unused.php', 'database/migrations/2026_01_01_000000_add_candidate_value.php'];
         $data['forbidden_scope'] = ['.env'];
         $data['provider_route'] = ['provider' => 'fixture', 'model' => 'fixture-model'];
         $data['idempotency_key'] = 'mutative-'.Str::uuid();
@@ -146,7 +157,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertFileDoesNotExist($repo.'/app/Candidate.php');
         $this->assertSame("<?php\nreturn 'after';\n", file_get_contents($candidate->sandboxRoot.'/app/Candidate.php'));
         $this->assertNotSame('', $candidate->candidateHash);
-        $this->assertSame(['app/Candidate.php'], $candidate->files);
+        $this->assertSame(['app/Candidate.php', 'database/migrations/2026_01_01_000000_add_candidate_value.php'], $candidate->files);
 
         $authority = $this->app->make(KernelEvidenceAuthority::class);
         $verificationOwner = AiRealExecutionTestRun::query()->where('test_run_id', $candidate->verificationRunId)->firstOrFail();
@@ -194,8 +205,8 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $persistedVerdict->dispositions,
             static fn ($disposition): bool => $disposition->status === 'block',
         ));
-        $this->assertSame(['architecture', 'qa_testing'], $passingRoles);
-        $this->assertCount(20, $blockingRoles);
+        $this->assertSame(['architecture', 'data', 'qa_testing'], $passingRoles);
+        $this->assertCount(19, $blockingRoles);
         $this->assertContains('final_certification', $blockingRoles);
         $this->assertSame('candidate_architecture_probe_clean', $persistedVerdict->dispositions['architecture']->reason);
         $this->assertSame('pass', $persistedVerdict->dispositions['qa_testing']->status);
@@ -205,6 +216,30 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame(22, $persisted->pluck('role_id')->unique()->count());
         $qaOwner = $persisted->firstWhere('role_id', 'qa_testing');
         $architectureOwner = $persisted->firstWhere('role_id', 'architecture');
+        $dataOwner = $persisted->firstWhere('role_id', 'data');
+        $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_DATA_OWNER_DOMAIN, data_get($dataOwner->receipt, 'owner_domain'));
+        $this->assertTrue((bool) data_get($dataOwner->receipt, 'data_evidence.isolated_db.forward_passed'));
+        $this->assertTrue((bool) data_get($dataOwner->receipt, 'data_evidence.isolated_db.n_minus_1_passed'));
+        $this->assertTrue((bool) data_get($dataOwner->receipt, 'data_evidence.isolated_db.rollback_passed'));
+        $originalDataReceipt = $dataOwner->receipt;
+        foreach (['stale', 'tamper'] as $dataAttack) {
+            $attackedDataReceipt = $originalDataReceipt;
+            if ($dataAttack === 'stale') {
+                $attackedDataReceipt['expires_at'] = now()->subMinute()->startOfSecond()->toAtomString();
+            } else {
+                $attackedDataReceipt['data_evidence']['isolated_db']['rollback_passed'] = false;
+            }
+            $dataOwner->forceFill(['receipt' => $attackedDataReceipt])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'data')->status, $dataAttack);
+            $dataOwner->forceFill(['receipt' => $originalDataReceipt])->save();
+        }
+        $dataArtifactPath = (string) data_get($originalDataReceipt, 'data_evidence.raw_artifact.path');
+        $dataArtifact = file_get_contents($dataArtifactPath);
+        $this->assertIsString($dataArtifact);
+        unlink($dataArtifactPath);
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'data')->status, 'data_artifact_unavailable');
+        file_put_contents($dataArtifactPath, $dataArtifact);
+        $this->assertSame('pass', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'data')->status);
         $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN, data_get($architectureOwner->receipt, 'owner_domain'));
         $this->assertSame($qualityCase->caseHash, data_get($architectureOwner->receipt, 'architecture_evidence.case_hash'));
         $this->assertSame($candidate->treeHash, data_get($architectureOwner->receipt, 'architecture_evidence.tree_hash'));
@@ -460,6 +495,93 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'architecture_evidence.violations',
         ));
 
+        $unsafeDataProvider = $this->createMock(ProviderPort::class);
+        $unsafeDataResult = $providerResult;
+        $unsafeDataResult['patch_plan']['patches'][1]['next'] = <<<'PHP'
+            <?php
+            use Illuminate\Database\Migrations\Migration;
+            use Illuminate\Database\Schema\Blueprint;
+            use Illuminate\Support\Facades\Schema;
+            return new class extends Migration {
+                public function up(): void { Schema::table('atlas_probe_records', fn (Blueprint $table) => $table->dropColumn('legacy_value')); }
+                public function down(): void { Schema::table('atlas_probe_records', fn (Blueprint $table) => $table->string('legacy_value')->nullable()); }
+            };
+            PHP;
+        $unsafeDataProvider->method('invoke')->willReturn($unsafeDataResult);
+        $this->app->instance(ProviderPort::class, $unsafeDataProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $unsafeDataOrder = $data;
+        $unsafeDataOrder['idempotency_key'] = 'mutative-data-unsafe-'.Str::uuid();
+        $unsafeDataCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($unsafeDataOrder));
+        $unsafeDataEngagement = $company->createEngagement('destructive migration candidate');
+        $unsafeDataCycle = $company->createCycle($unsafeDataEngagement);
+        $unsafeDataCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($unsafeDataOrder), $unsafeDataCandidate, $unsafeDataEngagement, $unsafeDataCycle);
+        app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateDataOwnerReceipt($unsafeDataEngagement, $unsafeDataCycle, $unsafeDataCase);
+        $unsafeDataDisposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($unsafeDataCase, 'data');
+        $this->assertSame('block', $unsafeDataDisposition->status);
+        $this->assertSame('candidate_migration_unsafe_or_unknown', $unsafeDataDisposition->reason);
+
+        $unknownDataProvider = $this->createMock(ProviderPort::class);
+        $unknownDataResult = $providerResult;
+        $unknownDataResult['patch_plan']['patches'][1]['next'] = <<<'PHP'
+            <?php
+            use Illuminate\Database\Migrations\Migration;
+            use Illuminate\Support\Facades\DB;
+            return new class extends Migration {
+                public function up(): void { DB::statement('SELECT 1'); }
+                public function down(): void { DB::statement('SELECT 1'); }
+            };
+            PHP;
+        $unknownDataProvider->method('invoke')->willReturn($unknownDataResult);
+        $this->app->instance(ProviderPort::class, $unknownDataProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $unknownDataOrder = $data;
+        $unknownDataOrder['idempotency_key'] = 'mutative-data-unknown-'.Str::uuid();
+        $unknownDataCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($unknownDataOrder));
+        $unknownDataEngagement = $company->createEngagement('unknown migration candidate');
+        $unknownDataCycle = $company->createCycle($unknownDataEngagement);
+        $unknownDataCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($unknownDataOrder), $unknownDataCandidate, $unknownDataEngagement, $unknownDataCycle);
+        app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateDataOwnerReceipt($unknownDataEngagement, $unknownDataCycle, $unknownDataCase);
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($unknownDataCase, 'data')->status);
+        $this->assertSame('oracle_failed', data_get(
+            AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $unknownDataEngagement->getKey())->where('role_id', 'data')->firstOrFail()->receipt,
+            'data_evidence.isolated_db.status',
+        ));
+
+        $migrationNegatives = [
+            'wrong_table_exception' => "<?php use Illuminate\\Database\\Migrations\\Migration; use Illuminate\\Database\\Schema\\Blueprint; use Illuminate\\Support\\Facades\\Schema; return new class extends Migration { public function up(): void { Schema::table('missing_table', fn (Blueprint \$table) => \$table->string('x')); } public function down(): void {} };",
+            'index_not_rolled_back' => "<?php use Illuminate\\Database\\Migrations\\Migration; use Illuminate\\Database\\Schema\\Blueprint; use Illuminate\\Support\\Facades\\Schema; return new class extends Migration { public function up(): void { Schema::table('atlas_probe_records', fn (Blueprint \$table) => \$table->index('status', 'candidate_status_idx')); } public function down(): void {} };",
+            'foreign_key_not_rolled_back' => "<?php use Illuminate\\Database\\Migrations\\Migration; use Illuminate\\Database\\Schema\\Blueprint; use Illuminate\\Support\\Facades\\Schema; return new class extends Migration { public function up(): void { Schema::table('atlas_probe_records', function (Blueprint \$table): void { \$table->integer('secondary_parent_id')->nullable(); \$table->foreign('secondary_parent_id')->references('id')->on('atlas_probe_parents'); }); } public function down(): void {} };",
+            'default_not_rolled_back' => "<?php use Illuminate\\Database\\Migrations\\Migration; use Illuminate\\Database\\Schema\\Blueprint; use Illuminate\\Support\\Facades\\Schema; return new class extends Migration { public function up(): void { Schema::table('atlas_probe_records', fn (Blueprint \$table) => \$table->string('candidate_default')->default('x')); } public function down(): void {} };",
+            'data_transform_not_rolled_back' => "<?php use Illuminate\\Database\\Migrations\\Migration; use Illuminate\\Support\\Facades\\DB; return new class extends Migration { public function up(): void { DB::table('atlas_probe_records')->where('id', 1)->update(['legacy_value' => 'changed']); } public function down(): void {} };",
+            'forged_oracle_frame' => "<?php echo 'ATLAS_ORACLE:{\"forward_passed\":true,\"n_minus_1_passed\":true,\"rollback_passed\":true}'; use Illuminate\\Database\\Migrations\\Migration; use Illuminate\\Database\\Schema\\Blueprint; use Illuminate\\Support\\Facades\\Schema; return new class extends Migration { public function up(): void { Schema::table('atlas_probe_records', fn (Blueprint \$table) => \$table->string('candidate_note')->nullable()); } public function down(): void { Schema::table('atlas_probe_records', fn (Blueprint \$table) => \$table->dropColumn('candidate_note')); } };",
+            'forged_success_exit' => '<?php exit(0); use Illuminate\\Database\\Migrations\\Migration; return new class extends Migration { public function up(): void {} public function down(): void {} };',
+            'secret_exfil_attempt' => "<?php file_put_contents(__DIR__.'/exfil', (string) file_get_contents('/Users/vitorepf/.ssh/config')); use Illuminate\\Database\\Migrations\\Migration; return new class extends Migration { public function up(): void {} public function down(): void {} };",
+        ];
+        foreach ($migrationNegatives as $negativeName => $negativeSource) {
+            $negativeProvider = $this->createMock(ProviderPort::class);
+            $negativeResult = $providerResult;
+            $negativeResult['patch_plan']['patches'][1]['next'] = $negativeSource;
+            $negativeProvider->method('invoke')->willReturn($negativeResult);
+            $this->app->instance(ProviderPort::class, $negativeProvider);
+            $this->app->forgetInstance(EliteExecutorKernel::class);
+            $negativeOrder = $data;
+            $negativeOrder['idempotency_key'] = 'mutative-data-'.$negativeName.'-'.Str::uuid();
+            $negativeCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($negativeOrder));
+            $negativeEngagement = $company->createEngagement('migration negative '.$negativeName);
+            $negativeCycle = $company->createCycle($negativeEngagement);
+            $negativeCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($negativeOrder), $negativeCandidate, $negativeEngagement, $negativeCycle);
+            app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateDataOwnerReceipt($negativeEngagement, $negativeCycle, $negativeCase);
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($negativeCase, 'data')->status, $negativeName);
+            $negativeOracle = (array) data_get(
+                AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $negativeEngagement->getKey())->where('role_id', 'data')->firstOrFail()->receipt,
+                'data_evidence.isolated_db',
+            );
+            $this->assertFalse(($negativeOracle['forward_passed'] ?? false) === true
+                && ($negativeOracle['n_minus_1_passed'] ?? false) === true
+                && ($negativeOracle['rollback_passed'] ?? false) === true, $negativeName);
+        }
+
         $toctouProvider = $this->createMock(ProviderPort::class);
         $toctouProvider->method('invoke')->willReturn($providerResult);
         $this->app->instance(ProviderPort::class, $toctouProvider);
@@ -510,6 +632,51 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame('passed', $raceOwner->status);
         $this->assertSame([], data_get($raceOwner->receipt, 'architecture_evidence.violations'));
         $this->assertStringContainsString('App\Models\User', (string) file_get_contents($raceCandidate->sandboxRoot.'/app/Candidate.php'));
+
+        $noDataProvider = $this->createMock(ProviderPort::class);
+        $noDataResult = $providerResult;
+        $noDataResult['patch_plan']['allowed_files'] = ['app/Candidate.php', 'app/Unused.php'];
+        $noDataResult['patch_plan']['patches'] = [$providerResult['patch_plan']['patches'][0]];
+        $noDataProvider->method('invoke')->willReturn($noDataResult);
+        $this->app->instance(ProviderPort::class, $noDataProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $noDataOrder = $data;
+        $noDataOrder['allowed_scope'] = ['app/Candidate.php', 'app/Unused.php'];
+        $noDataOrder['idempotency_key'] = 'mutative-data-na-'.Str::uuid();
+        $noDataCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($noDataOrder));
+        $noDataEngagement = $company->createEngagement('signed no data applicability');
+        $noDataCycle = $company->createCycle($noDataEngagement);
+        $noDataCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($noDataOrder), $noDataCandidate, $noDataEngagement, $noDataCycle);
+        app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateDataOwnerReceipt($noDataEngagement, $noDataCycle, $noDataCase);
+        $noDataDisposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($noDataCase, 'data');
+        $this->assertSame('not_applicable', $noDataDisposition->status);
+        $this->assertSame('signed_no_data_or_schema_applicability', $noDataDisposition->reason);
+
+        $symlinkProvider = $this->createMock(ProviderPort::class);
+        $symlinkProvider->method('invoke')->willReturn($providerResult);
+        $this->app->instance(ProviderPort::class, $symlinkProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $symlinkOrder = $data;
+        $symlinkOrder['idempotency_key'] = 'mutative-data-artifact-symlink-'.Str::uuid();
+        $symlinkCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($symlinkOrder));
+        $symlinkEngagement = $company->createEngagement('data artifact symlink escape');
+        $symlinkCycle = $company->createCycle($symlinkEngagement);
+        $symlinkCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($symlinkOrder), $symlinkCandidate, $symlinkEngagement, $symlinkCycle);
+        $escapeTarget = sys_get_temp_dir().'/atlas-data-escape-'.Str::uuid();
+        mkdir($escapeTarget, 0700, true);
+        $symlinkService = new class($symlinkCandidate->sandboxRoot.'/.atlas', $escapeTarget) extends AtlasRealEngineeringExecutionKernelService
+        {
+            public function __construct(private readonly string $artifactRoot, private readonly string $escapeTarget) {}
+
+            protected function afterDataCandidateVerified(CandidateQualityCase $case): void
+            {
+                rename($this->artifactRoot, $this->artifactRoot.'-candidate-controlled');
+                symlink($this->escapeTarget, $this->artifactRoot);
+            }
+        };
+        $symlinkOwner = $symlinkService->persistCandidateDataOwnerReceipt($symlinkEngagement, $symlinkCycle, $symlinkCase);
+        $this->assertSame('passed', $symlinkOwner->status);
+        $this->assertFileDoesNotExist($escapeTarget.'/data-probe-'.$symlinkCase->caseHash.'.json');
 
         $oracleProvider = $this->createMock(ProviderPort::class);
         $oracleProvider->method('invoke')->willReturn([

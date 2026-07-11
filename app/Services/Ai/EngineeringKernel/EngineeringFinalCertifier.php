@@ -36,6 +36,7 @@ final class EngineeringFinalCertifier
             $ownerDomain = match ($role) {
                 'qa_testing' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_QA_OWNER_DOMAIN,
                 'architecture' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
+                'data' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_DATA_OWNER_DOMAIN,
                 default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
             };
             if (! $row instanceof AiEngineeringCompanyRoleRun

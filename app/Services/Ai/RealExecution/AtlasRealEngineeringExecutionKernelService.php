@@ -24,6 +24,7 @@ use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\MutativeVerificationReference;
 use App\Services\Ai\EngineeringKernel\NonFunctional\ArchitectureRegressionProbe;
+use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 use App\Services\Ai\EngineeringKernel\RoleDisposition;
 use App\Services\Ai\EngineeringKernel\RoleEvidenceReceipt;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
@@ -51,6 +52,10 @@ class AtlasRealEngineeringExecutionKernelService
     public const CANDIDATE_ARCHITECTURE_OWNER_DOMAIN = 'atlas.real_execution.candidate_architecture_owner.v1';
 
     public const CANDIDATE_ARCHITECTURE_OWNER_VERSION = 'v1';
+
+    public const CANDIDATE_DATA_OWNER_DOMAIN = 'atlas.real_execution.candidate_data_owner.v1';
+
+    public const CANDIDATE_DATA_OWNER_VERSION = 'v1';
 
     public const REPAIR_SCHEMA = 'atlas.ai.real_execution.repair_attempt.v1';
 
@@ -494,6 +499,324 @@ class AtlasRealEngineeringExecutionKernelService
             $verificationRunId, $receipt['hash'], $candidateHash,
             $providerIdentity, $authorIdentity, $verifierIdentity,
         );
+    }
+
+    public function persistCandidateDataOwnerReceipt(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): AiEngineeringCompanyRoleRun
+    {
+        if (! $engagement->exists || ! $cycle->exists || $cycle->engagement_record_id !== $engagement->getKey()
+            || (string) $engagement->getKey() !== $case->engagementRecordId || (string) $cycle->getKey() !== $case->cycleRecordId) {
+            throw new \InvalidArgumentException('candidate_data_owner_binding_invalid');
+        }
+        $evidence = $this->candidateDataEvidence($case, true);
+        $disposition = $this->candidateDataDisposition($case, $evidence);
+        $roleRunId = 'aeredata_'.substr(RealExecutionHash::make([$case->caseHash, 'data']), 0, 24);
+        if (AiEngineeringCompanyRoleRun::query()->where('role_run_id', $roleRunId)->exists()) {
+            throw new \InvalidArgumentException('candidate_data_owner_duplicate');
+        }
+        $issued = CarbonImmutable::now()->startOfSecond();
+        $expires = $issued->addHour();
+        $evidenceRefs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash,
+            'data_artifact:'.(string) data_get($evidence, 'raw_artifact.sha256')];
+        $typed = RoleEvidenceReceipt::issue($case, $disposition, self::CANDIDATE_DATA_OWNER_DOMAIN, self::CANDIDATE_DATA_OWNER_VERSION,
+            $issued->toAtomString(), $expires->toAtomString(), $evidenceRefs);
+        $output = ['disposition' => $disposition->toArray(), 'role_evidence_receipt' => $typed->toArray()];
+        $receipt = ['schema_version' => AtlasRealEngineeringCompanyRuntimeService::ROLE_SCHEMA,
+            'purpose' => 'candidate_data_owner_evidence', 'owner_domain' => self::CANDIDATE_DATA_OWNER_DOMAIN,
+            'owner_version' => self::CANDIDATE_DATA_OWNER_VERSION, 'owner_identity' => MigrationSafetyProbe::class,
+            'issued_at' => $issued->toAtomString(), 'expires_at' => $expires->toAtomString(),
+            'role_run_id' => $roleRunId, 'role_id' => 'data',
+            'status' => $disposition->status === 'pass' ? 'passed' : ($disposition->status === 'not_applicable' ? 'not_applicable' : 'blocked'),
+            'output' => $output, 'evidence_refs' => $evidenceRefs, 'binding' => $this->candidateOwnerBinding($case),
+            'disposition' => $disposition->toArray(), 'data_evidence' => $evidence];
+        $receipt['producer'] = $this->candidateOwnerProducerSeal($receipt, self::CANDIDATE_DATA_OWNER_DOMAIN);
+        $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+
+        return AiEngineeringCompanyRoleRun::query()->create(['engagement_record_id' => $engagement->getKey(),
+            'cycle_record_id' => $cycle->getKey(), 'role_run_id' => $roleRunId, 'role_id' => 'data',
+            'status' => $receipt['status'], 'responsibilities' => [], 'output' => $output,
+            'evidence_refs' => $evidenceRefs, 'receipt' => $receipt, 'role_hash' => $receipt['hash']]);
+    }
+
+    public function candidateDataOwnerReceiptValid(AiEngineeringCompanyRoleRun $row, CandidateQualityCase $case): bool
+    {
+        $persisted = $row->exists ? AiEngineeringCompanyRoleRun::query()->find($row->getKey()) : null;
+        $receipt = $persisted?->receipt;
+        if (! $persisted instanceof AiEngineeringCompanyRoleRun || ! is_array($receipt)
+            || $persisted->role_id !== 'data' || (string) $persisted->engagement_record_id !== $case->engagementRecordId
+            || (string) $persisted->cycle_record_id !== $case->cycleRecordId) {
+            return false;
+        }
+        try {
+            $issued = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['issued_at'] ?? ''));
+            $expires = CarbonImmutable::createFromFormat(DATE_ATOM, (string) ($receipt['expires_at'] ?? ''));
+            $evidence = (array) ($receipt['data_evidence'] ?? []);
+            $artifact = (array) ($evidence['raw_artifact'] ?? []);
+            $artifactRoot = $this->ownedAtlasArtifactRoot($case->candidate->sandboxRoot);
+            $artifactPath = realpath((string) ($artifact['path'] ?? ''));
+            if ($artifactPath === false || ! str_starts_with($artifactPath, $artifactRoot.'/') || is_link((string) ($artifact['path'] ?? ''))
+                || ! hash_equals((string) ($artifact['sha256'] ?? ''), (string) hash_file('sha256', $artifactPath))) {
+                return false;
+            }
+            $raw = json_decode((string) file_get_contents($artifactPath), true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($raw) || $raw !== array_diff_key($evidence, ['raw_artifact' => true])) {
+                return false;
+            }
+            $disposition = $this->candidateDataDisposition($case, $evidence);
+        } catch (\Throwable) {
+            return false;
+        }
+        $refs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash,
+            'data_artifact:'.(string) data_get($evidence, 'raw_artifact.sha256')];
+        $typed = RoleEvidenceReceipt::issue($case, $disposition, self::CANDIDATE_DATA_OWNER_DOMAIN, self::CANDIDATE_DATA_OWNER_VERSION,
+            (string) $receipt['issued_at'], (string) $receipt['expires_at'], $refs)->toArray();
+        $output = $persisted->output;
+        $unsigned = array_diff_key($receipt, ['hash' => true]);
+
+        return is_array($output) && $issued !== null && $expires !== null && ! CarbonImmutable::now()->lt($issued) && CarbonImmutable::now()->lt($expires)
+            && ($receipt['purpose'] ?? null) === 'candidate_data_owner_evidence'
+            && ($receipt['owner_domain'] ?? null) === self::CANDIDATE_DATA_OWNER_DOMAIN
+            && ($receipt['owner_version'] ?? null) === self::CANDIDATE_DATA_OWNER_VERSION
+            && ($receipt['owner_identity'] ?? null) === MigrationSafetyProbe::class
+            && ($receipt['binding'] ?? null) === $this->candidateOwnerBinding($case)
+            && ($receipt['data_evidence'] ?? null) === $evidence && ($receipt['evidence_refs'] ?? null) === $refs
+            && ($output['disposition'] ?? null) === $disposition->toArray()
+            && ($output['role_evidence_receipt'] ?? null) === $typed && ($receipt['output'] ?? null) === $output
+            && ($receipt['disposition'] ?? null) === $output['disposition']
+            && hash_equals((string) $persisted->role_hash, (string) ($receipt['hash'] ?? ''))
+            && hash_equals((string) ($receipt['hash'] ?? ''), EngineeringCompanyHash::make($unsigned))
+            && $this->candidateOwnerProducerSealValid($unsigned, self::CANDIDATE_DATA_OWNER_DOMAIN);
+    }
+
+    /** @param array<string,mixed> $evidence */
+    public function candidateDataDisposition(CandidateQualityCase $case, array $evidence): RoleDisposition
+    {
+        $applies = ($evidence['applies'] ?? false) === true;
+        $safe = ($evidence['safe'] ?? false) === true;
+        $status = ! $applies ? 'not_applicable' : ($safe ? 'pass' : 'block');
+        $reason = ! $applies ? 'signed_no_data_or_schema_applicability' : ($safe ? 'candidate_migration_isolated_oracle_passed' : 'candidate_migration_unsafe_or_unknown');
+        $payload = ['purpose' => 'candidate_data_disposition', 'case_hash' => $case->caseHash,
+            'evidence_hash' => RealExecutionHash::make($evidence), 'status' => $status, 'reason' => $reason,
+            'owner_identity' => MigrationSafetyProbe::class];
+
+        return RoleDisposition::dataCandidateAdjudicated($case, $status, $reason, self::CANDIDATE_DATA_OWNER_DOMAIN,
+            $this->candidateOwnerSignature($payload, self::CANDIDATE_DATA_OWNER_DOMAIN));
+    }
+
+    /** @return array<string,mixed> */
+    private function candidateDataEvidence(CandidateQualityCase $case, bool $writeArtifact): array
+    {
+        $verification = $this->verifiedMutativeVerificationReceipt($case->verification, $case->order, $writeArtifact);
+        $binding = (array) data_get($verification->receipt, 'binding', []);
+        $tree = (string) ($binding['tree_hash'] ?? '');
+        $sourceHashes = (array) ($binding['source_hashes'] ?? []);
+        $sources = [];
+        foreach ($case->candidate->files as $file) {
+            if (! MigrationSafetyProbe::isMigrationPath($file)) {
+                continue;
+            }
+            $show = new Process(['git', 'show', $tree.':'.$file], $case->candidate->sandboxRoot);
+            $show->run();
+            if (! $show->isSuccessful() || ! hash_equals((string) ($sourceHashes[$file] ?? ''), hash('sha256', $show->getOutput()))) {
+                throw new \InvalidArgumentException('candidate_data_signed_source_unavailable');
+            }
+            $sources[$file] = $show->getOutput();
+        }
+        $this->afterDataCandidateVerified($case);
+        $static = MigrationSafetyProbe::probe($sources);
+        $oracle = $sources === [] ? ['status' => 'not_applicable'] : $this->runIsolatedMigrationOracle(
+            $sources, (bool) ($static['safe'] ?? false), $case->candidate->sandboxRoot, $case->caseHash,
+        );
+        $safe = $sources !== [] && ($static['safe'] ?? false) === true
+            && ($oracle['forward_passed'] ?? false) === true && ($oracle['n_minus_1_passed'] ?? false) === true
+            && ($oracle['rollback_passed'] ?? false) === true;
+        $raw = ['schema_version' => 'atlas.candidate_data_probe.v1', 'case_hash' => $case->caseHash,
+            'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
+            'candidate_hash' => $case->candidate->candidateHash, 'base_commit' => $case->candidate->baseCommit,
+            'tree_hash' => $case->candidate->treeHash, 'diff_hash' => $case->candidate->diffHash, 'files' => $case->candidate->files,
+            'migration_source_hashes' => array_map(static fn (string $source): string => hash('sha256', $source), $sources),
+            'migration_policy_hash' => RealExecutionHash::make(['spec_hash' => $case->order->specHash, 'probe' => MigrationSafetyProbe::class]),
+            'probe' => $static, 'isolated_db' => $oracle, 'applies' => $sources !== [], 'safe' => $safe,
+            'owner_identity' => MigrationSafetyProbe::class];
+        $artifactRoot = $this->ownedAtlasArtifactRoot($case->candidate->sandboxRoot);
+        $artifact = $artifactRoot.'/data-probe-'.$case->caseHash.'.json';
+        if ($writeArtifact) {
+            File::put($artifact, json_encode($raw, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        }
+        $artifactReal = realpath($artifact);
+        if ($artifactReal === false || ! str_starts_with($artifactReal, $artifactRoot.'/') || ! is_file($artifactReal) || is_link($artifact)) {
+            throw new \InvalidArgumentException('candidate_data_artifact_unavailable');
+        }
+
+        return $raw + ['raw_artifact' => ['path' => $artifactReal, 'sha256' => hash_file('sha256', $artifactReal)]];
+    }
+
+    /** @param array<string,string> $sources @return array<string,mixed> */
+    private function runIsolatedMigrationOracle(array $sources, bool $staticSafe, string $sandbox, string $caseHash): array
+    {
+        if (! $staticSafe || ! extension_loaded('pdo_sqlite')) {
+            return ['status' => $staticSafe ? 'unavailable' : 'static_refused', 'forward_passed' => false,
+                'n_minus_1_passed' => false, 'rollback_passed' => false];
+        }
+        $trustedTempRoot = '/private/tmp';
+        $oracleRoot = $trustedTempRoot.'/atlas-owned-migration-oracle-'.bin2hex(random_bytes(16));
+        if (! mkdir($oracleRoot, 0700) || is_link($oracleRoot)) {
+            return ['status' => 'oracle_root_invalid', 'forward_passed' => false, 'n_minus_1_passed' => false, 'rollback_passed' => false];
+        }
+        $oracleReal = realpath($oracleRoot);
+        $sandboxExec = '/usr/bin/sandbox-exec';
+        if ($oracleReal === false || dirname($oracleReal) !== $trustedTempRoot || ! is_executable($sandboxExec)) {
+            return ['status' => 'oracle_sandbox_unavailable', 'forward_passed' => false, 'n_minus_1_passed' => false, 'rollback_passed' => false];
+        }
+        $db = $oracleReal.'/candidate.sqlite';
+        File::put($db, '');
+        $sourcePaths = [];
+        try {
+            foreach ($sources as $path => $source) {
+                $sourcePath = $oracleReal.'/migration-'.substr(hash('sha256', $path), 0, 12).'.php';
+                File::put($sourcePath, $source);
+                $real = realpath($sourcePath);
+                if ($real === false || ! str_starts_with($real, $oracleReal.'/') || is_link($sourcePath)
+                    || ! hash_equals(hash('sha256', $source), (string) hash_file('sha256', $real))) {
+                    throw new \RuntimeException('isolated_migration_source_copy_invalid');
+                }
+                $sourcePaths[] = $real;
+            }
+            $runner = <<<'PHP'
+                require $argv[1];
+                $db = $argv[2];
+                $action = $argv[3];
+                $sources = array_slice($argv, 4);
+                $capsuleClass = implode(chr(92), ['Illuminate', 'Database', 'Capsule', 'Manager']);
+                $facadeClass = implode(chr(92), ['Illuminate', 'Support', 'Facades', 'Facade']);
+                $migrationClass = implode(chr(92), ['Illuminate', 'Database', 'Migrations', 'Migration']);
+                $capsule = new $capsuleClass();
+                $capsule->addConnection(['driver' => 'sqlite', 'database' => $db, 'prefix' => '', 'foreign_key_constraints' => true]);
+                $capsule->setAsGlobal(); $capsule->bootEloquent();
+                $container = $capsule->getContainer();
+                $container->singleton('db.schema', static fn () => $capsule->getConnection()->getSchemaBuilder());
+                $facadeClass::setFacadeApplication($container);
+                $connection = $capsule->getConnection();
+                $connection->statement('PRAGMA foreign_keys = ON');
+                $migrations = [];
+                foreach ($sources as $source) {
+                    $migration = require $source;
+                    if (! $migration instanceof $migrationClass) { throw new RuntimeException('candidate_migration_contract_invalid'); }
+                    $migrations[] = $migration;
+                }
+                if ($action === 'up') { foreach ($migrations as $migration) { $migration->up(); } }
+                elseif ($action === 'down') { foreach (array_reverse($migrations) as $migration) { $migration->down(); } }
+                else { throw new RuntimeException('candidate_migration_action_invalid'); }
+                PHP;
+            $vendor = $oracleReal.'/vendor';
+            foreach (['composer', 'laravel', 'psr', 'symfony', 'nesbot', 'doctrine', 'brick', 'carbonphp'] as $package) {
+                if (is_dir(base_path('vendor/'.$package))) {
+                    File::copyDirectory(base_path('vendor/'.$package), $vendor.'/'.$package);
+                }
+            }
+            File::put($vendor.'/autoload.php', <<<'PHP'
+                <?php
+                require __DIR__.'/composer/ClassLoader.php';
+                $loader = new Composer\Autoload\ClassLoader(__DIR__);
+                foreach (require __DIR__.'/composer/autoload_psr4.php' as $prefix => $paths) { $loader->setPsr4($prefix, $paths); }
+                $loader->addClassMap(require __DIR__.'/composer/autoload_classmap.php');
+                $loader->register(true);
+                require __DIR__.'/laravel/framework/src/Illuminate/Collections/functions.php';
+                require __DIR__.'/laravel/framework/src/Illuminate/Collections/helpers.php';
+                require __DIR__.'/laravel/framework/src/Illuminate/Support/functions.php';
+                require __DIR__.'/laravel/framework/src/Illuminate/Support/helpers.php';
+                PHP);
+            $snapshot = static function (string $database): array {
+                $pdo = new \PDO('sqlite:'.$database);
+                $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+                $schema = $pdo->query("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")->fetchAll(\PDO::FETCH_ASSOC);
+                $data = [];
+                foreach (['atlas_probe_parents', 'atlas_probe_records'] as $table) {
+                    $data[$table] = $pdo->query('SELECT * FROM '.$table.' ORDER BY id')->fetchAll(\PDO::FETCH_ASSOC);
+                }
+
+                return ['schema' => $schema, 'data' => $data];
+            };
+            $pdo = new \PDO('sqlite:'.$db);
+            $pdo->exec('PRAGMA foreign_keys = ON');
+            $pdo->exec("CREATE TABLE atlas_probe_parents (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL DEFAULT 'parent')");
+            $pdo->exec("CREATE TABLE atlas_probe_records (id INTEGER PRIMARY KEY, parent_id INTEGER NOT NULL, legacy_value VARCHAR NOT NULL DEFAULT 'legacy', status VARCHAR NOT NULL DEFAULT 'active', FOREIGN KEY(parent_id) REFERENCES atlas_probe_parents(id))");
+            $pdo->exec('CREATE INDEX atlas_probe_records_legacy_value_index ON atlas_probe_records (legacy_value)');
+            $pdo->exec("INSERT INTO atlas_probe_parents (id,name) VALUES (1,'parent')");
+            $pdo->exec("INSERT INTO atlas_probe_records (id,parent_id,legacy_value,status) VALUES (1,1,'legacy','active')");
+            unset($pdo);
+            $before = $snapshot($db);
+            $profile = '(version 1)(deny default)(deny network*)(allow process-exec (literal "'.PHP_BINARY.'"))'
+                .'(allow process-fork)(allow sysctl-read)(allow mach-lookup)'
+                .'(allow file-read-metadata (literal "/") (literal "/usr") (literal "/System") (literal "/private") (subpath "'.dirname($oracleReal).'") (literal "/opt") (literal "/dev") (literal "'.$oracleReal.'"))'
+                .'(allow file-read* (literal "/") (subpath "/opt/homebrew/Cellar") (subpath "/opt/homebrew/opt") (subpath "/opt/homebrew/lib") (subpath "/usr/lib") (subpath "/System/Library") (subpath "/Library") (subpath "/private/etc") (literal "'.$db.'") (subpath "'.$oracleReal.'") (literal "/dev/null") (literal "/dev/urandom"))'
+                .'(allow file-write* (literal "'.$db.'") (literal "'.$db.'-journal") (literal "'.$db.'-wal") (literal "'.$db.'-shm") (literal "/dev/null"))';
+            $run = function (string $action) use ($sandboxExec, $profile, $runner, $vendor, $db, $sourcePaths): Process {
+                $process = new Process([$sandboxExec, '-p', $profile, PHP_BINARY, '-n',
+                    '-d', 'display_errors=stderr', '-d', 'disable_functions=exec,shell_exec,system,passthru,proc_open,popen,pcntl_exec', '-r', $runner,
+                    $vendor.'/autoload.php', $db, $action, ...$sourcePaths], '/', ['APP_ENV' => 'testing', 'HOME' => '/nonexistent']);
+                $process->setTimeout(60);
+                try {
+                    $process->run();
+                } catch (\Throwable $e) {
+                    throw new \RuntimeException($e->getMessage().' stderr='.$process->getErrorOutput(), 0, $e);
+                }
+
+                return $process;
+            };
+            $up = $run('up');
+            if (! $up->isSuccessful() || $up->getOutput() !== '' || $up->getErrorOutput() !== '') {
+                throw new \RuntimeException('candidate_migration_up_process_untrusted stdout='.$up->getOutput().' stderr='.$up->getErrorOutput().' exit='.$up->getExitCode());
+            }
+            $forward = $snapshot($db);
+            $legacyExpectation = ['id' => 1, 'parent_id' => 1, 'legacy_value' => 'legacy', 'status' => 'active'];
+            $n1Passed = array_intersect_key((array) ($forward['data']['atlas_probe_records'][0] ?? []), $legacyExpectation)
+                === $legacyExpectation;
+            $down = $run('down');
+            if (! $down->isSuccessful() || $down->getOutput() !== '' || $down->getErrorOutput() !== '') {
+                throw new \RuntimeException('candidate_migration_down_process_untrusted');
+            }
+            $after = $snapshot($db);
+            $receipt = ['status' => 'executed_isolated_laravel_sqlite', 'forward_passed' => $forward !== $before,
+                'n_minus_1_passed' => $n1Passed, 'rollback_passed' => $after === $before,
+                'before_hash' => RealExecutionHash::make($before), 'forward_hash' => RealExecutionHash::make($forward),
+                'after_hash' => RealExecutionHash::make($after), 'database' => 'isolated_tempfile',
+                'runner_hash' => hash('sha256', $runner), 'supervisor' => self::class];
+            $receipt['supervisor_hmac'] = hash_hmac('sha256', RealExecutionHash::make($receipt), (string) config('app.key'));
+
+            return $receipt;
+        } catch (\Throwable $e) {
+            return ['status' => 'oracle_failed', 'error_class' => $e::class, 'error_hash' => hash('sha256', $e->getMessage()), 'forward_passed' => false,
+                'n_minus_1_passed' => false, 'rollback_passed' => false];
+        } finally {
+            foreach ($sourcePaths as $path) {
+                @unlink($path);
+            }
+            @unlink($db);
+            if (is_string($oracleReal) && str_starts_with($oracleReal, $trustedTempRoot.'/atlas-owned-migration-oracle-')) {
+                File::deleteDirectory($oracleReal, true);
+            }
+        }
+    }
+
+    private function ownedAtlasArtifactRoot(string $sandbox): string
+    {
+        $sandboxRoot = realpath($sandbox);
+        $artifactPath = storage_path('app/atlas-owned-candidate-data');
+        if ($sandboxRoot === false || is_link(storage_path('app')) || is_link($artifactPath)) {
+            throw new \InvalidArgumentException('candidate_artifact_root_invalid');
+        }
+        File::ensureDirectoryExists($artifactPath, 0700);
+        $artifactRoot = realpath($artifactPath);
+        if ($artifactRoot === false || dirname($artifactRoot) !== realpath(storage_path('app')) || ! is_writable($artifactRoot)) {
+            throw new \InvalidArgumentException('candidate_artifact_root_invalid');
+        }
+
+        return $artifactRoot;
+    }
+
+    protected function afterDataCandidateVerified(CandidateQualityCase $case): void
+    {
+        // Race-test seam. Production performs no action before owned artifact containment checks.
     }
 
     public function persistCandidateArchitectureOwnerReceipt(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, CandidateQualityCase $case): AiEngineeringCompanyRoleRun
