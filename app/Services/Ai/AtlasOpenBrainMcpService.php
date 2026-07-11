@@ -4425,6 +4425,7 @@ class AtlasOpenBrainMcpService
                 $missedCount = count((array) $event->missed_required_sources);
                 $hasRoiSignal = $roi !== [] || $attribution !== [];
                 $actionableFeedback = $hasRoiSignal || $policy !== [] || $missedCount > 0 || (int) $event->noise_sources > 0;
+                $measured = $this->feedbackEventMeasured($event);
 
                 return [
                     'feedback_hash' => $event->feedback_hash,
@@ -4436,6 +4437,7 @@ class AtlasOpenBrainMcpService
                     'missed_required_source_count' => $missedCount,
                     'context_sufficiency' => (int) $event->context_sufficiency,
                     'post_execution_utility' => (int) $event->post_execution_utility,
+                    'measured' => $measured,
                     'has_roi_signal' => $hasRoiSignal,
                     'actionable_feedback' => $actionableFeedback,
                     'roi_score' => array_key_exists('roi_score', $roi) ? (float) $roi['roi_score'] : null,
@@ -4447,6 +4449,57 @@ class AtlasOpenBrainMcpService
                 ];
             })
             ->values();
+
+        $totalEventCount = $rows->count();
+        $rows = $rows->filter(fn (array $row): bool => (bool) ($row['measured'] ?? false))->values();
+        if ($rows->isEmpty()) {
+            return [
+                'schema_version' => 'atlas.open_brain.context_feedback_metric_aggregate.v1',
+                'status' => 'no_measured_data',
+                'window_hours' => $hours,
+                'observed_count' => 0,
+                'measured_count' => 0,
+                'total_event_count' => $totalEventCount,
+                'quality_band_counts' => [
+                    'strong' => 0,
+                    'mixed' => 0,
+                    'weak' => 0,
+                    'unknown' => 0,
+                ],
+                'outcome_counts' => [],
+                'low_roi_count' => 0,
+                'waste_count' => 0,
+                'noise_count' => 0,
+                'missed_required_source_feedback_count' => 0,
+                'non_passing_count' => 0,
+                'roi_signal_count' => 0,
+                'actionable_feedback_count' => 0,
+                'non_actionable_feedback_count' => 0,
+                'missing_roi_signal_count' => $totalEventCount,
+                'weak_ratio' => 0.0,
+                'non_passing_ratio' => 0.0,
+                'averages' => [
+                    'roi_score' => 0.0,
+                    'use_ratio' => 0.0,
+                    'waste_ratio' => 0.0,
+                    'context_sufficiency' => 0.0,
+                    'post_execution_utility' => 0.0,
+                    'included_sources' => 0.0,
+                    'used_sources' => 0.0,
+                    'noise_sources' => 0.0,
+                ],
+                'latest' => null,
+                'review_signal' => [
+                    'status' => 'observe',
+                    'severity' => 'low',
+                    'reasons' => ['context_feedback_events_unmeasured'],
+                    'recommended_action' => 'collect_explicit_used_refs_and_post_execution_utility_before_aggregating_context_feedback',
+                    'auto_apply_threshold' => 0,
+                    'auto_apply_ready' => false,
+                    'remaining_feedback_events_before_auto_apply' => 0,
+                ],
+            ];
+        }
 
         $observedCount = $rows->count();
         $weakRows = $rows->where('quality_band', 'weak')->values();
@@ -4503,6 +4556,8 @@ class AtlasOpenBrainMcpService
             'status' => $status,
             'window_hours' => $hours,
             'observed_count' => $observedCount,
+            'measured_count' => $observedCount,
+            'total_event_count' => $totalEventCount,
             'quality_band_counts' => [
                 'strong' => $strongRows->count(),
                 'mixed' => $mixedRows->count(),
@@ -4556,6 +4611,21 @@ class AtlasOpenBrainMcpService
         }
 
         return true;
+    }
+
+    private function feedbackEventMeasured(AiRagFeedbackEvent $event): bool
+    {
+        $payload = is_array($event->payload) ? $event->payload : [];
+
+        return (bool) data_get(
+            $payload,
+            'measured',
+            data_get(
+                $payload,
+                'payload.measured',
+                data_get($payload, 'payload.context_roi.measured', data_get($payload, 'context_roi.measured', false)),
+            ),
+        );
     }
 
     private function averageMetric(Collection $rows, string $key, int $precision = 2): float

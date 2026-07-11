@@ -707,6 +707,8 @@ class AtlasOpenBrainContextPackService
             'source_selection_policy' => $this->sourceSelectionPolicy([], 0),
             'evidence' => [
                 'feedback_event_count' => 0,
+                'measured_count' => 0,
+                'total_event_count' => 0,
                 'latest_feedback_hashes' => [],
             ],
             'quality_gate_hint' => 'feedback_not_available_for_initial_pack',
@@ -739,6 +741,7 @@ class AtlasOpenBrainContextPackService
             ];
         }
 
+        $totalEventCount = $events->count();
         if ($events->isEmpty()) {
             return $base + [
                 'status' => 'no_data',
@@ -746,6 +749,25 @@ class AtlasOpenBrainContextPackService
                 'reason' => 'no_context_feedback_events',
                 'quality_gate_hint' => 'record_atlas_context_feedback_after_provider_runs',
             ];
+        }
+
+        $events = $events
+            ->filter(fn (AiRagFeedbackEvent $event): bool => $this->feedbackEventMeasured($event))
+            ->values();
+
+        if ($events->isEmpty()) {
+            return array_replace_recursive($base, [
+                'status' => 'no_measured_data',
+                'source' => $flowId !== null ? 'unmeasured_flow_feedback' : 'unmeasured_recent_context_feedback',
+                'reason' => 'context_feedback_events_unmeasured',
+                'evidence' => [
+                    'feedback_event_count' => 0,
+                    'measured_count' => 0,
+                    'total_event_count' => $totalEventCount,
+                    'latest_feedback_hashes' => [],
+                ],
+                'quality_gate_hint' => 'record_explicit_used_refs_and_post_execution_utility_after_provider_runs',
+            ]);
         }
 
         $roiScores = [];
@@ -902,6 +924,8 @@ class AtlasOpenBrainContextPackService
             'source_selection_policy' => $sourceSelectionPolicy,
             'evidence' => [
                 'feedback_event_count' => $observedCount,
+                'measured_count' => $observedCount,
+                'total_event_count' => $totalEventCount,
                 'latest_feedback_hashes' => array_slice($feedbackHashes, 0, 5),
                 'low_roi_count' => $lowRoiCount,
                 'waste_count' => $wasteCount,
@@ -924,6 +948,21 @@ class AtlasOpenBrainContextPackService
                 : ($applied ? 'budget_shrunk_by_feedback_keep_expansion_available' : ($actionableFeedbackCount === 0 ? 'feedback_observed_but_not_actionable_for_budget' : 'feedback_review_before_context_expansion')),
             'policy' => $this->contextDeliveryPolicySafety($applied),
         ];
+    }
+
+    private function feedbackEventMeasured(AiRagFeedbackEvent $event): bool
+    {
+        $payload = is_array($event->payload) ? $event->payload : [];
+
+        return (bool) data_get(
+            $payload,
+            'measured',
+            data_get(
+                $payload,
+                'payload.measured',
+                data_get($payload, 'payload.context_roi.measured', data_get($payload, 'context_roi.measured', false)),
+            ),
+        );
     }
 
     /**

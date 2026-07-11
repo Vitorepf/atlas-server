@@ -7,16 +7,24 @@ namespace Tests\Feature\Ai\Context;
 use App\Models\AiCompoundingMemory;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
+use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
+use App\Services\Ai\Context\AtlasCanonicalContextRef;
+use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
+use ReflectionMethod;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 
 final class RetrievalFeedbackLoopTest extends TestCase
 {
     use BootsCompoundingSchema;
+
+    /** @var array<int,string> */
+    private array $tempDirs = [];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -26,6 +34,18 @@ final class RetrievalFeedbackLoopTest extends TestCase
     protected function tearDown(): void
     {
         $this->dropCompoundingSchema();
+        foreach ($this->tempDirs as $dir) {
+            if (! is_dir($dir)) {
+                continue;
+            }
+            foreach (glob($dir.'/*') ?: [] as $file) {
+                if (is_file($file)) {
+                    @unlink($file);
+                }
+            }
+            @rmdir($dir);
+        }
+        $this->tempDirs = [];
         parent::tearDown();
     }
 
@@ -47,7 +67,9 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertSame(AtlasRetrievalFeedbackLoopService::CONTEXT_ROI_SCHEMA, data_get($payload, 'context_roi.schema_version'));
         $this->assertSame(AtlasRetrievalFeedbackLoopService::CONTEXT_REF_ATTRIBUTION_SCHEMA, data_get($payload, 'context_ref_attribution.schema_version'));
         $this->assertSame(AtlasRetrievalFeedbackLoopService::NEXT_CONTEXT_POLICY_SCHEMA, data_get($payload, 'next_context_policy.schema_version'));
-        $this->assertSame('strong', data_get($payload, 'context_roi.quality_band'));
+        $this->assertFalse(data_get($payload, 'measured'));
+        $this->assertFalse(data_get($payload, 'context_roi.measured'));
+        $this->assertSame('unmeasured', data_get($payload, 'context_roi.quality_band'));
         $this->assertSame(['keep_current_pack'], data_get($payload, 'next_context_policy.actions'));
         $this->assertSame('none', data_get($payload, 'learning_candidate.status'));
         $this->assertTrue(data_get($payload, 'persistence.persisted'));
@@ -268,6 +290,111 @@ final class RetrievalFeedbackLoopTest extends TestCase
         $this->assertSame(1.0, data_get($report, 'measurement.passed_rate_lift'));
     }
 
+    public function test_DeliveredAttribution_event_with_real_pack_hash_computes_noise_as_delivered_minus_used_exact_set(): void
+    {
+        $pack = $this->recordDeliveredPack('delivered-attribution-exact', [
+            ['id' => 'sym:ExactOne', 'file_path' => 'app/ExactOne.php', 'symbol_type' => 'class'],
+            ['id' => 'sym:ExactTwo', 'file_path' => 'app/ExactTwo.php', 'symbol_type' => 'class'],
+            ['id' => 'sym:ExactThree', 'file_path' => 'app/ExactThree.php', 'symbol_type' => 'class'],
+        ]);
+        $deliveredRefs = AtlasCanonicalContextRef::deliveredFromPack($pack);
+        $usedRefs = [$deliveredRefs[0], $deliveredRefs[2]];
+        $expectedNoiseRefs = [$deliveredRefs[1]];
+
+        $payload = app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'delivered attribution exact set',
+            'flow_id' => 'delivered.attribution.exact',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $pack['context_pack_hash'],
+            'used_context_refs' => $usedRefs,
+            'post_execution_utility' => 81,
+            'record' => true,
+        ]);
+
+        $this->assertTrue(data_get($payload, 'context_ref_attribution.measured'));
+        $this->assertTrue(data_get($payload, 'context_roi.measured'));
+        $this->assertSame('explicit_used_refs', data_get($payload, 'context_ref_attribution.usage_basis'));
+        $this->assertSame(3, data_get($payload, 'context_ref_attribution.delivered_count'));
+        $this->assertSame(2, data_get($payload, 'context_ref_attribution.used_count'));
+        $this->assertSame(1, data_get($payload, 'context_ref_attribution.noise_count'));
+        $this->assertSame($deliveredRefs, data_get($payload, 'context_ref_attribution.delivered_refs.*.ref'));
+        $this->assertSame($usedRefs, data_get($payload, 'context_ref_attribution.used_refs.*.ref'));
+        $this->assertSame($expectedNoiseRefs, data_get($payload, 'context_ref_attribution.noise_refs.*.ref'));
+        $this->assertSame($expectedNoiseRefs, data_get($payload, 'noise_ref_candidates.*.ref'));
+
+        $event = AiRagFeedbackEvent::query()->firstOrFail();
+        $this->assertTrue(data_get($event->payload, 'payload.measured'));
+        $this->assertSame('explicit_used_refs', data_get($event->payload, 'payload.usage_basis'));
+        $this->assertSame($expectedNoiseRefs, data_get($event->payload, 'payload.context_ref_attribution.noise_refs.*.ref'));
+    }
+
+    public function test_DeliveredAttribution_event_without_explicit_utility_is_unmeasured_and_excluded_from_measured_aggregates(): void
+    {
+        $unmeasuredPack = $this->recordDeliveredPack('delivered-attribution-unmeasured', [
+            ['id' => 'sym:UnmeasuredOne', 'file_path' => 'app/UnmeasuredOne.php', 'symbol_type' => 'class'],
+        ]);
+        $measuredPack = $this->recordDeliveredPack('delivered-attribution-measured', [
+            ['id' => 'sym:MeasuredOne', 'file_path' => 'app/MeasuredOne.php', 'symbol_type' => 'class'],
+            ['id' => 'sym:MeasuredTwo', 'file_path' => 'app/MeasuredTwo.php', 'symbol_type' => 'class'],
+        ]);
+        $measuredRefs = AtlasCanonicalContextRef::deliveredFromPack($measuredPack);
+
+        $unmeasured = app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'delivered attribution unmeasured event',
+            'flow_id' => 'delivered.attribution.aggregate',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $unmeasuredPack['context_pack_hash'],
+            'record' => true,
+        ]);
+        $measured = app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'delivered attribution measured event',
+            'flow_id' => 'delivered.attribution.aggregate',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $measuredPack['context_pack_hash'],
+            'used_context_refs' => [$measuredRefs[0]],
+            'post_execution_utility' => 74,
+            'record' => true,
+        ]);
+
+        $this->assertFalse(data_get($unmeasured, 'measured'));
+        $this->assertFalse(data_get($unmeasured, 'context_roi.measured'));
+        $this->assertNull(data_get($unmeasured, 'context_roi.post_execution_utility'));
+        $this->assertTrue(data_get($measured, 'measured'));
+        $this->assertSame(2, AiRagFeedbackEvent::query()->count());
+
+        $policyMethod = new ReflectionMethod(AtlasOpenBrainContextPackService::class, 'contextDeliveryPolicy');
+        $policyMethod->setAccessible(true);
+        $policy = $policyMethod->invoke(app(AtlasOpenBrainContextPackService::class), [
+            'flow_id' => 'delivered.attribution.aggregate',
+        ]);
+
+        $this->assertSame(2, data_get($policy, 'evidence.total_event_count'));
+        $this->assertSame(1, data_get($policy, 'evidence.measured_count'));
+        $this->assertSame(1, data_get($policy, 'evidence.feedback_event_count'));
+        $this->assertSame(74.0, data_get($policy, 'evidence.averages.post_execution_utility'));
+    }
+
+    public function test_DeliveredAttribution_does_not_assign_automatic_86_or_92_scores(): void
+    {
+        $pack = $this->recordDeliveredPack('delivered-attribution-no-fabricated-scores', [
+            ['id' => 'sym:NoFabricatedScores', 'file_path' => 'app/NoFabricatedScores.php', 'symbol_type' => 'class'],
+        ]);
+
+        $payload = app(AtlasRetrievalFeedbackLoopService::class)->capture([
+            'objective' => 'delivered attribution no fabricated scores',
+            'flow_id' => 'delivered.attribution.no_fabricated_scores',
+            'outcome_status' => 'passed',
+            'context_pack_hash' => $pack['context_pack_hash'],
+        ]);
+
+        $this->assertFalse(data_get($payload, 'measured'));
+        $this->assertNull(data_get($payload, 'context_roi.post_execution_utility'));
+        $this->assertNull(data_get($payload, 'context_roi.context_sufficiency'));
+        $this->assertNotSame(86, data_get($payload, 'context_roi.post_execution_utility'));
+        $this->assertNotSame(92, data_get($payload, 'context_roi.context_sufficiency'));
+        $this->assertSame('unmeasured', data_get($payload, 'context_roi.quality_band'));
+    }
+
     private function runOutcome(string $runId, string $flowId, string $status, int $quality): AiRunOutcome
     {
         return AiRunOutcome::query()->create([
@@ -288,5 +415,38 @@ final class RetrievalFeedbackLoopTest extends TestCase
             'outcome_hash' => hash('sha256', 'outcome-'.$runId),
             'evaluated_at' => now(),
         ]);
+    }
+
+    /**
+     * @param  array<int,array<string,string>>  $codeGraph
+     * @return array<string,mixed>
+     */
+    private function recordDeliveredPack(string $hash, array $codeGraph): array
+    {
+        $ledgerPath = $this->configureDeliveredPackLedger();
+        $pack = [
+            'context_pack_hash' => $hash,
+            'code_graph' => $codeGraph,
+            'reality_graph_paths' => [],
+            'memory' => [],
+            'budget' => ['total_budget_chars' => 1000],
+            'context_delivery_policy' => ['status' => 'test'],
+            'generated_at' => now()->toJSON(),
+        ];
+
+        (new AtlasDeliveredPackLedger($ledgerPath))->record($pack);
+
+        return $pack;
+    }
+
+    private function configureDeliveredPackLedger(): string
+    {
+        $dir = sys_get_temp_dir().'/atlas-rfl-delivered-pack-ledger-'.bin2hex(random_bytes(6));
+        mkdir($dir, 0o755, true);
+        $this->tempDirs[] = $dir;
+        $path = $dir.'/delivered-pack-ledger.jsonl';
+        config()->set('atlas.aobg.delivered_pack_ledger.path', $path);
+
+        return $path;
     }
 }

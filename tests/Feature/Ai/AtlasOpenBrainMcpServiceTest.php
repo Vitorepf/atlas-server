@@ -1138,21 +1138,22 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         ])['result']['structuredContent'];
 
         $metrics = $structured['context_feedback_metrics'];
-        $this->assertSame('warning', $metrics['status']);
-        $this->assertSame(2, $metrics['observed_count']);
-        $this->assertSame(2, $metrics['quality_band_counts']['unknown']);
-        $this->assertSame(2, $metrics['outcome_counts']['ready_for_provider']);
+        $this->assertSame('no_measured_data', $metrics['status']);
+        $this->assertSame(0, $metrics['observed_count']);
+        $this->assertSame(0, $metrics['measured_count']);
+        $this->assertSame(2, $metrics['total_event_count']);
+        $this->assertSame(0, $metrics['quality_band_counts']['unknown']);
+        $this->assertSame([], $metrics['outcome_counts']);
         $this->assertSame(0, $metrics['low_roi_count']);
         $this->assertSame(0, $metrics['non_passing_count']);
         $this->assertSame(0, $metrics['roi_signal_count']);
         $this->assertSame(0, $metrics['actionable_feedback_count']);
-        $this->assertSame(2, $metrics['non_actionable_feedback_count']);
+        $this->assertSame(0, $metrics['non_actionable_feedback_count']);
         $this->assertSame(2, $metrics['missing_roi_signal_count']);
-        $this->assertContains('context_feedback_missing_roi_signal', data_get($metrics, 'review_signal.reasons'));
+        $this->assertContains('context_feedback_events_unmeasured', data_get($metrics, 'review_signal.reasons'));
         $this->assertNotContains('low_context_roi_observed', data_get($metrics, 'review_signal.reasons'));
         $this->assertNotContains('non_passing_context_outcome_observed', data_get($metrics, 'review_signal.reasons'));
-        $this->assertFalse(data_get($metrics, 'latest.has_roi_signal'));
-        $this->assertFalse(data_get($metrics, 'latest.actionable_feedback'));
+        $this->assertNull(data_get($metrics, 'latest'));
     }
 
     public function test_architecture_readiness_tool_exposes_preimplementation_snapshot(): void
