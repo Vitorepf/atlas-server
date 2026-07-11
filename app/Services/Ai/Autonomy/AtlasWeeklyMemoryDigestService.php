@@ -8,6 +8,7 @@ use App\Models\AiCompoundingMemory;
 use App\Models\AiLearningProposal;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasAemorMemoryCandidate;
+use App\Models\AtlasMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
 use App\Models\OperatorLearningCandidate;
 use App\Models\OperatorPatternDetection;
@@ -17,8 +18,8 @@ use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
 use App\Models\SemanticNoteActivation;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
-use Illuminate\Support\Facades\File;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Support\Facades\File;
 use Throwable;
 
 /**
@@ -41,7 +42,7 @@ final class AtlasWeeklyMemoryDigestService
     private const ITEM_CAP = 200;
 
     public function __construct(
-        private readonly AtlasConductorRoutingMemory $routing = new AtlasConductorRoutingMemory(),
+        private readonly AtlasConductorRoutingMemory $routing = new AtlasConductorRoutingMemory,
         private readonly ?AtlasAutonomousLearningApplier $autoApplier = null,
     ) {}
 
@@ -58,6 +59,7 @@ final class AtlasWeeklyMemoryDigestService
         $applied = $this->appliedLearnings($days);
         $proposals = $this->learningProposals($days);
         $staged = $this->stagedCaptures($days);
+        $memoryCandidates = $this->memoryCandidates($days);
         $aemor = $this->aemorCandidates($days);
         $semantic = $this->semanticMemory($days);
         $operatorProfile = $this->operatorProfile($days);
@@ -77,6 +79,7 @@ final class AtlasWeeklyMemoryDigestService
             'operator_profile' => $operatorProfile,
             'proactive_proposals' => $proactive,
             'staged_captures' => $staged,
+            'memory_candidates' => $memoryCandidates,
             'aemor_candidates' => $aemor,
             'semantic_memory' => $semantic,
             'totals' => [
@@ -87,9 +90,10 @@ final class AtlasWeeklyMemoryDigestService
                 'proactive_proposals' => $proactive['count'],
                 'pending_your_review' => $proposals['pending_review'] + $staged['pending_confirmation'] + $semantic['pending_review'] + $operatorProfile['pending_review'] + $proactive['pending_review'],
                 'staged_captures' => $staged['count'],
+                'memory_candidates' => $memoryCandidates['count'],
                 'aemor_candidates' => $aemor['count'],
                 'semantic_memory' => $semantic['count'],
-                'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $aemor['count'] + $semantic['count'] + $operatorProfile['count'],
+                'total_saved' => $entries['count'] + $compounding['count'] + $proposals['count'] + $staged['count'] + $memoryCandidates['count'] + $aemor['count'] + $semantic['count'] + $operatorProfile['count'],
             ],
             'review_note' => 'Everything below was saved automatically. Items held by auto-apply-safe appear with a named reason — '
                 .'remove what you do not want via reverse handles (atlas:ai:memory-forget / apply-learning --reverse); '
@@ -477,6 +481,55 @@ final class AtlasWeeklyMemoryDigestService
             ];
         } catch (Throwable $e) {
             return $this->emptySection('read failed: '.$e->getMessage()) + ['pending_confirmation' => 0];
+        }
+    }
+
+    /**
+     * CORP-01 memory candidates: outside atlas_memory_entries, auto-admitted when
+     * checks pass, held only with named missing evidence for Sunday review-after.
+     *
+     * @return array<string,mixed>
+     */
+    private function memoryCandidates(int $days): array
+    {
+        if (! $this->tableReady('atlas_memory_candidates')) {
+            return $this->emptySection('atlas_memory_candidates table unavailable') + [
+                'admitted' => 0,
+                'rejected' => 0,
+            ];
+        }
+
+        try {
+            $base = AtlasMemoryCandidate::query()->where('created_at', '>=', now()->subDays($days));
+            $count = (clone $base)->count();
+            $byStatus = (clone $base)->selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status')->all();
+            $items = (clone $base)->orderByDesc('created_at')->limit(self::ITEM_CAP)->get()
+                ->map(fn (AtlasMemoryCandidate $candidate): array => [
+                    'id' => (string) $candidate->id,
+                    'status' => (string) $candidate->status,
+                    'memory_type' => (string) $candidate->memory_type,
+                    'title' => (string) $candidate->title,
+                    'missing_checks' => $candidate->missing_checks ?? [],
+                    'memory_entry_id' => $candidate->memory_entry_id,
+                    'recorded_at' => optional($candidate->created_at)->toIso8601String(),
+                    'reverse_handle' => $candidate->memory_entry_id
+                        ? 'php artisan atlas:ai:memory-forget '.$candidate->memory_entry_id.'   (undo: --restore)'
+                        : '(not admitted — fix named missing checks; no approval-before path)',
+                ])->all();
+
+            return [
+                'count' => $count,
+                'shown' => count($items),
+                'admitted' => (int) ($byStatus['admitted'] ?? 0),
+                'rejected' => (int) ($byStatus['rejected'] ?? 0),
+                'by_status' => $byStatus,
+                'items' => $items,
+            ];
+        } catch (Throwable $e) {
+            return $this->emptySection('read failed: '.$e->getMessage()) + [
+                'admitted' => 0,
+                'rejected' => 0,
+            ];
         }
     }
 

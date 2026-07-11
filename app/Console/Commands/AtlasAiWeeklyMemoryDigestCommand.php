@@ -37,6 +37,7 @@ class AtlasAiWeeklyMemoryDigestCommand extends Command
             ['Memory entries saved', (string) $t['memory_entries']],
             ['Compounding candidates', (string) $t['compounding_candidates']],
             ['Staged captures (ai_memory_deltas)', (string) $t['staged_captures']],
+            ['Memory candidates', (string) ($t['memory_candidates'] ?? 0)],
             ['AEMOR candidates', (string) $t['aemor_candidates']],
             ['Auto-applied learnings', (string) $t['auto_applied_learnings']],
             ['⚠ Pending YOUR review', (string) $t['pending_your_review']],

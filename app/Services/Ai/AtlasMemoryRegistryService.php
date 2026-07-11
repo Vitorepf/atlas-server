@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Services\Ai\Brain\AtlasMemoryJournal;
+use App\Services\Ai\Memory\AtlasMemoryRationalePolicy;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryQueryInput;
@@ -460,7 +461,7 @@ class AtlasMemoryRegistryService
             return [];
         }
 
-        return $this->applyFilters(AtlasMemoryEntry::query()->where($scopeWhere), $filters)
+        $rows = $this->applyFilters(AtlasMemoryEntry::query()->where($scopeWhere), $filters)
             ->where(function (Builder $inner) use ($tokens): void {
                 foreach ($tokens as $token) {
                     $like = '%'.$token.'%';
@@ -469,10 +470,34 @@ class AtlasMemoryRegistryService
                         ->orWhereRaw('lower(body) like ?', [$like]);
                 }
             })
-            ->limit($limit)
+            ->limit(max($limit * 10, 100))
+            ->get();
+
+        return $rows
+            ->sortByDesc(fn (AtlasMemoryEntry $entry): float => $this->lexicalRelevanceScore($tokens, $entry))
+            ->take($limit)
             ->pluck('id')
-            ->map(fn ($id): string => (string) $id)
+            ->map(fn (mixed $id): string => (string) $id)
             ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $tokens
+     */
+    private function lexicalRelevanceScore(array $tokens, AtlasMemoryEntry $entry): float
+    {
+        $title = mb_strtolower((string) $entry->title);
+        $summary = mb_strtolower((string) $entry->summary);
+        $body = mb_strtolower((string) $entry->body);
+        $score = 0.0;
+
+        foreach ($tokens as $token) {
+            $score += substr_count($title, $token) * 4.0;
+            $score += substr_count($summary, $token) * 2.0;
+            $score += substr_count($body, $token);
+        }
+
+        return $score;
     }
 
     /**
@@ -511,6 +536,9 @@ class AtlasMemoryRegistryService
         $body = 'Engineering Harness Runner finalizou com decision='.$decision.' score='.$score.'.';
         if ($blockingReasons !== []) {
             $body .= ' Bloqueios/observacoes: '.implode(' | ', array_map('strval', $blockingReasons));
+            $body .= ' motivo: '.implode(' | ', array_map('strval', $blockingReasons));
+        } else {
+            $body .= ' motivo: resultado registrado para preservar aprendizado operacional do engineering_run.';
         }
 
         $entry = AtlasMemoryEntry::query()->updateOrCreate([
@@ -639,6 +667,8 @@ class AtlasMemoryRegistryService
             'archived_at' => $status === 'archived' ? ($attributes['archived_at'] ?? now()) : ($attributes['archived_at'] ?? null),
         ];
 
+        $payload['metadata'] = $this->applyRationaleGuard($body, (array) $payload['metadata']);
+
         if (DatabaseTableAvailability::hasColumn('atlas_memory_entries', 'content_hash')) {
             $payload['content_hash'] = $this->contentHash($attributes['content_hash'] ?? null, $memoryType, $scopeType, $scopeId, $body, $summary);
         }
@@ -653,6 +683,33 @@ class AtlasMemoryRegistryService
         }
 
         return $this->privacy->normalizeForStorage($payload, $attributes);
+    }
+
+    /**
+     * MEM-08 fail-open guard: never blocks a memory write, but marks thin bodies so
+     * quality/digest can find and reverse them. Uses the same marker policy as the
+     * quality score.
+     *
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    private function applyRationaleGuard(string $body, array $metadata): array
+    {
+        $warnings = array_values((array) data_get($metadata, 'quality.warnings', []));
+        $warnings = array_values(array_filter($warnings, fn (mixed $warning): bool => is_string($warning) && $warning !== 'missing_rationale_marker'));
+
+        if (AtlasMemoryRationalePolicy::hasRationale($body)) {
+            data_set($metadata, 'quality.needs_rationale', false);
+            data_set($metadata, 'quality.warnings', $warnings);
+
+            return $metadata;
+        }
+
+        $warnings[] = 'missing_rationale_marker';
+        data_set($metadata, 'quality.needs_rationale', true);
+        data_set($metadata, 'quality.warnings', array_values(array_unique($warnings)));
+
+        return $metadata;
     }
 
     private function applyFilters(Builder $query, array $filters): Builder
