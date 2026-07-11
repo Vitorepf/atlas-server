@@ -50,19 +50,19 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | ENG-04 | ✅ | 872591fe9 | certify no landing Autônomos |
 | EVI-09 | ✅ | 248cb34a13 | rename fable→acos delta-series |
 | EVI-05 | ✅ | 9fdbe5560 | contiguidade + anti-backfill [MEDIDOR] |
-| EVI-06 | ⬜ | — | — |
-| EVI-03 | ⬜ | — | — |
-| PIP-02 | ⬜ | — | — |
+| EVI-06 | ✅ | ebc7b91ae | series_day_below_floor [MEDIDOR] |
+| EVI-03 | ✅ | c2586c0166 | boot-smoke pregate + landing |
+| PIP-02 | ✅ | 8bd1856a26 | post-mint seal freshness |
 | MEM-04 | ✅ | 83f1b48 | ALL_RECALLED (5 decisões pétreas via atlas:memory:add) |
 | RAG-01 | ✅ | e3730223d | usage no ponto de entrega [MEDIDOR] |
-| RAG-04 | ⬜ | — | — |
+| RAG-04 | ✅ | 88b3fbc112 | multi-item memory no pack |
 | CPT-01 | ✅ | 5962afd83 | must_keep extractor always-merge |
 | FEE-06 | ✅ | pending | PipelineMemoryRefsNoiseTest 3/3 |
 | ENG-01 | ✅ | f6eae43f42 | AWIS gate no PipelineRunExecutor |
-| ENG-10 | ⬜ | — | — |
-| OPE-05 | ⬜ | — | — |
-| OPE-03 | ⬜ | — | — |
-| OPE-06 | ⬜ | — | — |
+| ENG-10 | ✅ | be4d2954b | would-have-blocked telemetry [MEDIDOR] |
+| OPE-05 | ✅ | 85a64991fa | MCP tool-usage telemetry |
+| OPE-03 | ✅ | fe0b338fe8 | compounding lift served≠used |
+| OPE-06 | ✅ | f60c7e36ab | evolution-score lift real [MEDIDOR] |
 | SUB-01 | ✅ | pending | phpunit 2/2 + ledger receipt com dump hash |
 | ROL-01 | ✅ | 1d7506b5e | 6 gatilhos rollback pré-declarados |
 
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 25/98 · Faltam: 73 · Próximo: EVI-06**
+**Feitas: 33/98 · Faltam: 65 · Próximo: OUTC-01 (onda 2)**
