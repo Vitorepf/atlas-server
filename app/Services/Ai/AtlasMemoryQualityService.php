@@ -429,9 +429,12 @@ class AtlasMemoryQualityService
      */
     private function retrievalEvalCounts(array $activeEntryIds, Collection $active): array
     {
+        $windowDays = max(1, (int) config('atlas.semantic_memory.retrieval_eval_window_days', 30));
+
         if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
             return [
                 'table_present' => 0,
+                'window_days' => $windowDays,
                 'recall_usage_total' => 0,
                 'entries_recalled' => 0,
                 'top_entry_recall_count' => 0,
@@ -442,12 +445,21 @@ class AtlasMemoryQualityService
                 'recall_negative_feedback' => 0,
                 'recall_stale_feedback' => 0,
                 'recall_wrong_context_feedback' => 0,
+                'all_time_recall_usage_total' => 0,
+                'all_time_entries_recalled' => 0,
+                'all_time_top_entry_recall_count' => 0,
+                'all_time_active_entries_never_recalled' => count($activeEntryIds),
+                'all_time_recall_feedback_total' => 0,
+                'all_time_recall_negative_feedback' => 0,
+                'all_time_recall_stale_feedback' => 0,
+                'all_time_recall_wrong_context_feedback' => 0,
             ];
         }
 
         if ($activeEntryIds === []) {
             return [
                 'table_present' => 1,
+                'window_days' => $windowDays,
                 'recall_usage_total' => 0,
                 'entries_recalled' => 0,
                 'top_entry_recall_count' => 0,
@@ -458,18 +470,33 @@ class AtlasMemoryQualityService
                 'recall_negative_feedback' => 0,
                 'recall_stale_feedback' => 0,
                 'recall_wrong_context_feedback' => 0,
+                'all_time_recall_usage_total' => 0,
+                'all_time_entries_recalled' => 0,
+                'all_time_top_entry_recall_count' => 0,
+                'all_time_active_entries_never_recalled' => 0,
+                'all_time_recall_feedback_total' => 0,
+                'all_time_recall_negative_feedback' => 0,
+                'all_time_recall_stale_feedback' => 0,
+                'all_time_recall_wrong_context_feedback' => 0,
             ];
         }
 
-        $query = AtlasMemoryEntryUsage::query()
+        $allTimeQuery = AtlasMemoryEntryUsage::query()
             ->whereIn('memory_entry_id', $activeEntryIds)
             ->where('source_type', 'memory_recall');
+        $query = (clone $allTimeQuery)->where('created_at', '>=', now()->subDays($windowDays));
         $recalledIds = (clone $query)
             ->distinct()
             ->pluck('memory_entry_id')
             ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
             ->values();
+        $allTimeRecalledIds = (clone $allTimeQuery)
+            ->distinct()
+            ->pluck('memory_entry_id')
+            ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
+            ->values();
         $feedback = (clone $query)->whereNotNull('feedback_action');
+        $allTimeFeedback = (clone $allTimeQuery)->whereNotNull('feedback_action');
         $negative = AtlasMemoryEntryUsage::negativeFeedbackActions();
 
         // D5 — recall CONCENTRATION: how many recalls pile on the single most-recalled
@@ -483,9 +510,17 @@ class AtlasMemoryQualityService
             ->limit(1)
             ->get()
             ->value('aggregate_count') ?? 0);
+        $allTimeTopEntryRecallCount = (int) ((clone $allTimeQuery)
+            ->selectRaw('memory_entry_id, COUNT(*) as aggregate_count')
+            ->groupBy('memory_entry_id')
+            ->orderByDesc('aggregate_count')
+            ->limit(1)
+            ->get()
+            ->value('aggregate_count') ?? 0);
 
         return [
             'table_present' => 1,
+            'window_days' => $windowDays,
             'recall_usage_total' => (clone $query)->count(),
             'entries_recalled' => $recalledIds->count(),
             'top_entry_recall_count' => $topEntryRecallCount,
@@ -496,6 +531,14 @@ class AtlasMemoryQualityService
             'recall_negative_feedback' => (clone $feedback)->whereIn('feedback_action', $negative)->count(),
             'recall_stale_feedback' => (clone $feedback)->where('feedback_action', 'stale')->count(),
             'recall_wrong_context_feedback' => (clone $feedback)->where('feedback_action', 'wrong_context')->count(),
+            'all_time_recall_usage_total' => (clone $allTimeQuery)->count(),
+            'all_time_entries_recalled' => $allTimeRecalledIds->count(),
+            'all_time_top_entry_recall_count' => $allTimeTopEntryRecallCount,
+            'all_time_active_entries_never_recalled' => max(0, count($activeEntryIds) - $allTimeRecalledIds->count()),
+            'all_time_recall_feedback_total' => (clone $allTimeFeedback)->count(),
+            'all_time_recall_negative_feedback' => (clone $allTimeFeedback)->whereIn('feedback_action', $negative)->count(),
+            'all_time_recall_stale_feedback' => (clone $allTimeFeedback)->where('feedback_action', 'stale')->count(),
+            'all_time_recall_wrong_context_feedback' => (clone $allTimeFeedback)->where('feedback_action', 'wrong_context')->count(),
         ];
     }
 

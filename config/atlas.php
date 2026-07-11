@@ -438,6 +438,8 @@ return [
         // chicken-egg inversion: lift is measurable only once the arm serves; attribution still requires
         // explicit `used`, and only gate-promoted active memories can appear.
         'compounding_recall_enabled' => (bool) env('ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING', true),
+        // RAG-02: retrievalEvalCounts window pinned in config (not env) — 30d honest floor.
+        'retrieval_eval_window_days' => 30,
         'compounding_recall_limit' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_LIMIT', 6)),
         'compounding_recall_min_confidence' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_MIN_CONFIDENCE', 0)),
         // RAG-02: retrieval quality is a recent operational health signal. Keep
