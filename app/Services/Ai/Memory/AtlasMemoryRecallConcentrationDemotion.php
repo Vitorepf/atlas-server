@@ -161,7 +161,12 @@ final class AtlasMemoryRecallConcentrationDemotion
                     ->where('memory_entry_id', $entryId)
                     ->where('source_type', 'memory_recall')
                     ->count();
-                $stats[$entryId]['recall_eval_hit_rate'] = round($recalled / $recallTotal, 4);
+                // Never-delivered entries must stay null (insufficient signal).
+                // A literal 0.0 triggers MemoryFeedbackDecayScorer degrade and
+                // masks brand-new correct targets (RAG-05 live failure mode).
+                $stats[$entryId]['recall_eval_hit_rate'] = $recalled > 0
+                    ? round($recalled / $recallTotal, 4)
+                    : null;
             }
         }
 

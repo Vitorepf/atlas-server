@@ -923,6 +923,18 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
                         'raw_context_persisted' => data_get($benchmarkPayload, 'memory_recall_corpus.golden_set.raw_context_persisted'),
                     ],
                 ],
+                'memory_recall_golden' => [
+                    'schema_version' => data_get($benchmarkPayload, 'memory_recall_golden.schema_version'),
+                    'frozen_set_id' => data_get($benchmarkPayload, 'memory_recall_golden.frozen_set_id'),
+                    'status' => data_get($benchmarkPayload, 'memory_recall_golden.status'),
+                    'case_count' => data_get($benchmarkPayload, 'memory_recall_golden.case_count'),
+                    'recall_at_5' => data_get($benchmarkPayload, 'memory_recall_golden.recall_at_5'),
+                    'recall_at_3' => data_get($benchmarkPayload, 'memory_recall_golden.recall_at_3'),
+                    'improper_floor_discards' => data_get($benchmarkPayload, 'memory_recall_golden.improper_floor_discards'),
+                    'judge' => data_get($benchmarkPayload, 'memory_recall_golden.judge'),
+                    'judge_differs_from_author' => data_get($benchmarkPayload, 'memory_recall_golden.judge_differs_from_author'),
+                    'frozen_set_hash' => data_get($benchmarkPayload, 'memory_recall_golden.frozen_set_hash'),
+                ],
                 'retrieval_rivals_packet' => [
                     'schema_version' => data_get($benchmarkPayload, 'retrieval_rivals_packet.schema_version'),
                     'status' => data_get($benchmarkPayload, 'retrieval_rivals_packet.status'),

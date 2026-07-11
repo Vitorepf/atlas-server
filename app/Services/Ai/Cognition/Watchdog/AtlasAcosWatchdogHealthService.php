@@ -230,8 +230,15 @@ final class AtlasAcosWatchdogHealthService
         $quality = app(AtlasMemoryQualityService::class)->scorecard([]);
         $aurg = $this->aurgCoverageReport();
         $retrievalEval = (int) data_get($quality, 'components.retrieval_eval', 0);
-        $recallAt5 = data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5');
-        $improperFloorDiscards = (int) data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0);
+        // Prefer the RAG-05 frozen golden surface; fall back to the older corpus metrics path.
+        $recallAt5 = data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.recall_at_5');
+        if (! is_numeric($recallAt5)) {
+            $recallAt5 = data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5');
+        }
+        $improperFloorDiscards = (int) (
+            data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards')
+            ?? data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0)
+        );
         $coverageRatio = (float) data_get($aurg, 'coverage.memory_cross_layer_coverage_ratio', 0.0);
         $preFilterConcentration = (float) data_get(
             $quality,
@@ -764,15 +771,22 @@ final class AtlasAcosWatchdogHealthService
                 'first_seen_at' => null,
             ], $blockers);
         }
+        $hasScopeColumns = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
+            && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
         $series = [];
         foreach ($blockers as $blocker) {
-            $first = AtlasLedgerEvent::query()
-                ->where('scope_type', 'acos_watchdog')
-                ->where('scope_id', $scopeId)
+            $query = AtlasLedgerEvent::query()
                 ->where('event_type', LedgerEventType::OperationBlocked->value)
                 ->whereJsonContains('payload->blockers', $blocker)
-                ->orderBy('occurred_at')
-                ->first();
+                ->orderBy('occurred_at');
+            if ($hasScopeColumns) {
+                $query->where('scope_type', 'acos_watchdog')->where('scope_id', $scopeId);
+            } else {
+                // Repair migrations may recreate the ledger without scope columns;
+                // correlation_id still scopes watchdog blocker history honestly.
+                $query->where('correlation_id', 'acos:watchdog:'.$scopeId);
+            }
+            $first = $query->first();
             $firstAt = $this->parseDate($first?->occurred_at) ?? CarbonImmutable::now('UTC');
             $series[] = [
                 'blocker' => $blocker,

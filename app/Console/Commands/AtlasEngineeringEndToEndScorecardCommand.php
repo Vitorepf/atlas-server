@@ -20,7 +20,7 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
 {
     private const SCHEMA = 'atlas.engineering.end_to_end_scorecard.v1';
 
-    private const EXPECTED_AWIS_MUTATIVE_SURFACES = 6;
+    private const EXPECTED_AWIS_MUTATIVE_SURFACES = 9;
 
     private const MIN_REAL_EXECUTIONS_PER_EXECUTOR = 1;
 
