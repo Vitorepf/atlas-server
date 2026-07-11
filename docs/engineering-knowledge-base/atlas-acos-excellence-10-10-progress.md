@@ -148,11 +148,11 @@ de memória/promoção; nada a refatorar do modelo antigo.
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| ENG-13 | ⬜ | — | — |
-| ENG-14 | ⬜ | — | — |
-| ENG-15 | ⬜ | — | — |
-| PIP-07 | ⬜ | — | — |
-| CPT-10 | ⬜ | — | — |
-| ADV-01 | ⬜ | — | — |
+| ENG-13 | ⏸️ | 435f0363d | HOLD — readiness not_ready (soak volume); runbook landado; flip só com OK |
+| ENG-14 | ⏸️ | 435f0363d | HOLD — forge promoted cycles <20; runbook; flip só com OK |
+| ENG-15 | ⏸️ | 435f0363d | HOLD — adml ready:true mas flip só com OK do operador |
+| PIP-07 | ✅ | 3b35d8358a | strict exit=0 · pipeline=10 · overall=10 · claims=0 |
+| CPT-10 | ✅ | ecad83721 | atlas:compaction:certify (anti-vácuo) |
+| ADV-01 | ✅ | 435f0363d | 6 vereditos externos no JSONL + atlas:acos:adv-reproof |
 
-**Feitas: 92/98 · Faltam: 6 · Próximo: onda 5 (PIP-07 CPT-10 ADV-01; ENG flips PRECISAM OK)**
+**Feitas: 95/98 implementados · 3 HOLD (ENG flips aguardam OK+soak) · plano código 100% landado**
