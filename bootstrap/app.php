@@ -83,14 +83,15 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
-use App\Console\Commands\AtlasCognitionScorecardWatchdogCommand;
 use App\Console\Commands\AtlasCognitionRemintTouchedCommand;
+use App\Console\Commands\AtlasCognitionScorecardWatchdogCommand;
 use App\Console\Commands\AtlasCognitionVerifyClaimsCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
+use App\Console\Commands\AtlasCompactionCertifyCommand;
 use App\Console\Commands\AtlasCompactionSoakWatchCommand;
 use App\Console\Commands\AtlasContextFeedbackHealthCommand;
-use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
+use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
 use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
@@ -368,6 +369,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCognitionScorecardWatchdogCommand::class,
         AtlasCognitionRemintTouchedCommand::class,
         AtlasCognitionVerifyClaimsCommand::class,
+        AtlasCompactionCertifyCommand::class,
         AtlasCompactionSoakWatchCommand::class,
         AtlasContextFeedbackHealthCommand::class,
         AtlasCostCalibrateCommand::class,
