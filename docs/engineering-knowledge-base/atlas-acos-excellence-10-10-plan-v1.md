@@ -122,6 +122,18 @@ Formato: **ID — título** · E(sforço) · onda · deps (incl. cross-dimensão
 **ROL-01 — Gatilhos objetivos de rollback pré-declarados (novo, X-13)** · E:S · onda 1 · deps: [EVI-01]
 - Goal: todo flip/enforce/default-ON (ENG-13/14/15, CPT-09→enforce, OPE-04, flip do FEE-04, ON do PIP-04) nasce com gatilho objetivo de reversão ESCRITO ANTES do flip — nunca decidir rollback sob pressão de carimbar o 10.
 - Mecanismo: tabela de rollback neste doc + config: por flip, {condição objetiva (ex.: ≥1 completion real bloqueada indevidamente em 24h → forge/governança voltam a observe; pack degradado além do baseline → OPE-04/FEE-04 OFF; latência de landing > budget → PIP-04 OFF), ação nomeada (env override exato), executor (watchdog ALERTA, operador reverte — auto-revert só onde declarado e auditado)}. WDG-01 monitora as condições.
+- **Tabela de rollback pré-declarada (6 gatilhos / 7 flips futuros):**
+
+| ID | Slice(s) | Condição objetiva | Ação de rollback (env override exato) | Executor |
+|---|---|---|---|---|
+| `eng_13_governance_enforce` | ENG-13 | ≥1 completion real bloqueada indevidamente em 24h com `ATLAS_AI_GOVERNANCE_ENFORCE=true` | `ATLAS_AI_GOVERNANCE_ENFORCE=false` **e** `ATLAS_AI_CALL_COST_GUARD_HARD_UNITS=0` | watchdog ALERTA → operador reverte |
+| `eng_14_forge_gate_enforce` | ENG-14 | ≥1 completion Forge real bloqueada indevidamente em 24h com gate em enforce | `ATLAS_FORGE_EXECUTION_GATE_ENFORCE=false` (observe) | watchdog ALERTA → operador reverte |
+| `eng_15_adml_cost_outcome` | ENG-15 | ≥1 rota PROVEN cai abaixo de `min_evidence` em 7d com `adml_cost_outcome` ON | `ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED=false` | watchdog ALERTA → operador reverte |
+| `cpt_09_compaction_enforce` | CPT-09→enforce | ≥1 must_keep crítico cortado em produção após flip para enforce | `ATLAS_COMPACTION_ENFORCEMENT_MODE=observe` | watchdog ALERTA → operador reverte |
+| `ope_04_fee_04_pack_quality` | OPE-04 + FEE-04 | pack degradado além do baseline (memory_quality.score cai >5 pts vs baseline 7d) com braço compounding ou feedback-ranking ON | `ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING=false` **e** `ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED=false` | watchdog ALERTA → operador reverte |
+| `pip_04_remint_touched` | PIP-04 | latência p95 de landing > budget (900s) com remint-touched ON | `ATLAS_COGNITION_REMINT_TOUCHED_ENABLED=false` | watchdog ALERTA → operador reverte |
+
+Fonte viva: `config/atlas.php` → `atlas.acos.rollback_triggers.flips`. Check read-only: `atlas:acos:rollback-triggers --json` (EVI-01 / futuro WDG-01).
 - Aceite: tabela com gatilho para os 6 flips + teste de que o watchdog alerta quando condição simulada dispara.
 - Risco: nenhum — é salvaguarda de reversibilidade do charter.
 

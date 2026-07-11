@@ -178,12 +178,51 @@ class SchedulerWatchdogScriptTest extends TestCase
             'ATLAS_WATCHDOG_THRESHOLD_SECONDS' => '300',
             'ATLAS_WATCHDOG_COOLDOWN_SECONDS' => '0',
             'ATLAS_WATCHDOG_VOLUME_CMD' => $volumeCmd,
+            'ATLAS_WATCHDOG_ROLLBACK_CMD' => 'printf %s '.escapeshellarg(json_encode(['alert' => false], JSON_UNESCAPED_SLASHES)),
         ]);
 
         $payload = json_decode($out['stdout'], true);
         $this->assertIsArray($payload);
         $this->assertSame('warning', $payload['status']);
         $this->assertContains('operational_volume_janela_faminta', array_column($payload['warnings'] ?? [], 'check'));
+        $this->assertFileDoesNotExist($this->kickLog);
+        $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
+    }
+
+    public function test_rollback_trigger_simulated_emits_warning_without_kickstart(): void
+    {
+        $this->writeHeartbeat(gmdate('c'));
+        $rollbackFixture = json_encode([
+            'schema_version' => 'atlas.acos.rollback_triggers.v1',
+            'status' => 'alert',
+            'alert' => true,
+            'alert_code' => 'rollback_trigger_fired',
+            'alerts' => [[
+                'trigger_id' => 'eng_13_governance_enforce',
+                'slices' => ['ENG-13'],
+                'rollback_action' => [
+                    'ATLAS_AI_GOVERNANCE_ENFORCE' => 'false',
+                    'ATLAS_AI_CALL_COST_GUARD_HARD_UNITS' => '0',
+                ],
+                'simulated' => true,
+            ]],
+        ], JSON_UNESCAPED_SLASHES);
+        $rollbackCmd = 'printf %s '.escapeshellarg($rollbackFixture);
+        $healthyVolume = json_encode(['alert' => false], JSON_UNESCAPED_SLASHES);
+
+        $out = $this->runWatchdog([
+            'ATLAS_WATCHDOG_ARTISAN' => $this->okArtisan,
+            'ATLAS_WATCHDOG_THRESHOLD_SECONDS' => '300',
+            'ATLAS_WATCHDOG_COOLDOWN_SECONDS' => '0',
+            'ATLAS_WATCHDOG_VOLUME_CMD' => 'printf %s '.escapeshellarg($healthyVolume),
+            'ATLAS_WATCHDOG_ROLLBACK_CMD' => $rollbackCmd,
+        ]);
+
+        $payload = json_decode($out['stdout'], true);
+        $this->assertIsArray($payload);
+        $this->assertSame('warning', $payload['status']);
+        $this->assertContains('rollback_trigger_fired', array_column($payload['warnings'] ?? [], 'check'));
+        $this->assertSame('eng_13_governance_enforce', $payload['warnings'][0]['trigger_id'] ?? null);
         $this->assertFileDoesNotExist($this->kickLog);
         $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
     }
