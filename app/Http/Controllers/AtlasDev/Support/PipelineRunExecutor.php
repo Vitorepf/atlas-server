@@ -9,6 +9,7 @@ use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
@@ -1232,27 +1233,49 @@ final class PipelineRunExecutor implements RunExecutor
         // Context-pack ROI feedback (write side): AOBG requests used/noise/missed
         // after every pack and no internal flow ever answered — the retrieval
         // ranker never learned what was noise. Mechanical attribution from run
-        // evidence: a delivered ref that names a file the run actually changed is
-        // used; on a PASSED run the rest are noise candidates (a failed run never
-        // blames the context). Same unit-test guard as the ADML block. Fail-open.
+        // evidence: path refs match changed files; memory refs (COM-01) match by
+        // id/hash/slug mention in diff+transcript — never path-containment.
+        // Unattributed memory refs stay OUT of noise (FEE-06). Same unit-test
+        // guard as the ADML block. Fail-open.
         if (! app()->runningUnitTests() || app()->bound(AtlasRetrievalFeedbackLoopService::class)) {
             try {
                 $projection = $this->storage->read($runId, ArtifactNames::OPEN_BRAIN_PROJECTION);
-                $delivered = [];
-                foreach (['code_refs', 'knowledge_refs', 'memory_refs'] as $bucket) {
+                $pathRefs = [];
+                $memoryRefs = [];
+                foreach (['code_refs', 'knowledge_refs'] as $bucket) {
                     foreach ((array) (is_array($projection) ? ($projection[$bucket] ?? []) : []) as $ref) {
                         $r = is_array($ref) ? (string) ($ref['ref'] ?? '') : '';
                         if ($r !== '') {
-                            $delivered[] = $r;
+                            $pathRefs[] = $r;
                         }
                     }
                 }
+                foreach ((array) (is_array($projection) ? ($projection['memory_refs'] ?? []) : []) as $ref) {
+                    $r = is_array($ref) ? (string) ($ref['ref'] ?? '') : '';
+                    if ($r !== '') {
+                        $memoryRefs[] = $r;
+                    }
+                }
+                $delivered = array_values(array_merge($pathRefs, $memoryRefs));
                 if ($delivered !== []) {
                     $changedPaths = array_map(
                         static fn (ScopeFileDiff $diff): string => $diff->path,
                         $scopeReceipt->observed->fileDiffs,
                     );
-                    $used = array_values(array_filter($delivered, static function (string $ref) use ($changedPaths): bool {
+                    $attributionParts = [
+                        (string) $callResult->stdout,
+                        (string) $callResult->stderr,
+                        $diffResult->hasPatch() ? (string) $diffResult->diff : '',
+                    ];
+                    foreach ($scopeReceipt->observed->fileDiffs as $fileDiff) {
+                        $attributionParts[] = $fileDiff->path;
+                        $absolutePath = rtrim($envelope->workspace, '/').'/'.ltrim($fileDiff->path, '/');
+                        if (is_file($absolutePath)) {
+                            $attributionParts[] = (string) file_get_contents($absolutePath);
+                        }
+                    }
+                    $attributionCorpus = implode("\n", array_filter($attributionParts));
+                    $usedPath = array_values(array_filter($pathRefs, static function (string $ref) use ($changedPaths): bool {
                         foreach ($changedPaths as $path) {
                             if ($path !== '' && (str_contains($ref, $path) || str_contains($path, $ref))) {
                                 return true;
@@ -1261,6 +1284,11 @@ final class PipelineRunExecutor implements RunExecutor
 
                         return false;
                     }));
+                    $usedMemory = array_values(array_filter(
+                        $memoryRefs,
+                        static fn (string $ref): bool => AtlasCanonicalContextRef::isMentionedInText($ref, $attributionCorpus),
+                    ));
+                    $used = array_values(array_merge($usedPath, $usedMemory));
                     $passed = $receipt->completion->status === CompletionSummary::STATUS_PASSED;
                     app(AtlasRetrievalFeedbackLoopService::class)->capture([
                         'objective' => $envelope->normalizedIntent,
@@ -1275,7 +1303,7 @@ final class PipelineRunExecutor implements RunExecutor
                         'retrieval_receipt_id' => $this->contextPackHash($runId),
                         'delivered_context_refs' => $delivered,
                         'used_context_refs' => $used,
-                        'noise_context_refs' => $passed ? array_values(array_diff($delivered, $used)) : [],
+                        'noise_context_refs' => $passed ? array_values(array_diff($pathRefs, $usedPath)) : [],
                         'flow_id' => 'atlas.dev',
                         'record' => true,
                     ]);

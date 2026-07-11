@@ -123,6 +123,60 @@ final class AtlasCanonicalContextRef
         return preg_match(self::CANONICAL_PATTERN, trim($ref)) === 1;
     }
 
+    public static function isMemoryRef(string $ref): bool
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return false;
+        }
+
+        if (preg_match('/^memory:[a-f0-9]{32}$/', $ref) === 1) {
+            return true;
+        }
+
+        return str_starts_with(strtolower($ref), 'compounding_memory:');
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function mentionForms(string $ref): array
+    {
+        $ref = trim($ref);
+        if ($ref === '') {
+            return [];
+        }
+
+        $forms = [$ref];
+        if (preg_match('/^memory:([a-f0-9]{32})$/', $ref, $matches) === 1) {
+            $forms[] = $matches[1];
+        }
+
+        if (str_contains($ref, ':')) {
+            $suffix = substr(strstr($ref, ':') ?: '', 1);
+            if ($suffix !== '') {
+                $forms[] = $suffix;
+            }
+        }
+
+        return self::uniqueStrings($forms);
+    }
+
+    public static function isMentionedInText(string $ref, string $text): bool
+    {
+        if ($text === '') {
+            return false;
+        }
+
+        foreach (self::mentionForms($ref) as $form) {
+            if (strlen($form) >= 4 && str_contains($text, $form)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function normalize(string $ref): string
     {
         $ref = trim($ref);
