@@ -46,14 +46,14 @@ de memória/promoção; nada a refatorar do modelo antigo.
 
 | ID | Status | Commit | Aceite |
 |---|---|---|---|
-| COM-01 | ⬜ | — | — |
-| ENG-04 | ⬜ | — | — |
+| COM-01 | ✅ | 0177b45a5d | ledger pack + namespace canônico refs |
+| ENG-04 | ✅ | 872591fe9 | certify no landing Autônomos |
 | EVI-09 | ⬜ | — | — |
 | EVI-05 | ⬜ | — | — |
 | EVI-06 | ⬜ | — | — |
 | EVI-03 | ⬜ | — | — |
 | PIP-02 | ⬜ | — | — |
-| MEM-04 | ✅ | e29b843 | ALL_RECALLED (5 decisões pétreas via atlas:memory:add) |
+| MEM-04 | ✅ | 83f1b48 | ALL_RECALLED (5 decisões pétreas via atlas:memory:add) |
 | RAG-01 | ⬜ | — | — |
 | RAG-04 | ⬜ | — | — |
 | CPT-01 | ⬜ | — | — |
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 14/98 · Faltam: 84 · Próximo: COM-01 (onda 1)**
+**Feitas: 17/98 · Faltam: 81 · Próximo: EVI-09**
