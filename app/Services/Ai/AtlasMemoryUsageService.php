@@ -12,6 +12,12 @@ use Illuminate\Support\Str;
 
 class AtlasMemoryUsageService
 {
+    public const SOURCE_TYPE_MEMORY_RECALL = 'memory_recall';
+
+    public const SOURCE_TYPE_RECALLED_PRE_FILTER = 'recalled_pre_filter';
+
+    public const DELIVERY_SURFACE_CONTEXT_PACK = 'context_pack';
+
     public function __construct(
         private readonly AtlasMemoryGovernanceService $governance,
     ) {}
@@ -96,10 +102,21 @@ class AtlasMemoryUsageService
         }
 
         $usedAt = now();
+        $usageSourceType = is_string($metadata['usage_source_type'] ?? null) && $metadata['usage_source_type'] !== ''
+            ? (string) $metadata['usage_source_type']
+            : self::SOURCE_TYPE_MEMORY_RECALL;
+        $deliverySurface = is_string($metadata['delivery_surface'] ?? null) && $metadata['delivery_surface'] !== ''
+            ? (string) $metadata['delivery_surface']
+            : null;
+        $createdBy = is_string($metadata['created_by'] ?? null) && $metadata['created_by'] !== ''
+            ? (string) $metadata['created_by']
+            : 'atlas_hybrid_memory_retrieval';
         $auditId = 'recall:'.hash('sha256', json_encode([
             'query' => $query,
             'context' => $context,
             'source' => $metadata['source'] ?? 'atlas_memory_recall',
+            'usage_source_type' => $usageSourceType,
+            'delivery_surface' => $deliverySurface,
             'used_at' => $usedAt->toJSON(),
             'nonce' => (string) Str::uuid(),
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
@@ -112,6 +129,16 @@ class AtlasMemoryUsageService
                 continue;
             }
 
+            $usageMetadata = [
+                'query_hash' => hash('sha256', $query),
+                'context_hash' => hash('sha256', json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+                'source' => $metadata['source'] ?? 'atlas_memory_recall',
+                'created_by' => $createdBy,
+            ];
+            if ($deliverySurface !== null) {
+                $usageMetadata['delivery_surface'] = $deliverySurface;
+            }
+
             AtlasMemoryEntryUsage::query()->create([
                 'memory_entry_id' => $entry->id,
                 'trace_id' => $this->uuidOrNull($context['trace_id'] ?? null),
@@ -120,7 +147,7 @@ class AtlasMemoryUsageService
                 'memory_type' => $entry->memory_type,
                 'scope_type' => $entry->scope_type,
                 'scope_id' => $entry->scope_id,
-                'source_type' => 'memory_recall',
+                'source_type' => $usageSourceType,
                 'source_id' => $auditId,
                 'position' => (int) ($item['rank'] ?? ($index + 1)),
                 'included_reason' => is_string($item['reason'] ?? null) ? $item['reason'] : null,
@@ -132,16 +159,13 @@ class AtlasMemoryUsageService
                     'audit_trail' => is_array($item['audit_trail'] ?? null) ? $item['audit_trail'] : [],
                 ],
                 'context_payload_json' => $this->recallPayloadForAudit($item),
-                'metadata' => [
-                    'query_hash' => hash('sha256', $query),
-                    'context_hash' => hash('sha256', json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
-                    'source' => $metadata['source'] ?? 'atlas_memory_recall',
-                    'created_by' => 'atlas_hybrid_memory_retrieval',
-                ],
+                'metadata' => $usageMetadata,
                 'used_at' => $usedAt,
             ]);
 
-            $entry->forceFill(['last_used_at' => $usedAt])->save();
+            if ($usageSourceType === self::SOURCE_TYPE_MEMORY_RECALL) {
+                $entry->forceFill(['last_used_at' => $usedAt])->save();
+            }
             $recorded++;
         }
 

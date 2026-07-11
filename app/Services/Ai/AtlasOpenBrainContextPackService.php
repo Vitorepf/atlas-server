@@ -145,6 +145,7 @@ class AtlasOpenBrainContextPackService
         private readonly SemanticContextRetrievalService $semanticContext,
         private readonly AtlasRetrievalFusionService $fusion,
         private readonly AtlasFusionInjectionApplier $fusionApplier,
+        private readonly AtlasMemoryUsageService $memoryUsage,
     ) {}
 
     /**
@@ -2000,6 +2001,7 @@ class AtlasOpenBrainContextPackService
                 [
                     'budget_chars' => $budgetChars,
                     'requester' => 'atlas_context_pack',
+                    'record_usage' => false,
                 ],
             );
         } catch (Throwable) {
@@ -2035,6 +2037,7 @@ class AtlasOpenBrainContextPackService
                 'content_hash' => (string) ($row['content_hash'] ?? data_get($row, 'lineage.content_hash', data_get($row, 'audit_trail.content_hash', ''))),
             ];
         }
+        $this->recordPackMemoryPreFilterUsage($task, $workspaceId, $recall);
         [$candidates, $demotedCount] = $this->filterDemotedMemoryItems($candidates, $this->stringList($opts['_demote_context_refs'] ?? []));
         [$candidates, $relevanceFilteredCount] = $this->filterLowRelevanceMemoryItems($task, $candidates);
 
@@ -2054,6 +2057,7 @@ class AtlasOpenBrainContextPackService
             $chars += $entryChars;
             $items[] = $item;
         }
+        $this->recordPackMemoryDeliveryUsage($task, $workspaceId, $recall, $items);
         $recalledCount = (int) data_get($recall, 'summary.recall_count', count($items));
         $status = $items !== []
             ? 'ready'
@@ -2080,6 +2084,88 @@ class AtlasOpenBrainContextPackService
                 'note' => self::HONESTY_LABEL,
             ],
         ];
+    }
+
+    /**
+     * RAG-01 — persist ranking signal before pack filters (dominance sensor feed).
+     *
+     * @param  array<string,mixed>  $recall
+     */
+    private function recordPackMemoryPreFilterUsage(string $task, string $workspaceId, array $recall): void
+    {
+        $rows = $this->recallRowsForUsage($recall);
+        if ($rows === []) {
+            return;
+        }
+
+        $this->memoryUsage->recordRecallUsages($task, ['workspace' => $workspaceId], $rows, [
+            'source' => 'atlas_context_pack',
+            'usage_source_type' => AtlasMemoryUsageService::SOURCE_TYPE_RECALLED_PRE_FILTER,
+            'delivery_surface' => AtlasMemoryUsageService::DELIVERY_SURFACE_CONTEXT_PACK,
+            'created_by' => 'atlas_context_pack_pre_filter',
+        ]);
+    }
+
+    /**
+     * RAG-01 — record delivery-point usage only for memories actually served.
+     *
+     * @param  array<string,mixed>  $recall
+     * @param  array<int,array<string,mixed>>  $deliveredItems
+     */
+    private function recordPackMemoryDeliveryUsage(string $task, string $workspaceId, array $recall, array $deliveredItems): void
+    {
+        if ($deliveredItems === []) {
+            return;
+        }
+
+        $deliveredIds = [];
+        foreach ($deliveredItems as $item) {
+            $id = (string) ($item['id'] ?? '');
+            if ($id !== '') {
+                $deliveredIds[$id] = true;
+            }
+        }
+        if ($deliveredIds === []) {
+            return;
+        }
+
+        $rows = array_values(array_filter(
+            $this->recallRowsForUsage($recall),
+            static fn (array $row): bool => isset($deliveredIds[(string) ($row['source_ref_id'] ?? '')]),
+        ));
+        if ($rows === []) {
+            return;
+        }
+
+        $this->memoryUsage->recordRecallUsages($task, ['workspace' => $workspaceId], $rows, [
+            'source' => 'atlas_context_pack',
+            'usage_source_type' => AtlasMemoryUsageService::SOURCE_TYPE_MEMORY_RECALL,
+            'delivery_surface' => AtlasMemoryUsageService::DELIVERY_SURFACE_CONTEXT_PACK,
+            'created_by' => 'atlas_context_pack_delivery',
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $recall
+     * @return array<int,array<string,mixed>>
+     */
+    private function recallRowsForUsage(array $recall): array
+    {
+        $rows = [];
+        foreach ((array) ($recall['recall'] ?? []) as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if (($row['source_ref_type'] ?? null) !== 'atlas_memory_entry') {
+                continue;
+            }
+            if (! is_string($row['source_ref_id'] ?? null) || $row['source_ref_id'] === '') {
+                continue;
+            }
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     /**
