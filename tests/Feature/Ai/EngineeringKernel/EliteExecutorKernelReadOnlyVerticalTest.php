@@ -35,6 +35,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\RealExecution\RealExecutionHash;
+use App\Services\Engineering\CodeGraph\CodeGraphSecretScanner;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -111,6 +112,19 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         mkdir($repo.'/app', 0775, true);
         mkdir($repo.'/tests', 0775, true);
         file_put_contents($repo.'/tests/CandidateBehaviorTest.php', "<?php\nexit((require dirname(__DIR__).'/app/Candidate.php') === 'after' ? 0 : 1);\n");
+        $fixtureComposer = [
+            'require' => ['laravel/framework' => '^13.0', 'vendor/package' => '^2.0.0'],
+            'autoload' => ['psr-4' => ['Illuminate\\' => 'vendor/laravel/framework/src/Illuminate/']],
+        ];
+        file_put_contents($repo.'/composer.json', json_encode($fixtureComposer, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        file_put_contents($repo.'/composer.lock', json_encode([
+            'content-hash' => md5(json_encode(['require' => $fixtureComposer['require']], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            'packages' => [
+                ['name' => 'laravel/framework', 'version' => '13.0.0', 'dist' => ['reference' => str_repeat('b', 40)]],
+                ['name' => 'vendor/package', 'version' => '2.0.0-beta.1', 'dist' => ['reference' => str_repeat('a', 40)]],
+            ],
+            'packages-dev' => [],
+        ], JSON_THROW_ON_ERROR));
         foreach ([['init', '-b', 'main'], ['config', 'user.email', 'atlas@test.local'], ['config', 'user.name', 'Atlas Test'], ['add', '.'], ['commit', '-m', 'base']] as $args) {
             (new Process(['git', ...$args], $repo))->mustRun();
         }
@@ -205,8 +219,8 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $persistedVerdict->dispositions,
             static fn ($disposition): bool => $disposition->status === 'block',
         ));
-        $this->assertSame(['architecture', 'data', 'qa_testing'], $passingRoles);
-        $this->assertCount(19, $blockingRoles);
+        $this->assertSame(['architecture', 'data', 'qa_testing', 'appsec_privacy'], $passingRoles);
+        $this->assertCount(18, $blockingRoles);
         $this->assertContains('final_certification', $blockingRoles);
         $this->assertSame('candidate_architecture_probe_clean', $persistedVerdict->dispositions['architecture']->reason);
         $this->assertSame('pass', $persistedVerdict->dispositions['qa_testing']->status);
@@ -217,6 +231,59 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $qaOwner = $persisted->firstWhere('role_id', 'qa_testing');
         $architectureOwner = $persisted->firstWhere('role_id', 'architecture');
         $dataOwner = $persisted->firstWhere('role_id', 'data');
+        $appsecOwner = $persisted->firstWhere('role_id', 'appsec_privacy');
+        $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_APPSEC_PRIVACY_OWNER_DOMAIN, data_get($appsecOwner->receipt, 'owner_domain'));
+        $this->assertSame([], data_get($appsecOwner->receipt, 'appsec_privacy_evidence.secret_privacy_findings'));
+        $this->assertSame([], data_get($appsecOwner->receipt, 'appsec_privacy_evidence.dependency_provenance_findings'));
+        $phpProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'phpDependencyProvenanceFindings');
+        $phpFindings = $phpProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            <<<'PHP'
+                <?php
+                #[\MissingVendor\Attribute]
+                class DependencyProbe extends \MissingVendor\BaseType implements \MissingVendor\Contract {
+                    use \MissingVendor\Behavior;
+                    public \MissingVendor\Left|\MissingVendor\Right $property;
+                    public function run((\MissingVendor\A&\MissingVendor\B)|null $input): \MissingVendor\Result {
+                        try { \MissingVendor\StaticApi::run(); } catch (\MissingVendor\Failure $e) {}
+                        $reference = \MissingVendor\FirstClass::class;
+                        return new \MissingVendor\Result();
+                    }
+                }
+                enum DependencyEnum implements \MissingVendor\EnumContract { case One; }
+                PHP,
+            'app/Fqcn.php', $candidate->treeHash, $candidate->sandboxRoot);
+        $this->assertSame('php_dependency_class_unresolved', $phpFindings[0]['type'] ?? null);
+        $this->assertGreaterThanOrEqual(12, count($phpFindings));
+        $declarationMismatch = $phpProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            '<?php new \\App\\Candidate();', 'app/Reference.php', $candidate->treeHash, $candidate->sandboxRoot);
+        $this->assertSame('php_dependency_class_unresolved', $declarationMismatch[0]['type'] ?? null, 'path existence must not prove FQCN declaration');
+        $jsProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'javascriptDependencyProvenanceFindings');
+        $jsFindings = $jsProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            "import client from './missing-client';", 'app/client.ts', $candidate->treeHash, $candidate->sandboxRoot);
+        $this->assertSame('javascript_relative_import_unresolved', $jsFindings[0]['type'] ?? null);
+        $lockProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'manifestLockProvenanceFindings');
+        $lockFindings = $lockProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            json_encode($fixtureComposer, JSON_THROW_ON_ERROR), 'composer.json', $candidate->treeHash, $candidate->sandboxRoot);
+        $this->assertSame('composer_locked_version_constraint_mismatch', $lockFindings[0]['type'] ?? null);
+        $contentMismatch = $lockProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            json_encode(['require' => ['vendor/package' => '^3.0']], JSON_THROW_ON_ERROR), 'composer.json', $candidate->treeHash, $candidate->sandboxRoot);
+        $this->assertSame('composer_lock_content_hash_mismatch', $contentMismatch[0]['type'] ?? null);
+        $hostVendorAbsent = $phpProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            '<?php new \\Carbon\\Carbon();', 'app/HostVendor.php', $candidate->treeHash, $candidate->sandboxRoot);
+        $this->assertSame('php_dependency_class_unresolved', $hostVendorAbsent[0]['type'] ?? null, 'host vendor without signed package provenance must block');
+        $appsecArtifactPath = (string) data_get($appsecOwner->receipt, 'appsec_privacy_evidence.raw_artifact.path');
+        $appsecArtifact = file_get_contents($appsecArtifactPath);
+        $this->assertIsString($appsecArtifact);
+        file_put_contents($appsecArtifactPath, $appsecArtifact."\n");
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'appsec_privacy')->status, 'appsec_artifact_tamper');
+        file_put_contents($appsecArtifactPath, $appsecArtifact);
+        $this->assertSame('pass', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'appsec_privacy')->status);
+        $appsecReceipt = $appsecOwner->receipt;
+        $transplantedAppsecReceipt = $appsecReceipt;
+        $transplantedAppsecReceipt['binding']['candidate_hash'] = str_repeat('0', 64);
+        $appsecOwner->forceFill(['receipt' => $transplantedAppsecReceipt])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'appsec_privacy')->status, 'candidate_transplant');
+        $appsecOwner->forceFill(['receipt' => $appsecReceipt])->save();
         $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_DATA_OWNER_DOMAIN, data_get($dataOwner->receipt, 'owner_domain'));
         $this->assertTrue((bool) data_get($dataOwner->receipt, 'data_evidence.isolated_db.forward_passed'));
         $this->assertTrue((bool) data_get($dataOwner->receipt, 'data_evidence.isolated_db.n_minus_1_passed'));
@@ -494,6 +561,59 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $unsafeEngagement->getKey())->where('role_id', 'architecture')->firstOrFail()->receipt,
             'architecture_evidence.violations',
         ));
+
+        $appsecAttacks = [
+            'real_secret_token' => "<?php\n\$token = 'ghp_abcdefghijklmnopqrstuvwxyzABCDEFGHIJ';\nreturn 'after';\n",
+            'privacy_email' => "<?php\n\$owner = 'private.person@example.com';\nreturn 'after';\n",
+        ];
+        foreach ($appsecAttacks as $attackName => $attackSource) {
+            $attackProvider = $this->createMock(ProviderPort::class);
+            $attackResult = $providerResult;
+            $attackResult['patch_plan']['patches'][0]['next'] = $attackSource;
+            $attackProvider->method('invoke')->willReturn($attackResult);
+            $this->app->instance(ProviderPort::class, $attackProvider);
+            $this->app->forgetInstance(EliteExecutorKernel::class);
+            $attackData = $data;
+            $attackData['idempotency_key'] = 'mutative-appsec-'.$attackName.'-'.Str::uuid();
+            $attackCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($attackData));
+            $attackEngagement = $company->createEngagement('appsec privacy '.$attackName);
+            $attackCycle = $company->createCycle($attackEngagement);
+            $attackCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($attackData), $attackCandidate, $attackEngagement, $attackCycle);
+            app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateAppsecPrivacyOwnerReceipt($attackEngagement, $attackCycle, $attackCase);
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($attackCase, 'appsec_privacy')->status, $attackName);
+        }
+
+        foreach (['provider', 'author'] as $identityAttack) {
+            $identityAppsecProvider = $this->createMock(ProviderPort::class);
+            $identityAppsecResult = $providerResult;
+            $identityAppsecResult[$identityAttack === 'provider' ? 'provider' : 'author_identity'] = CodeGraphSecretScanner::class;
+            $identityAppsecProvider->method('invoke')->willReturn($identityAppsecResult);
+            $this->app->instance(ProviderPort::class, $identityAppsecProvider);
+            $this->app->forgetInstance(EliteExecutorKernel::class);
+            $identityAppsecData = $data;
+            $identityAppsecData['idempotency_key'] = 'mutative-appsec-owner-'.$identityAttack.'-'.Str::uuid();
+            $identityAppsecCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($identityAppsecData));
+            $identityAppsecEngagement = $company->createEngagement('appsec owner identity '.$identityAttack);
+            $identityAppsecCycle = $company->createCycle($identityAppsecEngagement);
+            $identityAppsecCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($identityAppsecData), $identityAppsecCandidate, $identityAppsecEngagement, $identityAppsecCycle);
+            app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateAppsecPrivacyOwnerReceipt($identityAppsecEngagement, $identityAppsecCycle, $identityAppsecCase);
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($identityAppsecCase, 'appsec_privacy')->status, $identityAttack);
+        }
+
+        $dependencyProvider = $this->createMock(ProviderPort::class);
+        $dependencyResult = $providerResult;
+        $dependencyResult['patch_plan']['patches'][0]['next'] = "<?php\nuse UntrustedVendor\\Package\\Client;\nreturn 'after';\n";
+        $dependencyProvider->method('invoke')->willReturn($dependencyResult);
+        $this->app->instance(ProviderPort::class, $dependencyProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $dependencyData = $data;
+        $dependencyData['idempotency_key'] = 'mutative-appsec-dependency-'.Str::uuid();
+        $dependencyCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($dependencyData));
+        $dependencyEngagement = $company->createEngagement('dependency provenance absent');
+        $dependencyCycle = $company->createCycle($dependencyEngagement);
+        $dependencyCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($dependencyData), $dependencyCandidate, $dependencyEngagement, $dependencyCycle);
+        app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateAppsecPrivacyOwnerReceipt($dependencyEngagement, $dependencyCycle, $dependencyCase);
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($dependencyCase, 'appsec_privacy')->status);
 
         $unsafeDataProvider = $this->createMock(ProviderPort::class);
         $unsafeDataResult = $providerResult;
