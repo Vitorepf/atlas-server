@@ -377,6 +377,8 @@ class AtlasMemoryQualityService
                 'usage_total' => 0,
                 'feedback_total' => 0,
                 'positive' => 0,
+                'positive_explicit' => 0,
+                'positive_implicit' => 0,
                 'negative' => 0,
                 'wrong_context' => 0,
                 'stale' => 0,
@@ -389,6 +391,8 @@ class AtlasMemoryQualityService
                 'usage_total' => 0,
                 'feedback_total' => 0,
                 'positive' => 0,
+                'positive_explicit' => 0,
+                'positive_implicit' => 0,
                 'negative' => 0,
                 'wrong_context' => 0,
                 'stale' => 0,
@@ -399,13 +403,19 @@ class AtlasMemoryQualityService
             ->whereIn('memory_entry_id', $activeEntryIds);
 
         $feedback = (clone $query)->whereNotNull('feedback_action');
-        $negative = ['not_useful', 'wrong_context', 'stale', 'too_much', 'corrected'];
+        $positiveExplicit = AtlasMemoryEntryUsage::positiveExplicitFeedbackActions();
+        $positiveImplicit = AtlasMemoryEntryUsage::positiveImplicitFeedbackActions();
+        $negative = AtlasMemoryEntryUsage::negativeFeedbackActions();
+        $positiveExplicitCount = (clone $feedback)->whereIn('feedback_action', $positiveExplicit)->count();
+        $positiveImplicitCount = (clone $feedback)->whereIn('feedback_action', $positiveImplicit)->count();
 
         return [
             'table_present' => 1,
             'usage_total' => (clone $query)->count(),
             'feedback_total' => (clone $feedback)->count(),
-            'positive' => (clone $feedback)->where('feedback_action', 'useful')->count(),
+            'positive' => $positiveExplicitCount + $positiveImplicitCount,
+            'positive_explicit' => $positiveExplicitCount,
+            'positive_implicit' => $positiveImplicitCount,
             'negative' => (clone $feedback)->whereIn('feedback_action', $negative)->count(),
             'wrong_context' => (clone $feedback)->where('feedback_action', 'wrong_context')->count(),
             'stale' => (clone $feedback)->where('feedback_action', 'stale')->count(),
@@ -460,7 +470,7 @@ class AtlasMemoryQualityService
             ->filter(fn (mixed $id): bool => is_string($id) && $id !== '')
             ->values();
         $feedback = (clone $query)->whereNotNull('feedback_action');
-        $negative = ['not_useful', 'wrong_context', 'stale', 'too_much', 'corrected'];
+        $negative = AtlasMemoryEntryUsage::negativeFeedbackActions();
 
         // D5 — recall CONCENTRATION: how many recalls pile on the single most-recalled
         // entry. The wiper audit found 90% of 18 320 recalls returning ONE memory — a

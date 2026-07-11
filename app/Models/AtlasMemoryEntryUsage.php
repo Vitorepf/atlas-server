@@ -12,6 +12,7 @@ class AtlasMemoryEntryUsage extends Model
 
     public const FEEDBACK_ACTIONS = [
         'useful',
+        'useful_implicit',
         'not_useful',
         'wrong_context',
         'stale',
@@ -19,6 +20,74 @@ class AtlasMemoryEntryUsage extends Model
         'corrected',
         'dismissed',
     ];
+
+    /** @var array<int,string> */
+    public const FEEDBACK_POSITIVE_EXPLICIT = [
+        'useful',
+    ];
+
+    /**
+     * D4 crude signal — substring of 1 token ≥4 chars via diffMentions().
+     * Must NOT feed score ratios; reporting and demotion counts only.
+     *
+     * @var array<int,string>
+     */
+    public const FEEDBACK_POSITIVE_IMPLICIT = [
+        'useful_implicit',
+    ];
+
+    /** @var array<int,string> */
+    public const FEEDBACK_NEGATIVE = [
+        'not_useful',
+        'wrong_context',
+        'stale',
+        'too_much',
+        'corrected',
+    ];
+
+    /**
+     * @return array<int,string>
+     */
+    public static function positiveExplicitFeedbackActions(): array
+    {
+        return self::FEEDBACK_POSITIVE_EXPLICIT;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function positiveImplicitFeedbackActions(): array
+    {
+        return self::FEEDBACK_POSITIVE_IMPLICIT;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    public static function negativeFeedbackActions(): array
+    {
+        return self::FEEDBACK_NEGATIVE;
+    }
+
+    public static function isPositiveExplicitFeedback(?string $action): bool
+    {
+        return $action !== null && in_array($action, self::FEEDBACK_POSITIVE_EXPLICIT, true);
+    }
+
+    public static function isPositiveImplicitFeedback(?string $action): bool
+    {
+        return $action !== null && in_array($action, self::FEEDBACK_POSITIVE_IMPLICIT, true);
+    }
+
+    public static function isPositiveFeedback(?string $action): bool
+    {
+        return self::isPositiveExplicitFeedback($action) || self::isPositiveImplicitFeedback($action);
+    }
+
+    public static function isNegativeFeedback(?string $action): bool
+    {
+        return $action !== null && in_array($action, self::FEEDBACK_NEGATIVE, true);
+    }
 
     protected $fillable = [
         'memory_entry_id',

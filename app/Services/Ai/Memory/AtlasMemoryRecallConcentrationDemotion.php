@@ -112,7 +112,6 @@ final class AtlasMemoryRecallConcentrationDemotion
             return [];
         }
 
-        $negative = ['not_useful', 'wrong_context', 'stale', 'too_much', 'corrected'];
         $stats = [];
         foreach ($entryIds as $entryId) {
             $stats[$entryId] = [
@@ -134,10 +133,10 @@ final class AtlasMemoryRecallConcentrationDemotion
                 continue;
             }
             $action = (string) $usage->feedback_action;
-            if ($action === 'useful' || $action === 'useful_implicit') {
+            if (AtlasMemoryEntryUsage::isPositiveFeedback($action)) {
                 $stats[$id]['positive_count']++;
             }
-            if (in_array($action, $negative, true)) {
+            if (AtlasMemoryEntryUsage::isNegativeFeedback($action)) {
                 $stats[$id]['negative_count']++;
             }
             if ($action === 'wrong_context') {
