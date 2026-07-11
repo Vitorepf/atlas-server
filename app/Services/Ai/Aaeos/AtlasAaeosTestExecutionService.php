@@ -234,6 +234,65 @@ class AtlasAaeosTestExecutionService
     }
 
     /**
+     * PIP-02 — post-mint seal: recompute freshness on a NEW truth resolver (no memo)
+     * and require hasGreenReceipt against the live index. Returns born_stale when the
+     * receipt was minted against hashes that no longer match the DB index.
+     *
+     * @param  array<int,array{kind?:string, ref?:string}>  $evidenceRefs
+     * @return array{
+     *   sealed:bool,
+     *   born_stale:bool,
+     *   fresh_hashes:array{test_file_hash:?string, impl_files_hash:?string},
+     *   explain:array<string,mixed>|null,
+     *   git_porcelain:?string
+     * }
+     */
+    public function verifyGreenMintSeal(string $capabilityId, string $testRef, array $evidenceRefs): array
+    {
+        $truth = new AtlasAaeosImplementationTruthService(
+            new AtlasAaeosImplementationEvidenceResolver,
+            new \App\Services\Semantic\CanonicalDocsFrontmatterParser,
+            $this,
+        );
+        $freshHashes = $truth->freshnessHashes($evidenceRefs, $testRef);
+        $sealed = $this->hasGreenReceipt(
+            $capabilityId,
+            $testRef,
+            $freshHashes['test_file_hash'] ?? null,
+            $freshHashes['impl_files_hash'] ?? null,
+        );
+
+        return [
+            'sealed' => $sealed,
+            'born_stale' => ! $sealed,
+            'fresh_hashes' => $freshHashes,
+            'explain' => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
+            'git_porcelain' => $this->gitPorcelainForensics(),
+        ];
+    }
+
+    /**
+     * Forensic metadata only — never a gate (commit_stamp drift != content drift).
+     */
+    private function gitPorcelainForensics(): ?string
+    {
+        if (! class_exists(Process::class)) {
+            return null;
+        }
+
+        try {
+            $process = new Process(['git', '-C', base_path(), 'status', '--porcelain']);
+            $process->setTimeout(10.0);
+            $process->run();
+            $out = trim($process->getOutput());
+
+            return $out !== '' ? $out : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * Derive a PHPUnit --filter from a declared test ref WITHOUT index resolution. Used
      * only for explicit fixture-backed proof runs (a controlled file passed by path).
      * Accepts a bare class, Class::method, or a bare test_* method; strips namespace to

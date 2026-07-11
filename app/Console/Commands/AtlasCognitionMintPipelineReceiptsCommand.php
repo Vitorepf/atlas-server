@@ -45,6 +45,54 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
         $green = 0;
         $processed = 0;
         $mintedKeys = [];
+        $bornStale = [];
+
+        $recordMint = function (
+            array $meta,
+            string $capabilityId,
+            string $ref,
+            array $evidenceRefs,
+            array $receipt,
+        ) use (
+            &$minted,
+            &$green,
+            &$processed,
+            &$mintedKeys,
+            &$bornStale,
+            $execution,
+        ): void {
+            $mintedKeys[$capabilityId.'|'.$ref] = true;
+            $processed++;
+
+            $ran = (int) ($receipt['tests_run'] ?? 0);
+            if ($ran === 0) {
+                return;
+            }
+
+            $passed = (bool) ($receipt['passed'] ?? false);
+            $seal = null;
+            if ($passed) {
+                $seal = $execution->verifyGreenMintSeal($capabilityId, $ref, $evidenceRefs);
+                if (($seal['born_stale'] ?? false) === true) {
+                    $passed = false;
+                    $bornStale[] = [
+                        'capability_id' => $capabilityId,
+                        'test_ref' => $ref,
+                        'seal' => $seal,
+                    ];
+                }
+            }
+
+            $green += $passed ? 1 : 0;
+            $minted[] = array_merge($meta, [
+                'capability_id' => $capabilityId,
+                'test_ref' => $ref,
+                'green' => $passed,
+                'born_stale' => ($seal['born_stale'] ?? false) === true,
+                'tests_run' => $ran,
+                'seal' => $seal,
+            ]);
+        };
 
         // Obra #14 H1: MIRA os subsistemas `partial` PELO MESMO candidato que o resolver
         // aceita. Um subsistema fica partial quando o símbolo <Short>Test existe no índice
@@ -95,20 +143,17 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
                     if ($ran === 0) {
                         continue; // candidato não roda nada (símbolo stale) — tenta o próximo
                     }
-                    $passed = (bool) ($receipt['passed'] ?? false);
-                    $green += $passed ? 1 : 0;
-                    $minted[] = [
-                        'subsystem' => (string) ($sub['acronym'] ?? ''),
-                        'capability_id' => $capabilityId,
-                        'test_ref' => $ref,
-                        'green' => $passed,
-                        'tests_run' => $ran,
-                    ];
-                    $mintedKeys[$capabilityId.'|'.$ref] = true;
-                    $processed++;
+                    $passedBeforeLimit = (bool) ($receipt['passed'] ?? false);
+                    $recordMint(
+                        ['subsystem' => (string) ($sub['acronym'] ?? '')],
+                        $capabilityId,
+                        $ref,
+                        $cap['evidence_refs'],
+                        $receipt,
+                    );
                     // Verde fecha o (subsistema, owner). Vermelho: tenta o próximo
                     // candidato declarado (ex.: GuardTest quebrado → HardeningTest vivo).
-                    if ($passed || $processed >= $limit) {
+                    if ($passedBeforeLimit || $processed >= $limit) {
                         break;
                     }
                 }
@@ -138,16 +183,7 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
                     $hashes['test_file_hash'] ?? null,
                     $hashes['impl_files_hash'] ?? null,
                 );
-                $passed = (bool) ($receipt['passed'] ?? false);
-                $green += $passed ? 1 : 0;
-                $minted[] = [
-                    'capability_id' => $capabilityId,
-                    'test_ref' => $ref,
-                    'green' => $passed,
-                    'tests_run' => $receipt['tests_run'] ?? 0,
-                ];
-                $mintedKeys[$capabilityId.'|'.$ref] = true;
-                $processed++;
+                $recordMint([], $capabilityId, $ref, $cap['evidence_refs'], $receipt);
                 break; // um teste por capability por passe (bounded)
             }
         }
@@ -158,6 +194,8 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
             'schema_version' => 'atlas.cognition.mint_pipeline_receipts.v1',
             'capabilities_processed' => $processed,
             'green_receipts_minted' => $green,
+            'born_stale_count' => count($bornStale),
+            'born_stale' => $bornStale,
             'pipeline_score_before' => round($before, 2),
             'pipeline_score_after' => round($after, 2),
             'pipeline_lift' => round($after - $before, 2),
@@ -167,14 +205,17 @@ class AtlasCognitionMintPipelineReceiptsCommand extends Command
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            return self::SUCCESS;
+            return $bornStale === [] ? self::SUCCESS : self::FAILURE;
         }
 
         $this->components->twoColumnDetail('Capabilities verificadas', (string) $processed);
         $this->components->twoColumnDetail('Green receipts cunhados', (string) $green);
+        if ($bornStale !== []) {
+            $this->components->twoColumnDetail('Born-stale selo', (string) count($bornStale));
+        }
         $this->components->twoColumnDetail('Pipeline score', $result['pipeline_score_before'].' → '.$result['pipeline_score_after'].' (Δ '.($result['pipeline_lift'] >= 0 ? '+' : '').$result['pipeline_lift'].')');
 
-        return self::SUCCESS;
+        return $bornStale === [] ? self::SUCCESS : self::FAILURE;
     }
 
     /**
