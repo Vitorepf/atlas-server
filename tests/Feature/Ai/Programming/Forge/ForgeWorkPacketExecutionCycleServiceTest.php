@@ -12,6 +12,8 @@ use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleException;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreatesForgeLongHorizonStateTable;
 use Tests\TestCase;
 
@@ -27,12 +29,14 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     {
         parent::setUp();
         $this->createForgeLongHorizonStateTable();
+        $this->reservationMigration()->up();
         $this->cycles = app(ForgeWorkPacketExecutionCycleService::class);
         $this->longHorizon = app(ForgeLongHorizonStateService::class);
     }
 
     protected function tearDown(): void
     {
+        $this->reservationMigration()->down();
         $this->dropForgeLongHorizonStateTable();
         parent::tearDown();
     }
@@ -146,6 +150,55 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $state->refresh();
         $this->assertNotContains((string) $packet->packet_id, $state->completed_work_packets);
         $this->assertContains((string) $packet->packet_id, $state->active_work_packets);
+    }
+
+    public function test_real_cycle_start_acquires_a_durable_scope_reservation(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet, ['execution_mode' => 'real']);
+
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $reservation = $cycle->execution_plan['scope_reservation'] ?? null;
+        $this->assertIsArray($reservation);
+        $this->assertSame('active', $reservation['state']);
+        $this->assertDatabaseHas('atlas_task_scope_reservations', [
+            'id' => $reservation['id'],
+            'run_id' => $cycle->uuid,
+            'state' => 'active',
+        ]);
+    }
+
+    public function test_real_cycle_cannot_complete_when_its_reservation_is_missing(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $cycle = $this->cycles->startCycle(
+            $intake, $packet, $this->cycles->planExecution($packet, ['execution_mode' => 'real']), $state,
+        );
+        DB::table('atlas_task_scope_reservations')->delete();
+
+        $this->expectException(ForgeWorkPacketExecutionCycleException::class);
+        $this->expectExceptionMessage('live scope reservation');
+        $this->cycles->complete(
+            $cycle, [['kind' => 'work_packet_receipts', 'ref' => 'wpr://real']], $this->passingGate(), $state,
+        );
+    }
+
+    public function test_real_cycle_cannot_complete_after_reservation_expiry(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $cycle = $this->cycles->startCycle(
+            $intake, $packet, $this->cycles->planExecution($packet, ['execution_mode' => 'real']), $state,
+        );
+        DB::table('atlas_task_scope_reservations')->update([
+            'lease_expires_at' => Carbon::now()->subSecond(),
+        ]);
+
+        $this->expectException(ForgeWorkPacketExecutionCycleException::class);
+        $this->expectExceptionMessage('live scope reservation');
+        $this->cycles->complete(
+            $cycle, [['kind' => 'work_packet_receipts', 'ref' => 'wpr://real']], $this->passingGate(), $state,
+        );
     }
 
     public function test_complete_records_sovereign_gate_observe_verdict_without_blocking(): void
@@ -514,5 +567,10 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
             'all_passed' => true,
             'failure_reasons' => [],
         ];
+    }
+
+    private function reservationMigration(): object
+    {
+        return require database_path('migrations/2026_07_11_130000_create_atlas_task_scope_reservations_table.php');
     }
 }

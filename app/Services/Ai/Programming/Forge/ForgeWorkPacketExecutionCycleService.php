@@ -9,6 +9,8 @@ use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus;
+use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeFailureIntelligenceService;
@@ -66,6 +68,7 @@ class ForgeWorkPacketExecutionCycleService
         private readonly ForgeSpecialistWorkcellRouterService $workcellRouter,
         private readonly ForgeFailureIntelligenceService $failureIntelligence,
         private readonly ForgeOutcomeMemoryService $outcomeMemory,
+        private readonly ForgeScopeReservationService $scopeReservations,
         // O-1 bridge: terminal cycles feed the central compounding loop
         // THROUGH the conductor (the single legitimate feeder). Nullable so
         // plain `new` construction keeps working; the bridge is opt-in via
@@ -205,6 +208,13 @@ class ForgeWorkPacketExecutionCycleService
             'blocked_reason' => $mode === ForgeWorkPacketExecutionCycleCanon::MODE_BLOCKED
                 ? (string) ($options['reason'] ?? 'execution_blocked')
                 : null,
+            'scope_reservation_request' => $mode === ForgeWorkPacketExecutionCycleCanon::MODE_REAL ? [
+                'scope_path' => (string) ($options['scope_path'] ?? $packet->scope ?? ($packet->expected_files[0] ?? 'work-packet/'.$packet->packet_id)),
+                'lease_owner' => $options['lease_owner'] ?? null,
+                'lease_token' => $options['lease_token'] ?? null,
+                'idempotency_key' => $options['idempotency_key'] ?? null,
+                'lease_seconds' => max(1, (int) ($options['lease_seconds'] ?? 900)),
+            ] : null,
         ];
 
         $initialNextAction = $mode === ForgeWorkPacketExecutionCycleCanon::MODE_BLOCKED
@@ -247,9 +257,32 @@ class ForgeWorkPacketExecutionCycleService
             : ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING;
 
         $now = Carbon::now();
+        $cycleUuid = (string) Str::uuid();
+        $executionPlan = (array) $built['plan'];
+        if ($mode === ForgeWorkPacketExecutionCycleCanon::MODE_REAL) {
+            $request = (array) ($executionPlan['scope_reservation_request'] ?? []);
+            $owner = (string) ($request['lease_owner'] ?? 'forge-cycle:'.$cycleUuid);
+            $token = (string) ($request['lease_token'] ?? Str::random(64));
+            $reservation = $this->scopeReservations->acquire(
+                runId: $cycleUuid,
+                scopePath: (string) ($request['scope_path'] ?? 'work-packet/'.$packet->packet_id),
+                mode: $mode,
+                leaseOwner: $owner,
+                leaseToken: $token,
+                authorityHash: (string) $packet->packet_hash,
+                baselineHash: (string) $intake->intake_hash,
+                idempotencyKey: (string) ($request['idempotency_key'] ?? 'forge-cycle:'.$cycleUuid),
+                leaseSeconds: (int) ($request['lease_seconds'] ?? 900),
+            );
+            if (! $reservation['acquired']) {
+                throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($cycleUuid);
+            }
+            $executionPlan['scope_reservation'] = $reservation['reservation'];
+        }
+
         $row = [
             'schema_version' => ForgeWorkPacketExecutionCycleCanon::SCHEMA_VERSION,
-            'uuid' => (string) Str::uuid(),
+            'uuid' => $cycleUuid,
             'intake_id' => $intake->id,
             'work_packet_id' => $packet->id,
             'work_packet_canonical_id' => $packet->packet_id,
@@ -257,7 +290,7 @@ class ForgeWorkPacketExecutionCycleService
             'cycle_position' => $position,
             'execution_mode' => $mode,
             'status' => $status,
-            'execution_plan' => (array) $built['plan'],
+            'execution_plan' => $executionPlan,
             'expected_artifacts' => array_values((array) $built['expected_artifacts']),
             'evidence_refs' => [],
             'gate_result' => null,
@@ -349,6 +382,21 @@ class ForgeWorkPacketExecutionCycleService
         );
         if ((bool) ($gateResult['all_passed'] ?? false) !== true || ! $allGatesPassed) {
             throw ForgeWorkPacketExecutionCycleException::completionWithoutAllGatesPassed($cycle->uuid);
+        }
+
+        $persistedPlan = $cycle->getAttribute('execution_plan');
+        $reservation = is_array($persistedPlan) && is_array($persistedPlan['scope_reservation'] ?? null)
+            ? $persistedPlan['scope_reservation']
+            : [];
+        $settlement = $reservation === [] ? ['released' => false] : $this->scopeReservations->release(
+            (string) ($reservation['id'] ?? ''),
+            (string) ($reservation['lease_owner'] ?? ''),
+            (string) ($reservation['lease_token'] ?? ''),
+            (int) ($reservation['fencing_token'] ?? 0),
+            'settled',
+        );
+        if (! $settlement['released']) {
+            throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($cycle->uuid);
         }
 
         $enforcing = $this->forgeExecutionGateEnforcing();
@@ -531,11 +579,11 @@ class ForgeWorkPacketExecutionCycleService
         // Best-effort: aprendizado nunca quebra a transição do ciclo (mesma banda do
         // feedCentralLearning acima).
         try {
-            $diagnosis = app(\App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage::class)->diagnose([
+            $diagnosis = app(RepairDiagnosisStage::class)->diagnose([
                 'failure_output' => $failureReason,
                 'origin' => 'forge_work_packet_cycle',
             ]);
-            app(\App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus::class)->record([
+            app(FailureBrainCorpus::class)->record([
                 'failure_signature' => hash('sha256', 'forge|'.$cycle->work_packet_canonical_id.'|'.$failureReason),
                 'origin' => 'forge_work_packet_cycle',
                 'class' => $diagnosis['class'],
