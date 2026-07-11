@@ -14,9 +14,10 @@ declare(strict_types=1);
  *   (a) heartbeat.jsonl freshness vs 300s threshold
  *   (b) artisan boot smoke in a timed subprocess
  *   (c) new "PHP Fatal error" blocks in launchd.err.log
- *   (d) operational volume (VOL-01) via read-only artisan — alert "janela faminta"
- *   (e) rollback triggers (ROL-01) via read-only artisan — alert on simulated/fired condition
- *   (f) ACOS long-horizon gate receipt warnings (EVI-07) — warning-only echo
+ *   (d) unified ACOS watchdog plugins (WDG-01) via read-only artisan
+ *   (e) operational volume (VOL-01) via read-only artisan — alert "janela faminta"
+ *   (f) rollback triggers (ROL-01) via read-only artisan — alert on simulated/fired condition
+ *   (g) ACOS long-horizon gate receipt warnings (EVI-07) — warning-only echo
  *
  * On failure: append watchdog-alarm.jsonl, kickstart patient, local notify.
  * Warning-only checks do NOT kickstart the scheduler (operational hunger ≠ patient death).
@@ -28,6 +29,7 @@ declare(strict_types=1);
  *   ATLAS_WATCHDOG_KICKSTART_CMD, ATLAS_WATCHDOG_NOTIFY_CMD,
  *   ATLAS_WATCHDOG_THRESHOLD_SECONDS, ATLAS_WATCHDOG_COOLDOWN_SECONDS,
  *   ATLAS_WATCHDOG_BOOT_TIMEOUT_SECONDS, ATLAS_WATCHDOG_DRY_RUN,
+ *   ATLAS_WATCHDOG_UNIFIED_CHECK, ATLAS_WATCHDOG_UNIFIED_CMD,
  *   ATLAS_WATCHDOG_VOLUME_CHECK, ATLAS_WATCHDOG_VOLUME_CMD,
  *   ATLAS_WATCHDOG_ROLLBACK_CHECK, ATLAS_WATCHDOG_ROLLBACK_CMD,
  *   ATLAS_WATCHDOG_ACOS_LONG_HORIZON_RECEIPT
@@ -97,8 +99,23 @@ writeState($statePath, $state);
 
 $warnings = [];
 
-// (d) Operational volume (VOL-01) — read-only artisan; fail-open on boot failure.
+// (d-f) Read-only artisan checks; all fail-open on boot/parse failure.
 if ($boot['ok']) {
+    $unified = unifiedWatchdogCheck($php, $artisan, $root, $bootTimeout);
+    if (($unified['alert'] ?? false) === true) {
+        $warnings[] = [
+            'check' => 'acos_unified_watchdog',
+            'alert_code' => $unified['alert_code'] ?? 'acos_unified_watchdog_alert',
+            'status' => $unified['status'] ?? null,
+            'alert_count' => is_array($unified['alerts'] ?? null) ? count($unified['alerts']) : 0,
+            'checks' => array_values(array_filter(
+                array_map(static fn (mixed $check): ?string => is_array($check) ? (string) ($check['id'] ?? '') : null, (array) ($unified['checks'] ?? [])),
+                static fn (?string $id): bool => is_string($id) && $id !== '',
+            )),
+            'alerts' => $unified['alerts'] ?? [],
+        ];
+    }
+
     $volume = operationalVolumeCheck($php, $artisan, $root, $bootTimeout);
     if (($volume['alert'] ?? false) === true) {
         $warnings[] = [
@@ -477,6 +494,92 @@ function acosLongHorizonGateWarning(string $root): array
         'certified' => $receipt['certified'] ?? null,
         'warnings' => array_map(static fn (mixed $warning): string => (string) $warning, $warnings),
     ];
+}
+
+/**
+ * WDG-01 — unified Laravel watchdog plugin runner via artisan subprocess.
+ *
+ * @return array<string,mixed>
+ */
+function unifiedWatchdogCheck(string $php, string $artisan, string $cwd, int $timeout): array
+{
+    $enabled = getenv('ATLAS_WATCHDOG_UNIFIED_CHECK');
+    if ($enabled === '0' || $enabled === 'false') {
+        return ['ok' => true, 'skipped' => true, 'alert' => false];
+    }
+
+    $override = getenv('ATLAS_WATCHDOG_UNIFIED_CMD');
+    if (is_string($override) && $override !== '') {
+        $cmd = $override;
+    } else {
+        if (! is_file($artisan)) {
+            return ['ok' => false, 'skipped' => true, 'alert' => false, 'reason' => 'artisan_missing'];
+        }
+        $cmd = escapeshellarg($php).' '.escapeshellarg($artisan).' atlas:watchdog:run --json';
+    }
+
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+    $proc = proc_open($cmd, $descriptors, $pipes, $cwd, null);
+    if (! is_resource($proc)) {
+        return ['ok' => false, 'skipped' => true, 'alert' => false, 'reason' => 'proc_open_failed'];
+    }
+    fclose($pipes[0]);
+
+    $start = time();
+    $stdout = '';
+    $stderr = '';
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+    $exit = null;
+    while (true) {
+        $status = proc_get_status($proc);
+        if (! $status['running'] && $exit === null) {
+            $exit = (int) $status['exitcode'];
+        }
+        $stdout .= (string) fread($pipes[1], 8192);
+        $stderr .= (string) fread($pipes[2], 8192);
+        if ($exit !== null) {
+            break;
+        }
+        if ((time() - $start) >= $timeout) {
+            proc_terminate($proc, 9);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            proc_close($proc);
+
+            return ['ok' => false, 'skipped' => true, 'alert' => false, 'reason' => 'timeout'];
+        }
+        usleep(50_000);
+    }
+    $stdout .= (string) stream_get_contents($pipes[1]);
+    $stderr .= (string) stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    proc_close($proc);
+
+    $stdout = trim($stdout);
+    if ($stdout === '') {
+        return ['ok' => $exit === 0, 'skipped' => true, 'alert' => false, 'reason' => 'empty_stdout', 'exit_code' => $exit];
+    }
+
+    $decoded = json_decode($stdout, true);
+    if (! is_array($decoded)) {
+        return [
+            'ok' => false,
+            'skipped' => true,
+            'alert' => true,
+            'alert_code' => 'acos_unified_watchdog_unavailable',
+            'reason' => 'invalid_json',
+            'stderr_tail' => substr(trim($stderr !== '' ? $stderr : $stdout), -400),
+            'exit_code' => $exit,
+        ];
+    }
+
+    return $decoded + ['ok' => $exit === 0, 'exit_code' => $exit];
 }
 
 /**

@@ -1928,6 +1928,14 @@ return [
     'acos' => [
         'delta_series_enabled' => (bool) env('ATLAS_ACOS_DELTA_SERIES_ENABLED', env('ATLAS_FABLE_DELTA_SERIES_ENABLED', true)),
 
+        // WDG-01 — unified watchdog check registry. External EVI-01 calls the
+        // same CLI; the internal schedule below is exactly one fallback job.
+        'watchdog' => [
+            'enabled' => (bool) env('ATLAS_ACOS_WATCHDOG_ENABLED', true),
+            'schedule_enabled' => (bool) env('ATLAS_ACOS_WATCHDOG_SCHEDULE_ENABLED', true),
+            'schedule_cadence_minutes' => max(1, (int) env('ATLAS_ACOS_WATCHDOG_SCHEDULE_CADENCE_MINUTES', 15)),
+        ],
+
         // ROL-01 — pre-declared objective rollback triggers for future ACOS flips.
         // Read-only check: atlas:acos:rollback-triggers --json (EVI-01 / WDG-01).
         'rollback_triggers' => [

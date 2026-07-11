@@ -190,6 +190,39 @@ class SchedulerWatchdogScriptTest extends TestCase
         $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
     }
 
+    public function test_unified_watchdog_alert_emits_warning_without_kickstart(): void
+    {
+        $this->writeHeartbeat(gmdate('c'));
+        $watchdogFixture = json_encode([
+            'schema_version' => 'atlas.acos.watchdog_run.v1',
+            'status' => 'alert',
+            'alert' => true,
+            'checks' => [
+                ['id' => 'test.alerting', 'status' => 'alert'],
+            ],
+            'alerts' => [
+                ['check_id' => 'test.alerting', 'code' => 'threshold_breached'],
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+
+        $out = $this->runWatchdog([
+            'ATLAS_WATCHDOG_ARTISAN' => $this->okArtisan,
+            'ATLAS_WATCHDOG_THRESHOLD_SECONDS' => '300',
+            'ATLAS_WATCHDOG_COOLDOWN_SECONDS' => '0',
+            'ATLAS_WATCHDOG_UNIFIED_CMD' => 'printf %s '.escapeshellarg($watchdogFixture),
+            'ATLAS_WATCHDOG_VOLUME_CHECK' => '0',
+            'ATLAS_WATCHDOG_ROLLBACK_CHECK' => '0',
+        ]);
+
+        $payload = json_decode($out['stdout'], true);
+        $this->assertIsArray($payload);
+        $this->assertSame('warning', $payload['status']);
+        $this->assertContains('acos_unified_watchdog', array_column($payload['warnings'] ?? [], 'check'));
+        $this->assertSame(['test.alerting'], $payload['warnings'][0]['checks'] ?? null);
+        $this->assertFileDoesNotExist($this->kickLog);
+        $this->assertFileExists($this->tmp.'/storage/watchdog-alarm.jsonl');
+    }
+
     public function test_rollback_trigger_simulated_emits_warning_without_kickstart(): void
     {
         $this->writeHeartbeat(gmdate('c'));

@@ -250,6 +250,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
 
         $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
+        $this->app->singleton(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
 
         $this->app->afterResolving(function (mixed $resolved): void {
             if (! is_object($resolved)) {

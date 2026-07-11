@@ -172,6 +172,14 @@ Schedule::command('atlas:acos:delta-series --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.acos.delta_series_enabled', config('atlas.fable.delta_series_enabled', true)));
 
+// WDG-01 · Unified ACOS watchdog plugin runner. One internal fallback job;
+// the external EVI-01 watchdog calls the same CLI outside schedule:run.
+Schedule::command('atlas:watchdog:run --json')
+    ->cron('*/'.max(1, min(60, (int) config('atlas.acos.watchdog.schedule_cadence_minutes', 15))).' * * * *')
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.acos.watchdog.enabled', true)
+        && (bool) config('atlas.acos.watchdog.schedule_enabled', true));
+
 // EVI-04 · Catch-up same-day (hourly). LOAD-BEARING when(): appendSnapshot is REPLACE
 // per date — without the guard, hourly re-measure would overwrite the 05:10 sample.
 // Only runs when today's line is missing AND local hour >= 6. Never backfills past days.
