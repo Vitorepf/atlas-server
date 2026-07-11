@@ -368,9 +368,8 @@ return [
     |   (budget_exceeded_by_must_keep) with NO degradation plan. This kernel adds
     |   an honest overflow degradation plan: greedy rank-fit, per-segment
     |   compression targets that recover the deficit, coverage<1.0 detection and
-    |   unrecoverable-overflow blockers. When ON it appends a
-    |   `must_keep_budget_allocation` analysis section (advisory; does not mutate
-    |   the existing compression/quality receipts).
+    |   unrecoverable-overflow blockers. When ON it writes a structured shadow
+    |   JSONL record outside the provider payload/hash; delivery stays byte-identical.
     | - RecallContextBudgetSplitScorer (consumer:
     |   AtlasTokenEconomyRuntimeService::optimize). No live recall-vs-context
     |   char split exists today. When ON it appends a `recall_context_split`
@@ -383,7 +382,9 @@ return [
     |   selected_sources or readiness.
     */
     'context_budget' => [
-        'must_keep_allocator_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_MUST_KEEP_ALLOCATOR_ENABLED', false),
+        'must_keep_allocator_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_MUST_KEEP_ALLOCATOR_ENABLED', true),
+        'must_keep_allocator_shadow_disk' => env('ATLAS_CONTEXT_BUDGET_MUST_KEEP_ALLOCATOR_SHADOW_DISK', 'local'),
+        'must_keep_allocator_shadow_path' => env('ATLAS_CONTEXT_BUDGET_MUST_KEEP_ALLOCATOR_SHADOW_PATH', 'atlas/context-budget/must-keep-shadow.jsonl'),
         'recall_split_scorer_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_RECALL_SPLIT_SCORER_ENABLED', false),
         'retrieval_fanout_gate_enabled' => (bool) env('ATLAS_CONTEXT_BUDGET_RETRIEVAL_FANOUT_GATE_ENABLED', false),
     ],
@@ -907,6 +908,10 @@ return [
         'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'hermes_cli'),
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
+        'handoff_skip_providers' => array_values(array_filter(array_map(
+            static fn (string $provider): string => trim($provider),
+            explode(',', (string) env('ATLAS_AI_HANDOFF_SKIP_PROVIDERS', 'claude_codex')),
+        ))),
 
         // Hyperflow organ: AtlasAiRouterService consumes the RouterRuntime
         // flow decision (payload.hyperflow_runtime) for auto-routing instead
@@ -2041,6 +2046,9 @@ return [
         // L3-11: agenda diária do mint de pipeline receipts (sobe a dimensão mais fraca do
         // ACOS com evidência resolved, mirando os subsistemas partial). Default ON; reversível.
         'mint_pipeline_receipts_enabled' => (bool) env('ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS_ENABLED', true),
+        'remint_touched_enabled' => (bool) env('ATLAS_COGNITION_REMINT_TOUCHED_ENABLED', false),
+        'remint_touched_queue_disk' => env('ATLAS_COGNITION_REMINT_TOUCHED_QUEUE_DISK', 'local'),
+        'remint_touched_queue_path' => env('ATLAS_COGNITION_REMINT_TOUCHED_QUEUE_PATH', 'atlas/cognition/remint-touched-queue.jsonl'),
 
         // L6-9: gate honesto para o claim "ACOS 10/10 real". Ele não cunha
         // receipts nem backfilla tempo; só permite completion quando o scorecard

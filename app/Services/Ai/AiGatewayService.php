@@ -283,6 +283,11 @@ class AiGatewayService
             : $this->handoffs->createIfSwitching($threadResolution->thread, $session, $provider, $autoCompaction, [
                 'trigger' => 'enqueue_interaction',
             ]);
+        if ($fairMode) {
+            $this->handoffs->recordFairModeLossReceipt($threadResolution->thread, $session, $provider, [
+                'trigger' => 'enqueue_interaction',
+            ]);
+        }
         $options = $this->optionsWithResolvedRuntime($options, $threadResolution->thread->id, $session->id, $autoCompaction?->id, $providerHandoff?->id);
         if ($fairMode) {
             $options['payload']['provider_handoff_disabled_by_fair_mode'] = true;
