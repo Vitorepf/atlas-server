@@ -38,25 +38,29 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
         }
 
         $providerKey = trim((string) ($request['provider'] ?? ''));
+        $model = trim((string) ($request['model'] ?? ''));
         $prompt = trim((string) ($request['prompt'] ?? ''));
-        if ($providerKey === '' || $prompt === '') {
+        if ($providerKey === '' || $model === '' || $prompt === '') {
             return ['status' => 'invalid_request', 'provider_invoked' => false, 'executes_provider' => true];
         }
 
         if ($this->providerInvoker instanceof Closure) {
-            $raw = ($this->providerInvoker)($providerKey, $prompt);
+            $raw = ($this->providerInvoker)($providerKey, $model, $prompt);
         } else {
             $provider = ($this->providers ?? app(AiProviderManager::class))->get($providerKey);
             $result = $provider->run(new AiJob([
                 'type' => 'atlas_self_construction_native_patch_plan',
                 'status' => 'running',
-                'payload' => ['provider' => $providerKey],
+                'payload' => ['provider' => $providerKey, 'model' => $model, 'route' => ['provider' => $providerKey, 'model' => $model]],
             ]), $prompt);
-            $raw = ['ok' => $result->ok, 'output' => $result->output, 'provider' => $providerKey, 'error' => $result->errorMessage];
+            $raw = ['ok' => $result->ok, 'output' => $result->output, 'provider' => $providerKey, 'model' => $model, 'error' => $result->errorMessage];
         }
 
         if (($raw['ok'] ?? false) !== true) {
             return ['status' => 'unavailable', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+        }
+        if (($raw['provider'] ?? null) !== $providerKey || ($raw['model'] ?? null) !== $model) {
+            return ['status' => 'provider_route_mismatch', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
         $decoded = $this->decodeContract((string) ($raw['output'] ?? ''));
         if ($decoded === null) {
@@ -81,7 +85,7 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             'executes_provider' => true,
             'provider' => $providerKey,
             'patch_plan' => (array) ($decoded['patch_plan'] ?? []),
-            'model' => (string) ($request['model'] ?? ''),
+            'model' => $model,
             'output_hash' => hash('sha256', (string) ($raw['output'] ?? '')),
         ];
     }

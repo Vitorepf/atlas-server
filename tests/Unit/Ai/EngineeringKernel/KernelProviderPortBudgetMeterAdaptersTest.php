@@ -61,8 +61,9 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
         $calls = 0;
         $adapter = new AgentExecutionProviderPortAdapter(
             new AgentExecutionProviderPortService,
-            providerInvoker: function (string $provider, string $prompt) use (&$calls): array {
+            providerInvoker: function (string $provider, string $model, string $prompt) use (&$calls): array {
                 $calls++;
+                self::assertSame('test-model', $model);
 
                 return [
                     'ok' => true,
@@ -71,6 +72,7 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
                         'command_plan' => [],
                     ]),
                     'provider' => $provider,
+                    'model' => $model,
                 ];
             },
         );
@@ -89,6 +91,22 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
         self::assertArrayNotHasKey('command_plan', $receipt);
         self::assertSame('test-model', $receipt['model']);
         self::assertTrue($receipt['provider_invoked']);
+    }
+
+    public function test_provider_port_fails_closed_when_provider_receipt_model_differs(): void
+    {
+        $adapter = new AgentExecutionProviderPortAdapter(
+            new AgentExecutionProviderPortService,
+            providerInvoker: fn (string $provider, string $model, string $prompt): array => [
+                'ok' => true, 'provider' => $provider, 'model' => 'other-model',
+                'output' => json_encode(['patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => []]]),
+            ],
+        );
+
+        $receipt = $adapter->invoke(['execute_provider' => true, 'provider' => 'codex_cli', 'model' => 'required-model',
+            'prompt' => 'plan', 'claim' => ['allowed_files' => ['app/X.php']]]);
+
+        self::assertSame('provider_route_mismatch', $receipt['status']);
     }
 
     public function test_normalize_only_receipt_is_explicitly_not_a_provider_execution(): void

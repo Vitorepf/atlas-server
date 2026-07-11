@@ -144,7 +144,7 @@ final class AtlasSelfConstructionRuntimeDaemonCommandTest extends TestCase
     public function test_productive_empty_plan_synthesizes_governed_native_tick_route(): void
     {
         config()->set('atlas.ai.default_provider', 'test-provider');
-        config()->set('atlas.ai.default_model', 'test-model');
+        config()->set('atlas.ai.providers.test-provider.model', 'test-model');
         app()->instance(AtlasSelfConstructionNativeActionExecutor::class, new class extends AtlasSelfConstructionNativeActionExecutor
         {
             public function execute(array $action, array $state): array
@@ -160,6 +160,31 @@ final class AtlasSelfConstructionRuntimeDaemonCommandTest extends TestCase
         self::assertSame('native_tick', $p['planned_actions'][0]['kind']);
         self::assertSame('test-provider', $p['planned_actions'][0]['provider']);
         self::assertSame('test-model', $p['planned_actions'][0]['model']);
+    }
+
+    public function test_productive_existing_native_tick_is_enriched_without_overriding_explicit_route(): void
+    {
+        config()->set('atlas.ai.default_provider', 'test-provider');
+        config()->set('atlas.ai.providers.test-provider.model', 'test-model');
+        app()->instance(AtlasSelfConstructionNativeActionExecutor::class, new class extends AtlasSelfConstructionNativeActionExecutor
+        {
+            public function execute(array $action, array $state): array
+            {
+                return ['status' => 'held', 'reason' => $action['provider'].'/'.$action['model']];
+            }
+        });
+        $this->writeFacts($this->readyFacts(['planned_actions' => [
+            ['kind' => 'native_tick'],
+            ['kind' => 'native_tick', 'provider' => 'explicit', 'model' => 'explicit-model'],
+        ]]));
+
+        Artisan::call('atlas:self-construction:runtime-daemon', ['action' => 'tick', '--facts' => $this->factsPath, '--json' => true]);
+        $p = json_decode(trim(Artisan::output()), true);
+
+        self::assertSame('test-provider', $p['planned_actions'][0]['provider']);
+        self::assertSame('test-model', $p['planned_actions'][0]['model']);
+        self::assertSame('explicit', $p['planned_actions'][1]['provider']);
+        self::assertSame('explicit-model', $p['planned_actions'][1]['model']);
     }
 
     public function test_apply_invokes_only_typed_atlas_native_executor(): void

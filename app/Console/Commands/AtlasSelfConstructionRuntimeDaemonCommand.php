@@ -218,20 +218,28 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
     /** @param array<string,mixed> $facts @return array<string,mixed> */
     private function withProductiveNativeTick(array $facts, bool $apply): array
     {
-        if (! $apply || (array) ($facts['planned_actions'] ?? []) !== []) {
+        if (! $apply) {
             return $facts;
         }
         $provider = trim((string) config('atlas.ai.default_provider', ''));
-        $model = trim((string) config('atlas.ai.default_model', ''));
+        $model = trim((string) config("atlas.ai.providers.{$provider}.model", ''));
         if ($provider === '' || $model === '') {
             return $facts;
         }
-        $facts['planned_actions'] = [[
-            'kind' => 'native_tick',
-            'provider' => $provider,
-            'model' => $model,
-            'source' => 'governed_default_route',
-        ]];
+        $actions = (array) ($facts['planned_actions'] ?? []);
+        if ($actions === []) {
+            $actions[] = ['kind' => 'native_tick'];
+        }
+        $facts['planned_actions'] = array_map(static function (mixed $action) use ($provider, $model): mixed {
+            if (! is_array($action) || ($action['kind'] ?? null) !== 'native_tick') {
+                return $action;
+            }
+            $action['provider'] = trim((string) ($action['provider'] ?? '')) ?: $provider;
+            $action['model'] = trim((string) ($action['model'] ?? '')) ?: $model;
+            $action['source'] ??= 'governed_default_route';
+
+            return $action;
+        }, $actions);
 
         return $facts;
     }

@@ -309,9 +309,12 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                     'outcome_hash' => (string) ($outcome['outcome_hash'] ?? ''),
                 ];
                 if ($productionRuntime instanceof AtlasNativeWorkerProductionCallbacks) {
-                    $productionRuntime->report($clientId, $reportPayload);
+                    $reportReceipt = $productionRuntime->report($clientId, $reportPayload);
                 } else {
-                    $reportCb($reportPayload);
+                    $reportReceipt = $reportCb($reportPayload);
+                }
+                if (! is_array($reportReceipt) || ! in_array((string) ($reportReceipt['status'] ?? ''), ['ok', 'accepted', 'reported'], true)) {
+                    throw new \RuntimeException('report_envelope_not_accepted');
                 }
                 $appliedSteps[] = 'report';
             } catch (\Throwable $e) {
