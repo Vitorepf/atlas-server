@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\EngineeringKernel;
 
+use App\Models\AiAutonomousEngineeringGoal;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
@@ -15,13 +18,12 @@ use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
-use App\Services\Ai\Kernel\Decision\DecisionBudgets;
-use App\Services\Ai\Kernel\Decision\DecisionProviderSelection;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
-use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
-use App\Services\Ai\Kernel\Decision\DecisionRepairPolicy;
+use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
+use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -34,9 +36,12 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 {
     private const ROLE_IDS = EngineeringRoleRoster::OFFICIAL_ROLES;
 
+    private ?string $canonicalRunId = null;
+
     protected function setUp(): void
     {
         parent::setUp();
+        (require database_path('migrations/2026_05_17_220000_create_ai_autonomous_engineering_os_tables.php'))->up();
         (require database_path('migrations/2026_05_17_230000_create_ai_real_engineering_execution_kernel_tables.php'))->up();
         (require database_path('migrations/2026_05_17_232000_create_ai_engineering_company_runtime_tables.php'))->up();
         Schema::dropIfExists('atlas_ledger_events');
@@ -183,6 +188,29 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         app(KernelEvidenceAuthority::class)->issueRoleDisposition($roleRun, $order, []);
     }
 
+    public function test_direct_fillable_role_row_without_canonical_producer_is_refused(): void
+    {
+        $data = $this->orderData(seedEvidence: false);
+        $order = ExecutionOrder::fromArray($data);
+        $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
+        $engagement = $company->createEngagement('forged quality role');
+        $cycle = $company->createCycle($engagement);
+        $disposition = ['status' => 'pass', 'evidence_hash' => hash('sha256', 'forged'), 'signature' => hash('sha256', 'forged-signature')];
+        $output = ['disposition' => $disposition];
+        $receipt = ['role_id' => self::ROLE_IDS[0], 'status' => 'passed', 'evidence_refs' => ['forged'], 'output' => $output,
+            'binding' => $this->ownerBinding($order) + ['engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()],
+            'disposition' => $disposition];
+        $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+        $forged = AiEngineeringCompanyRoleRun::query()->create([
+            'engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(), 'role_run_id' => 'forged-'.Str::uuid(),
+            'role_id' => self::ROLE_IDS[0], 'status' => 'passed', 'output' => $output, 'evidence_refs' => ['forged'],
+            'receipt' => $receipt, 'role_hash' => $receipt['hash'],
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        app(KernelEvidenceAuthority::class)->issueRoleDisposition($forged, $order, []);
+    }
+
     public function test_bundle_without_persisted_test_receipt_cannot_become_authoritative(): void
     {
         $data = $this->orderData(seedEvidence: false);
@@ -273,7 +301,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
         $receipt = $kernel->observeOutcome(OutcomeObservation::fromArray([
             'schema_version' => 'atlas.outcome_observation.v1',
-            'run_id' => 'run-read-only',
+            'run_id' => $this->canonicalRunId ?? 'run-read-only',
             'delivery_id' => 'delivery-read-only',
             'release_hash' => $outcome->correlatedHashes['release'],
             'order_hash' => $outcome->correlatedHashes['order'],
@@ -321,7 +349,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
 
         $data = [
             'schema_version' => 'atlas.execution_order.v2',
-            'run_id' => 'run-read-only',
+            'run_id' => $this->canonicalRunId ?? 'run-read-only',
             'delivery_id' => 'delivery-read-only',
             'mode' => 'dev',
             'risk_class' => 'R2',
@@ -379,39 +407,37 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     }
 
     /** @param array<string,mixed> $orderData @param array<string,array<string,mixed>> $dispositions */
-    private function seedCanonicalEvidence(array $orderData, array $dispositions): void
+    private function seedCanonicalEvidence(array &$orderData, array $dispositions): void
     {
         $ledger = app(AtlasEvidenceLedger::class);
-        if ($ledger->eventById('decision-read-only') !== null) {
+        $existingDecision = $ledger->eventById('decision-read-only');
+        if ($existingDecision !== null) {
+            $orderData['run_id'] = (string) $existingDecision->envelope_id;
+
             return;
         }
-        $orderHash = ExecutionOrder::fromArray($orderData)->canonicalHash();
+        $decision = $this->decisionReceipt($orderData);
         $context = ['envelope_id' => $orderData['run_id'], 'correlation_id' => $orderData['idempotency_key'], 'scope_type' => 'engineering_delivery', 'scope_id' => $orderData['delivery_id'], 'emitter_stage' => 'test.fixture'];
         $authority = app(KernelEvidenceAuthority::class);
         $order = ExecutionOrder::fromArray($orderData);
-        $authority->issueDecision($this->decisionReceipt($orderData), $order, ['event_id' => 'decision-read-only'] + $context);
+        $authority->issueDecision($decision, $order, ['event_id' => 'decision-read-only'] + $context);
         $bundle = $this->honestAcceptanceBundle();
-        $testReceipt = [
-            'test_run_id' => 'kernel-test-'.Str::uuid(), 'status' => 'passed',
-            'selected_tests' => $bundle['execution']['selected_tests'], 'evidence_refs' => ['artifact:test-suite'],
-            'binding' => $this->ownerBinding($order), 'acceptance_bundle' => $this->canonicalBundle($bundle),
-        ];
-        $testReceipt['hash'] = EngineeringCompanyHash::make($testReceipt);
-        $testRun = AiRealExecutionTestRun::query()->create([
-            'test_run_id' => $testReceipt['test_run_id'], 'status' => 'passed', 'selected_tests' => $testReceipt['selected_tests'],
-            'exit_code' => 0, 'evidence_refs' => $testReceipt['evidence_refs'], 'receipt' => $testReceipt, 'test_hash' => $testReceipt['hash'],
-        ]);
-        $authority->issueEvidenceBundle(AcceptanceBundle::fromArray($bundle), $testRun, $order, ['event_id' => 'acceptance-read-only'] + $context);
+        $autonomous = app(AtlasAutonomousEngineeringService::class)->run('Hermetic kernel verification fixture', ['step_status' => 'passed']);
+        $goal = AiAutonomousEngineeringGoal::query()->findOrFail((string) data_get($autonomous, 'goal.id'));
+        $real = app(AtlasRealEngineeringExecutionKernelService::class);
+        $worktree = $real->createWorktree($goal, $autonomous);
+        $patch = $real->executePatch($goal, $worktree, $autonomous);
+        $facts = $this->canonicalBundle($bundle);
+        unset($facts['execution']);
+        $testRun = $real->produceKernelVerification($goal, $patch, $order,
+            [PHP_BINARY, 'artisan', 'test', 'tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php', '--filter=observation_refuses_non_canonical', '--colors=never'], $facts);
+        $persistedBundle = (array) data_get($testRun->receipt, 'acceptance_bundle');
+        $authority->issueEvidenceBundle(AcceptanceBundle::fromArray($persistedBundle), $testRun, $order, ['event_id' => 'acceptance-read-only'] + $context);
+        $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
+        $engagement = $company->createEngagement('Quality Foundry kernel verification');
+        $cycle = $company->createCycle($engagement);
         foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
-            $output = ['disposition' => $dispositions[$role]];
-            $receipt = ['role_id' => $role, 'status' => 'passed', 'evidence_refs' => ['evidence:'.$role],
-                'output' => $output, 'binding' => $this->ownerBinding($order), 'disposition' => $dispositions[$role]];
-            $receipt['hash'] = EngineeringCompanyHash::make($receipt);
-            $roleRun = AiEngineeringCompanyRoleRun::query()->create([
-                'engagement_record_id' => Str::uuid(), 'role_run_id' => 'kernel-role-'.Str::uuid(), 'role_id' => $role,
-                'status' => 'passed', 'evidence_refs' => $receipt['evidence_refs'], 'output' => $output,
-                'receipt' => $receipt, 'role_hash' => $receipt['hash'],
-            ]);
+            $roleRun = $company->recordQualityDisposition($engagement, $cycle, $order, $role, $dispositions[$role], ['evidence:'.$role]);
             $authority->issueRoleDisposition($roleRun, $order, ['event_id' => $eventId] + $context);
         }
     }
@@ -441,26 +467,21 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     }
 
     /** @param array<string,mixed> $orderData */
-    private function decisionReceipt(array $orderData): DecisionReceipt
+    private function decisionReceipt(array &$orderData): DecisionReceipt
     {
-        $issued = CarbonImmutable::now()->subSecond();
-        $expires = $issued->addHour();
-        $inputsHash = CanonicalKernelPayload::hash($orderData['authority_envelope']);
+        $envelope = app(OperationEnvelopeFactory::class)->create([
+            'operator' => ['operator_id' => 'kernel-e2e', 'tenant_id' => 'atlas'],
+            'origin' => ['surface_id' => 'kernel-test', 'session_id' => 'kernel-test'],
+            'input' => ['kind' => 'engineering', 'payload' => ['delivery_id' => $orderData['delivery_id']]],
+        ]);
+        $orderData['run_id'] = $envelope->envelopeId;
+        $this->canonicalRunId = $envelope->envelopeId;
         $metadata = ['delivery_id' => $orderData['delivery_id'], 'order_hash' => ExecutionOrder::fromArray($orderData)->canonicalHash(),
             'spec_hash' => $orderData['spec_hash'], 'roster_hash' => CanonicalKernelPayload::hash($orderData['role_roster']), 'mode' => $orderData['mode']];
-        $receiptHash = DecisionReceiptHash::hash([
-            'receipt_id' => 'kernel-decision', 'envelope_id' => $orderData['run_id'], 'schema_version' => DecisionReceipt::SCHEMA_VERSION,
-            'issued_at' => $issued->toISOString(), 'expires_at' => $expires->toISOString(), 'dry_run' => false,
-            'signed_by' => 'atlas.decide.v2', 'inputs_hash' => $inputsHash, 'parent_receipt_id' => null,
-        ]);
+        $risk = in_array($orderData['risk_class'], ['R0', 'R1'], true) ? 'low' : 'medium';
 
-        return new DecisionReceipt(
-            receiptId: 'kernel-decision', envelopeId: $orderData['run_id'], schemaVersion: DecisionReceipt::SCHEMA_VERSION,
-            issuedAt: $issued, expiresAt: $expires, dryRun: false, signedBy: 'atlas.decide.v2', domain: 'programming', flow: $orderData['mode'], risk: $orderData['risk_class'],
-            providerSelection: DecisionProviderSelection::fromArray([]), budgets: DecisionBudgets::fromArray([]), requiredGates: [], requiredEvidence: ['summary'],
-            repairPolicy: DecisionRepairPolicy::fromArray(['enabled' => false]), inputsHash: $inputsHash, receiptHash: $receiptHash,
-            parentReceiptId: null, chainHash: DecisionReceiptHash::hash(['parent_chain_hash' => null, 'receipt_hash' => $receiptHash]), metadata: $metadata,
-        );
+        return app(DecisionReceiptIssuer::class)->issue($envelope, ['ttl_seconds' => 3600, 'domain' => 'programming',
+            'flow' => 'atlas.'.$orderData['mode'], 'risk' => $risk, 'required_evidence' => ['summary'], 'metadata' => $metadata]);
     }
 }
 

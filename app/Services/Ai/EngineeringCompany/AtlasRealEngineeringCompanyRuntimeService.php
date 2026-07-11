@@ -10,6 +10,7 @@ use App\Models\AiEngineeringCompanyQaRun;
 use App\Models\AiEngineeringCompanyReleasePack;
 use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
+use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -23,6 +24,8 @@ class AtlasRealEngineeringCompanyRuntimeService
     public const CYCLE_SCHEMA = 'atlas.ai.engineering_company.cycle.v1';
 
     public const ROLE_SCHEMA = 'atlas.ai.engineering_company.role_run.v1';
+
+    public const QUALITY_ROLE_PRODUCER = 'atlas.engineering_company.quality_role.v1';
 
     public const REVIEW_SCHEMA = 'atlas.ai.engineering_company.review.v1';
 
@@ -243,6 +246,49 @@ class AtlasRealEngineeringCompanyRuntimeService
             'receipt' => $receipt,
             'role_hash' => $receipt['hash'],
         ]);
+    }
+
+    /** @param array<string,mixed> $disposition @param list<string> $evidenceRefs */
+    public function recordQualityDisposition(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, ExecutionOrder $order, string $roleId, array $disposition, array $evidenceRefs): AiEngineeringCompanyRoleRun
+    {
+        if (! $engagement->exists || ! $cycle->exists || ! in_array($roleId, self::QUALITY_ROLES, true)
+            || $evidenceRefs === [] || ! in_array($disposition['status'] ?? null, ['pass', 'block', 'not_applicable'], true)) {
+            throw new \InvalidArgumentException('quality_role_disposition_invalid');
+        }
+        $roleRunId = 'aecompquality_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $cycle->cycle_id, $roleId, microtime(true)]), 0, 22);
+        $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
+            'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()];
+        $output = ['disposition' => $disposition];
+        $receipt = ['schema_version' => self::ROLE_SCHEMA, 'role_run_id' => $roleRunId, 'role_id' => $roleId,
+            'status' => 'passed', 'output' => $output, 'evidence_refs' => $evidenceRefs, 'binding' => $binding, 'disposition' => $disposition];
+        $receipt['producer'] = $this->qualityProducerSeal($receipt);
+        $receipt['hash'] = EngineeringCompanyHash::make($receipt);
+
+        return AiEngineeringCompanyRoleRun::query()->create([
+            'engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(), 'role_run_id' => $roleRunId,
+            'role_id' => $roleId, 'status' => 'passed', 'responsibilities' => [], 'output' => $output,
+            'evidence_refs' => $evidenceRefs, 'receipt' => $receipt, 'role_hash' => $receipt['hash'],
+        ]);
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,string> */
+    private function qualityProducerSeal(array $payload): array
+    {
+        $key = $this->qualityProducerKeyMaterial();
+        $domain = self::QUALITY_ROLE_PRODUCER;
+        $seal = ['domain' => $domain, 'key_id' => 'app-key-'.substr(hash('sha256', $key), 0, 16), 'payload_hash' => EngineeringCompanyHash::make($payload)];
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+        $seal['signature'] = hash_hmac('sha256', EngineeringCompanyHash::make($seal), hash_hmac('sha256', $domain, $authorityKey, true));
+
+        return $seal;
+    }
+
+    private function qualityProducerKeyMaterial(): string
+    {
+        $key = (string) config('app.key');
+        $decoded = str_starts_with($key, 'base64:') ? base64_decode(substr($key, 7), true) : $key;
+
+        return is_string($decoded) ? $decoded : '';
     }
 
     /**

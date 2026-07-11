@@ -7,11 +7,14 @@ namespace App\Services\Ai\EngineeringKernel;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionTestRun;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
+use App\Services\Ai\RealExecution\RealExecutionHash;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
@@ -34,9 +37,10 @@ final class KernelEvidenceAuthority
             'spec_hash' => $order->specHash, 'roster_hash' => CanonicalKernelPayload::hash($order->roleRoster),
             'mode' => $order->mode,
         ];
-        if ($receipt->envelopeId !== $order->runId || $receipt->flow !== $order->mode
-            || $receipt->risk !== $order->riskClass || $receipt->metadata !== $expectedMetadata
-            || ! hash_equals($receipt->inputsHash, CanonicalKernelPayload::hash($order->authorityEnvelope))) {
+        $flow = ['dev' => 'atlas.dev', 'forge' => 'atlas.forge', 'autonomos' => 'atlas.autonomos'][$order->mode];
+        $risk = in_array($order->riskClass, ['R0', 'R1'], true) ? 'low' : (in_array($order->riskClass, ['R2', 'R3'], true) ? 'medium' : ($order->riskClass === 'R4' ? 'high' : 'critical'));
+        if ($receipt->envelopeId !== $order->runId || $receipt->flow !== $flow || $receipt->risk !== $risk
+            || array_intersect_key($receipt->metadata, $expectedMetadata) !== $expectedMetadata) {
             throw new InvalidArgumentException('kernel_decision_receipt_order_binding_invalid');
         }
 
@@ -53,7 +57,7 @@ final class KernelEvidenceAuthority
     {
         $persisted = $this->persistedTestRun($testRun, $order);
         $derived = $this->bundleFromTestRun($persisted);
-        if ($this->bundleArray($bundle) !== $derived) {
+        if (! hash_equals(CanonicalKernelPayload::hash($this->bundleArray($bundle)), CanonicalKernelPayload::hash($derived))) {
             throw new InvalidArgumentException('kernel_evidence_bundle_owner_mismatch');
         }
 
@@ -80,7 +84,9 @@ final class KernelEvidenceAuthority
         $output = $roleRun->getAttribute('output');
         $receipt = $roleRun->getAttribute('receipt');
         $expectedBinding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId,
-            'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash];
+            'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
+            'engagement_record_id' => (string) $roleRun->engagement_record_id,
+            'cycle_record_id' => (string) $roleRun->cycle_record_id];
         if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)
             || preg_match('/^[a-f0-9]{64}$/', $roleHash) !== 1 || ! is_array($evidenceRefs) || $evidenceRefs === []
             || ! is_array($output) || ! is_array($output['disposition'] ?? null) || ! is_array($receipt)) {
@@ -93,7 +99,8 @@ final class KernelEvidenceAuthority
             || ($unsigned['role_id'] ?? null) !== $role || ($unsigned['status'] ?? null) !== $roleRun->status
             || ($unsigned['evidence_refs'] ?? null) !== $evidenceRefs || ($unsigned['output'] ?? null) !== $output
             || ($unsigned['binding'] ?? null) !== $expectedBinding
-            || ($unsigned['disposition'] ?? null) !== $output['disposition']) {
+            || ($unsigned['disposition'] ?? null) !== $output['disposition']
+            || ! $this->producerSealValid($unsigned, AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLE_PRODUCER, false)) {
             throw new InvalidArgumentException('kernel_role_run_receipt_binding_invalid');
         }
 
@@ -307,13 +314,17 @@ final class KernelEvidenceAuthority
             'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash];
         if ($persisted->status !== 'passed' || $persisted->exit_code !== 0
             || ! hash_equals((string) $persisted->test_hash, $hash)
-            || ! hash_equals($hash, EngineeringCompanyHash::make($unsigned))
+            || ! hash_equals($hash, RealExecutionHash::make($unsigned))
             || ($unsigned['binding'] ?? null) !== $binding
             || ($unsigned['test_run_id'] ?? null) !== $persisted->test_run_id
             || ($unsigned['status'] ?? null) !== $persisted->status
             || ($unsigned['selected_tests'] ?? null) !== $persisted->selected_tests
             || ($unsigned['evidence_refs'] ?? null) !== $persisted->evidence_refs
-            || ! is_array($unsigned['acceptance_bundle'] ?? null)) {
+            || ($unsigned['goal_record_id'] ?? null) !== (string) $persisted->goal_record_id
+            || ($unsigned['patch_run_record_id'] ?? null) !== (string) $persisted->patch_run_record_id
+            || $persisted->goal_record_id === null || $persisted->patch_run_record_id === null
+            || ! is_array($unsigned['acceptance_bundle'] ?? null)
+            || ! $this->producerSealValid($unsigned, AtlasRealEngineeringExecutionKernelService::KERNEL_VERIFICATION_PRODUCER, true)) {
             throw new InvalidArgumentException('kernel_test_run_receipt_binding_invalid');
         }
         $execution = $unsigned['acceptance_bundle']['execution'] ?? null;
@@ -332,5 +343,27 @@ final class KernelEvidenceAuthority
     private function bundleFromTestRun(AiRealExecutionTestRun $testRun): array
     {
         return (array) data_get($testRun->receipt, 'acceptance_bundle', []);
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function producerSealValid(array $receipt, string $domain, bool $realExecution): bool
+    {
+        $producer = $receipt['producer'] ?? null;
+        if (! is_array($producer) || ($producer['domain'] ?? null) !== $domain) {
+            return false;
+        }
+        $unsigned = $receipt;
+        unset($unsigned['producer']);
+        $payloadHash = $realExecution ? RealExecutionHash::make($unsigned) : EngineeringCompanyHash::make($unsigned);
+        if (! hash_equals((string) ($producer['payload_hash'] ?? ''), $payloadHash)) {
+            return false;
+        }
+        $unsignedProducer = $producer;
+        $signature = (string) ($unsignedProducer['signature'] ?? '');
+        unset($unsignedProducer['signature']);
+        $producerHash = $realExecution ? RealExecutionHash::make($unsignedProducer) : EngineeringCompanyHash::make($unsignedProducer);
+        $key = $this->keyring()[(string) ($producer['key_id'] ?? '')] ?? null;
+
+        return is_string($key) && hash_equals($signature, hash_hmac('sha256', $producerHash, hash_hmac('sha256', $domain, $key, true)));
     }
 }

@@ -15,6 +15,7 @@ use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\JsonFileStore;
@@ -29,6 +30,8 @@ class AtlasRealEngineeringExecutionKernelService
     public const PATCH_SCHEMA = 'atlas.ai.real_execution.patch_run.v1';
 
     public const TEST_SCHEMA = 'atlas.ai.real_execution.test_run.v1';
+
+    public const KERNEL_VERIFICATION_PRODUCER = 'atlas.real_execution.kernel_verification.v1';
 
     public const REPAIR_SCHEMA = 'atlas.ai.real_execution.repair_attempt.v1';
 
@@ -239,6 +242,70 @@ class AtlasRealEngineeringExecutionKernelService
             'receipt' => $receipt,
             'test_hash' => $receipt['hash'],
         ]);
+    }
+
+    /**
+     * Runs a bounded real test command and persists certifying evidence. The lint-only
+     * runImpactedTests path intentionally never calls this producer.
+     *
+     * @param  list<string>  $command
+     * @param  array<string,mixed>  $acceptanceFacts
+     */
+    public function produceKernelVerification(AiAutonomousEngineeringGoal $goal, AiRealExecutionPatchRun $patch, ExecutionOrder $order, array $command, array $acceptanceFacts): AiRealExecutionTestRun
+    {
+        if (! $goal->exists || ! $patch->exists || $command === []) {
+            throw new \InvalidArgumentException('kernel_verification_owner_invalid');
+        }
+        $process = new Process($command, base_path());
+        $process->setTimeout(60);
+        $process->run();
+        $output = trim($process->getOutput()."\n".$process->getErrorOutput());
+        preg_match('/Tests:\s+(?:\d+\s+passed[^\(]*\()?\s*(\d+)\s+assertions?/i', $output, $assertionsMatch);
+        preg_match('/Tests:\s+(\d+)\s+passed/i', $output, $testsMatch);
+        $tests = (int) ($testsMatch[1] ?? 0);
+        $assertions = (int) ($assertionsMatch[1] ?? 0);
+        if (! $process->isSuccessful() || $tests < 1 || $assertions < 1) {
+            throw new \RuntimeException('kernel_verification_suite_not_proven');
+        }
+        $testRunId = 'aerekernel_'.substr(RealExecutionHash::make([$goal->goal_id, $patch->patch_run_id, microtime(true)]), 0, 24);
+        $selectedTests = [implode(' ', $command)];
+        $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash];
+        $bundle = $acceptanceFacts;
+        $bundle['execution'] = ['commands' => $selectedTests, 'claimed_status' => 'passed', 'tests_run' => $tests,
+            'assertions_executed' => $assertions, 'selected_tests' => $selectedTests, 'artifacts' => []];
+        $receipt = ['schema_version' => self::TEST_SCHEMA, 'test_run_id' => $testRunId, 'status' => 'passed',
+            'selected_tests' => $selectedTests, 'evidence_refs' => ['process:'.hash('sha256', $output)],
+            'binding' => $binding, 'acceptance_bundle' => $bundle,
+            'goal_record_id' => (string) $goal->getKey(), 'patch_run_record_id' => (string) $patch->getKey()];
+        $receipt['producer'] = $this->producerSeal(self::KERNEL_VERIFICATION_PRODUCER, $receipt);
+        $receipt['hash'] = RealExecutionHash::make($receipt);
+
+        return AiRealExecutionTestRun::query()->create([
+            'goal_record_id' => $goal->getKey(), 'patch_run_record_id' => $patch->getKey(), 'test_run_id' => $testRunId,
+            'status' => 'passed', 'selected_tests' => $selectedTests, 'impact_reasoning' => ['strategy' => 'real_bounded_suite'],
+            'exit_code' => 0, 'output_excerpt' => $output, 'evidence_refs' => $receipt['evidence_refs'],
+            'receipt' => $receipt, 'test_hash' => $receipt['hash'],
+        ]);
+    }
+
+    /** @param array<string,mixed> $payload @return array<string,string> */
+    private function producerSeal(string $domain, array $payload): array
+    {
+        $key = $this->producerKeyMaterial();
+        $keyId = 'app-key-'.substr(hash('sha256', $key), 0, 16);
+        $seal = ['domain' => $domain, 'key_id' => $keyId, 'payload_hash' => RealExecutionHash::make($payload)];
+        $authorityKey = hash_hmac('sha256', 'atlas.engineering_kernel.evidence_authority.v1', $key, true);
+        $seal['signature'] = hash_hmac('sha256', RealExecutionHash::make($seal), hash_hmac('sha256', $domain, $authorityKey, true));
+
+        return $seal;
+    }
+
+    private function producerKeyMaterial(): string
+    {
+        $key = (string) config('app.key');
+        $decoded = str_starts_with($key, 'base64:') ? base64_decode(substr($key, 7), true) : $key;
+
+        return is_string($decoded) ? $decoded : '';
     }
 
     public function repair(AiAutonomousEngineeringGoal $goal, AiRealExecutionPatchRun $patch, AiRealExecutionTestRun $test): AiRealExecutionRepairAttempt
