@@ -10,7 +10,11 @@ use App\Models\AtlasAemorExecutionEvent;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasIntelligenceFactoryCapability;
 use App\Models\AtlasIntelligenceFactoryEvolutionEvent;
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use Illuminate\Support\Str;
 use Tests\Concerns\CreatesAemorTables;
 use Tests\Concerns\CreatesIntelligenceFactoryTables;
 use Tests\TestCase;
@@ -25,10 +29,12 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         parent::setUp();
         $this->createAemorTables();
         $this->createIntelligenceFactoryTables();
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
     }
 
     protected function tearDown(): void
     {
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->down();
         $this->dropIntelligenceFactoryTables();
         $this->dropAemorTables();
         parent::tearDown();
@@ -124,15 +130,14 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
             'episode_id' => $episode['episode_id'],
             'status' => 'succeeded',
             'summary' => 'Run targeted tests before completion.',
-            'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
-            'evidence_refs' => ['test:green'],
+            'evidence_refs' => [$this->verifiedEvidenceRef('test:green')],
         ]);
 
         $distill = $runtime->distill([
             'episode_id' => $episode['episode_id'],
             'outcome_id' => $outcome['outcome_id'],
             'claim' => 'Run targeted tests before completion.',
-            'evidence_refs' => ['test:green'],
+            'evidence_refs' => [$this->verifiedEvidenceRef('test:green')],
         ]);
 
         $this->assertSame('candidate', $distill['status']);
@@ -156,15 +161,14 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
             'episode_id' => $episode['episode_id'],
             'status' => 'succeeded',
             'summary' => 'Rare billing telemetry workflow should become a reusable skill candidate.',
-            'metrics' => ['tests_passed' => true, 'attribution_reviewed' => true],
-            'evidence_refs' => ['test:skill-candidate'],
+            'evidence_refs' => [$this->verifiedEvidenceRef('test:skill-candidate')],
         ]);
 
         $distill = $runtime->distill([
             'episode_id' => $episode['episode_id'],
             'outcome_id' => $outcome['outcome_id'],
             'claim' => 'Rare billing telemetry workflow should become a reusable skill candidate.',
-            'evidence_refs' => ['test:skill-candidate'],
+            'evidence_refs' => [$this->verifiedEvidenceRef('test:skill-candidate')],
             'propose_skill_candidate' => true,
         ]);
 
@@ -202,7 +206,7 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         ]);
 
         $this->assertSame('blocked', $distill['status']);
-        $this->assertContains('success_without_test_or_gate_evidence', data_get($distill, 'promotion_gate.blockers', []));
+        $this->assertContains('metrics_not_verified', data_get($distill, 'promotion_gate.blockers', []));
         $this->assertNull(data_get($distill, 'memory_candidate_id'));
         $this->assertNull(data_get($distill, 'memory_delta_id'));
         $this->assertDatabaseCount('atlas_aemor_memory_candidates', 0);
@@ -221,5 +225,30 @@ final class AtlasAemorRuntimeServiceTest extends TestCase
         $this->assertSame(AtlasAemorRuntimeService::REPLAY_SCHEMA, $replay['schema_version']);
         $this->assertCount(1, $replay['event_hashes']);
         $this->assertContains('verify_hashes', $replay['replay_steps']);
+    }
+
+    private function verifiedEvidenceRef(string $label): string
+    {
+        $eventId = (string) Str::ulid();
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $eventId,
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'env-'.$label,
+            'correlation_id' => 'corr-'.$label,
+            'event_type' => LedgerEventType::GatePassed->value,
+            'emitter_stage' => 'atlas.aemor',
+            'emitter_version' => 'v1',
+            'payload' => [
+                'tests_passed' => true,
+                'attribution_reviewed' => true,
+                'label' => $label,
+            ],
+            'payload_hash' => hash('sha256', $label),
+            'occurred_at' => now(),
+        ]);
+
+        return 'ledger:'.$eventId;
     }
 }

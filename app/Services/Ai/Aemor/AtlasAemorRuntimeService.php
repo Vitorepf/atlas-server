@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aemor;
 
 use App\Models\AiMemoryDelta;
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasAemorExecutionEpisode;
 use App\Models\AtlasAemorExecutionEvent;
 use App\Models\AtlasAemorLearningSignal;
 use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasAemorOutcome;
+use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Skills\AtlasSkillEvolutionRuntimeService;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -145,6 +148,10 @@ final class AtlasAemorRuntimeService
 
         $evidenceRefs = AiStringListNormalizer::trimmedScalarValuesFromArrayCast($input['evidence_refs'] ?? []);
         $status = $this->stringValue($input['status'] ?? null) ?? ($evidenceRefs === [] ? 'blocked' : 'succeeded');
+        $metrics = $this->normalizeOutcomeMetrics(
+            is_array($input['metrics'] ?? null) ? $input['metrics'] : [],
+            $evidenceRefs,
+        );
         $outcome = [
             'episode_id' => $episode->id,
             'schema_version' => self::OUTCOME_SCHEMA,
@@ -152,7 +159,7 @@ final class AtlasAemorRuntimeService
             'outcome_type' => $this->stringValue($input['outcome_type'] ?? null) ?? ($status === 'succeeded' ? 'success' : 'failure'),
             'failure_signature' => $this->failureSignature($input, $episode),
             'summary' => $this->stringValue($input['summary'] ?? null) ?? 'AEMOR outcome closed.',
-            'metrics' => is_array($input['metrics'] ?? null) ? $input['metrics'] : [],
+            'metrics' => $metrics,
             'blockers' => $evidenceRefs === [] ? [['id' => 'missing_evidence_refs', 'reason' => 'AEMOR never closes a trustworthy outcome without evidence refs.']] : (is_array($input['blockers'] ?? null) ? $input['blockers'] : []),
             'evidence_refs' => $evidenceRefs,
             'context_utility' => is_array($input['context_utility'] ?? null) ? $input['context_utility'] : $this->defaultContextUtility($episode),
@@ -178,6 +185,8 @@ final class AtlasAemorRuntimeService
             'evidence_refs' => $evidenceRefs,
             'blockers' => $outcome['blockers'],
             'intelligence_factory_evolution' => $intelligenceFactoryEvolution,
+            'metrics_verified' => (bool) data_get($metrics, 'metrics_verified', false),
+            'metrics_provenance' => data_get($metrics, 'provenance'),
             'claim_policy' => $this->claimPolicy(),
         ];
     }
@@ -534,16 +543,19 @@ final class AtlasAemorRuntimeService
             $blockers[] = 'outcome_blocked';
         }
 
-        // Anti-false-learning invariants: a succeeded outcome must carry
-        // proof it was verified (tests_passed) and reviewed (attribution_reviewed)
-        // or the promotion gate blocks — no durable memory without real evidence.
+        // Anti-false-learning invariants: promotion trusts metrics_verified only —
+        // caller claims without resolvable evidence never auto-promote as verified.
         if ($outcome->status === 'succeeded') {
             $metrics = is_array($outcome->metrics) ? $outcome->metrics : [];
-            if (empty($metrics['tests_passed'])) {
-                $blockers[] = 'success_without_test_or_gate_evidence';
-            }
-            if (empty($metrics['attribution_reviewed'])) {
-                $blockers[] = 'unreviewed_alternative_explanations';
+            if (empty($metrics['metrics_verified'])) {
+                $blockers[] = 'metrics_not_verified';
+            } else {
+                if (empty($metrics['tests_passed'])) {
+                    $blockers[] = 'success_without_test_or_gate_evidence';
+                }
+                if (empty($metrics['attribution_reviewed'])) {
+                    $blockers[] = 'unreviewed_alternative_explanations';
+                }
             }
         }
 
@@ -555,6 +567,157 @@ final class AtlasAemorRuntimeService
             'blockers' => $blockers,
             'evidence_refs' => $evidenceRefs,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $callerMetrics
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function normalizeOutcomeMetrics(array $callerMetrics, array $evidenceRefs): array
+    {
+        $resolved = $this->resolveVerifiedMetricsFromEvidence($evidenceRefs);
+        $nonVerificationMetrics = array_diff_key(
+            $callerMetrics,
+            array_flip(['tests_passed', 'attribution_reviewed', 'metrics_verified', 'provenance', 'caller_claims', 'resolved_evidence_refs']),
+        );
+
+        if ($resolved['verified']) {
+            return array_merge($nonVerificationMetrics, $resolved['metrics'], [
+                'metrics_verified' => true,
+                'provenance' => 'evidence_resolved',
+                'resolved_evidence_refs' => $resolved['resolved_refs'],
+            ]);
+        }
+
+        $callerClaims = array_filter([
+            'tests_passed' => data_get($callerMetrics, 'tests_passed'),
+            'attribution_reviewed' => data_get($callerMetrics, 'attribution_reviewed'),
+        ], static fn (mixed $value): bool => $value !== null);
+
+        return array_merge($nonVerificationMetrics, [
+            'metrics_verified' => false,
+            'provenance' => 'caller_claim',
+            'caller_claims' => $callerClaims,
+        ]);
+    }
+
+    /**
+     * @param  list<string>  $evidenceRefs
+     * @return array{verified:bool,metrics:array{tests_passed:bool,attribution_reviewed:bool},resolved_refs:list<string>}
+     */
+    private function resolveVerifiedMetricsFromEvidence(array $evidenceRefs): array
+    {
+        $testsPassed = false;
+        $attributionReviewed = false;
+        $resolvedRefs = [];
+
+        foreach ($evidenceRefs as $evidenceRef) {
+            $ref = trim((string) $evidenceRef);
+            if ($ref === '') {
+                continue;
+            }
+
+            $receiptProof = $this->resolveGreenTestRunReceiptRef($ref);
+            if ($receiptProof !== null) {
+                $testsPassed = $testsPassed || $receiptProof['tests_passed'];
+                $attributionReviewed = $attributionReviewed || $receiptProof['attribution_reviewed'];
+                $resolvedRefs[] = $ref;
+
+                continue;
+            }
+
+            $ledgerProof = $this->resolveLedgerVerificationRef($ref);
+            if ($ledgerProof !== null) {
+                $testsPassed = $testsPassed || $ledgerProof['tests_passed'];
+                $attributionReviewed = $attributionReviewed || $ledgerProof['attribution_reviewed'];
+                $resolvedRefs[] = $ref;
+            }
+        }
+
+        return [
+            'verified' => $testsPassed,
+            'metrics' => [
+                'tests_passed' => $testsPassed,
+                'attribution_reviewed' => $attributionReviewed,
+            ],
+            'resolved_refs' => array_values(array_unique($resolvedRefs)),
+        ];
+    }
+
+    /**
+     * @return array{tests_passed:bool,attribution_reviewed:bool}|null
+     */
+    private function resolveGreenTestRunReceiptRef(string $ref): ?array
+    {
+        if (! DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts')) {
+            return null;
+        }
+
+        $id = str_starts_with($ref, 'test_run_receipt:')
+            ? substr($ref, strlen('test_run_receipt:'))
+            : $ref;
+        if (! Str::isUuid($id)) {
+            return null;
+        }
+
+        $receipt = AtlasAaeosTestRunReceipt::query()->find($id);
+        if (! $receipt instanceof AtlasAaeosTestRunReceipt || ! $receipt->passed || (int) $receipt->tests_run < 1) {
+            return null;
+        }
+
+        return [
+            'tests_passed' => true,
+            'attribution_reviewed' => (bool) data_get($receipt->metadata, 'attribution_reviewed'),
+        ];
+    }
+
+    /**
+     * @return array{tests_passed:bool,attribution_reviewed:bool}|null
+     */
+    private function resolveLedgerVerificationRef(string $ref): ?array
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        $needle = str_starts_with($ref, 'ledger:') ? substr($ref, strlen('ledger:')) : $ref;
+        if ($needle === '') {
+            return null;
+        }
+
+        $event = AtlasLedgerEvent::query()
+            ->where(function ($query) use ($needle): void {
+                $query->where('event_id', $needle)->orWhere('receipt_id', $needle);
+            })
+            ->first();
+
+        return $event instanceof AtlasLedgerEvent ? $this->ledgerEventVerificationProof($event) : null;
+    }
+
+    /**
+     * @return array{tests_passed:bool,attribution_reviewed:bool}|null
+     */
+    private function ledgerEventVerificationProof(AtlasLedgerEvent $event): ?array
+    {
+        $payload = is_array($event->payload) ? $event->payload : [];
+        $eventType = (string) $event->event_type;
+
+        if ($eventType === LedgerEventType::GatePassed->value) {
+            return [
+                'tests_passed' => (bool) (data_get($payload, 'tests_passed') ?? data_get($payload, 'gate_passed') ?? true),
+                'attribution_reviewed' => (bool) data_get($payload, 'attribution_reviewed', false),
+            ];
+        }
+
+        if ((bool) data_get($payload, 'tests_passed') || (bool) data_get($payload, 'verification_passed')) {
+            return [
+                'tests_passed' => true,
+                'attribution_reviewed' => (bool) data_get($payload, 'attribution_reviewed', false),
+            ];
+        }
+
+        return null;
     }
 
     private function failureSignature(array $input, AtlasAemorExecutionEpisode $episode): ?string
