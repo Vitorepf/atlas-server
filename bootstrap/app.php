@@ -83,6 +83,7 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasCognitionRemintTouchedCommand;
 use App\Console\Commands\AtlasCognitionVerifyClaimsCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
@@ -122,6 +123,7 @@ use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasIntelligenceRolloutPromoteCommand;
 use App\Console\Commands\AtlasLearnProjectCommand;
+use App\Console\Commands\AtlasMemoryBackfillMetadataCommand;
 use App\Console\Commands\AtlasMemoryCurateCommand;
 use App\Console\Commands\AtlasMemoryFeedbackCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
@@ -296,6 +298,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingResumeCommand::class,
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
+        AtlasMemoryBackfillMetadataCommand::class,
         AtlasMemoryCurateCommand::class,
         AtlasMemoryFeedbackCommand::class,
         AtlasMemoryMaintenanceCommand::class,
@@ -354,6 +357,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualSmokeCommand::class,
         AtlasForgeMultiNodeL410ProofCommand::class,
         AtlasCognitiveFunctionDecomposeCommand::class,
+        AtlasCognitionRemintTouchedCommand::class,
         AtlasCognitionVerifyClaimsCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,

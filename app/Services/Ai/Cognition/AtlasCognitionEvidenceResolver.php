@@ -214,6 +214,71 @@ class AtlasCognitionEvidenceResolver
         return array_values(array_unique($ids));
     }
 
+    /**
+     * Inverse ownership lookup for PIP-04: touched relative paths -> owner doc
+     * capability ids. Degrade-safe: blind index / resolver errors simply withhold
+     * ownership for that path.
+     *
+     * @param  list<string>  $paths
+     * @return array<string,list<string>>
+     */
+    public function ownerCapabilityIdsForPaths(array $paths): array
+    {
+        $targets = [];
+        foreach ($paths as $path) {
+            $normalized = $this->normalizePath($path);
+            if ($normalized !== '') {
+                $targets[$normalized] = [];
+            }
+        }
+        if ($targets === []) {
+            return [];
+        }
+
+        try {
+            $docs = $this->truth->docsWithEvidence();
+        } catch (Throwable) {
+            return array_fill_keys(array_keys($targets), []);
+        }
+
+        foreach ($docs as $doc) {
+            $capabilityId = trim((string) ($doc['id'] ?? ''));
+            if ($capabilityId === '') {
+                continue;
+            }
+
+            $ownerDoc = $this->normalizePath((string) ($doc['path'] ?? ''));
+            if ($ownerDoc !== '' && array_key_exists($ownerDoc, $targets)) {
+                $targets[$ownerDoc][] = $capabilityId;
+            }
+
+            foreach ((array) ($doc['evidence_refs'] ?? []) as $ref) {
+                if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'symbol') {
+                    continue;
+                }
+
+                try {
+                    $filePaths = $this->resolver->resolveSymbolFilePaths((string) ($ref['ref'] ?? ''));
+                } catch (Throwable) {
+                    $filePaths = [];
+                }
+
+                foreach ($filePaths as $filePath) {
+                    $normalized = $this->normalizePath($filePath);
+                    if ($normalized !== '' && array_key_exists($normalized, $targets)) {
+                        $targets[$normalized][] = $capabilityId;
+                    }
+                }
+            }
+        }
+
+        foreach ($targets as $path => $ids) {
+            $targets[$path] = array_values(array_unique($ids));
+        }
+
+        return $targets;
+    }
+
     private function ownerDocsForFqn(string $fqn): array
     {
         $short = $this->classBasename($fqn);
@@ -372,5 +437,18 @@ class AtlasCognitionEvidenceResolver
         }
 
         return $ref;
+    }
+
+    private function normalizePath(string $path): string
+    {
+        $path = str_replace('\\', '/', trim($path));
+        if ($path === '') {
+            return '';
+        }
+        if (str_starts_with($path, base_path())) {
+            $path = substr($path, strlen(base_path()));
+        }
+
+        return ltrim($path, '/');
     }
 }

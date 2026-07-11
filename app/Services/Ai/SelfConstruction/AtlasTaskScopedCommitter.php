@@ -6,6 +6,7 @@ namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
+use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
@@ -49,6 +50,7 @@ final class AtlasTaskScopedCommitter
         private readonly ?EliteExecutorKernel $eliteKernel = null,
         private readonly ?AtlasArtisanBootSmokeGate $bootSmokeGate = null,
         private readonly ?AtlasLoopMergeActuator $mergeActuator = null,
+        private readonly ?AtlasCognitionRemintTouchedQueue $remintTouchedQueue = null,
     ) {}
 
     /**
@@ -137,6 +139,10 @@ final class AtlasTaskScopedCommitter
             }
 
             $sha = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
+            $remintTouchedQueue = $this->enqueueRemintTouchedForLanding($files, $taskPacketId, [
+                'commit_sha' => $sha,
+                'client_id' => $clientId,
+            ]);
 
             return $this->result(true, 'committed', taskPacketId: $taskPacketId, extra: array_filter([
                 'commit_sha' => $sha,
@@ -144,6 +150,7 @@ final class AtlasTaskScopedCommitter
                 'client_id' => $clientId,
                 'landing_certify' => $certify,
                 'boot_smoke' => ($bootSmoke['warning'] ?? null) !== null ? $bootSmoke : null,
+                'remint_touched_queue' => $remintTouchedQueue,
             ], static fn (mixed $v): bool => $v !== null));
         };
 
@@ -154,6 +161,29 @@ final class AtlasTaskScopedCommitter
     public function withGovernedCommitLock(callable $callback): array
     {
         return $this->withCommitLock($this->repoRoot(), $callback);
+    }
+
+    /**
+     * PIP-04: queue touched-path re-minting outside the commit path. Fail-open:
+     * queue errors are reported in the commit receipt but never block landing.
+     *
+     * @param  list<string>  $paths
+     * @param  array<string,mixed>  $metadata
+     * @return array<string,mixed>
+     */
+    public function enqueueRemintTouchedForLanding(array $paths, string $taskPacketId, array $metadata = []): array
+    {
+        try {
+            return ($this->remintTouchedQueue ?? app(AtlasCognitionRemintTouchedQueue::class))
+                ->enqueue($paths, $taskPacketId, $metadata);
+        } catch (Throwable $e) {
+            return [
+                'queued' => false,
+                'reason' => 'queue_error_fail_open',
+                'mode' => 'deferred_disk_queue',
+                'error' => mb_substr($e->getMessage(), 0, 200),
+            ];
+        }
     }
 
     /**
