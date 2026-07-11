@@ -92,6 +92,15 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertFalse($first->claimEligible);
         $this->assertSame(3, AiEngineeringCompanyRoleRun::query()->where('status', 'passed')->count());
         $this->assertSame(19, AiEngineeringCompanyRoleRun::query()->where('status', 'not_applicable')->count());
+        $bundle = (array) data_get(app(AtlasEvidenceLedger::class)->eventById('acceptance-read-only')?->payload, 'acceptance_bundle');
+        $this->assertFalse((bool) data_get($bundle, 'security_scan.ran'));
+        $this->assertSame([], $bundle['judges']);
+        $auditSigner = data_get(AiEngineeringCompanyRoleRun::query()->where('role_id', 'evidence_audit')->first()?->output, 'disposition.signer_context');
+        $finalSigner = data_get(AiEngineeringCompanyRoleRun::query()->where('role_id', 'final_certification')->first()?->output, 'disposition.signer_context');
+        $this->assertNotSame($auditSigner, $finalSigner);
+        $facts = AiEngineeringCompanyRoleRun::query()->get()->sum(static fn (AiEngineeringCompanyRoleRun $run): int => count(array_filter((array) data_get($run->output, 'disposition.probe_facts', []))));
+        $total = AiEngineeringCompanyRoleRun::query()->get()->sum(static fn (AiEngineeringCompanyRoleRun $run): int => count((array) data_get($run->output, 'disposition.probe_facts', [])));
+        $this->assertSame((int) floor(($facts / $total) * 100), $bundle['context_sufficiency']);
     }
 
     public function test_reusing_idempotency_key_with_changed_order_hash_is_refused(): void
@@ -300,6 +309,12 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertFalse(app(ReadOnlyQualityCourt::class)->dispositionValid($order, $test, 'appsec_privacy', $author));
     }
 
+    public function test_insufficient_explicit_applicability_cannot_reach_final_certifier(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->orderData(seedEvidence: true, completeApplicability: false);
+    }
+
     public function test_previous_keyring_verifies_seal_after_app_key_rotation(): void
     {
         $this->orderData();
@@ -394,7 +409,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     }
 
     /** @return array<string,mixed> */
-    private function orderData(bool $seedEvidence = true): array
+    private function orderData(bool $seedEvidence = true, bool $completeApplicability = true): array
     {
         $roles = [];
         $dispositions = [];
@@ -407,6 +422,19 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             ];
         }
         $authority = ['kind' => 'read_only'];
+        $applicability = [
+            'product_strategy' => 'no_product_behavior_change', 'product_management' => 'no_delivery_scope_change',
+            'domain_research' => 'no_domain_assumption_change', 'ux_research' => 'no_user_experience_change',
+            'interaction_design' => 'no_interaction_change', 'visual_design' => 'no_visual_change', 'architecture' => 'no_architecture_change',
+            'backend' => 'no_backend_change', 'frontend' => 'no_frontend_change', 'mobile' => 'no_mobile_change', 'data' => 'no_data_or_schema_change',
+            'appsec_privacy' => 'no_mutation_security_applicability_scan', 'performance_resilience' => 'no_runtime_path_change',
+            'devops_sre' => 'no_infrastructure_change', 'observability' => 'no_observable_runtime_change', 'release' => 'release_policy_none_read_only',
+            'documentation_dx' => 'no_public_contract_or_dx_change', 'maintenance_simplification' => 'no_code_change',
+            'outcome_analysis' => 'completed_read_only_has_no_production_outcome',
+        ];
+        if (! $completeApplicability) {
+            unset($applicability['appsec_privacy']);
+        }
 
         $data = [
             'schema_version' => 'atlas.execution_order.v2',
@@ -426,7 +454,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'forbidden_scope' => ['.env'],
             'authority_envelope' => $authority,
             'decision_receipt' => ['decision_event_id' => 'decision-read-only'],
-            'operator_contract' => ['presence' => 'intent_and_authority'],
+            'operator_contract' => ['presence' => 'intent_and_authority', 'applicability' => $applicability],
             'role_roster' => $roles,
             'provider_route' => ['provider' => 'none', 'model' => 'none'],
             'tool_permissions' => ['read' => true, 'mutate' => false],
@@ -493,7 +521,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $cycle = $company->createCycle($engagement);
         $roleRuns = [];
         foreach ($orderData['evidence_policy']['role_disposition_event_ids'] as $role => $eventId) {
-            $roleRun = $company->executeQualityRole($engagement, $cycle, $order, $role, $testRun);
+            $roleRun = $company->executeQualityRole($engagement, $cycle, $order, $role, $testRun, $roleRuns);
             $roleRuns[] = $roleRun;
             $authority->issueRoleDisposition($roleRun, $order, ['event_id' => $eventId] + $context);
         }

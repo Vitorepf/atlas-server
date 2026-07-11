@@ -16,8 +16,6 @@ final class ReadOnlyQualityCourt
 {
     public const VERIFIER_DOMAIN = 'atlas.engineering_kernel.read_only_quality_court.v1';
 
-    public const CERTIFIER_DOMAIN = 'atlas.engineering_kernel.read_only_final_certifier.v1';
-
     private const CORE_ROLES = ['qa_testing', 'evidence_audit', 'final_certification'];
 
     private const NOT_APPLICABLE_RULES = [
@@ -35,6 +33,9 @@ final class ReadOnlyQualityCourt
     /** @return array<string,mixed> */
     public function adjudicateRole(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role): array
     {
+        if ($role === 'final_certification') {
+            throw new InvalidArgumentException('final_certification_requires_separate_owner');
+        }
         $test = $this->verifiedTestOwner($order, $testRun);
         if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)) {
             throw new InvalidArgumentException('read_only_court_role_invalid');
@@ -44,12 +45,23 @@ final class ReadOnlyQualityCourt
         if ($reason === 'missing_role_applicability_rule') {
             throw new InvalidArgumentException('read_only_court_applicability_rule_missing');
         }
+        $probeFacts = ['authority_read_only' => ($order->authorityEnvelope['kind'] ?? null) === 'read_only',
+            'mutation_forbidden' => ($order->toolPermissions['mutate'] ?? null) === false,
+            'release_none' => ($order->releasePolicy['kind'] ?? null) === 'none_read_only',
+            'provider_none' => ($order->providerRoute['provider'] ?? null) === 'none',
+            'explicit_role_policy' => data_get($order->operatorContract, 'applicability.'.$role) === $reason,
+            'scope_read_only_docs' => array_reduce($order->allowedScope, static fn (bool $ok, string $path): bool => $ok && (str_ends_with($path, '.md') || str_starts_with($path, 'docs/')), true)];
+        if ($status === 'not_applicable' && in_array(false, $probeFacts, true)) {
+            $status = 'block';
+            $reason = 'insufficient_applicability_evidence';
+        }
         $payload = ['role' => $role, 'status' => $status, 'reason' => $reason,
             'order_hash' => $order->canonicalHash(), 'evidence_hash' => (string) $test->test_hash,
-            'justification' => $reason, 'applicability_rule' => $status === 'pass' ? 'core_read_only_court_role' : $reason];
-        $domain = $role === 'final_certification' ? self::CERTIFIER_DOMAIN : self::VERIFIER_DOMAIN;
-        $payload['signature'] = $this->sign($domain, $payload);
+            'justification' => $reason, 'applicability_rule' => $status === 'pass' ? 'core_read_only_court_role' : $reason,
+            'probe_facts' => $probeFacts];
+        $domain = self::VERIFIER_DOMAIN;
         $payload['signer_context'] = $domain;
+        $payload['signature'] = $this->sign($domain, $payload);
 
         return $payload;
     }
@@ -57,11 +69,34 @@ final class ReadOnlyQualityCourt
     /** @param array<string,mixed> $disposition */
     public function dispositionValid(ExecutionOrder $order, AiRealExecutionTestRun $testRun, string $role, array $disposition): bool
     {
+        if ($role === 'final_certification') {
+            return app(ReadOnlyFinalCertifier::class)->dispositionValid($order, $testRun, $disposition);
+        }
         try {
             return $this->adjudicateRole($order, $testRun, $role) === $disposition;
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    /** @param list<AiEngineeringCompanyRoleRun> $prior */
+    public function priorReceiptsValid(ExecutionOrder $order, AiRealExecutionTestRun $test, array $prior): bool
+    {
+        if (count($prior) !== 21) {
+            return false;
+        }
+        $roles = [];
+        foreach ($prior as $run) {
+            $disposition = data_get($run->output, 'disposition');
+            if (! is_array($disposition) || $run->role_id === 'final_certification' || ! $this->roleReceiptValid($order, $test, $run, $disposition)
+                || ($disposition['status'] ?? null) === 'block'
+                || ! $this->dispositionValid($order, $test, (string) $run->role_id, $disposition)) {
+                return false;
+            }
+            $roles[] = $run->role_id;
+        }
+
+        return $roles === array_values(array_filter(EngineeringRoleRoster::OFFICIAL_ROLES, static fn (string $role): bool => $role !== 'final_certification'));
     }
 
     /** @param list<AiEngineeringCompanyRoleRun> $roleRuns */
@@ -85,20 +120,22 @@ final class ReadOnlyQualityCourt
         }
 
         $execution = (array) data_get($test->receipt, 'acceptance_bundle.execution', []);
+        $verifiedFacts = array_sum(array_map(static fn (array $receipt): int => count(array_filter((array) ($receipt['probe_facts'] ?? []))), $byRole));
+        $totalFacts = array_sum(array_map(static fn (array $receipt): int => count((array) ($receipt['probe_facts'] ?? [])), $byRole));
+        $contextScore = $totalFacts > 0 ? (int) floor(($verifiedFacts / $totalFacts) * 100) : 0;
 
         return AcceptanceBundle::fromArray([
             'criteria_hash' => $order->specHash, 'frozen_hash' => $order->specHash,
             'changed_files' => [], 'changed_public_symbols' => [], 'execution' => $execution,
-            'mutation_report' => ['decision_surface_added' => false, 'applicability_receipt' => $byRole['qa_testing']['signature']],
-            'security_scan' => ['ran' => true, 'secret_free' => true, 'critical_sast' => 0, 'critical_cve' => 0,
-                'scope' => 'zero_mutation_applicability_scan', 'receipt' => $byRole['appsec_privacy']['signature']],
-            'judges' => [
-                ['name' => 'evidence_audit', 'provider_family' => 'verification_court', 'approved' => true],
-                ['name' => 'final_certification', 'provider_family' => 'final_certifier', 'approved' => true],
-            ],
-            'context_sufficiency' => 100,
-            'non_functional' => ['performance_budget' => ['applies' => false], 'migration_safety' => ['probed' => true, 'safe' => true, 'reasons' => ['zero_mutation']],
-                'architecture_no_regression' => ['violations' => []], 'property_clean_for_tagged' => ['tagged' => false, 'checked' => true, 'violations' => []]],
+            'mutation_report' => ['applicability' => $byRole['maintenance_simplification']],
+            'security_scan' => ['ran' => false, 'applicability' => $byRole['appsec_privacy']],
+            'judges' => [],
+            'context_sufficiency' => $contextScore,
+            'non_functional' => ['performance_budget' => ['applicability' => $byRole['performance_resilience']],
+                'migration_safety' => ['applicability' => $byRole['data']],
+                'architecture_no_regression' => ['applicability' => $byRole['architecture']],
+                'property_clean_for_tagged' => ['applicability' => $byRole['appsec_privacy']],
+                'judge_diversity' => ['deterministic_courts' => [$byRole['evidence_audit'], $byRole['final_certification']]]],
             'criteria' => [], 'repair' => [],
         ]);
     }
@@ -175,7 +212,7 @@ final class ReadOnlyQualityCourt
     /** @param array<string,mixed> $payload */
     private function sign(string $domain, array $payload): string
     {
-        return hash_hmac('sha256', EngineeringCompanyHash::make($payload), hash_hmac('sha256', $domain, $this->keyMaterial(), true));
+        return hash_hmac('sha256', CanonicalKernelPayload::hash($payload), hash_hmac('sha256', $domain, $this->keyMaterial(), true));
     }
 
     private function keyMaterial(): string

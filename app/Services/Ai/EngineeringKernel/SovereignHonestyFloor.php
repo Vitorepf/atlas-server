@@ -146,6 +146,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
      */
     private function mutationKillRatio(AcceptanceBundle $bundle): array
     {
+        if ($this->notApplicable($bundle->mutationReport['applicability'] ?? null)) {
+            return $this->pass('mutation_explicitly_not_applicable');
+        }
         $floor = $this->effectiveMutationFloor();
         $report = $bundle->mutationReport;
         // A change that adds no decision surface has nothing to mutate — waive, but note it.
@@ -195,6 +198,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function securityFree(AcceptanceBundle $bundle): array
     {
         $scan = $bundle->securityScan;
+        if (($scan['ran'] ?? false) === false && $this->notApplicable($scan['applicability'] ?? null)) {
+            return $this->pass('security_explicitly_not_applicable');
+        }
         if (($scan['ran'] ?? false) !== true) {
             return $this->fail('security_scan_did_not_run');
         }
@@ -242,6 +248,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
      */
     private function judgeDiversity(AcceptanceBundle $bundle): array
     {
+        if ($bundle->judges === [] && $this->deterministicCourtsValid(data_get($bundle->nonFunctional, 'judge_diversity.deterministic_courts'))) {
+            return $this->pass('independent_deterministic_courts_satisfied_r0');
+        }
         $families = [];
         foreach ($bundle->judges as $judge) {
             if (($judge['approved'] ?? false) === true) {
@@ -265,6 +274,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function performanceBudget(AcceptanceBundle $bundle): array
     {
         $nf = (array) ($bundle->nonFunctional['performance_budget'] ?? []);
+        if ($this->notApplicable($nf['applicability'] ?? null)) {
+            return $this->pass('performance_explicitly_not_applicable');
+        }
         if (($nf['applies'] ?? false) !== true) {
             return $this->pass('performance_budget_not_applicable');
         }
@@ -288,6 +300,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
      */
     private function migrationSafety(AcceptanceBundle $bundle): array
     {
+        if ($this->notApplicable(data_get($bundle->nonFunctional, 'migration_safety.applicability'))) {
+            return $this->pass('migration_explicitly_not_applicable');
+        }
         $touchesMigration = false;
         foreach ($bundle->changedFiles as $file) {
             if (MigrationSafetyProbe::isMigrationPath((string) $file)) {
@@ -320,6 +335,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function architectureNoRegression(AcceptanceBundle $bundle): array
     {
         $nf = (array) ($bundle->nonFunctional['architecture_no_regression'] ?? []);
+        if ($this->notApplicable($nf['applicability'] ?? null)) {
+            return $this->pass('architecture_explicitly_not_applicable');
+        }
         $violations = array_values(array_map('strval', (array) ($nf['violations'] ?? [])));
 
         return $violations === []
@@ -337,6 +355,9 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function propertyCleanForTagged(AcceptanceBundle $bundle): array
     {
         $nf = (array) ($bundle->nonFunctional['property_clean_for_tagged'] ?? []);
+        if ($this->notApplicable($nf['applicability'] ?? null)) {
+            return $this->pass('property_explicitly_not_applicable');
+        }
         if (($nf['tagged'] ?? false) !== true) {
             return $this->pass('not_tagged_sensitive');
         }
@@ -394,6 +415,64 @@ final class SovereignHonestyFloor implements AcceptanceGate
         return ($proof['passed'] ?? false) === true
             ? $this->pass('original_failure_replayed_green:'.(string) ($proof['original_failure_ref'] ?? ''))
             : $this->fail('original_failure_replay_still_red');
+    }
+
+    private function notApplicable(mixed $receipt): bool
+    {
+        if (! is_array($receipt) || ($receipt['status'] ?? null) !== 'not_applicable'
+            || ! is_string($receipt['signature'] ?? null) || preg_match('/^[a-f0-9]{64}$/', $receipt['signature']) !== 1
+            || ! is_string($receipt['justification'] ?? null) || $receipt['justification'] === ''
+            || ! is_array($receipt['probe_facts'] ?? null)) {
+            return false;
+        }
+        $required = ['authority_read_only', 'mutation_forbidden', 'release_none', 'provider_none', 'explicit_role_policy', 'scope_read_only_docs'];
+        foreach ($required as $fact) {
+            if (($receipt['probe_facts'][$fact] ?? false) !== true) {
+                return false;
+            }
+        }
+
+        return $this->courtSignatureValid($receipt, ReadOnlyQualityCourt::VERIFIER_DOMAIN);
+    }
+
+    private function deterministicCourtsValid(mixed $receipts): bool
+    {
+        if (! is_array($receipts) || count($receipts) !== 2) {
+            return false;
+        }
+        $contexts = [];
+        foreach ($receipts as $receipt) {
+            if (! is_array($receipt) || ($receipt['status'] ?? null) !== 'pass'
+                || ! is_string($receipt['signature'] ?? null) || preg_match('/^[a-f0-9]{64}$/', $receipt['signature']) !== 1
+                || ! is_string($receipt['signer_context'] ?? null) || $receipt['signer_context'] === '') {
+                return false;
+            }
+            $contexts[] = $receipt['signer_context'];
+            if (! $this->courtSignatureValid($receipt, (string) $receipt['signer_context'])) {
+                return false;
+            }
+        }
+        sort($contexts);
+        $expected = [ReadOnlyFinalCertifier::DOMAIN, ReadOnlyQualityCourt::VERIFIER_DOMAIN];
+        sort($expected);
+
+        return $contexts === $expected;
+    }
+
+    /** @param array<string,mixed> $receipt */
+    private function courtSignatureValid(array $receipt, string $domain): bool
+    {
+        if (($receipt['signer_context'] ?? null) !== $domain
+            || ! in_array($domain, [ReadOnlyQualityCourt::VERIFIER_DOMAIN, ReadOnlyFinalCertifier::DOMAIN], true)) {
+            return false;
+        }
+        $signature = (string) ($receipt['signature'] ?? '');
+        unset($receipt['signature']);
+        $key = (string) config('app.key');
+        $decoded = str_starts_with($key, 'base64:') ? base64_decode(substr($key, 7), true) : $key;
+        $material = is_string($decoded) ? $decoded : '';
+
+        return hash_equals($signature, hash_hmac('sha256', CanonicalKernelPayload::hash($receipt), hash_hmac('sha256', $domain, $material, true)));
     }
 
     /**

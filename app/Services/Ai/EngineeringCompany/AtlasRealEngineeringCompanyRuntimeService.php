@@ -12,6 +12,7 @@ use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Models\AiRealExecutionTestRun;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\EngineeringKernel\ReadOnlyFinalCertifier;
 use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
@@ -250,14 +251,17 @@ class AtlasRealEngineeringCompanyRuntimeService
         ]);
     }
 
-    public function executeQualityRole(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, ExecutionOrder $order, string $roleId, AiRealExecutionTestRun $verification): AiEngineeringCompanyRoleRun
+    /** @param list<AiEngineeringCompanyRoleRun> $priorRoleRuns */
+    public function executeQualityRole(AiEngineeringCompanyEngagement $engagement, AiEngineeringCompanyCycle $cycle, ExecutionOrder $order, string $roleId, AiRealExecutionTestRun $verification, array $priorRoleRuns = []): AiEngineeringCompanyRoleRun
     {
         if (! $engagement->exists || ! $cycle->exists || ! in_array($roleId, self::QUALITY_ROLES, true)
             || ! $verification->exists || $verification->test_hash === null) {
             throw new \InvalidArgumentException('quality_role_disposition_invalid');
         }
         $evidenceRefs = ['verification:'.$verification->test_hash];
-        $disposition = app(ReadOnlyQualityCourt::class)->adjudicateRole($order, $verification, $roleId);
+        $disposition = $roleId === 'final_certification'
+            ? app(ReadOnlyFinalCertifier::class)->certify($order, $verification, $priorRoleRuns)
+            : app(ReadOnlyQualityCourt::class)->adjudicateRole($order, $verification, $roleId);
         $roleRunId = 'aecompquality_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, $cycle->cycle_id, $roleId, microtime(true)]), 0, 22);
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
             'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()];
