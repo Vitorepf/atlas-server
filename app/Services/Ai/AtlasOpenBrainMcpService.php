@@ -6,6 +6,7 @@ use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
 use App\Models\AiRagFeedbackEvent;
+use App\Models\AiTelemetryEvent;
 use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
@@ -110,6 +111,8 @@ class AtlasOpenBrainMcpService
 
     public const MCP_TOOL_USAGE_EVENT_NAME = 'open_brain.mcp_tool_call';
 
+    public const SURFACE_REVIEW_SCHEMA = 'atlas.open_brain.surface_review.v1';
+
     private string $processStartedAt;
 
     public function __construct(
@@ -209,7 +212,7 @@ class AtlasOpenBrainMcpService
      */
     public function tools(): array
     {
-        return [
+        $tools = [
             [
                 'name' => 'atlas_memory_recall',
                 'title' => 'Atlas Memory Recall',
@@ -1266,6 +1269,30 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
         ];
+
+        return array_map(fn (array $tool): array => $this->withSurfaceReviewAnnotation($tool), $tools);
+    }
+
+    /**
+     * @param  array<string,mixed>  $tool
+     * @return array<string,mixed>
+     */
+    private function withSurfaceReviewAnnotation(array $tool): array
+    {
+        $name = (string) ($tool['name'] ?? '');
+        $annotations = (array) ($tool['annotations'] ?? []);
+        $annotations['atlasSurfaceReview'] = [
+            'primary' => in_array($name, self::PRIMARY_TOOLS, true),
+            'review_command' => 'atlas:open-brain:surface-review --json',
+            'deprecation_policy' => [
+                'minimum_observation_days' => 90,
+                'usage_evidence_required' => true,
+                'zero_removals_in_current_slice' => true,
+            ],
+        ];
+        $tool['annotations'] = $annotations;
+
+        return $tool;
     }
 
     /**
@@ -2002,6 +2029,7 @@ class AtlasOpenBrainMcpService
             'architecture_validation' => $detail === 'full' ? $payload : $summary,
             'writes' => false,
         ];
+
     }
 
     /**
@@ -2815,6 +2843,72 @@ class AtlasOpenBrainMcpService
             'action' => $status === 'current' ? null : 'restart_provider_mcp_client_or_use_cli_fallback',
             'provider_safe' => true,
         ];
+    }
+
+    /**
+     * @return array{available:bool,window_started_at:?string,tools_by_name:array<string,array<string,mixed>>}
+     */
+    private function surfaceReviewTelemetry(): array
+    {
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
+            return [
+                'available' => false,
+                'window_started_at' => null,
+                'tools_by_name' => [],
+            ];
+        }
+
+        $tools = [];
+        $windowStartedAt = null;
+        AiTelemetryEvent::query()
+            ->where('event_name', self::MCP_TOOL_USAGE_EVENT_NAME)
+            ->orderBy('received_at')
+            ->get()
+            ->each(function (AiTelemetryEvent $event) use (&$tools, &$windowStartedAt): void {
+                $metadata = is_array($event->metadata) ? $event->metadata : [];
+                $toolName = trim((string) ($metadata['tool_name'] ?? ''));
+                if ($toolName === '') {
+                    return;
+                }
+
+                $seenAt = $event->received_at?->toIso8601String()
+                    ?? $event->created_at?->toIso8601String()
+                    ?? Carbon::now()->toIso8601String();
+                $windowStartedAt ??= $seenAt;
+
+                if (! isset($tools[$toolName])) {
+                    $tools[$toolName] = [
+                        'tool_name' => $toolName,
+                        'usage_count' => 0,
+                        'first_seen_at' => $seenAt,
+                        'last_seen_at' => $seenAt,
+                    ];
+                }
+
+                $tools[$toolName]['usage_count']++;
+                $tools[$toolName]['last_seen_at'] = $seenAt;
+            });
+
+        ksort($tools);
+
+        return [
+            'available' => true,
+            'window_started_at' => $windowStartedAt,
+            'tools_by_name' => $tools,
+        ];
+    }
+
+    private function surfaceReviewObservationDays(mixed $windowStartedAt): ?int
+    {
+        if (! is_string($windowStartedAt) || trim($windowStartedAt) === '') {
+            return null;
+        }
+
+        try {
+            return max(0, (int) floor(Carbon::parse($windowStartedAt)->diffInDays(Carbon::now())));
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -4366,6 +4460,77 @@ class AtlasOpenBrainMcpService
                 'recommended_action' => $status === 'ready'
                     ? 'keep_compact_prompt_default_and_continue_measuring'
                     : 'review_open_brain_prompt_metric_regression_before_changing_prompt_delivery_policy',
+            ],
+        ];
+    }
+
+    /**
+     * OPE-07 — read-only surface review. It never removes tools; it emits the
+     * evidence-backed verdict a future deprecation slice may consume.
+     *
+     * @return array<string,mixed>
+     */
+    public function surfaceReview(): array
+    {
+        $toolNames = $this->toolNames();
+        $contract = $this->surfaceContract();
+        $policy = (array) ($contract['deprecation_policy'] ?? []);
+        $minimumDays = max(1, (int) ($policy['minimum_observation_days'] ?? 90));
+        $telemetry = $this->surfaceReviewTelemetry();
+        $usageByTool = (array) ($telemetry['tools_by_name'] ?? []);
+        $primarySet = array_fill_keys(self::PRIMARY_TOOLS, true);
+        $tools = [];
+        $toolsByName = [];
+
+        foreach ($toolNames as $toolName) {
+            $usage = (array) ($usageByTool[$toolName] ?? []);
+            $usageCount = (int) ($usage['usage_count'] ?? 0);
+            $windowStartedAt = $usage['first_seen_at'] ?? $telemetry['window_started_at'] ?? null;
+            $observationDays = $this->surfaceReviewObservationDays($windowStartedAt);
+            $isPrimary = isset($primarySet[$toolName]);
+            $verdict = match (true) {
+                $isPrimary => 'keep_primary',
+                $usageCount > 0 => 'keep_used',
+                $observationDays === null || $observationDays < $minimumDays => 'insufficient_window',
+                default => 'deprecation_candidate',
+            };
+
+            $row = [
+                'tool_name' => $toolName,
+                'primary' => $isPrimary,
+                'usage_count' => $usageCount,
+                'window_started_at' => $windowStartedAt,
+                'observation_days' => $observationDays,
+                'verdict' => $verdict,
+                'removal_planned' => false,
+            ];
+            $tools[] = $row;
+            $toolsByName[$toolName] = $row;
+        }
+
+        return [
+            'schema_version' => self::SURFACE_REVIEW_SCHEMA,
+            'generated_at' => Carbon::now()->toIso8601String(),
+            'surface_contract' => $contract,
+            'primary_tools' => self::PRIMARY_TOOLS,
+            'tool_count' => count($tools),
+            'telemetry' => [
+                'available' => (bool) ($telemetry['available'] ?? false),
+                'event_name' => self::MCP_TOOL_USAGE_EVENT_NAME,
+                'window_started_at' => $telemetry['window_started_at'] ?? null,
+            ],
+            'policy' => array_merge($policy, [
+                'minimum_observation_days' => $minimumDays,
+                'current_action' => 'zero_removals',
+                'zero_removals' => true,
+            ]),
+            'tools' => $tools,
+            'tools_by_name' => $toolsByName,
+            'claims' => [
+                'read_only' => true,
+                'removed_tools' => 0,
+                'coverage_total_tools' => count($toolNames),
+                'coverage_reviewed_tools' => count($tools),
             ],
         ];
     }

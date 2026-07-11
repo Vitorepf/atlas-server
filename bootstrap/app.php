@@ -134,6 +134,7 @@ use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasMineHeldEvidenceCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
+use App\Console\Commands\AtlasOpenBrainSurfaceReviewCommand;
 use App\Console\Commands\AtlasOperatorComprehendCommand;
 use App\Console\Commands\AtlasOperatorLearningCommand;
 use App\Console\Commands\AtlasOperatorPatternsCommand;
@@ -309,6 +310,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasMineHeldEvidenceCommand::class,
         AtlasOpenBrainContextCommand::class,
         AtlasOpenBrainMcpCommand::class,
+        AtlasOpenBrainSurfaceReviewCommand::class,
         AtlasOperatorComprehendCommand::class,
         AtlasOperatorPatternsCommand::class,
         AtlasOperatorSkillCommand::class,
