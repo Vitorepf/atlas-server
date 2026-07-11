@@ -5,11 +5,13 @@ namespace App\Console\Commands;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiLearningCandidate;
 use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasObraLessonHarvester;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * Obra #14 H2.3 — fecha o ciclo das lições de obra: os candidates que o
@@ -30,8 +32,10 @@ class AtlasCompoundingReviewLessonsCommand extends Command
 
     protected $description = 'Revisa a quarentena de lições de obra: lista candidates em hold; --promote/--reject é decisão explícita do operador (nunca auto-promove).';
 
-    public function handle(AtlasMemoryRegistryService $memory): int
-    {
+    public function handle(
+        AtlasMemoryRegistryService $memory,
+        AtlasCompoundingMemoryService $compounding,
+    ): int {
         $promote = $this->ref('promote');
         $reject = $this->ref('reject');
         if ($promote !== null && $reject !== null) {
@@ -39,7 +43,7 @@ class AtlasCompoundingReviewLessonsCommand extends Command
         }
 
         if ($promote !== null) {
-            return $this->decide($promote, fn (AiLearningCandidate $candidate): array => $this->promote($candidate, $memory));
+            return $this->decide($promote, fn (AiLearningCandidate $candidate): array => $this->promote($candidate, $memory, $compounding));
         }
 
         if ($reject !== null) {
@@ -124,11 +128,39 @@ class AtlasCompoundingReviewLessonsCommand extends Command
      *
      * @return array<string,mixed>
      */
-    private function promote(AiLearningCandidate $candidate, AtlasMemoryRegistryService $memory): array
-    {
+    private function promote(
+        AiLearningCandidate $candidate,
+        AtlasMemoryRegistryService $memory,
+        AtlasCompoundingMemoryService $compounding,
+    ): array {
         $claim = trim((string) $candidate->claim);
         $docPath = trim((string) data_get($candidate->payload, 'doc_path', ''));
         $obraTag = 'obra:'.(Str::slug(pathinfo($docPath, PATHINFO_FILENAME)) ?: 'unknown');
+
+        $candidate->forceFill(['promotion_allowed' => true])->save();
+
+        $compoundingMemory = null;
+        $blockedReason = null;
+
+        try {
+            $compoundingMemory = $compounding->promote($candidate);
+        } catch (InvalidArgumentException $exception) {
+            $blockedReason = $exception->getMessage();
+        }
+
+        $registryMetadata = [
+            'candidate_id' => (string) $candidate->getKey(),
+            'candidate_hash' => (string) $candidate->candidate_hash,
+            'doc_path' => $docPath,
+            'evidence_refs' => array_values((array) ($candidate->evidence_refs ?? [])),
+            'promoted_by' => 'operator:review-lessons',
+        ];
+        if ($compoundingMemory !== null) {
+            $registryMetadata['promoted_compounding_memory_id'] = (string) $compoundingMemory->getKey();
+        }
+        if ($blockedReason !== null) {
+            $registryMetadata['compounding_blocked_reason'] = $blockedReason;
+        }
 
         $entry = $memory->record([
             'memory_type' => 'refutation_memory',
@@ -142,26 +174,37 @@ class AtlasCompoundingReviewLessonsCommand extends Command
             'source_id' => (string) $candidate->getKey(),
             'source_label' => $docPath !== '' ? basename($docPath) : 'obra-lesson',
             'tags' => ['obra-lesson', $obraTag],
-            'metadata' => [
-                'candidate_id' => (string) $candidate->getKey(),
-                'candidate_hash' => (string) $candidate->candidate_hash,
-                'doc_path' => $docPath,
-                'evidence_refs' => array_values((array) ($candidate->evidence_refs ?? [])),
-                'promoted_by' => 'atlas:compounding:review-lessons',
-            ],
+            'metadata' => $registryMetadata,
         ]);
+
+        if ($compoundingMemory !== null) {
+            $compoundingMemory->forceFill([
+                'payload' => array_merge((array) $compoundingMemory->payload, [
+                    'promoted_by' => 'operator:review-lessons',
+                    'promoted_memory_entry_id' => (string) $entry->getKey(),
+                ]),
+            ])->save();
+        }
+
+        $candidatePayload = array_merge((array) $candidate->payload, [
+            'promoted_memory_entry_id' => (string) $entry->getKey(),
+        ]);
+        if ($compoundingMemory !== null) {
+            $candidatePayload['promoted_compounding_memory_id'] = (string) $compoundingMemory->getKey();
+        }
+        if ($blockedReason !== null) {
+            $candidatePayload['compounding_blocked_reason'] = $blockedReason;
+        }
 
         $candidate->forceFill([
             'status' => 'promoted',
             'decision' => 'promote',
             'promotion_allowed' => true,
             'decided_at' => now(),
-            'payload' => array_merge((array) $candidate->payload, [
-                'promoted_memory_entry_id' => (string) $entry->getKey(),
-            ]),
+            'payload' => $candidatePayload,
         ])->save();
 
-        return [
+        $response = [
             'ok' => true,
             'action' => 'promote',
             'candidate' => $this->row($candidate->refresh()),
@@ -180,6 +223,22 @@ class AtlasCompoundingReviewLessonsCommand extends Command
             'recall_hint' => sprintf('php artisan atlas:memory:recall "%s" --type=refutation_memory --json', Str::limit($claim, 60, '')),
             'message' => sprintf('Candidate %s promovido → memória %s (refutation_memory, %s).', Str::substr((string) $candidate->getKey(), 0, 8), $entry->getKey(), $obraTag),
         ];
+
+        if ($blockedReason !== null) {
+            $response['blocked_reason'] = $blockedReason;
+            $response['compounding'] = ['status' => 'blocked'];
+        } else {
+            $response['compounding'] = [
+                'status' => 'active',
+                'id' => (string) $compoundingMemory->getKey(),
+                'memory_type' => $compoundingMemory->memory_type,
+                'claim' => $compoundingMemory->claim,
+                'confidence' => $compoundingMemory->confidence,
+                'evidence_refs' => $compoundingMemory->evidence_refs,
+            ];
+        }
+
+        return $response;
     }
 
     /**
