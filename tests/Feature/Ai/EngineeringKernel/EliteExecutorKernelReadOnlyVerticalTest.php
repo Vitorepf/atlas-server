@@ -12,6 +12,7 @@ use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
+use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
@@ -19,6 +20,8 @@ use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
 use App\Services\Ai\EngineeringKernel\ReadOnlyQualityCourt;
+use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
+use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptIssuer;
 use App\Services\Ai\Kernel\Envelope\OperationEnvelopeFactory;
@@ -313,6 +316,27 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->orderData(seedEvidence: true, completeApplicability: false);
+    }
+
+    public function test_signed_na_receipt_cannot_be_substituted_into_another_gate(): void
+    {
+        $this->orderData();
+        $bundle = (array) data_get(app(AtlasEvidenceLedger::class)->eventById('acceptance-read-only')?->payload, 'acceptance_bundle');
+        $bundle['mutation_report']['applicability'] = $bundle['security_scan']['applicability'];
+
+        $verdict = SovereignHonestyFloor::fromConfig()->certify(AcceptanceBundle::fromArray($bundle), TrustLevel::Dev);
+        $this->assertContains('mutation_kill_ratio', $verdict->blockers);
+    }
+
+    public function test_signed_pass_from_wrong_role_cannot_substitute_evidence_audit(): void
+    {
+        $this->orderData();
+        $bundle = (array) data_get(app(AtlasEvidenceLedger::class)->eventById('acceptance-read-only')?->payload, 'acceptance_bundle');
+        $qa = (array) data_get(AiEngineeringCompanyRoleRun::query()->where('role_id', 'qa_testing')->first()?->output, 'disposition');
+        $bundle['non_functional']['judge_diversity']['deterministic_courts'][0] = $qa;
+
+        $verdict = SovereignHonestyFloor::fromConfig()->certify(AcceptanceBundle::fromArray($bundle), TrustLevel::Dev);
+        $this->assertContains('judge_diversity', $verdict->blockers);
     }
 
     public function test_previous_keyring_verifies_seal_after_app_key_rotation(): void

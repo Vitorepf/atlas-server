@@ -146,7 +146,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
      */
     private function mutationKillRatio(AcceptanceBundle $bundle): array
     {
-        if ($this->notApplicable($bundle->mutationReport['applicability'] ?? null)) {
+        if ($this->notApplicable($bundle->mutationReport['applicability'] ?? null, 'maintenance_simplification', 'no_code_change')) {
             return $this->pass('mutation_explicitly_not_applicable');
         }
         $floor = $this->effectiveMutationFloor();
@@ -198,7 +198,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function securityFree(AcceptanceBundle $bundle): array
     {
         $scan = $bundle->securityScan;
-        if (($scan['ran'] ?? false) === false && $this->notApplicable($scan['applicability'] ?? null)) {
+        if (($scan['ran'] ?? false) === false && $this->notApplicable($scan['applicability'] ?? null, 'appsec_privacy', 'no_mutation_security_applicability_scan')) {
             return $this->pass('security_explicitly_not_applicable');
         }
         if (($scan['ran'] ?? false) !== true) {
@@ -274,7 +274,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function performanceBudget(AcceptanceBundle $bundle): array
     {
         $nf = (array) ($bundle->nonFunctional['performance_budget'] ?? []);
-        if ($this->notApplicable($nf['applicability'] ?? null)) {
+        if ($this->notApplicable($nf['applicability'] ?? null, 'performance_resilience', 'no_runtime_path_change')) {
             return $this->pass('performance_explicitly_not_applicable');
         }
         if (($nf['applies'] ?? false) !== true) {
@@ -300,7 +300,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
      */
     private function migrationSafety(AcceptanceBundle $bundle): array
     {
-        if ($this->notApplicable(data_get($bundle->nonFunctional, 'migration_safety.applicability'))) {
+        if ($this->notApplicable(data_get($bundle->nonFunctional, 'migration_safety.applicability'), 'data', 'no_data_or_schema_change')) {
             return $this->pass('migration_explicitly_not_applicable');
         }
         $touchesMigration = false;
@@ -335,7 +335,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function architectureNoRegression(AcceptanceBundle $bundle): array
     {
         $nf = (array) ($bundle->nonFunctional['architecture_no_regression'] ?? []);
-        if ($this->notApplicable($nf['applicability'] ?? null)) {
+        if ($this->notApplicable($nf['applicability'] ?? null, 'architecture', 'no_architecture_change')) {
             return $this->pass('architecture_explicitly_not_applicable');
         }
         $violations = array_values(array_map('strval', (array) ($nf['violations'] ?? [])));
@@ -355,7 +355,7 @@ final class SovereignHonestyFloor implements AcceptanceGate
     private function propertyCleanForTagged(AcceptanceBundle $bundle): array
     {
         $nf = (array) ($bundle->nonFunctional['property_clean_for_tagged'] ?? []);
-        if ($this->notApplicable($nf['applicability'] ?? null)) {
+        if ($this->notApplicable($nf['applicability'] ?? null, 'appsec_privacy', 'no_mutation_security_applicability_scan')) {
             return $this->pass('property_explicitly_not_applicable');
         }
         if (($nf['tagged'] ?? false) !== true) {
@@ -417,9 +417,10 @@ final class SovereignHonestyFloor implements AcceptanceGate
             : $this->fail('original_failure_replay_still_red');
     }
 
-    private function notApplicable(mixed $receipt): bool
+    private function notApplicable(mixed $receipt, string $expectedRole, string $expectedRule): bool
     {
         if (! is_array($receipt) || ($receipt['status'] ?? null) !== 'not_applicable'
+            || ($receipt['role'] ?? null) !== $expectedRole || ($receipt['applicability_rule'] ?? null) !== $expectedRule
             || ! is_string($receipt['signature'] ?? null) || preg_match('/^[a-f0-9]{64}$/', $receipt['signature']) !== 1
             || ! is_string($receipt['justification'] ?? null) || $receipt['justification'] === ''
             || ! is_array($receipt['probe_facts'] ?? null)) {
@@ -456,7 +457,15 @@ final class SovereignHonestyFloor implements AcceptanceGate
         $expected = [ReadOnlyFinalCertifier::DOMAIN, ReadOnlyQualityCourt::VERIFIER_DOMAIN];
         sort($expected);
 
-        return $contexts === $expected;
+        if ($contexts !== $expected) {
+            return false;
+        }
+        $byRole = [];
+        foreach ($receipts as $receipt) {
+            $byRole[(string) ($receipt['role'] ?? '')] = $receipt['signer_context'] ?? null;
+        }
+
+        return $byRole === ['evidence_audit' => ReadOnlyQualityCourt::VERIFIER_DOMAIN, 'final_certification' => ReadOnlyFinalCertifier::DOMAIN];
     }
 
     /** @param array<string,mixed> $receipt */
