@@ -513,4 +513,38 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
 
         @unlink($ledger);
     }
+
+    public function test_rejected_report_is_held_error_and_clears_success_outcome(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-cycle-report-rejected-'.bin2hex(random_bytes(4)).'.jsonl';
+        $claim = $this->validClaim();
+        $gate = $claim['task_packet']['acceptance_criteria'][0];
+        $claim['task_packet']['gates'] = [$gate];
+
+        $result = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $claim,
+            'patch_materializer' => fn (): array => [
+                'accepted' => true,
+                'status' => 'green',
+                'files' => [['path' => 'app/Foo.php']],
+                'diffs' => [['path' => 'app/Foo.php', 'unified_diff' => 'diff']],
+            ],
+            'command_plan' => [[
+                'name' => $gate, 'argv' => [PHP_BINARY, '-r', 'exit(0);'], 'timeout_seconds' => 5,
+            ]],
+            'verification' => ['passed' => true, 'evidence_refs' => ['tests_or_gates_result', 'implementation_notes']],
+            'report_callback' => fn (): array => ['status' => 'rejected'],
+        ]);
+
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::STATUS_ERROR, $result['status']);
+        self::assertSame('', $result['report_outcome']);
+        self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $result['outcome_class']);
+        self::assertTrue($result['step_retry_contract']['retryable']);
+        self::assertSame('report', $result['step_retry_contract']['failed_or_pending_step']);
+
+        @unlink($ledger);
+    }
 }

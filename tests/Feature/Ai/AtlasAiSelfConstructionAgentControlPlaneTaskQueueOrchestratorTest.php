@@ -98,8 +98,13 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             'task_packet' => $this->input('claim-tags-partial'),
             'queue' => ['tags' => ['lane-a']],
         ]);
+        $full = $this->input('claim-tags-full');
+        $full['objective'] = 'verify multi tag routing for an HTTP controller';
+        $full['allowed_files'] = ['app/Http/Controllers/ClaimTagsFullController.php'];
+        $full['scope_in'] = $full['allowed_files'];
+        $full['acceptance_criteria'] = ['controller route packet remains independently claimable'];
         $svc->prepareAndEnqueue([
-            'task_packet' => $this->input('claim-tags-full'),
+            'task_packet' => $full,
             'queue' => ['tags' => ['lane-a', 'worker-1']],
         ]);
 
@@ -162,7 +167,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $claim = $svc->claimNext('agent-1');
         $evidence = $this->completionEvidenceFor('dry-1', $claim['lease_id'], 'agent-1', [
             'files_changed' => ['app/Services/Ai/SelfConstruction/dry-1.php'],
-            'commands_run' => ['php artisan test --filter=DryRun: passed'],
+            'commands_run' => ['php artisan test --filter=dry-1: passed'],
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/dry-1.php',
         ]);
         $complete = $svc->completeDryRun('dry-1', $claim['lease_id'], $evidence);
@@ -245,7 +250,7 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             'agent-binding',
             [
                 'files_changed' => ['app/Services/Ai/SelfConstruction/dry-binding.php'],
-                'commands_run' => ['php artisan test --filter=DryBinding: passed'],
+                'commands_run' => ['php artisan test --filter=dry-binding: passed'],
                 'git_status_short' => ' M app/Services/Ai/SelfConstruction/dry-binding.php',
             ],
         ));
@@ -308,6 +313,8 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             'lease_id' => $claim['lease_id'],
             'actor' => 'agent-1',
             'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Validated the scoped implementation and its behavioral proof.',
+            'capability_delta' => 'Adds the bounded capability described by this packet.',
         ];
         $evidence['evidence_hash'] = AgentControlPlaneTaskQueueOrchestrator::canonicalCompletionEvidenceHash($evidence);
         $blocked = $svc->completeDryRun('dry-incomplete-evidence', $claim['lease_id'], $evidence);
@@ -518,8 +525,13 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
         $this->assertNotSame('', $allowedFile);
         $evidence = $this->completionEvidenceFor($packetId, $leaseId, 'agent-cli-complete', [
             'files_changed' => [$allowedFile],
+            'commands_run' => ['php artisan test --filter='.pathinfo($allowedFile, PATHINFO_FILENAME).': passed'],
             'git_status_short' => ' M '.$allowedFile,
         ]);
+        foreach ((array) data_get($queueRecord, 'task_packet.required_evidence', []) as $requiredLabel) {
+            $evidence[(string) $requiredLabel] ??= 'receipt:'.$packetId;
+        }
+        $evidence['evidence_hash'] = AgentControlPlaneTaskQueueOrchestrator::canonicalCompletionEvidenceHash($evidence);
 
         Artisan::call('atlas:ai:self-construction', [
             '--agent-control-plane-task-queue-complete-dry-run-status' => true,
@@ -698,8 +710,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             'actor' => $actor,
             'evidence_hash' => $hash,
             'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
-            'commands_run' => ['php artisan test --filter=ScopedSuite: passed'],
+            'commands_run' => ['php artisan test --filter='.$packetId.': passed'],
             'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Validated the scoped implementation and its behavioral proof.',
+            'capability_delta' => 'Adds the bounded capability described by this packet.',
+            'task_packet_created' => 'receipt:'.$packetId,
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
             'git_diff_check_result' => 'clean',
         ];
@@ -716,8 +731,11 @@ final class AtlasAiSelfConstructionAgentControlPlaneTaskQueueOrchestratorTest ex
             'lease_id' => $leaseId,
             'actor' => $actor,
             'files_changed' => ['app/Services/Ai/SelfConstruction/'.$packetId.'.php'],
-            'commands_run' => ['php artisan test --filter=ScopedSuite: passed'],
+            'commands_run' => ['php artisan test --filter='.$packetId.': passed'],
             'tests_or_gates_result' => 'passed',
+            'implementation_notes' => 'Validated the scoped implementation and its behavioral proof.',
+            'capability_delta' => 'Adds the bounded capability described by this packet.',
+            'task_packet_created' => 'receipt:'.$packetId,
             'git_status_short' => ' M app/Services/Ai/SelfConstruction/'.$packetId.'.php',
             'git_diff_check_result' => 'clean',
         ], $overrides);

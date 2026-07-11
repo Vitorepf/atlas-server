@@ -161,4 +161,26 @@ final class AtlasSelfConstructionHermeticSandboxApplyServiceTest extends TestCas
         file_put_contents($sandbox.'/X.php', 'tampered');
         self::assertNull((new AtlasSelfConstructionHermeticSandboxApplyService)->reconcile($key), 'postimage forgery accepted');
     }
+
+    public function test_reconcile_rejects_postimage_when_parent_directory_is_swapped_to_symlink(): void
+    {
+        $key = 'parent-symlink-'.bin2hex(random_bytes(4));
+        $service = new AtlasSelfConstructionHermeticSandboxApplyService;
+        $result = $service->execute([
+            'idempotency_key' => $key, 'allowed_files' => ['app/X.php'],
+            'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => [[
+                'path' => 'app/X.php', 'mode' => 'create', 'next' => 'truth',
+            ]]],
+        ]);
+        self::assertTrue($result['applied']);
+
+        $sandbox = $result['sandbox_root'];
+        $outside = sys_get_temp_dir().'/atlas-native-outside-'.bin2hex(random_bytes(4));
+        mkdir($outside, 0o700, true);
+        file_put_contents($outside.'/X.php', 'truth');
+        rename($sandbox.'/app', $sandbox.'/app-original');
+        symlink($outside, $sandbox.'/app');
+
+        self::assertNull((new AtlasSelfConstructionHermeticSandboxApplyService)->reconcile($key));
+    }
 }

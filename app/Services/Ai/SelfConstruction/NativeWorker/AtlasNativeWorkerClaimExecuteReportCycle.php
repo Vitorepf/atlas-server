@@ -193,7 +193,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $commandResult = ['status' => 'green'];
         if ($commandPlan !== []) {
             try {
-                $commandResult = $commandRunner->execute($envelope, $commandPlan, dryRun: true);
+                $commandResult = $commandRunner->execute($envelope, $commandPlan, dryRun: false);
                 $appliedSteps[] = 'run_command_plan';
             } catch (\Throwable $e) {
                 $blockedActions[] = ['action' => 'run_command_plan', 'reason' => $e->getMessage()];
@@ -319,9 +319,39 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                 $appliedSteps[] = 'report';
             } catch (\Throwable $e) {
                 $blockedActions[] = ['action' => 'report', 'reason' => $e->getMessage()];
+
+                return $this->envelope(
+                    self::STATUS_ERROR,
+                    false,
+                    $taskPacketId,
+                    $leaseId,
+                    $adapterHash,
+                    $plannedSteps,
+                    $appliedSteps,
+                    $blockedActions,
+                    '',
+                    array_values((array) ($normalized['required_evidence'] ?? [])),
+                    self::OUTCOME_CLASS_OTHER,
+                    $evidenceSummary,
+                );
             }
         } else {
             $blockedActions[] = ['action' => 'report', 'reason' => 'report_callback_missing'];
+
+            return $this->envelope(
+                self::STATUS_ERROR,
+                false,
+                $taskPacketId,
+                $leaseId,
+                $adapterHash,
+                $plannedSteps,
+                $appliedSteps,
+                $blockedActions,
+                '',
+                array_values((array) ($normalized['required_evidence'] ?? [])),
+                self::OUTCOME_CLASS_OTHER,
+                $evidenceSummary,
+            );
         }
 
         return $this->envelope(self::STATUS_OK, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions, $reportOutcome, array_values((array) ($normalized['required_evidence'] ?? [])), $outcomeClass, $evidenceSummary);

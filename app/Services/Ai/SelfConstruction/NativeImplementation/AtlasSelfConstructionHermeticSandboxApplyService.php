@@ -221,7 +221,10 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
         }
         foreach ($postimages as $relative => $expected) {
             $path = $sandbox.'/'.(string) $relative;
-            if (! is_file($path) || is_link($path) || ! hash_equals((string) $expected, (string) hash_file('sha256', $path))) {
+            if ($this->hasSymlinkComponent($sandbox, (string) $relative)
+                || ! is_file($path)
+                || is_link($path)
+                || ! hash_equals((string) $expected, (string) hash_file('sha256', $path))) {
                 return false;
             }
         }

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\EngineeringKernel;
 
+use App\Models\AiJob;
+use App\Services\Ai\AiProvider;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\AiProviderResult;
 use App\Services\Ai\EngineeringKernel\Adapters\AgentExecutionProviderPortAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\MaestroCostBudgetMeterAdapter;
 use App\Services\Ai\EngineeringKernel\BudgetMeter;
@@ -107,6 +111,35 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
             'prompt' => 'plan', 'claim' => ['allowed_files' => ['app/X.php']]]);
 
         self::assertSame('provider_route_mismatch', $receipt['status']);
+    }
+
+    public function test_real_provider_receives_explicit_model_on_job_and_receipt_uses_actual_result_route(): void
+    {
+        $provider = \Mockery::mock(AiProvider::class);
+        $provider->shouldReceive('key')->andReturn('codex_cli');
+        $provider->shouldReceive('run')->once()->withArgs(function (AiJob $job, string $prompt): bool {
+            self::assertSame('alternate-model', $job->model);
+            self::assertSame('codex_cli', $job->provider);
+            self::assertSame('plan', $prompt);
+
+            return true;
+        })->andReturn(new AiProviderResult(
+            ok: true,
+            output: json_encode(['patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => []]], JSON_THROW_ON_ERROR),
+            command: [], exitCode: 0, durationMs: 1, stdout: '', stderr: '',
+            metadata: ['provider' => 'codex_cli', 'model' => 'alternate-model'],
+        ));
+        $manager = \Mockery::mock(AiProviderManager::class);
+        $manager->shouldReceive('get')->once()->with('codex_cli')->andReturn($provider);
+
+        $receipt = (new AgentExecutionProviderPortAdapter(new AgentExecutionProviderPortService, $manager))->invoke([
+            'execute_provider' => true, 'provider' => 'codex_cli', 'model' => 'alternate-model',
+            'prompt' => 'plan', 'claim' => ['allowed_files' => ['app/X.php']],
+        ]);
+
+        self::assertSame('ok', $receipt['status']);
+        self::assertSame('alternate-model', $receipt['model']);
+        self::assertSame('codex_cli', $receipt['provider']);
     }
 
     public function test_normalize_only_receipt_is_explicitly_not_a_provider_execution(): void

@@ -48,12 +48,21 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             $raw = ($this->providerInvoker)($providerKey, $model, $prompt);
         } else {
             $provider = ($this->providers ?? app(AiProviderManager::class))->get($providerKey);
-            $result = $provider->run(new AiJob([
+            $job = new AiJob([
                 'type' => 'atlas_self_construction_native_patch_plan',
                 'status' => 'running',
+                'provider' => $providerKey,
+                'model' => $model,
                 'payload' => ['provider' => $providerKey, 'model' => $model, 'route' => ['provider' => $providerKey, 'model' => $model]],
-            ]), $prompt);
-            $raw = ['ok' => $result->ok, 'output' => $result->output, 'provider' => $providerKey, 'model' => $model, 'error' => $result->errorMessage];
+            ]);
+            $result = $provider->run($job, $prompt);
+            $raw = [
+                'ok' => $result->ok,
+                'output' => $result->output,
+                'provider' => (string) ($result->metadata['provider'] ?? $result->metadata['provider_key'] ?? $provider->key()),
+                'model' => (string) ($result->metadata['model'] ?? $result->metadata['actual_model'] ?? $job->model ?? ''),
+                'error' => $result->errorMessage,
+            ];
         }
 
         if (($raw['ok'] ?? false) !== true) {
