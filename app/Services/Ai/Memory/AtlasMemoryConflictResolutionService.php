@@ -403,7 +403,7 @@ class AtlasMemoryConflictResolutionService
             'marked_by_model' => $row->marked_by_model,
             'confidence' => $row->confidence !== null ? (float) $row->confidence : null,
             'reason' => $row->reason,
-            'evidence_refs' => $row->evidence_refs ? json_decode($row->evidence_refs, true) : [],
+            'evidence_refs' => isset($row->evidence_refs) && $row->evidence_refs ? json_decode($row->evidence_refs, true) : [],
             'updated_at' => $row->updated_at,
         ];
     }
@@ -440,7 +440,7 @@ class AtlasMemoryConflictResolutionService
                 'judgment_status' => (string) ($row->judgment_status ?? self::JUDGMENT_PENDING),
                 'marked_by_actor' => (string) ($row->marked_by_actor ?? self::ACTOR_UNKNOWN),
                 'confidence' => $row->confidence !== null ? (float) $row->confidence : null,
-                'evidence_refs' => $row->evidence_refs ? json_decode($row->evidence_refs, true) : [],
+                'evidence_refs' => isset($row->evidence_refs) && $row->evidence_refs ? json_decode($row->evidence_refs, true) : [],
             ];
         })->all();
     }
