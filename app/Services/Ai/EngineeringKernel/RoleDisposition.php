@@ -117,6 +117,16 @@ final readonly class RoleDisposition
             $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature);
     }
 
+    public static function surfaceApplicabilityAdjudicated(CandidateQualityCase $case, string $role, string $status, string $reason, string $signerContext, string $signature): self
+    {
+        if (! in_array($role, ['frontend', 'mobile'], true) || ! in_array($status, ['block', 'not_applicable'], true)) {
+            throw new InvalidArgumentException('surface_applicability_disposition_invalid');
+        }
+
+        return new self($role, $status, $reason, $case->order->canonicalHash(), $case->order->specHash,
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature);
+    }
+
     /** @return array<string,string> */
     public function toArray(): array
     {

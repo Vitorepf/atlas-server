@@ -141,6 +141,7 @@ final class KernelEvidenceAuthority
             'performance_resilience' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN,
             'backend' => data_get($receipt, 'owner_domain') === AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN
                 ? AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN : EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+            'frontend', 'mobile' => AtlasRealEngineeringExecutionKernelService::surfaceApplicabilityOwnerDomain($role),
             default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
         };
         if (! $this->mutativeRoleReceiptValid($persisted, $case, $domain, 'v1')) {
@@ -192,6 +193,11 @@ final class KernelEvidenceAuthority
         if ($role === 'backend' && $expectedDomain === AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_DOMAIN) {
             return $expectedVersion === AtlasRealEngineeringExecutionKernelService::CANDIDATE_BACKEND_OWNER_VERSION
                 && app(AtlasRealEngineeringExecutionKernelService::class)->candidateBackendOwnerReceiptValid($persisted, $case);
+        }
+        if (in_array($role, ['frontend', 'mobile'], true)) {
+            return $expectedDomain === AtlasRealEngineeringExecutionKernelService::surfaceApplicabilityOwnerDomain($role)
+                && $expectedVersion === AtlasRealEngineeringExecutionKernelService::CANDIDATE_SURFACE_APPLICABILITY_OWNER_VERSION
+                && app(AtlasRealEngineeringExecutionKernelService::class)->candidateSurfaceApplicabilityOwnerReceiptValid($persisted, $case, $role);
         }
         $expectedBinding = [
             'run_id' => $case->order->runId, 'delivery_id' => $case->order->deliveryId,

@@ -294,6 +294,14 @@ class AtlasRealEngineeringCompanyRuntimeService
         }
         $dispositions = [];
         foreach (array_slice(self::QUALITY_ROLES, 0, 21) as $role) {
+            if (in_array($role, ['frontend', 'mobile'], true)) {
+                $surfaceRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateSurfaceApplicabilityOwnerReceipt($engagement, $cycle, $case, $role);
+                $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($surfaceRun, $case, []);
+                $dispositions[$role] = $disposition;
+
+                continue;
+            }
             if ($role === 'performance_resilience') {
                 $performanceRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidatePerformanceOwnerReceipt($engagement, $cycle, $case);
                 $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);

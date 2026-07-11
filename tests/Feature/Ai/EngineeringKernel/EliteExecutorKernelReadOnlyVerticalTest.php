@@ -135,6 +135,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $base = trim((new Process(['git', 'rev-parse', 'HEAD'], $repo))->mustRun()->getOutput());
         $providerResult = [
             'status' => 'ok', 'provider_invoked' => true, 'provider' => 'fixture', 'model' => 'fixture-model',
+            'author_identity' => 'fixture-author',
             'output_hash' => hash('sha256', 'provider-output'),
             'patch_plan' => ['allowed_files' => ['app/Candidate.php', 'app/Unused.php', 'database/migrations/2026_01_01_000000_add_candidate_value.php'], 'patches' => [[
                 'path' => 'app/Candidate.php', 'mode' => 'modify',
@@ -263,7 +264,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertCount(22, $persisted);
         $this->assertFalse($persistedVerdict->authorityEligible);
         $this->assertSame(self::ROLE_IDS, array_keys($persistedVerdict->dispositions));
-        $this->assertSame(['block', 'pass'], array_values(array_unique(array_map(static fn ($disposition): string => $disposition->status, $persistedVerdict->dispositions))));
+        $this->assertSame(['block', 'pass', 'not_applicable'], array_values(array_unique(array_map(static fn ($disposition): string => $disposition->status, $persistedVerdict->dispositions))));
         $passingRoles = array_keys(array_filter(
             $persistedVerdict->dispositions,
             static fn ($disposition): bool => $disposition->status === 'pass',
@@ -273,7 +274,11 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             static fn ($disposition): bool => $disposition->status === 'block',
         ));
         $this->assertSame(['architecture', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience'], $passingRoles);
-        $this->assertCount(17, $blockingRoles);
+        $this->assertCount(15, $blockingRoles);
+        $this->assertSame('not_applicable', $persistedVerdict->dispositions['frontend']->status);
+        $this->assertSame('not_applicable', $persistedVerdict->dispositions['mobile']->status);
+        $this->assertSame('signed_no_frontend_surface_applicability', $persistedVerdict->dispositions['frontend']->reason);
+        $this->assertSame('signed_no_mobile_surface_applicability', $persistedVerdict->dispositions['mobile']->reason);
         $this->assertContains('final_certification', $blockingRoles);
         $this->assertSame('candidate_architecture_probe_clean', $persistedVerdict->dispositions['architecture']->reason);
         $this->assertSame('pass', $persistedVerdict->dispositions['qa_testing']->status);
@@ -286,6 +291,129 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $dataOwner = $persisted->firstWhere('role_id', 'data');
         $appsecOwner = $persisted->firstWhere('role_id', 'appsec_privacy');
         $performanceOwner = $persisted->firstWhere('role_id', 'performance_resilience');
+        $surfaceOwners = [];
+        $surfaceReceipts = [];
+        foreach (['frontend', 'mobile'] as $surfaceRole) {
+            $surfaceOwner = $persisted->firstWhere('role_id', $surfaceRole);
+            $surfaceOwners[$surfaceRole] = $surfaceOwner;
+            $this->assertSame(AtlasRealEngineeringExecutionKernelService::surfaceApplicabilityOwnerDomain($surfaceRole), data_get($surfaceOwner->receipt, 'owner_domain'));
+            $surfaceArtifactPath = (string) data_get($surfaceOwner->receipt, 'surface_applicability_evidence.raw_artifact.path');
+            $surfaceArtifact = file_get_contents($surfaceArtifactPath);
+            $this->assertIsString($surfaceArtifact);
+            file_put_contents($surfaceArtifactPath, $surfaceArtifact."\n");
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, $surfaceRole)->status, $surfaceRole.'_artifact_tamper');
+            file_put_contents($surfaceArtifactPath, $surfaceArtifact);
+            $surfaceReceipt = $surfaceOwner->receipt;
+            $surfaceReceipts[$surfaceRole] = $surfaceReceipt;
+            $transplantedSurface = $surfaceReceipt;
+            $transplantedSurface['binding']['candidate_hash'] = str_repeat('0', 64);
+            $surfaceOwner->forceFill(['receipt' => $transplantedSurface])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, $surfaceRole)->status, $surfaceRole.'_candidate_transplant');
+            $surfaceOwner->forceFill(['receipt' => $surfaceReceipt])->save();
+            $staleSurface = $surfaceReceipt;
+            $staleSurface['expires_at'] = now()->subMinute()->toAtomString();
+            $surfaceOwner->forceFill(['receipt' => $staleSurface])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, $surfaceRole)->status, $surfaceRole.'_stale_receipt');
+            $surfaceOwner->forceFill(['receipt' => $surfaceReceipt])->save();
+            $missingApplicability = $surfaceReceipt;
+            $missingApplicability['surface_applicability_evidence']['declared_applicability'] = null;
+            $surfaceOwner->forceFill(['receipt' => $missingApplicability])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, $surfaceRole)->status, $surfaceRole.'_missing_applicability');
+            $surfaceOwner->forceFill(['receipt' => $surfaceReceipt])->save();
+        }
+        $surfaceOwners['mobile']->forceFill(['receipt' => $surfaceReceipts['frontend']])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'mobile')->status, 'cross_role_surface_transplant');
+        $surfaceOwners['mobile']->forceFill(['receipt' => $surfaceReceipts['mobile']])->save();
+        $relevantFrontend = $surfaceReceipts['frontend'];
+        $relevantFrontend['surface_applicability_evidence']['facts']['app/Candidate.php'] = ['markup', 'blade'];
+        $relevantFrontend['surface_applicability_evidence']['relevant_signals_present'] = true;
+        $relevantFrontend['surface_applicability_evidence']['not_applicable'] = false;
+        $surfaceOwners['frontend']->forceFill(['receipt' => $relevantFrontend])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'frontend')->status, 'mixed_php_template_full_court');
+        $surfaceOwners['frontend']->forceFill(['receipt' => $surfaceReceipts['frontend']])->save();
+        $unknownMobile = $surfaceReceipts['mobile'];
+        $unknownMobile['surface_applicability_evidence']['unknown_ecosystem'] = true;
+        $unknownMobile['surface_applicability_evidence']['not_applicable'] = false;
+        $surfaceOwners['mobile']->forceFill(['receipt' => $unknownMobile])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'mobile')->status, 'unknown_mobile_ecosystem_full_court');
+        $surfaceOwners['mobile']->forceFill(['receipt' => $surfaceReceipts['mobile']])->save();
+        $verificationSelf = $verificationOwner->receipt;
+        foreach (['frontend', 'mobile'] as $surfaceRole) {
+            $selfIdentityReceipt = $verificationSelf;
+            $selfIdentityReceipt['identities']['provider'] = AtlasRealEngineeringExecutionKernelService::surfaceApplicabilityOwnerDomain($surfaceRole);
+            $verificationOwner->forceFill(['receipt' => $selfIdentityReceipt])->save();
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, $surfaceRole)->status, $surfaceRole.'_owner_self');
+        }
+        $verificationOwner->forceFill(['receipt' => $verificationSelf])->save();
+        $surfaceProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'surfaceContentSignals');
+        $this->assertContains('react', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), 'const x = React.createElement("div")', 'frontend'));
+        $this->assertContains('css', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), 'display:flex; --brand:red;', 'frontend'));
+        $this->assertContains('markup', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '<?php ?><my-widget data-id="x"></my-widget>', 'frontend'));
+        $this->assertContains('blade', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '@foreach($x as $y) {{ $y }} @endforeach', 'frontend'));
+        $this->assertContains('twig', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '{% if x %}<div>{{ x }}</div>{% endif %}', 'frontend'));
+        $this->assertContains('swift', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), 'import SwiftUI; struct Hidden {}', 'mobile'));
+        $this->assertContains('flutter', $surfaceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), 'class X extends StatelessWidget {}', 'mobile'));
+        $surfaceCanonicalAttacks = [
+            'frontend_mixed_template' => ['frontend', "<?php /* <my-widget onClick=\"x\">@if(true){{ x }}@endif</my-widget> */ return 'after';\n"],
+            'mobile_swiftui_signal' => ['mobile', "<?php /* import SwiftUI; struct MobileView {} */ return 'after';\n"],
+            'frontend_unknown_ecosystem' => ['frontend', "<?php /* package main; func main() {} */ return 'after';\n"],
+        ];
+        foreach ($surfaceCanonicalAttacks as $attackName => [$surfaceRole, $attackSource]) {
+            $surfaceProvider = $this->createMock(ProviderPort::class);
+            $surfaceResult = $providerResult;
+            $surfaceResult['patch_plan']['patches'][0]['next'] = $attackSource;
+            $surfaceProvider->method('invoke')->willReturn($surfaceResult);
+            $this->app->instance(ProviderPort::class, $surfaceProvider);
+            $this->app->forgetInstance(EliteExecutorKernel::class);
+            $surfaceData = $data;
+            $surfaceData['idempotency_key'] = 'mutative-surface-'.$attackName.'-'.Str::uuid();
+            $surfaceCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($surfaceData));
+            $surfaceEngagement = $company->createEngagement('surface applicability '.$attackName);
+            $surfaceCycle = $company->createCycle($surfaceEngagement);
+            $surfaceCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($surfaceData), $surfaceCandidate, $surfaceEngagement, $surfaceCycle);
+            app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateSurfaceApplicabilityOwnerReceipt(
+                $surfaceEngagement, $surfaceCycle, $surfaceCase, $surfaceRole,
+            );
+            $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($surfaceCase, $surfaceRole)->status, $attackName);
+        }
+        $missingSurfaceProvider = $this->createMock(ProviderPort::class);
+        $missingSurfaceProvider->method('invoke')->willReturn($providerResult);
+        $this->app->instance(ProviderPort::class, $missingSurfaceProvider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $missingSurfaceData = $data;
+        unset($missingSurfaceData['operator_contract']['applicability']['frontend']);
+        $missingSurfaceData['idempotency_key'] = 'mutative-surface-missing-applicability-'.Str::uuid();
+        $missingSurfaceCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($missingSurfaceData));
+        $missingSurfaceEngagement = $company->createEngagement('surface missing applicability');
+        $missingSurfaceCycle = $company->createCycle($missingSurfaceEngagement);
+        $missingSurfaceCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($missingSurfaceData), $missingSurfaceCandidate,
+            $missingSurfaceEngagement, $missingSurfaceCycle);
+        app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateSurfaceApplicabilityOwnerReceipt(
+            $missingSurfaceEngagement, $missingSurfaceCycle, $missingSurfaceCase, 'frontend',
+        );
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($missingSurfaceCase, 'frontend')->status,
+            'fresh_missing_frontend_applicability');
+        foreach (['frontend', 'mobile'] as $surfaceRole) {
+            foreach (['provider', 'author'] as $identityKind) {
+                $surfaceProvider = $this->createMock(ProviderPort::class);
+                $surfaceResult = $providerResult;
+                $surfaceResult[$identityKind === 'provider' ? 'provider' : 'author_identity'] = AtlasRealEngineeringExecutionKernelService::class;
+                $surfaceProvider->method('invoke')->willReturn($surfaceResult);
+                $this->app->instance(ProviderPort::class, $surfaceProvider);
+                $this->app->forgetInstance(EliteExecutorKernel::class);
+                $surfaceData = $data;
+                $surfaceData['idempotency_key'] = 'mutative-surface-self-'.$surfaceRole.'-'.$identityKind.'-'.Str::uuid();
+                $surfaceCandidate = $this->app->make(EliteExecutorKernel::class)->prepareMutativeCandidate(ExecutionOrder::fromArray($surfaceData));
+                $surfaceEngagement = $company->createEngagement('surface owner self '.$surfaceRole.' '.$identityKind);
+                $surfaceCycle = $company->createCycle($surfaceEngagement);
+                $surfaceCase = CandidateQualityCase::fromCandidate(ExecutionOrder::fromArray($surfaceData), $surfaceCandidate, $surfaceEngagement, $surfaceCycle);
+                app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateSurfaceApplicabilityOwnerReceipt(
+                    $surfaceEngagement, $surfaceCycle, $surfaceCase, $surfaceRole,
+                );
+                $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($surfaceCase, $surfaceRole)->status,
+                    $surfaceRole.'_'.$identityKind.'_owner_self');
+            }
+        }
         $this->assertSame('owner_evidence_absent', $persistedVerdict->dispositions['backend']->reason);
         try {
             app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateBackendOwnerReceipt($engagement, $cycle, $qualityCase);
