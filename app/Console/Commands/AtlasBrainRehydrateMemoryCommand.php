@@ -27,7 +27,7 @@ use Throwable;
 class AtlasBrainRehydrateMemoryCommand extends Command
 {
     protected $signature = 'atlas:brain:rehydrate-memory
-        {map : path to the re-hydration JSON map ({entries:[{id,body,priority,confidence?}]})}
+        {map : path to the re-hydration JSON map ({entries:[{id,body,summary?,title?,priority,confidence?,evidence_refs?}]})}
         {--apply : write the re-hydrations (default: dry-run)}
         {--json : machine-readable output}';
 
@@ -51,6 +51,7 @@ class AtlasBrainRehydrateMemoryCommand extends Command
         $apply = (bool) $this->option('apply');
         $applied = 0;
         $skipped = 0;
+        $invalidEvidenceRefs = 0;
         $truncatedAfter = 0;
 
         foreach ($entries as $entry) {
@@ -69,13 +70,36 @@ class AtlasBrainRehydrateMemoryCommand extends Command
                 continue;
             }
 
+            $evidenceRefs = $this->evidenceRefs($entry);
+            $invalidRefs = array_values(array_filter(
+                $evidenceRefs,
+                fn (string $ref): bool => ! $this->evidenceRefResolves($ref),
+            ));
+            if ($invalidRefs !== []) {
+                $invalidEvidenceRefs += count($invalidRefs);
+                $skipped++;
+
+                continue;
+            }
+
             if ($apply) {
                 $attributes = ['body' => $body];
+                if (isset($entry['title']) && trim((string) $entry['title']) !== '') {
+                    $attributes['title'] = trim((string) $entry['title']);
+                }
+                if (isset($entry['summary']) && trim((string) $entry['summary']) !== '') {
+                    $attributes['summary'] = trim((string) $entry['summary']);
+                }
                 if (isset($entry['priority'])) {
                     $attributes['priority'] = (int) $entry['priority'];
                 }
                 if (isset($entry['confidence'])) {
                     $attributes['confidence'] = (float) $entry['confidence'];
+                }
+                if ($evidenceRefs !== []) {
+                    $metadata = (array) ($row->metadata ?? []);
+                    $metadata['rehydration_evidence_refs'] = $evidenceRefs;
+                    $attributes['metadata'] = $metadata;
                 }
                 $registry->curate($row, $attributes);
             }
@@ -92,6 +116,7 @@ class AtlasBrainRehydrateMemoryCommand extends Command
             'entries_in_map' => count($entries),
             'rehydrated' => $applied,
             'skipped' => $skipped,
+            'invalid_evidence_refs' => $invalidEvidenceRefs,
             'bodies_still_truncated' => $truncatedAfter,
         ]);
     }
@@ -102,6 +127,27 @@ class AtlasBrainRehydrateMemoryCommand extends Command
         // placeholder (e.g. atlas:ai:place-feature "..."), not a truncation.
         return str_contains($body, "\u{2026}")
             || str_contains($body, 'corpo pode estar truncado');
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     * @return list<string>
+     */
+    private function evidenceRefs(array $entry): array
+    {
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $ref): string => is_string($ref) ? trim($ref) : '',
+            (array) ($entry['evidence_refs'] ?? []),
+        ), static fn (string $ref): bool => $ref !== '')));
+    }
+
+    private function evidenceRefResolves(string $ref): bool
+    {
+        if (! str_starts_with($ref, 'docs/engineering-knowledge-base/') || str_contains($ref, '..')) {
+            return false;
+        }
+
+        return is_file(base_path($ref));
     }
 
     /**

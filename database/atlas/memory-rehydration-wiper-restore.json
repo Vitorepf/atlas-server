@@ -5,52 +5,489 @@
     "source": "canonical docs (atlas-ai-knowledge-governance-system.md, CLAUDE.md), obra specs, git history"
   },
   "entries": [
-    { "id": "019f2502-cb3b-73f7-bbf8-e896a801bfc9", "priority": 90, "confidence": 0.95, "body": "Atlas memory (o registry no Postgres) é a fonte canônica; os arquivos de provider (CLAUDE.md/AGENTS.md) são projeções GERADAS, não a verdade. Por quê: uma projeção é foto fixa que envelhece — tratá-la como fonte faz decisões já superadas voltarem como se fossem atuais, e foi por isso que a seção Provider-Safe Memory precisa ser reprojetada, nunca editada como origem. Evidência: docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md; banner do CLAUDE.md." },
-    { "id": "019f2502-d995-713f-a419-c793456d24af", "priority": 75, "confidence": 0.9, "body": "Em dev, fresh > reparo: um DB local que divergiu do schema canônico deve ser nuke+recreate, não consertado por migration de reparo. Por quê: um banco divergente acumula drift oculto (colunas/índices/estado) que uma migration de reparo não desfaz de forma determinística; recriar do zero é reproduzível e alinha com invariantes vivos no DB. Evidência: incidente wiper + atlas:ai:doctor schema_drift." },
-    { "id": "019f2502-c1f0-7008-825f-e989a75a2c83", "priority": 90, "confidence": 0.95, "body": "Leia atlas-ai-knowledge-governance-system.md antes de confiar em Postgres KB, Obsidian, projections ou chat como contexto de implementação. Por quê: Postgres/Code Intelligence são read models e Obsidian é superfície humana — todos envelhecem; o doc canônico do repo é a fonte autoral, então tratar um read model como verdade implementa contra decisão já superada. Evidência: docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md." },
-    { "id": "019f2502-c49d-7163-bc9d-dd762193734a", "priority": 75, "confidence": 0.9, "body": "Feature nova precisa de placement: rode php artisan atlas:ai:place-feature \"...\" --json antes de criar fluxo, domain, surface, runtime ou AP. Por quê: sem placement a feature nasce na camada errada e vira órfã ou duplicata de algo que já existe; o placement a amarra ao fluxo/domain reais e evita sprawl. Evidência: comando atlas:ai:place-feature." },
-    { "id": "019f2502-d1c9-701e-9c0b-bd9baa59afb1", "priority": 60, "confidence": 0.8, "body": "Recall híbrido local e export de contexto Open Brain auditado estão implementados; ChromaDB, MCP remoto e sync multiusuário ainda exigem fase e DoD explícitos. Por quê: manter a infraestrutura externa EXPLÍCITA como não-feita impede que se assuma capacidade que não existe (um pack que promete sync remoto sem ele entregaria contexto fantasma). Evidência: status da infra de memória." },
-    { "id": "019f2502-d5b7-73a2-bd1d-5f963e84e22a", "priority": 75, "confidence": 0.9, "body": "Nunca INSERT INTO migrations manualmente: migrations devem ser idempotentes e o registro nunca carimbado à mão. Por quê: carimbar o registro dessincroniza o estado de schema real do que o Laravel acredita ter rodado, quebrando fresh rebuilds e reparos; idempotência garante que re-rodar é seguro. Evidência: gate migration_safety." },
-    { "id": "019f2503-13cd-726f-b52e-82c49970e9a7", "priority": 75, "confidence": 0.9, "body": "Profiles de domínio/fluxo do Atlas são SISTEMAS OPERACIONAIS completos, não presets de modelo: definem models, providers, orchestrators, runtimes, skills, memory, gates, autonomia, evidence, fallback, política de background e loop de aprendizado. Por quê: um profile que é só 'qual modelo' não governa orquestração/gates/autonomia — a diferença entre engenharia e chat é o SO por trás. Evidência: decisão de profiles como domain OS." },
-    { "id": "019f2502-c74d-73f3-9a3a-1802f49ebd80", "priority": 75, "confidence": 0.9, "body": "Sessão nova precisa de bootstrap: rode php artisan atlas:ai:session-bootstrap --task=\"...\" --json e leia os owner docs antes de programar. Por quê: uma sessão fria sem bootstrap re-inventa contexto que já existe e diverge de decisões já tomadas; o bootstrap carrega os owner docs certos e evita retrabalho. Evidência: comando atlas:ai:session-bootstrap." },
-
-    { "id": "019f2502-f0af-7274-a21d-2b0280516aae", "priority": 50, "confidence": 0.75, "body": "Os packs de contexto do AOBG priorizam símbolos de IMPLEMENTAÇÃO no primeiro turno do provider e adiam símbolos de teste/doc para handles de expansão explícitos. Por quê: o orçamento de tokens do primeiro turno é escasso; símbolos de implementação pagam o próprio custo, os de teste/doc expandem só quando pedidos. Evidência: AOBG initial packs (expand-on-demand)." },
-    { "id": "019f2502-f5c2-71a8-8e65-de5b4fd29ce1", "priority": 50, "confidence": 0.75, "body": "Seeds provider-bound do AURG expandem termos separadores, pulam evidência genérica de outcome de missão como seed inicial, e os packs iniciais do AOBG omitem paths de reality graph do mesmo layer. Por quê: seeds genéricos de outcome afogam o sinal; a poda mantém o pack top-K curado em vez de onisciente. Evidência: AURG seed rules." },
-    { "id": "019f2502-f268-7361-aac1-307dea3ee9cf", "priority": 50, "confidence": 0.75, "body": "atlas_workspace_map retorna readiness compacto por padrão e adia amostras de route/command/migration/test até detail=samples. Por quê: as amostras completas são ruído até serem pedidas; readiness compacto primeiro mantém o mapa barato no turno inicial. Evidência: atlas_workspace_map detail=samples." },
-    { "id": "019f2502-c932-7299-9779-64cd6ebdd83d", "priority": 60, "confidence": 0.85, "body": "Depois de mudar docs/código, sincronize KB e Code Intelligence: atlas engineering knowledge sync --prune e atlas engineering knowledge index-code --prune. Por quê: docs/código que mudam sem sync deixam os read models stale, então o próximo pack MENTE; --prune remove linhas mortas. Evidência: comandos atlas engineering knowledge." },
-    { "id": "019f2503-73b1-70aa-bb23-dc9e13cca26b", "priority": 95, "confidence": 0.98, "body": "Causa raiz das ondas de DROP TABLE (15/06→02/07): worktrees do Rivals2/AtlasBench compartilhavam vendor/ por SYMLINK com o repo vivo; solver --yolo rodando composer dump-autoload reescrevia o autoload de produção apontando para a worktree; qualquer php artisan test nesse estado vazava .env e rodava migration->down()/RefreshDatabase no Postgres de produção (atlas-db:5433). ~102 tabelas dropadas em ondas; atlas_memory_entries perdida (recuperado só o subset provider-safe das projeções via git history). Por quê: um symlink de vendor faz a worktree e o repo vivo compartilharem o mesmo autoload, então um teste na worktree executa no DB de produção. Fixes: vendor por worktree via clone APFS CoW (commit 932c3d9885), kill-switch sqlite :memory: na suite, atlas:ai:doctor com gate de schema_drift exit 1, log_statement=ddl no Postgres. NUNCA symlink de vendor em worktree de benchmark. Evidência: db-wiper-incident-and-learning-spine-restore." },
-    { "id": "019f2502-db94-71b8-ac3c-9d972a4cb889", "priority": 55, "confidence": 0.8, "body": "Interações genéricas do gateway NÃO podem fabricar sinais de compounding learning. O compounding de engenharia é alimentado por AtlasEngineeringRunConductorService em AtlasCompoundingRuntimeService::recordExecution com evidência de engenharia substantiva apenas (run real, arquivos, resultado), nunca chatter de gateway. Por quê: compounding falso infla o ledger de aprendizado e envenena a métrica que decide promoções. Evidência: O-1 compounding no-noise contract." },
-    { "id": "019f2502-d784-729a-ac18-587e09ce5c2f", "priority": 55, "confidence": 0.8, "body": "A detecção de escopo do workspace-mutator (Hermes/Atlas Dev) deve incluir: mudanças tracked não-staged, mudanças staged/cached, untracked regulares sem pathspec de allowed_files, e forbidden_files ignorados explícitos. O conjunto ignorado é checado para que um mutator não contrabandeie um write fora de allowed_files. Por quê: um scope guard que ignora uma classe de mudança deixa writes proibidos aterrissarem sem detecção. Evidência: O-1 workspace-mutator scope guard." },
-    { "id": "019f2502-f777-73a4-9005-1ee250e14188", "priority": 50, "confidence": 0.75, "body": "atlas_memory_maintenance_status agora expõe open_brain_prompt_metrics para rastrear uso compact/full, economia de tokens e violações de persistência de prompt dos exports auditados do AOBG. Por quê: sem agregar as métricas de prompt no status de manutenção, regressões de economia passam despercebidas. Evidência: atlas_memory_maintenance_status." },
-    { "id": "019f2502-f930-708b-8281-e3b466c438f7", "priority": 50, "confidence": 0.75, "body": "Exports include_prompt do AOBG emitem atlas.open_brain.prompt_metrics.v1 ANTES da auditoria, permitindo medir economia compact/full sem persistir o texto renderizado do prompt nos access logs. Por quê: medir economia exige métricas, não o prompt cru nos logs (risco de vazamento). Evidência: atlas.open_brain.prompt_metrics.v1." },
-
-    { "id": "019f2502-f417-7183-8e39-bf7cd71195d8", "priority": 50, "confidence": 0.75, "body": "atlas_context_pack do AOBG carrega metadata de runtime provider-safe para clientes MCP externos detectarem processos de context-pack stale. Por quê: sem um fingerprint de runtime, um cliente MCP não sabe que está falando com um servidor stale e serve contexto velho. Evidência: AOBG runtime fingerprint." },
-    { "id": "019f2502-dff4-7366-b43f-0116b50ff5e3", "priority": 60, "confidence": 0.85, "body": "Se as tools MCP nativas disserem 'Transport closed' depois de um crash já corrigido do servidor, um MCP raw com sucesso PROVA o servidor; reinicie o cliente do provider para re-registrar as tools. Por quê: 'Transport closed' pós-fix significa que o cliente cacheou tools mortas — o problema é o cliente, não o servidor, então reiniciar o cliente resolve sem re-debugar o servidor. Evidência: aobg-down-orbstack-postgres-runbook." },
-    { "id": "019f2503-1908-7014-992b-b17920b309f1", "priority": 50, "confidence": 0.75, "body": "AtlasAiPolicyService expõe execution_policy e profile_context explícitos para consumidores app/CLI/background. Por quê: sem expor a política de execução, cada consumidor re-deriva a escolha de executor e diverge. Evidência: AtlasAiPolicyService execution_policy." },
-    { "id": "019f2502-ffff-7151-a2aa-03066d0d507a", "priority": 55, "confidence": 0.8, "body": "atlas:memory:maintain evita OOM fazendo EngineeringCodeIntelligenceService::syncDocLinks fazer stream dos símbolos ativos com chunkById e selecionar só as colunas necessárias, em vez de carregar a tabela inteira de code-symbol. Por quê: carregar a tabela completa estoura memória; chunkById + select de colunas transforma um load O(tabela) em stream O(chunk). Evidência: fix syncDocLinks OOM." },
-    { "id": "019f2503-21ac-71b9-8dcd-44cc761c229e", "priority": 50, "confidence": 0.75, "body": "AtlasProgrammingOrchestrator é dono de programming_repair e da geração de prompt de reparo para fluxos dev_repair_executor. Por quê: centralizar o reparo no orchestrator evita que cada executor invente sua própria lógica de reparo divergente. Evidência: AtlasProgrammingOrchestrator." },
-    { "id": "019f2502-cf71-7318-8311-b923ef238e9d", "priority": 60, "confidence": 0.9, "body": "Use /opt/homebrew/bin/php para Artisan e Composer no atlas-server (Homebrew PHP 8.4+). Por quê: o PHP do sistema tem versão/extensões incompatíveis; o binário do Homebrew é o único interpretador suportado aqui, e usar o errado quebra artisan/composer de formas silenciosas. Evidência: requisito de ambiente atlas-server." },
-    { "id": "019f2503-1ab9-73d0-8377-2460c3be34f4", "priority": 50, "confidence": 0.75, "body": "Payloads de run do Harness incluem patch_artifacts.*.integrity com checked, exists, hash_matches e sha256/reason como evidência do diff persistido. Por quê: sem o pacote de integridade não dá para provar que o diff persistido é o que foi aplicado. Evidência: Engineering Harness integrity packet." },
-    { "id": "019f2503-036d-713d-ba00-0d67cb18fa15", "priority": 50, "confidence": 0.8, "body": "O baseline runner do Claude Code e o fair provider request do EngineeringHarnessRunner exigem alias opus exato ou o modelo Claude premium configurado, batendo com o enforcement do scorecard. Por quê: um substring solto de 'opus' deixaria passar um modelo mais fraco como se fosse premium, corrompendo a justiça da medição. Evidência: Fair Claude baseline lock." },
-    { "id": "019f2503-0535-724c-a76c-cc9f7c5be08f", "priority": 50, "confidence": 0.8, "body": "FairClaudePolicy trata fair_mode=true explícito como opt-in total, e scorecards só aceitam alias opus ou o modelo Claude premium configurado em vez de match por substring solto. Por quê: um match frouxo abriria um bypass onde flags parciais não viram fair mode completo. Evidência: FairClaudePolicy scorecard lock." },
-    { "id": "019f2503-0e77-701d-b46b-a16afa30bca7", "priority": 50, "confidence": 0.8, "body": "Fechado um bypass do Fair Claude onde flags parciais não viravam fair mode completo dentro de EngineeringBenchmarkService/HarnessRunner. Por quê: flags parciais que não normalizam para fair mode total deixam uma medição parecer justa sem ser. Evidência: Fair Claude partial flags normalize." },
-    { "id": "019f2503-092c-7373-9658-1775700edea0", "priority": 55, "confidence": 0.8, "body": "AtlasEffectivePolicyComposer emite strict_model_match para model graphs fixed/locked e AiGatewayService bloqueia provider_matched_model_drift sob esse contrato. Por quê: um model graph fixo cujo runtime pode driftar para outro modelo do mesmo provider não é fixo de verdade; o bloqueio fecha o drift. Evidência: fixed programming model policies." },
-    { "id": "019f2502-de0d-70eb-b9e0-a66fb7b24b61", "priority": 75, "confidence": 0.9, "body": "Invariantes mecânicos (updated_at, CHECK, FK, defaults) vivem no DB; lógica de negócio vive no código. Por quê: um invariante enforçado só no ORM é contornável por SQL raw ou por outro escritor (worker, migration, outra sessão) — o DB é a última linha que ninguém contorna. Evidência: princípio de schema do Atlas." },
-    { "id": "019f2503-1e1f-7066-9634-767ef45b6680", "priority": 50, "confidence": 0.75, "body": "AiWorker honra stop_when_quality_worsens em loops de reparo de provider nativo e PARA em vez de enfileirar outro reparo quando a qualidade regride. Por quê: reparar por cima de uma regressão só afunda mais; parar preserva o melhor estado alcançado. Evidência: dev_repair_executor quality-worsening stop." },
-    { "id": "019f2503-1ff8-7351-bd0e-b6b527560ea9", "priority": 50, "confidence": 0.75, "body": "AiWorker executa loops de reparo dev_repair_executor não-Harness após o sucesso do provider usando AtlasCliQualityService e jobs de reparo no mesmo trace. Por quê: manter o reparo no mesmo trace preserva a auditoria de causa→conserto. Evidência: dev_repair_executor no AiWorker path." },
-    { "id": "019f2502-fc99-70c3-b7bd-90109ac4b313", "priority": 50, "confidence": 0.75, "body": "O contexto staged do AOBG pode ficar compacto primeiro e expandir fontes exatas sob demanda via MCP ou ./bin/atlas. Por quê: expandir tudo de cara desperdiça tokens; expandir a fonte exata quando pedida mantém o pack enxuto. Evidência: Open Brain expansion contract." },
-    { "id": "019f2502-fae4-7084-b542-5e0acabbf2f7", "priority": 50, "confidence": 0.75, "body": "Exports de prompt do AOBG usam contexto compact-first com expansão sob demanda; o prompt full continua modo de auditoria explícito. Por quê: compact-first é o caminho barato do dia-a-dia; full só quando se audita. Evidência: AOBG compact-first exports." },
-    { "id": "019f2503-1c72-737d-a85f-f6f53aea6627", "priority": 50, "confidence": 0.75, "body": "Completions do dev_repair_executor nativo expõem estado de iteração de reparo, motivo de parada, status de qualidade e histórico compacto. Por quê: sem expor o estado do loop de reparo, o consumidor não sabe por que parou nem o que tentar depois. Evidência: programming_completion.repair." },
-    { "id": "019f2503-0ae9-7290-9d13-48110370275a", "priority": 55, "confidence": 0.8, "body": "AiGatewayService bloqueia packs de contexto obrigatórios ausentes e injeção Open Brain obrigatória ausente; Open Brain degradado continua permitido e auditado. Por quê: rodar sem o contexto obrigatório entrega uma resposta sem base — fail-closed no obrigatório, fail-open no degradado. Evidência: programming context fail-closed." },
-    { "id": "019f2503-1043-720e-826c-b03459409d78", "priority": 50, "confidence": 0.75, "body": "AiGatewayService checa a execução do council claude_codex contra os providers concretos do model_graph antes de enfileirar. Por quê: um council que roda fora do contrato do model graph fura a governança de modelo. Evidência: programming council model graph." },
-    { "id": "019f2503-0773-70ab-9f06-31764aeb3424", "priority": 55, "confidence": 0.8, "body": "AiGatewayService bloqueia pedidos de permissão write/danger que conflitam com os tool contracts resolvidos ANTES de criar traces/jobs. Por quê: se o bloqueio vier depois do job criado, o job já roda com permissão que não deveria ter; barrar antes do trace fecha a janela. Evidência: programming gateway tool permission." },
-    { "id": "019f2503-1219-704b-9cdc-dba7f6bd7c43", "priority": 55, "confidence": 0.8, "body": "AiGatewayService rejeita execução programming single-provider quando o provider/modelo resolvido está fora do model_graph da política. Por quê: runtime fora do contrato do model graph é drift silencioso de governança. Evidência: programming model graph out-of-contract." },
-    { "id": "019f2503-1753-7220-ae70-a6f5e101a05b", "priority": 50, "confidence": 0.75, "body": "AtlasProgrammingOrchestrator usa o execution_policy do AtlasAiPolicyService como autoridade de seleção de executor para fluxos dev, complete dev e forge. Por quê: uma única autoridade de executor evita que cada fluxo escolha executor de forma divergente. Evidência: orchestrator execution_policy." },
-    { "id": "019f2503-1595-7108-a1a1-5bf44cf46a2b", "priority": 50, "confidence": 0.75, "body": "AiChatCommand, AiGatewayService e AiWorker preservam o profile context de programming e o execution policy como campos auditáveis. Por quê: se o contexto de política não viaja pela cadeia chat→gateway→worker, a auditoria perde a razão da decisão. Evidência: programming policy projected." },
-    { "id": "019f2503-0cae-7269-b54e-08aa0e41bc2c", "priority": 50, "confidence": 0.75, "body": "A Effective Policy default os skill contracts de programming para bundles existentes, o PromptBuilder ativa os bundles obrigatórios, e o AiGateway bloqueia traces de skill obrigatório ausentes. Por quê: um contrato de skill que aponta para bundle inexistente ou não-ativado é letra morta; ativar de verdade + bloquear ausência torna o contrato real. Evidência: programming skill contracts." },
-    { "id": "019f2503-01bc-7297-b874-7485bdcb4ba6", "priority": 50, "confidence": 0.8, "body": "AiGatewayService trata tool contracts de programming ausentes como receipts não-obrigatórios satisfeitos, em vez de workspace_write=false implícito. Por quê: tratar ausência como write=false bloqueia silenciosamente writes legítimos; ausente = não-exigido satisfeito, não negação. Evidência: programming tool contracts absent." },
-    { "id": "019f2502-cd84-72d2-9809-4bb2b34502c2", "priority": 75, "confidence": 0.9, "body": "Uma projeção de provider gerenciada com ZERO memória provider-safe não está pronta para trabalho real de Claude/Codex. Por quê: sem memória provider-safe o provider não tem em que se ancorar — a projeção parece pronta mas entrega contexto vazio. Evidência: provider projection readiness." },
-
-    { "id": "019f395f-f3de-7211-88f1-9898caefa9d6", "priority": 80, "confidence": 0.9, "body": "NÃO re-propor: Number::clamp, spec-tables 1-linha-por-dado, e unificação epsilon cross-domínio — herdados da #8 (N-05, R-19, veto hash-path). Por quê: foram refutados adversarialmente na obra #8 (Number::clamp com NaN retornava 1.0 dentro de gates, quebrando decisões); re-propor queima ciclos re-derivando uma refutação já provada. Evidência: obra8-refactor-spec-status." }
+    {
+      "id": "019f2502-cb3b-73f7-bbf8-e896a801bfc9",
+      "priority": 90,
+      "confidence": 0.95,
+      "body": "Atlas memory (o registry no Postgres) é a fonte canônica; os arquivos de provider (CLAUDE.md/AGENTS.md) são projeções GERADAS, não a verdade. Por quê: uma projeção é foto fixa que envelhece — tratá-la como fonte faz decisões já superadas voltarem como se fossem atuais, e foi por isso que a seção Provider-Safe Memory precisa ser reprojetada, nunca editada como origem. Evidência: docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md; banner do CLAUDE.md.",
+      "title": "Atlas memory (o registry no Postgres) é a fonte canônica; os arquivos de provider (CLAUDE.m...",
+      "summary": "Atlas memory (o registry no Postgres) é a fonte canônica; os arquivos de provider (CLAUDE.md/AGENTS.md) são projeções GERADAS, não a verdade. Por quê: uma projeção é foto fixa que envelhece — tratá-la como fonte faz decisões já superadas voltarem como se fo...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory-core-runbook.md"
+      ]
+    },
+    {
+      "id": "019f2502-d995-713f-a419-c793456d24af",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Em dev, fresh > reparo: um DB local que divergiu do schema canônico deve ser nuke+recreate, não consertado por migration de reparo. Por quê: um banco divergente acumula drift oculto (colunas/índices/estado) que uma migration de reparo não desfaz de forma determinística; recriar do zero é reproduzível e alinha com invariantes vivos no DB. Evidência: incidente wiper + atlas:ai:doctor schema_drift.",
+      "title": "Em dev, fresh > reparo: um DB local que divergiu do schema canônico deve ser nuke+recreate...",
+      "summary": "Em dev, fresh > reparo: um DB local que divergiu do schema canônico deve ser nuke+recreate, não consertado por migration de reparo. Por quê: um banco divergente acumula drift oculto (colunas/índices/estado) que uma migration de reparo não desfaz de forma de...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-c1f0-7008-825f-e989a75a2c83",
+      "priority": 90,
+      "confidence": 0.95,
+      "body": "Leia atlas-ai-knowledge-governance-system.md antes de confiar em Postgres KB, Obsidian, projections ou chat como contexto de implementação. Por quê: Postgres/Code Intelligence são read models e Obsidian é superfície humana — todos envelhecem; o doc canônico do repo é a fonte autoral, então tratar um read model como verdade implementa contra decisão já superada. Evidência: docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md.",
+      "title": "Leia atlas-ai-knowledge-governance-system.md antes de confiar em Postgres KB, Obsidian, pro...",
+      "summary": "Leia atlas-ai-knowledge-governance-system.md antes de confiar em Postgres KB, Obsidian, projections ou chat como contexto de implementação. Por quê: Postgres/Code Intelligence são read models e Obsidian é superfície humana — todos envelhecem; o doc canônico...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-c49d-7163-bc9d-dd762193734a",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Feature nova precisa de placement: rode php artisan atlas:ai:place-feature \"...\" --json antes de criar fluxo, domain, surface, runtime ou AP. Por quê: sem placement a feature nasce na camada errada e vira órfã ou duplicata de algo que já existe; o placement a amarra ao fluxo/domain reais e evita sprawl. Evidência: comando atlas:ai:place-feature.",
+      "title": "Feature nova precisa de placement: rode php artisan atlas:ai:place-feature \"...\" --json ant...",
+      "summary": "Feature nova precisa de placement: rode php artisan atlas:ai:place-feature \"...\" --json antes de criar fluxo, domain, surface, runtime ou AP. Por quê: sem placement a feature nasce na camada errada e vira órfã ou duplicata de algo que já existe; o placement...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-d1c9-701e-9c0b-bd9baa59afb1",
+      "priority": 60,
+      "confidence": 0.8,
+      "body": "Recall híbrido local e export de contexto Open Brain auditado estão implementados; ChromaDB, MCP remoto e sync multiusuário ainda exigem fase e DoD explícitos. Por quê: manter a infraestrutura externa EXPLÍCITA como não-feita impede que se assuma capacidade que não existe (um pack que promete sync remoto sem ele entregaria contexto fantasma). Evidência: status da infra de memória.",
+      "title": "Recall híbrido local e export de contexto Open Brain auditado estão implementados; ChromaDB...",
+      "summary": "Recall híbrido local e export de contexto Open Brain auditado estão implementados; ChromaDB, MCP remoto e sync multiusuário ainda exigem fase e DoD explícitos. Por quê: manter a infraestrutura externa EXPLÍCITA como não-feita impede que se assuma capacidade...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory/open-brain-mcp.md"
+      ]
+    },
+    {
+      "id": "019f2502-d5b7-73a2-bd1d-5f963e84e22a",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Nunca INSERT INTO migrations manualmente: migrations devem ser idempotentes e o registro nunca carimbado à mão. Por quê: carimbar o registro dessincroniza o estado de schema real do que o Laravel acredita ter rodado, quebrando fresh rebuilds e reparos; idempotência garante que re-rodar é seguro. Evidência: gate migration_safety.",
+      "title": "Nunca INSERT INTO migrations manualmente: migrations devem ser idempotentes e o registro nu...",
+      "summary": "Nunca INSERT INTO migrations manualmente: migrations devem ser idempotentes e o registro nunca carimbado à mão. Por quê: carimbar o registro dessincroniza o estado de schema real do que o Laravel acredita ter rodado, quebrando fresh rebuilds e reparos; idem...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-13cd-726f-b52e-82c49970e9a7",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Profiles de domínio/fluxo do Atlas são SISTEMAS OPERACIONAIS completos, não presets de modelo: definem models, providers, orchestrators, runtimes, skills, memory, gates, autonomia, evidence, fallback, política de background e loop de aprendizado. Por quê: um profile que é só 'qual modelo' não governa orquestração/gates/autonomia — a diferença entre engenharia e chat é o SO por trás. Evidência: decisão de profiles como domain OS.",
+      "title": "Profiles de domínio/fluxo do Atlas são SISTEMAS OPERACIONAIS completos, não presets de mode...",
+      "summary": "Profiles de domínio/fluxo do Atlas são SISTEMAS OPERACIONAIS completos, não presets de modelo: definem models, providers, orchestrators, runtimes, skills, memory, gates, autonomia, evidence, fallback, política de background e loop de aprendizado. Por quê: u...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory-core-runbook.md"
+      ]
+    },
+    {
+      "id": "019f2502-c74d-73f3-9a3a-1802f49ebd80",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Sessão nova precisa de bootstrap: rode php artisan atlas:ai:session-bootstrap --task=\"...\" --json e leia os owner docs antes de programar. Por quê: uma sessão fria sem bootstrap re-inventa contexto que já existe e diverge de decisões já tomadas; o bootstrap carrega os owner docs certos e evita retrabalho. Evidência: comando atlas:ai:session-bootstrap.",
+      "title": "Sessão nova precisa de bootstrap: rode php artisan atlas:ai:session-bootstrap --task=\"...\"...",
+      "summary": "Sessão nova precisa de bootstrap: rode php artisan atlas:ai:session-bootstrap --task=\"...\" --json e leia os owner docs antes de programar. Por quê: uma sessão fria sem bootstrap re-inventa contexto que já existe e diverge de decisões já tomadas; o bootstrap...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-f0af-7274-a21d-2b0280516aae",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "Os packs de contexto do AOBG priorizam símbolos de IMPLEMENTAÇÃO no primeiro turno do provider e adiam símbolos de teste/doc para handles de expansão explícitos. Por quê: o orçamento de tokens do primeiro turno é escasso; símbolos de implementação pagam o próprio custo, os de teste/doc expandem só quando pedidos. Evidência: AOBG initial packs (expand-on-demand).",
+      "title": "Os packs de contexto do AOBG priorizam símbolos de IMPLEMENTAÇÃO no primeiro turno do provi...",
+      "summary": "Os packs de contexto do AOBG priorizam símbolos de IMPLEMENTAÇÃO no primeiro turno do provider e adiam símbolos de teste/doc para handles de expansão explícitos. Por quê: o orçamento de tokens do primeiro turno é escasso; símbolos de implementação pagam o p...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/open-brain-context-injection.md"
+      ]
+    },
+    {
+      "id": "019f2502-f5c2-71a8-8e65-de5b4fd29ce1",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "Seeds provider-bound do AURG expandem termos separadores, pulam evidência genérica de outcome de missão como seed inicial, e os packs iniciais do AOBG omitem paths de reality graph do mesmo layer. Por quê: seeds genéricos de outcome afogam o sinal; a poda mantém o pack top-K curado em vez de onisciente. Evidência: AURG seed rules.",
+      "title": "Seeds provider-bound do AURG expandem termos separadores, pulam evidência genérica de outco...",
+      "summary": "Seeds provider-bound do AURG expandem termos separadores, pulam evidência genérica de outcome de missão como seed inicial, e os packs iniciais do AOBG omitem paths de reality graph do mesmo layer. Por quê: seeds genéricos de outcome afogam o sinal; a poda m...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/open-brain-context-injection.md"
+      ]
+    },
+    {
+      "id": "019f2502-f268-7361-aac1-307dea3ee9cf",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "atlas_workspace_map retorna readiness compacto por padrão e adia amostras de route/command/migration/test até detail=samples. Por quê: as amostras completas são ruído até serem pedidas; readiness compacto primeiro mantém o mapa barato no turno inicial. Evidência: atlas_workspace_map detail=samples.",
+      "title": "atlas_workspace_map retorna readiness compacto por padrão e adia amostras de route/command/...",
+      "summary": "atlas_workspace_map retorna readiness compacto por padrão e adia amostras de route/command/migration/test até detail=samples. Por quê: as amostras completas são ruído até serem pedidas; readiness compacto primeiro mantém o mapa barato no turno inicial.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-c932-7299-9779-64cd6ebdd83d",
+      "priority": 60,
+      "confidence": 0.85,
+      "body": "Depois de mudar docs/código, sincronize KB e Code Intelligence: atlas engineering knowledge sync --prune e atlas engineering knowledge index-code --prune. Por quê: docs/código que mudam sem sync deixam os read models stale, então o próximo pack MENTE; --prune remove linhas mortas. Evidência: comandos atlas engineering knowledge.",
+      "title": "Depois de mudar docs/código, sincronize KB e Code Intelligence: atlas engineering knowledge...",
+      "summary": "Depois de mudar docs/código, sincronize KB e Code Intelligence: atlas engineering knowledge sync --prune e atlas engineering knowledge index-code --prune. Por quê: docs/código que mudam sem sync deixam os read models stale, então o próximo pack MENTE; --pru...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-73b1-70aa-bb23-dc9e13cca26b",
+      "priority": 95,
+      "confidence": 0.98,
+      "body": "Causa raiz das ondas de DROP TABLE (15/06→02/07): worktrees do Rivals2/AtlasBench compartilhavam vendor/ por SYMLINK com o repo vivo; solver --yolo rodando composer dump-autoload reescrevia o autoload de produção apontando para a worktree; qualquer php artisan test nesse estado vazava .env e rodava migration->down()/RefreshDatabase no Postgres de produção (atlas-db:5433). ~102 tabelas dropadas em ondas; atlas_memory_entries perdida (recuperado só o subset provider-safe das projeções via git history). Por quê: um symlink de vendor faz a worktree e o repo vivo compartilharem o mesmo autoload, então um teste na worktree executa no DB de produção. Fixes: vendor por worktree via clone APFS CoW (commit 932c3d9885), kill-switch sqlite :memory: na suite, atlas:ai:doctor com gate de schema_drift exit 1, log_statement=ddl no Postgres. NUNCA symlink de vendor em worktree de benchmark. Evidência: db-wiper-incident-and-learning-spine-restore.",
+      "title": "Causa raiz das ondas de DROP TABLE (15/06→02/07): worktrees do worktrees de benchmark exter...",
+      "summary": "Causa raiz das ondas de DROP TABLE (15/06→02/07): worktrees do worktrees de benchmark externo compartilhavam vendor/ por SYMLINK com o repo vivo; solver --yolo rodando composer dump-autoload reescrevia o autoload de produção apontando para a worktree; qualq...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory-core-runbook.md"
+      ]
+    },
+    {
+      "id": "019f2502-db94-71b8-ac3c-9d972a4cb889",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "Interações genéricas do gateway NÃO podem fabricar sinais de compounding learning. O compounding de engenharia é alimentado por AtlasEngineeringRunConductorService em AtlasCompoundingRuntimeService::recordExecution com evidência de engenharia substantiva apenas (run real, arquivos, resultado), nunca chatter de gateway. Por quê: compounding falso infla o ledger de aprendizado e envenena a métrica que decide promoções. Evidência: O-1 compounding no-noise contract.",
+      "title": "Interações genéricas do gateway NÃO podem fabricar sinais de compounding learning. O compou...",
+      "summary": "Interações genéricas do gateway NÃO podem fabricar sinais de compounding learning. O compounding de engenharia é alimentado por AtlasEngineeringRunConductorService em AtlasCompoundingRuntimeService::recordExecution com evidência de engenharia substantiva ap...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-d784-729a-ac18-587e09ce5c2f",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "A detecção de escopo do workspace-mutator (Hermes/Atlas Dev) deve incluir: mudanças tracked não-staged, mudanças staged/cached, untracked regulares sem pathspec de allowed_files, e forbidden_files ignorados explícitos. O conjunto ignorado é checado para que um mutator não contrabandeie um write fora de allowed_files. Por quê: um scope guard que ignora uma classe de mudança deixa writes proibidos aterrissarem sem detecção. Evidência: O-1 workspace-mutator scope guard.",
+      "title": "A detecção de escopo do workspace-mutator (Hermes/Atlas Dev) deve incluir: mudanças tracked...",
+      "summary": "A detecção de escopo do workspace-mutator (Hermes/Atlas Dev) deve incluir: mudanças tracked não-staged, mudanças staged/cached, untracked regulares sem pathspec de allowed_files, e forbidden_files ignorados explícitos. O conjunto ignorado é checado para que...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-f777-73a4-9005-1ee250e14188",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "atlas_memory_maintenance_status agora expõe open_brain_prompt_metrics para rastrear uso compact/full, economia de tokens e violações de persistência de prompt dos exports auditados do AOBG. Por quê: sem agregar as métricas de prompt no status de manutenção, regressões de economia passam despercebidas. Evidência: atlas_memory_maintenance_status.",
+      "title": "atlas_memory_maintenance_status agora expõe open_brain_prompt_metrics para rastrear uso com...",
+      "summary": "atlas_memory_maintenance_status agora expõe open_brain_prompt_metrics para rastrear uso compact/full, economia de tokens e violações de persistência de prompt dos exports auditados do AOBG. Por quê: sem agregar as métricas de prompt no status de manutenção...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/open-brain-context-injection.md"
+      ]
+    },
+    {
+      "id": "019f2502-f930-708b-8281-e3b466c438f7",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "Exports include_prompt do AOBG emitem atlas.open_brain.prompt_metrics.v1 ANTES da auditoria, permitindo medir economia compact/full sem persistir o texto renderizado do prompt nos access logs. Por quê: medir economia exige métricas, não o prompt cru nos logs (risco de vazamento). Evidência: atlas.open_brain.prompt_metrics.v1.",
+      "title": "Exports include_prompt do AOBG emitem atlas.open_brain.prompt_metrics.v1 ANTES da auditoria...",
+      "summary": "Exports include_prompt do AOBG emitem atlas.open_brain.prompt_metrics.v1 ANTES da auditoria, permitindo medir economia compact/full sem persistir o texto renderizado do prompt nos access logs. Por quê: medir economia exige métricas, não o prompt cru nos log...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/open-brain-context-injection.md"
+      ]
+    },
+    {
+      "id": "019f2502-f417-7183-8e39-bf7cd71195d8",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "atlas_context_pack do AOBG carrega metadata de runtime provider-safe para clientes MCP externos detectarem processos de context-pack stale. Por quê: sem um fingerprint de runtime, um cliente MCP não sabe que está falando com um servidor stale e serve contexto velho. Evidência: AOBG runtime fingerprint.",
+      "title": "atlas_context_pack do AOBG carrega metadata de runtime provider-safe para clientes MCP exte...",
+      "summary": "atlas_context_pack do AOBG carrega metadata de runtime provider-safe para clientes MCP externos detectarem processos de context-pack stale. Por quê: sem um fingerprint de runtime, um cliente MCP não sabe que está falando com um servidor stale e serve contex...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory/open-brain-mcp.md"
+      ]
+    },
+    {
+      "id": "019f2502-dff4-7366-b43f-0116b50ff5e3",
+      "priority": 60,
+      "confidence": 0.85,
+      "body": "Se as tools MCP nativas disserem 'Transport closed' depois de um crash já corrigido do servidor, um MCP raw com sucesso PROVA o servidor; reinicie o cliente do provider para re-registrar as tools. Por quê: 'Transport closed' pós-fix significa que o cliente cacheou tools mortas — o problema é o cliente, não o servidor, então reiniciar o cliente resolve sem re-debugar o servidor. Evidência: aobg-down-orbstack-postgres-runbook.",
+      "title": "Se as tools MCP nativas disserem 'Transport closed' depois de um crash já corrigido do serv...",
+      "summary": "Se as tools MCP nativas disserem 'Transport closed' depois de um crash já corrigido do servidor, um MCP raw com sucesso PROVA o servidor; reinicie o cliente do provider para re-registrar as tools. Por quê: 'Transport closed' pós-fix significa que o cliente...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory/open-brain-mcp.md"
+      ]
+    },
+    {
+      "id": "019f2503-1908-7014-992b-b17920b309f1",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AtlasAiPolicyService expõe execution_policy e profile_context explícitos para consumidores app/CLI/background. Por quê: sem expor a política de execução, cada consumidor re-deriva a escolha de executor e diverge. Evidência: AtlasAiPolicyService execution_policy.",
+      "title": "AtlasAiPolicyService expõe execution_policy e profile_context explícitos para consumidores...",
+      "summary": "AtlasAiPolicyService expõe execution_policy e profile_context explícitos para consumidores app/CLI/background. Por quê: sem expor a política de execução, cada consumidor re-deriva a escolha de executor e diverge.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-ffff-7151-a2aa-03066d0d507a",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "atlas:memory:maintain evita OOM fazendo EngineeringCodeIntelligenceService::syncDocLinks fazer stream dos símbolos ativos com chunkById e selecionar só as colunas necessárias, em vez de carregar a tabela inteira de code-symbol. Por quê: carregar a tabela completa estoura memória; chunkById + select de colunas transforma um load O(tabela) em stream O(chunk). Evidência: fix syncDocLinks OOM.",
+      "title": "atlas:memory:maintain evita OOM fazendo EngineeringCodeIntelligenceService::syncDocLinks fa...",
+      "summary": "atlas:memory:maintain evita OOM fazendo EngineeringCodeIntelligenceService::syncDocLinks fazer stream dos símbolos ativos com chunkById e selecionar só as colunas necessárias, em vez de carregar a tabela inteira de code-symbol. Por quê: carregar a tabela co...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory-core-runbook.md"
+      ]
+    },
+    {
+      "id": "019f2503-21ac-71b9-8dcd-44cc761c229e",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AtlasProgrammingOrchestrator é dono de programming_repair e da geração de prompt de reparo para fluxos dev_repair_executor. Por quê: centralizar o reparo no orchestrator evita que cada executor invente sua própria lógica de reparo divergente. Evidência: AtlasProgrammingOrchestrator.",
+      "title": "AtlasProgrammingOrchestrator é dono de programming_repair e da geração de prompt de reparo...",
+      "summary": "AtlasProgrammingOrchestrator é dono de programming_repair e da geração de prompt de reparo para fluxos dev_repair_executor. Por quê: centralizar o reparo no orchestrator evita que cada executor invente sua própria lógica de reparo divergente.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-cf71-7318-8311-b923ef238e9d",
+      "priority": 60,
+      "confidence": 0.9,
+      "body": "Use /opt/homebrew/bin/php para Artisan e Composer no atlas-server (Homebrew PHP 8.4+). Por quê: o PHP do sistema tem versão/extensões incompatíveis; o binário do Homebrew é o único interpretador suportado aqui, e usar o errado quebra artisan/composer de formas silenciosas. Evidência: requisito de ambiente atlas-server.",
+      "title": "Use /opt/homebrew/bin/php para Artisan e Composer no atlas-server (Homebrew PHP 8.4+).",
+      "summary": "Use /opt/homebrew/bin/php para Artisan e Composer no atlas-server (Homebrew PHP 8.4+). Por quê: o PHP do sistema tem versão/extensões incompatíveis; o binário do Homebrew é o único interpretador suportado aqui, e usar o errado quebra artisan/composer de for...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-1ab9-73d0-8377-2460c3be34f4",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "Payloads de run do Harness incluem patch_artifacts.*.integrity com checked, exists, hash_matches e sha256/reason como evidência do diff persistido. Por quê: sem o pacote de integridade não dá para provar que o diff persistido é o que foi aplicado. Evidência: Engineering Harness integrity packet.",
+      "title": "Payloads de run do Harness incluem patch_artifacts.*.integrity com checked, exists, hash_ma...",
+      "summary": "Payloads de run do Harness incluem patch_artifacts.*.integrity com checked, exists, hash_matches e sha256/reason como evidência do diff persistido. Por quê: sem o pacote de integridade não dá para provar que o diff persistido é o que foi aplicado.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-agentic-engineering-os.md"
+      ]
+    },
+    {
+      "id": "019f2503-036d-713d-ba00-0d67cb18fa15",
+      "priority": 50,
+      "confidence": 0.8,
+      "body": "O baseline runner do Claude Code e o fair provider request do EngineeringHarnessRunner exigem alias opus exato ou o modelo Claude premium configurado, batendo com o enforcement do scorecard. Por quê: um substring solto de 'opus' deixaria passar um modelo mais fraco como se fosse premium, corrompendo a justiça da medição. Evidência: Fair Claude baseline lock.",
+      "title": "O baseline runner do Claude Code e o fair provider request do EngineeringHarnessRunner exig...",
+      "summary": "O baseline runner do Claude Code e o fair provider request do EngineeringHarnessRunner exigem alias opus exato ou o modelo Claude premium configurado, batendo com o enforcement do scorecard. Por quê: um substring solto de 'opus' deixaria passar um modelo ma...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-agentic-engineering-os.md"
+      ]
+    },
+    {
+      "id": "019f2503-0535-724c-a76c-cc9f7c5be08f",
+      "priority": 50,
+      "confidence": 0.8,
+      "body": "FairClaudePolicy trata fair_mode=true explícito como opt-in total, e scorecards só aceitam alias opus ou o modelo Claude premium configurado em vez de match por substring solto. Por quê: um match frouxo abriria um bypass onde flags parciais não viram fair mode completo. Evidência: FairClaudePolicy scorecard lock.",
+      "title": "FairClaudePolicy trata fair_mode=true explícito como opt-in total, e scorecards só aceitam...",
+      "summary": "FairClaudePolicy trata fair_mode=true explícito como opt-in total, e scorecards só aceitam alias opus ou o modelo Claude premium configurado em vez de match por substring solto. Por quê: um match frouxo abriria um bypass onde flags parciais não viram fair m...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-0e77-701d-b46b-a16afa30bca7",
+      "priority": 50,
+      "confidence": 0.8,
+      "body": "Fechado um bypass do Fair Claude onde flags parciais não viravam fair mode completo dentro de EngineeringBenchmarkService/HarnessRunner. Por quê: flags parciais que não normalizam para fair mode total deixam uma medição parecer justa sem ser. Evidência: Fair Claude partial flags normalize.",
+      "title": "Fechado um bypass do Fair Claude onde flags parciais não viravam fair mode completo dentro...",
+      "summary": "Fechado um bypass do Fair Claude onde flags parciais não viravam fair mode completo dentro de EngineeringBenchmarkService/HarnessRunner. Por quê: flags parciais que não normalizam para fair mode total deixam uma medição parecer justa sem ser.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-agentic-engineering-os.md"
+      ]
+    },
+    {
+      "id": "019f2503-092c-7373-9658-1775700edea0",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "AtlasEffectivePolicyComposer emite strict_model_match para model graphs fixed/locked e AiGatewayService bloqueia provider_matched_model_drift sob esse contrato. Por quê: um model graph fixo cujo runtime pode driftar para outro modelo do mesmo provider não é fixo de verdade; o bloqueio fecha o drift. Evidência: fixed programming model policies.",
+      "title": "AtlasEffectivePolicyComposer emite strict_model_match para model graphs fixed/locked e AiGa...",
+      "summary": "AtlasEffectivePolicyComposer emite strict_model_match para model graphs fixed/locked e AiGatewayService bloqueia provider_matched_model_drift sob esse contrato. Por quê: um model graph fixo cujo runtime pode driftar para outro modelo do mesmo provider não é...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-de0d-70eb-b9e0-a66fb7b24b61",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Invariantes mecânicos (updated_at, CHECK, FK, defaults) vivem no DB; lógica de negócio vive no código. Por quê: um invariante enforçado só no ORM é contornável por SQL raw ou por outro escritor (worker, migration, outra sessão) — o DB é a última linha que ninguém contorna. Evidência: princípio de schema do Atlas.",
+      "title": "Invariantes mecânicos (updated_at, CHECK, FK, defaults) vivem no DB; lógica de negócio vive...",
+      "summary": "Invariantes mecânicos (updated_at, CHECK, FK, defaults) vivem no DB; lógica de negócio vive no código. Por quê: um invariante enforçado só no ORM é contornável por SQL raw ou por outro escritor (worker, migration, outra sessão) — o DB é a última linha que n...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-1e1f-7066-9634-767ef45b6680",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AiWorker honra stop_when_quality_worsens em loops de reparo de provider nativo e PARA em vez de enfileirar outro reparo quando a qualidade regride. Por quê: reparar por cima de uma regressão só afunda mais; parar preserva o melhor estado alcançado. Evidência: dev_repair_executor quality-worsening stop.",
+      "title": "AiWorker honra stop_when_quality_worsens em loops de reparo de provider nativo e PARA em ve...",
+      "summary": "AiWorker honra stop_when_quality_worsens em loops de reparo de provider nativo e PARA em vez de enfileirar outro reparo quando a qualidade regride. Por quê: reparar por cima de uma regressão só afunda mais; parar preserva o melhor estado alcançado.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-1ff8-7351-bd0e-b6b527560ea9",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AiWorker executa loops de reparo dev_repair_executor não-Harness após o sucesso do provider usando AtlasCliQualityService e jobs de reparo no mesmo trace. Por quê: manter o reparo no mesmo trace preserva a auditoria de causa→conserto. Evidência: dev_repair_executor no AiWorker path.",
+      "title": "AiWorker executa loops de reparo dev_repair_executor não-Harness após o sucesso do provider...",
+      "summary": "AiWorker executa loops de reparo dev_repair_executor não-Harness após o sucesso do provider usando AtlasCliQualityService e jobs de reparo no mesmo trace. Por quê: manter o reparo no mesmo trace preserva a auditoria de causa→conserto.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-agentic-engineering-os.md"
+      ]
+    },
+    {
+      "id": "019f2502-fc99-70c3-b7bd-90109ac4b313",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "O contexto staged do AOBG pode ficar compacto primeiro e expandir fontes exatas sob demanda via MCP ou ./bin/atlas. Por quê: expandir tudo de cara desperdiça tokens; expandir a fonte exata quando pedida mantém o pack enxuto. Evidência: Open Brain expansion contract.",
+      "title": "O contexto staged do AOBG pode ficar compacto primeiro e expandir fontes exatas sob demanda...",
+      "summary": "O contexto staged do AOBG pode ficar compacto primeiro e expandir fontes exatas sob demanda via MCP ou ./bin/atlas. Por quê: expandir tudo de cara desperdiça tokens; expandir a fonte exata quando pedida mantém o pack enxuto.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory/open-brain-mcp.md"
+      ]
+    },
+    {
+      "id": "019f2502-fae4-7084-b542-5e0acabbf2f7",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "Exports de prompt do AOBG usam contexto compact-first com expansão sob demanda; o prompt full continua modo de auditoria explícito. Por quê: compact-first é o caminho barato do dia-a-dia; full só quando se audita. Evidência: AOBG compact-first exports.",
+      "title": "Exports de prompt do AOBG usam contexto compact-first com expansão sob demanda; o prompt fu...",
+      "summary": "Exports de prompt do AOBG usam contexto compact-first com expansão sob demanda; o prompt full continua modo de auditoria explícito. Por quê: compact-first é o caminho barato do dia-a-dia; full só quando se audita.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/open-brain-context-injection.md"
+      ]
+    },
+    {
+      "id": "019f2503-1c72-737d-a85f-f6f53aea6627",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "Completions do dev_repair_executor nativo expõem estado de iteração de reparo, motivo de parada, status de qualidade e histórico compacto. Por quê: sem expor o estado do loop de reparo, o consumidor não sabe por que parou nem o que tentar depois. Evidência: programming_completion.repair.",
+      "title": "Completions do dev_repair_executor nativo expõem estado de iteração de reparo, motivo de pa...",
+      "summary": "Completions do dev_repair_executor nativo expõem estado de iteração de reparo, motivo de parada, status de qualidade e histórico compacto. Por quê: sem expor o estado do loop de reparo, o consumidor não sabe por que parou nem o que tentar depois.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-0ae9-7290-9d13-48110370275a",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "AiGatewayService bloqueia packs de contexto obrigatórios ausentes e injeção Open Brain obrigatória ausente; Open Brain degradado continua permitido e auditado. Por quê: rodar sem o contexto obrigatório entrega uma resposta sem base — fail-closed no obrigatório, fail-open no degradado. Evidência: programming context fail-closed.",
+      "title": "AiGatewayService bloqueia packs de contexto obrigatórios ausentes e injeção Open Brain obri...",
+      "summary": "AiGatewayService bloqueia packs de contexto obrigatórios ausentes e injeção Open Brain obrigatória ausente; Open Brain degradado continua permitido e auditado. Por quê: rodar sem o contexto obrigatório entrega uma resposta sem base — fail-closed no obrigató...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/open-brain-context-injection.md"
+      ]
+    },
+    {
+      "id": "019f2503-1043-720e-826c-b03459409d78",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AiGatewayService checa a execução do council claude_codex contra os providers concretos do model_graph antes de enfileirar. Por quê: um council que roda fora do contrato do model graph fura a governança de modelo. Evidência: programming council model graph.",
+      "title": "AiGatewayService checa a execução do council claude_codex contra os providers concretos do...",
+      "summary": "AiGatewayService checa a execução do council claude_codex contra os providers concretos do model_graph antes de enfileirar. Por quê: um council que roda fora do contrato do model graph fura a governança de modelo.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-0773-70ab-9f06-31764aeb3424",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "AiGatewayService bloqueia pedidos de permissão write/danger que conflitam com os tool contracts resolvidos ANTES de criar traces/jobs. Por quê: se o bloqueio vier depois do job criado, o job já roda com permissão que não deveria ter; barrar antes do trace fecha a janela. Evidência: programming gateway tool permission.",
+      "title": "AiGatewayService bloqueia pedidos de permissão write/danger que conflitam com os tool contr...",
+      "summary": "AiGatewayService bloqueia pedidos de permissão write/danger que conflitam com os tool contracts resolvidos ANTES de criar traces/jobs. Por quê: se o bloqueio vier depois do job criado, o job já roda com permissão que não deveria ter; barrar antes do trace f...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-1219-704b-9cdc-dba7f6bd7c43",
+      "priority": 55,
+      "confidence": 0.8,
+      "body": "AiGatewayService rejeita execução programming single-provider quando o provider/modelo resolvido está fora do model_graph da política. Por quê: runtime fora do contrato do model graph é drift silencioso de governança. Evidência: programming model graph out-of-contract.",
+      "title": "AiGatewayService rejeita execução programming single-provider quando o provider/modelo reso...",
+      "summary": "AiGatewayService rejeita execução programming single-provider quando o provider/modelo resolvido está fora do model_graph da política. Por quê: runtime fora do contrato do model graph é drift silencioso de governança.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-1753-7220-ae70-a6f5e101a05b",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AtlasProgrammingOrchestrator usa o execution_policy do AtlasAiPolicyService como autoridade de seleção de executor para fluxos dev, complete dev e forge. Por quê: uma única autoridade de executor evita que cada fluxo escolha executor de forma divergente. Evidência: orchestrator execution_policy.",
+      "title": "AtlasProgrammingOrchestrator usa o execution_policy do AtlasAiPolicyService como autoridade...",
+      "summary": "AtlasProgrammingOrchestrator usa o execution_policy do AtlasAiPolicyService como autoridade de seleção de executor para fluxos dev, complete dev e forge. Por quê: uma única autoridade de executor evita que cada fluxo escolha executor de forma divergente.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-1595-7108-a1a1-5bf44cf46a2b",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "AiChatCommand, AiGatewayService e AiWorker preservam o profile context de programming e o execution policy como campos auditáveis. Por quê: se o contexto de política não viaja pela cadeia chat→gateway→worker, a auditoria perde a razão da decisão. Evidência: programming policy projected.",
+      "title": "AiChatCommand, AiGatewayService e AiWorker preservam o profile context de programming e o e...",
+      "summary": "AiChatCommand, AiGatewayService e AiWorker preservam o profile context de programming e o execution policy como campos auditáveis. Por quê: se o contexto de política não viaja pela cadeia chat→gateway→worker, a auditoria perde a razão da decisão.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-0cae-7269-b54e-08aa0e41bc2c",
+      "priority": 50,
+      "confidence": 0.75,
+      "body": "A Effective Policy default os skill contracts de programming para bundles existentes, o PromptBuilder ativa os bundles obrigatórios, e o AiGateway bloqueia traces de skill obrigatório ausentes. Por quê: um contrato de skill que aponta para bundle inexistente ou não-ativado é letra morta; ativar de verdade + bloquear ausência torna o contrato real. Evidência: programming skill contracts.",
+      "title": "A Effective Policy default os skill contracts de programming para bundles existentes, o Pro...",
+      "summary": "A Effective Policy default os skill contracts de programming para bundles existentes, o PromptBuilder ativa os bundles obrigatórios, e o AiGateway bloqueia traces de skill obrigatório ausentes. Por quê: um contrato de skill que aponta para bundle inexistent...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2503-01bc-7297-b874-7485bdcb4ba6",
+      "priority": 50,
+      "confidence": 0.8,
+      "body": "AiGatewayService trata tool contracts de programming ausentes como receipts não-obrigatórios satisfeitos, em vez de workspace_write=false implícito. Por quê: tratar ausência como write=false bloqueia silenciosamente writes legítimos; ausente = não-exigido satisfeito, não negação. Evidência: programming tool contracts absent.",
+      "title": "AiGatewayService trata tool contracts de programming ausentes como receipts não-obrigatório...",
+      "summary": "AiGatewayService trata tool contracts de programming ausentes como receipts não-obrigatórios satisfeitos, em vez de workspace_write=false implícito. Por quê: tratar ausência como write=false bloqueia silenciosamente writes legítimos; ausente = não-exigido s...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-programming-governance-system.md"
+      ]
+    },
+    {
+      "id": "019f2502-cd84-72d2-9809-4bb2b34502c2",
+      "priority": 75,
+      "confidence": 0.9,
+      "body": "Uma projeção de provider gerenciada com ZERO memória provider-safe não está pronta para trabalho real de Claude/Codex. Por quê: sem memória provider-safe o provider não tem em que se ancorar — a projeção parece pronta mas entrega contexto vazio. Evidência: provider projection readiness.",
+      "title": "Uma projeção de provider gerenciada com ZERO memória provider-safe não está pronta para tra...",
+      "summary": "Uma projeção de provider gerenciada com ZERO memória provider-safe não está pronta para trabalho real de Claude/Codex. Por quê: sem memória provider-safe o provider não tem em que se ancorar — a projeção parece pronta mas entrega contexto vazio.",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/memory-core-runbook.md"
+      ]
+    },
+    {
+      "id": "019f395f-f3de-7211-88f1-9898caefa9d6",
+      "priority": 80,
+      "confidence": 0.9,
+      "body": "NÃO re-propor: Number::clamp, spec-tables 1-linha-por-dado, e unificação epsilon cross-domínio — herdados da #8 (N-05, R-19, veto hash-path). Por quê: foram refutados adversarialmente na obra #8 (Number::clamp com NaN retornava 1.0 dentro de gates, quebrando decisões); re-propor queima ciclos re-derivando uma refutação já provada. Evidência: obra8-refactor-spec-status.",
+      "title": "NÃO re-propor: Number::clamp, spec-tables 1-linha-por-dado, e unificação epsilon cross-domínio",
+      "summary": "NÃO re-propor: Number::clamp, spec-tables 1-linha-por-dado, e unificação epsilon cross-domínio — herdados da #8 (N-05, R-19, veto hash-path). Por quê: foram refutados adversarialmente na obra #8 (Number::clamp com NaN retornava 1.0 dentro de gates, quebrand...",
+      "evidence_refs": [
+        "docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md"
+      ]
+    }
   ]
 }

@@ -56,10 +56,18 @@ class RehydrateMemoryCommandTest extends TestCase
         ]);
     }
 
-    private function writeMap(string $id, string $body, int $priority): void
+    /**
+     * @param  array<string,mixed>  $extra
+     */
+    private function writeMap(string $id, string $body, int $priority, array $extra = []): void
     {
         file_put_contents($this->mapPath, (string) json_encode([
-            'entries' => [['id' => $id, 'body' => $body, 'priority' => $priority, 'confidence' => 0.9]],
+            'entries' => [array_merge([
+                'id' => $id,
+                'body' => $body,
+                'priority' => $priority,
+                'confidence' => 0.9,
+            ], $extra)],
         ]));
     }
 
@@ -77,6 +85,32 @@ class RehydrateMemoryCommandTest extends TestCase
         $this->assertStringNotContainsString('corpo pode estar truncado', (string) $fresh->body);
         $this->assertStringContainsString('Por quê', (string) $fresh->redacted_body);
         $this->assertStringNotContainsString('corpo pode estar truncado', (string) $fresh->redacted_body);
+    }
+
+    public function test_apply_rehydrates_title_and_summary_through_curate(): void
+    {
+        $stub = $this->seedStub();
+        $real = 'Docs canonicos governam implementação porque read models envelhecem. Evidência: docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md.';
+        $this->writeMap((string) $stub->getKey(), $real, 90, [
+            'title' => 'Docs canônicos governam implementação',
+            'summary' => 'Use docs canônicos como fonte autoral antes de confiar em Postgres, Obsidian, projections ou chat.',
+            'evidence_refs' => ['docs/engineering-knowledge-base/atlas-ai-knowledge-governance-system.md'],
+        ]);
+
+        $this->artisan('atlas:brain:rehydrate-memory', ['map' => $this->mapPath, '--apply' => true])->assertExitCode(0);
+
+        $fresh = AtlasMemoryEntry::query()->find($stub->getKey());
+        $this->assertSame('Docs canônicos governam implementação', $fresh->title);
+        $this->assertSame(
+            'Use docs canônicos como fonte autoral antes de confiar em Postgres, Obsidian, projections ou chat.',
+            $fresh->summary,
+        );
+        $this->assertNotSame($fresh->title, $fresh->summary);
+        $this->assertSame($real, $fresh->body);
+
+        $chain = (new AtlasMemoryJournal($this->journalPath))->verifyChain();
+        $this->assertTrue($chain['ok']);
+        $this->assertSame(1, $chain['count'], 'title/summary application should still be one registry curate write');
     }
 
     public function test_dry_run_does_not_write(): void
@@ -110,5 +144,26 @@ class RehydrateMemoryCommandTest extends TestCase
         $this->artisan('atlas:brain:rehydrate-memory', ['map' => $this->mapPath, '--apply' => true])->assertExitCode(0);
 
         $this->assertSame(0, AtlasMemoryEntry::query()->count(), 're-hydration never creates memory.');
+    }
+
+    public function test_shipped_rehydration_map_entries_have_resolvable_engineering_knowledge_evidence_refs(): void
+    {
+        $mapPath = base_path('database/atlas/memory-rehydration-wiper-restore.json');
+        $map = json_decode((string) file_get_contents($mapPath), true, flags: JSON_THROW_ON_ERROR);
+
+        foreach ($map['entries'] as $index => $entry) {
+            $this->assertIsString($entry['title'] ?? null, "entry {$index} missing title");
+            $this->assertNotSame('', trim((string) $entry['title']), "entry {$index} empty title");
+            $this->assertIsString($entry['summary'] ?? null, "entry {$index} missing summary");
+            $this->assertNotSame('', trim((string) $entry['summary']), "entry {$index} empty summary");
+            $this->assertNotSame(trim((string) $entry['title']), trim((string) $entry['summary']), "entry {$index} title must not equal summary");
+            $this->assertNotEmpty($entry['evidence_refs'] ?? [], "entry {$index} missing evidence refs");
+
+            foreach ($entry['evidence_refs'] as $ref) {
+                $this->assertIsString($ref);
+                $this->assertStringStartsWith('docs/engineering-knowledge-base/', $ref);
+                $this->assertFileExists(base_path($ref), "entry {$index} evidence ref does not resolve: {$ref}");
+            }
+        }
     }
 }
