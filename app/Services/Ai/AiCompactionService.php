@@ -885,7 +885,10 @@ class AiCompactionService
                 ->latest('updated_at')
                 ->first(),
             AtlasLongHorizonCanon::SCOPE_TYPE_DEV_SESSION => $query
-                ->where('session_id', $scopeId)
+                ->where(function ($builder) use ($scopeId): void {
+                    $builder->where('session_id', $scopeId)
+                        ->orWhere('thread_id', $scopeId);
+                })
                 ->latest('updated_at')
                 ->first(),
             AtlasLongHorizonCanon::SCOPE_TYPE_DEV_RUN,

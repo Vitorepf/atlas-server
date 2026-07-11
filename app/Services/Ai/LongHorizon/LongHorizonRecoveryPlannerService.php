@@ -37,7 +37,9 @@ final class LongHorizonRecoveryPlannerService
 
     public const DEFAULT_DEV_SCOPE_MODULE_LIMIT = 3;
 
-    public function __construct() {}
+    public function __construct(
+        private readonly CompactionRecoveryExecutor $compactionRecoveryExecutor,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $input
@@ -112,6 +114,7 @@ final class LongHorizonRecoveryPlannerService
             'confidence' => $confidence,
             'evidence_refs' => $evidenceRefs,
             'reasons' => $reasonTrail,
+            'compaction_recovery_executor' => $this->compactionRecoveryExecutorContract($pack),
         ];
 
         $payload['plan_hash'] = self::canonicalPlanHash($payload);
@@ -261,6 +264,30 @@ final class LongHorizonRecoveryPlannerService
         $explicit = (array) ($pack['unresolved_loss'] ?? []);
 
         return $explicit !== [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>
+     */
+    private function compactionRecoveryExecutorContract(array $pack): array
+    {
+        $queries = array_values(array_filter(array_map(
+            static fn (mixed $query): string => is_scalar($query) ? trim((string) $query) : '',
+            array_merge(
+                (array) ($pack['recovery_queries'] ?? []),
+                (array) data_get($pack, 'compaction_receipt.recovery_queries', []),
+            ),
+        ), static fn (string $query): bool => $query !== ''));
+
+        return [
+            'schema_version' => 'atlas.long_horizon.compaction_recovery_executor_contract.v1',
+            'available' => $queries !== [],
+            'executor' => $this->compactionRecoveryExecutor::class,
+            'recovery_query_count' => count($queries),
+            'read_only' => true,
+            'write_gate' => 'LongHorizonMemoryPromotionGuard',
+        ];
     }
 
     /**
