@@ -875,7 +875,21 @@ final class AtlasLoopAutoMergeService
 
             $execution = is_array($threaded['execution'] ?? null)
                 ? $threaded['execution']
-                : $this->derivedExecutionEvidence($contract, $canary);
+                : null;
+
+            // ENG-05 — no derived-evidence fallback: threaded execution absent ⇒ non-promoted,
+            // aligning the secondary landing port with the ENG-04 primary floor.
+            if ($execution === null) {
+                return [
+                    'promoted' => false,
+                    'blockers' => ['sovereign_evidence_missing'],
+                    'verdict' => [
+                        'status' => 'refuse',
+                        'blockers' => ['sovereign_evidence_missing'],
+                        'reason' => 'threaded_execution_evidence_required',
+                    ],
+                ];
+            }
 
             $verdict = app(AtlasAutonomosGateAdapter::class)->certifyAutonomosDelivery([
                 'criteria_hash' => $contractHash,

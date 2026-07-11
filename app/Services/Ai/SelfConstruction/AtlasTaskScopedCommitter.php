@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use Symfony\Component\Process\Process;
@@ -27,20 +28,26 @@ use Throwable;
  * ENG-04: when server-side verification evidence is supplied, the unified autonomosGate certify runs HERE —
  * between verify and commit — fail-closed on false claims and task_tests_proven non-promotion; docs-only
  * boot_proven landings proceed with an honest receipt.
+ *
+ * ENG-05: scoped commits acquire the SAME path-stable main-merge lock as every other main writer
+ * ({@see AtlasLoopMergeActuator::LOCK_BASENAME}) — one authority, no divergent flock files.
  */
 final class AtlasTaskScopedCommitter
 {
-    public const LOCK_REL = '.git/atlas-task-commit.lock';
+    /**
+     * @deprecated ENG-05 — unified onto {@see AtlasLoopMergeActuator::LOCK_BASENAME}.
+     *               Kept so legacy call-sites probe the same lock path.
+     */
+    public const LOCK_REL = '.git/'.AtlasLoopMergeActuator::LOCK_BASENAME;
 
     public const LOCK_TIMEOUT_SECONDS = 15.0;
-
-    private const LOCK_POLL_MICROSECONDS = 50_000;
 
     public function __construct(
         private readonly ?AtlasLoopHarnessGuard $guard = null,
         private readonly ?string $repoRootOverride = null,
         private readonly ?EliteExecutorKernel $eliteKernel = null,
         private readonly ?AtlasArtisanBootSmokeGate $bootSmokeGate = null,
+        private readonly ?AtlasLoopMergeActuator $mergeActuator = null,
     ) {}
 
     /**
@@ -264,29 +271,21 @@ final class AtlasTaskScopedCommitter
      */
     private function withCommitLock(string $repo, callable $callback): array
     {
-        $lockPath = $repo.'/'.self::LOCK_REL;
-        $handle = @fopen($lockPath, 'c');
-        if ($handle === false) {
-            return $this->result(false, 'lock_open_failed');
+        $actuator = $this->mergeActuator ?? app(AtlasLoopMergeActuator::class);
+        $locked = $actuator->withMainMergeLock(
+            $repo,
+            fn (): array => $callback(),
+            self::LOCK_TIMEOUT_SECONDS,
+        );
+
+        if (($locked['acquired'] ?? false) !== true) {
+            return $this->result(false, 'commit_lock_contended'); // FAIL-CLOSED — never commit unlocked
         }
 
-        $deadline = microtime(true) + self::LOCK_TIMEOUT_SECONDS;
-        try {
-            while (true) {
-                if (flock($handle, LOCK_EX | LOCK_NB)) {
-                    break;
-                }
-                if (microtime(true) >= $deadline) {
-                    return $this->result(false, 'commit_lock_contended'); // FAIL-CLOSED — never commit unlocked
-                }
-                usleep(self::LOCK_POLL_MICROSECONDS);
-            }
+        /** @var array<string,mixed> $result */
+        $result = $locked['result'];
 
-            return $callback();
-        } finally {
-            @flock($handle, LOCK_UN);
-            @fclose($handle);
-        }
+        return $result;
     }
 
     /**
