@@ -6,12 +6,14 @@ namespace Tests\Feature\Reality;
 
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
+use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasRealityEntity;
 use App\Models\AtlasRealityRelationship;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Illuminate\Database\Schema\Blueprint;
@@ -49,7 +51,7 @@ final class AtlasAurgIngestionTest extends TestCase
 
     private string $moduleRealityUuid;
 
-    private string $evidenceProvingMemoryId;
+    private string $evidenceProvingEventId;
 
     protected function setUp(): void
     {
@@ -76,7 +78,7 @@ final class AtlasAurgIngestionTest extends TestCase
         $this->assertSame(21, $stats['sources']['domains']['nodes']);
         $this->assertGreaterThan(0, $stats['sources']['domains']['edges']);
 
-        // evidence: refs only (2 recent rows).
+        // evidence: refs only (2 recent ledger events).
         $this->assertSame(2, $stats['sources']['evidence']['nodes']);
 
         // strategic: expired valid_until row skipped → 2 of 3 entities; 1 relationship edge.
@@ -98,7 +100,7 @@ final class AtlasAurgIngestionTest extends TestCase
             ->flatten()
             ->unique()
             ->all();
-        $this->assertEmpty(array_intersect(['summary', 'command', 'output_excerpt', 'artifact_url'], $evidenceMeta));
+        $this->assertEmpty(array_intersect(['summary', 'command', 'output_excerpt', 'artifact_url', 'payload'], $evidenceMeta));
     }
 
     public function test_cross_layer_linkers_are_deterministic_cite_or_omit(): void
@@ -138,7 +140,7 @@ final class AtlasAurgIngestionTest extends TestCase
 
         // (c) evidence→memory 'proves' via exact target_id match → 1.0.
         $proves = AtlasAurgEdge::query()
-            ->where('from_node_id', 'evidence:evidence:'.$this->evidenceProvingMemoryId)
+            ->where('from_node_id', 'evidence:evidence:'.$this->evidenceProvingEventId)
             ->where('to_node_id', $memoryNodeId)
             ->where('kind', 'proves')
             ->first();
@@ -325,8 +327,11 @@ final class AtlasAurgIngestionTest extends TestCase
         // Workspace keying for code-intelligence tables (idempotent, cross-driver).
         (require database_path('migrations/2026_06_08_233000_add_workspace_id_to_code_intelligence_tables.php'))->up();
 
-        // Evidence ledger table: created manually — the real migration's trigger
-        // statement is pgsql-only syntax without a driver guard.
+        // Evidence ledger table (live source for RAG-09).
+        (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+        (require database_path('migrations/2026_05_19_050000_extend_atlas_ledger_events_with_timeline_fields.php'))->up();
+
+        // Dead engineering evidence table kept only to prove ingest no longer reads it.
         Schema::dropIfExists('atlas_engineering_evidence');
         Schema::create('atlas_engineering_evidence', function (Blueprint $table): void {
             $table->uuid('id')->primary();
@@ -429,33 +434,46 @@ final class AtlasAurgIngestionTest extends TestCase
             ]);
         }
 
-        // --- evidence (refs only) ---
-        $this->evidenceProvingMemoryId = (string) Str::uuid();
-        DB::table('atlas_engineering_evidence')->insert([
-            'id' => $this->evidenceProvingMemoryId,
-            'task_id' => (string) Str::uuid(),
-            'evidence_type' => 'test_run',
-            'target_id' => $this->safeMemoryId,
-            'status' => 'passed',
-            'summary' => 'payload that must NOT enter the brain',
-            'files' => json_encode(['app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php']),
-            'metadata' => '{}',
-            'recorded_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
+        // --- evidence (live ledger refs only) ---
+        $this->evidenceProvingEventId = (string) Str::ulid();
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $this->evidenceProvingEventId,
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'aurg-ingest-test',
+            'receipt_id' => null,
+            'trace_id' => 'trace-proves-memory',
+            'correlation_id' => 'corr-proves-memory',
+            'causation_id' => null,
+            'event_type' => 'TEST_RUN',
+            'emitter_stage' => 'atlas.test',
+            'emitter_version' => 'v1',
+            'payload' => [
+                'target_id' => $this->safeMemoryId,
+                'files' => ['app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php'],
+            ],
+            'payload_hash' => hash('sha256', 'evidence-proves-memory'),
+            'scope_type' => 'memory_entry',
+            'scope_id' => $this->safeMemoryId,
+            'occurred_at' => now(),
         ]);
-        DB::table('atlas_engineering_evidence')->insert([
-            'id' => (string) Str::uuid(),
-            'task_id' => (string) Str::uuid(),
-            'evidence_type' => 'lint',
-            'target_id' => null,
-            'status' => 'passed',
-            'summary' => 'another payload that must NOT enter the brain',
-            'files' => '[]',
-            'metadata' => '{}',
-            'recorded_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
+        AtlasLedgerEvent::query()->create([
+            'event_id' => (string) Str::ulid(),
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'aurg-ingest-test-2',
+            'receipt_id' => null,
+            'trace_id' => null,
+            'correlation_id' => 'corr-lint',
+            'causation_id' => null,
+            'event_type' => 'LINT',
+            'emitter_stage' => 'atlas.test',
+            'emitter_version' => 'v1',
+            'payload' => ['files' => []],
+            'payload_hash' => hash('sha256', 'evidence-lint'),
+            'occurred_at' => now()->subSecond(),
         ]);
 
         // --- strategic (ASRE; one expired row honours the 14-day decay) ---

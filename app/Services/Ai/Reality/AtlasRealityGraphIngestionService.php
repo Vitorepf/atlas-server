@@ -6,6 +6,7 @@ namespace App\Services\Ai\Reality;
 
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
+use App\Models\AtlasLedgerEvent;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasRealityEntity;
 use App\Models\AtlasRealityRelationship;
@@ -38,8 +39,10 @@ use Throwable;
  *               (sensitive flag from the map) + mesh allowed-crossing edges from the
  *               EXISTING {@see AtlasCrossDomainMeshService} topology (reuse, not
  *               recreate). Sensitive domains are provider_safe=false.
- *   evidence  — recent N atlas_engineering_evidence rows as refs: label = event
- *               type, meta = ids/hashes ONLY, never payloads.
+ *   evidence  — recent N atlas_ledger_events rows (Evidence Ledger, append-only
+ *               runtime store) as refs: label = event_type, meta = ids/hashes +
+ *               cite-or-omit paths/memory refs ONLY, never payloads. The dead
+ *               atlas_engineering_evidence table is NOT read (RAG-09).
  *   strategic — atlas_reality_entities (expired valid_until skipped, honouring the
  *               ASRE 14-day decay) + atlas_reality_relationships as edges.
  *
@@ -1142,38 +1145,51 @@ class AtlasRealityGraphIngestionService
     {
         $nodes = [];
 
-        if (! $this->tableExists('atlas_engineering_evidence')) {
+        if (! $this->tableExists('atlas_ledger_events')) {
             return ['nodes' => $nodes, 'edges' => []];
         }
 
         $limit = $this->cap('evidence_limit', 200);
-        $rows = DB::table('atlas_engineering_evidence')
-            ->orderByDesc('recorded_at')
-            ->limit($limit)
-            ->get(['id', 'evidence_type', 'status', 'task_id', 'trace_id', 'target_id', 'files', 'metadata', 'recorded_at']);
+        $query = AtlasLedgerEvent::query()
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('event_id')
+            ->limit($limit);
 
-        foreach ($rows as $row) {
-            $files = $this->decodeJsonList($row->files ?? null);
-            $metadata = $this->decodeJsonMap($row->metadata ?? null);
+        $columns = ['event_id', 'event_type', 'trace_id', 'correlation_id', 'receipt_id', 'payload', 'payload_hash', 'occurred_at'];
+        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')) {
+            $columns[] = 'scope_type';
+        }
+        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+            $columns[] = 'scope_id';
+        }
+
+        foreach ($query->get($columns) as $row) {
+            $payload = $this->decodeJsonMap($row->payload ?? null);
+            $scopeType = is_string($row->scope_type ?? null) ? (string) $row->scope_type : null;
+            $scopeId = is_string($row->scope_id ?? null) ? (string) $row->scope_id : null;
 
             $nodes[] = $this->node(
-                id: $this->nodeKey('evidence', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, (string) $row->id),
+                id: $this->nodeKey('evidence', AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE, (string) $row->event_id),
                 kind: AtlasRealityGraphSnapshotBuilderService::NODE_EVIDENCE,
                 sourceKind: 'evidence',
-                sourceId: (string) $row->id,
-                label: (string) $row->evidence_type,
+                sourceId: (string) $row->event_id,
+                label: (string) $row->event_type,
                 providerSafe: true,
                 sensitive: false,
-                // ids/hashes ONLY — summary/command/output never enter the brain.
+                // ids/hashes + cite-or-omit refs ONLY — raw payload never enters the brain.
                 meta: [
-                    'status' => (string) $row->status,
-                    'task_id' => $row->task_id !== null ? (string) $row->task_id : null,
+                    'ledger_source' => 'atlas_ledger_events',
                     'trace_id' => $row->trace_id !== null ? (string) $row->trace_id : null,
-                    'target_id' => $row->target_id !== null ? (string) $row->target_id : null,
-                    'memory_ref' => $this->memoryRefFrom($metadata),
-                    'paths' => array_slice(array_values(array_filter($files, 'is_string')), 0, self::MAX_META_PATHS),
+                    'correlation_id' => $row->correlation_id !== null ? (string) $row->correlation_id : null,
+                    'receipt_id' => $row->receipt_id !== null ? (string) $row->receipt_id : null,
+                    'scope_type' => $scopeType,
+                    'scope_id' => $scopeId,
+                    'target_id' => $this->ledgerTargetIdFrom($payload),
+                    'memory_ref' => $this->ledgerMemoryRefFrom($payload, $scopeType, $scopeId),
+                    'paths' => $this->ledgerEvidencePathsFrom($payload),
+                    'payload_hash' => (string) $row->payload_hash,
                 ],
-                contentHash: hash('sha256', $row->id.'|'.$row->evidence_type.'|'.(string) $row->recorded_at),
+                contentHash: hash('sha256', (string) $row->event_id.'|'.(string) $row->event_type.'|'.(string) $row->payload_hash),
             );
         }
 
@@ -1902,6 +1918,117 @@ class AtlasRealityGraphIngestionService
     }
 
     /**
+     * Explicit target id cited in a ledger payload (cite-or-omit).
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function ledgerTargetIdFrom(array $payload): ?string
+    {
+        foreach (['target_id', 'memory_entry_id', 'memory_id'] as $field) {
+            if (is_string($payload[$field] ?? null) && trim((string) $payload[$field]) !== '') {
+                return trim((string) $payload[$field]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Memory ref cited in a ledger payload or scope (cite-or-omit).
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function ledgerMemoryRefFrom(array $payload, ?string $scopeType, ?string $scopeId): ?string
+    {
+        $ref = $this->memoryRefFrom($payload);
+        if ($ref !== null) {
+            return $ref;
+        }
+
+        foreach ($this->normalizeStringList($payload['memory_refs'] ?? null) as $candidate) {
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        if ($scopeType !== null && in_array($scopeType, ['memory_entry', 'memory'], true)
+            && is_string($scopeId) && trim($scopeId) !== '') {
+            return trim($scopeId);
+        }
+
+        return null;
+    }
+
+    /**
+     * Repo-relative paths explicitly cited in a ledger payload (cite-or-omit).
+     *
+     * @param  array<string,mixed>  $payload
+     * @return list<string>
+     */
+    private function ledgerEvidencePathsFrom(array $payload): array
+    {
+        $paths = [];
+
+        foreach (['files', 'paths', 'touched_files'] as $key) {
+            foreach ($this->normalizeStringList($payload[$key] ?? null) as $path) {
+                if ($this->isCitedRepoPath($path)) {
+                    $paths[] = $path;
+                }
+            }
+        }
+
+        foreach (['path', 'file_path'] as $key) {
+            $path = $payload[$key] ?? null;
+            if (is_string($path) && $this->isCitedRepoPath($path)) {
+                $paths[] = $path;
+            }
+        }
+
+        foreach ((array) data_get($payload, 'result.payload.diff_refs', []) as $ref) {
+            if (! is_array($ref)) {
+                continue;
+            }
+            $path = $ref['path'] ?? null;
+            if (is_string($path) && $this->isCitedRepoPath($path)) {
+                $paths[] = $path;
+            }
+        }
+
+        foreach ($this->normalizeStringList(data_get($payload, 'local_rag.files')) as $path) {
+            if ($this->isCitedRepoPath($path)) {
+                $paths[] = $path;
+            }
+        }
+
+        return array_slice(array_values(array_unique($paths)), 0, self::MAX_META_PATHS);
+    }
+
+    private function isCitedRepoPath(string $path): bool
+    {
+        $path = trim($path);
+        if ($path === '' || str_contains($path, '..')) {
+            return false;
+        }
+
+        return (bool) preg_match('~^(?:app|tests|docs|config|routes|database|resources|scripts)/~', $path);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normalizeStringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (mixed $item): string => is_string($item) ? trim($item) : '',
+            $value,
+        ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
      * @return list<mixed>
      */
     private function decodeJsonList(mixed $value): array
@@ -1952,7 +2079,7 @@ class AtlasRealityGraphIngestionService
             'memory' => $this->tableExists('atlas_memory_entries'),
             'code' => $this->tableExists('atlas_engineering_code_modules'),
             'domains' => true,
-            'evidence' => $this->tableExists('atlas_engineering_evidence'),
+            'evidence' => $this->tableExists('atlas_ledger_events'),
             'strategic' => $this->tableExists('atlas_reality_entities'),
             default => false,
         };

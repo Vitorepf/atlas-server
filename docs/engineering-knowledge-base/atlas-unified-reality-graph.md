@@ -157,6 +157,17 @@ Implementado: schemas, projections, read model, comando e testes sobre
 persistencia ASRE. Fora do escopo atual: ingestion massivo, trust scoring
 profundo e graph global completo.
 
+### Evidence source (RAG-09)
+
+A camada `evidence` do fused store AURG (`AtlasRealityGraphIngestionService`)
+le o **Evidence Ledger vivo** (`atlas_ledger_events` via
+`AtlasEvidenceLedger`), nao a tabela morta `atlas_engineering_evidence`
+(0 rows em dev, sem writer). Cada evento vira no `evidence` com label =
+`event_type` e meta provider-safe (ids/hashes + paths/refs **cite-or-omit**).
+O linker `linker_evidence` continua emitindo `proves` para memory/code quando
+o evento cita `target_id`/`memory_ref`/`files`/`paths` estruturados. Mission
+outcomes ja ingeridos sob `source_kind=mission` permanecem camada separada.
+
 ## Dependencias
 
 World Model, Semantic Graph, Evidence, Memory, AEMOR.
