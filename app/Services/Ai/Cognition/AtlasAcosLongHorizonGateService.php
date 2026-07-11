@@ -44,6 +44,7 @@ final class AtlasAcosLongHorizonGateService
         $minOverall = max(0.0, min(10.0, (float) ($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5)));
         $minPipeline = max(0.0, min(10.0, (float) ($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5)));
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
+        $maxGapDays = max(1, (int) ($options['max_gap_days'] ?? $cfg['max_gap_days'] ?? 1));
         $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
 
         // "Today" is injectable so the frozen test can pin the freshness window
@@ -60,7 +61,7 @@ final class AtlasAcosLongHorizonGateService
             ],
         };
 
-        $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $maxLatestStaleDays, $today, $seriesPath);
+        $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $maxLatestStaleDays, $maxGapDays, $today, $seriesPath);
         $blockers = $assessment['blockers'];
         $certified = $blockers === [];
         $status = $certified ? 'acos_long_horizon_ready' : 'insufficient_long_horizon_evidence';
@@ -70,6 +71,7 @@ final class AtlasAcosLongHorizonGateService
             'min_overall' => $minOverall,
             'min_pipeline' => $minPipeline,
             'max_latest_stale_days' => $maxLatestStaleDays,
+            'max_gap_days' => $maxGapDays,
             'series_path' => $seriesPath,
         ]);
     }
@@ -79,7 +81,7 @@ final class AtlasAcosLongHorizonGateService
      * @param  list<array<string,mixed>>  $series
      * @return array<string,mixed>
      */
-    private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, int $maxLatestStaleDays, DateTimeImmutable $today, string $seriesPath): array
+    private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, int $maxLatestStaleDays, int $maxGapDays, DateTimeImmutable $today, string $seriesPath): array
     {
         $overall = (float) data_get($scorecard, 'score.overall_out_of_10', 0.0);
         $pipeline = (float) data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0);
@@ -111,6 +113,13 @@ final class AtlasAcosLongHorizonGateService
         // bound of today (default 2 calendar days to tolerate scheduler skew).
         $latestStalenessDays = $this->latestStalenessDays($latestDate, $today);
 
+        $certificationWindowDates = $this->certificationWindowDates($latestDate, $minDays);
+        $certificationWindowStart = $certificationWindowDates[0] ?? null;
+        $certificationWindowEnd = $latestDate;
+        $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
+        $maxConsecutiveGapDays = $this->maxConsecutiveGapDays($sampledDatesInWindow);
+        $backfilledSamples = $this->backfilledSamplesInWindow($series, $certificationWindowDates);
+
         $blockers = [];
         if ($overall < $minOverall) {
             $blockers[] = 'scorecard_overall_below_floor';
@@ -139,6 +148,12 @@ final class AtlasAcosLongHorizonGateService
         if ($latestDate === null || $latestStalenessDays > $maxLatestStaleDays) {
             $blockers[] = 'delta_series_window_stale';
         }
+        if ($maxConsecutiveGapDays > $maxGapDays) {
+            $blockers[] = 'series_gap_exceeds_floor';
+        }
+        if ($backfilledSamples > 0) {
+            $blockers[] = 'backfilled_sample_detected';
+        }
 
         return [
             'overall_score' => round($overall, 3),
@@ -154,11 +169,17 @@ final class AtlasAcosLongHorizonGateService
             'today' => $todayKey,
             'future_dated_rows' => $futureDatedRows,
             'latest_staleness_days' => $latestStalenessDays,
+            'certification_window_start' => $certificationWindowStart,
+            'certification_window_end' => $certificationWindowEnd,
+            'certification_window_sample_count' => count($sampledDatesInWindow),
+            'max_consecutive_gap_days' => $maxConsecutiveGapDays,
+            'backfilled_samples' => $backfilledSamples,
             'floors' => [
                 'min_days' => $minDays,
                 'min_overall' => $minOverall,
                 'min_pipeline' => $minPipeline,
                 'max_latest_stale_days' => $maxLatestStaleDays,
+                'max_gap_days' => $maxGapDays,
             ],
             'blockers' => $blockers,
         ];
@@ -203,6 +224,120 @@ final class AtlasAcosLongHorizonGateService
         }
 
         return $rows;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function certificationWindowDates(?string $latestDate, int $minDays): array
+    {
+        if ($latestDate === null || $minDays < 1) {
+            return [];
+        }
+
+        try {
+            $latest = new DateTimeImmutable($latestDate.' 00:00:00 UTC');
+            $dates = [];
+            for ($i = $minDays - 1; $i >= 0; $i--) {
+                $dates[] = $latest->modify("-$i days")->format('Y-m-d');
+            }
+
+            return $dates;
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $series
+     * @param  list<string>  $certificationWindowDates
+     * @return list<string>
+     */
+    private function sampledDatesInWindow(array $series, array $certificationWindowDates): array
+    {
+        if ($certificationWindowDates === []) {
+            return [];
+        }
+
+        $window = array_fill_keys($certificationWindowDates, true);
+        $sampled = [];
+        foreach ($series as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date !== '' && isset($window[$date])) {
+                $sampled[$date] = true;
+            }
+        }
+
+        $dates = array_keys($sampled);
+        sort($dates);
+
+        return $dates;
+    }
+
+    /**
+     * @param  list<string>  $sampledDates
+     */
+    private function maxConsecutiveGapDays(array $sampledDates): int
+    {
+        if (count($sampledDates) < 2) {
+            return 0;
+        }
+
+        $maxGap = 0;
+        for ($i = 1, $count = count($sampledDates); $i < $count; $i++) {
+            try {
+                $previous = new DateTimeImmutable($sampledDates[$i - 1].' 00:00:00 UTC');
+                $current = new DateTimeImmutable($sampledDates[$i].' 00:00:00 UTC');
+                $gap = max(0, (int) $previous->diff($current)->days);
+                $maxGap = max($maxGap, $gap);
+            } catch (Throwable) {
+                continue;
+            }
+        }
+
+        return $maxGap;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $series
+     * @param  list<string>  $certificationWindowDates
+     */
+    private function backfilledSamplesInWindow(array $series, array $certificationWindowDates): int
+    {
+        if ($certificationWindowDates === []) {
+            return 0;
+        }
+
+        $window = array_fill_keys($certificationWindowDates, true);
+        $count = 0;
+        foreach ($series as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date === '' || ! isset($window[$date])) {
+                continue;
+            }
+
+            $recordedAtDate = $this->recordedAtCalendarDate($row['recorded_at'] ?? null);
+            if ($recordedAtDate === null || $recordedAtDate !== $date) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private function recordedAtCalendarDate(mixed $recordedAt): ?string
+    {
+        if (! is_string($recordedAt) || trim($recordedAt) === '') {
+            return null;
+        }
+
+        try {
+            return (new DateTimeImmutable($recordedAt))
+                ->setTimezone(new \DateTimeZone('UTC'))
+                ->format('Y-m-d');
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function calendarSpanDays(?string $firstDate, ?string $latestDate): int

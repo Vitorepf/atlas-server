@@ -1895,6 +1895,119 @@ return [
     // Config primária: atlas.acos.delta_series_enabled (fallback legado atlas.fable.*).
     'acos' => [
         'delta_series_enabled' => (bool) env('ATLAS_ACOS_DELTA_SERIES_ENABLED', env('ATLAS_FABLE_DELTA_SERIES_ENABLED', true)),
+
+        // ROL-01 — pre-declared objective rollback triggers for future ACOS flips.
+        // Read-only check: atlas:acos:rollback-triggers --json (EVI-01 / WDG-01).
+        'rollback_triggers' => [
+            'enabled' => (bool) env('ATLAS_ACOS_ROLLBACK_TRIGGERS_CHECK_ENABLED', true),
+            'flips' => [
+                [
+                    'id' => 'eng_13_governance_enforce',
+                    'slices' => ['ENG-13'],
+                    'condition' => [
+                        'kind' => 'real_completion_blocked_in_window',
+                        'window_hours' => 24,
+                        'min_count' => 1,
+                        'requires_flip' => [
+                            'env' => 'ATLAS_AI_GOVERNANCE_ENFORCE',
+                            'value' => true,
+                        ],
+                    ],
+                    'rollback_action' => [
+                        'ATLAS_AI_GOVERNANCE_ENFORCE' => 'false',
+                        'ATLAS_AI_CALL_COST_GUARD_HARD_UNITS' => '0',
+                    ],
+                    'executor' => 'watchdog_alert_operator_reverts',
+                ],
+                [
+                    'id' => 'eng_14_forge_gate_enforce',
+                    'slices' => ['ENG-14'],
+                    'condition' => [
+                        'kind' => 'real_completion_blocked_in_window',
+                        'window_hours' => 24,
+                        'min_count' => 1,
+                        'scope' => 'forge',
+                        'requires_flip' => [
+                            'env' => 'ATLAS_FORGE_EXECUTION_GATE_ENFORCE',
+                            'value' => true,
+                        ],
+                    ],
+                    'rollback_action' => [
+                        'ATLAS_FORGE_EXECUTION_GATE_ENFORCE' => 'false',
+                    ],
+                    'executor' => 'watchdog_alert_operator_reverts',
+                ],
+                [
+                    'id' => 'eng_15_adml_cost_outcome',
+                    'slices' => ['ENG-15'],
+                    'condition' => [
+                        'kind' => 'proven_route_below_min_evidence',
+                        'window_days' => 7,
+                        'min_count' => 1,
+                        'requires_flip' => [
+                            'env' => 'ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED',
+                            'value' => true,
+                        ],
+                    ],
+                    'rollback_action' => [
+                        'ATLAS_PATAMAR4_ADML_COST_OUTCOME_ENABLED' => 'false',
+                    ],
+                    'executor' => 'watchdog_alert_operator_reverts',
+                ],
+                [
+                    'id' => 'cpt_09_compaction_enforce',
+                    'slices' => ['CPT-09'],
+                    'condition' => [
+                        'kind' => 'must_keep_critical_cut',
+                        'min_count' => 1,
+                        'requires_flip' => [
+                            'env' => 'ATLAS_COMPACTION_ENFORCEMENT_MODE',
+                            'value' => 'enforce',
+                        ],
+                    ],
+                    'rollback_action' => [
+                        'ATLAS_COMPACTION_ENFORCEMENT_MODE' => 'observe',
+                    ],
+                    'executor' => 'watchdog_alert_operator_reverts',
+                ],
+                [
+                    'id' => 'ope_04_fee_04_pack_quality',
+                    'slices' => ['OPE-04', 'FEE-04'],
+                    'condition' => [
+                        'kind' => 'pack_quality_below_baseline',
+                        'baseline_window_days' => 7,
+                        'max_score_drop' => 5,
+                        'requires_flip' => [
+                            'any_env' => [
+                                ['env' => 'ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING', 'value' => true],
+                                ['env' => 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED', 'value' => true],
+                            ],
+                        ],
+                    ],
+                    'rollback_action' => [
+                        'ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING' => 'false',
+                        'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED' => 'false',
+                    ],
+                    'executor' => 'watchdog_alert_operator_reverts',
+                ],
+                [
+                    'id' => 'pip_04_remint_touched',
+                    'slices' => ['PIP-04'],
+                    'condition' => [
+                        'kind' => 'landing_latency_exceeded',
+                        'budget_ms' => 900_000,
+                        'requires_flip' => [
+                            'env' => 'ATLAS_COGNITION_REMINT_TOUCHED_ENABLED',
+                            'value' => true,
+                        ],
+                    ],
+                    'rollback_action' => [
+                        'ATLAS_COGNITION_REMINT_TOUCHED_ENABLED' => 'false',
+                    ],
+                    'executor' => 'watchdog_alert_operator_reverts',
+                ],
+            ],
+        ],
     ],
 
     // Legado campanha Fable — mantido 1 ciclo para leitura de env antigo.
@@ -1948,6 +2061,10 @@ return [
             // within this window of "today" or the gate rejects it as stale. Any
             // future-dated row is always rejected. Mechanical does_not_backfill_time.
             'max_latest_stale_days' => max(0, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MAX_LATEST_STALE_DAYS', 2)),
+            // EVI-05: max calendar-day gap between consecutive sampled dates inside
+            // the certification window (last min_days ending at latest_date). Default
+            // 1 enforces full contiguity — any missing day blocks certification.
+            'max_gap_days' => max(1, (int) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_MAX_GAP_DAYS', 1)),
             'series_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SERIES_PATH', storage_path('app/atlas/evidence/acos-delta-series.jsonl')),
             'receipt_path' => (string) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_RECEIPT_PATH', storage_path('app/atlas/evidence/acos-long-horizon-gate.json')),
         ],

@@ -210,4 +210,143 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
         $this->assertSame(0, data_get($payload, 'assessment.future_dated_rows'));
         $this->assertSame(0, data_get($payload, 'assessment.latest_staleness_days'));
     }
+
+    public function test_one_missing_day_in_certification_window_blocks_with_series_gap_exceeds_floor(): void
+    {
+        // EVI-05: 59 samples over a 60-day span with exactly one missing day inside
+        // the last-30-day certification window. Day-count and span floors pass; the
+        // contiguity guard must be the load-bearing rejection.
+        $today = new \DateTimeImmutable('2026-07-11 00:00:00 UTC');
+        $missing = $today->modify('-17 days')->format('Y-m-d');
+        $series = [];
+        for ($i = 59; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            if ($date === $missing) {
+                continue;
+            }
+            $series[] = [
+                'date' => $date,
+                'recorded_at' => $date.'T00:00:00+00:00',
+                'metrics' => ['scorecard_overall' => 9.7],
+                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+        }
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->highScorecard('d'),
+            'series' => $series,
+        ]);
+
+        $this->assertFalse($payload['certified']);
+        $this->assertContains('series_gap_exceeds_floor', $payload['blockers']);
+        $this->assertSame(2, data_get($payload, 'assessment.max_consecutive_gap_days'));
+        $this->assertGreaterThanOrEqual(30, data_get($payload, 'assessment.series_day_count'));
+        $this->assertGreaterThanOrEqual(30, data_get($payload, 'assessment.calendar_span_days'));
+        $this->assertNotContains('series_day_count_below_floor', $payload['blockers']);
+    }
+
+    public function test_backdated_row_blocks_with_backfilled_sample_detected(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+        $series = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            $series[] = [
+                'date' => $date,
+                'recorded_at' => $date === $today->modify('-10 days')->format('Y-m-d')
+                    ? $today->format('Y-m-d').'T15:00:00+00:00'
+                    : $date.'T00:00:00+00:00',
+                'metrics' => ['scorecard_overall' => 9.7],
+                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+        }
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->highScorecard('e'),
+            'series' => $series,
+        ]);
+
+        $this->assertFalse($payload['certified']);
+        $this->assertContains('backfilled_sample_detected', $payload['blockers']);
+        $this->assertSame(1, data_get($payload, 'assessment.backfilled_samples'));
+        $this->assertNotContains('series_gap_exceeds_floor', $payload['blockers']);
+    }
+
+    public function test_row_without_recorded_at_blocks_with_backfilled_sample_detected(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+        $series = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            $row = [
+                'date' => $date,
+                'metrics' => ['scorecard_overall' => 9.7],
+                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+            if ($date !== $today->modify('-5 days')->format('Y-m-d')) {
+                $row['recorded_at'] = $date.'T00:00:00+00:00';
+            }
+            $series[] = $row;
+        }
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->highScorecard('f'),
+            'series' => $series,
+        ]);
+
+        $this->assertFalse($payload['certified']);
+        $this->assertContains('backfilled_sample_detected', $payload['blockers']);
+        $this->assertSame(1, data_get($payload, 'assessment.backfilled_samples'));
+    }
+
+    public function test_same_day_catchup_with_later_recorded_at_still_certifies(): void
+    {
+        // EVI-04 catch-up same-day: recorded_at later on the same calendar day passes.
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+        $series = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            $series[] = [
+                'date' => $date,
+                'recorded_at' => $date === $today->format('Y-m-d')
+                    ? $date.'T18:45:00+00:00'
+                    : $date.'T00:00:00+00:00',
+                'metrics' => ['scorecard_overall' => 9.7],
+                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+        }
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->highScorecard('g'),
+            'series' => $series,
+        ]);
+
+        $this->assertTrue($payload['certified']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertSame(0, data_get($payload, 'assessment.backfilled_samples'));
+        $this->assertSame(1, data_get($payload, 'assessment.max_consecutive_gap_days'));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function highScorecard(string $hashSeed): array
+    {
+        return [
+            'schema_version' => 'atlas.cognition.scorecard.v3',
+            'score' => [
+                'overall_out_of_10' => 9.8,
+                'dimensions' => ['pipeline' => ['score_out_of_10' => 9.8]],
+            ],
+            'scorecard_hash' => 'sha256:'.str_repeat($hashSeed, 64),
+        ];
+    }
 }
