@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -107,7 +109,7 @@ final class AtlasTaskScopedCommitter
             ]);
         }
 
-        $effect = function () use ($repo, $files, $taskPacketId, $clientId, $objective, $certify, $bootSmoke, $preEffectGuard): array {
+        $effect = function () use ($repo, $files, $taskPacketId, $clientId, $objective, $verification, $certify, $bootSmoke, $preEffectGuard): array {
             // STATUS-FIRST: `git status` on the scope never errors on a path that does not exist; `git add` of a
             // non-existent pathspec DOES error. So discover which scoped paths actually changed, and act only on
             // those. Empty ⇒ the AI made no edits ⇒ honest no-op (keep the lease).
@@ -143,6 +145,13 @@ final class AtlasTaskScopedCommitter
                 'commit_sha' => $sha,
                 'client_id' => $clientId,
             ]);
+            $liveOutcomeFeedback = $this->recordLiveOutcomeFeedback(
+                taskPacketId: $taskPacketId,
+                clientId: $clientId,
+                objective: $objective,
+                verification: $verification,
+                committed: true,
+            );
 
             return $this->result(true, 'committed', taskPacketId: $taskPacketId, extra: array_filter([
                 'commit_sha' => $sha,
@@ -151,6 +160,7 @@ final class AtlasTaskScopedCommitter
                 'landing_certify' => $certify,
                 'boot_smoke' => ($bootSmoke['warning'] ?? null) !== null ? $bootSmoke : null,
                 'remint_touched_queue' => $remintTouchedQueue,
+                'live_outcome_feedback' => $liveOutcomeFeedback,
             ], static fn (mixed $v): bool => $v !== null));
         };
 
@@ -407,6 +417,52 @@ final class AtlasTaskScopedCommitter
     private function repoRoot(): string
     {
         return $this->repoRootOverride ?? base_path();
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $verification
+     * @return array<string,mixed>|null
+     */
+    private function recordLiveOutcomeFeedback(
+        string $taskPacketId,
+        string $clientId,
+        string $objective,
+        ?array $verification,
+        bool $committed,
+    ): ?array {
+        if (function_exists('app') && app()->runningUnitTests() && ! app()->bound(AtlasDecideLiveOutcomeFeedbackService::class)) {
+            return null;
+        }
+
+        try {
+            $execution = (array) ($verification['execution_evidence'] ?? []);
+            $proof = (new OutcomeProofGate)->assess($committed ? 'success' : 'failed', $execution);
+
+            return app(AtlasDecideLiveOutcomeFeedbackService::class)->record([
+                'task_category' => 'programming',
+                'role' => 'autonomos_landing',
+                'provider' => $clientId !== '' ? $clientId : 'atlas_autonomos',
+                'model' => 'n/a',
+                'result' => $committed
+                    ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
+                    : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                'proven_real' => $proof['proven_real'] === true,
+                'quality_score' => $proof['proven_real'] === true ? 1.0 : (($proof['fake_green'] ?? false) === true ? 0.0 : 0.5),
+                'actor' => 'atlas_autonomos_landing',
+                'language' => 'php',
+                'risk_level' => 'medium',
+                'tool_profile' => 'workspace_write',
+                'context_mode' => 'autonomos',
+                'repair_count' => 0,
+                'context_tokens' => max(1, (int) ceil(mb_strlen($objective !== '' ? $objective : $taskPacketId) / 4)),
+            ]);
+        } catch (Throwable $e) {
+            return [
+                'recorded' => false,
+                'reason' => 'live_outcome_feedback_failed_open',
+                'error' => mb_substr($e->getMessage(), 0, 200),
+            ];
+        }
     }
 
     /**

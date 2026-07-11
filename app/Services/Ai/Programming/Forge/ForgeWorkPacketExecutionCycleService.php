@@ -6,9 +6,11 @@ use App\Models\AiForgeIntake;
 use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
@@ -481,7 +483,7 @@ class ForgeWorkPacketExecutionCycleService
             ['outcome_memory' => $outcomeMemory, 'sovereign_engineering_gate' => $sovereign],
         );
 
-        return DB::transaction(function () use (
+        $completed = DB::transaction(function () use (
             $cycle, $cleanEvidence, $gateResult, $state, $nextAction,
         ): AiForgeWorkPacketExecutionCycle {
             $lockedCycle = AiForgeWorkPacketExecutionCycle::query()->whereKey($cycle->getKey())->lockForUpdate()->firstOrFail();
@@ -528,6 +530,10 @@ class ForgeWorkPacketExecutionCycleService
 
             return $lockedCycle;
         }, 3);
+
+        $this->recordLiveOutcomeFeedback($completed, $gateResult);
+
+        return $completed;
     }
 
     /**
@@ -669,6 +675,44 @@ class ForgeWorkPacketExecutionCycleService
             return (bool) config('atlas.engineering_kernel.forge_execution_gate_enforcing', false);
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $gateResult
+     */
+    private function recordLiveOutcomeFeedback(AiForgeWorkPacketExecutionCycle $cycle, array $gateResult): void
+    {
+        if (function_exists('app') && app()->runningUnitTests() && ! app()->bound(AtlasDecideLiveOutcomeFeedbackService::class)) {
+            return;
+        }
+
+        try {
+            $execution = $this->derivedExecutionEvidence($cycle, $gateResult);
+            $proof = (new OutcomeProofGate)->assess(
+                $cycle->outcome_status === ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS ? 'success' : 'failed',
+                $execution,
+            );
+            app(AtlasDecideLiveOutcomeFeedbackService::class)->record([
+                'task_category' => 'programming',
+                'role' => 'forge_complete',
+                'provider' => 'atlas_forge',
+                'model' => 'n/a',
+                'result' => $cycle->outcome_status === ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS
+                    ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
+                    : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
+                'proven_real' => $proof['proven_real'] === true,
+                'quality_score' => $proof['proven_real'] === true ? 1.0 : (($proof['fake_green'] ?? false) === true ? 0.0 : 0.5),
+                'actor' => 'atlas_forge_work_packet_complete',
+                'language' => 'php',
+                'risk_level' => (string) data_get($cycle, 'execution_plan.risk_band', 'medium'),
+                'context_mode' => 'forge',
+                'tool_profile' => 'workspace_write',
+                'repair_count' => 0,
+                'context_tokens' => max(1, count((array) ($cycle->expected_artifacts ?? []))),
+            ]);
+        } catch (\Throwable) {
+            // Live feedback is telemetry only; completion verdicts are decided by the gates above.
         }
     }
 
