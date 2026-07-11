@@ -18,7 +18,8 @@ use App\Services\Ai\Programming\Forge\Intelligence\ForgeOutcomeMemoryService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeSpecialistWorkcellRouterService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeWorkPacketCapabilityOrchestrator;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Ramsey\Uuid\Uuid;
 
 /**
  * Owns the lifecycle of `atlas.forge.work_packet_execution_cycle.v1`.
@@ -252,76 +253,87 @@ class ForgeWorkPacketExecutionCycleService
     ): AiForgeWorkPacketExecutionCycle {
         $mode = (string) $built['execution_mode'];
         $position = $this->nextCyclePosition($packet);
-        $status = $mode === ForgeWorkPacketExecutionCycleCanon::MODE_BLOCKED
-            ? ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED
-            : ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING;
-
-        $now = Carbon::now();
-        $cycleUuid = (string) Str::uuid();
         $executionPlan = (array) $built['plan'];
-        if ($mode === ForgeWorkPacketExecutionCycleCanon::MODE_REAL) {
-            $request = (array) ($executionPlan['scope_reservation_request'] ?? []);
-            $owner = (string) ($request['lease_owner'] ?? 'forge-cycle:'.$cycleUuid);
-            $token = (string) ($request['lease_token'] ?? Str::random(64));
-            $reservation = $this->scopeReservations->acquire(
-                runId: $cycleUuid,
-                scopePath: (string) ($request['scope_path'] ?? 'work-packet/'.$packet->packet_id),
-                mode: $mode,
-                leaseOwner: $owner,
-                leaseToken: $token,
-                authorityHash: (string) $packet->packet_hash,
-                baselineHash: (string) $intake->intake_hash,
-                idempotencyKey: (string) ($request['idempotency_key'] ?? 'forge-cycle:'.$cycleUuid),
-                leaseSeconds: (int) ($request['lease_seconds'] ?? 900),
-            );
-            if (! $reservation['acquired']) {
-                throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($cycleUuid);
+        $request = (array) ($executionPlan['scope_reservation_request'] ?? []);
+        $idempotencyKey = (string) ($request['idempotency_key']
+            ?? 'forge-cycle:'.$intake->id.':'.$packet->id.':'.$position);
+        $cycleUuid = Uuid::uuid5(Uuid::NAMESPACE_URL, 'atlas-forge-cycle:'.$idempotencyKey)->toString();
+
+        return DB::transaction(function () use (
+            $mode, $position, $executionPlan, $request, $idempotencyKey, $cycleUuid,
+            $intake, $packet, $built, $state,
+        ): AiForgeWorkPacketExecutionCycle {
+            $existing = AiForgeWorkPacketExecutionCycle::query()->where('uuid', $cycleUuid)->first();
+            if ($existing !== null) {
+                return $existing;
             }
-            $executionPlan['scope_reservation'] = $reservation['reservation'];
-        }
 
-        $row = [
-            'schema_version' => ForgeWorkPacketExecutionCycleCanon::SCHEMA_VERSION,
-            'uuid' => $cycleUuid,
-            'intake_id' => $intake->id,
-            'work_packet_id' => $packet->id,
-            'work_packet_canonical_id' => $packet->packet_id,
-            'long_horizon_state_id' => $state?->id,
-            'cycle_position' => $position,
-            'execution_mode' => $mode,
-            'status' => $status,
-            'execution_plan' => $executionPlan,
-            'expected_artifacts' => array_values((array) $built['expected_artifacts']),
-            'evidence_refs' => [],
-            'gate_result' => null,
-            'outcome_status' => $status === ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED
-                ? ForgeWorkPacketExecutionCycleCanon::OUTCOME_BLOCKED
-                : null,
-            'failure_reason' => null,
-            'repair_hook' => null,
-            'next_action' => (array) $built['initial_next_action'],
-            'started_at' => $now,
-            'completed_at' => $status === ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED ? $now : null,
-        ];
-        $row['cycle_hash'] = $this->computeCycleHash($row);
+            $status = $mode === ForgeWorkPacketExecutionCycleCanon::MODE_BLOCKED
+                ? ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED
+                : ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING;
+            $plan = $executionPlan;
+            if ($mode === ForgeWorkPacketExecutionCycleCanon::MODE_REAL) {
+                $owner = (string) ($request['lease_owner'] ?? 'forge-cycle:'.$cycleUuid);
+                $token = (string) ($request['lease_token'] ?? hash('sha256', 'forge-lease:'.$idempotencyKey));
+                $reservation = $this->scopeReservations->acquire(
+                    runId: $cycleUuid,
+                    scopePath: (string) ($request['scope_path'] ?? 'work-packet/'.$packet->packet_id),
+                    mode: $mode,
+                    leaseOwner: $owner,
+                    leaseToken: $token,
+                    authorityHash: (string) $packet->packet_hash,
+                    baselineHash: (string) $intake->intake_hash,
+                    idempotencyKey: $idempotencyKey,
+                    leaseSeconds: (int) ($request['lease_seconds'] ?? 900),
+                );
+                if (! $reservation['acquired'] || ! is_array($reservation['reservation'])) {
+                    throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($cycleUuid);
+                }
+                $plan['scope_reservation'] = $reservation['reservation'];
+            }
 
-        $cycle = AiForgeWorkPacketExecutionCycle::query()->create($row);
-        $cycle = $this->materializeWorkcellSchedule($cycle, $packet);
+            $now = Carbon::now();
+            $row = [
+                'schema_version' => ForgeWorkPacketExecutionCycleCanon::SCHEMA_VERSION,
+                'uuid' => $cycleUuid,
+                'intake_id' => $intake->id,
+                'work_packet_id' => $packet->id,
+                'work_packet_canonical_id' => $packet->packet_id,
+                'long_horizon_state_id' => $state?->id,
+                'cycle_position' => $position,
+                'execution_mode' => $mode,
+                'status' => $status,
+                'execution_plan' => $plan,
+                'expected_artifacts' => array_values((array) $built['expected_artifacts']),
+                'evidence_refs' => [],
+                'gate_result' => null,
+                'outcome_status' => $status === ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED
+                    ? ForgeWorkPacketExecutionCycleCanon::OUTCOME_BLOCKED
+                    : null,
+                'failure_reason' => null,
+                'repair_hook' => null,
+                'next_action' => (array) $built['initial_next_action'],
+                'started_at' => $now,
+                'completed_at' => $status === ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED ? $now : null,
+            ];
+            $row['cycle_hash'] = $this->computeCycleHash($row);
 
-        // For mode=blocked, also register a packet-scope blocker into the
-        // long-horizon state so the operator sees it.
-        if ($status === ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED && $state !== null) {
-            $this->longHorizon->recordCycle($state, [
-                'cycle_id' => 'wp-cycle-'.$cycle->uuid,
-                'blockers' => [[
-                    'scope' => ForgeLongHorizonStateCanon::BLOCKER_SCOPE_PACKET,
-                    'target' => $packet->packet_id,
-                    'reason' => (string) $row['execution_plan']['blocked_reason'],
-                ]],
-            ]);
-        }
+            $cycle = AiForgeWorkPacketExecutionCycle::query()->create($row);
+            $cycle = $this->materializeWorkcellSchedule($cycle, $packet);
 
-        return $cycle;
+            if ($status === ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED && $state !== null) {
+                $this->longHorizon->recordCycle($state, [
+                    'cycle_id' => 'wp-cycle-'.$cycle->uuid,
+                    'blockers' => [[
+                        'scope' => ForgeLongHorizonStateCanon::BLOCKER_SCOPE_PACKET,
+                        'target' => $packet->packet_id,
+                        'reason' => (string) $row['execution_plan']['blocked_reason'],
+                    ]],
+                ]);
+            }
+
+            return $cycle;
+        }, 3);
     }
 
     /**
@@ -384,21 +396,6 @@ class ForgeWorkPacketExecutionCycleService
             throw ForgeWorkPacketExecutionCycleException::completionWithoutAllGatesPassed($cycle->uuid);
         }
 
-        $persistedPlan = $cycle->getAttribute('execution_plan');
-        $reservation = is_array($persistedPlan) && is_array($persistedPlan['scope_reservation'] ?? null)
-            ? $persistedPlan['scope_reservation']
-            : [];
-        $settlement = $reservation === [] ? ['released' => false] : $this->scopeReservations->release(
-            (string) ($reservation['id'] ?? ''),
-            (string) ($reservation['lease_owner'] ?? ''),
-            (string) ($reservation['lease_token'] ?? ''),
-            (int) ($reservation['fencing_token'] ?? 0),
-            'settled',
-        );
-        if (! $settlement['released']) {
-            throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($cycle->uuid);
-        }
-
         $enforcing = $this->forgeExecutionGateEnforcing();
         $sovereign = $this->sovereignGateVerdict($cycle, $gateResult, $enforcing);
         if ($enforcing && ($sovereign['promoted'] ?? false) !== true) {
@@ -418,39 +415,59 @@ class ForgeWorkPacketExecutionCycleService
             ],
         ], 'forge');
 
-        $cycle->evidence_refs = $cleanEvidence;
-        $cycle->gate_result = $gateResult;
-        $cycle->outcome_status = ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS;
-        $cycle->status = ForgeWorkPacketExecutionCycleCanon::STATUS_SUCCESS;
-        $cycle->failure_reason = null;
-        $cycle->repair_hook = null;
-        $cycle->completed_at = Carbon::now();
         $outcomeMemory = $this->outcomeMemory->summarize($cycle);
-        $cycle->next_action = array_merge(
+        $nextAction = array_merge(
             $this->computeNextActionAfterSuccess($cycle, $state),
-            [
-                'outcome_memory' => $outcomeMemory,
-                'sovereign_engineering_gate' => $sovereign,
-            ],
+            ['outcome_memory' => $outcomeMemory, 'sovereign_engineering_gate' => $sovereign],
         );
-        $cycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($cycle));
-        $cycle->save();
-        $cycle = $this->persistOutcomeMemory($cycle);
-        $this->feedCentralLearning($cycle);
 
-        AiForgeWorkPacket::query()
-            ->where('id', $cycle->work_packet_id)
-            ->update(['status' => ForgeIntakeCanon::PACKET_STATUS_DONE]);
+        return DB::transaction(function () use (
+            $cycle, $cleanEvidence, $gateResult, $state, $nextAction,
+        ): AiForgeWorkPacketExecutionCycle {
+            $lockedCycle = AiForgeWorkPacketExecutionCycle::query()->whereKey($cycle->getKey())->lockForUpdate()->firstOrFail();
+            $this->guardNotTerminal($lockedCycle);
+            $persistedPlan = $lockedCycle->getAttribute('execution_plan');
+            $reservation = is_array($persistedPlan) && is_array($persistedPlan['scope_reservation'] ?? null)
+                ? $persistedPlan['scope_reservation']
+                : [];
+            $settlement = $reservation === [] ? ['released' => false] : $this->scopeReservations->release(
+                (string) ($reservation['id'] ?? ''),
+                (string) ($reservation['lease_owner'] ?? ''),
+                (string) ($reservation['lease_token'] ?? ''),
+                (int) ($reservation['fencing_token'] ?? 0),
+                'settled',
+            );
+            if (! $settlement['released']) {
+                throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($lockedCycle->uuid);
+            }
 
-        if ($state !== null) {
-            $this->longHorizon->recordCycle($state, [
-                'cycle_id' => 'wp-cycle-'.$cycle->uuid,
-                'completed_work_packets' => [(string) $cycle->work_packet_canonical_id],
-                'evidence_refs' => $cleanEvidence,
-            ]);
-        }
+            $lockedCycle->evidence_refs = $cleanEvidence;
+            $lockedCycle->gate_result = $gateResult;
+            $lockedCycle->outcome_status = ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS;
+            $lockedCycle->status = ForgeWorkPacketExecutionCycleCanon::STATUS_SUCCESS;
+            $lockedCycle->failure_reason = null;
+            $lockedCycle->repair_hook = null;
+            $lockedCycle->completed_at = Carbon::now();
+            $lockedCycle->next_action = $nextAction;
+            $lockedCycle->cycle_hash = $this->computeCycleHash($this->cyclePayload($lockedCycle));
+            $lockedCycle->save();
+            $lockedCycle = $this->persistOutcomeMemory($lockedCycle);
+            $this->feedCentralLearning($lockedCycle);
 
-        return $cycle;
+            AiForgeWorkPacket::query()
+                ->where('id', $lockedCycle->work_packet_id)
+                ->update(['status' => ForgeIntakeCanon::PACKET_STATUS_DONE]);
+
+            if ($state !== null) {
+                $this->longHorizon->recordCycle($state, [
+                    'cycle_id' => 'wp-cycle-'.$lockedCycle->uuid,
+                    'completed_work_packets' => [(string) $lockedCycle->work_packet_canonical_id],
+                    'evidence_refs' => $cleanEvidence,
+                ]);
+            }
+
+            return $lockedCycle;
+        }, 3);
     }
 
     /**

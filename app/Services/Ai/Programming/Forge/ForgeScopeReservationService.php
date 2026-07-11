@@ -4,7 +4,6 @@ namespace App\Services\Ai\Programming\Forge;
 
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -16,7 +15,7 @@ class ForgeScopeReservationService
 
     public function __construct(private readonly AtlasEvidenceLedger $ledger) {}
 
-    /** @return array{acquired:bool,replayed:bool,reservation:array<string,mixed>} */
+    /** @return array{acquired:bool,replayed:bool,reservation:array<string,mixed>|null,reason?:string} */
     public function acquire(
         string $runId,
         string $scopePath,
@@ -31,14 +30,29 @@ class ForgeScopeReservationService
         $path = $this->canonicalPath($scopePath);
         $scopeKey = hash('sha256', $path);
         $now = Carbon::now();
+        $posture = (string) config('atlas.forge.scope_reservations.posture', 'enforce');
 
         $result = DB::transaction(function () use (
             $runId, $path, $scopeKey, $mode, $leaseOwner, $leaseToken,
-            $authorityHash, $baselineHash, $idempotencyKey, $leaseSeconds, $now,
+            $authorityHash, $baselineHash, $idempotencyKey, $leaseSeconds, $now, $posture,
         ): array {
             $replay = DB::table(self::TABLE)->where('idempotency_key', $idempotencyKey)->first();
             if ($replay !== null) {
+                $this->assertReplayContract($replay, [
+                    'run_id' => $runId,
+                    'canonical_scope_key' => $scopeKey,
+                    'mode' => $mode,
+                    'lease_owner' => $leaseOwner,
+                    'lease_token' => $leaseToken,
+                    'authority_hash' => $authorityHash,
+                    'baseline_hash' => $baselineHash,
+                ]);
+
                 return ['acquired' => true, 'replayed' => true, 'reservation' => $this->receipt($replay)];
+            }
+
+            if (in_array($posture, ['disabled', 'drain'], true)) {
+                return ['acquired' => false, 'replayed' => false, 'reservation' => null, 'reason' => 'acquisition_'.$posture];
             }
 
             $active = DB::table(self::TABLE)
@@ -81,12 +95,26 @@ class ForgeScopeReservationService
                 'updated_at' => $now,
             ];
 
-            try {
-                DB::table(self::TABLE)->insert($row);
-            } catch (QueryException $exception) {
+            $inserted = DB::table(self::TABLE)->insertOrIgnore($row);
+            if ($inserted === 0) {
+                $idempotentWinner = DB::table(self::TABLE)->where('idempotency_key', $idempotencyKey)->first();
+                if ($idempotentWinner !== null) {
+                    $this->assertReplayContract($idempotentWinner, [
+                        'run_id' => $runId,
+                        'canonical_scope_key' => $scopeKey,
+                        'mode' => $mode,
+                        'lease_owner' => $leaseOwner,
+                        'lease_token' => $leaseToken,
+                        'authority_hash' => $authorityHash,
+                        'baseline_hash' => $baselineHash,
+                    ]);
+
+                    return ['acquired' => true, 'replayed' => true, 'reservation' => $this->receipt($idempotentWinner)];
+                }
+
                 $winner = DB::table(self::TABLE)->where('active_scope_key', $scopeKey)->first();
                 if ($winner === null) {
-                    throw $exception;
+                    throw new \RuntimeException('atlas.forge.scope_reservation: conflict winner could not be reconstructed');
                 }
 
                 return ['acquired' => false, 'replayed' => false, 'reservation' => $this->receipt($winner)];
@@ -185,6 +213,16 @@ class ForgeScopeReservationService
         }
 
         return implode('/', $segments);
+    }
+
+    /** @param array<string,string> $expected */
+    private function assertReplayContract(object $row, array $expected): void
+    {
+        foreach ($expected as $field => $value) {
+            if ((string) $row->{$field} !== $value) {
+                throw new \RuntimeException('atlas.forge.scope_reservation: idempotency contract mismatch for '.$field);
+            }
+        }
     }
 
     /** @param array<string,mixed> $reservation */

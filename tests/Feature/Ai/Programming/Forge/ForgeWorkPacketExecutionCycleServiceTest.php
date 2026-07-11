@@ -201,6 +201,61 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         );
     }
 
+    public function test_terminal_write_failure_rolls_back_settlement_and_keeps_cycle_retryable(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $cycle = $this->cycles->startCycle(
+            $intake, $packet, $this->cycles->planExecution($packet, ['execution_mode' => 'real']), $state,
+        );
+        $reservationId = $cycle->execution_plan['scope_reservation']['id'];
+        DB::statement("CREATE TRIGGER fail_cycle_success BEFORE UPDATE ON ai_forge_work_packet_execution_cycles BEGIN SELECT RAISE(ABORT, 'injected cycle write failure'); END");
+
+        try {
+            $this->cycles->complete(
+                $cycle, [['kind' => 'work_packet_receipts', 'ref' => 'wpr://real']], $this->passingGate(), $state,
+            );
+            $this->fail('injected terminal write failure must escape');
+        } catch (\Throwable $exception) {
+            $this->assertStringContainsString('injected cycle write failure', $exception->getMessage());
+        } finally {
+            DB::statement('DROP TRIGGER IF EXISTS fail_cycle_success');
+        }
+
+        $this->assertDatabaseHas('atlas_task_scope_reservations', [
+            'id' => $reservationId,
+            'state' => 'active',
+        ]);
+        $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING, $cycle->fresh()->status);
+        $this->assertNotSame(ForgeIntakeCanon::PACKET_STATUS_DONE, $packet->fresh()->status);
+    }
+
+    public function test_cycle_insert_failure_rolls_back_reservation_and_stable_retry_reconstructs_once(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $plan = $this->cycles->planExecution($packet, [
+            'execution_mode' => 'real',
+            'idempotency_key' => 'forge-test-stable-cycle',
+        ]);
+        DB::statement("CREATE TRIGGER fail_cycle_insert BEFORE INSERT ON ai_forge_work_packet_execution_cycles BEGIN SELECT RAISE(ABORT, 'injected cycle insert failure'); END");
+
+        try {
+            $this->cycles->startCycle($intake, $packet, $plan, $state);
+            $this->fail('injected cycle insert failure must escape');
+        } catch (\Throwable $exception) {
+            $this->assertStringContainsString('injected cycle insert failure', $exception->getMessage());
+        } finally {
+            DB::statement('DROP TRIGGER IF EXISTS fail_cycle_insert');
+        }
+
+        $this->assertSame(0, DB::table('atlas_task_scope_reservations')->where('state', 'active')->count());
+        $cycle = $this->cycles->startCycle($intake, $packet, $plan, $state);
+        $replay = $this->cycles->startCycle($intake, $packet, $plan, $state);
+
+        $this->assertSame($cycle->uuid, $replay->uuid);
+        $this->assertSame($cycle->uuid, $cycle->execution_plan['scope_reservation']['run_id']);
+        $this->assertSame(1, DB::table('atlas_task_scope_reservations')->count());
+    }
+
     public function test_complete_records_sovereign_gate_observe_verdict_without_blocking(): void
     {
         [$intake, $packet, $state] = $this->bootstrap();
@@ -246,6 +301,10 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertSame(ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED, $cycle->status);
         $this->assertSame(ForgeWorkPacketExecutionCycleCanon::OUTCOME_BLOCKED, $cycle->outcome_status);
         $this->assertSame('sovereign_engineering_gate_not_promoted', $cycle->failure_reason);
+        $this->assertDatabaseHas('atlas_task_scope_reservations', [
+            'id' => $cycle->execution_plan['scope_reservation']['id'],
+            'state' => 'active',
+        ]);
     }
 
     public function test_complete_refuses_when_evidence_refs_is_empty(): void
