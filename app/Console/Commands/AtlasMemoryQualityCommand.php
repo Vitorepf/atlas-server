@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Console\Command;
 
 class AtlasMemoryQualityCommand extends Command
@@ -21,13 +22,17 @@ class AtlasMemoryQualityCommand extends Command
         {--days=30 : Days for history}
         {--limit=50 : Maximum history rows}
         {--record : Persist the current scorecard as a quality snapshot}
+        {--check : Run MEM-09 pinned watchdog checks and fail on alert}
         {--json : Print machine-readable JSON}';
 
     protected $description = 'Show Atlas memory quality scorecard and operational recommendations.';
 
-    public function handle(AtlasMemoryQualityService $quality): int
+    public function handle(AtlasMemoryQualityService $quality, AtlasAcosWatchdogHealthService $health): int
     {
         $action = strtolower(trim((string) $this->argument('action')));
+        if ((bool) $this->option('check')) {
+            return $this->check($health);
+        }
         if ($action === 'history') {
             return $this->history($quality);
         }
@@ -41,6 +46,26 @@ class AtlasMemoryQualityCommand extends Command
         }
 
         return $this->scorecard($quality, record: (bool) $this->option('record'));
+    }
+
+    private function check(AtlasAcosWatchdogHealthService $health): int
+    {
+        $report = $health->memoryQualityCheck($this->filters());
+        $payload = ['memory_quality_check' => $report];
+
+        if ((bool) $this->option('json')) {
+            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } else {
+            $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Memory Quality Check</>', (string) ($report['status'] ?? 'unknown'));
+            foreach ((array) ($report['checks'] ?? []) as $check) {
+                if (! is_array($check)) {
+                    continue;
+                }
+                $this->components->twoColumnDetail((string) ($check['id'] ?? 'check'), ((bool) ($check['pass'] ?? false)) ? 'pass' : 'fail');
+            }
+        }
+
+        return ($report['alert'] ?? false) === true ? self::FAILURE : self::SUCCESS;
     }
 
     private function scorecard(AtlasMemoryQualityService $quality, bool $record = false): int

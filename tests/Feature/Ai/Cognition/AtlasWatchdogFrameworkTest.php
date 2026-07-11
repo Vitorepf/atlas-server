@@ -22,6 +22,7 @@ final class AtlasWatchdogFrameworkTest extends TestCase
         parent::setUp();
 
         $this->migrateLedger();
+        $this->app->instance(AtlasWatchdogCheckRegistry::class, new AtlasWatchdogCheckRegistry);
     }
 
     protected function tearDown(): void

@@ -164,6 +164,11 @@ Schedule::command('atlas:venture review-cycle --json')
 Schedule::command('atlas:cognition:mint-pipeline-receipts --limit=30 --json')
     ->dailyAt('06:30')
     ->withoutOverlapping()
+    ->then(static function (): void {
+        if ((bool) config('atlas.cognition.scorecard_watchdog.enabled', true)) {
+            \Illuminate\Support\Facades\Artisan::call('atlas:cognition:scorecard:watchdog', ['--json' => true]);
+        }
+    })
     ->when(static fn (): bool => (bool) config('atlas.cognition.mint_pipeline_receipts_enabled', true));
 
 // EVI-09 · Série diária do delta N×M do ACOS — foto persistida de HOJE-vs-Marco-Zero.

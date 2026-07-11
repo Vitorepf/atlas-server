@@ -1523,6 +1523,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
+        $this->registerAcosWatchdogChecks();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
@@ -1538,6 +1539,26 @@ class AppServiceProvider extends ServiceProvider
             app(AtlasHarnessSurface::class)->bootOverlay();
         } catch (\Throwable) {
             // o config base do .env segue valendo.
+        }
+    }
+
+    private function registerAcosWatchdogChecks(): void
+    {
+        $registry = app(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
+
+        foreach ([
+            \App\Services\Ai\Cognition\Watchdog\Checks\MemoryQualityWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\LearningCadenceWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\AurgCoverageWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\RagDimensionWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\ContextFeedbackHealthWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\CompactionSoakWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardStabilityWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\LiftCycleClosureWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardReceiptsDiagnosisWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\EnforceReadinessWatchdogCheck::class,
+        ] as $checkClass) {
+            $registry->register(app($checkClass));
         }
     }
 }

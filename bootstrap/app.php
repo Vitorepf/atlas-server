@@ -83,9 +83,12 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasCognitionScorecardWatchdogCommand;
 use App\Console\Commands\AtlasCognitionRemintTouchedCommand;
 use App\Console\Commands\AtlasCognitionVerifyClaimsCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
+use App\Console\Commands\AtlasCompactionSoakWatchCommand;
+use App\Console\Commands\AtlasContextFeedbackHealthCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
@@ -107,6 +110,7 @@ use App\Console\Commands\AtlasEngineeringBenchmarkReplayManifestCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkReportCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkSeedCommand;
 use App\Console\Commands\AtlasEngineeringDockerCleanupCommand;
+use App\Console\Commands\AtlasEngineeringEnforceReadinessCommand;
 use App\Console\Commands\AtlasEngineeringHarnessabilityCalibrateCommand;
 use App\Console\Commands\AtlasEngineeringKnowledgeCommand;
 use App\Console\Commands\AtlasEngineeringQualityScanCommand;
@@ -355,13 +359,17 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringRunCommand::class,
         AtlasEngineeringSbomCommand::class,
         AtlasEngineeringSecurityScanCommand::class,
+        AtlasEngineeringEnforceReadinessCommand::class,
         AtlasEngineeringVisualDriverCommand::class,
         AtlasEngineeringVisualBaselineCommand::class,
         AtlasEngineeringVisualSmokeCommand::class,
         AtlasForgeMultiNodeL410ProofCommand::class,
         AtlasCognitiveFunctionDecomposeCommand::class,
+        AtlasCognitionScorecardWatchdogCommand::class,
         AtlasCognitionRemintTouchedCommand::class,
         AtlasCognitionVerifyClaimsCommand::class,
+        AtlasCompactionSoakWatchCommand::class,
+        AtlasContextFeedbackHealthCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasContextPolicyTrendCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,

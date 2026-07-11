@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use Carbon\CarbonImmutable;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Throwable;
 
@@ -279,6 +282,73 @@ class AtlasCognitionEvidenceResolver
         return $targets;
     }
 
+    /**
+     * OPE-10: explain why a scorecard facet remains pipeline=partial/building.
+     *
+     * @return array<string,mixed>
+     */
+    public function resolvePipelineDiagnosis(?string $serviceClass): array
+    {
+        $fqn = $this->normalizeFqn($serviceClass);
+        if ($fqn === null) {
+            return [
+                'status' => self::STATUS_BLOCKED,
+                'reason' => 'service_class_missing',
+                'owner_capability_ids' => [],
+                'candidate_test_refs' => [],
+                'latest_receipt_at' => null,
+                'latest_receipt_age_days' => null,
+                'green_receipt_count' => 0,
+            ];
+        }
+
+        $owners = $this->ownerDocsForFqn($fqn);
+        $candidateTestRefs = $this->candidateTestRefsFor($fqn, $owners);
+        $existingTestRefs = array_values(array_filter(
+            $candidateTestRefs,
+            fn (string $testRef): bool => $this->testSymbolExists($testRef),
+        ));
+        $ownerIds = array_values(array_unique(array_filter(array_map(
+            static fn (array $owner): string => trim((string) ($owner['capability_id'] ?? '')),
+            $owners,
+        ))));
+
+        $latestReceipt = null;
+        $greenCount = 0;
+        if ($ownerIds !== [] && DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts')) {
+            $query = AtlasAaeosTestRunReceipt::query()
+                ->whereIn('capability_id', $ownerIds);
+            if ($candidateTestRefs !== []) {
+                $query->whereIn('test_ref', $candidateTestRefs);
+            }
+
+            $latestReceipt = (clone $query)->orderByDesc('ran_at')->orderByDesc('created_at')->first();
+            $greenCount = (clone $query)->green()->count();
+        }
+
+        $latestAt = $this->parseDate($latestReceipt?->ran_at ?? $latestReceipt?->created_at);
+        $pipelineStatus = $this->resolvePipelineStatus($fqn);
+        $reason = match (true) {
+            $owners === [] => 'owner_doc_missing',
+            $candidateTestRefs === [] => 'candidate_test_ref_missing',
+            $existingTestRefs === [] => 'candidate_test_symbol_missing',
+            $greenCount === 0 => 'green_receipt_missing',
+            $pipelineStatus !== self::STATUS_READY => 'green_receipt_stale_or_unmatched',
+            default => 'ready',
+        };
+
+        return [
+            'status' => $pipelineStatus,
+            'reason' => $reason,
+            'owner_capability_ids' => $ownerIds,
+            'candidate_test_refs' => $candidateTestRefs,
+            'existing_test_refs' => $existingTestRefs,
+            'latest_receipt_at' => $latestAt?->toIso8601String(),
+            'latest_receipt_age_days' => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now('UTC')) / 24, 2),
+            'green_receipt_count' => $greenCount,
+        ];
+    }
+
     private function ownerDocsForFqn(string $fqn): array
     {
         $short = $this->classBasename($fqn);
@@ -307,6 +377,25 @@ class AtlasCognitionEvidenceResolver
         }
 
         return $owners;
+    }
+
+    /**
+     * @param  array<int,array{capability_id:string, owner_doc:string, symbol_ref:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array<int,string>}>  $owners
+     * @return list<string>
+     */
+    private function candidateTestRefsFor(string $fqn, array $owners): array
+    {
+        $candidateTestRefs = [$this->classBasename($fqn).'Test'];
+        foreach ($owners as $owner) {
+            foreach ($owner['test_refs'] as $testRef) {
+                $candidateTestRefs[] = $testRef;
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            $candidateTestRefs,
+            static fn (string $ref): bool => trim($ref) !== '',
+        )));
     }
 
     /**
@@ -450,5 +539,21 @@ class AtlasCognitionEvidenceResolver
         }
 
         return ltrim($path, '/');
+    }
+
+    private function parseDate(mixed $value): ?CarbonImmutable
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return CarbonImmutable::instance($value)->utc();
+        }
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($value)->utc();
+        } catch (Throwable) {
+            return null;
+        }
     }
 }
