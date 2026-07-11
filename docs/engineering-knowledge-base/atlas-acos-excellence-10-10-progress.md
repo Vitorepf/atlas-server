@@ -53,7 +53,7 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | EVI-06 | ⬜ | — | — |
 | EVI-03 | ⬜ | — | — |
 | PIP-02 | ⬜ | — | — |
-| MEM-04 | ⬜ | — | — |
+| MEM-04 | ✅ | 10a823d84 | ALL_RECALLED (5 decisões pétreas via atlas:memory:add) |
 | RAG-01 | ⬜ | — | — |
 | RAG-04 | ⬜ | — | — |
 | CPT-01 | ⬜ | — | — |
