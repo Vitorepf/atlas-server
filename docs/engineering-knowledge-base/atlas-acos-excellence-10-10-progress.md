@@ -31,16 +31,16 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | EVI-02 | ✅ | a100e5bf74 | suite 3/3: exit≠0 + fatal → heal; healthy sem heal |
 | EVI-04 | ✅ | 89391f7e20 | suite 7/7 + schedule:list fable:delta-series=2 |
 | FEE-02 | ✅ | 83036ee77 | fake-green removido; metrics_verified |
-| TAXO-01 | ⬜ | — | — |
+| TAXO-01 | ✅ | 6cc56ff1b | taxonomia única + dual-read |
 | PIP-01 | ⬜ | — | — |
 | PIP-03 | ✅ | 388e340bd | ambiguous_test_ref não persiste receipt |
 | ENG-02 | ✅ | 8e47c0082d | chave forge_execution_gate_enforcing default OFF + ledger ABERTO-até-ENG-02 |
 | RAG-09 | ⬜ | — | — |
 | COM-09 | ⬜ | — | — |
 | FEE-12 | ⬜ | — | — |
-| OPE-02 | ⬜ | — | — |
+| OPE-02 | ✅ | 03b3c75cf | dual-write registry+compounding |
 | MED-01 | ✅ | c37ecb353b | atlas:measure:dual-read + ledger schema |
-| VOL-01 | ⬜ | — | — |
+| VOL-01 | ✅ | 69417bae2 | volume check + janela_faminta |
 
 ### Onda 1 — Seams + medidores (18)
 
@@ -150,4 +150,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 8/97 · Faltam: 89 · Próximo: TAXO-01**
+**Feitas: 11/97 · Faltam: 86 · Próximo: FEE-12**
