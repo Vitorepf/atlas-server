@@ -9,6 +9,10 @@ final class AtlasMemoryRationalePolicy
     /** @var list<string> */
     public const RATIONALE_MARKERS = [
         'porqu',
+        'por quê',
+        'por que',
+        'o porquê',
+        'o porque',
         'because',
         'why:',
         '**why',
