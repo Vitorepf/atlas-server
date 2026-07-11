@@ -10,6 +10,7 @@ use App\Models\AiSession;
 use App\Models\AiSessionState;
 use App\Models\AiThread;
 use App\Models\AtlasLongHorizonCompactionReceipt;
+use App\Services\Ai\Compaction\CompactionMustKeepExtractor;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
@@ -22,6 +23,8 @@ use InvalidArgumentException;
 class AiCompactionService
 {
     private const TRANSACTION_ATTEMPTS = 5;
+
+    public function __construct(private readonly CompactionMustKeepExtractor $mustKeepExtractor) {}
 
     public function maybeAutoCompact(AiThread $thread, AiSession $session): ?AiCompaction
     {
@@ -361,7 +364,18 @@ class AiCompactionService
             ? trim($input['scope_id'])
             : null;
 
-        $mustKeepItems = $this->normaliseMustKeepItems((array) ($input['must_keep_items'] ?? []));
+        $callerMustKeepItems = $this->normaliseMustKeepItems((array) ($input['must_keep_items'] ?? []));
+        $sessionState = $this->resolveSessionStateForScope($scopeType, $scopeId);
+        $extractedMustKeepItems = $this->mustKeepExtractor->extract($sessionState);
+        $mustKeepItems = $this->mustKeepExtractor->mergeMustKeepItems(
+            $callerMustKeepItems,
+            $extractedMustKeepItems,
+        );
+        $mustKeepSource = $this->mustKeepExtractor->resolveMustKeepSource(
+            $scopeType,
+            $callerMustKeepItems,
+            $extractedMustKeepItems,
+        );
         $forcedDiscards = $this->normaliseForcedDiscards((array) ($input['forced_discards'] ?? []));
         $sourceContextRefs = array_values((array) ($input['source_context_refs'] ?? []));
         $evidenceRefs = array_values((array) ($input['evidence_refs'] ?? []));
@@ -377,9 +391,13 @@ class AiCompactionService
             $forcedDiscards,
         );
 
-        $mustKeepCoverage = $mustKeepItems === []
-            ? 1.0
-            : round(count($retainedItems) / max(1, count($mustKeepItems)), 3);
+        $mustKeepCoverageStatus = CompactionMustKeepExtractor::COVERAGE_STATUS_VERIFIED;
+        if ($mustKeepSource === CompactionMustKeepExtractor::MUST_KEEP_SOURCE_NONE) {
+            $mustKeepCoverage = 0.0;
+            $mustKeepCoverageStatus = CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS;
+        } else {
+            $mustKeepCoverage = round(count($retainedItems) / max(1, count($mustKeepItems)), 3);
+        }
 
         $touchedCriticalKind = false;
         foreach ($unresolvedLoss as $loss) {
@@ -395,8 +413,12 @@ class AiCompactionService
             $touchedCriticalKind,
             count($forcedDiscards),
         );
-        $writeAllowed = $lossPolicy['write_allowed'];
-        $lossRisk = $lossPolicy['loss_risk'];
+        $writeAllowed = $mustKeepCoverageStatus === CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS
+            ? false
+            : $lossPolicy['write_allowed'];
+        $lossRisk = $mustKeepCoverageStatus === CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS
+            ? AtlasLongHorizonCanon::LOSS_RISK_MEDIUM
+            : $lossPolicy['loss_risk'];
 
         $summary = $this->composeScopeSummary(
             scopeType: $scopeType,
@@ -469,6 +491,8 @@ class AiCompactionService
             'discarded_reason' => $dominantDiscardReason,
             'must_keep_items' => $payload['must_keep_items'],
             'must_keep_coverage' => $mustKeepCoverage,
+            'must_keep_source' => $mustKeepSource,
+            'must_keep_coverage_status' => $mustKeepCoverageStatus,
             'unresolved_loss' => $unresolvedLoss,
             'loss_risk' => $lossRisk,
             'recovery_queries' => $recoveryQueries,
@@ -482,6 +506,39 @@ class AiCompactionService
             'post_compaction_hook' => $postCompactionHook,
             'created_at' => Carbon::now()->toIso8601String(),
         ];
+    }
+
+    private function resolveSessionStateForScope(string $scopeType, ?string $scopeId): ?AiSessionState
+    {
+        if ($scopeId === null || $scopeId === '' || ! CompactionMustKeepExtractor::scopeHasLiveSessionState($scopeType)) {
+            return null;
+        }
+
+        if (! DatabaseTableAvailability::has('ai_session_states')) {
+            return null;
+        }
+
+        $query = AiSessionState::query()->where('active', true);
+
+        return match ($scopeType) {
+            AtlasLongHorizonCanon::SCOPE_TYPE_THREAD => $query
+                ->where('thread_id', $scopeId)
+                ->latest('updated_at')
+                ->first(),
+            AtlasLongHorizonCanon::SCOPE_TYPE_DEV_SESSION => $query
+                ->where('session_id', $scopeId)
+                ->latest('updated_at')
+                ->first(),
+            AtlasLongHorizonCanon::SCOPE_TYPE_DEV_RUN,
+            AtlasLongHorizonCanon::SCOPE_TYPE_DEV_WORKSTREAM => $query
+                ->where(function ($builder) use ($scopeId): void {
+                    $builder->where('thread_id', $scopeId)
+                        ->orWhere('session_id', $scopeId);
+                })
+                ->latest('updated_at')
+                ->first(),
+            default => null,
+        };
     }
 
     /**

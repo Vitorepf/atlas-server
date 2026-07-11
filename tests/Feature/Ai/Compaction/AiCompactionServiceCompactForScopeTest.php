@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Ai\Compaction;
 
+use App\Models\AiSessionState;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\AiCompactionService;
+use App\Services\Ai\Compaction\CompactionMustKeepExtractor;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesLongHorizonPersistenceTables;
 use Tests\TestCase;
@@ -23,13 +27,50 @@ class AiCompactionServiceCompactForScopeTest extends TestCase
     {
         parent::setUp();
         $this->createLongHorizonPersistenceTables();
+        $this->createSessionStateTable();
         $this->service = app(AiCompactionService::class);
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('ai_session_states');
         $this->dropLongHorizonPersistenceTables();
         parent::tearDown();
+    }
+
+    private function createSessionStateTable(): void
+    {
+        Schema::dropIfExists('ai_session_states');
+        Schema::create('ai_session_states', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('thread_id')->nullable();
+            $table->uuid('session_id')->nullable();
+            $table->integer('version')->default(1);
+            $table->boolean('active')->default(true);
+            $table->text('objective')->nullable();
+            $table->string('current_phase')->nullable();
+            $table->json('decisions')->nullable();
+            $table->json('open_loops')->nullable();
+            $table->json('next_steps')->nullable();
+            $table->json('constraints')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * @param  list<array{text:string}>  $decisions
+     */
+    private function seedThreadSessionState(string $threadId, array $decisions): void
+    {
+        AiSessionState::query()->create([
+            'thread_id' => $threadId,
+            'active' => true,
+            'objective' => 'CPT-01 extraction fixture',
+            'decisions' => $decisions,
+            'open_loops' => [],
+            'next_steps' => [],
+            'constraints' => [],
+        ]);
     }
 
     public function test_compact_for_scope_creates_canonical_receipt_with_full_must_keep_coverage(): void
@@ -238,17 +279,78 @@ class AiCompactionServiceCompactForScopeTest extends TestCase
         ]);
     }
 
-    public function test_no_must_keep_items_yields_full_coverage_and_low_risk(): void
+    public function test_extracted_must_keep_from_live_session_when_caller_omits_items(): void
+    {
+        $threadId = 'thread-cpt01-extracted';
+        $this->seedThreadSessionState($threadId, [
+            ['text' => 'Use kernel canonical RAG'],
+            ['text' => 'Reject provider-only memory'],
+            ['text' => 'Emit compaction receipts on every compact'],
+        ]);
+
+        $out = $this->service->compactForScope([
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_THREAD,
+            'scope_id' => $threadId,
+        ]);
+
+        $this->assertSame(CompactionMustKeepExtractor::MUST_KEEP_SOURCE_EXTRACTED, $out['must_keep_source']);
+        $this->assertSame(CompactionMustKeepExtractor::COVERAGE_STATUS_VERIFIED, $out['must_keep_coverage_status']);
+        $this->assertGreaterThanOrEqual(3, count($out['must_keep_items']));
+        $this->assertSame(1.0, $out['must_keep_coverage']);
+        $this->assertTrue($out['write_allowed']);
+        $this->assertCount(3, array_filter(
+            $out['must_keep_items'],
+            static fn (array $item): bool => ($item['kind'] ?? null) === 'decision',
+        ));
+    }
+
+    public function test_adversarial_caller_dummy_item_does_not_bypass_extracted_must_keep(): void
+    {
+        $threadId = 'thread-cpt01-adversarial';
+        $this->seedThreadSessionState($threadId, [
+            ['text' => 'Decision alpha'],
+            ['text' => 'Decision beta'],
+            ['text' => 'Decision gamma'],
+        ]);
+
+        $out = $this->service->compactForScope([
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_THREAD,
+            'scope_id' => $threadId,
+            'must_keep_items' => [
+                ['id' => 'mk-dummy', 'kind' => 'fact', 'digest' => 'trivial bypass attempt'],
+            ],
+        ]);
+
+        $this->assertSame(CompactionMustKeepExtractor::MUST_KEEP_SOURCE_CALLER, $out['must_keep_source']);
+        $this->assertGreaterThanOrEqual(4, count($out['must_keep_items']));
+        $this->assertSame(1.0, $out['must_keep_coverage']);
+        $this->assertTrue($out['write_allowed']);
+    }
+
+    public function test_scope_without_live_state_marks_vacuous_coverage_not_verified(): void
+    {
+        $out = $this->service->compactForScope([
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_MISSION,
+            'scope_id' => 'mission-no-live-state',
+        ]);
+
+        $this->assertSame(CompactionMustKeepExtractor::MUST_KEEP_SOURCE_NONE, $out['must_keep_source']);
+        $this->assertSame(CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS, $out['must_keep_coverage_status']);
+        $this->assertNotSame(1.0, $out['must_keep_coverage']);
+        $this->assertFalse($out['write_allowed']);
+        $this->assertSame([], $out['must_keep_items']);
+    }
+
+    public function test_live_thread_without_state_is_vacuous_not_one_point_zero_verified(): void
     {
         $out = $this->service->compactForScope([
             'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_THREAD,
-            'scope_id' => 'thread-empty',
+            'scope_id' => 'thread-empty-no-state',
         ]);
 
-        $this->assertSame(1.0, $out['must_keep_coverage']);
-        $this->assertSame(AtlasLongHorizonCanon::LOSS_RISK_LOW, $out['loss_risk']);
-        $this->assertTrue($out['write_allowed']);
-        $this->assertSame([], $out['retained_items']);
-        $this->assertSame([], $out['unresolved_loss']);
+        $this->assertSame(CompactionMustKeepExtractor::MUST_KEEP_SOURCE_NONE, $out['must_keep_source']);
+        $this->assertSame(CompactionMustKeepExtractor::COVERAGE_STATUS_VACUOUS, $out['must_keep_coverage_status']);
+        $this->assertNotSame(1.0, $out['must_keep_coverage']);
+        $this->assertFalse($out['write_allowed']);
     }
 }
