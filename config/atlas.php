@@ -434,13 +434,14 @@ return [
         'memory_vector_recall_enabled' => (bool) env('ATLAS_SEMANTIC_MEMORY_VECTOR_RECALL_ENABLED', true),
         // ACDE #3 — compounding-recall arm: surface PROMOTED compounding learnings (AiCompoundingMemory, the
         // approved learning store) into the SAME hybrid recall the live provider injection consumes, so every
-        // session reads what the loop already learned from prior runs/merges. Default-OFF => byte-identical (no
-        // 4th source). Provider-safe by construction: only status=active PROMOTED claims (promotion is the
-        // quality gate), confidence-floored + count-capped + lexical-ranked; only the provider-safe `claim`
-        // is emitted (never the raw payload). Measure lift A/B before flipping (mirrors the +0.8 semantic flip).
-        'compounding_recall_enabled' => (bool) env('ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING', false),
+        // session reads what the loop already learned from prior runs/merges. Default-ON is a conscious
+        // chicken-egg inversion: lift is measurable only once the arm serves; attribution still requires
+        // explicit `used`, and only gate-promoted active memories can appear.
+        'compounding_recall_enabled' => (bool) env('ATLAS_HYBRID_RECALL_INCLUDE_COMPOUNDING', true),
         'compounding_recall_limit' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_LIMIT', 6)),
         'compounding_recall_min_confidence' => max(0, (int) env('ATLAS_HYBRID_RECALL_COMPOUNDING_MIN_CONFIDENCE', 0)),
+        // RAG-02: retrieval quality is a recent operational health signal. Keep
+        // all-time audit counts separately; do not env-arm the scoring window.
         // Obra 5 / MEM-04 + OPT-01: demote dominant recall entries on the live hybrid path.
         'recall_concentration_demotion_enabled' => (bool) env('ATLAS_MEMORY_RECALL_CONCENTRATION_DEMOTION', true),
         'recall_concentration_window_days' => max(1, (int) env('ATLAS_MEMORY_RECALL_CONCENTRATION_WINDOW_DAYS', 45)),
