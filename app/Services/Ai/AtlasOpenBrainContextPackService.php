@@ -137,6 +137,11 @@ class AtlasOpenBrainContextPackService
      */
     public const HONESTY_LABEL = 'curated top-K (not exhaustive)';
 
+    /** RAG-04 — per-item floor when splitting the memory sub-budget across recalls. */
+    private const MEMORY_ITEM_MIN_BUDGET_CHARS = 400;
+
+    private const MEMORY_BODY_TRUNCATION_MARKER = '… [truncated]';
+
     public function __construct(
         private readonly CodeGraphContextRetriever $codeGraph,
         private readonly AtlasRealityGraphQueryService $realityGraph,
@@ -1172,6 +1177,87 @@ class AtlasOpenBrainContextPackService
     }
 
     /**
+     * RAG-04 — deliver N compact memory items instead of one oversized first hit.
+     *
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array{0:array<int,array<string,mixed>>,1:int}
+     */
+    private function packMemoryItemsWithinBudget(array $candidates, int $budgetChars): array
+    {
+        if ($candidates === [] || $budgetChars <= 0) {
+            return [[], 0];
+        }
+
+        $count = count($candidates);
+        $perItemCap = max(self::MEMORY_ITEM_MIN_BUDGET_CHARS, intdiv($budgetChars, $count));
+        $items = [];
+        $chars = 0;
+
+        foreach ($candidates as $candidate) {
+            unset($candidate['_recall_score']); // interno ao floor — nunca servido
+            $remaining = $budgetChars - $chars;
+            if ($remaining <= 0 && $items !== []) {
+                break;
+            }
+
+            $cap = min($perItemCap, max($remaining, 0));
+            if ($items !== [] && $cap < self::MEMORY_ITEM_MIN_BUDGET_CHARS) {
+                break;
+            }
+
+            $compact = $this->compactMemoryItemForPack($candidate, $cap);
+            $entryChars = $this->memoryItemRenderedChars($compact);
+            if ($items !== [] && $chars + $entryChars > $budgetChars) {
+                break;
+            }
+
+            $items[] = $compact;
+            $chars += $entryChars;
+        }
+
+        return [$items, $chars];
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     * @return array<string,mixed>
+     */
+    private function compactMemoryItemForPack(array $item, int $maxChars): array
+    {
+        $title = (string) ($item['title'] ?? '');
+        $summary = (string) ($item['summary'] ?? '');
+        $body = (string) ($item['body'] ?? '');
+        $fixedChars = strlen($title.$summary);
+        $maxBodyChars = max(0, $maxChars - $fixedChars);
+
+        if (strlen($body) <= $maxBodyChars) {
+            return $item;
+        }
+
+        $marker = self::MEMORY_BODY_TRUNCATION_MARKER;
+        $markerLen = strlen($marker);
+        if ($maxBodyChars <= $markerLen) {
+            $item['body'] = mb_substr($body, 0, $maxBodyChars);
+        } else {
+            $item['body'] = mb_substr($body, 0, $maxBodyChars - $markerLen).$marker;
+        }
+
+        return $item;
+    }
+
+    /**
+     * @param  array<string,mixed>  $item
+     */
+    private function memoryItemRenderedChars(array $item): int
+    {
+        return strlen(
+            (string) ($item['title'] ?? '')
+            .(string) ($item['summary'] ?? '')
+            .(string) ($item['body'] ?? ''),
+        );
+    }
+
+    /**
      * @param  array<int,array<string,mixed>>  $items
      */
     private function memoryItemsChars(array $items): int
@@ -2046,17 +2132,7 @@ class AtlasOpenBrainContextPackService
         // default OFF) and fail-open — on any miss the lexical recall order stands.
         [$candidates, $memoryMode] = $this->semanticallyReorderMemory($task, $candidates);
 
-        $items = [];
-        $chars = 0;
-        foreach ($candidates as $item) {
-            unset($item['_recall_score']); // interno ao floor — nunca servido
-            $entryChars = strlen($item['title'].$item['summary'].$item['body']);
-            if ($chars + $entryChars > $budgetChars && $items !== []) {
-                break; // respect the sub-budget; keep at least the top hit
-            }
-            $chars += $entryChars;
-            $items[] = $item;
-        }
+        [$items, $chars] = $this->packMemoryItemsWithinBudget($candidates, $budgetChars);
         $this->recordPackMemoryDeliveryUsage($task, $workspaceId, $recall, $items);
         $recalledCount = (int) data_get($recall, 'summary.recall_count', count($items));
         $status = $items !== []
