@@ -413,10 +413,25 @@ final class AtlasAaeosVerifiedRequiresGreenRunTest extends TestCase
             'a ref whose declared class is absent must not resolve to a real Class::method',
         );
 
+        $before = AtlasAaeosTestRunReceipt::query()->count();
+
         $receipt = (new AtlasAaeosTestExecutionService)->runAndRecord(self::FRESH_CAP, $ref);
         $this->assertFalse($receipt['passed'], 'an ambiguous ref must never record green');
         $this->assertFalse($receipt['ran'] ?? false, 'an ambiguous ref must not run a broad filter');
         $this->assertSame('ambiguous_test_ref', $receipt['reason'] ?? null);
+        $this->assertArrayHasKey('capability_id', $receipt, 'payload is still returned to callers');
+
+        $this->assertSame(
+            $before,
+            AtlasAaeosTestRunReceipt::query()->count(),
+            'ambiguous_test_ref must not insert or upsert into atlas_aaeos_test_run_receipts',
+        );
+        $this->assertNull(
+            AtlasAaeosTestRunReceipt::query()
+                ->where('capability_id', self::FRESH_CAP)
+                ->where('test_ref', $ref)
+                ->first(),
+        );
 
         $this->assertFalse(
             (new AtlasAaeosTestExecutionService)->hasGreenReceipt(self::FRESH_CAP, $ref),

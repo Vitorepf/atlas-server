@@ -223,7 +223,12 @@ class AtlasAaeosTestExecutionService
             $payload['veto_propagation'] = $this->vetoResolver->resolve('review', 'delivery');
         }
 
-        $this->persist($payload);
+        // PIP-03 — ambiguous refs never ran PHPUnit; persisting them would pollute
+        // atlas_aaeos_test_run_receipts with tests_run=0 / exit=-1 noise. Red runs where
+        // the test EXISTS and actually failed still persist — honest signal that stays.
+        if (($run['reason'] ?? null) !== 'ambiguous_test_ref') {
+            $this->persist($payload);
+        }
 
         return $payload;
     }
@@ -454,8 +459,8 @@ class AtlasAaeosTestExecutionService
     /**
      * FIX 2 — a declared test ref that does NOT resolve to a real indexed
      * Class/Class::method is AMBIGUOUS: it is never RUN (no broad short-name filter that
-     * could green a same-named method in another class) and is recorded passed=false with
-     * reason=ambiguous_test_ref, so it can never grant `verified`.
+     * could green a same-named method in another class) and is returned passed=false with
+     * reason=ambiguous_test_ref (not persisted — PIP-03), so it can never grant `verified`.
      *
      * @return array{ran:false,passed:false,tests_run:int,exit_code:int,output_tail:string,runner:string,reason:string}
      */
