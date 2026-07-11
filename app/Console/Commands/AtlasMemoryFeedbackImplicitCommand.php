@@ -30,6 +30,7 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
         {--diff= : path to a unified diff / changed content (default: `git diff HEAD`)}
         {--since=24 : window (hours) of recall usages to consider}
         {--limit=500 : max usages scanned}
+        {--min-ignored-sessions=3 : minimum delivered sessions/usages without identity mention before ignored_implicit}
         {--apply : actually record feedback (default: dry-run report)}
         {--json : machine-readable output}';
 
@@ -59,6 +60,7 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
 
         $apply = (bool) $this->option('apply');
         $marked = 0;
+        $usefulUsageIds = [];
         foreach ($usages as $usage) {
             if ($usage->getAttribute('feedback_action') !== null) {
                 continue; // already has feedback — never overwrite
@@ -74,7 +76,47 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
                     'feedback_comment' => 'recalled ∧ present in the session diff',
                 ]);
             }
+            $usefulUsageIds[(string) $usage->getAttribute('id')] = true;
             $marked++;
+        }
+
+        $minIgnoredSessions = max(1, (int) $this->option('min-ignored-sessions'));
+        $ignoredCandidatesByEntry = [];
+        foreach ($usages as $usage) {
+            $usageId = (string) $usage->getAttribute('id');
+            if (isset($usefulUsageIds[$usageId]) || $usage->getAttribute('feedback_action') !== null) {
+                continue;
+            }
+            $entry = $usage->memoryEntry;
+            if ($entry === null || $this->diffMentionsMemoryIdentity($diff, $usage, $entry)) {
+                continue;
+            }
+            $entryId = (string) $usage->getAttribute('memory_entry_id');
+            $ignoredCandidatesByEntry[$entryId] ??= [];
+            $ignoredCandidatesByEntry[$entryId][] = $usage;
+        }
+
+        $markedIgnored = 0;
+        foreach ($ignoredCandidatesByEntry as $entryUsages) {
+            $sessionKeys = [];
+            foreach ($entryUsages as $usage) {
+                $session = trim((string) $usage->getAttribute('session_id'));
+                $sessionKeys[] = $session !== '' ? $session : (string) $usage->getAttribute('id');
+            }
+            if (count(array_unique($sessionKeys)) < $minIgnoredSessions) {
+                continue;
+            }
+
+            foreach ($entryUsages as $usage) {
+                if ($apply) {
+                    $usageService->recordFeedback($usage, [
+                        'feedback_action' => 'ignored_implicit',
+                        'feedback_source' => 'implicit_identity_absence',
+                        'feedback_comment' => 'delivered memory identity was not referenced by the session artifact',
+                    ]);
+                }
+                $markedIgnored++;
+            }
         }
 
         return $this->emit([
@@ -83,6 +125,8 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
             'window_hours' => $sinceHours,
             'usages_scanned' => $usages->count(),
             'marked_useful_implicit' => $marked,
+            'marked_ignored_implicit' => $markedIgnored,
+            'min_ignored_sessions' => $minIgnoredSessions,
             'dominant_recall_entries' => $dominant,
         ], self::SUCCESS);
     }
@@ -103,6 +147,76 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
         }
 
         return false;
+    }
+
+    private function diffMentionsMemoryIdentity(string $diffLower, AtlasMemoryEntryUsage $usage, mixed $entry): bool
+    {
+        if (trim($diffLower) === '') {
+            return false;
+        }
+
+        foreach ($this->identityNeedles($usage, $entry) as $needle) {
+            $needle = mb_strtolower($needle);
+            if ($needle !== '' && str_contains($diffLower, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Identity-only markers. Never derive implicit negatives from title tokens; those
+     * are too broad for a negative signal.
+     *
+     * @return array<int,string>
+     */
+    private function identityNeedles(AtlasMemoryEntryUsage $usage, mixed $entry): array
+    {
+        $needles = [
+            (string) $usage->getAttribute('memory_entry_id'),
+            (string) $entry->getAttribute('id'),
+            (string) $entry->getAttribute('content_hash'),
+            (string) $entry->getAttribute('source_hash'),
+            (string) data_get($entry->getAttribute('metadata') ?? [], 'slug'),
+        ];
+
+        foreach ([$usage->getAttribute('source_ref_json') ?? [], $usage->getAttribute('context_payload_json') ?? []] as $payload) {
+            foreach ($this->identityScalars((array) $payload) as $value) {
+                $needles[] = $value;
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            array_map(static fn (string $value): string => trim($value), $needles),
+            static fn (string $value): bool => $value !== '',
+        )));
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<int,string>
+     */
+    private function identityScalars(array $payload): array
+    {
+        $out = [];
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                array_push($out, ...$this->identityScalars($value));
+                continue;
+            }
+
+            if (! is_scalar($value)) {
+                continue;
+            }
+
+            $key = mb_strtolower((string) $key);
+            if (in_array($key, ['id', 'slug', 'hash', 'content_hash', 'source_hash', 'memory_ref'], true)) {
+                $out[] = (string) $value;
+            }
+        }
+
+        return $out;
     }
 
     private function diffText(): string
@@ -126,7 +240,7 @@ class AtlasMemoryFeedbackImplicitCommand extends Command
                 '%s · scanned=%s marked_useful=%s dominant=%s%s',
                 ($payload['ok'] ?? false) ? '<info>feedback-implicit</info>' : '<error>skipped</error>',
                 $payload['usages_scanned'] ?? 0,
-                $payload['marked_useful_implicit'] ?? 0,
+                ((int) ($payload['marked_useful_implicit'] ?? 0)) + ((int) ($payload['marked_ignored_implicit'] ?? 0)),
                 count((array) ($payload['dominant_recall_entries'] ?? [])),
                 ($payload['applied'] ?? false) ? '' : ' (dry-run — use --apply)',
             ));

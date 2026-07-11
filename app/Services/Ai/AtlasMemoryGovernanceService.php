@@ -304,6 +304,7 @@ class AtlasMemoryGovernanceService
         $actions = $feedback->pluck('feedback_action')->filter()->countBy();
         $positiveCount = $feedback->whereIn('feedback_action', self::POSITIVE_FEEDBACK)->count();
         $negativeCount = $feedback->whereIn('feedback_action', self::NEGATIVE_FEEDBACK)->count();
+        $ignoredCount = (int) ($actions['ignored_implicit'] ?? 0);
         $wrongContextCount = (int) ($actions['wrong_context'] ?? 0);
         $staleCount = (int) ($actions['stale'] ?? 0);
         $scorePenalty = ($negativeCount * 18) + ($wrongContextCount * 10) + ($staleCount * 12);
@@ -313,6 +314,7 @@ class AtlasMemoryGovernanceService
         return [
             'positive_count' => $positiveCount,
             'negative_count' => $negativeCount,
+            'ignored_count' => $ignoredCount,
             'wrong_context_count' => $wrongContextCount,
             'stale_count' => $staleCount,
             'actions' => $actions->all(),

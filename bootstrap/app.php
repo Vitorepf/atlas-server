@@ -123,6 +123,7 @@ use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasIntelligenceRolloutPromoteCommand;
 use App\Console\Commands\AtlasLearnProjectCommand;
 use App\Console\Commands\AtlasMemoryCurateCommand;
+use App\Console\Commands\AtlasMemoryFeedbackCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
 use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
@@ -296,6 +297,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasProgrammingTestImpactBenchmarkCommand::class,
         AtlasProductiveFailureCommand::class,
         AtlasMemoryCurateCommand::class,
+        AtlasMemoryFeedbackCommand::class,
         AtlasMemoryMaintenanceCommand::class,
         AtlasMemoryQualityCommand::class,
         AtlasMemoryRecallCommand::class,

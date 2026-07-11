@@ -13,6 +13,7 @@ class AtlasMemoryEntryUsage extends Model
     public const FEEDBACK_ACTIONS = [
         'useful',
         'useful_implicit',
+        'ignored_implicit',
         'not_useful',
         'wrong_context',
         'stale',
