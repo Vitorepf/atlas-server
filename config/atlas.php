@@ -420,6 +420,11 @@ return [
         'enforcement_mode' => (string) env('ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE', 'observe'),
     ],
 
+    'memory' => [
+        // ACOS FEE-04: land default-OFF; flip only after watchdog soak + rollback trigger.
+        'feedback_ranking_enabled' => (bool) env('ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED', false),
+    ],
+
     'semantic_memory' => [
         'vault_path' => env('ATLAS_VAULT_PATH', dirname(base_path()).'/AtlasVault'),
         'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 384),

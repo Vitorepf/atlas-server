@@ -104,7 +104,7 @@ final class AtlasMemoryRecallConcentrationDemotion
 
     /**
      * @param  array<int,string>  $entryIds
-     * @return array<string,array{positive_count:int,negative_count:int,wrong_context_count:int,stale_count:int,recall_eval_hit_rate:float|null}>
+     * @return array<string,array{positive_count:int,positive_explicit_count:int,positive_implicit_count:int,negative_count:int,wrong_context_count:int,stale_count:int,recall_eval_hit_rate:float|null}>
      */
     public function feedbackStatsForEntries(array $entryIds): array
     {
@@ -116,6 +116,8 @@ final class AtlasMemoryRecallConcentrationDemotion
         foreach ($entryIds as $entryId) {
             $stats[$entryId] = [
                 'positive_count' => 0,
+                'positive_explicit_count' => 0,
+                'positive_implicit_count' => 0,
                 'negative_count' => 0,
                 'wrong_context_count' => 0,
                 'stale_count' => 0,
@@ -135,6 +137,12 @@ final class AtlasMemoryRecallConcentrationDemotion
             $action = (string) $usage->feedback_action;
             if (AtlasMemoryEntryUsage::isPositiveFeedback($action)) {
                 $stats[$id]['positive_count']++;
+            }
+            if (AtlasMemoryEntryUsage::isPositiveExplicitFeedback($action)) {
+                $stats[$id]['positive_explicit_count']++;
+            }
+            if (AtlasMemoryEntryUsage::isPositiveImplicitFeedback($action)) {
+                $stats[$id]['positive_implicit_count']++;
             }
             if (AtlasMemoryEntryUsage::isNegativeFeedback($action)) {
                 $stats[$id]['negative_count']++;

@@ -6,8 +6,8 @@ use App\Models\AiCompoundingMemory;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
-use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
+use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\SemanticSearchService;
@@ -218,7 +218,7 @@ class AtlasHybridMemoryRetrievalService
                 }
 
                 $stats = $feedbackStats[$entryId] ?? [];
-                $hybridScore = $this->blendedScore(
+                $baseHybridScore = $this->blendedScore(
                     $this->entryVectorScores[$entryId] ?? null,
                     $this->lexicalScore($query, [
                         $entry->title,
@@ -226,40 +226,51 @@ class AtlasHybridMemoryRetrievalService
                         $this->privacy->providerBody($entry),
                         $entry->source_type,
                     ]),
-                ) * $this->concentrationDemotion->scoreMultiplier($entryId, $dominantIds);
+                );
+                $feedbackRanking = $this->feedbackRankingExplain($stats);
+                $hybridScore = $baseHybridScore
+                    * (float) $feedbackRanking['factor']
+                    * $this->concentrationDemotion->scoreMultiplier($entryId, $dominantIds);
 
                 return [
-                'id' => $entry->id,
-                'type' => $entry->memory_type,
-                'scope' => $entry->scope_id ? $entry->scope_type.':'.$entry->scope_id : $entry->scope_type,
-                'scope_type' => $entry->scope_type,
-                'scope_id' => $entry->scope_id,
-                'title' => $this->privacy->providerTitle($entry),
-                'summary' => $this->privacy->providerSummary($entry),
-                'body' => Str::limit($this->privacy->providerBody($entry), $this->input->registryExcerptChars(), '...'),
-                'importance' => $entry->importance,
-                'priority' => $entry->priority,
-                'confidence' => $entry->confidence,
-                'privacy_class' => $entry->privacy_class,
-                'redaction_status' => $entry->redaction_status,
-                'source_type' => $entry->source_type,
-                'source_id' => $entry->source_id,
-                'source_label' => $entry->source_label,
-                'content_hash' => $entry->content_hash,
-                'recorded_at' => $entry->recorded_at?->toJSON(),
-                'last_used_at' => $entry->last_used_at?->toJSON(),
-                'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
-                'privacy_reviewed_at' => $entry->privacy_reviewed_at?->toJSON(),
-                'reason' => $this->reasonForRegistry($entry, $query),
-                'hybrid_score' => round($hybridScore, 4),
-                'positive_count' => (int) ($stats['positive_count'] ?? 0),
-                'negative_count' => (int) ($stats['negative_count'] ?? 0),
-                'wrong_context_count' => (int) ($stats['wrong_context_count'] ?? 0),
-                'stale_count' => (int) ($stats['stale_count'] ?? 0),
-                'recall_eval_hit_rate' => $stats['recall_eval_hit_rate'] ?? null,
-                'concentration_demoted' => in_array($entryId, $dominantIds, true),
-                'related_conflicts' => array_values($relatedConflicts[$entryId] ?? []),
-            ];
+                    'id' => $entry->id,
+                    'type' => $entry->memory_type,
+                    'scope' => $entry->scope_id ? $entry->scope_type.':'.$entry->scope_id : $entry->scope_type,
+                    'scope_type' => $entry->scope_type,
+                    'scope_id' => $entry->scope_id,
+                    'title' => $this->privacy->providerTitle($entry),
+                    'summary' => $this->privacy->providerSummary($entry),
+                    'body' => Str::limit($this->privacy->providerBody($entry), $this->input->registryExcerptChars(), '...'),
+                    'importance' => $entry->importance,
+                    'priority' => $entry->priority,
+                    'confidence' => $entry->confidence,
+                    'privacy_class' => $entry->privacy_class,
+                    'redaction_status' => $entry->redaction_status,
+                    'source_type' => $entry->source_type,
+                    'source_id' => $entry->source_id,
+                    'source_label' => $entry->source_label,
+                    'content_hash' => $entry->content_hash,
+                    'recorded_at' => $entry->recorded_at?->toJSON(),
+                    'last_used_at' => $entry->last_used_at?->toJSON(),
+                    'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
+                    'privacy_reviewed_at' => $entry->privacy_reviewed_at?->toJSON(),
+                    'reason' => $this->reasonForRegistry($entry, $query),
+                    'hybrid_score' => round($hybridScore, 4),
+                    'positive_count' => (int) ($stats['positive_count'] ?? 0),
+                    'positive_explicit_count' => (int) ($stats['positive_explicit_count'] ?? 0),
+                    'positive_implicit_count' => (int) ($stats['positive_implicit_count'] ?? 0),
+                    'negative_count' => (int) ($stats['negative_count'] ?? 0),
+                    'wrong_context_count' => (int) ($stats['wrong_context_count'] ?? 0),
+                    'stale_count' => (int) ($stats['stale_count'] ?? 0),
+                    'recall_eval_hit_rate' => $stats['recall_eval_hit_rate'] ?? null,
+                    'concentration_demoted' => in_array($entryId, $dominantIds, true),
+                    'related_conflicts' => array_values($relatedConflicts[$entryId] ?? []),
+                    'explain' => [
+                        'feedback_ranking' => $feedbackRanking + [
+                            'base_hybrid_score' => round($baseHybridScore, 4),
+                        ],
+                    ],
+                ];
             })
             ->filter(fn (?array $item): bool => $item !== null)
             ->values()
@@ -471,6 +482,45 @@ class AtlasHybridMemoryRetrievalService
         };
 
         return $query !== '' ? $base.' com sinal lexical da consulta' : $base;
+    }
+
+    /**
+     * @param  array<string,mixed>  $stats
+     * @return array<string,mixed>
+     */
+    private function feedbackRankingExplain(array $stats): array
+    {
+        $explicitPositive = max(0, (int) ($stats['positive_explicit_count'] ?? 0));
+        $implicitPositive = max(0, (int) ($stats['positive_implicit_count'] ?? 0));
+        $negative = max(0, (int) ($stats['negative_count'] ?? 0));
+        $implicitWeight = 0.01;
+
+        if (! (bool) config('atlas.memory.feedback_ranking_enabled', false)) {
+            return [
+                'enabled' => false,
+                'factor' => 1.0,
+                'positive_explicit_count' => $explicitPositive,
+                'positive_implicit_count' => $implicitPositive,
+                'negative_count' => $negative,
+                'implicit_positive_weight' => $implicitWeight,
+            ];
+        }
+
+        $weightedPositive = $explicitPositive + ($implicitPositive * $implicitWeight);
+        $rawFactor = ($weightedPositive + 1.0) / ($negative + 1.0);
+        $factor = round(max(0.7, min(1.15, $rawFactor)), 4);
+
+        return [
+            'enabled' => true,
+            'factor' => $factor,
+            'raw_factor' => round($rawFactor, 4),
+            'positive_explicit_count' => $explicitPositive,
+            'positive_implicit_count' => $implicitPositive,
+            'negative_count' => $negative,
+            'weighted_positive_count' => round($weightedPositive, 4),
+            'implicit_positive_weight' => $implicitWeight,
+            'clamp' => ['min' => 0.7, 'max' => 1.15],
+        ];
     }
 
     /**
