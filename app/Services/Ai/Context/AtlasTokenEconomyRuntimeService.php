@@ -6,6 +6,8 @@ namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 final class AtlasTokenEconomyRuntimeService
 {
@@ -33,8 +35,8 @@ final class AtlasTokenEconomyRuntimeService
         ?ContextWindowMustKeepBudgetAllocator $mustKeepAllocator = null,
         ?RecallContextBudgetSplitScorer $recallSplitScorer = null,
     ) {
-        $this->mustKeepAllocator = $mustKeepAllocator ?? new ContextWindowMustKeepBudgetAllocator();
-        $this->recallSplitScorer = $recallSplitScorer ?? new RecallContextBudgetSplitScorer();
+        $this->mustKeepAllocator = $mustKeepAllocator ?? new ContextWindowMustKeepBudgetAllocator;
+        $this->recallSplitScorer = $recallSplitScorer ?? new RecallContextBudgetSplitScorer;
     }
 
     /**
@@ -96,13 +98,6 @@ final class AtlasTokenEconomyRuntimeService
             ],
         ];
 
-        // Default-OFF consolidated kernels (see config/atlas.php context_budget).
-        // When the flag is OFF the kernel is never invoked and $payload is
-        // byte-identical to the pre-wiring behavior. Advisory sections only.
-        if ((bool) config('atlas.context_budget.must_keep_allocator_enabled', false)) {
-            $payload['must_keep_budget_allocation'] = $this->mustKeepAllocation($compiled, $budget);
-        }
-
         if ((bool) config('atlas.context_budget.recall_split_scorer_enabled', false)) {
             $payload['recall_context_split'] = $this->recallContextSplit($input, $compiled, $risk);
         }
@@ -110,6 +105,10 @@ final class AtlasTokenEconomyRuntimeService
         $hashPayload = $payload;
         unset($hashPayload['generated_at']);
         $payload['token_economy_hash'] = MissionCanonicalHash::sha256($hashPayload);
+
+        if ((bool) config('atlas.context_budget.must_keep_allocator_enabled', true)) {
+            $this->appendMustKeepAllocationShadow($compiled, $budget, $payload['token_economy_hash']);
+        }
 
         return $payload;
     }
@@ -140,9 +139,46 @@ final class AtlasTokenEconomyRuntimeService
             ];
         }
 
-        $tokenBudget = (int) data_get($budget, 'input_tokens_before', (int) ($budget['input_tokens_after'] ?? 0));
+        $tokenBudget = (int) data_get(
+            $budget,
+            'initial_context_token_budget',
+            (int) data_get($budget, 'input_tokens_after', (int) ($budget['input_tokens_before'] ?? 0)),
+        );
 
         return $this->mustKeepAllocator->allocate($segments, $tokenBudget);
+    }
+
+    /**
+     * @param  array<string,mixed>  $compiled
+     * @param  array<string,mixed>  $budget
+     */
+    private function appendMustKeepAllocationShadow(array $compiled, array $budget, string $tokenEconomyHash): void
+    {
+        $started = microtime(true);
+        $allocation = $this->mustKeepAllocation($compiled, $budget);
+        $record = [
+            'schema_version' => 'atlas.context.must_keep_budget_allocation.shadow.v1',
+            'generated_at' => Carbon::now()->toIso8601String(),
+            'token_economy_hash' => $tokenEconomyHash,
+            'context_compiler_hash' => (string) ($compiled['context_compiler_hash'] ?? ''),
+            'compiled_hash' => (string) data_get($compiled, 'compiled_pack.compiled_hash', ''),
+            'latency_ms' => (int) round((microtime(true) - $started) * 1000),
+            'allocation' => $allocation,
+        ];
+
+        try {
+            $disk = (string) config('atlas.context_budget.must_keep_allocator_shadow_disk', 'local');
+            $path = trim((string) config('atlas.context_budget.must_keep_allocator_shadow_path', 'atlas/context-budget/must-keep-shadow.jsonl'));
+            if ($path === '') {
+                return;
+            }
+            Storage::disk($disk)->append(
+                $path,
+                (string) json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            );
+        } catch (Throwable) {
+            // Shadow evidence must never perturb the provider payload or block delivery.
+        }
     }
 
     /**
@@ -489,7 +525,6 @@ final class AtlasTokenEconomyRuntimeService
     }
 
     /**
-     * @param  mixed  $refs
      * @return array<int,string>
      */
     private function sourceTypesFromRefs(mixed $refs): array
