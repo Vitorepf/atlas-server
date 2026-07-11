@@ -86,7 +86,9 @@ use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
 use App\Services\Ai\Programming\HermesWorkspaceDefaults;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Throwable;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -125,6 +127,14 @@ final class PipelineRunExecutor implements RunExecutor
         // fail closed (CompactSddUnavailableException → 422) instead of
         // wasting a provider call on a run we cannot honestly attest.
         [$taskKind, $riskLevel] = $this->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);
+
+        $awisEnforcement = $this->enforceAwisBeforeMutativeExecution(
+            envelope: $envelope,
+            taskContract: $taskContract,
+        );
+        if (($awisEnforcement['status'] ?? 'blocked') !== 'passed') {
+            return $this->blockedDueToAwis($awisEnforcement, $taskContract);
+        }
 
         $aucriEnforcement = $this->enforceAucriBeforeProvider(
             envelope: $envelope,
@@ -3984,6 +3994,78 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         $this->storage->writeAtomic($runId, ArtifactNames::AUCRI_RUNTIME_ENFORCEMENT, $enforcement);
 
         return $enforcement;
+    }
+
+    /**
+     * @return array{status:string,blockers?:list<string>,awis_execution_gate?:array<string,mixed>|null}
+     */
+    private function enforceAwisBeforeMutativeExecution(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+    ): array {
+        $task = $envelope->normalizedIntent !== ''
+            ? $envelope->normalizedIntent
+            : ($taskContract->intentText !== '' ? $taskContract->intentText : $taskContract->taskId);
+
+        try {
+            $awisGate = app(AtlasWorkspaceIntelligenceExecutionGateService::class)->gate(
+                workspace: $envelope->workspace,
+                mode: 'dev',
+                task: $task,
+            );
+        } catch (Throwable) {
+            return [
+                'status' => 'blocked',
+                'blockers' => ['awis_execution_gate_failed_closed'],
+                'awis_execution_gate' => [
+                    'allowed' => false,
+                    'status' => 'blocked',
+                    'mode' => 'dev',
+                    'error' => 'awis_execution_gate_exception',
+                ],
+            ];
+        }
+
+        if (! (bool) ($awisGate['allowed'] ?? false)) {
+            return [
+                'status' => 'blocked',
+                'blockers' => array_values((array) ($awisGate['blockers'] ?? ['awis_execution_gate_blocked'])),
+                'awis_execution_gate' => $awisGate,
+            ];
+        }
+
+        return [
+            'status' => 'passed',
+            'awis_execution_gate' => $awisGate,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $enforcement
+     */
+    private function blockedDueToAwis(array $enforcement, LightTaskContract $taskContract): RunExecutionResult
+    {
+        return new RunExecutionResult(
+            completionState: 'blocked',
+            scopeGuardStatus: 'skipped',
+            verificationStatus: 'skipped',
+            persistedReceiptPaths: [],
+            providerCallSummary: [
+                'provider' => $taskContract->providerLock->provider,
+                'model_family' => $taskContract->providerLock->modelFamily,
+                'provider_calls' => 0,
+                'exit_code' => 0,
+                'duration_ms' => 0,
+                'tokens_in' => null,
+                'tokens_out' => null,
+                'estimated_cost_usd' => null,
+                'error_codes' => array_values((array) ($enforcement['blockers'] ?? ['awis_execution_gate_blocked'])),
+                'raw_response_hash' => null,
+                'stdout_bytes' => 0,
+                'stderr_bytes' => 0,
+            ],
+            diffParseSummary: null,
+        );
     }
 
     /**
