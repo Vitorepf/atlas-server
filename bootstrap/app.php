@@ -83,6 +83,7 @@ use App\Console\Commands\AtlasCliTraceCommand;
 use App\Console\Commands\AtlasCliTuiCommand;
 use App\Console\Commands\AtlasCliUpdateCommand;
 use App\Console\Commands\AtlasCliVersionCommand;
+use App\Console\Commands\AtlasCognitionVerifyClaimsCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
@@ -95,9 +96,9 @@ use App\Console\Commands\AtlasDevMinimaxWorkerRunCommand;
 use App\Console\Commands\AtlasDevSeniorLoopAuditCommand;
 use App\Console\Commands\AtlasDevSeniorLoopRunCommand;
 use App\Console\Commands\AtlasDevSmokeCommand;
+use App\Console\Commands\AtlasEliteCompactionCommand;
 use App\Console\Commands\AtlasEngineeringApiContractCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCalibrateCommand;
-use App\Console\Commands\AtlasEliteCompactionCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkFairCommand;
 use App\Console\Commands\AtlasEngineeringBenchmarkReplayManifestCommand;
@@ -119,6 +120,7 @@ use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
+use App\Console\Commands\AtlasIntelligenceRolloutPromoteCommand;
 use App\Console\Commands\AtlasLearnProjectCommand;
 use App\Console\Commands\AtlasMemoryCurateCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
@@ -136,7 +138,6 @@ use App\Console\Commands\AtlasOperatorProfileCommand;
 use App\Console\Commands\AtlasOperatorProfileContextCommand;
 use App\Console\Commands\AtlasOperatorSkillCommand;
 use App\Console\Commands\AtlasPatamar4ActivateFlagsCommand;
-use App\Console\Commands\AtlasIntelligenceRolloutPromoteCommand;
 use App\Console\Commands\AtlasPatamar4SelfConstructF4GapsCommand;
 use App\Console\Commands\AtlasProductiveFailureCommand;
 use App\Console\Commands\AtlasProgrammingAdaptiveControlPlaneCommand;
@@ -351,6 +352,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringVisualSmokeCommand::class,
         AtlasForgeMultiNodeL410ProofCommand::class,
         AtlasCognitiveFunctionDecomposeCommand::class,
+        AtlasCognitionVerifyClaimsCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
         AtlasIntelligenceRolloutPromoteCommand::class,
