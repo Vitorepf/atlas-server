@@ -296,6 +296,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Engineering kernel (ENG-02 / ENG-14)
+    |--------------------------------------------------------------------------
+    | Forge sovereign execution gate: OBSERVE by default (records verdict, never
+    | blocks). Flip ATLAS_FORGE_EXECUTION_GATE_ENFORCE=true only after ENG-14
+    | readiness (promoted harness_captured volume + operator OK).
+    */
+    'engineering_kernel' => [
+        'forge_execution_gate_enforcing' => (bool) env('ATLAS_FORGE_EXECUTION_GATE_ENFORCE', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | ACOS Context Runtime unified retrieval
     |--------------------------------------------------------------------------
     | Kill switch OFF preserves the legacy Builder + Injection retrieval paths.
@@ -2001,12 +2013,15 @@ return [
                         'kind' => 'must_keep_critical_cut',
                         'min_count' => 1,
                         'requires_flip' => [
-                            'env' => 'ATLAS_COMPACTION_ENFORCEMENT_MODE',
+                            // Runtime key is atlas.token_economy.enforcement_mode
+                            // (ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE). Do not use the
+                            // dead ATLAS_COMPACTION_ENFORCEMENT_MODE alias.
+                            'env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE',
                             'value' => 'enforce',
                         ],
                     ],
                     'rollback_action' => [
-                        'ATLAS_COMPACTION_ENFORCEMENT_MODE' => 'observe',
+                        'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE' => 'observe',
                     ],
                     'executor' => 'watchdog_alert_operator_reverts',
                 ],

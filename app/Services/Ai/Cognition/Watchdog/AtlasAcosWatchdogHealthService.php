@@ -428,7 +428,7 @@ final class AtlasAcosWatchdogHealthService
                 'rollback_trigger' => [
                     'id' => 'cpt_09_compaction_enforce',
                     'condition' => '>=1 critical must_keep cut after enforcement flip',
-                    'rollback_env' => 'ATLAS_COMPACTION_ENFORCEMENT_MODE=observe',
+                    'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
                 ],
             'thresholds' => [
                 'window_days' => self::COMPACTION_WINDOW_DAYS,

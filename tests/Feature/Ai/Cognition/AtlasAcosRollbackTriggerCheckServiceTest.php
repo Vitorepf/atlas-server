@@ -37,6 +37,11 @@ class AtlasAcosRollbackTriggerCheckServiceTest extends TestCase
             $this->assertSame('watchdog_alert_operator_reverts', $flip['executor'] ?? null);
             $this->assertNotEmpty($flip['condition']['kind'] ?? null);
         }
+
+        $cpt = collect($flips)->firstWhere('id', 'cpt_09_compaction_enforce');
+        $this->assertSame('ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE', $cpt['condition']['requires_flip']['env'] ?? null);
+        $this->assertSame(['ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE' => 'observe'], $cpt['rollback_action'] ?? null);
+        $this->assertFalse((bool) config('atlas.engineering_kernel.forge_execution_gate_enforcing'));
     }
 
     public function test_pre_flip_triggers_do_not_alert_without_simulation(): void
