@@ -36,9 +36,17 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         $materializerCalled = 0;
 
         $verdict = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
-            'claim_callback' => function () use (&$claimCalled) { $claimCalled++; return null; },
-            'report_callback' => function () use (&$reportCalled) { $reportCalled++; },
-            'patch_materializer' => function () use (&$materializerCalled) { $materializerCalled++; },
+            'claim_callback' => function () use (&$claimCalled) {
+                $claimCalled++;
+
+                return null;
+            },
+            'report_callback' => function () use (&$reportCalled) {
+                $reportCalled++;
+            },
+            'patch_materializer' => function () use (&$materializerCalled) {
+                $materializerCalled++;
+            },
         ]);
 
         self::assertTrue($verdict['dry_run']);
@@ -50,7 +58,7 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         self::assertSame([], $verdict['blocked_actions']);
     }
 
-    public function test_apply_mode_reports_only_mapper_outcome_after_evidence_write(): void
+    public function test_evidence_failure_stops_before_mapper_and_report(): void
     {
         $ledger = sys_get_temp_dir().'/atlas-cycle-evidence-'.bin2hex(random_bytes(4)).'.jsonl';
 
@@ -63,30 +71,30 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             'report_callback' => function (array $payload) use (&$reportPayload): void {
                 $reportPayload = $payload;
             },
+            'patch_materializer' => fn (): array => [
+                'accepted' => true,
+                'files' => [['path' => 'app/Foo.php']],
+                'diffs' => [['path' => 'app/Foo.php', 'unified_diff' => 'diff']],
+            ],
             'verification' => ['passed' => true, 'evidence_refs' => []],
         ]);
 
         self::assertFalse($verdict['dry_run']);
-        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::STATUS_OK, $verdict['status']);
         self::assertSame('pk-1', $verdict['task_packet_id']);
         self::assertSame('l-1', $verdict['lease_id']);
-        self::assertNotNull($reportPayload);
-        self::assertSame('success', $reportPayload['outcome']);
+        self::assertNull($reportPayload);
         // write_evidence is honestly blocked (no real commands ran → empty commands_run → writer
         // rejects). The old fabrication branch synthesized a fake command with hardcoded exit_code=0
         // to bypass the writer guard; that has been removed. The honest verification outcome is
         // carried by tests_or_gates_result.passed.
         self::assertNotContains('write_evidence', $verdict['applied_steps']);
-        self::assertContains('map_outcome', $verdict['applied_steps']);
-        self::assertContains('report', $verdict['applied_steps']);
+        self::assertNotContains('map_outcome', $verdict['applied_steps']);
+        self::assertNotContains('report', $verdict['applied_steps']);
         // The blocked write is recorded under blocked_actions.
         $writeBlockReasons = array_column($verdict['blocked_actions'], 'reason');
         self::assertNotEmpty(array_filter($writeBlockReasons, static fn (string $r): bool => str_contains($r, 'evidence writer: commands_run must not be empty')));
 
-        // map_outcome must still precede report.
-        $mapIdx = array_search('map_outcome', $verdict['applied_steps'], true);
-        $reportIdx = array_search('report', $verdict['applied_steps'], true);
-        self::assertLessThan($reportIdx, $mapIdx, 'map_outcome must run before report');
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::STATUS_ERROR, $verdict['status']);
 
         @unlink($ledger);
     }
@@ -97,7 +105,11 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         $verdict = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
             'dry_run' => false,
             'action_labels' => ['git', 'external_provider', 'operator_handoff'],
-            'claim_callback' => function () use (&$claimed) { $claimed = true; return null; },
+            'claim_callback' => function () use (&$claimed) {
+                $claimed = true;
+
+                return null;
+            },
         ]);
 
         self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::STATUS_REFUSED_LABEL, $verdict['status']);
@@ -148,13 +160,13 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             ],
         ]);
 
-        self::assertNotNull($reportPayload);
-        self::assertNotSame('success', $reportPayload['outcome'], 'a denied command must not produce a success outcome');
+        self::assertNull($reportPayload);
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::STATUS_ERROR, $verdict['status']);
     }
 
     public function test_cycle_hash_is_deterministic_for_identical_dry_run(): void
     {
-        $cycle = new AtlasNativeWorkerClaimExecuteReportCycle();
+        $cycle = new AtlasNativeWorkerClaimExecuteReportCycle;
         $a = $cycle->run([]);
         $b = $cycle->run([]);
 
@@ -237,7 +249,7 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         self::assertFalse($src['retryable']);
     }
 
-    public function test_successful_apply_emits_success_outcome_reason_and_not_retryable(): void
+    public function test_apply_without_materializer_is_retryable_internal_error(): void
     {
         $ledger = sys_get_temp_dir().'/atlas-src-test-'.bin2hex(random_bytes(4)).'.jsonl';
 
@@ -251,9 +263,9 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         ]);
 
         $src = $r['step_retry_contract'];
-        self::assertStringContainsString('success', $src['reportable_outcome_reason']);
-        self::assertFalse($src['retryable']);
-        self::assertContains('tests_or_gates_result', $src['evidence_needed']);
+        self::assertSame('internal_error_during_execution', $src['reportable_outcome_reason']);
+        self::assertTrue($src['retryable']);
+        self::assertSame([], $src['evidence_needed']);
 
         @unlink($ledger);
     }
@@ -283,8 +295,8 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             'verification' => ['passed' => true, 'evidence_refs' => ['tests_or_gates_result', 'implementation_notes']],
         ]);
 
-        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $r['outcome_class']);
-        self::assertSame([], $r['evidence_summary']['missing']);
+        self::assertNull($r['outcome_class']);
+        self::assertNull($r['evidence_summary']);
 
         @unlink($ledger);
     }
@@ -306,8 +318,8 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             // no 'verification' key supplied at all
         ]);
 
-        self::assertNotSame('success', $reportPayload['outcome']);
-        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_VERIFICATION_FAILED, $r['outcome_class']);
+        self::assertNull($reportPayload);
+        self::assertNull($r['outcome_class']);
 
         @unlink($ledger);
     }
@@ -325,8 +337,8 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             'verification' => ['passed' => false],
         ]);
 
-        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_VERIFICATION_FAILED, $r['outcome_class']);
-        self::assertArrayHasKey('missing', $r['evidence_summary']);
+        self::assertNull($r['outcome_class']);
+        self::assertNull($r['evidence_summary']);
 
         @unlink($ledger);
     }
@@ -351,7 +363,7 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             ],
         ]);
 
-        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_COMMAND_FAILED, $r['outcome_class']);
+        self::assertNull($r['outcome_class']);
 
         @unlink($ledger);
     }
@@ -396,10 +408,7 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
 
         self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $r['outcome_class']);
         // Forbidden/denied commands surface as OUTCOME_CLASS_GIVE_BACK or OUTCOME_CLASS_COMMAND_FAILED
-        self::assertContains($r['outcome_class'], [
-            AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_GIVE_BACK,
-            AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_COMMAND_FAILED,
-        ]);
+        self::assertNull($r['outcome_class']);
     }
 
     public function test_verification_failed_does_not_produce_success_outcome_class(): void
@@ -416,8 +425,7 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         ]);
 
         self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $r['outcome_class']);
-        self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_GIVE_BACK, $r['outcome_class']);
-        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_VERIFICATION_FAILED, $r['outcome_class']);
+        self::assertNull($r['outcome_class']);
 
         @unlink($ledger);
     }
@@ -481,6 +489,11 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
             'claim_callback' => fn () => $this->validClaim(),
             'report_callback' => fn (array $p) => $p,
             'verification' => ['passed' => true],
+            'patch_materializer' => fn (): array => [
+                'accepted' => true,
+                'files' => [['path' => 'app/Foo.php']],
+                'diffs' => [['path' => 'app/Foo.php', 'unified_diff' => 'diff']],
+            ],
             // NO command_plan supplied → no real command runner results.
         ]);
 

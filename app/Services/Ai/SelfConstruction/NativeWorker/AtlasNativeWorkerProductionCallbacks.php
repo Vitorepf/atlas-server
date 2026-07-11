@@ -13,7 +13,7 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionN
  * Elite Factory v2 P0-19: production apply mode must not depend on test-only
  * container callbacks. These callables bind to the live Task Serving contract.
  */
-final class AtlasNativeWorkerProductionCallbacks
+final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerProductionRuntime
 {
     public const SCHEMA_VERSION = 'atlas.native_worker.production_callbacks.v1';
 
@@ -38,7 +38,7 @@ final class AtlasNativeWorkerProductionCallbacks
                     return null;
                 }
 
-                return is_array($next) ? $next : null;
+                return $next;
             },
             'report_callback' => function (array $outcome) use ($clientId): array {
                 $taskPacketId = (string) ($outcome['task_packet_id'] ?? '');
@@ -50,5 +50,30 @@ final class AtlasNativeWorkerProductionCallbacks
                 return $this->patchMaterializer->materialize($patchPlan);
             },
         ];
+    }
+
+    /** @return array<string,mixed>|null */
+    public function claim(string $clientId): ?array
+    {
+        $next = $this->serving->next($clientId, ['runtime_owner' => 'atlas_native']);
+
+        return in_array((string) ($next['status'] ?? ''), ['leased', 'served'], true) ? $next : null;
+    }
+
+    /** @param array<string,mixed> $outcome @return array<string,mixed> */
+    public function report(string $clientId, array $outcome): array
+    {
+        return $this->serving->report(
+            $clientId,
+            (string) ($outcome['task_packet_id'] ?? ''),
+            (string) ($outcome['lease_id'] ?? ''),
+            $outcome,
+        );
+    }
+
+    /** @param array<string,mixed> $patchPlan @return array<string,mixed> */
+    public function materialize(array $patchPlan): array
+    {
+        return $this->patchMaterializer->materialize($patchPlan);
     }
 }

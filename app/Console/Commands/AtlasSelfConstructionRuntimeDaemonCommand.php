@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\EngineeringKernel\Adapters\AgentExecutionProviderPortAdapter;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionNativeActionExecutor;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonState;
@@ -203,8 +204,12 @@ final class AtlasSelfConstructionRuntimeDaemonCommand extends Command
 
     private function productiveCycle(): AtlasSelfConstructionRuntimeDaemonCycle
     {
+        $executor = app()->bound(AtlasSelfConstructionNativeActionExecutor::class)
+            ? app(AtlasSelfConstructionNativeActionExecutor::class)
+            : new AtlasSelfConstructionNativeActionExecutor(provider: app(AgentExecutionProviderPortAdapter::class));
+
         return new AtlasSelfConstructionRuntimeDaemonCycle(
-            actionExecutor: app(AtlasSelfConstructionNativeActionExecutor::class),
+            actionExecutor: $executor,
         );
     }
 

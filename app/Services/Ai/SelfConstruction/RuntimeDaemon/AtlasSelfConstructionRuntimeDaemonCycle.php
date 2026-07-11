@@ -284,15 +284,16 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
 
         foreach ($appliedActions as $a) {
             $kind = (string) ($a['kind'] ?? '');
+            $resultStatus = (string) ($a['result']['status'] ?? 'applied');
             $refs = [];
             if (isset($a['result']['receipt'])) {
                 $refs[] = (string) $a['result']['receipt'];
             }
             $feedback[] = [
                 'kind' => $kind,
-                'outcome_class' => 'applied',
-                'retryable' => false,
-                'next_safe_action' => 'verify_applied_outcome:'.$kind,
+                'outcome_class' => $resultStatus === 'held' ? 'held' : 'applied',
+                'retryable' => $resultStatus === 'held' || (bool) ($a['result']['retryable'] ?? false),
+                'next_safe_action' => $resultStatus === 'held' ? 'retry_native_action:'.$kind : 'verify_applied_outcome:'.$kind,
                 'receipt_refs' => $refs,
             ];
         }

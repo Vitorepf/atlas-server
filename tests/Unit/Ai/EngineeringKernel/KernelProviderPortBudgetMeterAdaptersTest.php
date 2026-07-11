@@ -38,7 +38,7 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
         $this->assertInstanceOf(ProviderPort::class, $adapter);
     }
 
-    public function test_provider_port_adapter_invoke_returns_same_normalized_envelope_as_underlying_service(): void
+    public function test_provider_port_normalize_only_is_truthfully_marked_not_invoked(): void
     {
         $service = new AgentExecutionProviderPortService;
         $adapter = new AgentExecutionProviderPortAdapter($service);
@@ -49,7 +49,52 @@ final class KernelProviderPortBudgetMeterAdaptersTest extends TestCase
             'provider_invoked' => true,
         ];
 
-        $this->assertSame($service->normalize($payload), $adapter->invoke($payload));
+        $expected = array_replace($service->normalize($payload), [
+            'provider_invoked' => false,
+            'executes_provider' => false,
+        ]);
+        $this->assertSame($expected, $adapter->invoke($payload));
+    }
+
+    public function test_provider_port_executes_real_invoker_once_and_parses_patch_contract(): void
+    {
+        $calls = 0;
+        $adapter = new AgentExecutionProviderPortAdapter(
+            new AgentExecutionProviderPortService,
+            providerInvoker: function (string $provider, string $prompt) use (&$calls): array {
+                $calls++;
+
+                return [
+                    'ok' => true,
+                    'output' => json_encode([
+                        'patch_plan' => ['allowed_files' => ['app/X.php'], 'patches' => []],
+                        'command_plan' => [],
+                    ]),
+                    'provider' => $provider,
+                ];
+            },
+        );
+
+        $receipt = $adapter->invoke([
+            'execute_provider' => true,
+            'provider' => 'codex_cli',
+            'prompt' => 'Produce a governed patch plan',
+        ]);
+
+        self::assertSame(1, $calls);
+        self::assertSame('ok', $receipt['status']);
+        self::assertArrayHasKey('patch_plan', $receipt);
+        self::assertArrayHasKey('command_plan', $receipt);
+        self::assertTrue($receipt['provider_invoked']);
+    }
+
+    public function test_normalize_only_receipt_is_explicitly_not_a_provider_execution(): void
+    {
+        $adapter = new AgentExecutionProviderPortAdapter(new AgentExecutionProviderPortService);
+        $receipt = $adapter->invoke(['provider_id' => 'codex_cli']);
+
+        self::assertFalse($receipt['provider_invoked']);
+        self::assertFalse($receipt['executes_provider']);
     }
 
     // ── BudgetMeter adapter ─────────────────────────────────────────────────────

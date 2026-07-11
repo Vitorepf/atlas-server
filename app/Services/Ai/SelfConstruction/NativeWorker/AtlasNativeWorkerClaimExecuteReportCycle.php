@@ -72,15 +72,15 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
 
     /**
      * @param  array<string,mixed>  $options
-     *      {
-     *        dry_run?: bool (default true),
-     *        claim_callback?: callable(): ?array,
-     *        report_callback?: callable(array): array,
-     *        patch_materializer?: callable(array): array,
-     *        verification?: array,
-     *        command_plan?: array,
-     *        action_labels?: list<string>,
-     *      }
+     *                                        {
+     *                                        dry_run?: bool (default true),
+     *                                        claim_callback?: callable(): ?array,
+     *                                        report_callback?: callable(array): array,
+     *                                        patch_materializer?: callable(array): array,
+     *                                        verification?: array,
+     *                                        command_plan?: array,
+     *                                        action_labels?: list<string>,
+     *                                        }
      * @return array<string,mixed>
      */
     public function run(array $options = []): array
@@ -112,26 +112,16 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $claimCb = $options['claim_callback'] ?? null;
         $reportCb = $options['report_callback'] ?? null;
         $patchMaterializer = $options['patch_materializer'] ?? null;
+        $productionRuntime = $options['production_runtime'] ?? null;
+        $clientId = (string) ($options['client_id'] ?? 'atlas-native-worker');
 
         // Explicit production bindings only (daemon / supervised runners). Never
         // silently replace intentional missing-callback failure modes used by tests.
-        if (($options['use_production_callbacks'] ?? false) === true
-            && ! is_callable($claimCb)
-            && ! is_callable($reportCb)
-            && ! is_callable($patchMaterializer)) {
-            $production = app(AtlasNativeWorkerProductionCallbacks::class)->forClient(
-                (string) ($options['client_id'] ?? 'atlas-native-worker')
-            );
-            $claimCb = $production['claim_callback'];
-            $reportCb = $production['report_callback'];
-            $patchMaterializer = $production['patch_materializer'];
-        }
-
         // No verification supplied ⇒ NOT proven passed — never normalized into a silent success.
         $verification = is_array($options['verification'] ?? null) ? $options['verification'] : ['passed' => false];
         $commandPlan = is_array($options['command_plan'] ?? null) ? $options['command_plan'] : [];
 
-        if (! is_callable($claimCb)) {
+        if (! $productionRuntime instanceof AtlasNativeWorkerProductionCallbacks && ! is_callable($claimCb)) {
             $blockedActions[] = ['action' => 'claim', 'reason' => 'claim_callback_missing'];
 
             return $this->envelope(self::STATUS_NO_CLAIM, false, '', '', '', $plannedSteps, $appliedSteps, $blockedActions, '', [], self::OUTCOME_CLASS_NO_CLAIMABLE);
@@ -140,7 +130,9 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         // 1. CLAIM
         $claim = null;
         try {
-            $claim = $claimCb();
+            $claim = $productionRuntime instanceof AtlasNativeWorkerProductionCallbacks
+                ? $productionRuntime->claim($clientId)
+                : $claimCb();
         } catch (\Throwable $e) {
             $blockedActions[] = ['action' => 'claim', 'reason' => 'claim_callback_error:'.$e->getMessage()];
         }
@@ -150,7 +142,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $appliedSteps[] = 'claim';
 
         // 2. ADAPT
-        $adapter = $this->adapter ?? new AtlasNativeWorkerClaimEnvelopeAdapter();
+        $adapter = $this->adapter ?? new AtlasNativeWorkerClaimEnvelopeAdapter;
         $adapted = $adapter->adapt($claim);
         if (! (bool) $adapted['ok']) {
             $blockedActions[] = ['action' => 'adapt', 'reason' => (string) $adapted['reason']];
@@ -164,7 +156,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $adapterHash = (string) ($adapted['adapter_hash'] ?? '');
 
         // 3. EXECUTION ENVELOPE
-        $envelopeBuilder = $this->envelopeBuilder ?? new AtlasNativeWorkerExecutionEnvelopeBuilder();
+        $envelopeBuilder = $this->envelopeBuilder ?? new AtlasNativeWorkerExecutionEnvelopeBuilder;
         try {
             $envelope = $envelopeBuilder->build($normalized);
             $appliedSteps[] = 'build_execution_envelope';
@@ -176,17 +168,28 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
 
         // 4. MATERIALIZE PATCH (optional injected callback — refuses external/git)
         $materialization = null;
-        if (is_callable($patchMaterializer)) {
+        if ($productionRuntime instanceof AtlasNativeWorkerProductionCallbacks || is_callable($patchMaterializer)) {
             try {
-                $materialization = $patchMaterializer($normalized);
+                $materialization = $productionRuntime instanceof AtlasNativeWorkerProductionCallbacks
+                    ? $productionRuntime->materialize($normalized)
+                    : $patchMaterializer($normalized);
+                if (! is_array($materialization) || ($materialization['accepted'] ?? false) !== true) {
+                    throw new \RuntimeException('patch_materialization_refused');
+                }
                 $appliedSteps[] = 'materialize_patch';
             } catch (\Throwable $e) {
                 $blockedActions[] = ['action' => 'materialize_patch', 'reason' => $e->getMessage()];
+
+                return $this->envelope(self::STATUS_ERROR, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions);
             }
+        } else {
+            $blockedActions[] = ['action' => 'materialize_patch', 'reason' => 'patch_materializer_missing'];
+
+            return $this->envelope(self::STATUS_ERROR, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions);
         }
 
         // 5. COMMAND PLAN RUNNER (dry-run-honoured pure shell; we keep dry-run inside)
-        $commandRunner = $this->commandRunner ?? new AtlasNativeWorkerCommandPlanRunner();
+        $commandRunner = $this->commandRunner ?? new AtlasNativeWorkerCommandPlanRunner;
         $commandResult = ['status' => 'green'];
         if ($commandPlan !== []) {
             try {
@@ -228,12 +231,19 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                         : null,
                     $rawResults,
                 )));
+                $fileDiffs = [];
+                foreach ((array) ($materialization['diffs'] ?? []) as $diff) {
+                    if (is_array($diff) && (string) ($diff['path'] ?? '') !== '') {
+                        $fileDiffs[(string) $diff['path']] = (string) ($diff['unified_diff'] ?? '');
+                    }
+                }
                 $evidenceWriter->append([
                     'task_packet_id' => $taskPacketId,
                     'lease_id' => $leaseId,
                     'envelope_hash' => (string) ($envelope['envelope_hash'] ?? $adapterHash),
                     'runtime_owner' => AtlasNativeWorkerExecutionEnvelopeBuilder::RUNTIME_OWNER,
                     'files_changed' => $filesChanged,
+                    'file_diffs' => $fileDiffs,
                     'commands_run' => $commandsForEvidence,
                     'tests_or_gates_result' => [
                         'passed' => (bool) ($verification['passed'] ?? false),
@@ -242,11 +252,17 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
                 $appliedSteps[] = 'write_evidence';
             } catch (\Throwable $e) {
                 $blockedActions[] = ['action' => 'write_evidence', 'reason' => $e->getMessage()];
+
+                return $this->envelope(self::STATUS_ERROR, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions);
             }
+        } else {
+            $blockedActions[] = ['action' => 'write_evidence', 'reason' => 'evidence_writer_missing'];
+
+            return $this->envelope(self::STATUS_ERROR, false, $taskPacketId, $leaseId, $adapterHash, $plannedSteps, $appliedSteps, $blockedActions);
         }
 
         // 7. OUTCOME MAPPER
-        $outcomeMapper = $this->outcomeMapper ?? new AtlasNativeWorkerOutcomeMapper();
+        $outcomeMapper = $this->outcomeMapper ?? new AtlasNativeWorkerOutcomeMapper;
         $commandResults = is_array($commandResult['results'] ?? null) ? (array) $commandResult['results'] : [];
         $commandStatuses = array_map(static fn (array $r): string => (string) ($r['status'] ?? ''), $commandResults);
         $worstStatus = 'green';
@@ -258,9 +274,9 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         }
         $execution = [
             'command_status' => $worstStatus,
-            'patch_status' => is_array($materialization) ? (string) ($materialization['status'] ?? 'green') : 'green',
+            'patch_status' => (string) ($materialization['status'] ?? 'green'),
             'results' => [],
-            'evidence_refs' => array_values((array) ($normalized['required_evidence'] ?? [])),
+            'evidence_refs' => array_values((array) ($verification['evidence_refs'] ?? [])),
             'blockers' => [],
         ];
         $outcome = $outcomeMapper->map($normalized, $execution, $verification);
@@ -283,15 +299,20 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         ];
 
         // 8. REPORT — only the mapper outcome, only after evidence write.
-        if (is_callable($reportCb)) {
+        if ($productionRuntime instanceof AtlasNativeWorkerProductionCallbacks || is_callable($reportCb)) {
             try {
-                $reportCb([
+                $reportPayload = [
                     'task_packet_id' => $taskPacketId,
                     'lease_id' => $leaseId,
                     'outcome' => $reportOutcome,
                     'reason' => (string) ($outcome['report_reason'] ?? ''),
                     'outcome_hash' => (string) ($outcome['outcome_hash'] ?? ''),
-                ]);
+                ];
+                if ($productionRuntime instanceof AtlasNativeWorkerProductionCallbacks) {
+                    $productionRuntime->report($clientId, $reportPayload);
+                } else {
+                    $reportCb($reportPayload);
+                }
                 $appliedSteps[] = 'report';
             } catch (\Throwable $e) {
                 $blockedActions[] = ['action' => 'report', 'reason' => $e->getMessage()];
@@ -388,18 +409,18 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
             self::STATUS_OK => $dryRun
                 ? 'dry_run_planned_steps_only'
                 : ($reportOutcome !== '' ? "completed_with_outcome:{$reportOutcome}" : 'apply_completed_no_outcome'),
-            self::STATUS_NO_CLAIM        => 'no_task_available_in_queue',
+            self::STATUS_NO_CLAIM => 'no_task_available_in_queue',
             self::STATUS_ADAPTER_REFUSED => 'task_packet_rejected_by_adapter',
-            self::STATUS_REFUSED_LABEL   => 'forbidden_action_label_in_spec',
-            self::STATUS_ERROR           => 'internal_error_during_execution',
-            default                      => 'unknown',
+            self::STATUS_REFUSED_LABEL => 'forbidden_action_label_in_spec',
+            self::STATUS_ERROR => 'internal_error_during_execution',
+            default => 'unknown',
         };
 
         return [
-            'failed_or_pending_step'    => $failedOrPendingStep,
-            'retryable'                 => $retryable,
-            'required_callback'         => $requiredCallback,
-            'evidence_needed'           => $evidenceNeeded,
+            'failed_or_pending_step' => $failedOrPendingStep,
+            'retryable' => $retryable,
+            'required_callback' => $requiredCallback,
+            'evidence_needed' => $evidenceNeeded,
             'reportable_outcome_reason' => $reportableOutcomeReason,
         ];
     }

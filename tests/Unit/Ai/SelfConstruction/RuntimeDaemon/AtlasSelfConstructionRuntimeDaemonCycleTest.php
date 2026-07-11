@@ -46,6 +46,24 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertTrue($out['action_feedback'][0]['retryable']);
     }
 
+    public function test_executor_held_result_remains_retryable_not_applied_success(): void
+    {
+        $executor = new class extends AtlasSelfConstructionNativeActionExecutor
+        {
+            public function execute(array $action, array $state): array
+            {
+                return ['status' => 'held', 'reason' => 'release_pending', 'retryable' => true];
+            }
+        };
+
+        $out = (new AtlasSelfConstructionRuntimeDaemonCycle(actionExecutor: $executor))
+            ->tick($this->readyFacts(), ['apply' => true]);
+
+        self::assertSame('held', $out['action_feedback'][0]['outcome_class']);
+        self::assertTrue($out['action_feedback'][0]['retryable']);
+        self::assertSame('retry_native_action:native_tick', $out['action_feedback'][0]['next_safe_action']);
+    }
+
     private function readyState(): array
     {
         return [
