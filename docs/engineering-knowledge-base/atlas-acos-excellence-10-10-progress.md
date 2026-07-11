@@ -77,17 +77,17 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | COM-03 | ✅ | 8ac45a7cf | ContextFeedbackAutoCommandTest 5/5 |
 | COM-04 | ✅ | c093a5fb5 | DeliveredAttribution 3/3 + suite ARFL 10/10 [MEDIDOR] |
 | COM-06 | ✅ | 0c2a0c241 | ContextAttribution cited vs diffed |
-| MEM-05 | ⬜ | — | — |
+| MEM-05 | ✅ | f3b5cc192 | rehydrate title/summary + evidence_refs |
 | MEM-02 | ✅ | 2cdea34c1f | relation verbs related/compatible/scoped/supersedes |
 | RAG-02 | ✅ | 363b4ba41 | window_days=30 + all_time_* [MEDIDOR] |
 | RAG-11 | ✅ | 41da0f98e | MemoryNegativeFeedbackPathTest |
-| RAG-07 | ⬜ | — | — |
-| RAG-08 | ⬜ | — | — |
+| RAG-07 | ✅ | b712c4eb1 | MemoryMetadataBackfillTest |
+| RAG-08 | ✅ | 1d98fcc57 | AurgDocsSourceTest |
 | CPT-02 | ✅ | d9d93dfdc | ConversationCompactionReceiptTest [MEDIDOR] |
-| CPT-05 | ⬜ | — | — |
-| CPT-08 | ⬜ | — | — |
+| CPT-05 | ✅ | 24b481ba9 | ProviderHandoffReceiptTest 3/3 |
+| CPT-08 | ✅ | dda11bb60 | TokenEconomyShadowParityTest |
 | FEE-03 | ✅ | 41da0f98e | AtlasMemoryFeedbackImplicitNegativeTest |
-| PIP-04 | ⬜ | — | — |
+| PIP-04 | ✅ | 05e7028d6 | RemintTouchedCommandTest 3/3 |
 | PIP-05 | ✅ | 0632d056b | mint dry-run + serviceClass binding (05b pending) |
 | PIP-06 | ✅ | 6d5e27aac | verify-claims drift gate + --write |
 | OPE-04 | ✅ | f2d2b9f91 | HybridRecallCompoundingArmDefaultOnTest 1/1 |
@@ -151,4 +151,4 @@ de memória/promoção; nada a refatorar do modelo antigo.
 | CPT-10 | ⬜ | — | — |
 | ADV-01 | ⬜ | — | — |
 
-**Feitas: 49/98 · Faltam: 49 · Próximo: CPT-05 / RAG-07 (onda 2)**
+**Feitas: 55/98 · Faltam: 43 · Próximo: FEE-04 (onda 3) — onda 2 COMPLETA**
