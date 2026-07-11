@@ -258,13 +258,21 @@ class ForgeWorkPacketExecutionCycleService
         $idempotencyKey = (string) ($request['idempotency_key']
             ?? 'forge-cycle:'.$intake->id.':'.$packet->id.':'.$position);
         $cycleUuid = Uuid::uuid5(Uuid::NAMESPACE_URL, 'atlas-forge-cycle:'.$idempotencyKey)->toString();
+        $replayContract = $this->cycleReplayContract(
+            $intake,
+            $packet,
+            $mode,
+            (string) ($request['scope_path'] ?? 'work-packet/'.$packet->packet_id),
+        );
 
         return DB::transaction(function () use (
             $mode, $position, $executionPlan, $request, $idempotencyKey, $cycleUuid,
-            $intake, $packet, $built, $state,
+            $intake, $packet, $built, $state, $replayContract,
         ): AiForgeWorkPacketExecutionCycle {
             $existing = AiForgeWorkPacketExecutionCycle::query()->where('uuid', $cycleUuid)->first();
             if ($existing !== null) {
+                $this->assertCycleReplayContract($existing, $replayContract);
+
                 return $existing;
             }
 
@@ -272,6 +280,7 @@ class ForgeWorkPacketExecutionCycleService
                 ? ForgeWorkPacketExecutionCycleCanon::STATUS_BLOCKED
                 : ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING;
             $plan = $executionPlan;
+            $plan['cycle_replay_contract'] = $replayContract;
             if ($mode === ForgeWorkPacketExecutionCycleCanon::MODE_REAL) {
                 $owner = (string) ($request['lease_owner'] ?? 'forge-cycle:'.$cycleUuid);
                 $token = (string) ($request['lease_token'] ?? hash('sha256', 'forge-lease:'.$idempotencyKey));
@@ -334,6 +343,57 @@ class ForgeWorkPacketExecutionCycleService
 
             return $cycle;
         }, 3);
+    }
+
+    /** @return array<string,string> */
+    private function cycleReplayContract(
+        AiForgeIntake $intake,
+        AiForgeWorkPacket $packet,
+        string $mode,
+        string $scopePath,
+    ): array {
+        $contract = [
+            'intake_id' => (string) $intake->getKey(),
+            'work_packet_id' => (string) $packet->getKey(),
+            'mode' => $mode,
+            'scope_path' => $this->canonicalScopePath($scopePath),
+            'authority_hash' => (string) $packet->packet_hash,
+            'baseline_hash' => (string) $intake->intake_hash,
+        ];
+        $contract['fingerprint'] = MissionCanonicalHash::sha256($contract);
+
+        return $contract;
+    }
+
+    /** @param array<string,string> $expected */
+    private function assertCycleReplayContract(AiForgeWorkPacketExecutionCycle $cycle, array $expected): void
+    {
+        $plan = $cycle->getAttribute('execution_plan');
+        $stored = is_array($plan) && is_array($plan['cycle_replay_contract'] ?? null)
+            ? $plan['cycle_replay_contract']
+            : [];
+        foreach ($expected as $field => $value) {
+            if (! isset($stored[$field]) || ! hash_equals((string) $stored[$field], $value)) {
+                throw new \RuntimeException('atlas.forge.work_packet_execution_cycle: cycle replay contract mismatch for '.$field);
+            }
+        }
+    }
+
+    private function canonicalScopePath(string $path): string
+    {
+        $segments = [];
+        foreach (explode('/', str_replace('\\', '/', trim($path))) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+            if ($segment === '..') {
+                array_pop($segments);
+            } else {
+                $segments[] = $segment;
+            }
+        }
+
+        return implode('/', $segments);
     }
 
     /**

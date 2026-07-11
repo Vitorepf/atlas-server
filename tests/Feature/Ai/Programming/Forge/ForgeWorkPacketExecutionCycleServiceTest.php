@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleException;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Concerns\CreatesForgeLongHorizonStateTable;
 use Tests\TestCase;
 
@@ -254,6 +255,67 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertSame($cycle->uuid, $replay->uuid);
         $this->assertSame($cycle->uuid, $cycle->execution_plan['scope_reservation']['run_id']);
         $this->assertSame(1, DB::table('atlas_task_scope_reservations')->count());
+    }
+
+    public function test_cycle_replay_refuses_any_canonical_request_mismatch_before_returning_existing_uuid(): void
+    {
+        [$intake, $packet, $state] = $this->bootstrap();
+        $idempotencyKey = 'forge-cycle-replay-contract';
+        $originalPlan = $this->cycles->planExecution($packet, [
+            'execution_mode' => 'real',
+            'scope_path' => 'app/Services/Ai/Programming/Forge',
+            'idempotency_key' => $idempotencyKey,
+        ]);
+        $this->cycles->startCycle($intake, $packet, $originalPlan, $state);
+
+        $otherPacket = $intake->workPackets()->whereKeyNot($packet->getKey())->firstOrFail();
+        $this->assertCycleReplayRejected(fn () => $this->cycles->startCycle(
+            $intake,
+            $otherPacket,
+            $this->cycles->planExecution($otherPacket, ['execution_mode' => 'real', 'idempotency_key' => $idempotencyKey]),
+            $state,
+        ), 'work_packet_id');
+
+        $otherIntake = $intake->replicate();
+        $otherIntake->id = (string) Str::uuid();
+        $this->assertCycleReplayRejected(fn () => $this->cycles->startCycle(
+            $otherIntake,
+            $packet,
+            $originalPlan,
+        ), 'intake_id');
+
+        $modePlan = $originalPlan;
+        $modePlan['execution_mode'] = 'safe_simulation';
+        $this->assertCycleReplayRejected(
+            fn () => $this->cycles->startCycle($intake, $packet, $modePlan, $state),
+            'mode',
+        );
+
+        $scopePlan = $this->cycles->planExecution($packet, [
+            'execution_mode' => 'real',
+            'scope_path' => 'app/Services/Ai/Programming/Other',
+            'idempotency_key' => $idempotencyKey,
+        ]);
+        $this->assertCycleReplayRejected(
+            fn () => $this->cycles->startCycle($intake, $packet, $scopePlan, $state),
+            'scope_path',
+        );
+
+        $originalAuthority = $packet->packet_hash;
+        $packet->packet_hash = str_repeat('a', 64);
+        $this->assertCycleReplayRejected(
+            fn () => $this->cycles->startCycle($intake, $packet, $originalPlan, $state),
+            'authority_hash',
+        );
+        $packet->packet_hash = $originalAuthority;
+
+        $originalBaseline = $intake->intake_hash;
+        $intake->intake_hash = str_repeat('b', 64);
+        $this->assertCycleReplayRejected(
+            fn () => $this->cycles->startCycle($intake, $packet, $originalPlan, $state),
+            'baseline_hash',
+        );
+        $intake->intake_hash = $originalBaseline;
     }
 
     public function test_complete_records_sovereign_gate_observe_verdict_without_blocking(): void
@@ -631,5 +693,16 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
     private function reservationMigration(): object
     {
         return require database_path('migrations/2026_07_11_130000_create_atlas_task_scope_reservations_table.php');
+    }
+
+    private function assertCycleReplayRejected(callable $attempt, string $field): void
+    {
+        try {
+            $attempt();
+            $this->fail('cycle replay mismatch must be refused for '.$field);
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('cycle replay contract mismatch', $exception->getMessage());
+            $this->assertStringContainsString($field, $exception->getMessage());
+        }
     }
 }

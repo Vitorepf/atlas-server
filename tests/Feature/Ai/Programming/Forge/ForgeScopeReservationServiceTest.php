@@ -197,6 +197,179 @@ class ForgeScopeReservationServiceTest extends TestCase
         $this->assertSame($winnerId, $result['reservation']['id']);
     }
 
+    public function test_two_independent_processes_leave_exactly_one_active_scope_owner(): void
+    {
+        if (! function_exists('pcntl_fork')) {
+            $this->markTestSkipped('pcntl is required for the real concurrent acquire proof');
+        }
+
+        $directory = storage_path('framework/testing/forge-reservation-'.bin2hex(random_bytes(6)));
+        mkdir($directory, 0777, true);
+        $database = $directory.'/concurrency.sqlite';
+        touch($database);
+        config()->set('database.connections.forge_concurrency', [
+            'driver' => 'sqlite',
+            'database' => $database,
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+            'busy_timeout' => 5000,
+            'journal_mode' => 'WAL',
+        ]);
+        $originalConnection = DB::getDefaultConnection();
+        DB::setDefaultConnection('forge_concurrency');
+        DB::purge('forge_concurrency');
+        $this->ledgerMigration()->up();
+        $this->ledgerScopeMigration()->up();
+        $this->reservationMigration()->up();
+
+        $children = [];
+        for ($index = 0; $index < 2; $index++) {
+            $pid = pcntl_fork();
+            if ($pid === 0) {
+                DB::purge('forge_concurrency');
+                DB::setDefaultConnection('forge_concurrency');
+                DB::statement('PRAGMA busy_timeout = 5000');
+                touch($directory.'/ready-'.$index);
+                $deadline = microtime(true) + 5;
+                while (! file_exists($directory.'/go') && microtime(true) < $deadline) {
+                    usleep(1000);
+                }
+                try {
+                    $result = app(ForgeScopeReservationService::class)->acquire(
+                        'run-'.$index,
+                        'app/Services/Ai/Programming/Forge',
+                        'real',
+                        'worker-'.$index,
+                        'token-'.$index,
+                        str_repeat((string) ($index + 1), 64),
+                        str_repeat('c', 64),
+                        'idem-'.$index,
+                        60,
+                    );
+                    file_put_contents($directory.'/result-'.$index, json_encode($result, JSON_THROW_ON_ERROR));
+                    exit(0);
+                } catch (\Throwable $exception) {
+                    file_put_contents($directory.'/result-'.$index, json_encode(['error' => $exception->getMessage()], JSON_THROW_ON_ERROR));
+                    exit(1);
+                }
+            }
+            $children[] = $pid;
+        }
+
+        $deadline = microtime(true) + 5;
+        while ((! file_exists($directory.'/ready-0') || ! file_exists($directory.'/ready-1')) && microtime(true) < $deadline) {
+            usleep(1000);
+        }
+        touch($directory.'/go');
+        foreach ($children as $pid) {
+            pcntl_waitpid($pid, $status);
+        }
+
+        DB::purge('forge_concurrency');
+        DB::setDefaultConnection('forge_concurrency');
+        $results = [
+            json_decode((string) file_get_contents($directory.'/result-0'), true, flags: JSON_THROW_ON_ERROR),
+            json_decode((string) file_get_contents($directory.'/result-1'), true, flags: JSON_THROW_ON_ERROR),
+        ];
+        $this->assertCount(1, array_filter($results, static fn (array $result): bool => ($result['acquired'] ?? false) === true));
+        $this->assertSame(1, DB::table('atlas_task_scope_reservations')->whereNotNull('active_scope_key')->count());
+
+        DB::purge('forge_concurrency');
+        DB::setDefaultConnection($originalConnection);
+        foreach (glob($directory.'/*') ?: [] as $path) {
+            unlink($path);
+        }
+        rmdir($directory);
+    }
+
+    public function test_postgresql_concurrent_acquire_profile_is_safe_and_opt_in(): void
+    {
+        $environment = array_map(
+            static fn (string $key): string => (string) getenv($key),
+            ['ATLAS_TEST_PG_HOST', 'ATLAS_TEST_PG_PORT', 'ATLAS_TEST_PG_DATABASE', 'ATLAS_TEST_PG_USERNAME', 'ATLAS_TEST_PG_PASSWORD'],
+        );
+        if (in_array('', $environment, true)) {
+            $this->markTestSkipped('ephemeral PostgreSQL proof requires explicit ATLAS_TEST_PG_* variables');
+        }
+        [$host, $port, $database, $username, $password] = array_values($environment);
+        if (! str_starts_with($database, 'atlas_test_')) {
+            $this->markTestSkipped('ATLAS_TEST_PG_DATABASE must start with atlas_test_');
+        }
+        if (! function_exists('pcntl_fork')) {
+            $this->markTestSkipped('pcntl is required for PostgreSQL concurrency proof');
+        }
+
+        config()->set('database.connections.forge_concurrency_pgsql', [
+            'driver' => 'pgsql',
+            'host' => $host,
+            'port' => $port,
+            'database' => $database,
+            'username' => $username,
+            'password' => $password,
+            'charset' => 'utf8',
+            'prefix' => '',
+            'schema' => 'public',
+            'sslmode' => 'prefer',
+        ]);
+        $originalConnection = DB::getDefaultConnection();
+        DB::setDefaultConnection('forge_concurrency_pgsql');
+        DB::purge('forge_concurrency_pgsql');
+        $this->reservationMigration()->down();
+        $this->reservationMigration()->up();
+
+        $directory = storage_path('framework/testing/forge-pg-reservation-'.bin2hex(random_bytes(6)));
+        mkdir($directory, 0777, true);
+        $children = [];
+        for ($index = 0; $index < 2; $index++) {
+            $pid = pcntl_fork();
+            if ($pid === 0) {
+                DB::purge('forge_concurrency_pgsql');
+                DB::setDefaultConnection('forge_concurrency_pgsql');
+                touch($directory.'/ready-'.$index);
+                while (! file_exists($directory.'/go')) {
+                    usleep(1000);
+                }
+                try {
+                    $result = app(ForgeScopeReservationService::class)->acquire(
+                        'pg-run-'.$index, 'app/Services/Ai/Programming/Forge', 'real',
+                        'pg-worker-'.$index, 'pg-token-'.$index, str_repeat((string) ($index + 1), 64),
+                        str_repeat('d', 64), 'pg-idem-'.$index, 60,
+                    );
+                    file_put_contents($directory.'/result-'.$index, json_encode($result, JSON_THROW_ON_ERROR));
+                    exit(0);
+                } catch (\Throwable $exception) {
+                    file_put_contents($directory.'/result-'.$index, json_encode(['error' => $exception->getMessage()], JSON_THROW_ON_ERROR));
+                    exit(1);
+                }
+            }
+            $children[] = $pid;
+        }
+        while (! file_exists($directory.'/ready-0') || ! file_exists($directory.'/ready-1')) {
+            usleep(1000);
+        }
+        touch($directory.'/go');
+        foreach ($children as $pid) {
+            pcntl_waitpid($pid, $status);
+        }
+
+        DB::purge('forge_concurrency_pgsql');
+        DB::setDefaultConnection('forge_concurrency_pgsql');
+        $results = [
+            json_decode((string) file_get_contents($directory.'/result-0'), true, flags: JSON_THROW_ON_ERROR),
+            json_decode((string) file_get_contents($directory.'/result-1'), true, flags: JSON_THROW_ON_ERROR),
+        ];
+        $this->assertCount(1, array_filter($results, static fn (array $result): bool => ($result['acquired'] ?? false) === true));
+        $this->assertSame(1, DB::table('atlas_task_scope_reservations')->whereNotNull('active_scope_key')->count());
+
+        $this->reservationMigration()->down();
+        DB::purge('forge_concurrency_pgsql');
+        DB::setDefaultConnection($originalConnection);
+        foreach (glob($directory.'/*') ?: [] as $path) {
+            unlink($path);
+        }
+        rmdir($directory);
+    }
+
     /** @return array<string,mixed> */
     private function acquire(string $runId, string $owner, string $token, string $idempotencyKey, int $leaseSeconds = 60): array
     {
