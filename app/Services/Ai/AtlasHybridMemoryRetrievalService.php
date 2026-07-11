@@ -4,8 +4,10 @@ namespace App\Services\Ai;
 
 use App\Models\AiCompoundingMemory;
 use App\Models\AtlasMemoryEntry;
+use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
+use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
@@ -209,9 +211,10 @@ class AtlasHybridMemoryRetrievalService
         $supersededIds = array_flip($this->concentrationDemotion->supersededEntryIds($entryIds));
         $feedbackStats = $this->concentrationDemotion->feedbackStatsForEntries($entryIds);
         $relatedConflicts = $this->concentrationDemotion->relatedConflictsForEntries($entryIds);
+        $knowledgeRelations = $this->knowledgeRelationsForEntries($entryIds);
 
         return $entries
-            ->map(function (AtlasMemoryEntry $entry) use ($query, $dominantIds, $supersededIds, $feedbackStats, $relatedConflicts): ?array {
+            ->map(function (AtlasMemoryEntry $entry) use ($query, $dominantIds, $supersededIds, $feedbackStats, $relatedConflicts, $knowledgeRelations): ?array {
                 $entryId = (string) $entry->id;
                 if ($entryId !== '' && isset($supersededIds[$entryId])) {
                     return null;
@@ -265,6 +268,7 @@ class AtlasHybridMemoryRetrievalService
                     'recall_eval_hit_rate' => $stats['recall_eval_hit_rate'] ?? null,
                     'concentration_demoted' => in_array($entryId, $dominantIds, true),
                     'related_conflicts' => array_values($relatedConflicts[$entryId] ?? []),
+                    'relations' => $knowledgeRelations[$entryId] ?? [],
                     'explain' => [
                         'feedback_ranking' => $feedbackRanking + [
                             'base_hybrid_score' => round($baseHybridScore, 4),
@@ -275,6 +279,66 @@ class AtlasHybridMemoryRetrievalService
             ->filter(fn (?array $item): bool => $item !== null)
             ->values()
             ->all();
+    }
+
+    /**
+     * MEM-07: expose real atlas:memory:relations knowledge links to recall
+     * consumers as a bounded 1-hop provider-safe annotation.
+     *
+     * @param  array<int,string>  $entryIds
+     * @return array<string,array<string,array<int,array<string,mixed>>>>
+     */
+    private function knowledgeRelationsForEntries(array $entryIds): array
+    {
+        if ($entryIds === [] || ! DatabaseTableAvailability::has('atlas_memory_entry_relations')) {
+            return [];
+        }
+
+        $entrySet = array_flip($entryIds);
+        $relations = AtlasMemoryEntryRelation::query()
+            ->whereIn('relation_type', AtlasMemoryConflictResolutionService::KNOWLEDGE_RELATION_TYPES)
+            ->whereIn('status', ['open', 'resolved'])
+            ->where(function ($query) use ($entryIds): void {
+                $query->whereIn('source_memory_entry_id', $entryIds)
+                    ->orWhereIn('target_memory_entry_id', $entryIds);
+            })
+            ->latest('updated_at')
+            ->limit(200)
+            ->get();
+
+        $out = [];
+        foreach ($relations as $relation) {
+            $source = (string) $relation->source_memory_entry_id;
+            $target = (string) $relation->target_memory_entry_id;
+            $type = (string) $relation->relation_type;
+
+            if (isset($entrySet[$source])) {
+                $bucket = $type === AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES ? 'superseded_by' : $type;
+                $out[$source][$bucket][] = $this->relationAnnotation($relation, $target, 'source');
+            }
+            if (isset($entrySet[$target])) {
+                $bucket = $type === AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES ? 'supersedes' : $type;
+                $out[$target][$bucket][] = $this->relationAnnotation($relation, $source, 'target');
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function relationAnnotation(AtlasMemoryEntryRelation $relation, string $partnerId, string $role): array
+    {
+        return [
+            'relation_id' => (string) $relation->id,
+            'id' => $partnerId,
+            'relation_type' => (string) $relation->relation_type,
+            'status' => (string) $relation->status,
+            'role' => $role,
+            'confidence' => $relation->confidence,
+            'reason' => $relation->reason,
+        ];
     }
 
     /**

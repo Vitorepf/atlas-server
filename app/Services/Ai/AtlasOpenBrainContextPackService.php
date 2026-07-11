@@ -6,6 +6,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
+use App\Services\Ai\Context\AtlasContextFeedbackSignalPolicy;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
@@ -151,6 +152,7 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasRetrievalFusionService $fusion,
         private readonly AtlasFusionInjectionApplier $fusionApplier,
         private readonly AtlasMemoryUsageService $memoryUsage,
+        private readonly AtlasContextFeedbackSignalPolicy $feedbackSignalPolicy,
     ) {}
 
     /**
@@ -707,8 +709,10 @@ class AtlasOpenBrainContextPackService
             'source_selection_policy' => $this->sourceSelectionPolicy([], 0),
             'evidence' => [
                 'feedback_event_count' => 0,
+                'measured_event_count' => 0,
                 'measured_count' => 0,
                 'total_event_count' => 0,
+                'synthetic_share' => 0.0,
                 'latest_feedback_hashes' => [],
             ],
             'quality_gate_hint' => 'feedback_not_available_for_initial_pack',
@@ -751,21 +755,34 @@ class AtlasOpenBrainContextPackService
             ];
         }
 
+        $rawMeasuredCount = $events
+            ->filter(fn (AiRagFeedbackEvent $event): bool => $this->feedbackSignalPolicy->isMeasured($event))
+            ->count();
         $events = $events
-            ->filter(fn (AiRagFeedbackEvent $event): bool => $this->feedbackEventMeasured($event))
+            ->filter(fn (AiRagFeedbackEvent $event): bool => $this->feedbackSignalPolicy->isMeasuredAggregateEligible($event))
             ->values();
+        $eligibleCount = $events->count();
+        $syntheticShare = $totalEventCount === 0 ? 0.0 : round(($totalEventCount - $eligibleCount) / $totalEventCount, 4);
 
         if ($events->isEmpty()) {
+            $evidence = [
+                'feedback_event_count' => 0,
+                'measured_event_count' => 0,
+                'measured_count' => 0,
+                'raw_measured_event_count' => $rawMeasuredCount,
+                'total_event_count' => $totalEventCount,
+                'synthetic_share' => $syntheticShare,
+                'latest_feedback_hashes' => [],
+            ];
+            if ($totalEventCount >= AtlasContextFeedbackSignalPolicy::TOTAL_EVENT_FLOOR) {
+                $evidence['measured_share'] = 0.0;
+            }
+
             return array_replace_recursive($base, [
-                'status' => 'no_measured_data',
+                'status' => 'insufficient_signal',
                 'source' => $flowId !== null ? 'unmeasured_flow_feedback' : 'unmeasured_recent_context_feedback',
                 'reason' => 'context_feedback_events_unmeasured',
-                'evidence' => [
-                    'feedback_event_count' => 0,
-                    'measured_count' => 0,
-                    'total_event_count' => $totalEventCount,
-                    'latest_feedback_hashes' => [],
-                ],
+                'evidence' => $evidence,
                 'quality_gate_hint' => 'record_explicit_used_refs_and_post_execution_utility_after_provider_runs',
             ]);
         }
@@ -869,7 +886,10 @@ class AtlasOpenBrainContextPackService
         $expandSourceTypes = $this->uniqueStrings($expandSourceTypes);
         $deferSections = $this->uniqueStrings($deferSections);
         $demoteContextRefs = $this->uniqueStrings($demoteContextRefs);
-        $sourceSelectionPolicy = $this->sourceSelectionPolicy($sourceTypeStats, $actionableFeedbackCount);
+        $sourceSelectionPolicy = $this->sourceSelectionPolicy(
+            $totalEventCount >= AtlasContextFeedbackSignalPolicy::TOTAL_EVENT_FLOOR ? $sourceTypeStats : [],
+            $totalEventCount >= AtlasContextFeedbackSignalPolicy::TOTAL_EVENT_FLOOR ? $actionableFeedbackCount : 0,
+        );
 
         if ($expandSourceTypes !== []) {
             $actions[] = 'expand_missing_source_types';
@@ -894,16 +914,53 @@ class AtlasOpenBrainContextPackService
 
         $shouldShrink = in_array('shrink_initial_context', $actions, true);
         $shouldExpand = in_array('expand_missing_source_types', $actions, true);
-        $multiplier = match (true) {
-            $shouldShrink && $shouldExpand => 0.85,
-            $shouldShrink => 0.75,
-            default => 1.0,
-        };
-        $applied = $multiplier < 1.0 && $observedCount >= 2;
+        $canApplyBudget = $totalEventCount >= AtlasContextFeedbackSignalPolicy::TOTAL_EVENT_FLOOR && $observedCount >= 2;
+        $multiplier = $canApplyBudget
+            ? match (true) {
+                $shouldShrink && $shouldExpand => 0.85,
+                $shouldShrink => 0.75,
+                default => 1.0,
+            }
+            : 1.0;
+        $applied = $multiplier < 1.0 && $canApplyBudget;
+
+        $evidence = [
+            'feedback_event_count' => $observedCount,
+            'measured_event_count' => $observedCount,
+            'measured_count' => $observedCount,
+            'raw_measured_event_count' => $rawMeasuredCount,
+            'total_event_count' => $totalEventCount,
+            'synthetic_share' => $syntheticShare,
+            'latest_feedback_hashes' => array_slice($feedbackHashes, 0, 5),
+            'low_roi_count' => $lowRoiCount,
+            'waste_count' => $wasteCount,
+            'noise_count' => $noiseCount,
+            'missed_required_source_count' => $missedCount,
+            'unresolved_missed_count' => $this->unresolvedMissedCount($events),
+            'non_passing_count' => $nonPassingCount,
+            'actionable_feedback_count' => $actionableFeedbackCount,
+            'non_actionable_feedback_count' => $nonActionableFeedbackCount,
+            'missing_roi_signal_count' => $missingRoiSignalCount,
+            'source_buckets' => $sourceTypeStats,
+            'auto_apply_scope' => 'bounded_source_mix_only',
+            'ref_repromotion_enabled' => (bool) config('atlas.aobg.repromote_specific_refs_enabled', false),
+            'averages' => [
+                'roi_score' => round($avgRoi, 4),
+                'use_ratio' => round($avgUseRatio, 4),
+                'waste_ratio' => round($avgWasteRatio, 4),
+                'context_sufficiency' => round($this->average($sufficiencyScores), 2),
+                'post_execution_utility' => round($this->average($utilityScores), 2),
+            ],
+        ];
+        if ($totalEventCount >= AtlasContextFeedbackSignalPolicy::TOTAL_EVENT_FLOOR) {
+            $evidence['measured_share'] = round($observedCount / max(1, $totalEventCount), 4);
+        }
 
         return [
             'schema_version' => self::CONTEXT_DELIVERY_POLICY_SCHEMA,
-            'status' => $actions === ['keep_current_pack'] ? 'observed' : 'active',
+            'status' => $totalEventCount < AtlasContextFeedbackSignalPolicy::TOTAL_EVENT_FLOOR
+                ? 'insufficient_signal'
+                : ($actions === ['keep_current_pack'] ? 'observed' : 'active'),
             'delivery_mode' => match (true) {
                 $applied => 'feedback_shrunk_initial_expand_on_demand',
                 $shouldExpand => 'feedback_targeted_expansion_handles',
@@ -924,27 +981,7 @@ class AtlasOpenBrainContextPackService
             ))), 0, 12),
             'on_demand_handles' => $this->expansionHandles($expandSourceTypes),
             'source_selection_policy' => $sourceSelectionPolicy,
-            'evidence' => [
-                'feedback_event_count' => $observedCount,
-                'measured_count' => $observedCount,
-                'total_event_count' => $totalEventCount,
-                'latest_feedback_hashes' => array_slice($feedbackHashes, 0, 5),
-                'low_roi_count' => $lowRoiCount,
-                'waste_count' => $wasteCount,
-                'noise_count' => $noiseCount,
-                'missed_required_source_count' => $missedCount,
-                'non_passing_count' => $nonPassingCount,
-                'actionable_feedback_count' => $actionableFeedbackCount,
-                'non_actionable_feedback_count' => $nonActionableFeedbackCount,
-                'missing_roi_signal_count' => $missingRoiSignalCount,
-                'averages' => [
-                    'roi_score' => round($avgRoi, 4),
-                    'use_ratio' => round($avgUseRatio, 4),
-                    'waste_ratio' => round($avgWasteRatio, 4),
-                    'context_sufficiency' => round($this->average($sufficiencyScores), 2),
-                    'post_execution_utility' => round($this->average($utilityScores), 2),
-                ],
-            ],
+            'evidence' => $evidence,
             'quality_gate_hint' => $shouldExpand
                 ? 'expand_missing_source_types_before_implementation'
                 : ($applied ? 'budget_shrunk_by_feedback_keep_expansion_available' : ($actionableFeedbackCount === 0 ? 'feedback_observed_but_not_actionable_for_budget' : 'feedback_review_before_context_expansion')),
@@ -954,26 +991,7 @@ class AtlasOpenBrainContextPackService
 
     private function feedbackEventMeasured(AiRagFeedbackEvent $event): bool
     {
-        $payload = is_array($event->payload) ? $event->payload : [];
-
-        foreach ([
-            'measured',
-            'payload.measured',
-            'payload.payload.measured',
-            'context_roi.measured',
-            'payload.context_roi.measured',
-            'payload.payload.context_roi.measured',
-            'context_ref_attribution.measured',
-            'payload.context_ref_attribution.measured',
-            'payload.payload.context_ref_attribution.measured',
-        ] as $path) {
-            $value = data_get($payload, $path);
-            if ($value !== null) {
-                return (bool) $value;
-            }
-        }
-
-        return false;
+        return $this->feedbackSignalPolicy->isMeasuredAggregateEligible($event);
     }
 
     /**
@@ -1064,13 +1082,13 @@ class AtlasOpenBrainContextPackService
 
             $multiplier = 1.0;
             $action = 'keep';
-            if ($actionableFeedbackCount > 0 && $delivered >= 2 && ($noise > 0 || ($used === 0 && $wasteRatio >= 0.50))) {
+            if ($actionableFeedbackCount > 0 && $delivered >= AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS && ($noise > 0 || ($used === 0 && $wasteRatio >= 0.50))) {
                 $multiplier = 0.70;
                 $action = 'reduce_initial_share';
-            } elseif ($actionableFeedbackCount > 0 && $delivered >= 2 && $wasteRatio >= 0.40 && $useRatio < 0.50) {
+            } elseif ($actionableFeedbackCount > 0 && $delivered >= AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS && $wasteRatio >= 0.40 && $useRatio < 0.50) {
                 $multiplier = 0.85;
                 $action = 'trim_initial_share';
-            } elseif ($actionableFeedbackCount > 0 && $delivered >= 2 && $useRatio >= 0.50 && $wasteRatio < 0.40) {
+            } elseif ($actionableFeedbackCount > 0 && $delivered >= AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS && $useRatio >= 0.50 && $wasteRatio < 0.40) {
                 $action = 'preserve_initial_share';
             }
 
@@ -1087,6 +1105,7 @@ class AtlasOpenBrainContextPackService
                 'waste_ratio' => $wasteRatio,
                 'action' => $action,
                 'budget_multiplier' => $multiplier,
+                'minimum_measured_events' => AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS,
             ];
         }
 
@@ -1135,6 +1154,29 @@ class AtlasOpenBrainContextPackService
         }
 
         return $stats;
+    }
+
+    /**
+     * @param  Collection<int,AiRagFeedbackEvent>  $events
+     */
+    private function unresolvedMissedCount(Collection $events): int
+    {
+        $count = 0;
+        foreach ($events as $event) {
+            $missed = $this->stringList($event->missed_required_sources ?? []);
+            if ($missed === []) {
+                continue;
+            }
+
+            $resolved = $this->stringList(data_get($event->payload, 'payload.missed_resolution.resolved_source_types', []));
+            foreach ($missed as $sourceType) {
+                if (! in_array($sourceType, $resolved, true)) {
+                    $count++;
+                }
+            }
+        }
+
+        return $count;
     }
 
     private function normalizedInitialSourceType(string $value): ?string
@@ -1307,6 +1349,7 @@ class AtlasOpenBrainContextPackService
 
         foreach ($candidates as $candidate) {
             unset($candidate['_recall_score']); // interno ao floor — nunca servido
+            unset($candidate['_incident_scope']); // internal stable-concept guard marker
             $remaining = $budgetChars - $chars;
             if ($remaining <= 0 && $items !== []) {
                 break;
@@ -2222,6 +2265,8 @@ class AtlasOpenBrainContextPackService
                 // Interno ao floor (removido antes de servir): score do ranker híbrido —
                 // é o que autoriza o rank-escape do floor lexical (P0 do pack).
                 '_recall_score' => (float) ($row['score'] ?? 0),
+                // RAG-03: stable concept guard input, never rendered into the pack.
+                '_incident_scope' => (string) data_get($row, 'metadata.incident_scope', ''),
                 // T4-S5: the recalled entry id (provider-safe provenance) so the dialectic
                 // engine can look up OPEN conflict relations among the delivered memories.
                 'id' => (string) ($row['source_ref_id'] ?? ($row['id'] ?? '')),
@@ -2397,7 +2442,7 @@ class AtlasOpenBrainContextPackService
         $body = (string) ($item['body'] ?? '');
         $text = $title.' '.$summary.' '.$body;
 
-        if ($this->looksLikeWiperIncidentMemory($text)) {
+        if ($this->isStableWiperIncidentMemory($item)) {
             return $this->taskAllowsWiperMemory($task);
         }
 
@@ -2426,11 +2471,24 @@ class AtlasOpenBrainContextPackService
         return $overlap >= 2;
     }
 
-    private function looksLikeWiperIncidentMemory(string $text): bool
+    /**
+     * RAG-03: the incident guard is keyed by stable metadata/ref identity, not a
+     * volatile text list that changes as the corpus evolves.
+     *
+     * @param  array<string,mixed>  $item
+     */
+    private function isStableWiperIncidentMemory(array $item): bool
     {
-        $text = $this->normalizedIntentText($text);
+        if ((string) ($item['_incident_scope'] ?? '') === 'wiper') {
+            return true;
+        }
 
-        return $this->containsAny($text, ['wiper', 'drop table', 'refreshdatabase', 'vendor symlink', 'pgsql de producao']);
+        $stableRefs = $this->stringList(config('atlas.semantic_memory.wiper_incident_context_refs', []));
+        if ($stableRefs === []) {
+            return false;
+        }
+
+        return $this->matchesDemotedRef($this->memoryItemRefs($item), $stableRefs);
     }
 
     private function taskAllowsWiperMemory(string $task): bool
@@ -2502,7 +2560,14 @@ class AtlasOpenBrainContextPackService
      */
     private function memoryItemRefs(array $item): array
     {
-        return AtlasCanonicalContextRef::memoryItemForms($item);
+        $refs = AtlasCanonicalContextRef::memoryItemForms($item);
+        $id = trim((string) ($item['id'] ?? ''));
+        if ($id !== '') {
+            $refs[] = $id;
+            $refs[] = 'atlas_memory_entry:'.$id;
+        }
+
+        return AtlasCanonicalContextRef::uniqueStrings($refs);
     }
 
     /**

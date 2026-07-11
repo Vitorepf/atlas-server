@@ -1117,6 +1117,46 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('source_mix:', $pack['markdown']);
     }
 
+    public function test_MeasuredOnlyPolicy_ignores_synthetic_and_low_attribution_before_shrinking(): void
+    {
+        $this->bootCompoundingSchema();
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->recordMeasuredOnlyPolicyEvent('synthetic-low-'.$i, measured: true, attributionQuality: 'low');
+            $this->recordMeasuredOnlyPolicyEvent('synthetic-transcript-'.$i, measured: true, attributionQuality: 'transcript_inferred');
+        }
+
+        $syntheticPack = $this->service()->packFor('embedding decision', [
+            'budget' => 2000,
+            'flow_id' => 'aobg.measured_only.synthetic',
+        ]);
+        $syntheticPolicy = $syntheticPack['context_delivery_policy'];
+
+        $this->assertSame('insufficient_signal', $syntheticPolicy['status']);
+        $this->assertSame(1.0, $syntheticPolicy['initial_context_budget_multiplier']);
+        $this->assertFalse($syntheticPolicy['applied_to_initial_budget']);
+        $this->assertSame([
+            'code' => 1.0,
+            'graph' => 1.0,
+            'memory' => 1.0,
+        ], data_get($syntheticPolicy, 'source_selection_policy.budget_multipliers'));
+        $this->assertSame(0, data_get($syntheticPolicy, 'evidence.measured_event_count'));
+        $this->assertSame(20, data_get($syntheticPolicy, 'evidence.total_event_count'));
+        $this->assertSame(1.0, data_get($syntheticPolicy, 'evidence.synthetic_share'));
+        $this->assertSame(0.0, data_get($syntheticPolicy, 'evidence.measured_share'));
+
+        $this->recordMeasuredOnlyPolicyEvent('measured-a', measured: true, attributionQuality: 'gate_verified');
+
+        $belowFloorPack = $this->service()->packFor('embedding decision', [
+            'budget' => 2000,
+            'flow_id' => 'aobg.measured_only.below_floor',
+        ]);
+        $belowFloorEvidence = $belowFloorPack['context_delivery_policy']['evidence'];
+
+        $this->assertSame(1, $belowFloorEvidence['total_event_count']);
+        $this->assertArrayNotHasKey('measured_share', $belowFloorEvidence);
+    }
+
     public function test_context_pack_filters_demoted_noise_refs_from_initial_code_graph(): void
     {
         $this->bootCompoundingSchema();
@@ -2457,6 +2497,78 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
                 'next_context_policy' => [
                     'actions' => ['demote_noise_context_refs'],
                     'demote_context_refs' => [$demoteRef],
+                    'auto_apply' => false,
+                ],
+                'raw_text_exposed' => false,
+            ],
+        ]);
+    }
+
+    private function recordMeasuredOnlyPolicyEvent(string $receiptId, bool $measured, string $attributionQuality): void
+    {
+        $flowId = str_starts_with($receiptId, 'measured-a')
+            ? 'aobg.measured_only.below_floor'
+            : 'aobg.measured_only.synthetic';
+
+        app(AtlasRagFeedbackService::class)->record([
+            'retrieval_receipt_id' => 'receipt-'.$receiptId,
+            'flow_id' => $flowId,
+            'query_plan_hash' => hash('sha256', $receiptId),
+            'included_sources' => 4,
+            'used_sources' => 1,
+            'noise_sources' => 2,
+            'missed_required_sources' => ['memory'],
+            'context_sufficiency' => 40,
+            'post_execution_utility' => 35,
+            'source_utility' => [],
+            'outcome_status' => 'partial',
+            'measured' => $measured,
+            'payload' => [
+                'schema_version' => 'atlas.aucri.retrieval_feedback_loop.v1',
+                'measured' => $measured,
+                'attribution_quality' => $attributionQuality,
+                'usage_basis' => $attributionQuality === 'gate_verified' ? 'explicit_used_refs' : $attributionQuality,
+                'context_roi' => [
+                    'measured' => $measured,
+                    'roi_score' => 0.25,
+                    'use_ratio' => 0.25,
+                    'quality_band' => 'weak',
+                    'context_sufficiency' => 40,
+                    'post_execution_utility' => 35,
+                ],
+                'context_ref_attribution' => [
+                    'measured' => $measured,
+                    'usage_basis' => $attributionQuality === 'gate_verified' ? 'explicit_used_refs' : $attributionQuality,
+                    'delivered_count' => 4,
+                    'used_count' => 1,
+                    'unused_count' => 1,
+                    'noise_count' => 2,
+                    'use_ratio' => 0.25,
+                    'waste_ratio' => 0.75,
+                    'delivered_refs' => [
+                        ['ref' => 'code:used-'.$receiptId, 'source_type' => 'code_intelligence'],
+                        ['ref' => 'memory:unused-'.$receiptId, 'source_type' => 'memory_signals'],
+                        ['ref' => 'memory:noise-'.$receiptId, 'source_type' => 'memory_signals'],
+                        ['ref' => 'graph:noise-'.$receiptId, 'source_type' => 'reality_graph'],
+                    ],
+                    'used_refs' => [
+                        ['ref' => 'code:used-'.$receiptId, 'source_type' => 'code_intelligence'],
+                    ],
+                    'unused_refs' => [
+                        ['ref' => 'memory:unused-'.$receiptId, 'source_type' => 'memory_signals'],
+                    ],
+                    'noise_refs' => [
+                        ['ref' => 'memory:noise-'.$receiptId, 'source_type' => 'memory_signals'],
+                        ['ref' => 'graph:noise-'.$receiptId, 'source_type' => 'reality_graph'],
+                    ],
+                    'missing_source_types' => ['memory'],
+                ],
+                'next_context_policy' => [
+                    'actions' => ['shrink_initial_context', 'expand_missing_source_types'],
+                    'next_initial_budget_multiplier' => 0.75,
+                    'expand_source_types' => ['memory'],
+                    'defer_sections' => ['memory'],
+                    'demote_context_refs' => [],
                     'auto_apply' => false,
                 ],
                 'raw_text_exposed' => false,

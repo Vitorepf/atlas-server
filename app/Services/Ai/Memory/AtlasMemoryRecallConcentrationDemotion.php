@@ -7,8 +7,8 @@ namespace App\Services\Ai\Memory;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
+use App\Services\Ai\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Obra 5 / MEM-04 + OPT-01 — live recall-path demotion for degenerate concentration:
@@ -35,7 +35,7 @@ final class AtlasMemoryRecallConcentrationDemotion
         $since = now()->subDays($windowDays);
 
         $query = AtlasMemoryEntryUsage::query()
-            ->where('source_type', 'memory_recall')
+            ->where('source_type', AtlasMemoryUsageService::SOURCE_TYPE_RECALLED_PRE_FILTER)
             ->where('created_at', '>=', $since);
         $total = (int) (clone $query)->count();
         if ($total < $minRecalls) {
