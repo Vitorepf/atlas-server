@@ -106,7 +106,7 @@ final class AtlasSelfConstructionHermeticSandboxApplyService
         ]);
 
         if (! $persisted) {
-            return $result + ['applied' => false, 'reason' => 'reconciliation_uncertain'];
+            return array_replace($result, ['applied' => false, 'reason' => 'reconciliation_uncertain']);
         }
 
         return $result;
