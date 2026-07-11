@@ -38,6 +38,7 @@ final class EngineeringFinalCertifier
                 'architecture' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_ARCHITECTURE_OWNER_DOMAIN,
                 'data' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_DATA_OWNER_DOMAIN,
                 'appsec_privacy' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_APPSEC_PRIVACY_OWNER_DOMAIN,
+                'performance_resilience' => AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN,
                 default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
             };
             if (! $row instanceof AiEngineeringCompanyRoleRun

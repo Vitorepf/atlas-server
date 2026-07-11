@@ -111,6 +111,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $repo = sys_get_temp_dir().'/atlas-mutative-source-'.uniqid('', true);
         mkdir($repo.'/app', 0775, true);
         mkdir($repo.'/tests', 0775, true);
+        file_put_contents($repo.'/app/Candidate.php', "<?php\nreturn 'before';\n");
         file_put_contents($repo.'/tests/CandidateBehaviorTest.php', "<?php\nexit((require dirname(__DIR__).'/app/Candidate.php') === 'after' ? 0 : 1);\n");
         $fixtureComposer = [
             'require' => ['laravel/framework' => '^13.0', 'vendor/package' => '^2.0.0'],
@@ -133,7 +134,8 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'status' => 'ok', 'provider_invoked' => true, 'provider' => 'fixture', 'model' => 'fixture-model',
             'output_hash' => hash('sha256', 'provider-output'),
             'patch_plan' => ['allowed_files' => ['app/Candidate.php', 'app/Unused.php', 'database/migrations/2026_01_01_000000_add_candidate_value.php'], 'patches' => [[
-                'path' => 'app/Candidate.php', 'mode' => 'create', 'next' => "<?php\nreturn 'after';\n",
+                'path' => 'app/Candidate.php', 'mode' => 'modify',
+                'previous' => "<?php\nreturn 'before';\n", 'next' => "<?php\nreturn 'after';\n",
             ], [
                 'path' => 'database/migrations/2026_01_01_000000_add_candidate_value.php', 'mode' => 'create', 'next' => <<<'PHP'
                     <?php
@@ -168,7 +170,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertFalse($candidate->authorityEligible);
         $this->assertContains('mutative_22_role_court_receipt_absent', $candidate->blockers);
         $this->assertDirectoryExists($candidate->sandboxRoot.'/.git');
-        $this->assertFileDoesNotExist($repo.'/app/Candidate.php');
+        $this->assertSame("<?php\nreturn 'before';\n", file_get_contents($repo.'/app/Candidate.php'));
         $this->assertSame("<?php\nreturn 'after';\n", file_get_contents($candidate->sandboxRoot.'/app/Candidate.php'));
         $this->assertNotSame('', $candidate->candidateHash);
         $this->assertSame(['app/Candidate.php', 'database/migrations/2026_01_01_000000_add_candidate_value.php'], $candidate->files);
@@ -219,8 +221,8 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $persistedVerdict->dispositions,
             static fn ($disposition): bool => $disposition->status === 'block',
         ));
-        $this->assertSame(['architecture', 'data', 'qa_testing', 'appsec_privacy'], $passingRoles);
-        $this->assertCount(18, $blockingRoles);
+        $this->assertSame(['architecture', 'data', 'qa_testing', 'appsec_privacy', 'performance_resilience'], $passingRoles);
+        $this->assertCount(17, $blockingRoles);
         $this->assertContains('final_certification', $blockingRoles);
         $this->assertSame('candidate_architecture_probe_clean', $persistedVerdict->dispositions['architecture']->reason);
         $this->assertSame('pass', $persistedVerdict->dispositions['qa_testing']->status);
@@ -232,6 +234,59 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $architectureOwner = $persisted->firstWhere('role_id', 'architecture');
         $dataOwner = $persisted->firstWhere('role_id', 'data');
         $appsecOwner = $persisted->firstWhere('role_id', 'appsec_privacy');
+        $performanceOwner = $persisted->firstWhere('role_id', 'performance_resilience');
+        $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_PERFORMANCE_OWNER_DOMAIN, data_get($performanceOwner->receipt, 'owner_domain'));
+        $this->assertSame(5, data_get($performanceOwner->receipt, 'performance_evidence.policy.repetitions'));
+        $this->assertTrue((bool) data_get($performanceOwner->receipt, 'performance_evidence.measurements.recovery_passed'));
+        $this->assertNotEmpty(data_get($performanceOwner->receipt, 'performance_evidence.measurements.baseline.runs'));
+        $performanceArtifactPath = (string) data_get($performanceOwner->receipt, 'performance_evidence.raw_artifact.path');
+        $performanceArtifact = file_get_contents($performanceArtifactPath);
+        $this->assertIsString($performanceArtifact);
+        file_put_contents($performanceArtifactPath, $performanceArtifact."\n");
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'performance_resilience')->status, 'performance_artifact_tamper');
+        file_put_contents($performanceArtifactPath, $performanceArtifact);
+        $recoveryArtifactPath = (string) data_get($performanceOwner->receipt, 'performance_evidence.recovery_artifact.path');
+        $recoveryArtifact = file_get_contents($recoveryArtifactPath);
+        $this->assertIsString($recoveryArtifact);
+        file_put_contents($recoveryArtifactPath, $recoveryArtifact."\n");
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'performance_resilience')->status, 'performance_recovery_artifact_tamper');
+        file_put_contents($recoveryArtifactPath, $recoveryArtifact);
+        $performanceReceipt = $performanceOwner->receipt;
+        $substitutedPerformanceReceipt = $performanceReceipt;
+        $substitutedPerformanceReceipt['performance_evidence']['baseline_blob_hash'] = str_repeat('0', 64);
+        $performanceOwner->forceFill(['receipt' => $substitutedPerformanceReceipt])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'performance_resilience')->status, 'baseline_substitution');
+        $transplantedPerformanceReceipt = $performanceReceipt;
+        $transplantedPerformanceReceipt['binding']['candidate_hash'] = str_repeat('0', 64);
+        $performanceOwner->forceFill(['receipt' => $transplantedPerformanceReceipt])->save();
+        $this->assertSame('block', app(EngineeringQualityCourt::class)->adjudicateMutativeRole($qualityCase, 'performance_resilience')->status, 'performance_candidate_transplant');
+        $performanceOwner->forceFill(['receipt' => $performanceReceipt])->save();
+        $performanceProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'runCandidatePerformanceProfile');
+        $impactProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'phpSourceHasRuntimeImpact');
+        $this->assertFalse($impactProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '<?php class OnlyTest extends TestCase {}'));
+        $this->assertTrue($impactProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), '<?php class RuntimeService {}'));
+        $profilePolicy = ['timeout_seconds' => 2, 'repetitions' => 3, 'max_ratio' => 1.05,
+            'wall_slack_ms' => 0.0, 'cpu_slack_us' => 1000.0, 'rss_slack_bytes' => 1024, 'max_cv' => 1.0];
+        $regression = $performanceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            "<?php return 'before';", "<?php usleep(2000); return 'after';", $profilePolicy);
+        $this->assertFalse((bool) ($regression['safe'] ?? true), 'sleeping candidate regression must block');
+        $this->assertFalse((bool) data_get($regression, 'dimensions.wall', true));
+        $timeoutPolicy = $profilePolicy;
+        $timeoutPolicy['timeout_seconds'] = 0.000001;
+        $timeout = $performanceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class), 'x', 'x', $timeoutPolicy);
+        $this->assertSame('warmup_failed', $timeout['status'] ?? null);
+        $forgedSupervisorResult = $performanceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            "<?php return 'before';", "<?php echo json_encode(['safe'=>true,'wall_ms'=>0]); exit(0);", $profilePolicy);
+        $this->assertFalse((bool) ($forgedSupervisorResult['safe'] ?? true), 'candidate output and exit zero cannot forge supervisor success');
+        $this->assertSame('candidate_control_flow_rejected', $forgedSupervisorResult['status'] ?? null);
+        $evalExit = $performanceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            "<?php return 'before';", "<?php eval('exit(0);');", $profilePolicy);
+        $this->assertFalse((bool) ($evalExit['safe'] ?? true), 'eval exit zero cannot produce authenticated completion marker');
+        $this->assertSame('warmup_failed', $evalExit['status'] ?? null);
+        $includedExit = $performanceProbe->invoke(app(AtlasRealEngineeringExecutionKernelService::class),
+            "<?php return 'before';", "<?php include __DIR__.'/early-exit.php';", $profilePolicy);
+        $this->assertFalse((bool) ($includedExit['safe'] ?? true), 'included early exit cannot produce authenticated completion marker');
+        $this->assertSame('warmup_failed', $includedExit['status'] ?? null);
         $this->assertSame(AtlasRealEngineeringExecutionKernelService::CANDIDATE_APPSEC_PRIVACY_OWNER_DOMAIN, data_get($appsecOwner->receipt, 'owner_domain'));
         $this->assertSame([], data_get($appsecOwner->receipt, 'appsec_privacy_evidence.secret_privacy_findings'));
         $this->assertSame([], data_get($appsecOwner->receipt, 'appsec_privacy_evidence.dependency_provenance_findings'));

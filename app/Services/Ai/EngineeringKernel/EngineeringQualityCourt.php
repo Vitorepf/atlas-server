@@ -93,6 +93,18 @@ final class EngineeringQualityCourt
                 );
             }
         }
+        if ($role === 'performance_resilience') {
+            $rows = AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $case->engagementRecordId)
+                ->where('cycle_record_id', $case->cycleRecordId)->where('role_id', 'performance_resilience')->get()
+                ->filter(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'binding.case_hash') === $case->caseHash);
+            $owner = $rows->count() === 1 ? $rows->first() : null;
+            if ($owner instanceof AiEngineeringCompanyRoleRun
+                && app(AtlasRealEngineeringExecutionKernelService::class)->candidatePerformanceOwnerReceiptValid($owner, $case)) {
+                return app(AtlasRealEngineeringExecutionKernelService::class)->candidatePerformanceDisposition(
+                    $case, (array) data_get($owner->receipt, 'performance_evidence', []),
+                );
+            }
+        }
         $payload = $this->mutativeAbsencePayload($case, $role);
 
         return RoleDisposition::ownerEvidenceAbsent(

@@ -97,6 +97,16 @@ final readonly class RoleDisposition
         );
     }
 
+    public static function performanceCandidateAdjudicated(CandidateQualityCase $case, string $status, string $reason, string $signerContext, string $signature): self
+    {
+        if (! in_array($status, ['pass', 'block', 'not_applicable'], true)) {
+            throw new InvalidArgumentException('performance_disposition_status_invalid');
+        }
+
+        return new self('performance_resilience', $status, $reason, $case->order->canonicalHash(), $case->order->specHash,
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature);
+    }
+
     /** @return array<string,string> */
     public function toArray(): array
     {
