@@ -78,8 +78,8 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [x] Add RED fixtures covering code, contract, deploy/runtime, flag, incident, ownership, outcome, performance, security, docs, decisions, concurrent work and tool/provider versions.
 - [x] Define a normalized reference envelope at the façade; keep source payloads in existing owners and include only provider-safe refs/hashes in the snapshot.
 - [x] Resolve facts as-of workspace/base commit and observation time; preserve conflict/unknown rather than picking a favorable fact.
-- [ ] Freeze a deterministic snapshot and pass its hash/ref into ProductIntent/spec/order without mutating prior snapshots.
-- [ ] Run Software Twin, AURG temporal/query, world-model workspace and snapshot hash tests.
+- [x] Freeze a deterministic snapshot and pass its hash/ref into ProductIntent/spec/order without mutating prior snapshots.
+- [x] Run Software Twin, AURG temporal/query, world-model workspace and snapshot hash tests.
 
 **GREEN acceptance:** all required fact families are representable; workspace/time scoping is exact; unknown/conflict is explicit; the same as-of query hashes identically; later ingestion does not rewrite a frozen snapshot.
 
