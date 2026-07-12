@@ -148,7 +148,7 @@
 - [x] MAXE-06 — landed · AOBG session working-set demotes canonical context refs already delivered in the same session, disables pack cache while session_id is active, records delivered refs fail-open to shared working-set state, and permits honest-empty second packs instead of repeating context; tests: `php artisan test tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php --filter=session_working_set`
 - [ ] MAXE-07 — pending
 - [x] MAXF-02 — landed · `atlas:compaction:recovery-sample --json` samples recent long-horizon compaction receipts, runs `CompactionRecoveryExecutor`, reports recovery_rate by kind/scope, appends provider-safe JSONL evidence without recovered raw content, and registers WDG check `maxf-02.compaction_recovery_sample`; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
-- [ ] MAXF-03 — pending
+- [x] MAXF-03 — landed · `CompactionRecoveryExecutor` now resolves `conversation_turn:{id}` and `turn:{id}` recovery queries from `ai_messages` byte-intact while refusing `status=redacted` turns with named missing reason; MAXF-02 sampler regression remains green; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionTurnRecoveryTest.php tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
 - [ ] MAXF-08 — pending
 - [ ] MAXF-10 — pending
 - [ ] MAXF-04 — pending

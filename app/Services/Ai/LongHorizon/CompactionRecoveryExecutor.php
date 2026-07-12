@@ -6,6 +6,7 @@ namespace App\Services\Ai\LongHorizon;
 
 use App\Models\AiSessionState;
 use App\Models\AtlasLongHorizonCompactionReceipt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 final class CompactionRecoveryExecutor
@@ -28,7 +29,14 @@ final class CompactionRecoveryExecutor
             }
 
             $key = $parsed['kind'].':'.$parsed['id'];
-            $item = $this->findInSessionState($parsed['kind'], $parsed['id'])
+            $turn = $this->findConversationTurn($parsed['kind'], $parsed['id']);
+            if ($turn === 'redacted_turn_not_recoverable') {
+                $missing[] = ['query' => $query, 'reason' => 'redacted_turn_not_recoverable'];
+                continue;
+            }
+
+            $item = (is_array($turn) ? $turn : null)
+                ?? $this->findInSessionState($parsed['kind'], $parsed['id'])
                 ?? $this->findInReceiptPayload($receiptPayload, $parsed['kind'], $parsed['id']);
             if ($item === null) {
                 $missing[] = ['query' => $query, 'reason' => 'canonical_source_not_found'];
@@ -112,6 +120,39 @@ final class CompactionRecoveryExecutor
         }
 
         return null;
+    }
+
+    /**
+     * @return array<string,mixed>|'redacted_turn_not_recoverable'|null
+     */
+    private function findConversationTurn(string $kind, string $id): array|string|null
+    {
+        if (! in_array($kind, ['conversation_turn', 'turn'], true) || ! Schema::hasTable('ai_messages')) {
+            return null;
+        }
+
+        $row = DB::table('ai_messages')->where('id', $id)->first();
+        if ($row === null) {
+            return null;
+        }
+
+        if ((string) ($row->status ?? '') === 'redacted') {
+            return 'redacted_turn_not_recoverable';
+        }
+
+        return [
+            'source' => 'ai_messages',
+            'payload' => [
+                'id' => (string) $row->id,
+                'thread_id' => (string) $row->thread_id,
+                'position' => (int) $row->position,
+                'role' => (string) $row->role,
+                'status' => (string) $row->status,
+                'content' => (string) $row->content,
+                'occurred_at' => isset($row->occurred_at) ? (string) $row->occurred_at : null,
+            ],
+            'digest' => (string) $row->content,
+        ];
     }
 
     /**
