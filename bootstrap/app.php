@@ -130,6 +130,7 @@ use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
 use App\Console\Commands\AtlasForgeMultiNodeL410ProofCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasGovernanceAmendmentsCommand;
+use App\Console\Commands\AtlasImmuneCalibrationCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
@@ -362,6 +363,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkSeedCommand::class,
         AtlasForgeRuntimeCertifyCommand::class,
         AtlasGovernanceAmendmentsCommand::class,
+        AtlasImmuneCalibrationCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,

@@ -18,6 +18,7 @@ use App\Models\SemanticCurationProposal;
 use App\Models\SemanticNote;
 use App\Models\SemanticNoteActivation;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
+use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
 use Throwable;
@@ -66,6 +67,7 @@ final class AtlasWeeklyMemoryDigestService
         $proactive = $this->proactiveProposals($days);
         $autoApplySafe = $this->autoApplySafe($days);
         $operatorReviewDebt = (new AtlasOperatorReviewDebtMeter($this->routing))->report($days);
+        $immuneCalibration = app(ImmuneCalibrationService::class)->report($days);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -84,6 +86,7 @@ final class AtlasWeeklyMemoryDigestService
             'memory_candidates' => $memoryCandidates,
             'aemor_candidates' => $aemor,
             'semantic_memory' => $semantic,
+            'immune_calibration' => $immuneCalibration,
             'totals' => [
                 'memory_entries' => $entries['count'],
                 'compounding_candidates' => $compounding['count'],

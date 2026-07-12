@@ -8,6 +8,7 @@ use App\Models\TranscriptionJob;
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\AiMemoryDeltaProposer;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\ActivationEngine;
 use App\Services\Semantic\CaptureSemanticClarifier;
@@ -32,6 +33,7 @@ class CaptureService
         private readonly AiMemoryDeltaProposer $memoryDeltas,
         private readonly CognitiveImmunePromotionGateEvaluator $immuneGateEvaluator,
         private readonly AtlasAaeosCognitiveImmuneInputClassifier $immuneInputClassifier,
+        private readonly ImmuneVerdictLedger $immuneVerdictLedger,
     ) {}
 
     public function create(array $data, ?UploadedFile $file = null): array
@@ -273,6 +275,15 @@ class CaptureService
             'content_hash' => $contentHash,
             'verdict' => $verdict,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $this->immuneVerdictLedger->recordVerdict(
+            $contentHash ?? $payload['audit_hash'],
+            'capture_pipeline',
+            $verdict,
+            [
+                'expected_block_gate_ids' => $this->expectedImmuneBlockGateIds($signals),
+                'decided_at' => now()->toIso8601String(),
+            ],
+        );
 
         return $payload;
     }
@@ -331,6 +342,25 @@ class CaptureService
                 'source_domain' => $domain,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     * @return list<string>
+     */
+    private function expectedImmuneBlockGateIds(array $signals): array
+    {
+        $expected = [];
+        if (($signals['contains_secret'] ?? false) === true
+            || ($signals['contains_sensitive_unnecessary'] ?? false) === true
+            || (array_key_exists('provider_safe', $signals) && $signals['provider_safe'] === false)) {
+            $expected['G3'] = true;
+        }
+        if (($signals['contradicts_newer'] ?? false) === true) {
+            $expected['G4'] = true;
+        }
+
+        return array_keys($expected);
     }
 
     /**
