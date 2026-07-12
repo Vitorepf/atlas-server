@@ -38,6 +38,7 @@ final class QualityFoundryModeParityService
             }
             if ($field === 'market_decision_hash' && in_array(null, $values, true)) {
                 $mismatches[$field] = array_map(static fn (mixed $value): mixed => $value ?? 'missing', $values);
+
                 continue;
             }
             if (count(array_unique(array_map($this->canonical(...), $values))) > 1) {
@@ -84,7 +85,7 @@ final class QualityFoundryModeParityService
             'parity' => $parity,
             'enforcement_allowed' => $parity,
             'required_modes' => self::MODES,
-            'present_modes' => array_values(array_keys($modeReceipts)),
+            'present_modes' => array_keys($modeReceipts),
             'missing_modes' => $missingModes,
             'unexpected_modes' => $unexpectedModes,
             'mismatches' => $mismatches,
@@ -102,7 +103,7 @@ final class QualityFoundryModeParityService
      * This is deliberately read-only: an existing provider invocation is never retried,
      * and a missing terminal outcome remains held for the owning ledger to settle.
      *
-     * @param array<string,mixed> $input
+     * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function reconcileInterruptedDecision(array $input): array

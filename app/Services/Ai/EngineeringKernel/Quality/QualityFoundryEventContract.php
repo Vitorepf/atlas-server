@@ -55,6 +55,7 @@ final class QualityFoundryEventContract
                 if ($seen[$key] !== $hash) {
                     throw new InvalidArgumentException('quality_foundry_event_idempotency_conflict');
                 }
+
                 continue;
             }
             $phase = array_search($validated['event_name'], self::EVENTS, true);

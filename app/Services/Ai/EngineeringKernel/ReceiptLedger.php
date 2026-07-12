@@ -16,12 +16,12 @@ interface ReceiptLedger
 {
     /**
      * @param  array<string,mixed>  $receipt
-     * @return array<string,mixed>
+     * @return array<int|string,mixed>
      */
     public function append(array $receipt): array;
 
     /**
-     * @return array<string,mixed>
+     * @return array<int|string,mixed>
      */
     public function replay(): array;
 }

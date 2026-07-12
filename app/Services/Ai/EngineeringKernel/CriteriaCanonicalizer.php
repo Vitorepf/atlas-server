@@ -21,8 +21,6 @@ namespace App\Services\Ai\EngineeringKernel;
  */
 final class CriteriaCanonicalizer
 {
-    private const VOLATILE_KEYS = ['id'];
-
     private const SEMANTIC_KEYS = ['description', 'verification', 'verification_ref', 'case_class', 'is_backstop'];
 
     /**
@@ -38,7 +36,7 @@ final class CriteriaCanonicalizer
             }
             $record = [];
             foreach (self::SEMANTIC_KEYS as $key) {
-                if (! array_key_exists($key, $ac) || in_array($key, self::VOLATILE_KEYS, true)) {
+                if (! array_key_exists($key, $ac)) {
                     continue;
                 }
                 $value = $ac[$key];

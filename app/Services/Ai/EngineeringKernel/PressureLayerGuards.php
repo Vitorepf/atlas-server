@@ -345,10 +345,10 @@ final class PressureLayerGuards
             return [];
         }
 
-        return array_values(array_unique(array_filter(
-            $m[1] ?? [],
+        return array_unique(array_filter(
+            $m[1],
             static fn (string $s): bool => str_contains($s, '\\'),
-        )));
+        ));
     }
 
     /**
@@ -364,7 +364,7 @@ final class PressureLayerGuards
             return [];
         }
 
-        return array_values(array_unique($m[0] ?? []));
+        return array_unique($m[0]);
     }
 
     /** Tri-state caller count via the real service, or the test override when supplied. */
@@ -376,7 +376,7 @@ final class PressureLayerGuards
     }
 
     /**
-     * @param  array<string,mixed>  $verdict
+     * @param  array<string,mixed>  $evidence
      * @return array{guard:string,pass:bool,proven_real:bool,detail:string,evidence:array<string,mixed>}
      */
     private function verdict(string $guard, bool $pass, bool $provenReal, string $detail, array $evidence): array

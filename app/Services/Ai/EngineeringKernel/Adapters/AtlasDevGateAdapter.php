@@ -33,8 +33,6 @@ final class AtlasDevGateAdapter implements AcceptanceGate
 
     private const CVE_TOOLS = ['osv_scanner', 'grype'];
 
-    private const SAST_TOOLS = ['semgrep', 'trivy'];
-
     public function __construct(
         private readonly SovereignHonestyFloor $floor = new SovereignHonestyFloor,
         private readonly OutcomeProofGate $outcomeProof = new OutcomeProofGate,

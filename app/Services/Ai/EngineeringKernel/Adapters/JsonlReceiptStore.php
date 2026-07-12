@@ -336,7 +336,7 @@ final class JsonlReceiptStore implements ReceiptLedger
             return [];
         }
 
-        return array_values((array) file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES));
+        return (array) file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     }
 
     private static function ensureDirectory(string $dir, int $mode = 0775): void

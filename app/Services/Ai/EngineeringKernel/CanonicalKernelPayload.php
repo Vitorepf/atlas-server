@@ -8,7 +8,7 @@ use InvalidArgumentException;
 
 final class CanonicalKernelPayload
 {
-    /** @param array<string,mixed> $payload */
+    /** @param array<mixed> $payload */
     public static function hash(array $payload): string
     {
         return hash('sha256', json_encode(self::normalize($payload), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));

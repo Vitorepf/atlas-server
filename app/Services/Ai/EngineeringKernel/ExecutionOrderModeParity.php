@@ -27,7 +27,7 @@ final class ExecutionOrderModeParity
     ];
 
     /**
-     * @param array<string,ExecutionOrder|array<string,mixed>> $orders
+     * @param  array<string,ExecutionOrder|array<string,mixed>>  $orders
      * @return array<string,mixed>
      */
     public function compareOrders(array $orders): array
@@ -79,7 +79,7 @@ final class ExecutionOrderModeParity
             'schema_version' => self::SCHEMA_VERSION,
             'parity' => $parity,
             'required_modes' => self::MODES,
-            'present_modes' => array_values(array_keys($parsed)),
+            'present_modes' => array_keys($parsed),
             'missing_modes' => $missingModes,
             'unexpected_modes' => $unexpectedModes,
             'errors' => $errors,
@@ -93,7 +93,7 @@ final class ExecutionOrderModeParity
     }
 
     /**
-     * @param array<string,array<string,mixed>> $outcomes
+     * @param  array<string,array<string,mixed>>  $outcomes
      * @return array<string,mixed>
      */
     public function compareTerminalOutcomes(array $outcomes): array
