@@ -98,6 +98,22 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
         );
     }
 
+    public function test_forge_obra_runtime_delegates_real_packet_execution_to_canonical_cycle_port(): void
+    {
+        $source = (string) file_get_contents(base_path('app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php'));
+
+        $this->assertStringContainsString(
+            'executeRealCycle(',
+            $source,
+            'Forge Obra must execute packets through the canonical cycle service and its shared port.',
+        );
+        $this->assertStringNotContainsString(
+            '$this->kernel->execute($order)',
+            $source,
+            'Forge Obra must not own a second direct Kernel execution path.',
+        );
+    }
+
     public function test_autonomos_task_serving_cannot_certify_mutation_without_shared_kernel(): void
     {
         $source = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/AtlasTaskServingService.php'));

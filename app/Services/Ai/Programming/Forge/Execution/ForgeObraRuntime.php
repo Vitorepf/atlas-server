@@ -7,11 +7,10 @@ namespace App\Services\Ai\Programming\Forge\Execution;
 use App\Models\AiForgeIntake;
 use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
-use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
-use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
 use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
 use App\Models\AiForgeWorkPacketExecutionCycle;
@@ -27,8 +26,7 @@ final class ForgeObraRuntime
         private readonly ForgeIntakeService $intakes,
         private readonly ForgeLongHorizonStateService $states,
         private readonly ForgeWorkPacketExecutionCycleService $cycles,
-        private readonly ?EliteExecutorKernel $kernel = null,
-        private readonly ?EngineeringModeExecutionOrderFactory $orders = null,
+        private readonly ?ForgeWorkPacketExecutionPort $kernelExecution = null,
         private readonly ?AwisExecutionGatePort $workspaceExecutionGate = null,
         private readonly ?ForgeScopeReservationService $scopeReservations = null,
     ) {}
@@ -158,7 +156,8 @@ final class ForgeObraRuntime
         $cycle = $this->cycles->startCycle($intake, $packet, $built, $state);
         $state->refresh();
 
-        if ($budget->allowProvider && $this->kernel === null) {
+        $kernelExecution = $this->kernelExecution;
+        if ($budget->allowProvider && $kernelExecution === null && ! app()->bound(ForgeWorkPacketExecutionPort::class)) {
             $reason = 'elite_executor_kernel_unavailable';
             $this->cycles->block($cycle, $reason, $state);
             $state->refresh();
@@ -173,37 +172,15 @@ final class ForgeObraRuntime
 
         if ($budget->allowProvider) {
             $workspace = (string) data_get($binding, 'workspace', base_path());
-            $order = ($this->orders ?? new EngineeringModeExecutionOrderFactory)->make([
-                'run_hash' => (string) $cycle->cycle_hash,
-                'run_id' => (string) $cycle->uuid,
-                'delivery_id' => (string) $packet->packet_id,
-                'mode' => 'forge',
-                'risk_class' => (string) (data_get($binding, 'risk_class') ?? $this->riskClassFromBand((string) $packet->risk_band)),
-                'complexity_band' => 'C3',
-                'duration_regime' => 'obra',
-                'work_topology' => 'DAG',
-                'product_intent_verdict_hash' => (string) data_get($binding, 'product_intent_hash'),
-                'spec_hash' => (string) data_get($binding, 'spec_hash'),
-                'world_model_snapshot_hash' => (string) data_get($binding, 'world_model_snapshot_hash'),
-                'market_decision_hash' => data_get($binding, 'market_decision_hash'),
-                'workspace' => $workspace,
-                'base_commit' => $this->baseCommit($workspace),
-                'allowed_scope' => $this->packetScope($packet),
-                'forbidden_scope' => ['.env', '.git'],
-                'authority_envelope' => [
-                    'kind' => 'forge_commissioned_obra',
-                    'authority_hash' => (string) data_get($binding, 'authority_hash', $packet->packet_hash),
-                    'lease_id' => (string) data_get($cycle->execution_plan, 'scope_reservation.id', ''),
-                    'lease_owner' => (string) data_get($cycle->execution_plan, 'scope_reservation.lease_owner', 'forge-obra-runtime'),
-                    'fencing_token' => (int) data_get($cycle->execution_plan, 'scope_reservation.fencing_token', 0),
-                ],
-                'operator_presence' => 'commissioned',
-                'provider_route' => ['provider' => 'atlas_kernel', 'model' => 'shared_quality_foundry'],
-                'mutate' => true,
-                'experiment_ref' => 'forge-obra/'.(string) $cycle->uuid,
-                'idempotency_key' => (string) data_get($cycle->execution_plan, 'scope_reservation.idempotency_key', 'forge-cycle:'.$cycle->uuid),
-            ]);
-            $outcome = $this->kernel->execute($order);
+            $outcome = $this->cycles->executeRealCycle(
+                $intake,
+                $packet,
+                $cycle,
+                $workspace,
+                $this->baseCommit($workspace),
+                'forge-obra-runtime',
+                ['provider' => 'atlas_kernel', 'model' => 'shared_quality_foundry'],
+            );
             $outcomeArray = $outcome->toArray();
             if ($outcome->status === 'released') {
                 $evidence = [['kind' => 'engineering_outcome', 'ref' => 'outcome:'.$outcome->outcomeHash, 'source' => 'elite_executor_kernel']];
@@ -346,18 +323,6 @@ final class ForgeObraRuntime
         ];
     }
 
-    /** @return list<string> */
-    private function packetScope(AiForgeWorkPacket $packet): array
-    {
-        $files = array_values(array_filter(array_map('strval', (array) $packet->expected_files)));
-        if ($files !== []) {
-            return $files;
-        }
-        $scope = trim((string) $packet->scope, '/');
-
-        return [$scope !== '' && ! str_contains($scope, '..') ? $scope : 'README.md'];
-    }
-
     private function baseCommit(string $workspace): string
     {
         $process = new Process(['git', '-C', $workspace, 'rev-parse', 'HEAD']);
@@ -368,13 +333,6 @@ final class ForgeObraRuntime
         }
 
         return $commit;
-    }
-
-    private function riskClassFromBand(string $band): string
-    {
-        return match (strtolower($band)) {
-            'low' => 'R1', 'medium' => 'R3', 'high' => 'R4', 'critical' => 'R5', default => 'R3',
-        };
     }
 
     public function control(ForgeObraId $obra, ForgeControlCommand $command): ForgeObraSnapshot
