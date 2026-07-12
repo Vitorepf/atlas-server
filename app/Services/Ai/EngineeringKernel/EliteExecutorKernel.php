@@ -516,6 +516,33 @@ final class EliteExecutorKernel
         ]);
     }
 
+    /** @return array<string,mixed> */
+    public function executeMutativeCandidate(
+        ExecutionOrder $order,
+        AiEngineeringCompanyEngagement $engagement,
+        AiEngineeringCompanyCycle $cycle,
+        MergeActuator $actuator,
+    ): array {
+        $candidate = $this->prepareMutativeCandidate($order);
+        if ($candidate->status === 'blocked') {
+            return ['status' => 'blocked', 'candidate' => $candidate, 'governance' => null, 'actuation' => [
+                'status' => 'blocked', 'acted' => false, 'release_uncertain' => false,
+                'reason' => 'candidate_preparation_blocked',
+            ]];
+        }
+
+        $governed = $this->governMutativeCandidate($order, $candidate, $engagement, $cycle);
+        $actuation = $this->actAuthorizedMutativeCandidate($governed['governance'], $actuator);
+
+        return [
+            'status' => (string) ($actuation['status'] ?? ($governed['governance']['admitted'] ? 'authorized' : 'blocked')),
+            'candidate' => $candidate,
+            'verdict' => $governed['verdict'],
+            'governance' => $governed['governance'],
+            'actuation' => $actuation,
+        ];
+    }
+
     public function devGate(): AtlasDevGateAdapter
     {
         return $this->devAdapter;

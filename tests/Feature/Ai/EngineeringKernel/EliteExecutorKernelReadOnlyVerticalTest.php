@@ -91,6 +91,30 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame('task-actuator-exception', $result['authorized_merge_action']['task_packet_id']);
     }
 
+    public function test_mutative_execution_orchestrator_stops_before_court_and_actuator_when_provider_refuses(): void
+    {
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->expects($this->once())->method('invoke')->willReturn(['status' => 'unavailable']);
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $actuator = $this->createMock(MergeActuator::class);
+        $actuator->expects($this->never())->method('act');
+        $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
+        $engagement = $company->createEngagement('mutative orchestrator provider refusal');
+        $cycle = $company->createCycle($engagement);
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+
+        $result = $this->app->make(EliteExecutorKernel::class)->executeMutativeCandidate(
+            ExecutionOrder::fromArray($data), $engagement, $cycle, $actuator,
+        );
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('blocked', $result['candidate']->status);
+        $this->assertNull($result['governance']);
+        $this->assertSame('candidate_preparation_blocked', $result['actuation']['reason']);
+    }
+
     public function test_mutative_candidate_provider_refusal_has_zero_sandbox_authority(): void
     {
         $provider = $this->createMock(ProviderPort::class);
