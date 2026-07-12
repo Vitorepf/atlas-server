@@ -77,6 +77,7 @@ final class AtlasExternalBrainProposalArena
     /** Alias map: an input key that feeds the named WEIGHTS dimension when the canonical key is absent. */
     private const DIMENSION_ALIASES = [
         'leverage' => 'structural_leverage',
+        'compression_opportunity' => 'simplification',
         'recurrence' => 'repeatability',
         'verifiability' => 'evidence_strength',
         'blast_radius' => 'blast_radius_risk',
