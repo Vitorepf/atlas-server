@@ -100,6 +100,12 @@ class AtlasRealityGraphQueryService
     /** Per-BFS-layer edge fetch bound (deterministic truncation by order). */
     private const EDGE_FETCH_LIMIT = 2000;
 
+    /** MAXD-07: default cap for federated module→symbol drill-down. Small on purpose. */
+    public const EXPAND_SYMBOLS_PER_MODULE_DEFAULT = 5;
+
+    /** MAXD-07: HARD ceiling; opt/config cannot raise it (budget guard). */
+    public const EXPAND_SYMBOLS_PER_MODULE_HARD_CAP = 20;
+
     private readonly AtlasMemoryVectorSearchService $vectorSearch;
 
     private readonly GraphRankRuntimeClient $graphRank;
@@ -184,7 +190,44 @@ class AtlasRealityGraphQueryService
         }
         $edges = array_map(fn (AtlasAurgEdge $edge): array => $this->edgePayload($edge), $traversal['edges']);
 
-        return $this->result($query, $terms, $providerBound, $workspaceId, $depth, $seeds, $nodes, $edges, $paths, $ranking, $capsHit);
+        $result = $this->result($query, $terms, $providerBound, $workspaceId, $depth, $seeds, $nodes, $edges, $paths, $ranking, $capsHit);
+
+        // MAXD-07: federated drill-down module→símbolos at query-time. Off by
+        // default (progressive disclosure); when opt-in, expand ONLY the
+        // module nodes already in the answer, cap N/module small (default 5),
+        // and NEVER persist the resulting symbols in the AURG store.
+        if (in_array('code', $this->normalizeExpand($opts['expand'] ?? null), true)) {
+            $perModule = (int) ($opts['expand_symbols_per_module']
+                ?? config('atlas.aurg.query_expand_symbols_per_module', self::EXPAND_SYMBOLS_PER_MODULE_DEFAULT));
+            $result = $this->expandCodeSymbols($result, $perModule);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  mixed  $expand  bool|string|list<string> — 'code' (alias true) selects the code drill-down.
+     * @return list<string>
+     */
+    private function normalizeExpand(mixed $expand): array
+    {
+        if ($expand === null || $expand === '' || $expand === false) {
+            return [];
+        }
+        if ($expand === true) {
+            return ['code'];
+        }
+        if (is_string($expand)) {
+            $expand = preg_split('/[\s,]+/', $expand) ?: [];
+        }
+        if (! is_array($expand)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn ($v): string => strtolower(trim((string) $v)),
+            $expand,
+        ), static fn (string $v): bool => $v !== '')));
     }
 
     // ------------------------------------------------------------------
@@ -932,6 +975,147 @@ class AtlasRealityGraphQueryService
             'caps_hit' => $capsHit,
             'generated_at' => now()->toJSON(),
         ];
+    }
+
+    // ------------------------------------------------------------------
+    // MAXD-07 — federated drill-down module→símbolos (query-time only)
+    // ------------------------------------------------------------------
+
+    /**
+     * Expand every `module` node in the result into top-N symbols read live
+     * from `atlas_engineering_code_symbols`. The expansion is FEDERATED:
+     * symbols are NOT persisted in the AURG store (no new nodes/edges), the
+     * store hash is invariant across `--expand=code` runs, and the payload is
+     * clearly marked `federated=true`.
+     *
+     * The formal AURG↔Code Intelligence bridge for MAXD-07: it materialises
+     * the module→symbol join at answer time, using the ALREADY-CURATED module
+     * set the query returned, so the brain stays "top-K modules, not 300k
+     * symbols" and the drill-down never crosses budget.
+     *
+     * Ordering is deterministic (symbol_name asc, then id) — a re-run over
+     * the same DB state returns the same top-N and the same content_hash for
+     * `federated_expansions` (see the MAXD-07 aceite).
+     *
+     * @param  array<string,mixed>  $result
+     * @return array<string,mixed>
+     */
+    public function expandCodeSymbols(array $result, int $perModule): array
+    {
+        $cap = max(1, min(self::EXPAND_SYMBOLS_PER_MODULE_HARD_CAP, $perModule));
+
+        $modulesTable = 'atlas_engineering_code_modules';
+        $symbolsTable = 'atlas_engineering_code_symbols';
+        $ready = DatabaseTableAvailability::has($modulesTable)
+            && DatabaseTableAvailability::has($symbolsTable);
+
+        $expansions = [];
+        $totalSymbols = 0;
+        $modulesTouched = 0;
+        $modulesMissing = 0;
+        $storeNodesBefore = 0;
+        $storeEdgesBefore = 0;
+        if (DatabaseTableAvailability::has('atlas_aurg_nodes')) {
+            $storeNodesBefore = (int) AtlasAurgNode::query()->count();
+        }
+        if (DatabaseTableAvailability::has('atlas_aurg_edges')) {
+            $storeEdgesBefore = (int) AtlasAurgEdge::query()->count();
+        }
+
+        if ($ready) {
+            $moduleNodes = array_values(array_filter(
+                $result['nodes'] ?? [],
+                static fn (array $node): bool => (string) ($node['source_kind'] ?? '') === 'code'
+                    && (string) ($node['kind'] ?? '') === AtlasRealityGraphSnapshotBuilderService::NODE_MODULE,
+            ));
+
+            foreach ($moduleNodes as $moduleNode) {
+                $slug = trim((string) ($moduleNode['meta']['slug'] ?? ''));
+                if ($slug === '') {
+                    continue;
+                }
+
+                $moduleRow = DB::table($modulesTable)
+                    ->where('slug', $slug)
+                    ->first(['id', 'slug', 'name', 'root_path']);
+                if ($moduleRow === null) {
+                    $modulesMissing++;
+                    continue;
+                }
+
+                $symbolRows = DB::table($symbolsTable)
+                    ->where('module_id', $moduleRow->id)
+                    ->where('status', 'active')
+                    ->orderBy('symbol_name')
+                    ->orderBy('id')
+                    ->limit($cap)
+                    ->get(['id', 'symbol_type', 'symbol_name', 'file_path', 'line_start', 'namespace']);
+
+                if ($symbolRows->isEmpty()) {
+                    continue;
+                }
+
+                $symbols = [];
+                foreach ($symbolRows as $sym) {
+                    $symbols[] = [
+                        'id' => (string) $sym->id,
+                        'symbol_type' => (string) $sym->symbol_type,
+                        'symbol_name' => (string) $sym->symbol_name,
+                        'file_path' => (string) $sym->file_path,
+                        'line_start' => $sym->line_start !== null ? (int) $sym->line_start : null,
+                        'namespace' => $sym->namespace !== null ? (string) $sym->namespace : null,
+                        'federated' => true,
+                    ];
+                }
+
+                $expansions[] = [
+                    'module_node_id' => (string) $moduleNode['id'],
+                    'module_id' => (string) $moduleRow->id,
+                    'slug' => (string) $moduleRow->slug,
+                    'name' => (string) $moduleRow->name,
+                    'root_path' => $moduleRow->root_path !== null ? (string) $moduleRow->root_path : null,
+                    'federated' => true,
+                    'symbols' => $symbols,
+                    'symbols_count' => count($symbols),
+                    'symbols_capped' => count($symbols) >= $cap,
+                ];
+                $modulesTouched++;
+                $totalSymbols += count($symbols);
+            }
+        }
+
+        $storeNodesAfter = 0;
+        $storeEdgesAfter = 0;
+        if (DatabaseTableAvailability::has('atlas_aurg_nodes')) {
+            $storeNodesAfter = (int) AtlasAurgNode::query()->count();
+        }
+        if (DatabaseTableAvailability::has('atlas_aurg_edges')) {
+            $storeEdgesAfter = (int) AtlasAurgEdge::query()->count();
+        }
+
+        $result['expand'] = ['code'];
+        $result['federated_expansions'] = [
+            'code' => [
+                'ready' => $ready,
+                'modules_expanded' => $modulesTouched,
+                'modules_missing_in_ci' => $modulesMissing,
+                'symbols_returned' => $totalSymbols,
+                'per_module_cap' => $cap,
+                'per_module_hard_cap' => self::EXPAND_SYMBOLS_PER_MODULE_HARD_CAP,
+                'items' => $expansions,
+                'store_invariant' => [
+                    'nodes_before' => $storeNodesBefore,
+                    'nodes_after' => $storeNodesAfter,
+                    'edges_before' => $storeEdgesBefore,
+                    'edges_after' => $storeEdgesAfter,
+                    'delta_nodes' => $storeNodesAfter - $storeNodesBefore,
+                    'delta_edges' => $storeEdgesAfter - $storeEdgesBefore,
+                ],
+                'notes' => 'MAXD-07 federated drill-down: symbols read live from atlas_engineering_code_symbols, never persisted in the AURG store.',
+            ],
+        ];
+
+        return $result;
     }
 
     // ------------------------------------------------------------------

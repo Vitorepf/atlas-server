@@ -1067,6 +1067,8 @@ class AtlasOpenBrainMcpService
                         'query' => ['type' => 'string', 'description' => 'Consulta natural multi-termo (ex: "memoria semantica embedding decisao").'],
                         'depth' => ['type' => 'integer', 'description' => 'Profundidade BFS a partir dos seeds (default 2, teto rígido 3).'],
                         'limit' => ['type' => 'integer', 'description' => 'Máximo de nós retornados (default 60, teto 200).'],
+                        'expand' => ['type' => 'string', 'description' => 'MAXD-07 federated drill-down (comma list). Only "code" today: expande nós module do resultado com top-N símbolos lidos live de atlas_engineering_code_symbols; NÃO persiste no store (store node/edge count invariante).'],
+                        'expand_per_module' => ['type' => 'integer', 'description' => 'MAXD-07 cap por módulo para expand=code (default 5, hard cap 20).'],
                     ],
                     'required' => ['query'],
                 ],
@@ -3752,6 +3754,13 @@ class AtlasOpenBrainMcpService
         }
         if (is_numeric($arguments['limit'] ?? null)) {
             $opts['max_nodes'] = (int) $arguments['limit'];
+        }
+        $expand = $this->string($arguments['expand'] ?? null);
+        if ($expand !== null && $expand !== '') {
+            $opts['expand'] = $expand;
+        }
+        if (is_numeric($arguments['expand_per_module'] ?? null)) {
+            $opts['expand_symbols_per_module'] = (int) $arguments['expand_per_module'];
         }
 
         $result = app(AtlasRealityGraphQueryService::class)->query($query, $opts);

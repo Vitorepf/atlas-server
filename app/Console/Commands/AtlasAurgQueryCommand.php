@@ -26,6 +26,8 @@ class AtlasAurgQueryCommand extends Command
         {--depth= : BFS depth (default config atlas.aurg.query_depth, hard cap 3)}
         {--limit= : Max nodes returned (default config atlas.aurg.query_max_nodes)}
         {--provider-bound : Restrict to provider_safe nodes; sensitive domains and anything reachable only through them are excluded}
+        {--expand= : MAXD-07 federated drill-down (comma list). Only "code" today: expand module nodes to top-N symbols read live from atlas_engineering_code_symbols; never persisted in the AURG store.}
+        {--expand-per-module= : MAXD-07 per-module cap for --expand=code (default 5, hard cap 20).}
         {--json : Emit the full JSON result}';
 
     protected $description = 'AURG F2: query the fused reality-graph brain with provenance (hybrid seeds + bounded traversal + cross-layer paths + honest ranking).';
@@ -51,6 +53,13 @@ class AtlasAurgQueryCommand extends Command
         }
         if (is_numeric($this->option('limit'))) {
             $opts['max_nodes'] = (int) $this->option('limit');
+        }
+        $expand = trim((string) $this->option('expand'));
+        if ($expand !== '') {
+            $opts['expand'] = $expand;
+        }
+        if (is_numeric($this->option('expand-per-module'))) {
+            $opts['expand_symbols_per_module'] = (int) $this->option('expand-per-module');
         }
 
         $result = $service->query($query, $opts);
