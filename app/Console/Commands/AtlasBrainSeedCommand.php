@@ -386,7 +386,7 @@ final class AtlasBrainSeedCommand extends Command
      */
     private function toPacketInput(array $spec, string $id): array
     {
-        return [
+        $input = [
             'task_packet_id' => $id,
             'objective' => (string) ($spec['objective'] ?? ''),
             'source' => 'external-brain',
@@ -410,6 +410,21 @@ final class AtlasBrainSeedCommand extends Command
             'depends_on' => array_values(array_filter((array) ($spec['depends_on'] ?? []), 'is_string')),
             'wave' => (int) ($spec['wave'] ?? 1),
         ];
+
+        // Preserve a Brain-supplied Quality Foundry order byte-for-byte. The
+        // next builder validates the order and refuses missing/invalid hashes;
+        // this command must not synthesize or reinterpret them.
+        if (($spec['quality_foundry_required'] ?? false) === true) {
+            $input['quality_foundry_required'] = true;
+            if (is_array($spec['execution_order'] ?? null)) {
+                $input['execution_order'] = $spec['execution_order'];
+            }
+            if (is_string($spec['execution_order_hash'] ?? null)) {
+                $input['execution_order_hash'] = $spec['execution_order_hash'];
+            }
+        }
+
+        return $input;
     }
 
     /** @param array<string,mixed> $payload */
