@@ -32,10 +32,13 @@ final class QualityFoundryLiveManifestService
         ],
         'forge' => [
             'tests/Unit/Ai/Programming/Forge/Execution/ForgeObraRuntimeContractTest.php',
+            'tests/Feature/Ai/Programming/Forge/ForgeObraRuntimeTest.php',
             'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
         ],
         'autonomos' => [
             'tests/Unit/Ai/SelfConstruction/AtlasTaskServingStackTest.php',
+            'tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php',
+            'tests/Unit/Ai/SelfConstruction/TaskQueue/TaskQueueRegistryIndexStoreTest.php',
             'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
         ],
     ];
@@ -193,6 +196,7 @@ final class QualityFoundryLiveManifestService
 
         return [
             'source' => 'live_receipt',
+            'mode' => $mode,
             'receipt_hashes' => [hash('sha256', json_encode($receipt, JSON_UNESCAPED_SLASHES) ?: '')],
             'test_refs' => $testRefs,
             'kernel_routed' => $exitCode === 0,
@@ -203,6 +207,10 @@ final class QualityFoundryLiveManifestService
                 'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'exactly_once_provider' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'exactly_once_mutation' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'canary_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'crash_boundaries_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'wip_preserved' => in_array('tests/Feature/Ai/Programming/AtlasDev/RepairToGreenTest.php', $tests, true) && $exitCode === 0,
+                'zero_human_proven' => in_array('tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php', $tests, true) && $exitCode === 0,
                 'coverage' => $coverageEvidence,
             ],
             // The canonical rollback suite asserts provisional and terminal

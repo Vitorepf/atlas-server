@@ -68,10 +68,28 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertArrayNotHasKey('world_10x_quality_proven', $manifest);
     }
 
+    public function test_missing_mode_canary_crash_wip_or_zero_human_evidence_blocks_readiness(): void
+    {
+        $input = $this->input();
+        unset($input['modes']['dev']['evidence']['wip_preserved']);
+        unset($input['modes']['forge']['evidence']['crash_boundaries_exercised']);
+        unset($input['modes']['autonomos']['evidence']['zero_human_proven']);
+        unset($input['modes']['kernel']['evidence']['canary_exercised']);
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertSame('blocked', $manifest['status']);
+        self::assertContains('kernel:canary_evidence_missing', $manifest['blockers']);
+        self::assertContains('dev:wip_preservation_evidence_missing', $manifest['blockers']);
+        self::assertContains('forge:crash_boundary_evidence_missing', $manifest['blockers']);
+        self::assertContains('autonomos:zero_human_evidence_missing', $manifest['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
         $receipt = static fn (string $mode): array => [
+            'mode' => $mode,
             'source' => 'live_receipt',
             'receipt_hashes' => [hash('sha256', 'receipt:'.$mode)],
             'test_refs' => [[
@@ -82,6 +100,12 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
             'coverage_percent' => 100,
             'rollback_exercised' => true,
             'outcome_writer_active' => true,
+            'evidence' => [
+                'canary_exercised' => true,
+                'crash_boundaries_exercised' => true,
+                'wip_preserved' => true,
+                'zero_human_proven' => true,
+            ],
         ];
 
         return [

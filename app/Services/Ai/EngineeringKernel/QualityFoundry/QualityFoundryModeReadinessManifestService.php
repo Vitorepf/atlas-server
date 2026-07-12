@@ -141,6 +141,24 @@ final class QualityFoundryModeReadinessManifestService
             $blockers[] = 'coverage_not_complete';
         }
 
+        $evidence = is_array($receipt['evidence'] ?? null) ? $receipt['evidence'] : [];
+        foreach ([
+            'canary_exercised' => 'canary_evidence_missing',
+            'crash_boundaries_exercised' => 'crash_boundary_evidence_missing',
+        ] as $field => $reason) {
+            if (($evidence[$field] ?? false) !== true) {
+                $blockers[] = $reason;
+            }
+        }
+
+        $mode = (string) ($receipt['mode'] ?? '');
+        if ($mode === 'dev' && ($evidence['wip_preserved'] ?? false) !== true) {
+            $blockers[] = 'wip_preservation_evidence_missing';
+        }
+        if ($mode === 'autonomos' && ($evidence['zero_human_proven'] ?? false) !== true) {
+            $blockers[] = 'zero_human_evidence_missing';
+        }
+
         return $blockers;
     }
 

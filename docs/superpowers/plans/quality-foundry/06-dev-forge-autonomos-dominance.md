@@ -211,7 +211,7 @@ Brain → Proposal Arena → Product/Spec Courts → atomic reservation
 
 **Allowed files:** readiness manifests, outcome adapters, cross-mode performance/operator-effort fixtures and docs. No production cutover.
 
-- [ ] Write RED mode-readiness tests that fail on missing canary/crash/WIP/zero-human evidence or any synthesized soak/dominance claim.
+- [x] Write RED mode-readiness tests that fail on missing canary/crash/WIP/zero-human evidence or any synthesized soak/dominance claim. Evidence: `QualityFoundryModeReadinessManifestServiceTest::test_missing_mode_canary_crash_wip_or_zero_human_evidence_blocks_readiness` fails closed per mode; `test_readiness_flags_cannot_synthesize_soak_or_world_claims` and `QualityFoundryReadinessStateMachineTest::test_green_implementation_cannot_jump_to_cutover_soak_or_claims` keep soak/10x/world flags false.
 - [ ] Dev readiness: low/mixed/R5 sandbox canaries, surface parity, no WIP loss, measured operator effort.
 - [ ] Forge readiness: real fixture Obras of 1/3/10 packets, crash boundaries, zero duplicate effect and a defined 24h soak start receipt.
 - [ ] Autônomos readiness: staging/limited fixture cycle, >500 visible tasks, zero-human proof, dry rotation, restart and a defined 24h/7d soak start receipt.
