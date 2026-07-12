@@ -24,9 +24,9 @@ final class CapabilityMarketClearingServiceTest extends TestCase
 
     public function test_r5_requires_independent_verifier_diversity(): void
     {
-        $decision = (new CapabilityMarketClearingService)->clear($this->request(risk: 'R5'), [
-            $this->route('one', quality: 'proven', verifier: ['same'], cost: 1.0),
-        ]);
+        $route = $this->route('one', quality: 'proven', verifier: ['same'], cost: 1.0);
+        $route['quality_evidence']['risk_class'] = 'R5';
+        $decision = (new CapabilityMarketClearingService)->clear($this->request(risk: 'R5'), [$route]);
 
         self::assertNull($decision->selectedRoute);
         self::assertSame('verifier_diversity_insufficient', $decision->rejected['one']);
@@ -72,6 +72,35 @@ final class CapabilityMarketClearingServiceTest extends TestCase
 
         self::assertNull($decision->selectedRoute);
         self::assertSame('request_binding_mismatch', $decision->rejected['drifted']);
+    }
+
+    public function test_quality_evidence_must_match_requested_capability_risk_stack_model_and_window(): void
+    {
+        $request = CapabilityMarketRequest::fromArray(array_replace($this->request()->toArray(), [
+            'stack' => 'atlas-kernel', 'model_version' => 'model-v2', 'observation_window' => '30d',
+        ]));
+        $route = $this->route('mismatched', quality: 'proven');
+        $route['quality_evidence'] = [
+            'capability' => 'python', 'risk_class' => 'R5', 'stack' => 'bare',
+            'model_version' => 'model-v1', 'observation_window' => '7d',
+        ];
+        $decision = (new CapabilityMarketClearingService)->clear($request, [$route]);
+
+        self::assertNull($decision->selectedRoute);
+        self::assertSame('quality_capability_mismatch', $decision->rejected['mismatched']);
+    }
+
+    public function test_candidate_set_contains_only_eligible_routes_for_r5(): void
+    {
+        $good = $this->route('good', quality: 'proven');
+        $good['quality_evidence']['risk_class'] = 'R5';
+        $bad = $this->route('bad', quality: 'unknown');
+        $bad['quality_evidence']['risk_class'] = 'R5';
+        $decision = (new CapabilityMarketClearingService)->clear($this->request(risk: 'R5'), [$good, $bad]);
+
+        self::assertSame(['good'], $decision->candidateSet);
+        self::assertSame('quality_evidence_unknown', $decision->rejected['bad']);
+        self::assertFalse($decision->claimEligible);
     }
 
     public function test_invalid_request_fails_closed(): void

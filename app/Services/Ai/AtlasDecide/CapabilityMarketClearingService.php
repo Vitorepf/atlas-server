@@ -113,6 +113,21 @@ final class CapabilityMarketClearingService
         if (! is_array($route['quality_evidence'] ?? null) || trim((string) ($route['quality_evidence']['observation_window'] ?? '')) === '') {
             return 'quality_evidence_incomplete';
         }
+        $qualityEvidence = $route['quality_evidence'];
+        if (isset($qualityEvidence['capability'])
+            && ! in_array((string) $qualityEvidence['capability'], (array) $request->data['required_capabilities'], true)) {
+            return 'quality_capability_mismatch';
+        }
+        if (isset($qualityEvidence['risk_class']) && (string) $qualityEvidence['risk_class'] !== (string) $request->data['risk_class']) {
+            return 'quality_risk_mismatch';
+        }
+        foreach (['stack', 'model_version', 'observation_window'] as $qualityField) {
+            $requested = $request->data[$qualityField] ?? null;
+            if ($requested !== null && trim((string) $requested) !== ''
+                && (string) ($qualityEvidence[$qualityField] ?? '') !== (string) $requested) {
+                return 'quality_'.$qualityField.'_mismatch';
+            }
+        }
         if (! is_numeric($route['estimated_time_ms'] ?? null) || ! is_numeric($route['estimated_cost'] ?? null)) return 'route_estimate_invalid';
         return null;
     }

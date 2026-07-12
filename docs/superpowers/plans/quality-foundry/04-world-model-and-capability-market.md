@@ -124,11 +124,11 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** `app/Services/Ai/AtlasDecide/**`, existing provider registry adapters, minimal Kernel order consumer and focused tests.
 
-- [ ] Write RED table tests for expired/revoked authority, disallowed provider/tool, risk mismatch, uncalibrated evidence, unavailable route, homogeneous R4/R5 verifier set and cheaper-but-worse candidate.
-- [ ] Implement immutable request/decision types and the exact lexicographic selection order fixed above.
-- [ ] Require quality evidence to match capability, risk, stack, model/provider version and relevant observation window; missing evidence is unknown, not zero loss.
-- [ ] Select a candidate set when topology/diversity requires it; never choose an ineligible route for exploration.
-- [ ] Persist a decision receipt with rejected alternatives/reasons and pass its hash into `ExecutionOrder`.
+- [x] Write RED table tests for expired/revoked authority, disallowed provider/tool, risk mismatch, uncalibrated evidence, unavailable route, homogeneous R4/R5 verifier set and cheaper-but-worse candidate.
+- [x] Implement immutable request/decision types and the exact lexicographic selection order fixed above.
+- [x] Require quality evidence to match capability, risk, stack, model/provider version and relevant observation window; missing evidence is unknown, not zero loss.
+- [x] Select a candidate set when topology/diversity requires it; never choose an ineligible route for exploration.
+- [x] Persist a decision receipt with rejected alternatives/reasons and pass its hash into `ExecutionOrder`.
 - [ ] Run deterministic replay, permutation/property, cost-outcome router, provider key resolver and Kernel order-correlation tests.
 
 **GREEN acceptance:** authority/risk ineligibility always wins over score; proven quality wins before time/cost; route ordering is deterministic; replay yields the same decision hash; claims remain false/ineligible.
