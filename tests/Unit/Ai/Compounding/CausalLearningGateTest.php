@@ -25,7 +25,10 @@ final class CausalLearningGateTest extends TestCase
 
     public function test_correlation_without_assignment_is_held(): void
     {
-        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['assignment_hash' => str_repeat('0', 64)]));
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'assignment_hash' => str_repeat('0', 64),
+            'binding_refs' => array_replace($this->valid()['binding_refs'], ['assignment' => ['hash' => str_repeat('0', 64), 'artifact_id' => 'assignment-1']]),
+        ]));
 
         self::assertSame('hold', (new CausalLearningGate)->adjudicate($candidate)->verdict);
     }
@@ -43,6 +46,16 @@ final class CausalLearningGateTest extends TestCase
         CausalLearningCandidate::fromArray(array_replace($this->valid(), ['hypothesis' => '']));
     }
 
+    public function test_binding_ref_hash_mismatch_fails_closed(): void
+    {
+        $this->expectExceptionMessage('causal_candidate_binding_ref_mismatch_run');
+        CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'binding_refs' => array_replace($this->valid()['binding_refs'], [
+                'run' => ['hash' => str_repeat('0', 64), 'artifact_id' => 'run-1'],
+            ]),
+        ]));
+    }
+
     public function test_inconsistent_interval_is_rejected(): void
     {
         $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['ci_low' => 0.40, 'ci_high' => 0.10]));
@@ -52,7 +65,10 @@ final class CausalLearningGateTest extends TestCase
 
     public function test_assignment_and_execution_are_bound_to_the_same_order(): void
     {
-        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['order_hash' => str_repeat('0', 64)]));
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'order_hash' => str_repeat('0', 64),
+            'binding_refs' => array_replace($this->valid()['binding_refs'], ['order' => ['hash' => str_repeat('0', 64), 'artifact_id' => 'order-1']]),
+        ]));
 
         self::assertSame('hold', (new CausalLearningGate)->adjudicate($candidate)->verdict);
     }
@@ -60,7 +76,11 @@ final class CausalLearningGateTest extends TestCase
     public function test_all_execution_bindings_must_be_nonzero_before_learning_can_promote(): void
     {
         foreach (['experiment_hash', 'run_hash', 'release_hash', 'outcome_hash', 'authority_hash'] as $binding) {
-            $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [$binding => str_repeat('0', 64)]));
+            $bindingName = str_replace('_hash', '', $binding);
+            $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+                $binding => str_repeat('0', 64),
+                'binding_refs' => array_replace($this->valid()['binding_refs'], [$bindingName => ['hash' => str_repeat('0', 64), 'artifact_id' => $bindingName.'-1']]),
+            ]));
 
             self::assertSame('hold', (new CausalLearningGate)->adjudicate($candidate)->verdict, $binding);
             self::assertSame('causal_binding_unproven', (new CausalLearningGate)->adjudicate($candidate)->reason, $binding);
@@ -136,6 +156,21 @@ final class CausalLearningGateTest extends TestCase
             'authority_hash' => $hash('1'), 'scope' => 'atlas.dev.routing', 'expiry' => '2026-08-01T00:00:00Z',
             'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z',
             'run_at' => '2026-07-12T00:20:00Z', 'outcome_at' => '2026-07-12T01:00:00Z',
+            'binding_refs' => $this->bindingRefs($hash),
+        ];
+    }
+
+    /** @param callable(string):string $hash */
+    private function bindingRefs(callable $hash): array
+    {
+        return [
+            'assignment' => ['hash' => $hash('b'), 'artifact_id' => 'assignment-1'],
+            'experiment' => ['hash' => $hash('c'), 'artifact_id' => 'experiment-1'],
+            'order' => ['hash' => $hash('7'), 'artifact_id' => 'order-1'],
+            'run' => ['hash' => $hash('d'), 'artifact_id' => 'run-1'],
+            'release' => ['hash' => $hash('e'), 'artifact_id' => 'release-1'],
+            'outcome' => ['hash' => $hash('f'), 'artifact_id' => 'outcome-1'],
+            'authority' => ['hash' => $hash('1'), 'artifact_id' => 'authority-1'],
         ];
     }
 }

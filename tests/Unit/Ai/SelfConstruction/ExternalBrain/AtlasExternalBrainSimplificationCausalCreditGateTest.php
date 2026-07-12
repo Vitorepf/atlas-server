@@ -88,6 +88,15 @@ final class AtlasExternalBrainSimplificationCausalCreditGateTest extends TestCas
                 'release_at' => '2026-07-12T00:10:00Z',
                 'run_at' => '2026-07-12T00:20:00Z',
                 'outcome_at' => '2026-07-12T01:00:00Z',
+                'binding_refs' => [
+                    'assignment' => ['hash' => $hash('assignment'), 'artifact_id' => 'assignment-1'],
+                    'experiment' => ['hash' => $hash('experiment'), 'artifact_id' => 'experiment-1'],
+                    'order' => ['hash' => $hash('order'), 'artifact_id' => 'order-1'],
+                    'run' => ['hash' => $hash('run'), 'artifact_id' => 'run-1'],
+                    'release' => ['hash' => $hash('release'), 'artifact_id' => 'release-1'],
+                    'outcome' => ['hash' => $hash('outcome'), 'artifact_id' => 'outcome-1'],
+                    'authority' => ['hash' => $hash('authority'), 'artifact_id' => 'authority-1'],
+                ],
             ],
         ];
     }
