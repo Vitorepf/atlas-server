@@ -15,15 +15,16 @@ use App\Console\Commands\AiTelemetryHealthCommand;
 use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
+use App\Console\Commands\AtlasAcosDeltaAttributionCommand;
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Console\Commands\AtlasAcosObraRetroCommand;
-use App\Console\Commands\AtlasPromotionsCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
 use App\Console\Commands\AtlasAiAutonomousHoldingCommand;
 use App\Console\Commands\AtlasAiCaptureQualityAuditCommand;
+use App\Console\Commands\AtlasAiCounterfactualLiftCommand;
 use App\Console\Commands\AtlasAiCyberDomainCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
 use App\Console\Commands\AtlasAiDomainsCommand;
@@ -33,6 +34,8 @@ use App\Console\Commands\AtlasAiFinanceDomainCommand;
 use App\Console\Commands\AtlasAiHyperflowCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
+use App\Console\Commands\AtlasAiLessonDedupCalibrationCommand;
+use App\Console\Commands\AtlasAiLessonHalfLifeCommand;
 use App\Console\Commands\AtlasAiLocalRagBenchmarkCommand;
 use App\Console\Commands\AtlasAiLocalRagReadinessCommand;
 use App\Console\Commands\AtlasAiMarketingDomainCommand;
@@ -56,6 +59,7 @@ use App\Console\Commands\AtlasBrainContractGapsCommand;
 use App\Console\Commands\AtlasBrainCycleCapsuleCommand;
 use App\Console\Commands\AtlasBrainFrontierIngestCommand;
 use App\Console\Commands\AtlasBrainNextCommand;
+use App\Console\Commands\AtlasBrainPredictedImpactCommand;
 use App\Console\Commands\AtlasBrainQueuedTargetsCommand;
 use App\Console\Commands\AtlasBrainSeedCommand;
 use App\Console\Commands\AtlasBrainWorkerPromptCommand;
@@ -128,6 +132,8 @@ use App\Console\Commands\AtlasEngineeringSecurityScanCommand;
 use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
+use App\Console\Commands\AtlasFlywheelLearningLatencyCommand;
+use App\Console\Commands\AtlasFlywheelLoopsCommand;
 use App\Console\Commands\AtlasForgeMultiNodeL410ProofCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasGovernanceAmendmentsCommand;
@@ -147,9 +153,11 @@ use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
 use App\Console\Commands\AtlasMemoryTemporalQualityCommand;
 use App\Console\Commands\AtlasMineHeldEvidenceCommand;
+use App\Console\Commands\AtlasMissionE2eRateCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
 use App\Console\Commands\AtlasOpenBrainSurfaceReviewCommand;
+use App\Console\Commands\AtlasOperatorApprovalHistoryCommand;
 use App\Console\Commands\AtlasOperatorComprehendCommand;
 use App\Console\Commands\AtlasOperatorLearningCommand;
 use App\Console\Commands\AtlasOperatorPatternsCommand;
@@ -167,6 +175,7 @@ use App\Console\Commands\AtlasProgrammingRepairLoopBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingResumeCommand;
 use App\Console\Commands\AtlasProgrammingRetrievalBenchmarkCommand;
 use App\Console\Commands\AtlasProgrammingTestImpactBenchmarkCommand;
+use App\Console\Commands\AtlasPromotionsCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
@@ -240,6 +249,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryPerformanceReportCommand::class,
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
+        AtlasAcosDeltaAttributionCommand::class,
         AtlasAcosFreezeCommand::class,
         AtlasAcosMSeriesCommand::class,
         AtlasAcosObraRetroCommand::class,
@@ -248,6 +258,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,
         AtlasAiAutonomousHoldingCommand::class,
+        AtlasAiCounterfactualLiftCommand::class,
         AtlasAiCyberDomainCommand::class,
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
@@ -257,6 +268,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiHyperflowCommand::class,
         AtlasAiLedgerCommand::class,
         AtlasAiLedgerProjectionCommand::class,
+        AtlasAiLessonDedupCalibrationCommand::class,
+        AtlasAiLessonHalfLifeCommand::class,
         AtlasAiLocalRagBenchmarkCommand::class,
         AtlasAiLocalRagReadinessCommand::class,
         AtlasAiMarketingDomainCommand::class,
@@ -283,6 +296,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasBrainCycleCapsuleCommand::class,
         AtlasBrainFrontierIngestCommand::class,
         AtlasBrainNextCommand::class,
+        AtlasBrainPredictedImpactCommand::class,
         AtlasBrainQueuedTargetsCommand::class,
         AtlasBrainSeedCommand::class,
         AtlasBrainWorkerPromptCommand::class,
@@ -327,10 +341,12 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasMemoryReviewQueueCommand::class,
         AtlasMemorySeedCoreCommand::class,
         AtlasMemoryTemporalQualityCommand::class,
+        AtlasMissionE2eRateCommand::class,
         AtlasMineHeldEvidenceCommand::class,
         AtlasOpenBrainContextCommand::class,
         AtlasOpenBrainMcpCommand::class,
         AtlasOpenBrainSurfaceReviewCommand::class,
+        AtlasOperatorApprovalHistoryCommand::class,
         AtlasOperatorComprehendCommand::class,
         AtlasOperatorPatternsCommand::class,
         AtlasOperatorSkillCommand::class,
@@ -363,6 +379,8 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReplayManifestCommand::class,
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
+        AtlasFlywheelLearningLatencyCommand::class,
+        AtlasFlywheelLoopsCommand::class,
         AtlasForgeRuntimeCertifyCommand::class,
         AtlasGovernanceAmendmentsCommand::class,
         AtlasImmuneCalibrationCommand::class,

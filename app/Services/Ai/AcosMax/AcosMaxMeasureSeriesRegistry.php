@@ -12,8 +12,8 @@ use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
-use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
+use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 
@@ -222,6 +222,78 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => OperatorApprovalHistoryMeter::TTL_DAYS,
                 'ttl_source' => 'freeze:operator.approval_history.v1',
+            ],
+            [
+                'slice' => 'MAXL-06',
+                'series' => AcosMaxLote2MeasureService::MAXL06_MEASURE_ID,
+                'path' => 'atlas:acos:delta-attribution --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MAXL-06')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.evidence.delta_attribution.v1',
+            ],
+            [
+                'slice' => 'MULTN17-04',
+                'series' => AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID,
+                'path' => 'atlas:brain:predicted-impact --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTN17-04')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.originator.predicted_impact_calibration.v1',
+            ],
+            [
+                'slice' => 'MULTX-01',
+                'series' => AcosMaxLote2MeasureService::MULTX01_MEASURE_ID,
+                'path' => 'atlas:flywheel:loops --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTX-01')['ttl_days'],
+                'ttl_source' => 'freeze:acos.flywheel.loops.v1',
+            ],
+            [
+                'slice' => 'MULTX-06',
+                'series' => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
+                'path' => 'atlas:flywheel:learning-latency --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTX-06')['ttl_days'],
+                'ttl_source' => 'freeze:acos.learning_latency.v1',
+            ],
+            [
+                'slice' => 'MULTJ-01',
+                'series' => AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID,
+                'path' => 'atlas:ai:lesson-half-life --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-01')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.lesson_half_life.v2',
+            ],
+            [
+                'slice' => 'MULTJ-02',
+                'series' => AcosMaxLote2MeasureService::MULTJ02_MEASURE_ID,
+                'path' => 'atlas:ai:lesson-dedup-calibration --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-02')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.lesson_semantic_dedup.v1',
+            ],
+            [
+                'slice' => 'MULTJ-03',
+                'series' => AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID,
+                'path' => 'atlas:ai:counterfactual-lift --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-03')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.counterfactual_lift.v2',
+            ],
+            [
+                'slice' => 'TETO-02',
+                'series' => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
+                'path' => 'atlas:mission:e2e --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('TETO-02')['ttl_days'],
+                'ttl_source' => 'freeze:mission_e2e.v1',
             ],
         ];
     }
