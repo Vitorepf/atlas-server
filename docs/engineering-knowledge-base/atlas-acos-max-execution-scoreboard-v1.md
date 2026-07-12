@@ -197,7 +197,7 @@
 - [ ] MULTV-01 — pending
 - [ ] MULTV-07 — pending
 - [ ] MULTV-05 — pending
-- [ ] MULTX-03 — pending
+- [x] MULTX-03 — landed · `AtlasEngineeringOutcomeRecorder` emits additive `atlas.engineering_outcome.v2` contract in the spine with unified executor task categories, provider presence, explicit `verified_source_present`, and fail-closed `verified=false`/`verified_basis=absent` when caller omits verification; compounding and live-outcome fan-out now consume the derived contract instead of defaulting passed outcomes to verified; tests: `php artisan test tests/Feature/Ai/Aemor/AtlasEngineeringOutcomeRecorderTest.php`
 - [ ] MULTX-02 — pending
 - [ ] MULTX-04 — pending
 - [ ] MULTX-06 (série) — pending

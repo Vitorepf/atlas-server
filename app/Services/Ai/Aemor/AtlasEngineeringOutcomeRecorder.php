@@ -21,6 +21,8 @@ class AtlasEngineeringOutcomeRecorder
 {
     public const SCHEMA_VERSION = 'atlas.engineering_outcome.v1';
 
+    public const SCHEMA_VERSION_V2 = 'atlas.engineering_outcome.v2';
+
     public function __construct(
         private readonly AtlasAemorRuntimeService $runtime,
         private readonly AtlasAemorJudgmentService $judgment,
@@ -218,9 +220,11 @@ class AtlasEngineeringOutcomeRecorder
      */
     private function fanOutSpineWriters(array $input, string $status, array $evidenceRefs, string $episodeId): array
     {
+        $contractV2 = $this->outcomeContractV2($input, $status, $evidenceRefs, $episodeId);
         $result = [
             'ai_run_outcome' => ['recorded' => false],
             'live_outcome' => ['recorded' => false],
+            'outcome_contract_v2' => $contractV2,
         ];
 
         $executor = strtolower(trim((string) ($input['executor'] ?? '')));
@@ -255,11 +259,14 @@ class AtlasEngineeringOutcomeRecorder
                     'evidence_refs' => $evidenceRefs,
                     'execution_quality' => data_get($input, 'metrics.tests_passed') === true ? 90 : 40,
                     'evidence_quality' => $evidenceRefs === [] ? 35 : 90,
-                    'verified' => (bool) ($input['verified'] ?? ($outcomeStatus === 'passed')),
+                    'verified' => (bool) $contractV2['verified'],
                     'actor_tag' => isset($input['actor_tag']) ? (string) $input['actor_tag'] : null,
                     'lote' => $input['lote'] ?? null,
                     'slice_id' => isset($input['slice_id']) ? (string) $input['slice_id'] : null,
                     'slice_state' => isset($input['slice_state']) ? (string) $input['slice_state'] : null,
+                    'payload' => [
+                        'outcome_contract_v2' => $contractV2,
+                    ],
                 ]);
                 $result['ai_run_outcome'] = [
                     'recorded' => true,
@@ -279,11 +286,13 @@ class AtlasEngineeringOutcomeRecorder
                 default => AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
             };
             $record = $feedback->record([
-                'task_category' => $executor === 'dev' ? 'programming' : $executor,
+                'task_category' => (string) $contractV2['task_category'],
                 'role' => (string) ($input['surface_id'] ?? $executor),
-                'provider' => (string) ($input['provider'] ?? 'local'),
+                'provider' => (string) $contractV2['provider'],
                 'result' => $liveResult,
-                'proven_real' => (bool) ($input['verified'] ?? false) && $outcomeStatus === 'passed',
+                'proven_real' => (bool) $contractV2['verified'] && $outcomeStatus === 'passed',
+                'verified_basis' => (string) $contractV2['verified_basis'],
+                'certified_receipt_id' => $contractV2['certified_receipt_id'] ?? null,
                 'quality_score' => data_get($input, 'metrics.tests_passed') === true ? 1.0 : 0.0,
                 'actor' => 'engineering_outcome_spine:'.(isset($input['actor_tag']) ? (string) $input['actor_tag'] : $executor),
             ]);
@@ -293,5 +302,100 @@ class AtlasEngineeringOutcomeRecorder
         }
 
         return $result;
+    }
+
+    /**
+     * MULTX-03 — single v2 shape for Dev/Forge/Autônomos outcome facts. The
+     * caller may supply raw source facts, but the verified/basis pair is derived
+     * here and missing `verified` fails closed to `false/absent`.
+     *
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function outcomeContractV2(array $input, string $status, array $evidenceRefs, string $episodeId): array
+    {
+        $executor = strtolower(trim((string) ($input['executor'] ?? 'engineering')));
+        $verifiedSourcePresent = array_key_exists('verified', $input);
+        $verifiedClaim = $verifiedSourcePresent && ($input['verified'] ?? false) === true;
+        $verifiedBasis = $this->deriveVerifiedBasis($input, $verifiedSourcePresent, $verifiedClaim);
+        $certifiedReceiptId = $this->certifiedReceiptId($input, $evidenceRefs, $verifiedClaim);
+        $verified = $verifiedClaim && in_array($verifiedBasis, [
+            AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+            AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED,
+        ], true);
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION_V2,
+            'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
+            'task_category' => $this->taskCategoryV2($input, $executor),
+            'provider' => $this->providerV2($input),
+            'status' => $status,
+            'verified' => $verified,
+            'verified_basis' => $verifiedBasis,
+            'verified_source_present' => $verifiedSourcePresent,
+            'certified_receipt_id' => $certifiedReceiptId,
+            'evidence_ref_count' => count($evidenceRefs),
+            'episode_id' => $episodeId !== '' ? $episodeId : null,
+        ];
+    }
+
+    private function deriveVerifiedBasis(array $input, bool $sourcePresent, bool $verifiedClaim): string
+    {
+        $basis = strtolower(trim((string) ($input['verified_basis'] ?? '')));
+        if (in_array($basis, [
+            AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+            AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED,
+            AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_CLAIMED,
+            AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
+        ], true)) {
+            return $basis;
+        }
+
+        if (! $sourcePresent) {
+            return AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT;
+        }
+
+        if (! $verifiedClaim) {
+            return AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_CLAIMED;
+        }
+
+        return data_get($input, 'metrics.server_verified') === true
+            ? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED
+            : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED;
+    }
+
+    private function certifiedReceiptId(array $input, array $evidenceRefs, bool $verifiedClaim): ?string
+    {
+        $explicit = trim((string) ($input['certified_receipt_id'] ?? $input['receipt_id'] ?? ''));
+        if ($explicit !== '') {
+            return $explicit;
+        }
+        if (! $verifiedClaim) {
+            return null;
+        }
+
+        return $evidenceRefs[0] ?? null;
+    }
+
+    private function taskCategoryV2(array $input, string $executor): string
+    {
+        $category = strtolower(trim((string) ($input['task_category'] ?? '')));
+        if ($category !== '') {
+            return $category;
+        }
+
+        return match ($executor) {
+            'dev' => 'dev',
+            'forge' => 'forge',
+            'autonomos' => 'autonomos',
+            default => 'engineering',
+        };
+    }
+
+    private function providerV2(array $input): string
+    {
+        $provider = strtolower(trim((string) ($input['provider'] ?? '')));
+
+        return $provider !== '' ? $provider : 'absent';
     }
 }

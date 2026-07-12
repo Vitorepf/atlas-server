@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Aemor;
 
 use App\Models\AtlasAaeosTestRunReceipt;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -115,6 +116,34 @@ final class AtlasEngineeringOutcomeRecorderTest extends TestCase
         $this->assertSame('shadow_skipped', data_get($result, 'learning.status'));
         $this->assertDatabaseCount('atlas_aemor_execution_episodes', 1);
         $this->assertDatabaseCount('ai_memory_deltas', 0);
+    }
+
+    public function test_multx03_missing_verified_is_fail_closed_in_outcome_spine(): void
+    {
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting(storage_path('framework/testing/multx03-live-outcomes.jsonl'));
+        @unlink($feedback->logPath());
+        app()->instance(AtlasDecideLiveOutcomeFeedbackService::class, $feedback);
+
+        $result = app(AtlasEngineeringOutcomeRecorder::class)->record([
+            'executor' => 'dev',
+            'objective' => 'Passed claim without server verification flag.',
+            'workspace' => base_path(),
+            'status' => 'succeeded',
+            'summary' => 'Caller omitted verified.',
+            'evidence_refs' => ['test:green'],
+            'metrics' => ['tests_passed' => true],
+        ]);
+
+        $line = json_decode((string) file_get_contents($feedback->logPath()), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('recorded', $result['status']);
+        $this->assertSame('atlas.engineering_outcome.v2', data_get($result, 'spine.outcome_contract_v2.schema_version'));
+        $this->assertFalse(data_get($result, 'spine.outcome_contract_v2.verified'));
+        $this->assertSame('absent', data_get($result, 'spine.outcome_contract_v2.verified_basis'));
+        $this->assertFalse(data_get($result, 'spine.outcome_contract_v2.verified_source_present'));
+        $this->assertSame('absent', $line['verified_basis'] ?? null);
+        $this->assertFalse((bool) ($line['proven_real'] ?? true));
     }
 
     private function greenTestReceipt(): AtlasAaeosTestRunReceipt
