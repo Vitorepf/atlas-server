@@ -1586,6 +1586,16 @@ class AtlasOpenBrainContextPackService
             return $item;
         }
 
+        // MAXE-08 degradation ladder: body-inteiro → summary-inteiro (body omitted)
+        // → truncated body with marker (last resort). Title+summary are only
+        // sacrificed when the item cannot fit at all with body omitted.
+        if ($body !== '' && $fixedChars <= $maxChars) {
+            $item['body'] = '';
+            $item['body_omitted'] = true;
+
+            return $item;
+        }
+
         $marker = self::MEMORY_BODY_TRUNCATION_MARKER;
         $markerLen = strlen($marker);
         if ($maxBodyChars <= $markerLen) {

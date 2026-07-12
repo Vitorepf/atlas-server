@@ -143,7 +143,7 @@
 - [ ] MAXD-03 — pending
 - [ ] MAXD-04 — pending
 - [ ] MAXD-07 — pending
-- [ ] MAXE-08 — pending
+- [x] MAXE-08 — landed · `compactMemoryItemForPack` agora degrada em degraus: body-inteiro → summary-inteiro (`body_omitted=true`, título+summary intactos) → truncação com marker só como último recurso; teste unitário `tests/Unit/Ai/AcosMax/Maxe08SummaryFirstPackingTest.php` cobre os 3 caminhos incluindo caso negativo (summary alone overflow ⇒ marker); regressão `tests/Feature/Ai/Context/ContextPackMemoryMultiItemTest.php` verde
 - [ ] MAXE-06 — pending
 - [ ] MAXE-07 — pending
 - [ ] MAXF-02 — pending
