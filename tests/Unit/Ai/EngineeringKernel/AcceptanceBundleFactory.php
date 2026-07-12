@@ -16,7 +16,7 @@ final class AcceptanceBundleFactory
      * A bundle that passes every invariant — the promote happy-path.
      *
      * @param  array<string,mixed>  $overrides  each top-level key REPLACES its honest default
-     *                                           (pass a full nested object when overriding one)
+     *                                          (pass a full nested object when overriding one)
      */
     public static function honest(array $overrides = []): AcceptanceBundle
     {

@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\EngineeringCompany;
 
-use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Models\AiEngineeringCompanyBenchmark;
 use App\Models\AiEngineeringCompanyCertification;
 use App\Models\AiEngineeringCompanyCycle;
@@ -15,6 +14,7 @@ use App\Models\AiRealExecutionTestRun;
 use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
 use App\Services\Ai\EngineeringKernel\EngineeringFinalCertifier;
 use App\Services\Ai\EngineeringKernel\EngineeringQualityCourt;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\QualityCourtVerdict;
@@ -362,7 +362,7 @@ class AtlasRealEngineeringCompanyRuntimeService
         $this->persistMutativeDisposition($engagement, $cycle, $case, $final, EngineeringFinalCertifier::MUTATIVE_DOMAIN, 'v1');
         $dispositions['final_certification'] = $final;
         $authorityEligible = ! array_any($dispositions, static fn (RoleDisposition $disposition): bool => $disposition->status === 'block')
-            && ($dispositions['final_certification']->status ?? null) === 'pass';
+            && $dispositions['final_certification']->status === 'pass';
         $verdict = new QualityCourtVerdict($case->caseHash, $case->candidate->candidateHash, $dispositions, $authorityEligible);
         $persisted = AiEngineeringCompanyRoleRun::query()
             ->where('engagement_record_id', $engagement->getKey())
@@ -507,7 +507,10 @@ class AtlasRealEngineeringCompanyRuntimeService
         $findings = $status === 'passed'
             ? [['severity' => 'info', 'finding' => 'independent_review_passed', 'evidence' => data_get($realExecution, 'delivery_pack.delivery_hash')]]
             : [['severity' => 'blocker', 'finding' => 'independent_review_failed']];
-        $evidence = array_values(array_filter(['real_delivery:'.data_get($realExecution, 'delivery_pack.delivery_hash')]));
+        $evidence = array_values(array_filter(
+            ['real_delivery:'.data_get($realExecution, 'delivery_pack.delivery_hash')],
+            static fn (string $ref): bool => $ref !== 'real_delivery:',
+        ));
         $receipt = [
             'schema_version' => self::REVIEW_SCHEMA,
             'review_id' => $reviewId,
@@ -543,7 +546,10 @@ class AtlasRealEngineeringCompanyRuntimeService
         if ($status === 'blocked') {
             $gates[] = ['id' => 'operator_qa_override', 'status' => 'blocked'];
         }
-        $evidence = array_values(array_filter(['test:'.data_get($realExecution, 'test_run.test_hash')]));
+        $evidence = array_values(array_filter(
+            ['test:'.data_get($realExecution, 'test_run.test_hash')],
+            static fn (string $ref): bool => $ref !== 'test:',
+        ));
         $receipt = [
             'schema_version' => self::QA_SCHEMA,
             'qa_run_id' => $qaRunId,
@@ -582,7 +588,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'review:'.$review->review_hash,
             'qa:'.$qa->qa_hash,
             'real_delivery:'.data_get($realExecution, 'delivery_pack.delivery_hash'),
-        ]));
+        ], static fn (string $ref): bool => ! str_ends_with($ref, ':')));
         $receipt = [
             'schema_version' => self::RELEASE_SCHEMA,
             'release_pack_id' => $releaseId,
@@ -617,7 +623,10 @@ class AtlasRealEngineeringCompanyRuntimeService
             'external_rivals_claim_allowed' => (bool) data_get($realExecution, 'certification.claim_policy.ready_to_claim_100x_vs_claude_codex', false),
             'false_claim_blocked' => true,
         ];
-        $evidence = array_values(array_filter(['real_rivals:'.data_get($realExecution, 'rivals_benchmark.benchmark_hash')]));
+        $evidence = array_values(array_filter(
+            ['real_rivals:'.data_get($realExecution, 'rivals_benchmark.benchmark_hash')],
+            static fn (string $ref): bool => $ref !== 'real_rivals:',
+        ));
         $receipt = [
             'schema_version' => self::BENCHMARK_SCHEMA,
             'benchmark_id' => $benchmarkId,

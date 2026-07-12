@@ -8,8 +8,8 @@ use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
 use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockWriter;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
-use Tests\Unit\Ai\EngineeringKernel\AcceptanceBundleFactory;
 use PHPUnit\Framework\TestCase;
+use Tests\Unit\Ai\EngineeringKernel\AcceptanceBundleFactory;
 
 /**
  * OBRA #4 S1 — REGRESSION-LOCK como LEI. Prova os ACs congelados da spec

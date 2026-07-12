@@ -5,9 +5,6 @@ namespace Tests\Unit\Ai\EngineeringCompany;
 use App\Models\AiEngineeringCompanyBenchmark;
 use App\Models\AiEngineeringCompanyCertification;
 use App\Models\AiEngineeringCompanyEngagement;
-use App\Models\AiEngineeringCompanyQaRun;
-use App\Models\AiEngineeringCompanyReleasePack;
-use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
@@ -19,6 +16,7 @@ use Tests\TestCase;
 class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
 {
     use BootsCompoundingSchema;
+
     protected function setUp(): void
     {
         parent::setUp();

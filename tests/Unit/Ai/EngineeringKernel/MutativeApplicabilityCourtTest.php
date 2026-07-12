@@ -61,6 +61,7 @@ final class MutativeApplicabilityCourtTest extends TestCase
     private function orderData(array $matrix, string $matrixHash): array
     {
         $roles = array_fill_keys(EngineeringRoleRoster::OFFICIAL_ROLES, ['depth' => 'standard', 'independent' => true]);
+
         return [
             'schema_version' => 'atlas.execution_order.v2', 'run_id' => 'run-court-na', 'delivery_id' => 'delivery-court-na',
             'mode' => 'dev', 'risk_class' => 'R2', 'complexity_band' => 'C2', 'duration_regime' => 'interactive',

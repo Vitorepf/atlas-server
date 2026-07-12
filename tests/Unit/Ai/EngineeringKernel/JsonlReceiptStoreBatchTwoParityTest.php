@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\EngineeringKernel;
 
+use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopGoodhartReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\FactConfidence\AtlasLoopFactConfidenceBoundsReceiptLedger;
-use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\SelfConstruction\Maestro\Cost\AtlasMaestroBudgetReceiptLedger;
 use Tests\TestCase;
 

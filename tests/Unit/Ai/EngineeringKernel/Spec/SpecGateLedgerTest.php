@@ -14,21 +14,23 @@ use App\Services\Ai\EngineeringKernel\Spec\SpecOracle;
 use App\Services\Ai\EngineeringKernel\Spec\SpecSourceIndependence;
 use App\Services\Ai\EngineeringKernel\Spec\WitnessContext;
 use App\Services\Ai\EngineeringKernel\Spec\WitnessResolver;
-use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use PHPUnit\Framework\TestCase;
 
 final class SpecGateLedgerTest extends TestCase
 {
     public function test_frozen_spec_emits_one_idempotent_unit_frozen_event(): void
     {
-        $oracle = new class implements SpecOracle {
+        $oracle = new class implements SpecOracle
+        {
             public function probe(SpecDraft $draft): OracleReport
             {
                 return OracleReport::executional(['ac-1']);
             }
         };
-        $witness = new class implements WitnessResolver {
+        $witness = new class implements WitnessResolver
+        {
             public function resolve(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): WitnessContext
             {
                 return new WitnessContext(

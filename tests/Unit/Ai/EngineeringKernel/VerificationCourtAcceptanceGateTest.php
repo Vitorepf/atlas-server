@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\EngineeringKernel;
 
-use App\Services\Ai\EngineeringKernel\CertVerdict;
-use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
+use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasObraGateAdapter;
+use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\EngineeringKernel\VerificationCourtAcceptanceGate;
 use PHPUnit\Framework\TestCase;
@@ -105,7 +106,7 @@ final class VerificationCourtAcceptanceGateTest extends TestCase
     }
 
     /** @param array<string,mixed>|null $facts */
-    private function bundle(?array $facts = null): \App\Services\Ai\EngineeringKernel\AcceptanceBundle
+    private function bundle(?array $facts = null): AcceptanceBundle
     {
         return AcceptanceBundleFactory::honest(['non_functional' => ['verification_court' => $facts ?? $this->courtFacts()]]);
     }

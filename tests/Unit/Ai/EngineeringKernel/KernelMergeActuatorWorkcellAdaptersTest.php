@@ -8,14 +8,14 @@ use App\Services\Ai\EngineeringKernel\Adapters\TaskLaneMergeActuatorAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\TaskServingWorkcellExecutorAdapter;
 use App\Services\Ai\EngineeringKernel\MergeActuator;
 use App\Services\Ai\EngineeringKernel\WorkcellExecutor;
+use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
@@ -178,5 +178,4 @@ final class KernelMergeActuatorWorkcellAdaptersTest extends TestCase
 
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
-
 }
