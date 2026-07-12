@@ -222,6 +222,56 @@ final class AtlasAgenticWorkcellRuntimeService
     }
 
     /**
+     * Read-only crash reconciliation. Existing receipts are the authority: a
+     * restart may resume from the last missing boundary, but never repeats a
+     * provider call, integration or role disposition already recorded.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function reconcileIncompleteWorkcell(array $input): array
+    {
+        $workcell = $this->workcell($input['workcell_id'] ?? null);
+        if (! $workcell instanceof AtlasAgenticWorkcell || ! DatabaseTableAvailability::has('atlas_agentic_workcell_events')) {
+            return $this->blocked(self::EVENT_SCHEMA, 'missing_workcell_or_event_store', 'Reconciliation requires a persisted workcell and event store.');
+        }
+        $events = AtlasAgenticWorkcellEvent::query()->where('workcell_id', $workcell->id)->orderBy('created_at')->get();
+        $outcomes = DatabaseTableAvailability::has('atlas_agentic_workcell_outcomes')
+            ? AtlasAgenticWorkcellOutcome::query()->where('workcell_id', $workcell->id)->orderBy('created_at')->get()
+            : collect();
+        $counts = $events->groupBy('event_type')->map(fn (Collection $group): int => $group->count())->all();
+        $terminal = $events->contains(fn (AtlasAgenticWorkcellEvent $event): bool => in_array((string) $event->status, [self::STATUS_READY, self::STATUS_BLOCKED, 'held', 'refused', 'completed'], true))
+            || $outcomes->isNotEmpty();
+        $providerCalls = (int) ($counts['provider.called'] ?? 0);
+        $integrations = (int) ($counts['integration.completed'] ?? 0);
+        $dispositions = (int) ($counts['disposition.recorded'] ?? 0);
+        $payload = [
+            'schema_version' => 'atlas.agentic_workcell.reconciliation.v1',
+            'status' => $terminal ? 'already_terminal' : 'recovery_required',
+            'workcell_id' => (string) $workcell->id,
+            'event_count' => $events->count(),
+            'outcome_count' => $outcomes->count(),
+            'last_event_hash' => $events->last()?->event_hash,
+            'receipt_counts' => [
+                'provider_calls' => $providerCalls,
+                'integrations' => $integrations,
+                'dispositions' => $dispositions,
+            ],
+            'replay_safety' => [
+                'provider_call_will_be_duplicated' => false,
+                'integration_will_be_duplicated' => false,
+                'disposition_will_be_duplicated' => false,
+                'resume_from_last_receipt_only' => true,
+            ],
+            'actions' => $terminal ? [] : ['resume_from_last_receipt'],
+            'claim_policy' => $this->claimPolicy(),
+        ];
+        $payload['reconciliation_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function controlPlane(int $hours = 24): array

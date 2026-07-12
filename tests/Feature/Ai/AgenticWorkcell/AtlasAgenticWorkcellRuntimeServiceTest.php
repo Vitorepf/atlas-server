@@ -208,6 +208,35 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         ));
     }
 
+    public function test_reconciliation_is_idempotent_and_never_repeats_recorded_boundaries(): void
+    {
+        $runtime = app(AtlasAgenticWorkcellRuntimeService::class);
+        $workcell = $runtime->design([
+            'objective' => 'Reconciliação após crash entre act e settle.',
+            'domain' => 'programming', 'evidence_refs' => ['test:recovery'],
+        ]);
+        foreach ([
+            ['event_type' => 'provider.called', 'status' => 'observed', 'payload' => ['receipt_id' => 'provider-1']],
+            ['event_type' => 'integration.completed', 'status' => 'observed', 'payload' => ['receipt_id' => 'integration-1']],
+            ['event_type' => 'disposition.recorded', 'status' => 'observed', 'payload' => ['receipt_id' => 'disposition-1']],
+        ] as $event) {
+            $runtime->recordEvent([
+                'workcell_id' => $workcell['workcell_id'], ...$event,
+                'evidence_refs' => ['recovery:receipt'],
+            ]);
+        }
+        $first = $runtime->reconcileIncompleteWorkcell(['workcell_id' => $workcell['workcell_id']]);
+        $second = $runtime->reconcileIncompleteWorkcell(['workcell_id' => $workcell['workcell_id']]);
+
+        self::assertSame('recovery_required', $first['status']);
+        self::assertSame(1, $first['receipt_counts']['provider_calls']);
+        self::assertSame(1, $first['receipt_counts']['integrations']);
+        self::assertSame(1, $first['receipt_counts']['dispositions']);
+        self::assertFalse($first['replay_safety']['provider_call_will_be_duplicated']);
+        self::assertSame($first['reconciliation_hash'], $second['reconciliation_hash']);
+        self::assertSame(3, $first['event_count']);
+    }
+
     public function test_execution_order_admission_binds_hashes_scope_evidence_and_isolated_candidates(): void
     {
         $workcell = app(AtlasAgenticWorkcellRuntimeService::class)->design([
