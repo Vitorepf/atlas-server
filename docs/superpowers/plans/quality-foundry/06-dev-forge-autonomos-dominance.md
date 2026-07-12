@@ -75,9 +75,9 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 
 **Allowed files:** cross-mode contract fixtures, coverage registry and architecture tests; production mode code only to close a confirmed bypass.
 
-- [ ] Enumerate every Dev/Forge/Autônomos mutative surface and write RED architecture tests for direct provider, filesystem, Git, verification, release/deploy or outcome success outside shared ports.
-- [ ] Build one equivalent fixture per R0/R3/R5 and assert identical ProductIntent/spec/world/market/order hashes, 22-role roster/depth, evidence floor, Governor path and outcome semantics.
-- [ ] Record operator presence, duration and topology as explicit fields rather than implicit mode quality policy.
+- [x] Enumerate every Dev/Forge/Autônomos mutative surface and write RED architecture tests for direct provider, filesystem, Git, verification, release/deploy or outcome success outside shared ports.
+- [x] Build one equivalent fixture per R0/R3/R5 and assert identical ProductIntent/spec/world/market/order hashes, 22-role roster/depth, evidence floor, Governor path and outcome semantics.
+- [x] Record operator presence, duration and topology as explicit fields rather than implicit mode quality policy.
 - [ ] Close confirmed bypasses by delegating to the existing shared owners; do not create an interim mode kernel.
 - [ ] Run coverage/architecture and all current mode adapter contract tests.
 
