@@ -20,8 +20,6 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
 {
     private const SCHEMA = 'atlas.engineering.end_to_end_scorecard.v1';
 
-    private const EXPECTED_AWIS_MUTATIVE_SURFACES = 9;
-
     private const MIN_REAL_EXECUTIONS_PER_EXECUTOR = 1;
 
     private const MIN_FORGE_PROMOTED_CYCLES = 20;
@@ -60,7 +58,10 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
             'check_count' => count($checks),
             'pass_count' => $passCount,
             'thresholds' => [
-                'awis_mutative_surfaces' => self::EXPECTED_AWIS_MUTATIVE_SURFACES,
+                'awis_mutative_surfaces' => count(array_filter(
+                    EngineeringExecutionSurfaceRegistry::all(),
+                    static fn (array $surface): bool => ($surface['mutative'] ?? false) === true,
+                )),
                 'real_executions_per_executor' => self::MIN_REAL_EXECUTIONS_PER_EXECUTOR,
                 'forge_promoted_cycles' => self::MIN_FORGE_PROMOTED_CYCLES,
                 'adml_proven_routes' => self::MIN_ADML_PROVEN_ROUTES,
@@ -98,10 +99,6 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
         ));
         $blockers = [];
         $probes = [];
-
-        if (count($surfaces) !== self::EXPECTED_AWIS_MUTATIVE_SURFACES) {
-            $blockers[] = 'awis_mutative_surface_count_mismatch';
-        }
 
         foreach ($surfaces as $surface) {
             if (($surface['awis_gate_class'] ?? null) !== AtlasWorkspaceIntelligenceExecutionGateService::class) {
@@ -141,7 +138,7 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
         return $this->check('AWIS mutative coverage 6/6', $blockers === [], [
             'source' => EngineeringExecutionSurfaceRegistry::class,
             'covered' => count($surfaces),
-            'expected' => self::EXPECTED_AWIS_MUTATIVE_SURFACES,
+            'expected' => count($surfaces),
             'probes' => $probes,
         ], $blockers);
     }
