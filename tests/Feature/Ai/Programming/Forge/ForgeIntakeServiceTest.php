@@ -130,6 +130,74 @@ class ForgeIntakeServiceTest extends TestCase
         );
     }
 
+    public function test_escalation_packet_replay_is_idempotent_and_does_not_duplicate_children(): void
+    {
+        $packet = $this->makeEscalationPacket(
+            originalUserIntent: 'Reprocessar handoff Dev para Forge sem duplicar a Obra',
+            suggestedWorkPackets: [
+                ['id' => 'wp-replay', 'title' => 'Replay-safe Forge intake'],
+            ],
+        );
+        $service = app(ForgeIntakeService::class);
+        $options = [
+            'workspace_slug' => 'atlas',
+            'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
+            'mission_id' => $this->fakeUuid(),
+        ];
+
+        $first = $service->intakeFromEscalationPacket($packet, $options);
+        $second = $service->intakeFromEscalationPacket($packet, $options);
+
+        $this->assertSame($first->getKey(), $second->getKey());
+        $this->assertSame($first->intake_hash, $second->intake_hash);
+        $this->assertSame(1, AiForgeIntake::query()->where('escalation_packet_id', $packet->packetId)->count());
+        $this->assertSame(1, $first->workPackets()->count());
+        $this->assertSame(5, $first->milestones()->count());
+    }
+
+    public function test_escalation_packet_replay_with_same_id_and_different_hash_fails_closed(): void
+    {
+        $packet = $this->makeEscalationPacket(
+            originalUserIntent: 'Handoff original',
+            suggestedWorkPackets: [
+                ['id' => 'wp-original', 'title' => 'Original intake'],
+            ],
+        );
+        $service = app(ForgeIntakeService::class);
+        $service->intakeFromEscalationPacket($packet, [
+            'workspace_slug' => 'atlas',
+            'workspace_execution_gate' => $this->allowedWorkspaceExecutionGate(),
+        ]);
+
+        $differentPacket = EscalationPacket::issue(
+            packetId: $packet->packetId,
+            originalUserIntent: 'Handoff adulterated',
+            normalizedIntent: 'handoff adulterated',
+            promotionReason: 'scope expanded mid-run to obra multi-module',
+            promotionTriggers: [EscalationPacket::TRIGGER_SCOPE_TOO_LARGE],
+            scopeAssessment: 'different content',
+            riskAssessment: 'high risk',
+            ambiguityAssessment: 'low ambiguity',
+            currentDevFindings: [],
+            completedDevActions: [],
+            incompleteDevActions: [],
+            recommendedForgeMode: EscalationPacket::RECOMMENDED_FORGE_MODE_OBRA_INTAKE,
+            suggestedWorkPackets: [['id' => 'wp-different', 'title' => 'Different intake']],
+            definitionOfDone: ['certification_passed'],
+            requiredEvidence: ['evidence_pack'],
+            evidenceRefs: EscalationPacket::emptyEvidenceRefs(),
+            contextRefs: [],
+            contextPackHash: null,
+            constraints: [],
+            nonGoals: [],
+            createdAt: now()->toISOString(),
+        );
+
+        $this->expectException(ForgeIntakeException::class);
+        $this->expectExceptionMessage('different packet hash');
+        $service->intakeFromEscalationPacket($differentPacket);
+    }
+
     public function test_forge_intake_persists_awis_execution_gate_for_workspace_bound_obra(): void
     {
         $intake = app(ForgeIntakeService::class)->intakeFromPrompt(

@@ -31,4 +31,11 @@ class ForgeIntakeException extends InvalidArgumentException
 
         return new self("Invalid risk_band [{$band}]; allowed: [{$allowed}].");
     }
+
+    public static function escalationPacketReplayHashMismatch(string $packetId): self
+    {
+        return new self(
+            "Forge escalation packet [{$packetId}] was already intaked with a different packet hash; refusing non-idempotent replay."
+        );
+    }
 }

@@ -93,6 +93,21 @@ class ForgeIntakeService
             throw ForgeIntakeException::emptyPrompt();
         }
 
+        // A Dev retry or a duplicated delivery must replay the existing Forge
+        // intake instead of materializing a second Obra and duplicate children.
+        // The packet id is the caller-provided idempotency key; its hash guards
+        // against silently reusing that key for different content.
+        $existing = AiForgeIntake::query()
+            ->where('escalation_packet_id', $packet->packetId)
+            ->first();
+        if ($existing !== null) {
+            if ((string) $existing->escalation_packet_hash !== $packet->packetHash) {
+                throw ForgeIntakeException::escalationPacketReplayHashMismatch($packet->packetId);
+            }
+
+            return $existing;
+        }
+
         // Allow callers to inject mission_id / workspace_slug / actor_type
         // while the packet contributes the canonical assessments.
         $options = array_merge([
