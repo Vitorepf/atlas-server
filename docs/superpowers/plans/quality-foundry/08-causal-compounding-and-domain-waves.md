@@ -126,11 +126,11 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 **Allowed files:** ExternalBrain, TaskGraph, StrategyCouncil and read adapters to Software Twin/outcomes; focused tests.
 
 - [ ] Write RED fixtures where high-volume shallow tasks outrank a low-volume dependency bottleneck, stale domain facts dominate, repeated failures are forgotten or outcome-free work receives credit.
-- [ ] Project a domain map from Software Twin/world facts: capabilities, owners, dependencies, consumers, recurrence, failures/outcomes, maturity, evidence gaps and freshness.
-- [ ] Extend existing structural-leverage comparator/ranker to score dependency reach, recurrence, outcome gap, simplification opportunity, verification strength and blast radius.
+- [x] Project a domain map from Software Twin/world facts: capabilities, owners, dependencies, consumers, recurrence, failures/outcomes, maturity, evidence gaps and freshness.
+- [x] Extend existing structural-leverage comparator/ranker to score dependency reach, recurrence, outcome gap, simplification opportunity, verification strength and blast radius.
 - [ ] Feed real outcome memory and recurrence maps into ranking; missing/stale outcomes lower confidence rather than becoming success.
 - [ ] Emit ranked proposal evidence into existing Proposal Arena/Task Fabric; do not create tasks merely to fill a quota.
-- [ ] Run structural-leverage, outcome-weighted critical-path, recurrence/freshness and deterministic ranking tests.
+- [x] Run structural-leverage, outcome-weighted critical-path, recurrence/freshness and deterministic ranking tests.
 
 **GREEN acceptance:** structural bottlenecks beat shallow volume under fixtures; rankings cite fresh world/outcome evidence and replay deterministically; healthy queue depth changes urgency, not whether leverage work is originated.
 
@@ -175,12 +175,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** SelfConstruction Simplification/ExternalBrain/TaskQuality owners, Software Twin consumer readers and focused tests.
 
-- [ ] Write RED fixtures for line-count reduction that changes behavior, removes a consumer/config/contract, shifts complexity, reduces tests only, creates a hidden duplicate or degrades late outcomes.
-- [ ] Require pre-registered equivalence oracles, consumer/reachability map, contract/config/API/schema compatibility and rollback.
-- [ ] Measure complexity change using at least structural ownership/dependency/cyclomatic/config surface appropriate to the change; line count alone is insufficient.
-- [ ] Credit simplification only after focused/neighboring/architecture tests, outcome observation and non-inferiority; route credit through CausalLearningGate.
-- [ ] Feed proven simplification into leverage/outcome memory; failed simplification becomes negative evidence and a repair task.
-- [ ] Run duplicate-organ, no-gap proof, outcome-credit, reachability/consumer, compatibility and late-regression tests.
+- [x] Write RED fixtures for line-count reduction that changes behavior, removes a consumer/config/contract, shifts complexity, reduces tests only, creates a hidden duplicate or degrades late outcomes.
+- [x] Require pre-registered equivalence oracles, consumer/reachability map, contract/config/API/schema compatibility and rollback.
+- [x] Measure complexity change using at least structural ownership/dependency/cyclomatic/config surface appropriate to the change; line count alone is insufficient.
+- [x] Credit simplification only after focused/neighboring/architecture tests, outcome observation and non-inferiority; route credit through CausalLearningGate.
+- [x] Feed proven simplification into leverage/outcome memory; failed simplification becomes negative evidence and a repair task.
+- [x] Run duplicate-organ, no-gap proof, outcome-credit, reachability/consumer, compatibility and late-regression tests.
 
 **GREEN acceptance:** only behaviorally equivalent, consumer-safe, truly lower-complexity and non-inferior work receives credit; cosmetic deletion does not.
 
