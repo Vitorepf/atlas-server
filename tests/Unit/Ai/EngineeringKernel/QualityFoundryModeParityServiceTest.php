@@ -71,6 +71,38 @@ final class QualityFoundryModeParityServiceTest extends TestCase
         }
     }
 
+    public function test_terminal_failure_states_are_identical_across_modes_and_never_claim_eligible(): void
+    {
+        foreach (['held', 'release_uncertain', 'reverted'] as $status) {
+            $terminal = [
+                'applicability' => 'applicable', 'disposition' => 'hold', 'verdict' => 'hold',
+                'authorization' => 'held', 'canary' => 'inconclusive', 'status' => $status,
+                'claim_eligible' => false,
+            ];
+            $receipts = [];
+            foreach (['dev', 'forge', 'autonomos'] as $mode) {
+                $receipts[$mode] = array_replace($this->receipt('R3'), ['terminal_outcome' => $terminal]);
+            }
+
+            $report = (new QualityFoundryModeParityService)->compare($receipts);
+
+            self::assertTrue($report['parity'], $status);
+            self::assertTrue($report['terminal_parity']['claim_eligible_all_false'], $status);
+        }
+    }
+
+    public function test_one_mode_terminal_failure_drift_blocks_enforcement(): void
+    {
+        $receipts = array_fill_keys(['dev', 'forge', 'autonomos'], $this->receipt('R3'));
+        $receipts['autonomos']['terminal_outcome']['status'] = 'release_uncertain';
+
+        $report = (new QualityFoundryModeParityService)->compare($receipts);
+
+        self::assertFalse($report['parity']);
+        self::assertFalse($report['enforcement_allowed']);
+        self::assertArrayHasKey('terminal_outcome', $report['mismatches']);
+    }
+
     public function test_missing_market_decision_hash_blocks_cross_mode_enforcement(): void
     {
         $receipts = array_fill_keys(['dev', 'forge', 'autonomos'], $this->receipt('R3'));

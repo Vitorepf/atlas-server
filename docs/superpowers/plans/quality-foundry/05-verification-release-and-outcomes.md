@@ -210,11 +210,11 @@ Outcome dimensions include defects, incidents, rollback, rework, vulnerabilities
 
 **Allowed files:** cross-mode fixtures and minimal adapters; no mode-specific gate or release engine.
 
-- [ ] Write RED cross-mode failure tests that fail on any divergent verdict, unauthorized effect, false success, replay result or claim eligibility.
-- [ ] Run equivalent R0/R3/R5 bundles through all three modes and assert identical applicability, dispositions, verdict, authorization, canary and outcome semantics.
+- [x] Write RED cross-mode failure tests that fail on any divergent verdict, unauthorized effect, false success, replay result or claim eligibility. Evidence: `QualityFoundryModeParityServiceTest` drift, missing-mode and terminal-failure mutations.
+- [x] Run equivalent R0/R3/R5 bundles through all three modes and assert identical applicability, dispositions, verdict, authorization, canary and outcome semantics. Evidence: `test_r0_r3_and_r5_fixtures_share_frozen_chain_across_all_modes`.
 - [ ] Inject ledger/Governor/provider/verifier/canary/revert/outcome failure and process kill at each boundary.
-- [ ] Assert zero unauthorized effect, no post-effect false success, safe idempotent replay and identical hold/block/uncertain/revert states.
-- [ ] Assert no mode writes a comparative claim and all outcomes default ineligible.
+- [x] Assert zero unauthorized effect, no post-effect false success, safe idempotent replay and identical hold/block/uncertain/revert states. Evidence: parity terminal-state matrix plus interrupted-decision reconciliation tests.
+- [x] Assert no mode writes a comparative claim and all outcomes default ineligible. Evidence: terminal parity assertions require `claim_eligible_all_false` across Dev/Forge/Autônomos.
 - [ ] Run architecture coverage, full shared subsystem tests and receipt-chain replay.
 
 **GREEN acceptance:** mode parity is proven over success and failure; every effect and terminal state has a correlated receipt; no bypass or claim writer exists.
