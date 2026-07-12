@@ -465,6 +465,13 @@ Schedule::command('atlas:acp:reap-leases --json')
         || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
     ) && (bool) config('atlas.loop.acp_reaper_enabled', true));
 
+// Forge durable Obra leases — reclaim expired reservations without deleting
+// fencing history, so crashed workers cannot hold a scope forever.
+Schedule::command('atlas:forge:reap-leases --json')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.forge.scope_lease_reaper_enabled', true));
+
 // govA — task-serving queue SELF-MAINTENANCE on a schedule.
 Schedule::command('atlas:task:sweep-malformed --json')
     ->everyFifteenMinutes()

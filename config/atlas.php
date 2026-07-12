@@ -2452,6 +2452,7 @@ return [
     // cockpit->Decide->Dispatch->Invocation wiring is proven (atlas-local first).
     'forge' => [
         'cockpit_real_invocation_enabled' => (bool) env('ATLAS_FORGE_COCKPIT_REAL_INVOCATION_ENABLED', false),
+        'scope_lease_reaper_enabled' => (bool) env('ATLAS_FORGE_SCOPE_LEASE_REAPER_ENABLED', true),
         // L2-10 (dívida do sweep O-1): quando ON, a validação governada só aceita um test
         // runner REAL (php artisan test --filter / phpunit --filter), rejeitando `php -r`
         // livre (gameável: `exit(0)` carimba verde sem provar nada). Default OFF porque
