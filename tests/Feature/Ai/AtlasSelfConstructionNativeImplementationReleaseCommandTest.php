@@ -64,7 +64,12 @@ final class AtlasSelfConstructionNativeImplementationReleaseCommandTest extends 
             'preflight' => ['decision' => 'allow'],
             'proposal' => [
                 'allowed_files' => ['app/Foo.php'],
-                'files' => [['path' => 'app/Foo.php', 'contents' => "hello\n", 'mode' => 'create']],
+                'files' => [[
+                    'path' => 'app/Foo.php',
+                    'contents' => "hello\n",
+                    'mode' => 'create',
+                    'patch_artifact_hash' => hash('sha256', "hello\n"),
+                ]],
             ],
         ]);
         Artisan::call('atlas:self-construction:native-implementation-release', ['action' => 'apply', '--payload' => $this->payloadPath, '--json' => true]);

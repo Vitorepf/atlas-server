@@ -116,6 +116,10 @@ final class AtlasSelfConstructionNativeImplementationCommandTest extends TestCas
             'task_shape' => ['kind' => 'value_object'],
             'test_files' => ['tests/Unit/FooTest.php'],
             'context' => ['namespace' => 'App', 'class_name' => 'Foo'],
+            'objective' => 'create the Foo value object',
+            'acceptance_criteria' => ['phpunit test must pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'implementation_target' => 'app/Foo.php',
         ]);
         [$exit, $out] = $this->runCmd(['action' => 'patch-plan', '--packet' => $packet, '--json' => true]);
         $this->assertSame(AtlasSelfConstructionNativeImplementationCommand::EXIT_OK, $exit);
@@ -135,6 +139,10 @@ final class AtlasSelfConstructionNativeImplementationCommandTest extends TestCas
             'allowed_files' => ['app/Foo.php'],
             'task_shape' => ['kind' => 'value_object'],
             'context' => ['namespace' => 'App', 'class_name' => 'Foo'],
+            'objective' => 'create the Foo value object',
+            'acceptance_criteria' => ['phpunit test must pass'],
+            'required_evidence' => ['tests_or_gates_result'],
+            'implementation_target' => 'app/Foo.php',
         ]);
         [, $patchOut] = $this->runCmd(['action' => 'patch-plan', '--packet' => $packet, '--json' => true]);
         [, $planOut] = $this->runCmd(['action' => 'plan', '--packet' => $packet, '--json' => true]);
