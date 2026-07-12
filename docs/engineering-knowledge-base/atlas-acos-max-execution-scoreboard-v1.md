@@ -281,7 +281,7 @@
 - [ ] MULTX-07 — blocked_by:MULTX-01,MULTJ-05,ELEV-02 · A/B do M com braço pack-suprimido depende do runner MULTJ-05 aterrissado
 - [ ] MULTX-08 — blocked_by:MULTX-02 · breaker por família precisa do funil por família com denominador
 - [ ] REC-04 (shadow) — pending_window(m_over_1_measured) · shadow-only exige M>1 medido (REC-05 vivo, mas série ainda insufficient) e ≥3 hipóteses REC-01 elegíveis; flip shadow→atuar é gatilho EXCLUSIVO do operador (§1417)
-- [ ] REC-06 — blocked_by:REC-02,REC-03,REC-05 · freios do meta-loop consomem VOI/valor/M — todos aterrissados como MEDIDOR, mas sem série real ainda para armar o breaker
+- [x] REC-06 — landed(mechanism)+blocked_by:real_recursion_series · `atlas:acos:rec06-breakers --json` avalia VOI/REC-R/M_operator e mantém todos os breakers `disarmed` com `status=insufficient_signal` quando séries reais faltam ou não estão measured; só arma `low_voi`/`non_positive_r`/`operator_m_under_neutral` com as três séries reais presentes; live atual sem séries ⇒ `missing_real_series`, sem auto-pausa fabricada
 - [ ] TETO-04 — blocked_by:MARCO_ESP-V1 · 2º domínio depende do primeiro selar (Marco Zero v2 pos-ADV-01)
 - [ ] TETO-07 — blocked_by:TETO-04 · model-refresh drill exige que ≥1 domínio esteja em produção fora de engenharia
 

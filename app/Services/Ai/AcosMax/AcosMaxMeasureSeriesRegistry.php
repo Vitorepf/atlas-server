@@ -19,6 +19,7 @@ use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
+use App\Services\Ai\Governance\Recursion\MetaLoopBreakerService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
@@ -471,6 +472,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'recorded_at',
                 'ttl_days' => 90,
                 'ttl_source' => 'maxa-04-jina-v3-dual-read-window',
+            ],
+            [
+                'slice' => 'REC-06',
+                'series' => MetaLoopBreakerService::SCHEMA_VERSION,
+                'path' => 'atlas:acos:rec06-breakers --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 30,
+                'ttl_source' => 'rec-06-meta-loop-breaker-reader',
             ],
         ];
     }

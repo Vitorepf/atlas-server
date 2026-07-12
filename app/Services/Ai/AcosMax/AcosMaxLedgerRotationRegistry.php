@@ -290,6 +290,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MAXA-04 shadow dual-read receipts before any model promotion',
             ],
+            'atlas.acos.rec06.meta_loop_breakers.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'REC-06 computed breaker report; stays small until real series arm it',
+            ],
         ];
     }
 
