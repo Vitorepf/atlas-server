@@ -49,6 +49,36 @@ final class AtlasSoftwareTwinQualityFoundrySnapshotTest extends TestCase
         ]));
     }
 
+    public function test_unsupported_fact_type_and_missing_consumer_fail_closed(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts(array_replace($this->input(), [
+            'facts' => [array_replace($this->input()['facts'][0], ['type' => 'invented'])],
+        ]));
+    }
+
+    public function test_missing_consumer_fails_closed(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts(array_replace($this->input(), ['consumer' => '']));
+    }
+
+    public function test_all_canonical_fact_families_are_representable_without_source_payloads(): void
+    {
+        $families = ['code', 'contract', 'deploy_runtime', 'flag', 'incident', 'ownership', 'outcome', 'performance', 'security', 'docs', 'decision', 'concurrent_work', 'tool_provider'];
+        $input = $this->input();
+        $input['facts'] = array_map(static fn (string $type): array => [
+            'id' => 'family-'.$type, 'type' => $type, 'workspace_id' => 'atlas-server', 'source' => 'fixture-'.$type,
+            'hash' => hash('sha256', $type), 'status' => 'fresh', 'valid_from' => '2026-07-11T00:00:00Z',
+            'valid_until' => null, 'observed_at' => '2026-07-12T00:30:00Z', 'payload' => ['secret' => 'must-not-escape'],
+        ], $families);
+        $snapshot = AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts($input);
+
+        self::assertCount(count($families), $snapshot['facts']);
+        self::assertArrayNotHasKey('payload', $snapshot['facts'][0]);
+        self::assertSame([], $snapshot['conflicted']);
+    }
+
     public function test_snapshot_exposes_calibration_and_unresolved_prediction_refs_without_granting_claim(): void
     {
         $input = $this->input();
