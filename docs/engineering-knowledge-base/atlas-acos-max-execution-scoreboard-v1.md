@@ -71,7 +71,7 @@
 - [ ] MAXE-05 — pending
 - [ ] MAXB-09 — pending
 - [ ] MAXG-09 — pending_window(MAXG-01 p95 pós-land) · mecanismo landed: `AtlasRetrievalEvaluationBenchmarkArenaService` scoped + memo `risk:golden_set_hash`; 3 avaliações idênticas persistem 1 run-summary e duplicatas retornam `request_scope_duplicate`; arena tests verdes; MAXG-01 atual tem direction=`unknown` (sem baseline anterior suficiente)
-- [ ] MAXG-10 (+ELEV-16) — pending
+- [ ] MAXG-10 (+ELEV-16) — blocked_by:MAXG-09-p95-window · ELEV-16 floor intermediário exige queda p95 UserPromptSubmit ≥30% vs baseline semanal sem queda golden/counts; MAXG-09 ainda `pending_window`
 - [ ] MAXH-03 — pending
 - [ ] MAXK-05 — pending
 - [ ] MAXK-06 — pending
