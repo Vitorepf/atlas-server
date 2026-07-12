@@ -92,6 +92,31 @@ class ReplayVerifier
         ];
     }
 
+    /**
+     * Independently reproduce a persisted adjudication's content hash. A drift means the
+     * verdict on disk no longer matches its scored content, so the claim built on it is
+     * not replayable.
+     *
+     * @return array{verified: bool, failures: list<string>}
+     */
+    public function verifyAdjudication(string $runId): array
+    {
+        $path = RunPaths::adjudicationPath($runId);
+        if (! is_file($path)) {
+            return ['verified' => false, 'failures' => ['adjudication_not_found']];
+        }
+        $adjudication = json_decode((string) file_get_contents($path), true) ?? [];
+        $recorded = (string) ($adjudication['adjudication_hash'] ?? '');
+        if ($recorded === '') {
+            return ['verified' => false, 'failures' => ['adjudication_hash_missing']];
+        }
+        if (! hash_equals($recorded, Adjudicator::hashAdjudication($adjudication))) {
+            return ['verified' => false, 'failures' => ['adjudication_hash_mismatch']];
+        }
+
+        return ['verified' => true, 'failures' => []];
+    }
+
     /** @param array<string, mixed> $pack */
     private function verifyV1(string $runId, array $pack): array
     {

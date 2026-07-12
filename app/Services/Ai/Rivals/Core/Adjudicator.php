@@ -4,6 +4,7 @@ namespace App\Services\Ai\Rivals\Core;
 
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
+use App\Services\Ai\Rivals\Support\UsageCaptureContract;
 
 /**
  * SÓ hard gates, fail-closed. claim_allowed=false é o default.
@@ -99,7 +100,7 @@ class Adjudicator
                 }
                 $provider = (string) ($model['provider'] ?? '');
                 if ($provider === 'hermes') {
-                    foreach ((new \App\Services\Ai\Rivals\Support\UsageCaptureContract)
+                    foreach ((new UsageCaptureContract)
                         ->validate($receipt->data, 'hermes') as $usageBlocker) {
                         $internalBlockers[] = $usageBlocker.':'.$receipt->key();
                     }
@@ -290,6 +291,8 @@ class Adjudicator
         if ($violations !== []) {
             throw new \RuntimeException('rivals_invalid_adjudication:'.implode(',', $violations));
         }
+        // content-address the verdict so a claim replay reproduces the same adjudication
+        $adjudication['adjudication_hash'] = self::hashAdjudication($adjudication);
         RunPaths::ensureDir(RunPaths::runDir($runId));
         file_put_contents(
             RunPaths::adjudicationPath($runId),
@@ -297,6 +300,35 @@ class Adjudicator
         );
 
         return $adjudication;
+    }
+
+    /**
+     * Deterministic content hash of an adjudication verdict. The wall-clock timestamp
+     * and the hash field itself are excluded so replay from the same raw artifacts is
+     * byte-stable.
+     *
+     * @param  array<string,mixed>  $adjudication
+     */
+    public static function hashAdjudication(array $adjudication): string
+    {
+        unset($adjudication['adjudicated_at'], $adjudication['adjudication_hash']);
+
+        return hash('sha256', json_encode(
+            self::canonicalize($adjudication),
+            JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION,
+        ));
+    }
+
+    private static function canonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(self::canonicalize(...), $value);
     }
 
     private function isExternalSuite(string $suiteId): bool

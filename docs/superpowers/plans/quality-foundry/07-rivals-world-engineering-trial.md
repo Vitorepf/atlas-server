@@ -164,12 +164,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 
 **Allowed files:** Rivals evidence/replay/adjudication/report owners and focused tests.
 
-- [ ] Write RED cases for judge seeing author defense, same-model-family author/judge at R4/R5, hidden test omitted, implementation-dependent oracle, security/replay failure ignored, missing outcome scored green and contradictory outcome ignored.
-- [ ] Compose hidden, property, differential/metamorphic and implementation-independent tests; independent model investigators; security/privacy/performance/replay; historical artifact comparison; and real 0h–150d outcomes.
-- [ ] Give judges only frozen intent/spec/unit, artifact and evidence. Record judge family/version and disagreements.
-- [ ] Require 22 role dispositions and no critical block; unknown/unelapsed outcomes retain uncertainty and claim ineligibility.
-- [ ] Build a content-addressed evidence pack and replay it from raw artifacts to the same adjudication hash.
-- [ ] Run evidence pack, replay, adversarial adjudication, judge-independence and delayed/contradictory outcome tests.
+- [x] Write RED cases for judge seeing author defense, same-model-family author/judge at R4/R5, hidden test omitted, implementation-dependent oracle, security/replay failure ignored, missing outcome scored green and contradictory outcome ignored.
+- [ ] Compose hidden, property, differential/metamorphic and implementation-independent tests; independent model investigators; security/privacy/performance/replay; historical artifact comparison; and real 0h–150d outcomes. <!-- partial: AdversarialAdjudicationGate composes hidden + implementation-independent + security/replay + required observed/elapsed outcome and records judge disagreements; the live 0h–150d outcome READER over canonical EngineeringOutcome (referenced by release/run hash) and historical-artifact scoring are the packet-6 outcome-wiring half, still open. -->
+- [x] Give judges only frozen intent/spec/unit, artifact and evidence. Record judge family/version and disagreements.
+- [x] Require 22 role dispositions and no critical block; unknown/unelapsed outcomes retain uncertainty and claim ineligibility.
+- [x] Build a content-addressed evidence pack and replay it from raw artifacts to the same adjudication hash.
+- [x] Run evidence pack, replay, adversarial adjudication, judge-independence and delayed/contradictory outcome tests.
 
 **GREEN acceptance:** adjudication is independent, conjunctive and replayable; missing outcome/evidence cannot pass; disagreement/uncertainty is explicit.
 
