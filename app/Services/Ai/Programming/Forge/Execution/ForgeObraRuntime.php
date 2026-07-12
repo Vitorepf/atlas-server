@@ -1,0 +1,77 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\Programming\Forge\Execution;
+
+use App\Models\AiForgeIntake;
+use App\Models\AiForgeLongHorizonState;
+use App\Services\Ai\Programming\Forge\ForgeIntakeService;
+use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+
+final class ForgeObraRuntime
+{
+    public function __construct(
+        private readonly ForgeIntakeService $intakes,
+        private readonly ForgeLongHorizonStateService $states,
+        private readonly ForgeWorkPacketExecutionCycleService $cycles,
+    ) {}
+
+    public function commission(ForgeCommissioning $commissioning): ForgeObraSnapshot
+    {
+        return DB::transaction(function () use ($commissioning): ForgeObraSnapshot {
+            $intake = $this->intakes->intakeFromPrompt($commissioning->prompt, [
+                'workspace' => $commissioning->workspace, 'risk_band' => $commissioning->riskClass,
+                'recommended_forge_mode' => 'obra_intake', 'actor_type' => 'forge_commissioning',
+                'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
+                'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
+                'release_policy' => $commissioning->releasePolicy, 'interruption_policy' => $commissioning->interruptionPolicy,
+            ]);
+            $state = $this->states->initializeForIntake($intake);
+
+            return ForgeObraSnapshot::fromState($state, $commissioning->commissioningHash);
+        });
+    }
+
+    public function snapshot(ForgeObraId $obra): ForgeObraSnapshot
+    {
+        $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
+        if (! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
+
+        return ForgeObraSnapshot::fromState($state, (string) data_get($state->toArray(), 'commissioning_hash', ''));
+    }
+
+    public function tick(ForgeObraId $obra, ForgeTickBudget $budget): ForgeTickResult
+    {
+        $intake = AiForgeIntake::query()->find($obra->value);
+        $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
+        if (! $intake instanceof AiForgeIntake || ! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
+        $packet = app(ForgeWorkPacketExecutionCycleService::class)->selectPacket($intake, $state);
+        $snapshot = ForgeObraSnapshot::fromState($state, '');
+        if ($packet === null) return ForgeTickResult::idle($snapshot, 'no_eligible_packet');
+        $built = $this->cycles->planExecution($packet, [
+            'execution_mode' => $budget->allowProvider ? 'real' : 'safe_simulation', 'lease_seconds' => $budget->leaseSeconds,
+            'lease_owner' => 'forge-obra-runtime', 'scope_path' => (string) ($packet->scope ?? 'work-packet/'.$packet->packet_id),
+        ]);
+        $cycle = $this->cycles->startCycle($intake, $packet, $built, $state);
+        $state->refresh();
+
+        return ForgeTickResult::planned(ForgeObraSnapshot::fromState($state, ''), (string) $packet->packet_id, (string) $cycle->cycle_id);
+    }
+
+    public function control(ForgeObraId $obra, ForgeControlCommand $command): ForgeObraSnapshot
+    {
+        $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
+        if (! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
+        $reason = 'forge_control_'.$command->command;
+        $cycle = $command->command === 'resume'
+            ? ['resolve_blockers' => [$reason], 'cycle_id' => 'control-'.$command->command]
+            : ['blockers' => [['scope' => 'obra', 'target' => $obra->value, 'reason' => $reason, 'resolved' => false]], 'cycle_id' => 'control-'.$command->command];
+        $state = $this->states->recordCycle($state, $cycle);
+
+        return ForgeObraSnapshot::fromState($state, '');
+    }
+}
