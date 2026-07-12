@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\Programming\Forge;
 use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class ForgeScopeReservationServiceTest extends TestCase
@@ -195,6 +196,39 @@ class ForgeScopeReservationServiceTest extends TestCase
         $this->assertTrue($injected);
         $this->assertFalse($result['acquired']);
         $this->assertSame($winnerId, $result['reservation']['id']);
+    }
+
+    public function test_reservation_migration_is_reversible_on_an_isolated_database(): void
+    {
+        $connection = 'forge_reservation_migration_'.bin2hex(random_bytes(4));
+        $database = storage_path('framework/testing/'.$connection.'.sqlite');
+        @mkdir(\dirname($database), 0775, true);
+        @unlink($database);
+        touch($database);
+        config()->set('database.connections.'.$connection, [
+            'driver' => 'sqlite',
+            'database' => $database,
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ]);
+
+        $originalConnection = DB::getDefaultConnection();
+        DB::setDefaultConnection($connection);
+        DB::purge($connection);
+
+        try {
+            $migration = $this->reservationMigration();
+            $migration->up();
+            $this->assertTrue(Schema::connection($connection)->hasTable('atlas_task_scope_reservations'));
+
+            $migration->down();
+            $this->assertFalse(Schema::connection($connection)->hasTable('atlas_task_scope_reservations'));
+        } finally {
+            DB::disconnect($connection);
+            DB::setDefaultConnection($originalConnection);
+            DB::purge($connection);
+            @unlink($database);
+        }
     }
 
     public function test_two_independent_processes_leave_exactly_one_active_scope_owner(): void
