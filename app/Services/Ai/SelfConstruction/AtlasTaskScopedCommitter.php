@@ -7,7 +7,6 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
-use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionGateToken;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
@@ -67,7 +66,7 @@ final class AtlasTaskScopedCommitter
      * @param  array<string,mixed>|null  $verification  server-side verify result (ENG-04 certify seam)
      * @param  string  $commitAuthority  'autonomous' (default — constitution-gated self-edit) | 'operator' (atlas:land)
      * @param  array{token?:string,battery_root?:string,nonce?:string,consumed_nonces?:list<string>}|null  $constitution
-     *                Constitution PASS-token bind for a property_gated (self-edit) scope — verdict de MÁQUINA.
+     *                                                                                                                    Constitution PASS-token bind for a property_gated (self-edit) scope — verdict de MÁQUINA.
      * @return array<string, mixed>
      */
     public function commitScope(
@@ -158,35 +157,70 @@ final class AtlasTaskScopedCommitter
                 return $this->result(false, 'governed_pre_effect_revalidation_failed', taskPacketId: $taskPacketId);
             }
 
+            $message = $this->commitMessage($taskPacketId, $clientId, $objective);
+
+            if ($selfEditPaths !== []) {
+                $constitutionCommit = ($this->mergeActuator ?? app(AtlasLoopMergeActuator::class))
+                    ->commitWithConstitutionToken(
+                        $repo,
+                        $changed,
+                        $message,
+                        (string) ($constitution['token'] ?? ''),
+                        (string) ($constitution['battery_root'] ?? ''),
+                        (string) ($constitution['nonce'] ?? ''),
+                        array_values(array_map('strval', (array) ($constitution['consumed_nonces'] ?? []))),
+                        lockAlreadyHeld: true,
+                        commitAfterTokenVerified: function (string $postApplyTreeSha) use ($repo, $changed, $taskPacketId, $clientId, $files, $certify, $bootSmoke, $verification, $objective): array {
+                            // Partial commit: `-- <paths>` commits ONLY these paths regardless of what else is staged.
+                            $commit = $this->git($repo, array_merge(['commit', '-m', $this->commitMessage($taskPacketId, $clientId, $objective), '--'], $changed));
+                            if ($commit['code'] !== 0) {
+                                return $this->result(false, 'git_commit_failed', taskPacketId: $taskPacketId, extra: ['stderr' => $commit['err']]);
+                            }
+
+                            $sha = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
+                            $blackboardClaimRelease = $this->releaseCommittedBlackboardClaims($clientId, $changed);
+                            $remintTouchedQueue = $this->enqueueRemintTouchedForLanding($files, $taskPacketId, [
+                                'commit_sha' => $sha,
+                                'client_id' => $clientId,
+                            ]);
+                            $liveOutcomeFeedback = $this->recordLiveOutcomeFeedback(
+                                taskPacketId: $taskPacketId,
+                                clientId: $clientId,
+                                objective: $objective,
+                                verification: $verification,
+                                committed: true,
+                            );
+
+                            return $this->result(true, 'committed', taskPacketId: $taskPacketId, extra: array_filter([
+                                'commit_sha' => $sha,
+                                'files_committed' => $files,
+                                'client_id' => $clientId,
+                                'landing_certify' => $certify,
+                                'boot_smoke' => ($bootSmoke['warning'] ?? null) !== null ? $bootSmoke : null,
+                                'blackboard_claim_release' => $blackboardClaimRelease,
+                                'remint_touched_queue' => $remintTouchedQueue,
+                                'live_outcome_feedback' => $liveOutcomeFeedback,
+                            ], static fn (mixed $v): bool => $v !== null));
+                        },
+                    );
+
+                if (($constitutionCommit['committed'] ?? false) !== true && ! array_key_exists('task_packet_id', $constitutionCommit)) {
+                    return $this->result(false, (string) ($constitutionCommit['reason'] ?? 'constitution_commit_refused'), taskPacketId: $taskPacketId, extra: array_filter([
+                        'self_edit_paths' => $selfEditPaths,
+                        'tree_sha' => $constitutionCommit['tree_sha'] ?? null,
+                        'stderr' => $constitutionCommit['stderr'] ?? null,
+                    ], static fn (mixed $v): bool => $v !== null));
+                }
+
+                return $constitutionCommit;
+            }
+
             // Stage ONLY the changed scoped paths.
             $add = $this->git($repo, array_merge(['add', '--'], $changed));
             if ($add['code'] !== 0) {
                 return $this->result(false, 'git_add_failed', taskPacketId: $taskPacketId, extra: ['stderr' => $add['err']]);
             }
 
-            // Constitution spine (SEV-1): under the SAME lock, re-verify the PASS-token against the
-            // POST-APPLY tree (same bind as {@see AtlasLoopMergeActuator::commitWithConstitutionToken}) —
-            // a token minted for a different tree/battery, or a replayed nonce, NEVER commits.
-            if ($selfEditPaths !== []) {
-                $tree = $this->git($repo, ['write-tree']);
-                if ($tree['code'] !== 0) {
-                    return $this->result(false, 'constitution_write_tree_failed', taskPacketId: $taskPacketId, extra: ['stderr' => $tree['err']]);
-                }
-                $verdict = (new AtlasLoopConstitutionGateToken)->verify(
-                    (string) ($constitution['token'] ?? ''),
-                    trim((string) $tree['out']),
-                    (string) ($constitution['battery_root'] ?? ''),
-                    (string) ($constitution['nonce'] ?? ''),
-                    array_values(array_map('strval', (array) ($constitution['consumed_nonces'] ?? []))),
-                );
-                if (($verdict['valid'] ?? false) !== true) {
-                    return $this->result(false, 'constitution_token_invalid:'.((string) ($verdict['reason'] ?? 'unknown')), taskPacketId: $taskPacketId, extra: [
-                        'self_edit_paths' => $selfEditPaths,
-                    ]);
-                }
-            }
-
-            $message = $this->commitMessage($taskPacketId, $clientId, $objective);
             // Partial commit: `-- <paths>` commits ONLY these paths regardless of what else is staged.
             $commit = $this->git($repo, array_merge(['commit', '-m', $message, '--'], $changed));
             if ($commit['code'] !== 0) {
