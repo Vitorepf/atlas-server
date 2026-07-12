@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticWorkcell;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -152,9 +153,9 @@ final class AtlasAgenticWorkcellCertificationService
         ]));
         $roleIds = collect($workcell['role_roster'] ?? [])->pluck('role_id')->all();
         $ok = ($workcell['topology'] ?? null) === 'forge_milestone_crew'
-            && in_array('lead_architect', $roleIds, true)
-            && in_array('final_certifier', $roleIds, true)
-            && count($roleIds) >= 8;
+            && in_array('architecture', $roleIds, true)
+            && in_array('final_certification', $roleIds, true)
+            && $roleIds === EngineeringRoleRoster::OFFICIAL_ROLES;
 
         return $this->check('forge_crew_smoke', $ok, ['topology' => $workcell['topology'] ?? null, 'roles' => $roleIds], 'Forge-scale work must produce a milestone crew.');
     }
@@ -187,8 +188,8 @@ final class AtlasAgenticWorkcellCertificationService
         ]));
         $roleIds = collect($workcell['role_roster'] ?? [])->pluck('role_id')->all();
         $ok = ($workcell['topology'] ?? null) === 'red_blue_team'
-            && in_array('red_team_critic', $roleIds, true)
-            && in_array('final_adjudicator', $roleIds, true);
+            && in_array('product_strategy', $roleIds, true)
+            && in_array('final_certification', $roleIds, true);
 
         return $this->check('red_blue_smoke', $ok, ['topology' => $workcell['topology'] ?? null, 'roles' => $roleIds], 'Strategy/high-risk work must use adversarial roles.');
     }
@@ -204,7 +205,7 @@ final class AtlasAgenticWorkcellCertificationService
             'evidence_refs' => ['capability:gap'],
         ]));
         $ok = ($workcell['topology'] ?? null) === 'tool_builder_loop'
-            && in_array('simulation_verifier', collect($workcell['role_roster'] ?? [])->pluck('role_id')->all(), true);
+            && in_array('qa_testing', collect($workcell['role_roster'] ?? [])->pluck('role_id')->all(), true);
 
         return $this->check('tool_builder_smoke', $ok, ['topology' => $workcell['topology'] ?? null], 'Capability gaps must route through tool-builder loop.');
     }

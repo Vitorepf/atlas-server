@@ -9,6 +9,7 @@ use App\Models\AtlasAgenticWorkcellEvent;
 use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -455,22 +456,19 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function roleRoster(string $topology, string $domain, string $flowId, int $risk, array $input): array
     {
-        $roles = match ($topology) {
-            'solo_agent' => ['lead_executor', 'independent_verifier'],
-            'parallel_scouts' => ['lead_synthesizer', 'context_scout', 'risk_scout', 'implementation_scout', 'independent_verifier'],
-            'mapreduce_research' => ['lead_synthesizer', 'source_scout', 'counter_source_scout', 'domain_analyst', 'evidence_auditor', 'final_synthesizer'],
-            'red_blue_team' => ['lead_decision_owner', 'blue_team_builder', 'red_team_critic', 'policy_reviewer', 'evidence_auditor', 'final_adjudicator'],
-            'forge_milestone_crew' => ['lead_architect', 'codebase_cartographer', 'backend_worker', 'frontend_worker', 'test_engineer', 'documentation_engineer', 'policy_reviewer', 'evidence_auditor', 'final_certifier'],
-            'tool_builder_loop' => ['capability_gap_analyst', 'tool_designer', 'sandbox_builder', 'simulation_verifier', 'policy_reviewer', 'release_certifier'],
-            'critic_chain' => ['lead_triage', 'policy_critic', 'evidence_critic', 'safety_critic', 'operator_handoff'],
-            default => ['lead_planner', 'worker', 'critic', 'verifier', 'synthesizer'],
-        };
+        $riskBand = $this->riskBand($risk);
+        $topologyAssignments = $this->topologyAssignments($topology);
 
-        return collect($roles)
-            ->map(function (string $role, int $index) use ($domain, $flowId, $risk): array {
+        return collect(EngineeringRoleRoster::OFFICIAL_ROLES)
+            ->map(function (string $role, int $index) use ($domain, $flowId, $risk, $riskBand, $topologyAssignments): array {
                 return [
                     'role_id' => $role,
                     'agent_index' => $index + 1,
+                    'membership_source' => 'EngineeringRoleRoster::OFFICIAL_ROLES',
+                    'risk_band' => $riskBand,
+                    'depth' => $this->depthProfile($riskBand, $role),
+                    'topology_assignment' => $topologyAssignments[$role] ?? 'supporting_review',
+                    'independent_context' => in_array($role, ['qa_testing', 'evidence_audit', 'final_certification'], true),
                     'domain' => $domain,
                     'flow_id' => $flowId,
                     'context_scope' => $this->roleContextScope($role),
@@ -481,6 +479,40 @@ final class AtlasAgenticWorkcellRuntimeService
             })
             ->values()
             ->all();
+    }
+
+    private function riskBand(int $risk): string
+    {
+        return match (true) {
+            $risk <= 1 => 'R0', $risk <= 3 => 'R1', $risk <= 5 => 'R2',
+            $risk <= 7 => 'R3', $risk <= 9 => 'R4', default => 'R5',
+        };
+    }
+
+    private function depthProfile(string $riskBand, string $role): string
+    {
+        if ($riskBand === 'R0') return 'minimal_evidence';
+        if ($riskBand === 'R1') return 'light_independent_review';
+        if ($riskBand === 'R2') return 'standard_contract_integration';
+        if ($riskBand === 'R3') return 'multi_verifier_regression_compatibility';
+        if ($riskBand === 'R4') return in_array($role, ['appsec_privacy', 'performance_resilience', 'devops_sre', 'evidence_audit'], true)
+            ? 'security_mutation_property_chaos_rollback' : 'deep_independent_regression';
+
+        return 'competing_candidates_different_family_disaster_drill';
+    }
+
+    /** @return array<string,string> */
+    private function topologyAssignments(string $topology): array
+    {
+        $assignments = array_fill_keys(EngineeringRoleRoster::OFFICIAL_ROLES, 'supporting_review');
+        $assignments['product_strategy'] = 'lead';
+        $assignments['product_management'] = 'coordination';
+        $assignments['architecture'] = $topology === 'forge_milestone_crew' ? 'lead_architecture' : 'design';
+        $assignments['evidence_audit'] = 'independent_audit';
+        $assignments['final_certification'] = 'final_certification';
+        $assignments['qa_testing'] = 'independent_verification';
+
+        return $assignments;
     }
 
     /**
@@ -786,7 +818,8 @@ final class AtlasAgenticWorkcellRuntimeService
     private function roleContextScope(string $roleId): string
     {
         return match (true) {
-            str_contains($roleId, 'verifier') || str_contains($roleId, 'critic') || str_contains($roleId, 'reviewer') => 'read_only_evidence_and_outputs',
+            str_contains($roleId, 'verifier') || str_contains($roleId, 'critic') || str_contains($roleId, 'reviewer')
+                || in_array($roleId, ['qa_testing', 'evidence_audit', 'final_certification', 'outcome_analysis'], true) => 'read_only_evidence_and_outputs',
             str_contains($roleId, 'worker') || str_contains($roleId, 'builder') => 'owned_work_packet_only',
             str_contains($roleId, 'scout') || str_contains($roleId, 'cartographer') => 'retrieval_and_mapping_only',
             default => 'goal_and_coordination_context',
@@ -800,7 +833,8 @@ final class AtlasAgenticWorkcellRuntimeService
     {
         return [
             'must_return' => ['summary', 'evidence_refs', 'confidence', 'blockers', 'next_action'],
-            'role_specific_artifact' => str_contains($roleId, 'verifier') || str_contains($roleId, 'critic') ? 'verification_report' : 'work_product_or_findings',
+            'role_specific_artifact' => str_contains($roleId, 'verifier') || str_contains($roleId, 'critic')
+                || in_array($roleId, ['qa_testing', 'evidence_audit', 'final_certification'], true) ? 'verification_report' : 'work_product_or_findings',
             'forbidden_output' => ['unsupported_completion_claim', 'hidden_assumptions', 'raw_secret_or_credential'],
         ];
     }
@@ -810,7 +844,8 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function roleToolBoundary(string $roleId, int $risk): array
     {
-        $readOnly = str_contains($roleId, 'critic') || str_contains($roleId, 'auditor') || str_contains($roleId, 'reviewer') || str_contains($roleId, 'scout');
+        $readOnly = str_contains($roleId, 'critic') || str_contains($roleId, 'auditor') || str_contains($roleId, 'reviewer') || str_contains($roleId, 'scout')
+            || in_array($roleId, ['qa_testing', 'evidence_audit', 'final_certification', 'outcome_analysis'], true);
 
         return [
             'read_only' => $readOnly,
@@ -828,7 +863,8 @@ final class AtlasAgenticWorkcellRuntimeService
         if ($index === 0) {
             return [];
         }
-        if (str_contains($roleId, 'verifier') || str_contains($roleId, 'auditor') || str_contains($roleId, 'certifier') || str_contains($roleId, 'synthesizer') || str_contains($roleId, 'adjudicator') || str_contains($roleId, 'critic')) {
+        if (str_contains($roleId, 'verifier') || str_contains($roleId, 'auditor') || str_contains($roleId, 'certifier') || str_contains($roleId, 'synthesizer') || str_contains($roleId, 'adjudicator') || str_contains($roleId, 'critic')
+            || in_array($roleId, ['qa_testing', 'evidence_audit', 'final_certification', 'outcome_analysis'], true)) {
             return [$leadTaskId];
         }
 
@@ -841,7 +877,7 @@ final class AtlasAgenticWorkcellRuntimeService
     private function expectedArtifacts(string $roleId): array
     {
         return match (true) {
-            str_contains($roleId, 'verifier') => ['verification_report', 'failed_or_passed_checks'],
+            str_contains($roleId, 'verifier') || in_array($roleId, ['qa_testing', 'evidence_audit', 'final_certification'], true) => ['verification_report', 'failed_or_passed_checks'],
             str_contains($roleId, 'critic') => ['risk_report', 'counterarguments'],
             str_contains($roleId, 'auditor') => ['evidence_manifest', 'missing_evidence'],
             str_contains($roleId, 'worker') || str_contains($roleId, 'builder') => ['work_product', 'changed_artifacts_or_plan'],
