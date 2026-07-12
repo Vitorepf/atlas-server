@@ -179,8 +179,8 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 
 **Allowed files:** existing Kernel adapters, AtlasDev/Forge/SelfConstruction integration seams, coverage registry, compatibility translators, readiness projections and matching tests.
 
-- [ ] Extend the static mutative-surface census and write RED tests for every direct provider, filesystem, Git, release or deploy bypass.
-- [ ] Write RED parity tests proving each mode produces the same order fields, 22 dispositions, evidence floor, Governor path and terminal-status semantics for an equivalent fixture.
+- [x] Extend the static mutative-surface census and write RED tests for every direct provider, filesystem, Git, release or deploy bypass.
+- [x] Write RED parity tests proving each mode produces the same order fields, 22 dispositions, evidence floor, Governor path and terminal-status semantics for an equivalent fixture.
 - [ ] Route all existing mode entrypoints through Kernel; v1 façade only translates request/response and writes v2.
 - [ ] Verify there is one provider invocation and one mutation per idempotency key; shadow remains replay/read-only.
 - [ ] Produce Kernel, Dev, Forge and Autônomos readiness manifests from live receipts, not config intent.
