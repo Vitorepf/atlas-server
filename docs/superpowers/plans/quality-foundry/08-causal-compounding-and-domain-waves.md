@@ -128,7 +128,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [ ] Write RED fixtures where high-volume shallow tasks outrank a low-volume dependency bottleneck, stale domain facts dominate, repeated failures are forgotten or outcome-free work receives credit.
 - [x] Project a domain map from Software Twin/world facts: capabilities, owners, dependencies, consumers, recurrence, failures/outcomes, maturity, evidence gaps and freshness.
 - [x] Extend existing structural-leverage comparator/ranker to score dependency reach, recurrence, outcome gap, simplification opportunity, verification strength and blast radius.
-- [ ] Feed real outcome memory and recurrence maps into ranking; missing/stale outcomes lower confidence rather than becoming success.
+- [x] Feed real outcome memory and recurrence maps into ranking; missing/stale outcomes lower confidence rather than becoming success. Evidence: `AtlasExternalBrainOutcomeSignalProjector` projects canonical outcome payloads and recurrence into the Strategy Council; fresh, stale, invalid and absent outcomes are covered by `AtlasExternalBrainOutcomeSignalProjectorTest` and the strategy-loop command integration test.
 - [ ] Emit ranked proposal evidence into existing Proposal Arena/Task Fabric; do not create tasks merely to fill a quota.
 - [x] Run structural-leverage, outcome-weighted critical-path, recurrence/freshness and deterministic ranking tests.
 

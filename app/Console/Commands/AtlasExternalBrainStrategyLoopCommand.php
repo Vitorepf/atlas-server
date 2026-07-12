@@ -8,6 +8,7 @@ use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilAmbitio
 use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilDecisionLedger;
 use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilLeverageRanker;
 use App\Services\Ai\SelfConstruction\StrategyCouncil\AtlasStrategyCouncilRoadmapCandidateFilter;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOutcomeSignalProjector;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -65,6 +66,15 @@ final class AtlasExternalBrainStrategyLoopCommand extends Command
         }
 
         $candidates = is_array($decoded['candidates'] ?? null) ? $decoded['candidates'] : [];
+        $outcomeMemory = is_array($decoded['outcomes'] ?? null)
+            ? $decoded['outcomes']
+            : (is_array($decoded['outcome_memory'] ?? null) ? $decoded['outcome_memory'] : []);
+        $outcomeProjection = (new AtlasExternalBrainOutcomeSignalProjector)->project(
+            $candidates,
+            $outcomeMemory,
+            is_array($decoded['recurrence_map'] ?? null) ? $decoded['recurrence_map'] : [],
+        );
+        $candidates = $outcomeProjection['candidates'];
         $scopes = is_array($decoded['admitted_owner_scopes'] ?? null) ? array_map('strval', $decoded['admitted_owner_scopes']) : [];
         $workerFloorLow = (bool) ($decoded['worker_floor_low'] ?? false);
         $rankerContext = is_array($decoded['ranker_context'] ?? null) ? $decoded['ranker_context'] : [];
@@ -130,6 +140,10 @@ final class AtlasExternalBrainStrategyLoopCommand extends Command
             'ranked' => $ranked['ranked'],
             'rejected_by_ranker' => $ranked['rejected'],
             'ambition' => $ambition,
+            'outcome_projection' => [
+                'schema' => $outcomeProjection['schema'],
+                'signals' => $outcomeProjection['signals'],
+            ],
             'decision' => $decisionResult,
             'decision_skipped_reason' => $decisionSkippedReason,
         ];

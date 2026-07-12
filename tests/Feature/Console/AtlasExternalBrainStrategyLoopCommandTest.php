@@ -167,4 +167,26 @@ final class AtlasExternalBrainStrategyLoopCommandTest extends TestCase
         $this->assertSame('high', $result['decision']['row']['selected_candidate_id']);
         $this->assertContains('low', $result['decision']['row']['rejected_candidate_ids']);
     }
+
+    public function test_strategy_loop_feeds_fresh_outcome_memory_into_ranking(): void
+    {
+        $result = $this->callCommand([
+            'candidates' => [
+                $this->validCandidate('shallow', ['capability_gap' => 3]),
+                $this->validCandidate('bottleneck', ['capability_gap' => 3]),
+            ],
+            'outcomes' => [[
+                'candidate_id' => 'bottleneck',
+                'outcome' => 'delivered',
+                'outcome_id' => 'outcome-bottleneck',
+                'observed_at' => gmdate('c'),
+            ]],
+            'recurrence_map' => ['candidate_id:bottleneck' => 3],
+            'ambition_facts' => $this->readyAmbitionFacts(),
+        ]);
+
+        $this->assertSame('bottleneck', $result['ranked'][0]['candidate_id']);
+        $this->assertSame('positive', $result['outcome_projection']['signals']['bottleneck']['outcome_signal']);
+        $this->assertSame('unknown', $result['outcome_projection']['signals']['shallow']['outcome_signal']);
+    }
 }
