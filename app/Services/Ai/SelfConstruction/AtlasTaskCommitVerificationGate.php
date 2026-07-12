@@ -126,6 +126,14 @@ final class AtlasTaskCommitVerificationGate
                     $t['out'],
                     ($checks['task_tests'] ?? '') === 'pass',
                 );
+                $executionEvidence['test_attestation'] = (new AtlasTestAttestationService)->attest(
+                    runner: 'artisan_test',
+                    suite: $testFiles,
+                    nTests: (int) ($executionEvidence['tests_run'] ?? 0),
+                    nAssertions: (int) ($executionEvidence['assertions_executed'] ?? 0),
+                    exitCode: $t['ok'] ? 0 : 1,
+                    treeHash: (new AtlasTestAttestationService)->stateHash($repo, $changed),
+                );
             }
         } else {
             $checks['task_tests'] = 'skip';
@@ -146,7 +154,12 @@ final class AtlasTaskCommitVerificationGate
             $failOpenReason = '';
         }
 
-        return $this->passed('verified', $checks, $proofStrength, $failOpenReason, $executionEvidence);
+        $result = $this->passed('verified', $checks, $proofStrength, $failOpenReason, $executionEvidence);
+        if (isset($executionEvidence['test_attestation']) && is_array($executionEvidence['test_attestation'])) {
+            $result['test_attestation'] = $executionEvidence['test_attestation'];
+        }
+
+        return $result;
     }
 
     private function isTestPath(string $path): bool

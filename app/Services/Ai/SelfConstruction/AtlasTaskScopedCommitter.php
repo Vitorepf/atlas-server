@@ -118,7 +118,7 @@ final class AtlasTaskScopedCommitter
         if ($verification !== null) {
             $certify = $this->certifyLanding($files, $taskPacketId, $verification);
             if (($certify['allowed'] ?? false) !== true) {
-                return $this->result(false, (string) ($certify['reason'] ?? 'landing_certify_refused'), taskPacketId: $taskPacketId, extra: [
+                return $this->result(false, 'landing_certify_refused', taskPacketId: $taskPacketId, extra: [
                     'landing_certify' => $certify,
                 ]);
             }
@@ -298,6 +298,30 @@ final class AtlasTaskScopedCommitter
         $execution = (array) ($verification['execution_evidence'] ?? []);
         $proofStrength = (string) ($verification['proof_strength'] ?? 'boot_proven');
         $hasDeclaredTests = $this->scopeDeclaresTests($allowedFiles);
+        $attestation = is_array($verification['test_attestation'] ?? null)
+            ? (array) $verification['test_attestation']
+            : (is_array($execution['test_attestation'] ?? null) ? (array) $execution['test_attestation'] : []);
+        if ($attestation !== []) {
+            $attestationVerdict = (new AtlasTestAttestationService)->validate(
+                $attestation,
+                (new AtlasTestAttestationService)->stateHash($this->repoRoot(), $allowedFiles),
+            );
+            $hardAttestationBlockers = array_values(array_intersect(
+                $attestationVerdict['blockers'],
+                ['attestation_stale', 'runner_unrecognized'],
+            ));
+            if ($hardAttestationBlockers !== []) {
+                return [
+                    'allowed' => false,
+                    'reason' => in_array('attestation_stale', $attestationVerdict['blockers'], true)
+                        ? 'attestation_stale'
+                        : 'test_attestation_invalid',
+                    'proof_strength' => $proofStrength,
+                    'test_attestation' => $attestation,
+                    'attestation_verdict' => $attestationVerdict,
+                ];
+            }
+        }
 
         try {
             $criteria = ['task_packet_id' => $taskPacketId, 'allowed_files' => $allowedFiles];

@@ -151,6 +151,30 @@ final class AtlasTaskLandingCertifyTest extends TestCase
         $this->assertSame('seed', trim($this->git(['log', '-1', '--pretty=%s'])['out']));
     }
 
+    public function test_edit_after_green_test_makes_attestation_stale_and_refuses_commit(): void
+    {
+        $files = ['app/Services/Ai/SelfConstruction/Qux.php', 'tests/Unit/Ai/SelfConstruction/QuxTest.php'];
+        $this->writeFile($files[0], "<?php\nclass Qux { public function value(): int { return 1; } }\n");
+        $this->writeFile($files[1], "<?php\nclass QuxTest {}\n");
+
+        $verification = $this->verifyWithRunner($files, [
+            'lint' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'boot' => ['ran' => true, 'ok' => true, 'out' => ''],
+            'test' => ['ran' => true, 'ok' => true, 'out' => "OK (1 test, 2 assertions)\n"],
+        ]);
+        $this->assertSame('valid', data_get($verification, 'test_attestation.status'));
+
+        $this->writeFile($files[0], "<?php\nclass Qux { public function value(): int { return 2; } }\n");
+
+        $committer = new AtlasTaskScopedCommitter(null, $this->repo);
+        $result = $committer->commitScope($files, 'task-stale-attestation', 'client-e', 'wire qux', $verification);
+
+        $this->assertFalse($result['committed']);
+        $this->assertSame('landing_certify_refused', $result['reason']);
+        $this->assertSame('attestation_stale', data_get($result, 'landing_certify.reason'));
+        $this->assertSame('seed', trim($this->git(['log', '-1', '--pretty=%s'])['out']));
+    }
+
     public function test_parse_run_counts_extracts_phpunit_summary(): void
     {
         [$tests, $assertions, $parseable] = AtlasTaskCommitVerificationGate::parseRunCounts("OK (5 tests, 12 assertions)\n");

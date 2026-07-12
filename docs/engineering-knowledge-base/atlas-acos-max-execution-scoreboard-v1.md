@@ -80,7 +80,7 @@
 - [x] MAXN-03 (scaffold) — landed · `OperatorProfileFeedbackService` calcula ajuste puro por comportamento com n<10 ⇒ `insufficient_sample`, apply gera reverse-handle e revert restaura confidence/status; digest expõe `behavior_confidence_curve`; fecho M4 continua pendente em `MAXN-03 (fecho)` até MAXN-02/outcomes reais
 - [ ] MULTN15-06 — pending
 - [x] ESP-02 — landed · `AtlasNativeWorkerCommandPlanRunner` valida comandos estruturados por `argv/cwd/timeout_s/env_allowlist`; `sh|bash|zsh -c` em argv é recusado com `shell_escape_argv`; shell-string legado é contado em observe e recusado com `structured_command_enforce`; test: `php artisan test tests/Unit/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerCommandPlanRunnerTest.php`
-- [ ] ESP-03 — pending
+- [x] ESP-03 — landed · `AtlasTestAttestationService` sela `{runner,suite,n_tests,n_assertions,exit_code,tree_hash}`; `AtlasTaskCommitVerificationGate` emite attestation para task tests e `AtlasTaskScopedCommitter` recusa stale/unrecognized antes do commit; `n_tests=0` permanece vacuous/false-green, nunca verde; tests: `php artisan test tests/Unit/Ai/SelfConstruction/AtlasTestAttestationServiceTest.php tests/Feature/Ai/SelfConstruction/AtlasTaskLandingCertifyTest.php`
 - [ ] ESP-05 — pending
 - [ ] ELEV-19 — pending
 - [ ] ELEV-24 — pending
