@@ -92,6 +92,40 @@ final class CompactionZeroLossRecoveryTest extends TestCase
         $this->assertSame($memoryEntryExistsBefore, Schema::hasTable('atlas_memory_entries') ? \DB::table('atlas_memory_entries')->count() : 0);
     }
 
+    public function test_recovery_hit_increments_session_state_importance_without_writing_memory(): void
+    {
+        AiSessionState::query()->create([
+            'thread_id' => '00000000-0000-0000-0000-000000000789',
+            'session_id' => '00000000-0000-0000-0000-000000000987',
+            'active' => true,
+            'objective' => 'MAXF-06 measured importance',
+            'decisions' => [
+                ['id' => 'decision-important', 'text' => 'Recovered decisions should become harder to drop.', 'importance' => 0],
+            ],
+            'open_loops' => [],
+            'next_steps' => [],
+            'constraints' => [],
+        ]);
+
+        $receiptPayload = app(AiCompactionService::class)->compactForScope([
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_DEV_SESSION,
+            'scope_id' => '00000000-0000-0000-0000-000000000789',
+            'forced_discards' => [
+                ['id' => 'decision-important', 'reason' => AtlasLongHorizonCanon::DISCARDED_REASON_BUDGET_PRESSURE],
+            ],
+        ]);
+        $receipt = AtlasLongHorizonCompactionReceipt::query()
+            ->where('uuid', $receiptPayload['receipt_uuid'])
+            ->firstOrFail();
+
+        app(CompactionRecoveryExecutor::class)->recover($receipt);
+
+        $state = AiSessionState::query()->firstOrFail();
+        $this->assertSame(1.0, (float) data_get($state->decisions, '0.importance'));
+        $this->assertFalse(Schema::hasTable('ai_memory_deltas'));
+        $this->assertFalse(Schema::hasTable('atlas_memory_entries'));
+    }
+
     private function createSessionStateTable(): void
     {
         Schema::dropIfExists('ai_session_states');

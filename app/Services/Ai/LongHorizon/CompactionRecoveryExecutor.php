@@ -43,6 +43,8 @@ final class CompactionRecoveryExecutor
                 continue;
             }
 
+            $this->recordSessionStateRecoveryHit($parsed['kind'], $parsed['id']);
+
             $items[$key] = $item + [
                 'kind' => $parsed['kind'],
                 'id' => $parsed['id'],
@@ -120,6 +122,37 @@ final class CompactionRecoveryExecutor
         }
 
         return null;
+    }
+
+    private function recordSessionStateRecoveryHit(string $kind, string $id): void
+    {
+        $column = match ($kind) {
+            'decision' => 'decisions',
+            'blocker' => 'open_loops',
+            'dod' => 'next_steps',
+            'risk_critical' => 'constraints',
+            default => null,
+        };
+        if ($column === null || ! Schema::hasTable('ai_session_states')) {
+            return;
+        }
+
+        /** @var iterable<int,AiSessionState> $states */
+        $states = AiSessionState::query()->latest('updated_at')->limit(200)->get();
+        foreach ($states as $state) {
+            $entries = array_values((array) ($state->{$column} ?? []));
+            foreach ($entries as $index => $entry) {
+                if (! is_array($entry) || (string) ($entry['id'] ?? '') !== $id) {
+                    continue;
+                }
+
+                $entry['importance'] = round(((float) ($entry['importance'] ?? 0.0)) + 1.0, 4);
+                $entries[$index] = $entry;
+                $state->forceFill([$column => $entries])->save();
+
+                return;
+            }
+        }
     }
 
     /**
