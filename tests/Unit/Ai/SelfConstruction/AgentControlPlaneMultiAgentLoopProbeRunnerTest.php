@@ -133,6 +133,25 @@ final class AtlasAiSelfConstructionAgentControlPlaneMultiAgentLoopProbeRunnerTes
         $this->assertSame(['w1', 'w2'], $result['stale_workers']);
     }
 
+    public function test_external_session_is_not_counted_as_worker_even_with_activity_signal(): void
+    {
+        $result = $this->makeRunner()->probeParallelism([
+            'workers' => [$this->worker([
+                'worker_id' => 'external-session-1',
+                'runtime_owner' => 'external_session',
+                'lease_moved' => true,
+                'report_events_count' => 2,
+            ])],
+            'queue_depth_before' => 10,
+            'queue_depth_after' => 10,
+        ]);
+
+        $this->assertSame(AgentControlPlaneMultiAgentLoopProbeRunner::PARALLELISM_STATUS_IDLE, $result['parallelism_status']);
+        $this->assertSame([], $result['active_workers']);
+        $this->assertSame([], $result['productive_workers']);
+        $this->assertSame(['external-session-1'], $result['excluded_workers']);
+    }
+
     public function test_lease_movement_marks_worker_productive(): void
     {
         $result = $this->makeRunner()->probeParallelism([

@@ -1186,6 +1186,7 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
         $activeWorkers = [];
         $productiveWorkers = [];
         $staleWorkers = [];
+        $excludedWorkers = [];
 
         foreach ($workers as $worker) {
             if (! is_array($worker)) {
@@ -1193,6 +1194,7 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
             }
 
             $workerId = (string) ($worker['worker_id'] ?? '');
+            $runtimeOwner = strtolower(trim((string) ($worker['runtime_owner'] ?? 'atlas_native')));
             $active = (bool) ($worker['active'] ?? false);
             $leaseMoved = (bool) ($worker['lease_moved'] ?? false);
             $reportEvents = max(0, (int) ($worker['report_events_count'] ?? 0));
@@ -1201,9 +1203,29 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
 
             $productive = $leaseMoved || $reportEvents > 0 || $outcomeFresh;
 
+            if (! in_array($runtimeOwner, ['atlas_native', 'atlas_server'], true)) {
+                if ($workerId !== '') {
+                    $excludedWorkers[] = $workerId;
+                }
+                $perWorker[] = [
+                    'worker_id' => $workerId,
+                    'runtime_owner' => $runtimeOwner,
+                    'active' => false,
+                    'eligible_worker' => false,
+                    'productive' => false,
+                    'lease_moved' => $leaseMoved,
+                    'report_events_count' => $reportEvents,
+                    'outcome_fresh' => $outcomeFresh,
+                ];
+
+                continue;
+            }
+
             $perWorker[] = [
                 'worker_id' => $workerId,
+                'runtime_owner' => $runtimeOwner,
                 'active' => $active,
+                'eligible_worker' => true,
                 'productive' => $active && $productive,
                 'lease_moved' => $leaseMoved,
                 'report_events_count' => $reportEvents,
@@ -1237,6 +1259,7 @@ function terminalBootstrapContext(string $runId, int $probeAgentCount): array
             'active_workers' => $activeWorkers,
             'productive_workers' => $productiveWorkers,
             'stale_workers' => $staleWorkers,
+            'excluded_workers' => array_values(array_unique($excludedWorkers)),
             'queue_depth_change' => $queueDepthChange,
             'per_worker' => $perWorker,
         ];
