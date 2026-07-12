@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Console\Command;
 use Throwable;
@@ -169,6 +170,36 @@ final class AtlasAcosFreezeCommand extends Command
             ],
             'comparison' => 'M = value_per_turn_acos / value_per_turn_raw, grouped separately by window and mode (interactive|delegated).',
             'dual_read_required' => false,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    public static function lessonQualityFreezePayload(): array
+    {
+        return [
+            'kind' => 'measure_freeze',
+            'measure_id' => AtlasLessonQualityService::MEASURE_ID,
+            'formula_version' => AtlasLessonQualityService::FORMULA_VERSION,
+            'formula' => 'Group ai_learning_candidates joined to ai_rag_feedback_events by memory_candidate_id and OUTC-01 run outcomes by memory_type x flow_id x scope; expose candidate_count, promoted_rate, measured_lift, case_count, negative_count, measured_count, total.',
+            'thresholds' => [
+                'denominator_min_measured_cases_per_group' => AtlasLessonQualityService::DENOMINATOR_MIN,
+                'empty_window_status' => 'insufficient_signal',
+                'single_scalar_score_allowed' => false,
+            ],
+            'denominator_min' => AtlasLessonQualityService::DENOMINATOR_MIN,
+            'ttl_days' => 30,
+            'author_engine_id' => 'cursor-acos-max-maxj-01',
+            'judge_engine_id' => 'codex-independent-lesson-quality-judge',
+            'series' => [
+                'id' => AtlasLessonQualityService::MEASURE_ID,
+                'reader_command' => 'atlas:ai:lesson-quality --json',
+                'registry_status' => 'registered_elev_20s',
+            ],
+            'dual_read' => [
+                'valor_antigo' => 'atlas.ai.learning_recall_use_lift.v1 aggregate reader unchanged',
+                'valor_novo' => 'atlas.ai.lesson_quality.v2 grouped lesson-quality reader',
+                'justificativa' => 'MAXJ-01 adds a grouped v2 medidor beside the frozen aggregate RecallUseLift v1 reader.',
+            ],
         ];
     }
 

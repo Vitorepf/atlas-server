@@ -43,7 +43,7 @@
 - [x] MAXH-01 — landed · freeze `atlas.memory.temporal_truth.v2` content_hash=`36dcc27f7ccc5006d5f1a6cde2ebd4d5fd719d4e6a6c0781dc9f3e50fc84a23a` · cmd `atlas:memory:temporal-quality --json` · live status=`attention`, temporal_provenance=0/90, truth_density_v2=0/86, supersession_maintained=0/0 · registry=registered(ELEV-20s); guard global pendente por MAXI-02 já landed sem registry · tests: `php artisan test tests/Feature/Ai/Memory/AtlasMemoryTemporalQualityCommandTest.php`
 - [x] MAXI-02 — landed · CaptureService keeps `atlas.capture.cognitive_immune_audit.v1` byte-stable and emits real evaluator shadow verdict under `immune_audit_v2` (`atlas.capture.cognitive_immune_audit.v2`); `AtlasMemoryCognitiveImmuneLearningKernelService::evaluatePromotion()` adapts legacy envelope from `CognitiveImmunePromotionGateEvaluator`; audit v2 hash changes with verdict; tests: `php artisan test tests/Feature/Ai/Cognition/ImmuneVerdictSingleAuthorityTest.php`
 - [ ] MAXI-03 — pending
-- [ ] MAXJ-01 — pending
+- [x] MAXJ-01 — landed · freeze `atlas.ai.lesson_quality.v2` content_hash=`411b23244dd0603539f5914cfe3e8101e928bca1ad2bcc7580e111bc971fb26b` · formula_version=`atlas_ai_lesson_quality_v2` · denominator_min=1 · cmd `atlas:ai:lesson-quality --json` · live status=`insufficient_signal`, candidates=23, measured=0/23, groups=1 · registry=registered(ELEV-20s) · v1 RecallUseLift aggregate unchanged/dual-read · tests: `php artisan test tests/Unit/Ai/Compounding/AtlasLessonQualityServiceTest.php`
 - [ ] MAXJ-05 — pending
 - [ ] MAXK-01 — pending
 - [ ] MAXK-04 — pending

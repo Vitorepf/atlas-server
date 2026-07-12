@@ -8,6 +8,7 @@ use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
+use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 
@@ -153,6 +154,15 @@ final class AcosMaxMeasureSeriesRegistry
                 ],
                 'ttl_days' => AtlasOperatorReviewDebtMeter::TTL_DAYS,
                 'ttl_source' => 'freeze:acos.operator_review_debt.v1',
+            ],
+            [
+                'slice' => 'MAXJ-01',
+                'series' => AtlasLessonQualityService::MEASURE_ID,
+                'path' => 'atlas:ai:lesson-quality --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AtlasAcosFreezeCommand::lessonQualityFreezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.lesson_quality.v2',
             ],
             [
                 'slice' => 'MULTK-01',
