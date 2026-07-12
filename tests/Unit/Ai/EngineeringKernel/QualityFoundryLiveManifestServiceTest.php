@@ -25,7 +25,10 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertFalse($manifest['completion_allowed']);
         self::assertSame(4, $manifest['summary']['required_modes']);
         self::assertSame(0, $manifest['summary']['ready_modes']);
-        self::assertContains('provider_invocation_not_once', $manifest['blockers']);
+        self::assertNotContains('provider_invocation_not_once', $manifest['blockers']);
+        self::assertNotContains('mutation_not_once', $manifest['blockers']);
+        self::assertSame(1, $manifest['idempotency_evidence']['provider_invocations']);
+        self::assertSame(1, $manifest['idempotency_evidence']['mutations']);
         self::assertNotContains('mode_parity_missing', $manifest['blockers']);
 
         foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
@@ -72,6 +75,10 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertNotEmpty(array_filter(
             $commands,
             static fn (array $command): bool => in_array('tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php', $command, true),
+        ));
+        self::assertNotEmpty(array_filter(
+            $commands,
+            static fn (array $command): bool => in_array('tests/Feature/Ai/EngineeringKernel/QualityFoundryExactlyOnceEvidenceTest.php', $command, true),
         ));
         foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
             self::assertTrue($manifest['manifests'][$mode]['evidence']['rollback_exercised']);

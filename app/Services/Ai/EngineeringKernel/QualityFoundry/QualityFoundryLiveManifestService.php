@@ -16,6 +16,7 @@ use Symfony\Component\Process\Process;
 final class QualityFoundryLiveManifestService
 {
     private const ROLLBACK_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php';
+    private const EXACTLY_ONCE_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/QualityFoundryExactlyOnceEvidenceTest.php';
 
     /** @var array<string,list<string>> */
     private const MODE_TESTS = [
@@ -71,7 +72,11 @@ final class QualityFoundryLiveManifestService
         foreach (self::MODE_TESTS as $mode => $tests) {
             $modes[$mode] = $this->runMode(
                 $mode,
-                array_values(array_unique([...$tests, self::ROLLBACK_EVIDENCE_TEST])),
+                array_values(array_unique([
+                    ...$tests,
+                    self::ROLLBACK_EVIDENCE_TEST,
+                    self::EXACTLY_ONCE_EVIDENCE_TEST,
+                ])),
                 $root,
             );
         }
@@ -82,11 +87,24 @@ final class QualityFoundryLiveManifestService
             'modes' => $modes,
             'mode_parity' => ($parityEvidence['parity'] ?? false) === true,
             'mode_parity_evidence' => $parityEvidence,
-            // A mode-order parity fixture does not prove exactly-once provider
-            // invocation or mutation against a production shadow boundary.
-            'idempotency' => ['provider_invocations' => 0, 'mutations' => 0],
+            'idempotency' => [
+                'provider_invocations' => $this->allModesEvidencePass($modes, 'exactly_once_provider'),
+                'mutations' => $this->allModesEvidencePass($modes, 'exactly_once_mutation'),
+            ],
             'shadow' => ['replay_only' => true, 'mutation_allowed' => false],
         ]);
+    }
+
+    /** @param array<string,array<string,mixed>> $modes */
+    private function allModesEvidencePass(array $modes, string $evidence): int
+    {
+        foreach ($modes as $receipt) {
+            if (data_get($receipt, 'evidence.'.$evidence) !== true) {
+                return 0;
+            }
+        }
+
+        return 1;
     }
 
     /** @return array<string,mixed> */
@@ -179,6 +197,8 @@ final class QualityFoundryLiveManifestService
             'evidence' => [
                 'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'exactly_once_provider' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'exactly_once_mutation' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
             ],
             // The canonical rollback suite asserts provisional and terminal
             // outcome events through AtlasEvidenceLedger. This is test-path

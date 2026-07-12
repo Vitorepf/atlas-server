@@ -89,6 +89,10 @@ final class QualityFoundryModeReadinessManifestService
                 'mutation_allowed' => ($shadow['mutation_allowed'] ?? true) === true,
             ],
             'parity_evidence' => is_array($input['mode_parity_evidence'] ?? null) ? $input['mode_parity_evidence'] : null,
+            'idempotency_evidence' => [
+                'provider_invocations' => (int) ($idempotency['provider_invocations'] ?? 0),
+                'mutations' => (int) ($idempotency['mutations'] ?? 0),
+            ],
             'claim_eligible' => false,
             'comparative_claims_allowed' => false,
         ];
