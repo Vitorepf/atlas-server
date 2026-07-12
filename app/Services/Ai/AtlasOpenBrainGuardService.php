@@ -6,6 +6,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use App\Services\Engineering\CodeGraph\CodeGraphWorkspacePrivacy;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Throwable;
 
@@ -87,12 +88,32 @@ class AtlasOpenBrainGuardService
 
     public const HONESTY_LABEL = 'curated top-K (not exhaustive); advisory-by-default, fail-open';
 
+    public const BLACKBOARD_HOT_FILE_LIST_VERSION = 'acos-max-elev-22.v1';
+
+    public const BLACKBOARD_HOT_FILE_CLAIM_TTL_SECONDS = 900;
+
+    /**
+     * ELEV-22 shared edit hot-list. Exact entries are workspace-relative; `*` entries
+     * are fnmatch-style globs. Keep this list versioned so hook warnings and tests can
+     * cite the coordination contract that produced them.
+     *
+     * @var list<string>
+     */
+    private const BLACKBOARD_HOT_FILE_PATTERNS = [
+        'routes/console.php',
+        'config/atlas.php',
+        'settings.json',
+        '.claude/settings.json',
+        'docs/obra*.md',
+        'docs/**/obra*.md',
+    ];
+
     /**
      * AREA words → class, matched ONLY against whole path DIRECTORY segments (so an
      * area folder like `app/Finance/...` or `secrets/vault/...` is caught, but a
      * class named `PaymentLedgerWriter` in a normal folder is NOT — a name that
      * merely CONTAINS an area word must never be mis-classified sovereign and brick a
-     * session). Mirrors {@see \App\Services\Engineering\CodeGraph\CodeGraphWorkspacePrivacy}
+     * session). Mirrors {@see CodeGraphWorkspacePrivacy}
      * so the sentinel and the graph agree on what "sovereign" means. PRIORITY order:
      * first matching class wins (cyber > secret > sensitive).
      *
@@ -128,11 +149,11 @@ class AtlasOpenBrainGuardService
      *
      * @param  string  $path  the file the edit targets (absolute or workspace-relative).
      * @param  array<string,mixed>  $opts  optional:
-     *   - diff: the proposed diff / new content (drives duplication + contradiction).
-     *   - workspace: explicit workspace path OR id (wins over cwd / default).
-     *   - cwd: caller's working directory, resolved to a workspace id.
-     *   - budget: total char ceiling for the assembled warning.
-     *   - block_enabled: override the config flag (tests / explicit opt-in).
+     *                                     - diff: the proposed diff / new content (drives duplication + contradiction).
+     *                                     - workspace: explicit workspace path OR id (wins over cwd / default).
+     *                                     - cwd: caller's working directory, resolved to a workspace id.
+     *                                     - budget: total char ceiling for the assembled warning.
+     *                                     - block_enabled: override the config flag (tests / explicit opt-in).
      * @return array<string,mixed> {schema, decision, reasons, evidence, ...} — see SCHEMA.
      */
     public function evaluate(string $path, array $opts = []): array
@@ -160,8 +181,9 @@ class AtlasOpenBrainGuardService
             $decisions = $this->decisionViolationCheck($relPath, $stem, $diff, $workspaceId, $maxDecisions);
             // (b) DUPLICATION — a new symbol the code-graph already has elsewhere.
             $duplication = $this->duplicationCheck($relPath, $stem, $diff, $workspaceId, $maxDuplicates);
-            // (d) N2.F4 BLACKBOARD — another engine already holds this target (advisory).
-            $claimConflict = $this->blackboardConflictCheck($relPath, $workspaceId, $opts);
+            // (d) N2.F4 BLACKBOARD — hot files require the asking engine's own claim;
+            // another engine holding the target remains an advisory conflict.
+            $claimConflict = $this->blackboardClaimCheck($relPath, $workspaceId, $opts);
 
             return $this->assemble(
                 $relPath,
@@ -469,46 +491,59 @@ class AtlasOpenBrainGuardService
     }
 
     /**
-     * (d) N2.F4 BLACKBOARD — does ANOTHER engine already hold an active claim on the
-     * file being edited? The blackboard ({@see AtlasAobgBlackboardService}) is the
-     * shared coordination surface where Claude Code / Codex / Cursor stamp "I'm editing
-     * fileX". When the asking engine is about to touch a target another engine holds,
-     * the guard surfaces "codex is editing this file" — coordination DURING flight.
+     * (d) N2.F4 BLACKBOARD — ELEV-22 makes shared hot files claim-required and keeps
+     * the existing "another engine already holds this target" conflict warning.
+     * The blackboard ({@see AtlasAobgBlackboardService}) is the shared coordination
+     * surface where Claude Code / Codex / Cursor stamp "I'm editing fileX".
      *
-     * ADVISORY-ONLY by construction: a cross-engine claim is a heads-up, NEVER a block
-     * (two engines wanting the same file is a coordination signal, not a sovereign
-     * violation; blocking on it would brick a legitimate hand-off). The asking engine
-     * is read from opts.engine and EXCLUDED, so an engine never warns about its own
-     * claim. Fail-safe: any fault → no finding (the blackboard is best-effort).
+     * ADVISORY-ONLY by construction: a missing own claim or cross-engine claim is a
+     * heads-up, NEVER a block. Fail-safe: any fault / unavailable table → no finding
+     * (the blackboard is best-effort and must never stall editing).
      *
      * @param  array<string,mixed>  $opts
-     * @return array{present:bool, items:list<array{engine:string, kind:string, claimed_at:?string}>, chars:int}
+     * @return array{present:bool, hot_file:bool, missing_own_claim:bool, hot_list_version:string, items:list<array{engine:string, kind:string, claimed_at:?string}>, chars:int}
      */
-    private function blackboardConflictCheck(string $relPath, string $workspaceId, array $opts): array
+    private function blackboardClaimCheck(string $relPath, string $workspaceId, array $opts): array
     {
-        $empty = ['present' => false, 'items' => [], 'chars' => 0];
+        $empty = [
+            'present' => false,
+            'hot_file' => false,
+            'missing_own_claim' => false,
+            'hot_list_version' => self::BLACKBOARD_HOT_FILE_LIST_VERSION,
+            'items' => [],
+            'chars' => 0,
+        ];
         if ($relPath === '') {
             return $empty;
         }
 
+        $hotFile = $this->isBlackboardHotFile($relPath);
         try {
             $askingEngine = $this->stringOpt($opts, 'engine') ?? '';
-            $conflicts = $this->blackboard->conflictsFor($relPath, [
+            $all = $this->blackboard->conflictsFor($relPath, [
                 'workspace' => $workspaceId,
-                'except_engine' => $askingEngine,
             ]);
         } catch (Throwable) {
             return $empty; // best-effort, never a gate
         }
+        if (($all['workspace'] ?? '') === '' && (int) ($all['count'] ?? 0) === 0) {
+            return $empty; // blackboard unavailable: fail-open, never warn on phantom absence
+        }
 
         $items = [];
         $chars = 0;
-        foreach ((array) ($conflicts['claims'] ?? []) as $claim) {
+        $hasOwnClaim = false;
+        foreach ((array) ($all['claims'] ?? []) as $claim) {
             if (! is_array($claim)) {
                 continue;
             }
             $engine = trim((string) ($claim['engine'] ?? ''));
             if ($engine === '') {
+                continue;
+            }
+            if ($askingEngine !== '' && $engine === $askingEngine) {
+                $hasOwnClaim = true;
+
                 continue;
             }
             $items[] = [
@@ -519,7 +554,16 @@ class AtlasOpenBrainGuardService
             $chars += strlen($engine);
         }
 
-        return ['present' => $items !== [], 'items' => $items, 'chars' => $chars];
+        $missingOwnClaim = $hotFile && ! $hasOwnClaim;
+
+        return [
+            'present' => $items !== [] || $missingOwnClaim,
+            'hot_file' => $hotFile,
+            'missing_own_claim' => $missingOwnClaim,
+            'hot_list_version' => self::BLACKBOARD_HOT_FILE_LIST_VERSION,
+            'items' => $items,
+            'chars' => $chars,
+        ];
     }
 
     // ------------------------------------------------------------------
@@ -610,6 +654,23 @@ class AtlasOpenBrainGuardService
             ];
         }
 
+        if (($claimConflict['missing_own_claim'] ?? false) === true) {
+            $reasons[] = sprintf(
+                'HOT-FILE-CLAIM: "%s" is on the shared hot-file list (%s). Create or refresh your own blackboard claim before editing: atlas_claim_task {engine, kind=file, target="%s", ttl=%d}.',
+                $relPath,
+                (string) ($claimConflict['hot_list_version'] ?? self::BLACKBOARD_HOT_FILE_LIST_VERSION),
+                $relPath,
+                self::BLACKBOARD_HOT_FILE_CLAIM_TTL_SECONDS,
+            );
+            $evidence[] = [
+                'check' => 'blackboard_hot_file_claim',
+                'path' => $relPath,
+                'hot_list_version' => (string) ($claimConflict['hot_list_version'] ?? self::BLACKBOARD_HOT_FILE_LIST_VERSION),
+                'required_ttl_seconds' => self::BLACKBOARD_HOT_FILE_CLAIM_TTL_SECONDS,
+                'confidence' => 'high',
+            ];
+        }
+
         // N2.F4 BLACKBOARD claim-conflict reasons (always advisory — coordination, not
         // a gate). Surfaces "<engine> is already editing this file" so the engines step
         // around each other instead of stomping the same target.
@@ -661,7 +722,8 @@ class AtlasOpenBrainGuardService
                 'sensitive_class' => $sensitive['present'],
                 'decision_violation' => $decisions['present'],
                 'duplication' => $duplication['present'],
-                'blackboard_claim' => $claimConflict['present'],
+                'blackboard_claim' => $claimConflict['items'] !== [],
+                'blackboard_hot_file_claim' => (bool) ($claimConflict['missing_own_claim'] ?? false),
                 'exact_decision_contradiction' => $hasExactDecision,
             ],
             'counts' => [
@@ -669,6 +731,7 @@ class AtlasOpenBrainGuardService
                 'decisions' => count($decisions['items']),
                 'duplicates' => count($duplication['items']),
                 'claim_conflicts' => count($claimConflict['items']),
+                'hot_file_claim_missing' => (bool) ($claimConflict['missing_own_claim'] ?? false) ? 1 : 0,
             ],
             'warning' => $reasonText,
             'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
@@ -701,9 +764,10 @@ class AtlasOpenBrainGuardService
                 'decision_violation' => false,
                 'duplication' => false,
                 'blackboard_claim' => false,
+                'blackboard_hot_file_claim' => false,
                 'exact_decision_contradiction' => false,
             ],
-            'counts' => ['reasons' => 0, 'decisions' => 0, 'duplicates' => 0, 'claim_conflicts' => 0],
+            'counts' => ['reasons' => 0, 'decisions' => 0, 'duplicates' => 0, 'claim_conflicts' => 0, 'hot_file_claim_missing' => 0],
             'warning' => '',
             'fail_open' => true,
             'elapsed_ms' => (int) round((microtime(true) - $startedAt) * 1000),
@@ -765,6 +829,22 @@ class AtlasOpenBrainGuardService
         }
 
         return mb_strtolower(trim($short)) === $candidate;
+    }
+
+    private function isBlackboardHotFile(string $relPath): bool
+    {
+        $relPath = ltrim(str_replace('\\', '/', trim($relPath)), '/');
+        if ($relPath === '') {
+            return false;
+        }
+
+        foreach (self::BLACKBOARD_HOT_FILE_PATTERNS as $pattern) {
+            if ($pattern === $relPath || fnmatch($pattern, $relPath, FNM_PATHNAME)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

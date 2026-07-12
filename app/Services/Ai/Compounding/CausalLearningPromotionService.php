@@ -12,7 +12,7 @@ final class CausalLearningPromotionService
 {
     public function __construct(private readonly ?AtlasEvidenceLedger $ledger = null) {}
 
-    public function promote(CausalLearningCandidate $candidate, CausalLearningVerdict $verdict, string $nextVersion): CausalLearningPromotion
+    public function promote(CausalLearningCandidate $candidate, CausalLearningVerdict $verdict, string $nextVersion, array $evidenceArtifacts = []): CausalLearningPromotion
     {
         if ($verdict->verdict !== 'promote_reversible' || ! in_array($candidate->data['change_class'], ['routing', 'memory_policy', 'operational_policy'], true)) {
             throw new InvalidArgumentException('causal_policy_promotion_refused');
@@ -30,6 +30,10 @@ final class CausalLearningPromotionService
         }
         if (date_create_immutable((string) $candidate->data['expiry']) <= new \DateTimeImmutable('now')) {
             throw new InvalidArgumentException('causal_policy_promotion_expired');
+        }
+        $binding = (new CausalLearningEvidenceBindingVerifier)->verify($candidate, $evidenceArtifacts);
+        if (! $binding['admitted']) {
+            throw new InvalidArgumentException('causal_evidence_binding_unresolved');
         }
         if ($candidate->data['reversible'] !== true || trim($candidate->data['rollback']) === '' || trim($nextVersion) === '') {
             throw new InvalidArgumentException('causal_policy_rollback_contract_invalid');

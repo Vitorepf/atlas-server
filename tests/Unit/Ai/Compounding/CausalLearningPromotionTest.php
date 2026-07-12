@@ -17,7 +17,7 @@ final class CausalLearningPromotionTest extends TestCase
     {
         $candidate = CausalLearningCandidate::fromArray($this->candidate());
         $service = new CausalLearningPromotionService;
-        $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+        $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
 
         self::assertSame('promoted', $promotion->status);
         self::assertSame('atlas.route', $promotion->scope);
@@ -29,7 +29,7 @@ final class CausalLearningPromotionTest extends TestCase
     {
         $candidate = CausalLearningCandidate::fromArray($this->candidate());
         $service = new CausalLearningPromotionService;
-        $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+        $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
 
         $revoked = $service->revoke($promotion, 'late_regression');
 
@@ -42,7 +42,7 @@ final class CausalLearningPromotionTest extends TestCase
         $candidate = CausalLearningCandidate::fromArray(array_replace($this->candidate(), ['change_class' => 'code_task']));
 
         $this->expectException(InvalidArgumentException::class);
-        (new CausalLearningPromotionService)->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+        (new CausalLearningPromotionService)->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
     }
 
     public function test_verdict_from_another_candidate_cannot_be_reused(): void
@@ -52,7 +52,7 @@ final class CausalLearningPromotionTest extends TestCase
         $verdict = (new CausalLearningGate)->adjudicate($other);
 
         $this->expectExceptionMessage('causal_verdict_stale_or_mismatched');
-        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2', $this->artifacts($candidate));
     }
 
     public function test_claim_eligibility_cannot_be_escalated_by_learning_layer(): void
@@ -62,7 +62,7 @@ final class CausalLearningPromotionTest extends TestCase
         $verdict = new CausalLearningVerdict($gateVerdict->verdict, $gateVerdict->reason, $gateVerdict->decisionHash, true);
 
         $this->expectExceptionMessage('causal_claim_authority_escalation');
-        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2', $this->artifacts($candidate));
     }
 
     public function test_expired_candidate_cannot_be_promoted_even_with_a_stale_green_verdict(): void
@@ -81,7 +81,17 @@ final class CausalLearningPromotionTest extends TestCase
         );
 
         $this->expectExceptionMessage('causal_policy_promotion_expired');
-        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2', $this->artifacts($candidate));
+    }
+
+    public function test_missing_or_invalid_live_artifact_blocks_promotion(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray($this->candidate());
+        $artifacts = $this->artifacts($candidate);
+        $artifacts[0]['integrity_valid'] = false;
+
+        $this->expectExceptionMessage('causal_evidence_binding_unresolved');
+        (new CausalLearningPromotionService)->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $artifacts);
     }
 
     /** @return array<string,mixed> */
@@ -106,5 +116,14 @@ final class CausalLearningPromotionTest extends TestCase
                 'authority' => ['hash' => str_repeat('1', 64), 'artifact_id' => 'authority-1'],
             ],
         ];
+    }
+
+    /** @return list<array{artifact_id:string,hash:string,integrity_valid:bool}> */
+    private function artifacts(CausalLearningCandidate $candidate): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): array => $ref + ['integrity_valid' => true],
+            $candidate->data['binding_refs'],
+        ));
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainGuardService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
@@ -217,6 +218,64 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
         $this->assertFalse($verdict['checks']['blackboard_claim']);
     }
 
+    public function test_hot_file_without_own_claim_warns_with_versioned_hot_list(): void
+    {
+        $verdict = $this->service()->evaluate('routes/console.php', [
+            'diff' => '+ // shared route edit',
+            'engine' => 'claude_code',
+        ]);
+
+        $this->assertTrue($verdict['checks']['blackboard_hot_file_claim']);
+        $this->assertSame(AtlasOpenBrainGuardService::DECISION_WARN, $verdict['decision']);
+        $this->assertSame('acos-max-elev-22.v1', $verdict['evidence'][0]['hot_list_version']);
+        $this->assertStringContainsString('HOT-FILE-CLAIM', (string) $verdict['warning']);
+        $this->assertStringContainsString('atlas_claim_task', (string) $verdict['warning']);
+    }
+
+    public function test_hot_file_with_own_claim_is_allow_when_no_other_guard_fires(): void
+    {
+        $this->seedClaim('claude_code', 'file', 'routes/console.php');
+
+        $verdict = $this->service()->evaluate('routes/console.php', [
+            'diff' => '+ // shared route edit',
+            'engine' => 'claude_code',
+        ]);
+
+        $this->assertFalse($verdict['checks']['blackboard_hot_file_claim']);
+        $this->assertFalse($verdict['checks']['blackboard_claim']);
+        $this->assertSame(AtlasOpenBrainGuardService::DECISION_ALLOW, $verdict['decision']);
+    }
+
+    public function test_hot_file_with_foreign_claim_warns_as_cross_engine_conflict(): void
+    {
+        $this->seedClaim('codex', 'file', 'routes/console.php');
+        $this->seedClaim('cursor', 'file', 'routes/console.php');
+
+        $verdict = $this->service()->evaluate('routes/console.php', [
+            'diff' => '+ // shared route edit',
+            'engine' => 'claude_code',
+        ]);
+
+        $this->assertTrue($verdict['checks']['blackboard_claim']);
+        $this->assertTrue($verdict['checks']['blackboard_hot_file_claim']);
+        $this->assertSame(AtlasOpenBrainGuardService::DECISION_WARN, $verdict['decision']);
+        $this->assertStringContainsString('CROSS-ENGINE-CLAIM', (string) $verdict['warning']);
+        $this->assertStringContainsString('codex', (string) $verdict['warning']);
+        $this->assertStringContainsString('cursor', (string) $verdict['warning']);
+        $this->assertSame(2, (int) ($verdict['counts']['claim_conflicts'] ?? 0));
+    }
+
+    public function test_non_hot_file_without_claim_has_no_claim_requirement_warning(): void
+    {
+        $verdict = $this->service()->evaluate('app/Services/Ai/NotShared/Worker.php', [
+            'diff' => '+ class Worker {}',
+            'engine' => 'claude_code',
+        ]);
+
+        $this->assertFalse($verdict['checks']['blackboard_hot_file_claim']);
+        $this->assertSame(AtlasOpenBrainGuardService::DECISION_ALLOW, $verdict['decision']);
+    }
+
     // ---------------- clean edit + safety floor ----------------
 
     public function test_clean_edit_with_empty_brain_is_allow(): void
@@ -290,7 +349,7 @@ final class AtlasOpenBrainGuardServiceTest extends TestCase
             $this->app->make(AtlasRealityGraphQueryService::class),
             $this->app->make(AtlasHybridMemoryRetrievalService::class),
             $boom,
-            $this->app->make(\App\Services\Ai\AtlasAobgBlackboardService::class),
+            $this->app->make(AtlasAobgBlackboardService::class),
         );
 
         $verdict = $service->evaluate('secrets/vault/api.keys', ['diff' => '+ class Foo {}']);

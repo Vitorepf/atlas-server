@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai;
 
+use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionGateToken;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -30,10 +33,12 @@ final class AtlasTaskScopedCommitterTest extends TestCase
         @file_put_contents($this->repo.'/README.md', "seed\n");
         $this->git(['add', 'README.md']);
         $this->git(['commit', '-q', '-m', 'seed']);
+        $this->createBlackboardTable();
     }
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_aobg_blackboard');
         File::deleteDirectory($this->repo);
         parent::tearDown();
     }
@@ -87,7 +92,7 @@ final class AtlasTaskScopedCommitterTest extends TestCase
 
         $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope([$filename], 'task-nc', 'client-nc', 'non-ascii commit');
 
-        $this->assertTrue($res['committed'], 'file with non-ASCII path must commit; reason: '.(string)($res['reason'] ?? 'none'));
+        $this->assertTrue($res['committed'], 'file with non-ASCII path must commit; reason: '.(string) ($res['reason'] ?? 'none'));
         $this->assertContains($filename, $res['files_committed']);
     }
 
@@ -168,11 +173,50 @@ final class AtlasTaskScopedCommitterTest extends TestCase
         $this->assertTrue($res['committed'], 'reason: '.(string) ($res['reason'] ?? ''));
     }
 
+    public function test_successful_commit_releases_active_blackboard_claims_for_committed_paths(): void
+    {
+        $blackboard = $this->app->make(AtlasAobgBlackboardService::class);
+        $claim = $blackboard->claim('client-alpha', 'file', 'app/A/Alpha.php', ['ttl' => 60]);
+        $this->assertTrue($claim['ok']);
+
+        $this->writeFile('app/A/Alpha.php', "<?php // A\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo, blackboard: $blackboard))
+            ->commitScope(['app/A/Alpha.php'], 'task-a', 'client-alpha', 'do A');
+
+        $this->assertTrue($res['committed'], 'reason: '.(string) ($res['reason'] ?? ''));
+        $this->assertSame(1, $res['blackboard_claim_release']['released_count']);
+        $this->assertSame(0, $blackboard->conflictsFor('app/A/Alpha.php')['count']);
+        $this->assertSame('released', DB::table('atlas_aobg_blackboard')->where('id', $claim['claim']['id'])->value('status'));
+    }
+
+    public function test_failed_commit_does_not_release_blackboard_claims(): void
+    {
+        $blackboard = $this->app->make(AtlasAobgBlackboardService::class);
+        $claim = $blackboard->claim('client-empty', 'file', 'app/A/Missing.php', ['ttl' => 60]);
+        $this->assertTrue($claim['ok']);
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo, blackboard: $blackboard))
+            ->commitScope(['app/A/Missing.php'], 'task-empty', 'client-empty');
+
+        $this->assertFalse($res['committed']);
+        $this->assertSame('nothing_to_commit_in_scope', $res['reason']);
+        $this->assertSame('active', DB::table('atlas_aobg_blackboard')->where('id', $claim['claim']['id'])->value('status'));
+    }
+
     private function writeFile(string $rel, string $content): void
     {
         $path = $this->repo.'/'.$rel;
         @mkdir(\dirname($path), 0775, true);
         @file_put_contents($path, $content);
+    }
+
+    private function createBlackboardTable(): void
+    {
+        Schema::dropIfExists('atlas_aobg_blackboard');
+
+        $migration = require database_path('migrations/2026_06_10_120000_create_atlas_aobg_blackboard_table.php');
+        $migration->up();
     }
 
     /** @param list<string> $args @return array{code:int,out:string,err:string} */
@@ -183,5 +227,4 @@ final class AtlasTaskScopedCommitterTest extends TestCase
 
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
-
 }

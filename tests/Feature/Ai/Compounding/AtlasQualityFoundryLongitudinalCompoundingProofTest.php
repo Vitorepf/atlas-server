@@ -22,7 +22,7 @@ final class AtlasQualityFoundryLongitudinalCompoundingProofTest extends TestCase
         $candidate = CausalLearningCandidate::fromArray($this->candidate());
         $gate = new CausalLearningGate;
         $verdict = $gate->adjudicate($candidate);
-        $promotion = (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+        $promotion = (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2', $this->artifacts($candidate));
 
         self::assertSame('promote_reversible', $verdict->verdict);
         self::assertSame('promoted', $promotion->status);
@@ -50,14 +50,14 @@ final class AtlasQualityFoundryLongitudinalCompoundingProofTest extends TestCase
 
         self::assertSame('emit_code_task', $verdict->verdict);
         $this->expectExceptionMessage('causal_policy_promotion_refused');
-        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'code-v2');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'code-v2', $this->artifacts($candidate));
     }
 
     public function test_late_regression_rolls_back_and_requests_rivals_revocation_and_repair(): void
     {
         $candidate = CausalLearningCandidate::fromArray($this->candidate());
         $promotionService = new CausalLearningPromotionService;
-        $promotion = $promotionService->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+        $promotion = $promotionService->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
         $revoked = $promotionService->revoke($promotion, 'late_adverse_outcome');
 
         $claim = (new RivalsClaimAuthority)->issue($this->claimEvidence());
@@ -122,5 +122,14 @@ final class AtlasQualityFoundryLongitudinalCompoundingProofTest extends TestCase
             'issued_at' => '2026-07-12T00:00:00Z', 'expires_at' => '2026-10-10T00:00:00Z',
             'invalidators' => ['frontier_change', 'late_adverse_outcome'], 'evidence_refs' => ['rivals://pack/b'],
         ];
+    }
+
+    /** @return list<array{artifact_id:string,hash:string,integrity_valid:bool}> */
+    private function artifacts(CausalLearningCandidate $candidate): array
+    {
+        return array_values(array_map(
+            static fn (array $ref): array => $ref + ['integrity_valid' => true],
+            $candidate->data['binding_refs'],
+        ));
     }
 }

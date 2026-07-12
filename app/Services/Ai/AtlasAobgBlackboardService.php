@@ -66,12 +66,12 @@ class AtlasAobgBlackboardService
      * Claim a target for an engine. Idempotent + conflict-aware + fail-open.
      *
      * @param  string  $engine  the engine claiming (claude_code|codex|cursor|atlas|...).
-     * @param  string  $kind    one of task|file|mission (default file).
+     * @param  string  $kind  one of task|file|mission (default file).
      * @param  string  $target  the file path or task/mission ref being claimed.
      * @param  array<string,mixed>  $opts  optional:
-     *   - ttl: claim lifetime in seconds (default config; clamped to max_ttl_seconds).
-     *   - workspace / cwd: scope (path OR id); default the primary atlas-server.
-     *   - meta: small bounded note ref (no content).
+     *                                     - ttl: claim lifetime in seconds (default config; clamped to max_ttl_seconds).
+     *                                     - workspace / cwd: scope (path OR id); default the primary atlas-server.
+     *                                     - meta: small bounded note ref (no content).
      * @return array{schema:string, ok:bool, status:string, claim:?array<string,mixed>, conflict:?array<string,mixed>, workspace:string, provider_bound:bool}
      */
     public function claim(string $engine, string $kind, string $target, array $opts = []): array
@@ -183,6 +183,76 @@ class AtlasAobgBlackboardService
             return ['schema' => self::SCHEMA, 'ok' => true, 'released' => $affected > 0, 'id' => $claimId];
         } catch (Throwable) {
             return ['schema' => self::SCHEMA, 'ok' => true, 'released' => false, 'id' => $claimId];
+        }
+    }
+
+    /**
+     * Release this engine's active file claims for a committed path set. This is the
+     * post-commit cleanup seam for scoped landings: best-effort, idempotent, and never
+     * a commit gate.
+     *
+     * @param  list<string>  $targets
+     * @param  array<string,mixed>  $opts
+     * @return array{schema:string,ok:bool,released_count:int,claim_ids:list<string>,provider_bound:bool}
+     */
+    public function releaseActiveForTargets(string $engine, string $kind, array $targets, array $opts = []): array
+    {
+        try {
+            if (! $this->tableReady()) {
+                return ['schema' => self::SCHEMA, 'ok' => true, 'released_count' => 0, 'claim_ids' => [], 'provider_bound' => true];
+            }
+
+            $engine = $this->normalizeEngine($engine);
+            $kind = $this->normalizeKind($kind);
+            $normalizedTargets = [];
+            foreach ($targets as $target) {
+                $normalized = $this->normalizeTarget((string) $target);
+                if ($normalized !== '') {
+                    $normalizedTargets[$normalized] = true;
+                }
+            }
+            $targets = array_keys($normalizedTargets);
+            if ($engine === '' || $targets === []) {
+                return ['schema' => self::SCHEMA, 'ok' => true, 'released_count' => 0, 'claim_ids' => [], 'provider_bound' => true];
+            }
+
+            $workspaceId = $this->resolveWorkspaceId($opts);
+            $now = Carbon::now();
+            $this->expireStale($workspaceId, $now);
+
+            $claimIds = DB::table(self::TABLE)
+                ->where('workspace_id', $workspaceId)
+                ->where('engine', $engine)
+                ->where('kind', $kind)
+                ->where('status', self::STATUS_ACTIVE)
+                ->whereIn('target', $targets)
+                ->pluck('id')
+                ->map(static fn (mixed $id): string => (string) $id)
+                ->filter(static fn (string $id): bool => $id !== '')
+                ->values()
+                ->all();
+
+            if ($claimIds === []) {
+                return ['schema' => self::SCHEMA, 'ok' => true, 'released_count' => 0, 'claim_ids' => [], 'provider_bound' => true];
+            }
+
+            $released = DB::table(self::TABLE)
+                ->whereIn('id', $claimIds)
+                ->where('status', self::STATUS_ACTIVE)
+                ->update([
+                    'status' => self::STATUS_RELEASED,
+                    'updated_at' => $now,
+                ]);
+
+            return [
+                'schema' => self::SCHEMA,
+                'ok' => true,
+                'released_count' => (int) $released,
+                'claim_ids' => $claimIds,
+                'provider_bound' => true,
+            ];
+        } catch (Throwable) {
+            return ['schema' => self::SCHEMA, 'ok' => true, 'released_count' => 0, 'claim_ids' => [], 'provider_bound' => true];
         }
     }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionGateToken;
@@ -56,6 +57,7 @@ final class AtlasTaskScopedCommitter
         private readonly ?AtlasArtisanBootSmokeGate $bootSmokeGate = null,
         private readonly ?AtlasLoopMergeActuator $mergeActuator = null,
         private readonly ?AtlasCognitionRemintTouchedQueue $remintTouchedQueue = null,
+        private readonly ?AtlasAobgBlackboardService $blackboard = null,
     ) {}
 
     /**
@@ -192,6 +194,7 @@ final class AtlasTaskScopedCommitter
             }
 
             $sha = trim((string) $this->git($repo, ['rev-parse', 'HEAD'])['out']);
+            $blackboardClaimRelease = $this->releaseCommittedBlackboardClaims($clientId, $changed);
             $remintTouchedQueue = $this->enqueueRemintTouchedForLanding($files, $taskPacketId, [
                 'commit_sha' => $sha,
                 'client_id' => $clientId,
@@ -210,6 +213,7 @@ final class AtlasTaskScopedCommitter
                 'client_id' => $clientId,
                 'landing_certify' => $certify,
                 'boot_smoke' => ($bootSmoke['warning'] ?? null) !== null ? $bootSmoke : null,
+                'blackboard_claim_release' => $blackboardClaimRelease,
                 'remint_touched_queue' => $remintTouchedQueue,
                 'live_outcome_feedback' => $liveOutcomeFeedback,
             ], static fn (mixed $v): bool => $v !== null));
@@ -473,6 +477,32 @@ final class AtlasTaskScopedCommitter
     private function repoRoot(): string
     {
         return $this->repoRootOverride ?? base_path();
+    }
+
+    /**
+     * Release only the active blackboard claims owned by this committer client for the
+     * paths that actually landed. Fail-open: blackboard cleanup is coordination
+     * hygiene, never a reason to roll back a successful git commit.
+     *
+     * @param  list<string>  $changed
+     * @return array<string,mixed>
+     */
+    private function releaseCommittedBlackboardClaims(string $clientId, array $changed): array
+    {
+        try {
+            return ($this->blackboard ?? app(AtlasAobgBlackboardService::class))
+                ->releaseActiveForTargets($clientId, 'file', $changed);
+        } catch (Throwable $e) {
+            return [
+                'schema' => AtlasAobgBlackboardService::SCHEMA,
+                'ok' => true,
+                'released_count' => 0,
+                'claim_ids' => [],
+                'provider_bound' => true,
+                'reason' => 'release_failed_open',
+                'error' => mb_substr($e->getMessage(), 0, 200),
+            ];
+        }
     }
 
     /**
