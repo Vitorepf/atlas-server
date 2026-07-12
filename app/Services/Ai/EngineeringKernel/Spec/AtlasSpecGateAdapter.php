@@ -6,6 +6,8 @@ namespace App\Services\Ai\EngineeringKernel\Spec;
 
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\Product\AtlasProductTruthCompilerService;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 
 /**
  * Engineering Kernel adapter: promotes the real AtlasDev spec machinery through the sovereign spec
@@ -24,6 +26,7 @@ final class AtlasSpecGateAdapter implements SpecAdversary
         ?WitnessResolver $witnessResolver = null,
         int $configMinDiscriminating = 0,
         private readonly ?ClarificationSink $clarificationSink = null,
+        private readonly ?AtlasEvidenceLedger $ledger = null,
     ) {
         $this->floor = new SovereignSpecFloor(
             $oracle ?? new UnmeasuredSpecOracle, // fail-closed default until a real executional oracle is wired
@@ -34,7 +37,12 @@ final class AtlasSpecGateAdapter implements SpecAdversary
 
     public function contest(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): SpecVerdict
     {
-        return $this->floor->contest($draft, $intent, $lane);
+        $verdict = $this->floor->contest($draft, $intent, $lane);
+        if ($verdict->frozen() && $this->ledger instanceof AtlasEvidenceLedger) {
+            $this->recordFrozenUnit($verdict, $intent);
+        }
+
+        return $verdict;
     }
 
     /** @return array<string,mixed> */
@@ -81,5 +89,23 @@ final class AtlasSpecGateAdapter implements SpecAdversary
         }
 
         return $verdict;
+    }
+
+    private function recordFrozenUnit(SpecVerdict $verdict, IntentEnvelope $intent): void
+    {
+        $frozenHash = $verdict->provenance->frozenHash;
+        $eventId = 'unit-frozen-spec-'.substr($frozenHash, 0, 20);
+        if ($this->ledger?->eventById($eventId) !== null) {
+            return;
+        }
+        $this->ledger?->record(LedgerEventType::UnitFrozen, [
+            'event_name' => 'unit.frozen', 'unit_kind' => 'spec',
+            'frozen_hash' => $frozenHash, 'intent_hash' => $intent->productAuthorityHash(),
+            'world_observed_at' => $intent->worldObservedAt, 'status' => $verdict->status,
+        ], [
+            'event_id' => $eventId, 'correlation_id' => $frozenHash,
+            'scope_type' => 'spec', 'scope_id' => $frozenHash,
+            'emitter_stage' => 'atlas.spec.adversary',
+        ]);
     }
 }

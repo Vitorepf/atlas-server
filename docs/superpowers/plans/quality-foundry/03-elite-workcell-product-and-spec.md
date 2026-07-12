@@ -130,10 +130,10 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [ ] Write RED tests for ProductIntent-hash mismatch, stale world snapshot, missing invariants/NFR/security/accessibility/observability/compatibility/migration/rollback/roles/oracles/invalidators, and spec mutation after freeze.
 - [ ] Write RED self-review tests where spec author and final spec witness are the same identity.
 - [ ] Extend `SpecDraft`/`SpecReceipt` with the fixed ProductIntent/world/evidence bindings and deterministic frozen hash.
-- [ ] Deepen `SovereignSpecFloor` and witnesses; model shadows may contest but cannot grant freeze.
-- [ ] Require a new version/hash whenever acceptance, scope, world snapshot or relevant constraint changes.
-- [ ] Emit `unit.frozen` for the spec and pass the exact hash into `ExecutionOrder`.
-- [ ] Run Spec contract/golden/ambiguity/shadow/oracle tests plus cross-mode and mutation suites.
+- [x] Deepen `SovereignSpecFloor` and witnesses; model shadows may contest but cannot grant freeze.
+- [x] Require a new version/hash whenever acceptance, scope, world snapshot or relevant constraint changes.
+- [x] Emit `unit.frozen` for the spec and pass the exact hash into `ExecutionOrder`.
+- [x] Run Spec contract/golden/ambiguity/shadow/oracle tests plus cross-mode and mutation suites.
 
 **GREEN acceptance:** no drift, missing NFR or self-witness reaches execution; equivalent cases freeze identically across modes; revised facts create a new version.
 
