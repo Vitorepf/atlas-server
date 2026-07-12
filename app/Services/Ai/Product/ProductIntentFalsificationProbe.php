@@ -17,6 +17,19 @@ final class ProductIntentFalsificationProbe
         $window = strtolower((string) ($data['observation_window'] ?? ''));
         $risk = (int) substr((string) ($data['risk_class'] ?? 'R0'), 1);
 
+        $sourceClaims = [];
+        foreach ((array) ($data['source_refs'] ?? []) as $sourceRef) {
+            if (preg_match('/^source:([^:]+):(supports|contradicts)$/i', (string) $sourceRef, $match) === 1) {
+                $sourceClaims[strtolower($match[1])][] = strtolower($match[2]);
+            }
+        }
+        foreach ($sourceClaims as $claims) {
+            if (in_array('supports', $claims, true) && in_array('contradicts', $claims, true)) {
+                $objections[] = 'contradictory_sources';
+                break;
+            }
+        }
+
         if ($metric !== '' && preg_match('/\b(downloads?|likes?|impressions?|pageviews?|followers?)\b/', $metric) === 1) {
             $objections[] = 'metric_vanity_or_proxy';
         }
@@ -24,8 +37,16 @@ final class ProductIntentFalsificationProbe
             || (float) preg_replace('/[^0-9.]/', '', $window) <= 0)) {
             $objections[] = 'observation_window_impossible';
         }
+        $metricUser = trim((string) ($data['metric_user'] ?? ''));
+        $user = strtolower(trim((string) ($data['user'] ?? '')));
+        if ($metricUser !== '' && strtolower($metricUser) !== $user) {
+            $objections[] = 'proxy_user_mismatch';
+        }
         if ($risk >= 3 && ($data['non_goals'] ?? []) === []) {
             $objections[] = 'non_goal_missing';
+        }
+        if (($data['hidden_non_goals'] ?? []) !== []) {
+            $objections[] = 'hidden_non_goal';
         }
         if ($risk >= 3 && preg_match('/\b(password|senha|token|secret|personal data|dados pessoais|privacy|privacidade|security|seguran)\b/', $request) === 1) {
             $constraints = strtolower(implode(' ', array_map('strval', (array) ($data['constraints'] ?? []))));
@@ -36,6 +57,12 @@ final class ProductIntentFalsificationProbe
         }
         if ($risk >= 3 && ($data['alternatives'] ?? []) === []) {
             $objections[] = 'alternatives_missing';
+        }
+        foreach ((array) ($data['alternatives'] ?? []) as $alternative) {
+            if (preg_match('/^(?:alternative:)?dominates(?::|\s)/i', (string) $alternative) === 1) {
+                $objections[] = 'alternative_dominates';
+                break;
+            }
         }
 
         sort($objections, SORT_STRING);

@@ -102,6 +102,22 @@ final class ProductIntentCourtTest extends TestCase
         self::assertContains('observation_window_impossible', $verdict->blockingReasons);
     }
 
+    public function test_red_corpus_rejects_contradictory_sources_proxy_user_hidden_non_goal_and_dominant_alternative(): void
+    {
+        $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase([
+            'source_refs' => ['source:checkout:supports', 'source:checkout:contradicts'],
+            'metric_user' => 'seller',
+            'hidden_non_goals' => ['do not change pricing'],
+            'alternatives' => ['dominates:retain current checkout'],
+        ])));
+
+        self::assertSame('revise', $verdict->status);
+        self::assertContains('contradictory_sources', $verdict->blockingReasons);
+        self::assertContains('proxy_user_mismatch', $verdict->blockingReasons);
+        self::assertContains('hidden_non_goal', $verdict->blockingReasons);
+        self::assertContains('alternative_dominates', $verdict->blockingReasons);
+    }
+
     public function test_risky_privacy_request_cannot_admit_without_security_or_privacy_evidence(): void
     {
         $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase([

@@ -36,6 +36,8 @@ final class ProductIntentCourtLedgerTest extends TestCase
             'metric' => 'success >= 0.98', 'observation_window' => '30d', 'source_refs' => ['brief:1'],
             'world_snapshot_hash' => str_repeat('a', 64), 'world_snapshot_status' => 'fresh',
             'falsifiers' => ['success below baseline'], 'acceptance' => ['payment path works'],
+            'alternatives' => ['retain current checkout'],
+            'non_goals' => ['change pricing'],
             'side_effects' => [['description' => 'latency', 'containment' => 'alert']],
         ]);
 
