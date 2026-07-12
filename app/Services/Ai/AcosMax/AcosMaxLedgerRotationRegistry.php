@@ -146,6 +146,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MULTK-01 cost-outcome',
             ],
+            'atlas.decide.replay_divergence.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTK-03 decision replay divergence',
+            ],
             'atlas.decide.zero_weight_outcomes.v1' => [
                 'max_size_mb' => 32,
                 'max_age_days' => 60,

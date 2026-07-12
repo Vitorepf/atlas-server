@@ -8,6 +8,7 @@ use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\AtlasDecide\AtlasDecideReplayDivergenceService;
 use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
@@ -215,6 +216,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => (int) AtlasDecideCostOutcomeRouter::multk01FreezePayload()['ttl_days'],
                 'ttl_source' => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
+            ],
+            [
+                'slice' => 'MULTK-03',
+                'series' => AtlasDecideReplayDivergenceService::MEASURE_ID,
+                'path' => 'atlas:decide:replay-divergence --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 30,
+                'ttl_source' => 'freeze:atlas.decide.replay_divergence.v1',
             ],
             [
                 'slice' => 'ESP-05',

@@ -107,6 +107,7 @@ use App\Console\Commands\AtlasContextLatencyCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
 use App\Console\Commands\AtlasContextSufficiencyCalibrationCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
+use App\Console\Commands\AtlasDecideReplayDivergenceCommand;
 use App\Console\Commands\AtlasDecideSelfModelCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
@@ -370,6 +371,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCliRollbackCommand::class,
         AtlasRollbackCascadeCommand::class,
         AtlasMemoryConcentrationV2Command::class,
+        AtlasDecideReplayDivergenceCommand::class,
         AtlasDecideSelfModelCommand::class,
         AtlasCliScheduleCommand::class,
         AtlasCliSetupCommand::class,
