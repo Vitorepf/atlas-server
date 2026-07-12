@@ -13,6 +13,8 @@ use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
+use App\Services\Ai\Programming\Forge\AtlasForgeProviderLifecycleAdapter;
+use App\Services\Ai\Programming\Forge\ForgeProviderLifecyclePort;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -269,6 +271,15 @@ final class ForgeObraRuntime
             return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_start_authority_missing'];
         }
 
+        $providerPort = $this->providerPort()->start([
+            'provider' => 'atlas_kernel', 'model' => 'shared_quality_foundry',
+            'cycle_id' => (string) $cycle->uuid, 'fencing_token' => $fence,
+            'scope_reservation' => $reservation,
+        ]);
+        if (($providerPort['status'] ?? null) !== 'ready') {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'provider_port_'.((string) ($providerPort['reason'] ?? 'rejected'))];
+        }
+
         $lifecycle = [
             'schema' => 'atlas.forge.provider_lifecycle.v1',
             'status' => 'started',
@@ -280,6 +291,7 @@ final class ForgeObraRuntime
             'started_at' => now()->toIso8601String(),
             'last_heartbeat_at' => now()->toIso8601String(),
             'replayed' => false,
+            'provider_port' => $providerPort,
         ];
         $this->cycles->recordProviderLifecycle($cycle, $lifecycle);
 
@@ -300,6 +312,13 @@ final class ForgeObraRuntime
         if ($fencingToken !== (int) ($lifecycle['fencing_token'] ?? -1)) {
             return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
         }
+        $providerPort = $this->providerPort()->poll([
+            'provider' => (string) ($lifecycle['provider'] ?? 'atlas_kernel'),
+            'cycle_id' => (string) $cycle->uuid, 'fencing_token' => $fencingToken,
+        ]);
+        if (($providerPort['status'] ?? null) !== 'ready') {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'provider_port_'.((string) ($providerPort['reason'] ?? 'rejected'))];
+        }
         if ($cycle->status !== ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING) {
             $lifecycle['status'] = $cycle->outcome_status ?: $cycle->status;
         } elseif (($lifecycle['status'] ?? null) === 'started') {
@@ -319,6 +338,13 @@ final class ForgeObraRuntime
         if ($lifecycle === [] || $fencingToken !== (int) ($lifecycle['fencing_token'] ?? -1)) {
             return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
         }
+        $providerPort = $this->providerPort()->heartbeat([
+            'provider' => (string) ($lifecycle['provider'] ?? 'atlas_kernel'),
+            'cycle_id' => (string) $cycle->uuid, 'fencing_token' => $fencingToken,
+        ]);
+        if (($providerPort['status'] ?? null) !== 'ready') {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_port_'.((string) ($providerPort['reason'] ?? 'rejected'))];
+        }
         $lifecycle['last_heartbeat_at'] = now()->toIso8601String();
         $updated = $this->cycles->recordProviderLifecycle($cycle, $lifecycle);
 
@@ -335,6 +361,13 @@ final class ForgeObraRuntime
         $lifecycle = (array) data_get($cycle->execution_plan, 'provider_lifecycle', []);
         if ($fencingToken !== (int) ($lifecycle['fencing_token'] ?? -1)) {
             return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
+        }
+        $providerPort = $this->providerPort()->cancel([
+            'provider' => (string) ($lifecycle['provider'] ?? 'atlas_kernel'),
+            'cycle_id' => (string) $cycle->uuid, 'fencing_token' => $fencingToken, 'reason' => $reason,
+        ]);
+        if (($providerPort['status'] ?? null) !== 'ready') {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_port_'.((string) ($providerPort['reason'] ?? 'rejected'))];
         }
         if (($lifecycle['status'] ?? null) === 'cancelled') {
             $lifecycle['replayed'] = true;
@@ -359,6 +392,13 @@ final class ForgeObraRuntime
         }
 
         return $query->first();
+    }
+
+    private function providerPort(): ForgeProviderLifecyclePort
+    {
+        return app()->bound(ForgeProviderLifecyclePort::class)
+            ? app(ForgeProviderLifecyclePort::class)
+            : new AtlasForgeProviderLifecycleAdapter(app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class));
     }
 
     /**

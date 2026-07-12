@@ -16,6 +16,7 @@ use App\Services\Ai\Programming\Forge\Execution\ForgeObraSupervisor;
 use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
+use App\Services\Ai\Programming\Forge\ForgeProviderLifecyclePort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -394,6 +395,17 @@ final class ForgeObraRuntimeTest extends TestCase
         ];
         $cycle->forceFill(['execution_mode' => 'real', 'execution_plan' => $plan])->save();
 
+        $operations = [];
+        $this->app->instance(ForgeProviderLifecyclePort::class, new class($operations) implements ForgeProviderLifecyclePort
+        {
+            public function __construct(private array &$operations) {}
+
+            public function start(array $request): array { $this->operations[] = 'start'; return ['status' => 'ready']; }
+            public function poll(array $request): array { $this->operations[] = 'poll'; return ['status' => 'ready']; }
+            public function heartbeat(array $request): array { $this->operations[] = 'heartbeat'; return ['status' => 'ready']; }
+            public function cancel(array $request): array { $this->operations[] = 'cancel'; return ['status' => 'ready']; }
+        });
+
         $started = $runtime->providerStart($snapshot->obra, (string) $cycle->uuid);
         self::assertSame('started', $started['status']);
         self::assertNotEmpty($started['provider_execution_id']);
@@ -414,6 +426,7 @@ final class ForgeObraRuntimeTest extends TestCase
         $replay = $runtime->providerCancel($snapshot->obra, (string) $cycle->uuid, $started['fencing_token'], 'test_cancel');
         self::assertSame('cancelled', $replay['status']);
         self::assertTrue($replay['replayed']);
+        self::assertSame(['start', 'poll', 'heartbeat', 'cancel', 'cancel'], $operations);
     }
 
     public function test_unattended_supervisor_renews_provider_lifecycle_with_the_cycle_fence(): void
