@@ -192,7 +192,7 @@ Circuit breakers are fixed:
 - [x] Persist fingerprints, evidence deltas, approach IDs and terminal reasons in existing workcell events/outcomes.
 - [x] Ensure final certifier never edits code and cannot certify without the complete independent evidence bundle.
 - [x] Reconcile incomplete workcells after crash without duplicate provider call, integration or disposition.
-- [ ] Run focused Workcell state/recovery/certification tests and neighboring Kernel replay tests.
+- [x] Run focused Workcell state/recovery/certification tests and neighboring Kernel replay tests.
 
 **GREEN acceptance:** no infinite identical retry, no spend without evidence delta, no same-context self-certification, safe restart and truthful `held|blocked|refused` states.
 
