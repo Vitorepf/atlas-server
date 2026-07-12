@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
+use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use App\Services\Ai\Memory\AtlasMemoryRecallCache;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
@@ -705,23 +706,7 @@ class AtlasHybridMemoryRetrievalService
             return 0.0;
         }
 
-        $haystack = Str::lower(implode(' ', array_filter(array_map(
-            fn (mixed $field): string => is_scalar($field) ? (string) $field : '',
-            $fields,
-        ))));
-        $tokens = $this->tokens($query);
-        if ($tokens === [] || $haystack === '') {
-            return 0.0;
-        }
-
-        $matches = 0;
-        foreach ($tokens as $token) {
-            if (str_contains($haystack, $token)) {
-                $matches++;
-            }
-        }
-
-        return round($matches / count($tokens), 3);
+        return DomainLexicalNormalizer::score($query, $fields);
     }
 
     /**
@@ -729,9 +714,7 @@ class AtlasHybridMemoryRetrievalService
      */
     private function tokens(string $query): array
     {
-        preg_match_all('/[\pL\pN]{3,}/u', Str::lower($query), $matches);
-
-        return array_values(array_unique($matches[0] ?? []));
+        return DomainLexicalNormalizer::tokens($query);
     }
 
     private function reasonForRegistry(AtlasMemoryEntry $entry, string $query): string
