@@ -3,6 +3,10 @@
 namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
+use App\Models\AtlasMemoryEntryRelation;
+use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
+use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
+use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -43,10 +47,15 @@ class AtlasMemoryConflictResolutionService
      * Os seis verbos canonicos. Ordem importa para humanidade da exibicao em search.
      */
     public const VERDICT_RELATED = 'related';
+
     public const VERDICT_COMPATIBLE = 'compatible';
+
     public const VERDICT_SCOPED = 'scoped';
+
     public const VERDICT_CONFLICTS_WITH = 'conflicts_with';
+
     public const VERDICT_SUPERSEDES = 'supersedes';
+
     public const VERDICT_NOT_CONFLICT = 'not_conflict';
 
     public const ALLOWED_VERDICTS = [
@@ -72,7 +81,7 @@ class AtlasMemoryConflictResolutionService
         self::VERDICT_SUPERSEDES,
     ];
 
-    /** Shared with {@see \App\Models\AtlasMemoryEntryRelation::TYPES}. */
+    /** Shared with {@see AtlasMemoryEntryRelation::TYPES}. */
     public const RELATION_TYPES = [
         ...self::PATHOLOGY_RELATION_TYPES,
         ...self::KNOWLEDGE_RELATION_TYPES,
@@ -84,6 +93,15 @@ class AtlasMemoryConflictResolutionService
     public const VISIBLE_VERDICTS = [
         self::VERDICT_CONFLICTS_WITH,
         self::VERDICT_SUPERSEDES,
+    ];
+
+    /** MAXI-06: states that must never be promoted through descendant provenance. */
+    public const DEGRADED_MEMORY_STATES = [
+        'archived',
+        'tombstoned',
+        'deprecated',
+        'conflicted',
+        'reverted',
     ];
 
     /**
@@ -99,9 +117,13 @@ class AtlasMemoryConflictResolutionService
      * Actor types canonicos.
      */
     public const ACTOR_AGENT = 'agent';
+
     public const ACTOR_ATLAS = 'atlas';
+
     public const ACTOR_HUMAN = 'human';
+
     public const ACTOR_ENGRAM = 'engram';
+
     public const ACTOR_UNKNOWN = 'unknown';
 
     public const ALLOWED_ACTORS = [
@@ -116,8 +138,11 @@ class AtlasMemoryConflictResolutionService
      * Judgment status canonicos.
      */
     public const JUDGMENT_PENDING = 'pending';
+
     public const JUDGMENT_JUDGED = 'judged';
+
     public const JUDGMENT_ORPHANED = 'orphaned';
+
     public const JUDGMENT_IGNORED = 'ignored';
 
     public const ALLOWED_JUDGMENT_STATUS = [
@@ -138,19 +163,19 @@ class AtlasMemoryConflictResolutionService
 
     private ?MemoryScopeContradictionClassifier $scopeContradictionClassifier;
 
-    private ?\App\Services\Ai\Cognition\FactPairPolarityContradictionDetector $factPolarityDetector;
+    private ?FactPairPolarityContradictionDetector $factPolarityDetector;
 
-    private ?\App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector $numericRangeDetector;
+    private ?NumericRangeOverlapContradictionDetector $numericRangeDetector;
 
-    private ?\App\Services\Ai\Cognition\TemporalSupersessionClassifier $temporalSupersessionClassifier;
+    private ?TemporalSupersessionClassifier $temporalSupersessionClassifier;
 
     public function __construct(
         ?MemoryConflictVerbClassifier $verbClassifier = null,
         ?MemoryConflictAxisResolver $axisResolver = null,
         ?MemoryScopeContradictionClassifier $scopeContradictionClassifier = null,
-        ?\App\Services\Ai\Cognition\FactPairPolarityContradictionDetector $factPolarityDetector = null,
-        ?\App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector $numericRangeDetector = null,
-        ?\App\Services\Ai\Cognition\TemporalSupersessionClassifier $temporalSupersessionClassifier = null,
+        ?FactPairPolarityContradictionDetector $factPolarityDetector = null,
+        ?NumericRangeOverlapContradictionDetector $numericRangeDetector = null,
+        ?TemporalSupersessionClassifier $temporalSupersessionClassifier = null,
     ) {
         $this->verbClassifier = $verbClassifier;
         $this->axisResolver = $axisResolver;
@@ -164,14 +189,13 @@ class AtlasMemoryConflictResolutionService
      * Persiste verdict entre dois memory entries.
      *
      * @param  array<string,mixed>  $options  Opcoes adicionais:
-     *   - actor: string (default unknown)
-     *   - model: string|null
-     *   - confidence: float|null (0.0-1.0)
-     *   - reason: string|null
-     *   - evidence_refs: array
-     *   - judgment_status: string (default judged)
-     *   - allow_escalation_bypass: bool (default false; em fluxos automaticos, true escala mesmo)
-     *
+     *                                        - actor: string (default unknown)
+     *                                        - model: string|null
+     *                                        - confidence: float|null (0.0-1.0)
+     *                                        - reason: string|null
+     *                                        - evidence_refs: array
+     *                                        - judgment_status: string (default judged)
+     *                                        - allow_escalation_bypass: bool (default false; em fluxos automaticos, true escala mesmo)
      * @return array{
      *   ok:bool,
      *   status:string,
@@ -422,7 +446,7 @@ class AtlasMemoryConflictResolutionService
         $rows = DB::table('atlas_memory_entry_relations')
             ->where(function ($q) use ($memoryEntryId): void {
                 $q->where('source_memory_entry_id', $memoryEntryId)
-                  ->orWhere('target_memory_entry_id', $memoryEntryId);
+                    ->orWhere('target_memory_entry_id', $memoryEntryId);
             })
             ->whereIn('relation_type', self::VISIBLE_VERDICTS)
             ->orderByDesc('updated_at')
@@ -443,6 +467,68 @@ class AtlasMemoryConflictResolutionService
                 'evidence_refs' => isset($row->evidence_refs) && $row->evidence_refs ? json_decode($row->evidence_refs, true) : [],
             ];
         })->all();
+    }
+
+    /**
+     * MAXI-06 — provider-safe degraded-state detector used by provenance gates.
+     *
+     * @return array{state:string, basis:string, memory_id:string}|null
+     */
+    public function degradedStateForMemoryId(string $memoryEntryId): ?array
+    {
+        $memoryEntryId = trim($memoryEntryId);
+        if ($memoryEntryId === '' || ! DatabaseTableAvailability::has('atlas_memory_entries')) {
+            return null;
+        }
+
+        $entry = AtlasMemoryEntry::query()->find($memoryEntryId);
+        if (! $entry instanceof AtlasMemoryEntry) {
+            return null;
+        }
+
+        return $this->degradedStateForMemory($entry);
+    }
+
+    /**
+     * MAXI-06 — only explicit degraded states/relations are toxic. Trusted or
+     * active ancestors pass cleanly.
+     *
+     * @return array{state:string, basis:string, memory_id:string}|null
+     */
+    public function degradedStateForMemory(AtlasMemoryEntry $entry): ?array
+    {
+        $entryId = (string) $entry->id;
+        $status = strtolower(trim((string) $entry->status));
+        if (in_array($status, self::DEGRADED_MEMORY_STATES, true)) {
+            return ['state' => $status, 'basis' => 'memory_status', 'memory_id' => $entryId];
+        }
+
+        if ($entry->archived_at !== null) {
+            return ['state' => 'archived', 'basis' => 'archived_at', 'memory_id' => $entryId];
+        }
+
+        $metadata = is_array($entry->metadata) ? $entry->metadata : [];
+        foreach ([
+            'acos_max.maxi_06.state',
+            'memory_state',
+            'governance_state',
+            'conflict_state',
+            'lineage_status',
+            'tombstone.status',
+        ] as $key) {
+            $state = strtolower(trim((string) data_get($metadata, $key, '')));
+            if (in_array($state, self::DEGRADED_MEMORY_STATES, true)) {
+                return ['state' => $state, 'basis' => 'metadata:'.$key, 'memory_id' => $entryId];
+            }
+        }
+
+        foreach ($this->relatedConflicts($entryId) as $relation) {
+            if (($relation['verdict'] ?? '') === self::VERDICT_CONFLICTS_WITH) {
+                return ['state' => 'conflicted', 'basis' => 'memory_relation', 'memory_id' => $entryId];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -519,7 +605,7 @@ class AtlasMemoryConflictResolutionService
             return null;
         }
 
-        return ($this->factPolarityDetector ??= new \App\Services\Ai\Cognition\FactPairPolarityContradictionDetector)->detect($factA, $factB);
+        return ($this->factPolarityDetector ??= new FactPairPolarityContradictionDetector)->detect($factA, $factB);
     }
 
     /**
@@ -536,7 +622,7 @@ class AtlasMemoryConflictResolutionService
             return null;
         }
 
-        return ($this->numericRangeDetector ??= new \App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector)->detect($aMin, $aMax, $bMin, $bMax);
+        return ($this->numericRangeDetector ??= new NumericRangeOverlapContradictionDetector)->detect($aMin, $aMax, $bMin, $bMax);
     }
 
     /**
@@ -553,7 +639,7 @@ class AtlasMemoryConflictResolutionService
             return null;
         }
 
-        return ($this->temporalSupersessionClassifier ??= new \App\Services\Ai\Cognition\TemporalSupersessionClassifier)->classify($tsA, $tsB, $sameKey);
+        return ($this->temporalSupersessionClassifier ??= new TemporalSupersessionClassifier)->classify($tsA, $tsB, $sameKey);
     }
 
     public static function isValidVerdict(string $verdict): bool

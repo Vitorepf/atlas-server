@@ -222,6 +222,14 @@ final class CognitiveImmunePromotionGateEvaluator
             return [self::STATUS_BLOCK, 'contradicts_newer_authority'];
         }
 
+        if ($this->flag($signals, 'provenance_traces_to_reverted')) {
+            return [self::STATUS_BLOCK, 'provenance_traces_to_reverted'];
+        }
+
+        if ($this->flag($signals, 'provenance_cycle_detected')) {
+            return [self::STATUS_BLOCK, 'provenance_cycle_detected'];
+        }
+
         return $candidatePresent
             ? [self::STATUS_PASS, '']
             : [self::STATUS_PENDING, 'contradiction_unevaluated'];
