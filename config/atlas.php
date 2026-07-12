@@ -529,6 +529,9 @@ return [
         'recall_concentration_demote_ratio' => (float) env('ATLAS_MEMORY_RECALL_CONCENTRATION_DEMOTE_RATIO', 0.35),
         'recall_concentration_min_recalls' => max(10, (int) env('ATLAS_MEMORY_RECALL_CONCENTRATION_MIN_RECALLS', 100)),
         'recall_concentration_score_factor' => (float) env('ATLAS_MEMORY_RECALL_CONCENTRATION_SCORE_FACTOR', 0.35),
+        // MAXH-05 — soft temporal truth demotion in recall. Default OFF keeps ranking byte-identical.
+        // When ON, stale/expired/superseded rows are demoted but remain recoverable with explain flags.
+        'temporal_recall_demotion_enabled' => (bool) env('ATLAS_MEMORY_TEMPORAL_RECALL_DEMOTION_ENABLED', false),
         'max_embedding_chars' => (int) env('ATLAS_SEMANTIC_MAX_EMBEDDING_CHARS', 12000),
         'activation_daily_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_DAILY_LIMIT', 2),
         'activation_pending_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_PENDING_LIMIT', 4),

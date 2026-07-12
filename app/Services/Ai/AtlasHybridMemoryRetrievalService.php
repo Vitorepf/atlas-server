@@ -305,7 +305,7 @@ class AtlasHybridMemoryRetrievalService
         $knowledgeRelations = $this->knowledgeRelationsForEntries($entryIds);
 
         return $entries
-            ->map(function (AtlasMemoryEntry $entry) use ($query, $dominantIds, $supersededIds, $feedbackStats, $relatedConflicts, $knowledgeRelations): ?array {
+            ->map(function (AtlasMemoryEntry $entry) use ($query, $dominantIds, $supersededIds, $feedbackStats, $relatedConflicts, $knowledgeRelations, $entryIds): ?array {
                 $entryId = (string) $entry->id;
                 if ($entryId !== '' && isset($supersededIds[$entryId])) {
                     return null;
@@ -322,9 +322,11 @@ class AtlasHybridMemoryRetrievalService
                     ]),
                 );
                 $feedbackRanking = $this->feedbackRankingExplain($stats);
+                $temporalRanking = $this->temporalRankingExplain($entry, $entryIds);
                 $hybridScore = $baseHybridScore
                     * (float) $feedbackRanking['factor']
-                    * $this->concentrationDemotion->scoreMultiplier($entryId, $dominantIds);
+                    * $this->concentrationDemotion->scoreMultiplier($entryId, $dominantIds)
+                    * (float) $temporalRanking['factor'];
 
                 return [
                     'id' => $entry->id,
@@ -364,12 +366,51 @@ class AtlasHybridMemoryRetrievalService
                         'feedback_ranking' => $feedbackRanking + [
                             'base_hybrid_score' => round($baseHybridScore, 4),
                         ],
+                        'temporal_ranking' => $temporalRanking,
                     ],
                 ];
             })
             ->filter(fn (?array $item): bool => $item !== null)
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<int,string>  $poolEntryIds
+     * @return array{factor:float,flags:list<string>,recoverable:bool}
+     */
+    private function temporalRankingExplain(AtlasMemoryEntry $entry, array $poolEntryIds): array
+    {
+        if (! (bool) config('atlas.semantic_memory.temporal_recall_demotion_enabled', false)) {
+            return ['factor' => 1.0, 'flags' => [], 'recoverable' => true];
+        }
+
+        $factor = 1.0;
+        $flags = [];
+        $now = now();
+        $staleAfter = $entry->stale_after;
+        if ($staleAfter !== null && method_exists($staleAfter, 'lessThanOrEqualTo') && $staleAfter->lessThanOrEqualTo($now)) {
+            $factor *= 0.5;
+            $flags[] = 'stale_after_elapsed';
+        }
+
+        $validUntil = $entry->valid_until;
+        if ($validUntil !== null && method_exists($validUntil, 'lessThanOrEqualTo') && $validUntil->lessThanOrEqualTo($now)) {
+            $factor *= 0.35;
+            $flags[] = 'valid_until_elapsed';
+        }
+
+        $supersededBy = is_scalar($entry->superseded_by_id ?? null) ? trim((string) $entry->superseded_by_id) : '';
+        if ($supersededBy !== '' && ! in_array($supersededBy, $poolEntryIds, true)) {
+            $factor *= 0.35;
+            $flags[] = 'superseded_without_superseder_in_pool';
+        }
+
+        return [
+            'factor' => round(max(0.05, min(1.0, $factor)), 4),
+            'flags' => array_values(array_unique($flags)),
+            'recoverable' => true,
+        ];
     }
 
     /**
