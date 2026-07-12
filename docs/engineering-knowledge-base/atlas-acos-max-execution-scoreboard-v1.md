@@ -31,9 +31,9 @@
 - [x] TETO-05 — landed · `atlas:acos:obra-retro --lote=0 --json` emite outcomes OUTC-01 com série `obra:acos-max` + candidatos pela fila normal CaptureQualityGate/ASI-02; aceite sqlite/fake-ledger cobre Lote 0 e rejeição de boilerplate
 
 ## LOTE 2 — Réguas v2 congeladas (M1) — GATE M1: todo freeze com hash+judge≠author · golden v2 targets_available==cases · registry de séries populado
-- [x] ELEV-02 (ASI-METRIC) — landed · freeze `asi.metric.m.v1` content_hash=`edaa1866b556b356eeff8cf5f685bc4b7e8a56ba556ecd91ed4e2846b1977b6b` · formula_version=`asi_metric_m.v1` · denominator_min=8 · cmd `atlas:acos:m-series --json` · caso negativo `insufficient_signal` · registry=pending(ELEV-20s)
-- [x] ELEV-12 — landed · freeze `acos.verified_share.v1` content_hash=`4d097e24e6c81ff6d5a1e991c153179a81194c6ae52a164c343e9c98352cfe07` · `judge_engine_id=codex-elev12-judge` ≠ `author_engine_id=cursor-acos-max-elev12` · cmd `atlas:acos:verified-share --json` · live window 14d: status=`below_threshold`, verified=0/65, share=0.0, threshold=0.80, min=50
-- [ ] ELEV-20s — pending
+- [x] ELEV-02 (ASI-METRIC) — landed · freeze `asi.metric.m.v1` content_hash=`edaa1866b556b356eeff8cf5f685bc4b7e8a56ba556ecd91ed4e2846b1977b6b` · formula_version=`asi_metric_m.v1` · denominator_min=8 · cmd `atlas:acos:m-series --json` · caso negativo `insufficient_signal` · registry=registered(ELEV-20s)
+- [x] ELEV-12 — landed · freeze `acos.verified_share.v1` content_hash=`4d097e24e6c81ff6d5a1e991c153179a81194c6ae52a164c343e9c98352cfe07` · `judge_engine_id=codex-elev12-judge` ≠ `author_engine_id=cursor-acos-max-elev12` · cmd `atlas:acos:verified-share --json` · live window 14d: status=`below_threshold`, verified=0/65, share=0.0, threshold=0.80, min=50 · registry=registered(ELEV-20s)
+- [x] ELEV-20s — landed · registry `AcosMaxMeasureSeriesRegistry` backfills live series `{series,path/table,ttl_days}` for landed Max medidores (MAXG-01, ELEV-02, ELEV-12, MAXL-02) plus ASI-05/ESP-00 receipts; WDG `elev-20s.dead_series_registry` alerts on `age(last_append)>ttl`; architectural guard fails any new landed `[MEDIDOR]` missing registry registration
 - [ ] ELEV-25 — pending
 - [ ] MAXG-01 (completo) — pending
 - [x] MAXG-02 — landed · ARLCG consumes MAXG-01 latency-ledger pack p95 as `basis=observed`; empty ledger falls back to `basis=estimated`; receipt schema bumped to `atlas.aucri.retrieval_cost_latency_receipt.v2`; tests: `php artisan test tests/Unit/Ai/Context/AtlasRetrievalCostLatencyGovernorServiceTest.php tests/Feature/Ai/Context/RetrievalCostLatencyGovernorTest.php`

@@ -57,7 +57,7 @@ final class AtlasAcosMSeriesCommand extends Command
                 'measure_id' => self::MEASURE_ID,
                 'formula_version' => self::FORMULA_VERSION,
                 'content_hash' => $this->freezeContentHash(),
-                'registry_status' => 'pending_elev_20s',
+                'registry_status' => 'registered_elev_20s',
             ],
             'windows' => $windows,
         ];

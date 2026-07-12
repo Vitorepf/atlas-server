@@ -1563,6 +1563,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck::class,
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }

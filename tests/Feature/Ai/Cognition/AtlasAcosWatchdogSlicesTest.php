@@ -230,6 +230,7 @@ final class AtlasAcosWatchdogSlicesTest extends TestCase
             'ope-08.lift_cycle_closure',
             'ope-10.scorecard_receipts_diagnosis',
             'eng-11.enforce_readiness',
+            'elev-20s.dead_series_registry',
         ] as $expected) {
             $this->assertContains($expected, $ids);
         }
