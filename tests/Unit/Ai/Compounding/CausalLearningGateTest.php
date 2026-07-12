@@ -56,6 +56,23 @@ final class CausalLearningGateTest extends TestCase
         ]));
     }
 
+    public function test_every_required_candidate_field_fails_closed_when_missing(): void
+    {
+        foreach ([
+            'assignment_hash', 'experiment_hash', 'order_hash', 'run_hash', 'release_hash', 'outcome_hash',
+            'hypothesis', 'baseline', 'metric', 'window', 'effect', 'ci_low', 'ci_high', 'confounders',
+            'rollback', 'reversible', 'assignment_precedes_run', 'real_outcome', 'authority_hash', 'scope',
+            'expiry', 'assignment_at', 'release_at', 'run_at', 'outcome_at', 'binding_refs',
+        ] as $field) {
+            try {
+                CausalLearningCandidate::fromArray(array_diff_key($this->valid(), [$field => true]));
+                self::fail('missing field was accepted: '.$field);
+            } catch (InvalidArgumentException $exception) {
+                self::assertStringContainsString('causal_candidate_'.$field, $exception->getMessage(), $field);
+            }
+        }
+    }
+
     public function test_inconsistent_interval_is_rejected(): void
     {
         $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['ci_low' => 0.40, 'ci_high' => 0.10]));
@@ -126,6 +143,37 @@ final class CausalLearningGateTest extends TestCase
 
         self::assertSame('hold', $verdict->verdict);
         self::assertSame('causal_temporal_order_unproven', $verdict->reason);
+    }
+
+    public function test_assignment_after_outcome_is_held(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'assignment_at' => '2026-07-12T02:00:00Z',
+        ]));
+
+        $verdict = (new CausalLearningGate)->adjudicate($candidate);
+
+        self::assertSame('hold', $verdict->verdict);
+        self::assertSame('causal_temporal_order_unproven', $verdict->reason);
+    }
+
+    public function test_simulated_outcome_is_held(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['real_outcome' => false]));
+
+        $verdict = (new CausalLearningGate)->adjudicate($candidate);
+
+        self::assertSame('hold', $verdict->verdict);
+        self::assertSame('causal_binding_unproven', $verdict->reason);
+    }
+
+    public function test_non_reversible_candidate_is_held_and_cannot_promote(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['reversible' => false]));
+        $verdict = (new CausalLearningGate)->adjudicate($candidate);
+
+        self::assertSame('hold', $verdict->verdict);
+        self::assertSame('promotion_not_reversible', $verdict->reason);
     }
 
     public function test_expired_reversible_evidence_is_held(): void

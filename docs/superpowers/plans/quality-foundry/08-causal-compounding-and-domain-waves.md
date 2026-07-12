@@ -74,7 +74,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** Compounding family, narrow outcome/experiment adapters and focused tests. No learning ledger table.
 
-- [ ] Write RED construction/adjudication tests for missing hypothesis/assignment/baseline/metric/window/effect/IC/confounders/rollback/outcome, post-outcome assignment, hash mismatch, simulated outcome and non-reversible promotion.
+- [x] Write RED construction/adjudication tests for missing hypothesis/assignment/baseline/metric/window/effect/IC/confounders/rollback/outcome, post-outcome assignment, hash mismatch, simulated outcome and non-reversible promotion.
 - [x] Add RED causal fixtures for selection bias, regression to mean, concurrent change, novelty/provider drift and outcome lag.
 - [x] Implement immutable candidate/verdict types with deterministic hash and exact verdict set.
 - [ ] Verify assignment predates execution and matches run/order/release/outcome; keep intent-to-treat failures in analysis.
