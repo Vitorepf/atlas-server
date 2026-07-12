@@ -102,12 +102,12 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 
 **Allowed files:** Self-Construction NativeWorker, RuntimeDaemon, NativeImplementation and task-serving families listed above; `EngineeringKernel/ProviderPort.php` and existing adapters only when a real seam is missing; matching tests.
 
-- [ ] Write RED tests proving that productive mode cannot default to `dryRun=true`, cannot inject a test callback, cannot self-certify, and cannot mark resolution after provider/apply/ledger failure.
-- [ ] Add RED daemon tests for provider timeout/down, process kill between claim/apply/report, restart, duplicate delivery, and fallback-provider exhaustion.
-- [ ] Run native worker and daemon suites; expected RED is a callback/dry path reaching a favorable terminal state or a failed apply consuming the task.
-- [ ] Route provider invocation through `ProviderPort`, materialize a hermetic sandbox, apply only inside that sandbox, and send evidence to the independent gate.
-- [ ] Persist claim/execution/apply/report receipts with one idempotency key and reconcile incomplete chains after restart.
-- [ ] Map total provider unavailability to durable pause/retry. Map apply or ledger failure to `held|blocked|release_uncertain`, never resolved.
+- [x] Write RED tests proving that productive mode cannot default to `dryRun=true`, cannot inject a test callback, cannot self-certify, and cannot mark resolution after provider/apply/ledger failure.
+- [x] Add RED daemon tests for provider timeout/down, process kill between claim/apply/report, restart, duplicate delivery, and fallback-provider exhaustion.
+- [x] Run native worker and daemon suites; expected RED is a callback/dry path reaching a favorable terminal state or a failed apply consuming the task.
+- [x] Route provider invocation through `ProviderPort`, materialize a hermetic sandbox, apply only inside that sandbox, and send evidence to the independent gate.
+- [x] Persist claim/execution/apply/report receipts with one idempotency key and reconcile incomplete chains after restart.
+- [x] Map total provider unavailability to durable pause/retry. Map apply or ledger failure to `held|blocked|release_uncertain`, never resolved.
 - [ ] Run focused and neighboring task-serving/governance suites, process restart tests, architecture bypass guard, Pint and PHPStan.
 
 **GREEN acceptance:** no productive callback, no dry default, no self-verification, no direct provider bypass, no lost task after failure, safe kill/restart, and P0-19 `CLOSED`.
