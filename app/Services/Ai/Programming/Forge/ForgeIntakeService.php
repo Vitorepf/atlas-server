@@ -642,6 +642,9 @@ class ForgeIntakeService
             'world_model_snapshot_hash' => is_string($value['world_model_snapshot_hash'] ?? null) && $value['world_model_snapshot_hash'] !== ''
                 ? $value['world_model_snapshot_hash']
                 : null,
+            'commissioning_hash' => is_string($value['commissioning_hash'] ?? null) && $value['commissioning_hash'] !== ''
+                ? $value['commissioning_hash']
+                : null,
             'market_decision_hash' => is_string($value['market_decision_hash'] ?? null) && $value['market_decision_hash'] !== ''
                 ? $value['market_decision_hash']
                 : null,
