@@ -140,6 +140,7 @@ use App\Console\Commands\AtlasEngineeringSecurityScanCommand;
 use App\Console\Commands\AtlasEngineeringVisualBaselineCommand;
 use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
+use App\Console\Commands\AtlasExecutionContextCooccurrenceCommand;
 use App\Console\Commands\AtlasFlywheelFunnelCommand;
 use App\Console\Commands\AtlasFlywheelLearningLatencyCommand;
 use App\Console\Commands\AtlasFlywheelLoopsCommand;
@@ -398,6 +399,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReplayManifestCommand::class,
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
+        AtlasExecutionContextCooccurrenceCommand::class,
         AtlasFlywheelFunnelCommand::class,
         AtlasFlywheelLearningLatencyCommand::class,
         AtlasFlywheelLoopsCommand::class,
