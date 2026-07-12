@@ -351,6 +351,9 @@ final class AtlasNativeWorkerOutcomeMapper
             'schema_version' => self::SCHEMA,
             'report_outcome' => $outcome,
             'report_reason' => $reason,
+            'replan_required' => $reason === 'scope_violation',
+            'quarantine_required' => $reason === 'scope_violation',
+            'next_safe_action' => $reason === 'scope_violation' ? 'quarantine_and_replan' : null,
             'evidence_refs' => [
                 'required' => $required,
                 'observed' => $observed,

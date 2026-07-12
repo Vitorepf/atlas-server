@@ -249,6 +249,9 @@ class AtlasNativeWorkerOutcomeMapperTest extends TestCase
         self::assertSame(AtlasNativeWorkerOutcomeMapper::OUTCOME_POISON_FAILURE, $verdict['report_outcome']);
         self::assertSame('scope_violation', $verdict['report_reason']);
         self::assertContains('scope_violation:app/Unrelated.php', $verdict['blocking_deficiencies']);
+        self::assertTrue($verdict['replan_required']);
+        self::assertTrue($verdict['quarantine_required']);
+        self::assertSame('quarantine_and_replan', $verdict['next_safe_action']);
     }
 
     public function test_changed_files_within_allowed_files_does_not_trigger_scope_violation(): void
