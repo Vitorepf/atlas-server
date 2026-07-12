@@ -5,14 +5,17 @@ namespace App\Console\Commands;
 use App\Services\Ai\Compounding\AtlasCompoundingReadinessService;
 use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compounding\AtlasTemporalCertificationService;
+use App\Services\Ai\EngineeringKernel\Quality\QualityFoundryTemporalProjectionMaterializer;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Console\Command;
 
 class AtlasAiCompoundingCommand extends Command
 {
     protected $signature = 'atlas:ai:compounding
-        {action=certify : readiness, certify, simulate, run, temporal}
+        {action=certify : readiness, certify, simulate, run, temporal, temporal-rebuild}
         {--run-id= : Deterministic run id for simulate/run}
         {--flow-id=atlas_debug : Flow id for simulate/run}
+        {--delivery-id= : Engineering delivery correlation for temporal-rebuild}
         {--status=failed : Outcome status for simulate/run}
         {--json : Print machine-readable JSON}';
 
@@ -32,12 +35,13 @@ class AtlasAiCompoundingCommand extends Command
                 'temporal_certification' => app(AtlasTemporalCertificationService::class)->certify()->toArray(),
                 'writes' => true,
             ],
+            'temporal-rebuild' => $this->rebuildTemporalProjection(),
             'certify', 'certification' => $readiness->certify(),
             default => [
                 'schema_version' => 'atlas.ai.compounding.command.v1',
                 'status' => 'failed',
                 'error' => 'unsupported_action',
-                'supported_actions' => ['readiness', 'certify', 'simulate', 'run', 'temporal'],
+                'supported_actions' => ['readiness', 'certify', 'simulate', 'run', 'temporal', 'temporal-rebuild'],
                 'writes' => false,
             ],
         };
@@ -58,6 +62,25 @@ class AtlasAiCompoundingCommand extends Command
     /**
      * @return array<string,mixed>
      */
+    /** @return array<string,mixed> */
+    private function rebuildTemporalProjection(): array
+    {
+        $deliveryId = trim((string) ($this->option('delivery-id') ?? ''));
+        if ($deliveryId === '') {
+            return [
+                'schema_version' => 'atlas.ai.compounding.command.v1',
+                'status' => 'blocked',
+                'reason' => 'delivery_id_required',
+                'writes' => false,
+            ];
+        }
+
+        return app(QualityFoundryTemporalProjectionMaterializer::class)->materialize(
+            app(AtlasEvidenceLedger::class),
+            $deliveryId,
+        );
+    }
+
     private function sampleExecution(): array
     {
         return [
