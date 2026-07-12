@@ -1022,6 +1022,65 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame('task_required', $missing['result']['structuredContent']['error']);
     }
 
+    public function test_maxj04_refutation_matches_carry_strength_as_forbidden_context(): void
+    {
+        $entryId = (string) Str::uuid();
+        AtlasMemoryEntry::query()->create([
+            'id' => $entryId,
+            'memory_type' => 'refutation_memory',
+            'scope_type' => 'global',
+            'title' => 'Nao re-propor consolidar truncadores divergentes',
+            'body' => 'Nao re-propor consolidar truncadores divergentes',
+            'summary' => 'Nao re-propor consolidar truncadores divergentes',
+            'privacy_class' => 'normal',
+            'external_ai_allowed' => true,
+            'redaction_status' => 'clean',
+            'source_type' => 'maxj04_fixture',
+            'status' => 'active',
+            'tags' => [],
+            'metadata' => [
+                'privacy' => ['class' => 'normal', 'external_ai_allowed' => true],
+                'refutation_strength' => [
+                    'schema' => 'atlas.refutation_strength.v1',
+                    'strength' => 0.9,
+                    'denominator' => 3,
+                    'components' => ['recurrence' => 3, 'severity' => 3, 'avoided_cost' => 0.0],
+                ],
+            ],
+        ]);
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock) use ($entryId): void {
+            $mock->shouldReceive('recall')->once()->andReturn([
+                'recall' => [[
+                    'id' => $entryId,
+                    'title' => 'Nao re-propor consolidar truncadores divergentes',
+                    'type' => 'refutation_memory',
+                    'refutation_strength' => [
+                        'schema' => 'atlas.refutation_strength.v1',
+                        'strength' => 0.9,
+                        'denominator' => 3,
+                        'components' => ['recurrence' => 3, 'severity' => 3, 'avoided_cost' => 0.0],
+                    ],
+                ]],
+            ]);
+        });
+
+        $service = $this->service();
+        $method = new \ReflectionMethod($service, 'refutationMatches');
+        $method->setAccessible(true);
+        $matches = $method->invoke($service, 'consolidar truncadores', 'atlas-server');
+
+        $this->assertTrue(data_get($matches, '0.forbidden_context'));
+        $this->assertSame(0.9, data_get($matches, '0.refutation_strength.strength'));
+        $this->assertSame(3, data_get($matches, '0.refutation_strength.denominator'));
+
+        $format = new \ReflectionMethod($service, 'formatRefutationMatch');
+        $format->setAccessible(true);
+        $line = $format->invoke($service, $matches[0]);
+
+        $this->assertStringContainsString('refutation_strength=0.9000', $line);
+        $this->assertStringContainsString('denominator=3', $line);
+    }
+
     public function test_code_graph_retrieval_prefers_aobg_owner_code_over_docs_and_tests(): void
     {
         $this->seedCodeRow(

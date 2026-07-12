@@ -7,6 +7,7 @@ use App\Models\AiLearningCandidate;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
 use App\Services\Ai\Compounding\AtlasObraLessonHarvester;
+use App\Services\Ai\Compounding\AtlasRefutationStrengthService;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
@@ -35,6 +36,7 @@ class AtlasCompoundingReviewLessonsCommand extends Command
     public function handle(
         AtlasMemoryRegistryService $memory,
         AtlasCompoundingMemoryService $compounding,
+        AtlasRefutationStrengthService $refutationStrength,
     ): int {
         $promote = $this->ref('promote');
         $reject = $this->ref('reject');
@@ -43,7 +45,7 @@ class AtlasCompoundingReviewLessonsCommand extends Command
         }
 
         if ($promote !== null) {
-            return $this->decide($promote, fn (AiLearningCandidate $candidate): array => $this->promote($candidate, $memory, $compounding));
+            return $this->decide($promote, fn (AiLearningCandidate $candidate): array => $this->promote($candidate, $memory, $compounding, $refutationStrength));
         }
 
         if ($reject !== null) {
@@ -138,6 +140,7 @@ class AtlasCompoundingReviewLessonsCommand extends Command
         AiLearningCandidate $candidate,
         AtlasMemoryRegistryService $memory,
         AtlasCompoundingMemoryService $compounding,
+        AtlasRefutationStrengthService $refutationStrength,
     ): array {
         $claim = trim((string) $candidate->claim);
         $docPath = trim((string) data_get($candidate->payload, 'doc_path', ''));
@@ -160,6 +163,7 @@ class AtlasCompoundingReviewLessonsCommand extends Command
             'doc_path' => $docPath,
             'evidence_refs' => array_values((array) ($candidate->evidence_refs ?? [])),
             'promoted_by' => 'operator:review-lessons',
+            'refutation_strength' => $refutationStrength->forCandidate($candidate),
         ];
         if ($compoundingMemory !== null) {
             $registryMetadata['promoted_compounding_memory_id'] = (string) $compoundingMemory->getKey();

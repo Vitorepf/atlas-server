@@ -6,6 +6,7 @@ namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AtlasLongHorizonCompactionReceipt;
+use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasContextFeedbackSignalPolicy;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
@@ -764,7 +765,7 @@ class AtlasOpenBrainContextPackService
      * is about to work on ("isto já foi refutado antes"). Query-aware recall (T0.2
      * forwarded the question), refutation_memory only, capped + provider-safe.
      *
-     * @return list<string>
+     * @return list<array<string,mixed>>
      */
     private function refutationMatches(string $task, string $workspaceId): array
     {
@@ -779,13 +780,59 @@ class AtlasOpenBrainContextPackService
                 ['limit' => 3, 'requester' => 'obra_retomada', 'include_verbatim' => false, 'include_semantic' => false, 'include_compounding' => false],
             );
 
-            return array_values(array_filter(array_map(
-                static fn ($row): string => trim((string) (is_array($row) ? ($row['title'] ?? '') : '')),
-                (array) ($recall['recall'] ?? []),
-            ), static fn (string $t): bool => $t !== ''));
+            $matches = [];
+            foreach ((array) ($recall['recall'] ?? []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $title = trim((string) ($row['title'] ?? ''));
+                if ($title === '') {
+                    continue;
+                }
+                $strength = $this->refutationStrengthForRow($row);
+                $matches[] = [
+                    'title' => $title,
+                    'forbidden_context' => true,
+                    'refutation_strength' => $strength,
+                ];
+            }
+
+            return $matches;
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>|null
+     */
+    private function refutationStrengthForRow(array $row): ?array
+    {
+        if (is_array($row['refutation_strength'] ?? null)) {
+            return $row['refutation_strength'];
+        }
+
+        $id = trim((string) ($row['id'] ?? ($row['source_ref_id'] ?? '')));
+        if ($id === '') {
+            return null;
+        }
+
+        try {
+            $entry = AtlasMemoryEntry::query()->find($id);
+            $strength = $entry instanceof AtlasMemoryEntry
+                ? data_get($entry->metadata, 'refutation_strength')
+                : null;
+            if (! is_array($strength)) {
+                $metadata = DB::table('atlas_memory_entries')->where('id', $id)->value('metadata');
+                $decoded = is_string($metadata) ? json_decode($metadata, true) : null;
+                $strength = is_array($decoded) ? data_get($decoded, 'refutation_strength') : null;
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($strength) ? $strength : null;
     }
 
     /**
@@ -1890,6 +1937,22 @@ class AtlasOpenBrainContextPackService
         }
 
         return $chars;
+    }
+
+    private function formatRefutationMatch(mixed $ref): string
+    {
+        if (! is_array($ref)) {
+            return (string) $ref;
+        }
+
+        $title = trim((string) ($ref['title'] ?? ''));
+        $strength = data_get($ref, 'refutation_strength.strength');
+        $denominator = data_get($ref, 'refutation_strength.denominator');
+        if (is_numeric($strength) && is_numeric($denominator)) {
+            return sprintf('%s (refutation_strength=%.4f, denominator=%d)', $title, (float) $strength, (int) $denominator);
+        }
+
+        return $title;
     }
 
     /**
@@ -3371,7 +3434,7 @@ class AtlasOpenBrainContextPackService
                 $lines[] = '- falta: '.implode('; ', array_map('strval', $pend));
             }
             foreach (array_slice((array) ($retomada['refutacoes'] ?? []), 0, 3) as $ref) {
-                $lines[] = '- ⚠️ já refutado antes: '.(string) $ref;
+                $lines[] = '- ⚠️ forbidden-context: '.$this->formatRefutationMatch($ref);
             }
             $lines[] = '';
         }

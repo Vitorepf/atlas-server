@@ -99,6 +99,10 @@ MD);
         $this->assertSame($this->fixture, data_get($entry->metadata, 'doc_path'));
         $this->assertSame((string) $candidate->candidate_hash, data_get($entry->metadata, 'candidate_hash'));
         $this->assertContains($this->fixture, (array) data_get($entry->metadata, 'evidence_refs'));
+        $this->assertSame('atlas.refutation_strength.v1', data_get($entry->metadata, 'refutation_strength.schema'));
+        $this->assertGreaterThan(0, data_get($entry->metadata, 'refutation_strength.strength'));
+        $this->assertGreaterThanOrEqual(1, data_get($entry->metadata, 'refutation_strength.denominator'));
+        $this->assertIsArray(data_get($entry->metadata, 'refutation_strength.components'));
 
         $candidate->refresh();
         $this->assertSame('promoted', $candidate->status);
