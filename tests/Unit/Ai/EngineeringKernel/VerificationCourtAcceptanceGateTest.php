@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\EngineeringKernel;
 
 use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
@@ -32,7 +33,7 @@ final class VerificationCourtAcceptanceGateTest extends TestCase
 
         self::assertSame(CertVerdict::REFUSE, $verdict->status);
         self::assertContains('verification_roles', $verdict->blockers);
-        self::assertStringContainsString('missing_role:judge', $verdict->invariants['verification_roles']['detail']);
+        self::assertStringContainsString('missing_role:product_management', $verdict->invariants['verification_roles']['detail']);
     }
 
     public function test_forged_na_self_verification_and_hash_drift_block(): void
@@ -88,11 +89,11 @@ final class VerificationCourtAcceptanceGateTest extends TestCase
     private function courtFacts(): array
     {
         return [
-            'required_roles' => ['builder', 'judge'],
-            'dispositions' => [
-                ['role' => 'builder', 'status' => 'pass', 'author_id' => 'author-a', 'verifier_id' => 'judge-a'],
-                ['role' => 'judge', 'status' => 'pass', 'author_id' => 'author-a', 'verifier_id' => 'judge-a'],
-            ],
+            'required_roles' => EngineeringRoleRoster::OFFICIAL_ROLES,
+            'dispositions' => array_map(
+                static fn (string $role): array => ['role' => $role, 'status' => 'pass', 'author_id' => 'author-a', 'verifier_id' => 'judge-a'],
+                EngineeringRoleRoster::OFFICIAL_ROLES,
+            ),
             'expected_hashes' => ['world_hash' => str_repeat('a', 64), 'spec_hash' => str_repeat('b', 64), 'order_hash' => str_repeat('c', 64)],
             'actual_hashes' => ['world_hash' => str_repeat('a', 64), 'spec_hash' => str_repeat('b', 64), 'order_hash' => str_repeat('c', 64)],
             'allegation' => ['task_packet_id' => 'packet-1', 'lease_id' => 'lease-1', 'allowed_files_hash' => 'files-1', 'command_hash' => 'command-1'],

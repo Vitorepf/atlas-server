@@ -76,6 +76,12 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
     {
         $required = array_values(array_filter(array_map('strval', (array) ($facts['required_roles'] ?? []))));
         $dispositions = is_array($facts['dispositions'] ?? null) ? $facts['dispositions'] : [];
+        if ($required !== EngineeringRoleRoster::OFFICIAL_ROLES) {
+            return [
+                'status' => 'fail',
+                'detail' => 'required_roles_must_match_official_quality_foundry_roster',
+            ];
+        }
         $byRole = [];
         foreach ($dispositions as $disposition) {
             if (is_array($disposition)) {
@@ -83,7 +89,12 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
             }
         }
         $blockers = [];
-        foreach ($required as $role) {
+        if (count($dispositions) !== count(EngineeringRoleRoster::OFFICIAL_ROLES)
+            || array_diff(array_keys($byRole), EngineeringRoleRoster::OFFICIAL_ROLES) !== []
+            || array_diff(EngineeringRoleRoster::OFFICIAL_ROLES, array_keys($byRole)) !== []) {
+            $blockers[] = 'dispositions_must_match_official_quality_foundry_roster';
+        }
+        foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
             $d = $byRole[$role] ?? null;
             if (! is_array($d)) {
                 $blockers[] = 'missing_role:'.$role;
