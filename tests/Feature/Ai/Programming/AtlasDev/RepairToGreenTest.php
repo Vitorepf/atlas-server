@@ -1639,7 +1639,12 @@ final class RepairToGreenTest extends TestCase
 
         $executor = new PipelineRunExecutor(new Container, new ReceiptStorage($this->tmpStorage));
         $revert = new \ReflectionMethod($executor, 'revertWorkspaceChanges');
-        $revert->invoke($executor, $this->tmpWorkspace, ['app/Foo.php', 'app/FooHelper.php']);
+        $revert->invoke($executor, $this->tmpWorkspace, ['app/Foo.php', 'app/FooHelper.php'], [
+            'entries' => [
+                'app/Foo.php' => ['kind' => 'file', 'contents' => "<?php\nfinal class Foo { public function value(): string { return 'before'; } }\n"],
+                'app/FooHelper.php' => ['kind' => 'missing'],
+            ],
+        ]);
 
         $this->assertStringContainsString(
             "'before'",
@@ -1663,7 +1668,7 @@ final class RepairToGreenTest extends TestCase
         // Declared-scope floor: an empty allowed_files list must NOT fall
         // back to a whole-workspace wipe.
         file_put_contents($operatorFile, "<?php\nfinal class Operator { public function wip(): string { return 'STILL HERE'; } }\n");
-        $revert->invoke($executor, $this->tmpWorkspace, []);
+        $revert->invoke($executor, $this->tmpWorkspace, [], ['entries' => []]);
         $this->assertStringContainsString(
             'STILL HERE',
             (string) file_get_contents($operatorFile),
