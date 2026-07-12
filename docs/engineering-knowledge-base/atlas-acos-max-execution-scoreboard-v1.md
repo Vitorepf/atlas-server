@@ -74,7 +74,7 @@
 - [ ] MAXG-10 (+ELEV-16) — blocked_by:MAXG-09-p95-window · ELEV-16 floor intermediário exige queda p95 UserPromptSubmit ≥30% vs baseline semanal sem queda golden/counts; MAXG-09 ainda `pending_window`
 - [ ] MAXH-03 — pending
 - [ ] MAXK-05 — pending
-- [ ] MAXK-06 — pending
+- [ ] MAXK-06 — blocked_by:MAXK-05
 - [x] MAXM-05 — landed · `surface_contract.v1.1` + `annotations.atlasContract` por tool (`stability/since/provider_bound/side_effect/cost_tier`); guard independente inspeciona handler read e recusa write-path rotulado read; `atlas_capabilities` expõe contrato por-tool
 - [x] MAXM-08 — landed · `tools/list` default expõe 9 primárias + `atlas_tool_search` (≤10); `atlas_tool_search` resolve por intenção e retorna contratos por-tool; 64 tools legadas seguem chamáveis por nome; surface-review `removed_tools=0`, coverage=65/65
 - [x] MAXN-03 (scaffold) — landed · `OperatorProfileFeedbackService` calcula ajuste puro por comportamento com n<10 ⇒ `insufficient_sample`, apply gera reverse-handle e revert restaura confidence/status; digest expõe `behavior_confidence_curve`; fecho M4 continua pendente em `MAXN-03 (fecho)` até MAXN-02/outcomes reais
