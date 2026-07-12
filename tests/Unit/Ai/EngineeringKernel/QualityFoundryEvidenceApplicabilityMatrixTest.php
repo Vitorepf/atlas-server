@@ -126,6 +126,43 @@ final class QualityFoundryEvidenceApplicabilityMatrixTest extends TestCase
         self::assertContains('oracle_invalid:mutation', $result['blockers']);
     }
 
+    public function test_each_applicable_evidence_class_has_a_red_failure_fixture(): void
+    {
+        $matrix = new QualityFoundryEvidenceApplicabilityMatrix;
+        $facts = [
+            'risk_class' => 'R5',
+            'delivery_facts' => [
+                'mutative' => true,
+                'runtime_boundary' => true,
+                'security_sensitive' => true,
+                'performance_sensitive' => true,
+                'user_facing' => true,
+                'migration' => true,
+                'outcome_claimed' => true,
+            ],
+        ];
+        $required = $matrix->evaluate($facts)['required'];
+        $evidence = [];
+        foreach ($required as $dimension) {
+            $evidence[$dimension] = [
+                'status' => 'pass',
+                'receipt_hash' => 'fixture-'.$dimension,
+                'oracle' => in_array($dimension, ['mutation', 'property', 'metamorphic'], true)
+                    ? ['kind' => 'implementation_independent', 'implementation_independent' => true]
+                    : null,
+            ];
+        }
+
+        foreach ($required as $dimension) {
+            $failedEvidence = $evidence;
+            $failedEvidence[$dimension] = ['status' => 'fail', 'receipt_hash' => 'fixture-'.$dimension.'-failed'];
+            $report = $matrix->evaluate($facts + ['evidence' => $failedEvidence]);
+
+            self::assertFalse($report['accepted'], 'A failed '.$dimension.' fixture was accepted.');
+            self::assertContains('evidence_invalid:'.$dimension, $report['blockers']);
+        }
+    }
+
     /** @param array<string,mixed> $applicability @return array<string,mixed> */
     private function courtFacts(array $applicability): array
     {
