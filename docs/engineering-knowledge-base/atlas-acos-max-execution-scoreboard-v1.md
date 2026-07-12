@@ -17,7 +17,7 @@
 
 ## LOTE 1 — Freios (F0) — GATE F0: porta única observe · ledgers imunes · event_hash+cadeia+âncora · captura operador viva · restore drill · attempts terminais
 - [x] ASI-05 — landed · live ledger testing guard for AtlasDecide outcomes + brain heartbeat · cleanup receipt `storage/app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl` hash=`sha256:10bedba4feaa78658219c341fbfa42ec5834a7c8fe5477a28d7275913f8e3c2e` · removed live_outcomes=7 heartbeat=2 · focused hash acceptance identical
-- [ ] ASI-01 — pending
+- [x] ASI-01 — landed · ConstitutionGate live caller via `AtlasTaskScopedCommitter` → `AtlasLoopMergeActuator::commitWithConstitutionToken`; presence sentinel + negative forbidden-self-target receipt green
 - [ ] ASI-02 (+ELEV-08) — pending
 - [ ] MAXI-01 — pending
 - [ ] ASI-03 — pending
