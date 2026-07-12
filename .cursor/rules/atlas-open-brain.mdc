@@ -1,0 +1,58 @@
+---
+description: Atlas Open Brain Gateway (AOBG) — consult the brain via atlas_context_pack BEFORE implementing.
+alwaysApply: true
+---
+
+# Atlas Open Brain Gateway (AOBG) — consult the brain BEFORE implementing
+
+This repo is an **Atlas Open Brain Gateway (AOBG)**: a local brain-server any external AI
+(Cursor, Claude Code, Codex) plugs into via MCP, in ANY project, both directions. Cursor is
+plugged in through the MCP server `atlas-open-brain` (register it with `scripts/setup-aobg.sh`,
+or it is already in `~/.cursor/mcp.json`).
+
+## Imperative (non-optional)
+
+Before any implementation, multi-module refactor, technical recommendation, or architecture
+answer, **call the `atlas_context_pack` tool** — the single front door (AOBG N1.F1). It fuses
+the three already-proven brains into one provider-bound pack:
+
+- **code-graph** — BM25 + E-3 budgeted symbols, scoped to this workspace,
+- **reality graph (AURG)** — cross-layer paths (code+memory+domain+evidence) with provenance,
+- **semantic memory** — pgvector recall over REDACTED provider-safe projections only.
+
+It is read-only, local DB only, and costs **zero provider spend**.
+
+```
+atlas_context_pack  { "task": "<what you are about to do>", "workspace": "<path or id; default = CWD>" }
+```
+
+No MCP available? The same brain is on the CLI: `bin/atlas open-brain mcp` (server), or
+directly `php artisan atlas:context-pack "<task>" --json` (auto-scopes the workspace from CWD).
+
+Do **not** trust training memory or a blind `grep` over the tree as the architecture source —
+Atlas is the live source. Cost of a call: ~1s. Cost of diverging from a decision already made:
+hours of rework.
+
+## Structural guarantees (rely on them; never route around them)
+
+- **Provider-safe:** every byte that leaves crosses to an external AI, so the pack is
+  provider-bound. Sensitive/secret/cyber content is excluded by construction; memory is only
+  redacted projections; evidence is ids/hashes only. Never request or fabricate raw sensitive content.
+- **Multi-project:** the workspace is auto-scoped from the caller's CWD (or the `workspace`
+  arg). Never assume another project's symbols are in the pack; never leak cross-workspace.
+- **Honest (anti-over-claim):** the pack is "curated top-K (not exhaustive)" — a slice, not
+  omniscience. An empty section means "the brain has nothing here", not a failure. If context
+  is missing, recall/ask — do not invent.
+
+## Write-back is GOVERNED
+
+Your output is UNTRUSTED input to the brain. To record what you did (files touched, mission ref,
+result) use `atlas_record_outcome` (AOBG N1.F2). It passes the capture quality gate + provider-
+safety, always writes a BRANCH, **never merges to main**, and **never auto-promotes** — it lands
+as a proposal for human review. Do not bypass the gate or write to memory directly.
+
+## Legitimate exceptions (no consult needed)
+
+Renaming a variable inside one function; a typo/whitespace/formatting fix; a purely operational
+task (run a command, read a log); a meta question about Atlas/MCP/tooling itself. If unsure
+whether it is an exception: it is not. Consult.
