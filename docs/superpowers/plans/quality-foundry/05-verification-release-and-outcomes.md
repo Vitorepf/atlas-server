@@ -111,7 +111,7 @@ Applicable evidence types are: unit, integration, contract, E2E, property, mutat
 - [ ] Build RED fixtures that seed a real defect detectable by each evidence class and show certification fails when that class is applicable but absent.
 - [x] Add RED policy tests for R0–R5, delivery facts and explicit evidence N/A proof; mode cannot change applicability.
 - [x] Implement evidence receipts with command/tool version, inputs, assertions, exit/timeout, artifact/hash, scope, observer identity and timestamp.
-- [ ] Require mutation/property/metamorphic or implementation-independent oracles at R4/R5 as fixed by risk; a test written only to the implementation is insufficient.
+- [x] Require mutation/property/metamorphic or implementation-independent oracles at R4/R5 as fixed by risk; a test written only to the implementation is insufficient.
 - [ ] Ensure evidence produced before the final spec/world/file hash is stale and cannot pass.
 - [ ] Run each evidence fixture, mutation adequacy, property/differential/metamorphic, security/privacy/NFR and replay suites.
 

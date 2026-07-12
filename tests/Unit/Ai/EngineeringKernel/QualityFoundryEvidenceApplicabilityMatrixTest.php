@@ -92,6 +92,9 @@ final class QualityFoundryEvidenceApplicabilityMatrixTest extends TestCase
             $evidence = [];
             foreach ($required as $dimension) {
                 $evidence[$dimension] = ['status' => 'pass', 'receipt_hash' => 'receipt-'.$dimension];
+                if (in_array($dimension, ['mutation', 'property', 'metamorphic'], true) && (int) ltrim($risk, 'R') >= 4) {
+                    $evidence[$dimension]['oracle'] = ['kind' => 'implementation_independent', 'implementation_independent' => true];
+                }
             }
             $ready = $matrix->evaluate([
                 'risk_class' => $risk, 'mode' => 'dev', 'delivery_facts' => $deliveryFacts, 'evidence' => $evidence,
@@ -105,6 +108,22 @@ final class QualityFoundryEvidenceApplicabilityMatrixTest extends TestCase
             ]);
             self::assertFalse($failed['accepted'], $risk.' accepted invalid '.$required[0]);
         }
+    }
+
+    public function test_r4_oracle_cannot_be_implementation_dependent(): void
+    {
+        $matrix = new QualityFoundryEvidenceApplicabilityMatrix;
+        $result = $matrix->evaluate([
+            'risk_class' => 'R4',
+            'evidence' => [
+                'unit' => ['status' => 'pass', 'receipt_hash' => 'unit'],
+                'mutation' => ['status' => 'pass', 'receipt_hash' => 'mutation', 'oracle' => ['kind' => 'unit', 'implementation_independent' => false]],
+                'property' => ['status' => 'pass', 'receipt_hash' => 'property', 'oracle' => ['kind' => 'property', 'implementation_independent' => true]],
+                'metamorphic' => ['status' => 'pass', 'receipt_hash' => 'metamorphic', 'oracle' => ['kind' => 'metamorphic', 'implementation_independent' => true]],
+            ],
+        ]);
+
+        self::assertContains('oracle_invalid:mutation', $result['blockers']);
     }
 
     /** @param array<string,mixed> $applicability @return array<string,mixed> */

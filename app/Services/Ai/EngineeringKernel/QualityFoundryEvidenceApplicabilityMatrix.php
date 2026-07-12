@@ -41,6 +41,17 @@ final class QualityFoundryEvidenceApplicabilityMatrix
             }
             $status = (string) ($row['status'] ?? '');
             if ($status === 'pass' && trim((string) ($row['receipt_hash'] ?? '')) !== '') {
+                $level = (int) ltrim(strtoupper((string) ($facts['risk_class'] ?? 'R0')), 'R');
+                if ($level >= 4 && in_array($dimension, ['mutation', 'property', 'metamorphic'], true)) {
+                    $oracle = is_array($row['oracle'] ?? null) ? $row['oracle'] : [];
+                    if (($oracle['implementation_independent'] ?? false) !== true
+                        || ! in_array((string) ($oracle['kind'] ?? ''), ['property', 'differential', 'metamorphic', 'implementation_independent'], true)) {
+                        $results[$dimension] = 'invalid';
+                        $blockers[] = 'oracle_invalid:'.$dimension;
+
+                        continue;
+                    }
+                }
                 if (is_array($row['receipt'] ?? null)) {
                     try {
                         $receipt = EvidenceReceipt::fromArray($row['receipt']);
