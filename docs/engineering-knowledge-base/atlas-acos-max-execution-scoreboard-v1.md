@@ -191,7 +191,7 @@
 - [x] MULTN17-08 — landed · `DogfoodingFrictionLeadMiner` groups observed operator-friction events by signature, emits `dogfooding` leads only at `MIN_OCCURRENCES=3`, hashes evidence refs, keeps raw operator text out of the generated objective, and marks leads as lead-only/not seeds; tests: `php artisan test tests/Unit/Ai/AcosMax/Multn1708DogfoodingFrictionLeadTest.php`
 - [x] MULTN17-04 (curva) — landed · `PredictedImpactBand` derives impact band from `{rung, rank, path_yield}` only, ignores caller-declared `band`, stays report-only (`influences_pick=false`), and publishes calibration with unresolved tasks counted separately (never as realized success); tests: `php artisan test tests/Unit/Ai/AcosMax/Multn1704PredictedImpactBandTest.php`
 - [x] MULTH-01 — landed · `StructuredFactSchemaMap` defines typed structured-fact schemas for `decision`, `harness_learning`, and `gotcha`, validates required fields, leaves unknown types `unschematized`, and is explicitly fail-open (`required_on_write=false`, no LLM hot path); tests: `php artisan test tests/Unit/Ai/AcosMax/Multh01StructuredFactsTest.php`
-- [ ] MULTH-02 — pending
+- [x] MULTH-02 — landed · `ProvenanceWeightCalculator` computes a bounded provenance multiplier from refs verified by a supplied evidence set, keeps dead refs at zero weight, reports dead refs, and declares no hot-path ledger lookup; tests: `php artisan test tests/Unit/Ai/AcosMax/Multh02ProvenanceWeightTest.php`
 - [ ] MULTH-07 — pending
 - [ ] MULTH-03 — pending
 - [ ] MULTV-01 — pending
