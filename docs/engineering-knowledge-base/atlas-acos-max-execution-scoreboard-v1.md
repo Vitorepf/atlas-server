@@ -189,7 +189,7 @@
 - [x] MULTN17-07 — landed · `ReactiveSaturationSignal` derives `reactive_saturated` from a measured falling-yield tail with `MIN_N_PER_WINDOW=8`, ignores queue-empty as a sole signal, reports `insufficient_n` for thin windows, and only emits `pick_hint=prefer_originated` (never disables the reactive lane); tests: `php artisan test tests/Unit/Ai/AcosMax/Multn1707ReactiveSaturationSignalTest.php`
 - [x] MULTN17-01 — landed · `AmbitionRungPolicy` classifies/selects explicit rungs `{task,slice,obra,salto}` and only prefers rung+1 when `reactive_saturated=true` with equal-or-better leverage; flag OFF keeps the original pick, rung distribution is emitted as informational data and is explicitly not a score input; tests: `php artisan test tests/Unit/Ai/AcosMax/Multn1701AmbitionRungPolicyTest.php`
 - [ ] MULTN17-08 — pending
-- [ ] MULTN17-04 (curva) — pending
+- [x] MULTN17-04 (curva) — landed · `PredictedImpactBand` derives impact band from `{rung, rank, path_yield}` only, ignores caller-declared `band`, stays report-only (`influences_pick=false`), and publishes calibration with unresolved tasks counted separately (never as realized success); tests: `php artisan test tests/Unit/Ai/AcosMax/Multn1704PredictedImpactBandTest.php`
 - [ ] MULTH-01 — pending
 - [ ] MULTH-02 — pending
 - [ ] MULTH-07 — pending
