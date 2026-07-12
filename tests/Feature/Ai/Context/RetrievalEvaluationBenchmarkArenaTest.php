@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 final class RetrievalEvaluationBenchmarkArenaTest extends TestCase
@@ -62,6 +63,29 @@ final class RetrievalEvaluationBenchmarkArenaTest extends TestCase
 
         $this->assertSame($first['arena_hash'], $second['arena_hash']);
         $this->assertSame(data_get($first, 'golden_set.golden_set_hash'), data_get($second, 'golden_set.golden_set_hash'));
+    }
+
+    public function test_identical_arena_evaluations_persist_once_per_request_scope(): void
+    {
+        config(['atlas.aucri.arena_persist_runs' => true]);
+        $dir = storage_path('app/atlas/aucri/arena-runs');
+        File::deleteDirectory($dir);
+
+        $arena = app(AtlasRetrievalEvaluationBenchmarkArenaService::class);
+        $first = $arena->evaluate(['risk_level' => 'low']);
+        $second = $arena->evaluate(['risk_level' => 'low']);
+        $third = $arena->evaluate(['risk_level' => 'low']);
+
+        $this->assertSame($first['arena_hash'], $second['arena_hash']);
+        $this->assertSame($first['arena_hash'], $third['arena_hash']);
+        $this->assertTrue(data_get($first, 'persistence.recorded'));
+        $this->assertFalse(data_get($second, 'persistence.recorded'));
+        $this->assertSame('request_scope_duplicate', data_get($second, 'persistence.reason'));
+        $this->assertFalse(data_get($third, 'persistence.recorded'));
+
+        $path = (string) data_get($first, 'persistence.path');
+        $lines = File::lines($path)->filter()->values();
+        $this->assertCount(1, $lines);
     }
 
     public function test_command_emits_canonical_json(): void

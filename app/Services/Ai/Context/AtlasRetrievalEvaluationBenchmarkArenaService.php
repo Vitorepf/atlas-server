@@ -17,6 +17,11 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
 
     public const SUMMARY_SCHEMA = 'atlas.aucri.retrieval_eval_summary.v1';
 
+    /**
+     * @var array<string,array<string,mixed>>
+     */
+    private array $persistedRunSummariesByRequestKey = [];
+
     public function __construct(
         private readonly AtlasContextFreshnessQualityGateService $freshnessQualityGate,
         private readonly AtlasRetrievalFeedbackLoopService $feedbackLoop,
@@ -115,7 +120,11 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         $shouldPersist = array_key_exists('persist', $input)
             ? (bool) $input['persist']
             : (bool) config('atlas.aucri.arena_persist_runs', true);
-        $payload['persistence'] = $this->persistRunSummary($payload, $shouldPersist);
+        $payload['persistence'] = $this->persistRunSummary(
+            $payload,
+            $shouldPersist,
+            $risk.':'.(string) data_get($payload, 'golden_set.golden_set_hash', ''),
+        );
 
         return $payload;
     }
@@ -124,7 +133,7 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
      * @param  array<string,mixed>  $payload
      * @return array<string,mixed>
      */
-    private function persistRunSummary(array $payload, bool $persist): array
+    private function persistRunSummary(array $payload, bool $persist, string $requestKey): array
     {
         if (! $persist) {
             return ['recorded' => false, 'reason' => 'arena_persist_disabled'];
@@ -143,6 +152,13 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
         ];
         $summary['run_hash'] = MissionCanonicalHash::sha256($summary);
 
+        if (isset($this->persistedRunSummariesByRequestKey[$requestKey])) {
+            return array_merge($this->persistedRunSummariesByRequestKey[$requestKey], [
+                'recorded' => false,
+                'reason' => 'request_scope_duplicate',
+            ]);
+        }
+
         $dir = storage_path('app/atlas/aucri/arena-runs');
         if (! is_dir($dir)) {
             @mkdir($dir, 0775, true);
@@ -154,11 +170,16 @@ final class AtlasRetrievalEvaluationBenchmarkArenaService
             FILE_APPEND | LOCK_EX,
         );
 
-        return [
+        $result = [
             'recorded' => $written !== false,
             'path' => $path,
             'run_hash' => $summary['run_hash'],
         ];
+        if ($result['recorded']) {
+            $this->persistedRunSummariesByRequestKey[$requestKey] = $result;
+        }
+
+        return $result;
     }
 
     /**

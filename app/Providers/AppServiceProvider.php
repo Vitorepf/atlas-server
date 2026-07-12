@@ -254,6 +254,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
         $this->app->singleton(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
+        $this->app->scoped(\App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService::class);
 
         $this->app->afterResolving(function (mixed $resolved): void {
             if (! is_object($resolved)) {

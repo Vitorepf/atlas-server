@@ -70,7 +70,7 @@
 - [x] MAXE-04 — landed · `packFor()` records `timings_ms` for code_graph/reality_graph/memory/total; COM-01 delivered-pack ledger schema v2 appends rows and prunes on read; MAXG-01 latency ledger mirrors section ops `pack.section.*` for trend via `atlas:context:latency --json`; refs/hash payload unchanged; tests: `php artisan test tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php --filter=DeliveredPackLedger` + `php artisan test tests/Unit/Ai/AcosMax/Maxg01LatencyLedgerTest.php`
 - [ ] MAXE-05 — pending
 - [ ] MAXB-09 — pending
-- [ ] MAXG-09 — pending
+- [ ] MAXG-09 — pending_window(MAXG-01 p95 pós-land) · mecanismo landed: `AtlasRetrievalEvaluationBenchmarkArenaService` scoped + memo `risk:golden_set_hash`; 3 avaliações idênticas persistem 1 run-summary e duplicatas retornam `request_scope_duplicate`; arena tests verdes; MAXG-01 atual tem direction=`unknown` (sem baseline anterior suficiente)
 - [ ] MAXG-10 (+ELEV-16) — pending
 - [ ] MAXH-03 — pending
 - [ ] MAXK-05 — pending
