@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Lineage;
 
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Cognition\ImmuneSignatureIngestor;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Process\Process;
@@ -63,6 +64,7 @@ final class AtlasRollbackCascadeExecutor
         private readonly AtlasDecisionLineageLedger $ledger,
         private readonly ?string $repoRootOverride = null,
         private readonly ?object $negativeSearch = null,
+        private readonly ?ImmuneSignatureIngestor $immuneSignatureIngestor = null,
     ) {}
 
     /**
@@ -266,6 +268,12 @@ final class AtlasRollbackCascadeExecutor
         } catch (Throwable $e) {
             return ['ok' => false, 'kind' => AtlasDecisionLineageLedger::KIND_MEMORY, 'entity_ref' => $id, 'reason' => 'memory_archive_failed', 'error' => mb_substr($e->getMessage(), 0, 200)];
         }
+
+        $decisionId = is_string($entry->metadata['decision_id'] ?? null)
+            ? (string) $entry->metadata['decision_id']
+            : 'rollback';
+        ($this->immuneSignatureIngestor ?? new ImmuneSignatureIngestor)
+            ->maybeIngestFromRevertedMemory($entry->refresh(), $decisionId);
 
         return ['ok' => true, 'kind' => AtlasDecisionLineageLedger::KIND_MEMORY, 'entity_ref' => $id, 'action' => 'archived', 'reverse_handle' => 'atlas:ai:memory-forget '.$id.' --restore'];
     }

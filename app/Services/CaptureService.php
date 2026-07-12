@@ -7,7 +7,9 @@ use App\Models\Capture;
 use App\Models\TranscriptionJob;
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\ImmuneSignatureIngestor;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\ActivationEngine;
@@ -34,6 +36,8 @@ class CaptureService
         private readonly CognitiveImmunePromotionGateEvaluator $immuneGateEvaluator,
         private readonly AtlasAaeosCognitiveImmuneInputClassifier $immuneInputClassifier,
         private readonly ImmuneVerdictLedger $immuneVerdictLedger,
+        private readonly CaptureHmacLineageService $captureHmacLineage,
+        private readonly ImmuneSignatureIngestor $immuneSignatureIngestor,
     ) {}
 
     public function create(array $data, ?UploadedFile $file = null): array
@@ -235,6 +239,7 @@ class CaptureService
                     'origin' => 'capture_pipeline',
                     'captured_at' => is_scalar($data['captured_at'] ?? null) ? (string) $data['captured_at'] : null,
                     'content_hash' => $contentHash,
+                    'hmac_lineage' => $this->buildCaptureHmacLineage($data, $domain, $contentHash, $existing),
                 ],
                 'review' => [
                     'required' => true,
@@ -245,6 +250,80 @@ class CaptureService
                 'created_at' => $existing['created_at'] ?? $now,
             ],
         ];
+    }
+
+    /**
+     * MAXI-07 — extend capture quarantine lineage with HMAC-chained provenance.
+     *
+     * @param  array<string,mixed>  $data
+     * @param  array<string,mixed>  $existingQuarantine
+     * @return array<string,mixed>
+     */
+    private function buildCaptureHmacLineage(array $data, string $domain, ?string $contentHash, array $existingQuarantine): array
+    {
+        $existingChain = is_array($existingQuarantine['lineage']['hmac_lineage'] ?? null)
+            ? $existingQuarantine['lineage']['hmac_lineage']
+            : [];
+
+        $chain = $existingChain;
+        $sourceHash = is_scalar($data['source_hash'] ?? null) ? strtolower((string) $data['source_hash']) : null;
+        if ($sourceHash !== null && $this->chainNeedsSourceStage($chain)) {
+            $packetChain = $this->packetHmacLineageForSourceHash($sourceHash);
+            if (is_array($packetChain)) {
+                $chain = $packetChain;
+            } else {
+                $chain = $this->captureHmacLineage->stampStage($chain, CaptureHmacLineageService::STAGE_SOURCE, [
+                    'source_hash' => $sourceHash,
+                    'origin_uri' => is_scalar($data['origin_uri'] ?? null) ? (string) $data['origin_uri'] : null,
+                ]);
+            }
+        }
+
+        return $this->captureHmacLineage->stampStage($chain, CaptureHmacLineageService::STAGE_CAPTURE, [
+            'source_type' => 'capture',
+            'client_id' => is_scalar($data['client_id'] ?? null) ? (string) $data['client_id'] : null,
+            'kind' => is_scalar($data['kind'] ?? null) ? (string) $data['kind'] : null,
+            'domain' => $domain,
+            'content_hash' => $contentHash,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $chain
+     */
+    private function chainNeedsSourceStage(array $chain): bool
+    {
+        foreach ((array) ($chain['stages'] ?? []) as $link) {
+            if (is_array($link) && ($link['stage'] ?? null) === CaptureHmacLineageService::STAGE_SOURCE) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function packetHmacLineageForSourceHash(string $sourceHash): ?array
+    {
+        if (! DatabaseTableAvailability::has('atlas_knowledge_source_packets')) {
+            return null;
+        }
+
+        $packet = \App\Models\AtlasKnowledgeSourcePacket::query()
+            ->where('source_hash', $sourceHash)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if ($packet === null) {
+            return null;
+        }
+
+        $lineage = is_array($packet->lineage) ? $packet->lineage : [];
+        $chain = $lineage['hmac_lineage'] ?? null;
+
+        return is_array($chain) ? $chain : null;
     }
 
     /**
@@ -275,7 +354,7 @@ class CaptureService
             'content_hash' => $contentHash,
             'verdict' => $verdict,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
-        $this->immuneVerdictLedger->recordVerdict(
+        $ledgerRow = $this->immuneVerdictLedger->recordVerdict(
             $contentHash ?? $payload['audit_hash'],
             'capture_pipeline',
             $verdict,
@@ -284,6 +363,15 @@ class CaptureService
                 'decided_at' => now()->toIso8601String(),
             ],
         );
+        if (is_array($ledgerRow)) {
+            $this->immuneSignatureIngestor->maybeIngestFromVerdict(
+                $ledgerRow,
+                [
+                    'input_class' => (string) data_get($signals, 'signal_sources.input_class', $signals['claim_type'] ?? ''),
+                    'matched_signals' => array_values(array_map('strval', (array) data_get($signals, 'signal_sources.matched_signals', []))),
+                ],
+            );
+        }
 
         return $payload;
     }

@@ -41,6 +41,8 @@ final class AtlasImmuneHybridInputClassifier
 
     private readonly ImmuneSemanticSimilarityPort $port;
 
+    private readonly ImmuneSignatureStore $signatureStore;
+
     /** @var array<string,list<string>>|null */
     private ?array $anchors = null;
 
@@ -59,9 +61,11 @@ final class AtlasImmuneHybridInputClassifier
         ?array $anchors = null,
         ?float $tau = null,
         ?bool $enabled = null,
+        ?ImmuneSignatureStore $signatureStore = null,
     ) {
         $this->base = $base ?? new AtlasAaeosCognitiveImmuneInputClassifier;
         $this->port = $port ?? new BigramJaccardImmuneSemanticSimilarityPort;
+        $this->signatureStore = $signatureStore ?? new ImmuneSignatureStore;
         $this->anchors = $anchors;
         $freeze = AtlasImmuneClassifierHybridFreeze::freezePayload();
         $this->tau = $tau ?? (float) ($freeze['thresholds']['tau'] ?? 0.62);
@@ -74,6 +78,42 @@ final class AtlasImmuneHybridInputClassifier
      */
     public function classifyHybrid(string $text, array $metadata = []): array
     {
+        $signatureBlock = [
+            'schema_version' => AtlasImmuneSignatureFreeze::MEASURE_ID,
+            'mode' => $this->signatureStore->mode(),
+            'matched' => false,
+            'ref' => null,
+            'enforce_applied' => false,
+        ];
+
+        $knownSignature = $this->signatureStore->consult($text, $metadata);
+        if ($knownSignature !== null) {
+            $signatureBlock['matched'] = true;
+            $signatureBlock['ref'] = $knownSignature['ref'];
+            $signatureBlock['signature'] = $knownSignature['signature'];
+            $signatureBlock['origin_ref'] = $knownSignature['origin_ref'];
+            $signatureBlock['hit_count_after'] = $knownSignature['hit_count_after'];
+        }
+
+        if ($knownSignature !== null && $this->signatureStore->enforceEnabled()) {
+            $hostileClass = (string) $knownSignature['hostile_class'];
+            $baseResult = $this->base->classify($text, $metadata);
+            $baseResult['input_class'] = $hostileClass;
+            $baseResult['reason'] = 'known_poison_signature:'.(string) $knownSignature['ref'];
+            $baseResult['matched_signals'] = $this->augmentSignals(
+                $baseResult['matched_signals'],
+                'known_poison_signature',
+            );
+            $baseResult['memory_eligible'] = false;
+            $baseResult['embedding_allowed'] = false;
+            $baseResult['default_destination'] = self::hostileDestination($hostileClass);
+            $signatureBlock['enforce_applied'] = true;
+            $baseResult['immune_signature'] = $signatureBlock;
+            $baseResult['hybrid_arm'] = $this->offHybridArm($baseResult);
+
+            return $baseResult;
+        }
+
         $baseResult = $this->base->classify($text, $metadata);
 
         $armBlock = [
@@ -92,6 +132,7 @@ final class AtlasImmuneHybridInputClassifier
 
         if (! $this->enabled) {
             $baseResult['hybrid_arm'] = $armBlock;
+            $baseResult['immune_signature'] = $signatureBlock;
 
             return $baseResult;
         }
@@ -100,6 +141,7 @@ final class AtlasImmuneHybridInputClassifier
         $armBlock['source'] = $scores === null ? 'unavailable' : 'jaccard_baseline';
         if ($scores === null) {
             $baseResult['hybrid_arm'] = $armBlock;
+            $baseResult['immune_signature'] = $signatureBlock;
 
             return $baseResult;
         }
@@ -137,8 +179,30 @@ final class AtlasImmuneHybridInputClassifier
         }
 
         $baseResult['hybrid_arm'] = $armBlock;
+        $baseResult['immune_signature'] = $signatureBlock;
 
         return $baseResult;
+    }
+
+    /**
+     * @param  array<string,mixed>  $baseResult
+     * @return array<string,mixed>
+     */
+    private function offHybridArm(array $baseResult): array
+    {
+        return [
+            'schema_version' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+            'enabled' => false,
+            'source' => 'off',
+            'tau' => $this->tau,
+            'max_similarity' => null,
+            'hostile_class_candidate' => null,
+            'lexical_hostile_class' => in_array($baseResult['input_class'], self::HOSTILE_SEVERITY, true)
+                ? (string) $baseResult['input_class']
+                : null,
+            'winner_source' => 'immune_signature',
+            'override_applied' => true,
+        ];
     }
 
     /**

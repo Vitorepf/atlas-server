@@ -43,6 +43,11 @@ class AtlasCompoundingOutcomeEvaluator
             'payload_hash' => CompoundingHash::make($this->hashable($input)),
         ]);
 
+        $envelope = app(\App\Services\Ai\AcosMax\OutcomeEnvelopeBridge::class)->project('compounding', $payload);
+        if ($envelope !== null) {
+            $payload['outcome_envelope'] = $envelope;
+        }
+
         return AiRunOutcome::query()->firstOrCreate(
             ['outcome_hash' => $payload['outcome_hash']],
             $payload,

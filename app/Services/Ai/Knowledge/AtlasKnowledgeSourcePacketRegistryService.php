@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Knowledge;
 
 use App\Models\AtlasKnowledgeSourcePacket;
+use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 
@@ -138,18 +139,28 @@ class AtlasKnowledgeSourcePacketRegistryService
         $ingester = (string) ($params['ingester'] ?? 'unknown');
         $now = now();
 
+        $versionHash = hash('sha256', json_encode([
+            'source_hash' => $sourceHash,
+            'metadata' => $metadata,
+            'language' => $language,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+
         $lineage = [
             'source_type' => $sourceType,
             'origin_uri' => $originUri,
             'ingested_at' => $now->toIso8601String(),
             'ingester' => $ingester,
         ];
-
-        $versionHash = hash('sha256', json_encode([
-            'source_hash' => $sourceHash,
-            'metadata' => $metadata,
-            'language' => $language,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+        $lineage['hmac_lineage'] = app(CaptureHmacLineageService::class)->stampStage(
+            [],
+            CaptureHmacLineageService::STAGE_SOURCE,
+            [
+                'source_type' => $sourceType,
+                'origin_uri' => $originUri,
+                'source_hash' => strtolower($sourceHash),
+                'version_hash' => $versionHash,
+            ],
+        );
 
         $receiptPayload = [
             'schema_version' => 'atlas.knowledge.source_packet.v1',

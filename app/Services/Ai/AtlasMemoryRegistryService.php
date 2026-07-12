@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Services\Ai\Brain\AtlasMemoryJournal;
+use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
@@ -253,9 +254,46 @@ class AtlasMemoryRegistryService
 
         $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
         data_set($metadata, 'acos_max.asi_02.admission', $receipt);
+        $metadata = $this->stampCaptureHmacLineageOnAdmission($metadata, $payload);
         $payload['metadata'] = $metadata;
 
         return $payload;
+    }
+
+    /**
+     * MAXI-07 — ASI-02 promotion stamps the memory-stage HMAC lineage link.
+     *
+     * @param  array<string,mixed>  $metadata
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function stampCaptureHmacLineageOnAdmission(array $metadata, array $payload): array
+    {
+        $lineage = app(CaptureHmacLineageService::class);
+        $existing = is_array(data_get($metadata, 'acos_max.maxi_07.capture_hmac_lineage'))
+            ? data_get($metadata, 'acos_max.maxi_07.capture_hmac_lineage')
+            : (is_array(data_get($metadata, 'capture_hmac_lineage_prior'))
+                ? data_get($metadata, 'capture_hmac_lineage_prior')
+                : []);
+
+        $title = (string) ($payload['title'] ?? '');
+        $body = (string) ($payload['body'] ?? '');
+
+        $stamped = $lineage->stampStage(
+            is_array($existing) ? $existing : [],
+            CaptureHmacLineageService::STAGE_MEMORY,
+            [
+                'memory_type' => (string) ($payload['memory_type'] ?? $payload['type'] ?? 'unknown'),
+                'scope' => (string) ($payload['scope'] ?? 'global'),
+                'source_type' => (string) ($payload['source_type'] ?? 'registry'),
+                'title_hash' => hash('sha256', $title),
+                'body_hash' => hash('sha256', $body),
+            ],
+        );
+
+        data_set($metadata, 'acos_max.maxi_07.capture_hmac_lineage', $lineage->providerSafeChain($stamped));
+
+        return $metadata;
     }
 
     /**

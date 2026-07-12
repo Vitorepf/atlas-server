@@ -150,6 +150,7 @@ use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
 use App\Console\Commands\AtlasGoldenCounterfactualReplayCommand;
 use App\Console\Commands\AtlasGovernanceAmendmentsCommand;
 use App\Console\Commands\AtlasImmuneCalibrationCommand;
+use App\Console\Commands\AtlasImmuneVerifyLineageCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
@@ -409,6 +410,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasGoldenCounterfactualReplayCommand::class,
         AtlasGovernanceAmendmentsCommand::class,
         AtlasImmuneCalibrationCommand::class,
+        AtlasImmuneVerifyLineageCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,

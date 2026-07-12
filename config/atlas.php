@@ -4418,6 +4418,11 @@ return [
         'immune_classifier' => [
             'semantic_arm_enabled' => (bool) env('ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED', false),
         ],
+        // MAXI-05 — learned poison signatures (observe default; enforce blocks by ref).
+        'immune_signature' => [
+            'mode' => env('ATLAS_IMMUNE_SIGNATURE_MODE', 'observe'),
+            'decay_days' => (int) env('ATLAS_IMMUNE_SIGNATURE_DECAY_DAYS', 90),
+        ],
     ],
 
     /*

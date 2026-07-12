@@ -13,7 +13,9 @@ use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
+use App\Services\Ai\Cognition\AtlasImmuneSignatureFreeze;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
+use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
@@ -236,6 +238,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:atlas.decide.zero_weight_outcomes.v1',
             ],
             [
+                'slice' => 'ESP-06',
+                'series' => OutcomeEnvelopeBridge::MEASURE_ID,
+                'path' => 'OutcomeEnvelopeBridge::producerConsumerMeta',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) OutcomeEnvelopeBridge::freezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.esp_06.outcome_envelope.v1',
+            ],
+            [
                 'slice' => 'MULTN15-02',
                 'series' => OperatorApprovalHistoryMeter::MEASURE_ID,
                 'path' => 'atlas:operator-approval-history --json',
@@ -396,6 +407,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'recorded_at',
                 'ttl_days' => AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
                 'ttl_source' => 'freeze:atlas.immune.classifier_hybrid.v1',
+            ],
+            [
+                'slice' => 'MAXI-05',
+                'series' => AtlasImmuneSignatureFreeze::MEASURE_ID,
+                'table' => ImmuneSignatureStore::TABLE,
+                'source_type' => 'table',
+                'timestamp_field' => 'first_seen',
+                'ttl_days' => AtlasImmuneSignatureFreeze::TTL_DAYS,
+                'ttl_source' => 'freeze:atlas.immune.signature_store.v1',
             ],
             [
                 'slice' => 'TETO-01',

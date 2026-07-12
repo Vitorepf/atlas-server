@@ -221,13 +221,27 @@ class AtlasEngineeringOutcomeRecorder
     private function fanOutSpineWriters(array $input, string $status, array $evidenceRefs, string $episodeId): array
     {
         $contractV2 = $this->outcomeContractV2($input, $status, $evidenceRefs, $episodeId);
+        $executor = strtolower(trim((string) ($input['executor'] ?? '')));
         $result = [
             'ai_run_outcome' => ['recorded' => false],
             'live_outcome' => ['recorded' => false],
             'outcome_contract_v2' => $contractV2,
         ];
 
-        $executor = strtolower(trim((string) ($input['executor'] ?? '')));
+        $envelope = app(\App\Services\Ai\AcosMax\OutcomeEnvelopeBridge::class)->project('aemor', $input, [
+            'executor' => $executor,
+            'episode_id' => $episodeId,
+            'outcome_contract_v2' => $contractV2,
+            'status' => match ($status) {
+                'succeeded' => 'succeeded',
+                'failed' => 'failed',
+                default => 'blocked',
+            },
+        ]);
+        if ($envelope !== null) {
+            $result['outcome_envelope'] = $envelope;
+        }
+
         $runId = trim((string) ($input['run_id'] ?? $input['scope_id'] ?? $episodeId));
         if ($runId === '') {
             $runId = 'engineering-'.substr(hash('sha256', json_encode($input)), 0, 16);
