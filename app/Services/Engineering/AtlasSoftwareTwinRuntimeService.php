@@ -614,7 +614,8 @@ class AtlasSoftwareTwinRuntimeService
         if (! is_array($unresolvedPredictions)) {
             throw new InvalidArgumentException('software_twin_quality_snapshot_unresolved_predictions_invalid');
         }
-        $payload = ['schema_version' => 'atlas.quality_foundry.software_twin_snapshot.v1', 'reference_envelope' => 'atlas.quality_foundry.reference.v1', 'workspace_id' => $workspace, 'base_commit' => $baseCommit, 'as_of' => $asOf, 'consumer' => $consumer, 'facts' => $facts, 'unknown' => $unknown, 'stale' => $stale, 'conflicted' => array_values(array_unique($conflicted)), 'prediction_calibration' => $predictionCalibration, 'unresolved_predictions' => array_values($unresolvedPredictions), 'claim_policy' => ['read_only' => true, 'claim_eligible' => false]];
+        $freshnessPolicy = array_fill_keys($supported, ['requires_validity_window' => true, 'requires_observed_at' => true, 'unknown_on_future_or_missing' => true, 'stale_on_expiry' => true]);
+        $payload = ['schema_version' => 'atlas.quality_foundry.software_twin_snapshot.v1', 'reference_envelope' => 'atlas.quality_foundry.reference.v1', 'workspace_id' => $workspace, 'base_commit' => $baseCommit, 'as_of' => $asOf, 'consumer' => $consumer, 'facts' => $facts, 'unknown' => $unknown, 'stale' => $stale, 'conflicted' => array_values(array_unique($conflicted)), 'freshness_policy' => $freshnessPolicy, 'prediction_calibration' => $predictionCalibration, 'unresolved_predictions' => array_values($unresolvedPredictions), 'claim_policy' => ['read_only' => true, 'claim_eligible' => false]];
         $payload['snapshot_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;

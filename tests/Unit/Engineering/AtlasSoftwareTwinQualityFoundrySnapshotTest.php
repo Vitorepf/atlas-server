@@ -18,6 +18,7 @@ final class AtlasSoftwareTwinQualityFoundrySnapshotTest extends TestCase
 
         self::assertSame($first['snapshot_hash'], $second['snapshot_hash']);
         self::assertSame('atlas.quality_foundry.reference.v1', $first['reference_envelope']);
+        self::assertTrue($first['freshness_policy']['outcome']['stale_on_expiry']);
         self::assertSame([], $first['unknown']);
         self::assertSame(['f2'], $first['stale']);
         self::assertArrayNotHasKey('payload', $first['facts'][0]);

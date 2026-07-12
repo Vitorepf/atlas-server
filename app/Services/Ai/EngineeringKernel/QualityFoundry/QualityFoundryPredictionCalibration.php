@@ -144,21 +144,41 @@ final class QualityFoundryPredictionCalibration
     /** @param list<array<string,mixed>> $records @return array<string,mixed> */
     public function calibrate(array $records): array
     {
-        $resolved = array_values(array_filter($records, static fn (array $record): bool => in_array($record['status'] ?? null, ['resolved', 'resolved_late'], true) && isset($record['calibration_error'])));
+        $contradictoryIds = [];
+        foreach ($records as $record) {
+            $predictionId = $record['prediction_id'] ?? null;
+            if (! is_string($predictionId) || ! array_key_exists('observed', $record)) {
+                continue;
+            }
+            $contradictoryIds[$predictionId][(string) (int) ((bool) $record['observed'])] = true;
+        }
+        $contradictoryIds = array_keys(array_filter($contradictoryIds, static fn (array $observations): bool => count($observations) > 1));
+        $resolved = array_values(array_filter($records, static function (array $record) use ($contradictoryIds): bool {
+            return in_array($record['status'] ?? null, ['resolved', 'resolved_late'], true)
+                && isset($record['calibration_error'])
+                && ! in_array($record['prediction_id'] ?? null, $contradictoryIds, true);
+        }));
         $unresolved = count($records) - count($resolved);
         $late = count(array_filter($resolved, static fn (array $record): bool => ($record['status'] ?? null) === 'resolved_late'));
         $averageError = $resolved === [] ? null : round(array_sum(array_map(static fn (array $record): float => (float) $record['calibration_error'], $resolved)) / count($resolved), 6);
         $confidence = $resolved === [] ? 0.0 : round((count($resolved) / max(1, count($records))) * (1.0 - min(1.0, (float) $averageError)), 6);
+        $uncertainty = $resolved === [] ? 1.0 : round(1.0 / sqrt(count($resolved)), 6);
+        $blockers = $contradictoryIds === [] ? [] : ['contradictory_observation'];
 
         return [
             'schema' => self::SCHEMA,
-            'status' => $resolved === [] ? 'uncalibrated' : ($unresolved > 0 || $late > 0 ? 'degraded' : 'calibrated'),
+            'status' => $resolved === [] ? ($blockers === [] ? 'uncalibrated' : 'degraded') : ($unresolved > 0 || $late > 0 || $blockers !== [] ? 'degraded' : 'calibrated'),
             'total_count' => count($records),
             'resolved_count' => count($resolved),
             'unresolved_count' => $unresolved,
             'late_count' => $late,
             'average_calibration_error' => $averageError,
             'confidence' => $confidence,
+            'confidence_interval' => [
+                'lower' => round(max(0.0, $confidence - $uncertainty), 6),
+                'upper' => round(min(1.0, $confidence + $uncertainty), 6),
+            ],
+            'blockers' => $blockers,
             'claim_eligible' => false,
         ];
     }

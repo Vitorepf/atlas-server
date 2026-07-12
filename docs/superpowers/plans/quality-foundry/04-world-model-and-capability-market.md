@@ -99,12 +99,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** Reality/world-model services, Software Twin, existing outcome/temporal services and focused tests.
 
-- [ ] Write RED tests for stale fact treated as current, prediction treated as evidence, missing observed counterpart, contradictory outcomes, confidence that never decays and simulation promoted to observed.
-- [ ] Define freshness policy per fact family with explicit `fresh|stale|unknown|conflicted`; no global favorable default.
-- [ ] Record prediction receipt with snapshot/order hash, expected observation and due window; join only to a matching real outcome/release hash.
-- [ ] Update calibration counters/intervals from observed results; wrong or unobserved predictions reduce or withhold confidence.
-- [ ] Expose calibration and unresolved predictions through the Software Twin snapshot; do not rewrite original predictions.
-- [ ] Run temporal as-of, delayed/contradictory outcome, calibration and replay tests.
+- [x] Write RED tests for stale fact treated as current, prediction treated as evidence, missing observed counterpart, contradictory outcomes, confidence that never decays and simulation promoted to observed.
+- [x] Define freshness policy per fact family with explicit `fresh|stale|unknown|conflicted`; no global favorable default.
+- [x] Record prediction receipt with snapshot/order hash, expected observation and due window; join only to a matching real outcome/release hash.
+- [x] Update calibration counters/intervals from observed results; wrong or unobserved predictions reduce or withhold confidence.
+- [x] Expose calibration and unresolved predictions through the Software Twin snapshot; do not rewrite original predictions.
+- [x] Run temporal as-of, delayed/contradictory outcome, calibration and replay tests.
 
 **GREEN acceptance:** stale remains stale, prediction never passes as observation, calibration changes in the correct direction, contradictory outcomes block favorable confidence and replay is deterministic.
 
