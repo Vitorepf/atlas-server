@@ -17,8 +17,8 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\Surface\AtlasCliDevAdapter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
+use App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevWorkspaceDiffReader;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
-use Symfony\Component\Process\Process;
 use Throwable;
 
 /**
@@ -68,6 +68,7 @@ final class AtlasCliDevEfficientHandler
         private readonly ReceiptStorage $storage,
         private readonly ConfigRepository $config,
         private readonly HttpResponseRedactor $redactor = new HttpResponseRedactor,
+        private readonly ?AtlasDevWorkspaceDiffReader $workspaceDiffReader = null,
     ) {}
 
     /**
@@ -334,7 +335,7 @@ final class AtlasCliDevEfficientHandler
      */
     private function reviewAnswer(PlanOnlyResult $plan): array
     {
-        $findings = $this->reviewFindingsFromDiff($this->workspaceDiff($plan));
+        $findings = $this->reviewFindingsFromDiff(($this->workspaceDiffReader ?? new AtlasDevWorkspaceDiffReader)->read($plan));
 
         return [
             'kind' => 'diff_review_findings',
@@ -342,26 +343,6 @@ final class AtlasCliDevEfficientHandler
             'findings' => $findings,
             'finding_count' => count($findings),
         ];
-    }
-
-    private function workspaceDiff(PlanOnlyResult $plan): string
-    {
-        $paths = [];
-        foreach ($plan->miniSpec->expectedFiles as $file) {
-            if (! is_string($file) || $file === '') {
-                continue;
-            }
-            $workspace = rtrim($plan->envelope->workspace, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
-            $real = realpath($file) ?: $file;
-            $paths[] = str_starts_with($real, $workspace)
-                ? substr($real, strlen($workspace))
-                : $file;
-        }
-
-        $process = new Process(array_merge(['git', '-C', $plan->envelope->workspace, 'diff', '--'], $paths));
-        $process->run();
-
-        return $process->getOutput();
     }
 
     /**
