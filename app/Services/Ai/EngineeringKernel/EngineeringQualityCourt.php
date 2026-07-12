@@ -47,6 +47,18 @@ final class EngineeringQualityCourt
         if ($explicit instanceof RoleDisposition) {
             return $explicit;
         }
+        if ($role === 'release') {
+            $release = $this->mutativeReleaseDisposition($case);
+            if ($release instanceof RoleDisposition) {
+                return $release;
+            }
+        }
+        if ($role === 'evidence_audit') {
+            $audit = $this->mutativeEvidenceAuditDisposition($case);
+            if ($audit instanceof RoleDisposition) {
+                return $audit;
+            }
+        }
         if ($role === 'qa_testing') {
             $rows = AiEngineeringCompanyRoleRun::query()
                 ->where('engagement_record_id', $case->engagementRecordId)
@@ -167,6 +179,57 @@ final class EngineeringQualityCourt
             $case, $role, $entry['rule'], $entry['justification'], $domain, $this->sign($domain, $unsigned + [
                 'evidence_hash' => $expectedEvidenceHash,
             ]),
+        );
+    }
+
+    private function mutativeReleaseDisposition(CandidateQualityCase $case): ?RoleDisposition
+    {
+        $release = $case->order->releasePolicy;
+        $rollback = $case->order->rollbackPolicy;
+        if (($release['kind'] ?? null) === 'none_read_only'
+            || ! is_string($rollback['restore_strategy'] ?? null) || trim($rollback['restore_strategy']) === ''
+            || ! is_string($rollback['verification_command'] ?? null) || trim($rollback['verification_command']) === '') {
+            return null;
+        }
+        $payload = [
+            'role' => 'release', 'reason' => 'mutative_release_and_rollback_policy_bound',
+            'order_hash' => $case->order->canonicalHash(), 'candidate_hash' => $case->candidate->candidateHash,
+            'tree_hash' => $case->candidate->treeHash, 'diff_hash' => $case->candidate->diffHash,
+            'release_policy_hash' => CanonicalKernelPayload::hash($release),
+            'rollback_policy_hash' => CanonicalKernelPayload::hash($rollback),
+        ];
+        $domain = self::MUTATIVE_ABSENCE_DOMAIN;
+
+        return RoleDisposition::mutativePassed(
+            $case, 'release', $payload['reason'], $domain, $this->sign($domain, $payload),
+        );
+    }
+
+    private function mutativeEvidenceAuditDisposition(CandidateQualityCase $case): ?RoleDisposition
+    {
+        $expectedRoles = array_values(array_filter(
+            EngineeringRoleRoster::OFFICIAL_ROLES,
+            static fn (string $role): bool => ! in_array($role, ['evidence_audit', 'final_certification'], true),
+        ));
+        $rows = AiEngineeringCompanyRoleRun::query()
+            ->where('engagement_record_id', $case->engagementRecordId)
+            ->where('cycle_record_id', $case->cycleRecordId)
+            ->whereIn('role_id', $expectedRoles)
+            ->get()
+            ->filter(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'binding.case_hash') === $case->caseHash);
+        if ($rows->count() !== count($expectedRoles) || $rows->pluck('role_id')->unique()->count() !== count($expectedRoles)
+            || $rows->contains(static fn (AiEngineeringCompanyRoleRun $row): bool => ($row->status ?? '') === 'blocked')) {
+            return null;
+        }
+        $payload = [
+            'role' => 'evidence_audit', 'reason' => 'all_prior_mutative_role_receipts_persisted',
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'prior_role_hashes' => $rows->sortBy('role_id')->pluck('role_hash', 'role_id')->all(),
+        ];
+        $domain = self::MUTATIVE_ABSENCE_DOMAIN;
+
+        return RoleDisposition::mutativePassed(
+            $case, 'evidence_audit', $payload['reason'], $domain, $this->sign($domain, $payload),
         );
     }
 

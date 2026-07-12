@@ -62,6 +62,25 @@ final readonly class RoleDisposition
         );
     }
 
+    public static function mutativePassed(
+        CandidateQualityCase $case,
+        string $role,
+        string $reason,
+        string $signerContext,
+        string $signature,
+    ): self {
+        if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true) || $role === 'final_certification'
+            || $reason === '') {
+            throw new InvalidArgumentException('mutative_pass_invalid');
+        }
+
+        return new self(
+            $role, 'pass', $reason, $case->order->canonicalHash(), $case->order->specHash,
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash,
+            $signerContext, $signature,
+        );
+    }
+
     public static function finalPriorReceiptsBlocked(CandidateQualityCase $case, string $signerContext, string $signature): self
     {
         return new self(
