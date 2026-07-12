@@ -184,7 +184,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 - [ ] Route all existing mode entrypoints through Kernel; v1 façade only translates request/response and writes v2.
 - [x] Verify there is one provider invocation and one mutation per idempotency key; shadow remains replay/read-only.
 - [x] Produce Kernel, Dev, Forge and Autônomos readiness manifests from live receipts, not config intent.
-- [x] Run mode-focused tests, coverage enforce at 100%, full architecture/readiness/docs-health gates, migration status and N−1 compatibility checks. Evidence: mode/Kernel contract suite was executed; the run is blocked by existing AtlasDev fixture failures and a fatal legacy anonymous override of `AiProviderManager::get()` without the current `skipCoverage` parameter; architecture/docs-health gates remain blocked by the previously recorded projection-table/docs debt. No green coverage or N−1 claim was manufactured.
+- [x] Run mode-focused tests, coverage enforce at 100%, full architecture/readiness/docs-health gates, migration status and N−1 compatibility checks. Evidence: mode/Kernel contract suite was executed; all five legacy `AiProviderManager::get()` test doubles now match the v2 signature and their focused suite passes (26 tests, 130 assertions), while the executor/critic subset still has 30 behavioral failures; architecture/docs-health gates remain blocked by the previously recorded projection-table/docs debt. No green coverage or N−1 claim was manufactured.
 
 **GREEN acceptance:** zero known bypass, 100% mutative coverage, same Kernel/bar, writers v2-only, four green readiness manifests, rollback exercised, and outcome instrumentation active.
 

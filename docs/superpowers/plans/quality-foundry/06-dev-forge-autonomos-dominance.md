@@ -79,7 +79,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 - [x] Build one equivalent fixture per R0/R3/R5 and assert identical ProductIntent/spec/world/market/order hashes, 22-role roster/depth, evidence floor, Governor path and outcome semantics.
 - [x] Record operator presence, duration and topology as explicit fields rather than implicit mode quality policy.
 - [ ] Close confirmed bypasses by delegating to the existing shared owners; do not create an interim mode kernel.
-- [x] Run coverage/architecture and all current mode adapter contract tests. Evidence: the complete current mode/Kernel adapter command was executed; Kernel/contract slices passed, while AtlasDev mode fixtures remain blocked by unrelated baseline failures and the fatal `AiProviderManager::get()` signature mismatch (`skipCoverage`), and architecture validation remains blocked by the missing `atlas_engineering_runs` projection table.
+- [x] Run coverage/architecture and all current mode adapter contract tests. Evidence: the complete current mode/Kernel adapter command was executed; Kernel/contract slices and the corrected provider-manager doubles pass, while AtlasDev executor/critic fixtures still have 30 behavioral failures, and architecture validation remains blocked by the missing `atlas_engineering_runs` projection table.
 
 **GREEN acceptance:** coverage is 100% for known mutative surfaces; equivalent orders differ only in explicit mode/operator/duration/topology fields; no quality bypass survives.
 
