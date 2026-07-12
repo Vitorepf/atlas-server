@@ -492,6 +492,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'maxa-04-jina-v3-dual-read-window',
             ],
             [
+                'slice' => 'RAGX-07',
+                'series' => RagxChainMechanismService::AB_SCHEMA,
+                'path' => storage_path('app/atlas/evidence/ragx-ab-registrations.jsonl'),
+                'source_type' => 'jsonl',
+                'timestamp_field' => 'recorded_at',
+                'ttl_days' => 90,
+                'ttl_source' => 'ragx-07-records-only-ab-registration',
+            ],
+            [
                 'slice' => 'REC-06',
                 'series' => MetaLoopBreakerService::SCHEMA_VERSION,
                 'path' => 'atlas:acos:rec06-breakers --json',

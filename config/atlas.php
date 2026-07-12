@@ -4756,6 +4756,20 @@ return [
         // RAGX-08 extension: claim/span/content-version refs over the already
         // delivered pack. Default-OFF; no new retrieval pass, DB write, or LLM.
         'span_level_retrieval' => (bool) env('ATLAS_AOBG_SPAN_LEVEL_RETRIEVAL', false),
+        // Fase 4 RAGX chain mechanisms. All default-OFF/shadow: these flags
+        // expose wiring and ledgers only, never a live promotion or fake A/B green.
+        'ragx_late_chunk_index' => (bool) env('ATLAS_AOBG_RAGX_LATE_CHUNK_INDEX', false),
+        'ragx_late_chunk_maxa04_promoted' => (bool) env('ATLAS_AOBG_RAGX_LATE_CHUNK_MAXA04_PROMOTED', false),
+        'ragx_adaptive_k' => (bool) env('ATLAS_AOBG_RAGX_ADAPTIVE_K', false),
+        'ragx_sparse_fallback' => (bool) env('ATLAS_AOBG_RAGX_SPARSE_FALLBACK', false),
+        'ragx_ab_registrar' => (bool) env('ATLAS_AOBG_RAGX_AB_REGISTRAR', false),
+        'ragx_ab_ledger_path' => (string) env(
+            'ATLAS_AOBG_RAGX_AB_LEDGER_PATH',
+            storage_path('app/atlas/evidence/ragx-ab-registrations.jsonl'),
+        ),
+        'ragx_louvain_chunks' => (bool) env('ATLAS_AOBG_RAGX_LOUVAIN_CHUNKS', false),
+        'ragx_maxa06_fase2_backfilled' => (bool) env('ATLAS_AOBG_RAGX_MAXA06_FASE2_BACKFILLED', false),
+        'ragx_raptor_lite' => (bool) env('ATLAS_AOBG_RAGX_RAPTOR_LITE', false),
         // ESP-12: five-layer epistemic evidence bundle (must_carry,
         // novelty_pool, operator policy, CONTRAEVIDENCIA, claim citations).
         // Default-OFF; composes only provider-safe data already in packFor.

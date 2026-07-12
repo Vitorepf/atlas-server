@@ -290,6 +290,48 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MAXA-04 shadow dual-read receipts before any model promotion',
             ],
+            RagxChainMechanismService::AB_SCHEMA => [
+                'max_size_mb' => 16,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'RAGX-07 records A/B registrations only; results remain null until a real window runs',
+            ],
+            'atlas.decide.cascade_cost_router.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTK-02 cascade cost router computed-reader snapshots',
+            ],
+            'atlas.ai.procedural_skill_promoter.v1' => [
+                'max_size_mb' => 16,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak',
+            ],
+            'atlas.ai.abstraction_ladder.v1' => [
+                'max_size_mb' => 16,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTJ-06 abstraction ladder computed-reader snapshots',
+            ],
+            'atlas.immune.signature_store.v1' => [
+                'max_size_mb' => 64,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence',
+            ],
+            'atlas.code_symbol_embedding_coverage.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXA-06 fase 2 code-symbol embedding coverage reader',
+            ],
+            'atlas.aurg.ppr_shadow_dual_read.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXD-04 PPR shadow dual-read receipts before any query promotion',
+            ],
             'atlas.acos.rec06.meta_loop_breakers.v1' => [
                 'max_size_mb' => 8,
                 'max_age_days' => 30,
