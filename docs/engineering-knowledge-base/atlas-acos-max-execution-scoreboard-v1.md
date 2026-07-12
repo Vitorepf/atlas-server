@@ -85,7 +85,7 @@
 - [ ] ELEV-19 — pending
 - [ ] ELEV-24 — pending
 - [ ] ELEV-27 — pending
-- [ ] ELEV-29s — pending
+- [x] ELEV-29s — landed · spec `atlas.model_capability_spec.v1` cobre 4 funções (`dense_embed`, `late_chunk`, `rerank`, `sparse`) com campos mínimos (`min_ctx_tokens`, `dim`, `pooling`, `multilingual_pt`, `deterministic`, `pair_scoring`, `token_embeddings_exposed`, `term_weights_exposed`, `latency_per_pair_ms_p95`, `license_allowed`); `AtlasModelCapabilitySpecService::verify()` recusa dim/licença/latência/pooling fora da spec com razão nomeada; teste com modelo substituto conforme (2 dense) passa sem edição; modelo com dim errada retorna `dim_not_allowed`; tests: `php artisan test tests/Unit/Ai/AcosMax/AtlasModelCapabilitySpecServiceTest.php`
 - [x] TETO-08 — landed · `atlas:acos:cockpit --json` agrega read-only M, R, loops/funil, janelas/caminho crítico, flips pendentes, review-debt, freios e lote corrente do scoreboard; cada seção cita fonte, fontes futuras ficam `unavailable` (ex.: MULTX-02/funnel) e o comando declara `mutates_state=false`; test/smoke: `php artisan test tests/Feature/Console/AtlasAcosCockpitCommandTest.php` + `php artisan atlas:acos:cockpit --json`
 
 ## LOTE 4 — Ligar o fluxo (F1; FLIPS = OPERADOR) — GATE F1-fluxo: ≥5 outcomes/dia 7d · decision_id 100% · reflection/pattern com dado real · distiller shadow dual-read
