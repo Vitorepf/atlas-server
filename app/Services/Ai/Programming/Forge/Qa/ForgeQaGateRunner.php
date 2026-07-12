@@ -52,6 +52,7 @@ final class ForgeQaGateRunner
 
         $workPackets = $intake->workPackets()->orderBy('packet_position')->get();
         $milestones = $intake->milestones()->orderBy('position')->get();
+        /** @var array<string,mixed>|null $sdd */
         $sdd = is_array($intake->sdd_spec) ? $intake->sdd_spec : null;
 
         $specReport = $this->specGate->evaluate($intake);

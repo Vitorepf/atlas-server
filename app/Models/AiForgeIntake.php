@@ -6,6 +6,18 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int|string|null $id
+ * @property string|null $workspace_slug
+ * @property string|null $status
+ * @property string|null $blocker_reason
+ * @property array<int,mixed>|null $definition_of_done
+ * @property array<int,mixed>|null $required_evidence
+ * @property array<int,mixed>|null $evidence_refs
+ * @property array<int,mixed>|null $context_refs
+ * @property array<int,mixed>|null $non_goals
+ * @property array<string,mixed>|null $sdd_spec
+ */
 class AiForgeIntake extends Model
 {
     use HasUuids;
@@ -77,12 +89,14 @@ class AiForgeIntake extends Model
         ];
     }
 
+    /** @return HasMany<AiForgeWorkPacket, $this> */
     public function workPackets(): HasMany
     {
         return $this->hasMany(AiForgeWorkPacket::class, 'intake_id')
             ->orderBy('packet_position');
     }
 
+    /** @return HasMany<AiForgeMilestone, $this> */
     public function milestones(): HasMany
     {
         return $this->hasMany(AiForgeMilestone::class, 'intake_id')

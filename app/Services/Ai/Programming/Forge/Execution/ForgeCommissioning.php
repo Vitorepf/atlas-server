@@ -44,7 +44,10 @@ final readonly class ForgeCommissioning
         if ($marketDecisionHash !== null && preg_match('/^[a-f0-9]{64}$/', (string) $marketDecisionHash) !== 1) {
             throw new InvalidArgumentException('forge_commissioning_market_decision_hash_invalid');
         }
-        if ($marketDecisionHash !== null) $canonical['market_decision_hash'] = $marketDecisionHash;
+        if ($marketDecisionHash !== null) {
+            $canonical['market_decision_hash'] = $marketDecisionHash;
+        }
+
         return new self(
             $canonical['prompt'], $canonical['workspace'], $canonical['authority_hash'], $canonical['product_intent_hash'],
             $canonical['spec_hash'], $canonical['world_model_snapshot_hash'], $canonical['release_policy'],

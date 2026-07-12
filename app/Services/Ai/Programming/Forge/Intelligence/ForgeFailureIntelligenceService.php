@@ -18,7 +18,7 @@ final class ForgeFailureIntelligenceService
      * callers e para diagnóstico puro (sem advisor/corpus).
      */
     public function __construct(
-        private readonly RepairDiagnosisStage $diagnosis = new RepairDiagnosisStage(),
+        private readonly RepairDiagnosisStage $diagnosis = new RepairDiagnosisStage,
     ) {}
 
     /**

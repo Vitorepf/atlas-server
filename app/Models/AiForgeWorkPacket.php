@@ -6,6 +6,20 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int|string|null $id
+ * @property string|null $packet_id
+ * @property string|null $intake_id
+ * @property array<int,mixed>|null $expected_files
+ * @property array<int,mixed>|null $dependencies
+ * @property array<int,mixed>|null $risks
+ * @property array<int,mixed>|null $acceptance_criteria
+ * @property array<int,mixed>|null $required_evidence
+ * @property array<int,mixed>|null $suggested_tests
+ * @property string|null $objective
+ * @property string|null $scope
+ * @property string|null $status
+ */
 class AiForgeWorkPacket extends Model
 {
     use HasUuids;
@@ -49,6 +63,7 @@ class AiForgeWorkPacket extends Model
         ];
     }
 
+    /** @return BelongsTo<AiForgeIntake, $this> */
     public function intake(): BelongsTo
     {
         return $this->belongsTo(AiForgeIntake::class, 'intake_id');

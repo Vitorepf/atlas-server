@@ -39,7 +39,7 @@ final class ForgeWorkPacketCapabilityOrchestrator
         $seniorReview = $this->seniorReview->review($packet, $intake, $contextGate, $testImpact, $workcell);
         $providerProjection = $this->providerProjection->build($packet, $intake, $contextGate, $scopeGuard, $testImpact);
         $simulation = $this->simulation->simulate($packet, $intake, $contextGate, $scopeGuard, $testImpact);
-        $aedpds = $this->aedpdsProjection($packet, $intake, $seniorReview);
+        $aedpds = $this->aedpdsProjection($packet, $intake);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -75,20 +75,18 @@ final class ForgeWorkPacketCapabilityOrchestrator
     {
         $context = array_values(array_unique(array_filter([
             ...array_values((array) ($packet->expected_files ?? [])),
-            ...array_values((array) ($intake?->context_refs ?? [])),
+            ...array_values((array) ($intake === null ? [] : $intake->context_refs)),
         ], static fn ($item): bool => is_string($item) && $item !== '')));
         $tests = array_values((array) ($packet->suggested_tests ?? []));
         $evidence = array_values((array) ($packet->required_evidence ?? []));
         $review = in_array((string) $packet->risk_band, ['high', 'critical'], true)
-            ? array_values(array_filter([
-                'forge_senior_obra_review_runtime',
-            ]))
+            ? ['forge_senior_obra_review_runtime']
             : ['risk_review_not_required_for_current_band'];
 
         $doctrine = $this->aedpds->select([
             'task' => (string) $packet->objective,
             'surface' => 'atlas_forge',
-            'workspace' => (string) ($intake?->workspace_slug ?? $packet->scope ?? ''),
+            'workspace' => (string) ($intake === null ? ($packet->scope ?? '') : ($intake->workspace_slug ?? $packet->scope ?? '')),
             'task_type' => 'feature',
             'risk_level' => (string) ($packet->risk_band ?? 'medium'),
             'code_changes_requested' => true,
@@ -96,7 +94,7 @@ final class ForgeWorkPacketCapabilityOrchestrator
             'complex_product' => true,
             'files' => array_values((array) ($packet->expected_files ?? [])),
             'missing_context' => $context === [],
-            'senior_review_present' => $review !== [],
+            'senior_review_present' => true,
         ]);
         $gate = $this->aedpdsGate->evaluate([
             'doctrine' => $doctrine,
@@ -104,7 +102,7 @@ final class ForgeWorkPacketCapabilityOrchestrator
             'context_refs' => $context,
             'tests' => $tests !== [] ? $tests : ['forge_packet_verification_plan'],
             'contracts' => array_values((array) ($packet->dependencies ?? [])),
-            'docs' => array_values((array) ($intake?->context_refs ?? [])),
+            'docs' => array_values((array) ($intake === null ? [] : $intake->context_refs)),
             'review' => $review,
             'evidence' => $evidence !== [] ? $evidence : ['forge_packet_evidence_required'],
             'ux_expectations' => ['forge_packet_acceptance_projection'],

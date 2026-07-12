@@ -6,6 +6,19 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int|string|null $id
+ * @property string|null $uuid
+ * @property string|null $cycle_id
+ * @property array<string,mixed>|null $execution_plan
+ * @property array<int,mixed>|null $expected_artifacts
+ * @property array<int,mixed>|null $evidence_refs
+ * @property array<string,mixed>|null $gate_result
+ * @property array<string,mixed>|null $repair_hook
+ * @property array<string,mixed>|null $next_action
+ * @property \Carbon\CarbonInterface|null $started_at
+ * @property \Carbon\CarbonInterface|null $completed_at
+ */
 class AiForgeWorkPacketExecutionCycle extends Model
 {
     use HasUuids;
@@ -52,16 +65,19 @@ class AiForgeWorkPacketExecutionCycle extends Model
         ];
     }
 
+    /** @return BelongsTo<AiForgeIntake, $this> */
     public function intake(): BelongsTo
     {
         return $this->belongsTo(AiForgeIntake::class, 'intake_id');
     }
 
+    /** @return BelongsTo<AiForgeWorkPacket, $this> */
     public function workPacket(): BelongsTo
     {
         return $this->belongsTo(AiForgeWorkPacket::class, 'work_packet_id');
     }
 
+    /** @return BelongsTo<AiForgeLongHorizonState, $this> */
     public function longHorizonState(): BelongsTo
     {
         return $this->belongsTo(AiForgeLongHorizonState::class, 'long_horizon_state_id');

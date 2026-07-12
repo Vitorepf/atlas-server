@@ -34,7 +34,7 @@ final class ForgeProviderProjectionService
                 'obra' => [
                     'title' => $intake?->obra_title,
                     'intent' => $intake?->normalized_intent,
-                    'definition_of_done' => array_values((array) ($intake?->definition_of_done ?? [])),
+                    'definition_of_done' => array_values((array) ($intake === null ? [] : $intake->definition_of_done)),
                 ],
                 'work_packet' => [
                     'objective' => (string) $packet->objective,

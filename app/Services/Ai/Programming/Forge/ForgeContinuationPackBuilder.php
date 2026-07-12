@@ -244,7 +244,7 @@ class ForgeContinuationPackBuilder
         return AtlasLongHorizonCanon::SAFE_RESUME_EXECUTE;
     }
 
-    private function resolveNextSafeAction(AiForgeLongHorizonState $state, string $safeResumeMode): ?string
+    private function resolveNextSafeAction(AiForgeLongHorizonState $state, string $safeResumeMode): string
     {
         $existing = (array) ($state->next_action ?? []);
         if (isset($existing['kind']) && is_string($existing['kind'])) {

@@ -32,8 +32,7 @@ final readonly class ForgeObraSnapshot
         ?string $specHash = null,
         ?string $worldModelSnapshotHash = null,
         ?string $marketDecisionHash = null,
-    ): self
-    {
+    ): self {
         return new self(
             ForgeObraId::fromString((string) $state->intake_id), (string) $state->intake_id, (string) $state->status,
             (string) $state->state_hash, $state->current_milestone,

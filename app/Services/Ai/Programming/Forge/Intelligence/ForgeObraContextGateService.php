@@ -35,7 +35,7 @@ final class ForgeObraContextGateService
         if (in_array($risk, ['high', 'critical'], true) && $ownerDocs === []) {
             $missing[] = 'owner_docs_for_high_risk_packet';
         }
-        if (($intake?->status ?? null) === 'blocked') {
+        if ($intake !== null && $intake->status === 'blocked') {
             $missing[] = 'intake_blocked';
         }
 

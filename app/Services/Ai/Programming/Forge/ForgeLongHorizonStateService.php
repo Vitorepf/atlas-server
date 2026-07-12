@@ -720,7 +720,7 @@ class ForgeLongHorizonStateService
             fn ($g): bool => is_array($g) && ($g['status'] ?? null) === ForgeLongHorizonStateCanon::GATE_STATUS_PASSED,
         );
 
-        if ($allGatesPassed && $missingEvidence === []) {
+        if ($allGatesPassed) {
             if ($currentId === ForgeIntakeCanon::MILESTONE_CERTIFICATION) {
                 return [
                     'kind' => ForgeLongHorizonStateCanon::NEXT_ACTION_COMPLETE_OBRA,

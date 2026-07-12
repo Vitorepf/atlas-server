@@ -6,6 +6,14 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int|string|null $id
+ * @property string|null $milestone_id
+ * @property int|null $position
+ * @property array<int,mixed>|null $required_evidence
+ * @property array<int,mixed>|null $expected_artifacts
+ * @property array<int,mixed>|null $required_gates
+ */
 class AiForgeMilestone extends Model
 {
     use HasUuids;
@@ -40,6 +48,7 @@ class AiForgeMilestone extends Model
         ];
     }
 
+    /** @return BelongsTo<AiForgeIntake, $this> */
     public function intake(): BelongsTo
     {
         return $this->belongsTo(AiForgeIntake::class, 'intake_id');

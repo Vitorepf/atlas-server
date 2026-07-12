@@ -229,7 +229,7 @@ class ForgeMultiAgentSchedulerService
         }
 
         $recommendedAgentCount = array_sum(array_map(
-            static fn (array $a): int => (int) ($a['count'] ?? 0),
+            static fn (array $a): int => (int) $a['count'],
             $assignments,
         ));
 
@@ -581,5 +581,4 @@ class ForgeMultiAgentSchedulerService
 
         return MissionCanonicalHash::sha256($payload);
     }
-
 }

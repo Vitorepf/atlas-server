@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\Forge\Qa;
 
 use App\Models\AiForgeIntake;
 use App\Models\AiForgeMilestone;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
 use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\EngineeringKernel\Spec\SpecAdversary;
@@ -125,7 +126,7 @@ final class ForgeObraCertificationService
         $gateMode = (string) config('atlas.engineering_kernel.forge_obra_certifier_gate_mode', 'observe');
         if ($gateMode !== 'off') {
             try {
-                $verdict = app(\App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter::class)
+                $verdict = app(AtlasForgeGateAdapter::class)
                     ->certifyForgeDelivery([
                         'criteria_hash' => (string) $intake->intake_hash,
                         'frozen_hash' => (string) $intake->intake_hash,
@@ -190,11 +191,13 @@ final class ForgeObraCertificationService
         }
 
         $acceptanceCriteria = [];
-        foreach (array_values(array_filter(
-            (array) ($sdd['acceptance_criteria'] ?? []),
+        /** @var list<mixed> $rawAcceptanceCriteria */
+        $rawAcceptanceCriteria = array_values((array) ($sdd['acceptance_criteria'] ?? []));
+        foreach (array_filter(
+            $rawAcceptanceCriteria,
             static fn ($v): bool => is_string($v) && trim($v) !== '',
-        )) as $i => $text) {
-            $acceptanceCriteria[] = ['id' => 'sdd_ac_'.$i, 'description' => (string) $text, 'verification' => 'test', 'is_backstop' => false];
+        ) as $i => $text) {
+            $acceptanceCriteria[] = ['id' => 'sdd_ac_'.$i, 'description' => (string) $text, 'verification' => 'test', 'verification_ref' => null, 'is_backstop' => false];
         }
 
         $verdict = $this->specGate->contest(

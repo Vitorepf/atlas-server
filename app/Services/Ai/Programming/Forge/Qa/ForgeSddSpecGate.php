@@ -39,6 +39,7 @@ final class ForgeSddSpecGate
             (string) $intake->recommended_forge_mode,
         );
 
+        /** @var array<string,mixed>|null $spec */
         $spec = is_array($intake->sdd_spec) ? $intake->sdd_spec : null;
         $sectionsReport = [];
         $missing = [];

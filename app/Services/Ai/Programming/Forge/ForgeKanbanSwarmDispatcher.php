@@ -38,7 +38,7 @@ class ForgeKanbanSwarmDispatcher
      *
      * @param  array<int,mixed>  $workPackets  AiForgeWorkPacket models or arrays with objective/role_slot
      * @param  array{confirm?:bool,permission_mode?:string,verifier?:string,synthesizer?:string,mission_id?:string,hermes_home?:string,timeout?:int}  $options
-     * @return array<string,mixed>  sealed atlas.forge.kanban_dispatch.v1
+     * @return array<string,mixed> sealed atlas.forge.kanban_dispatch.v1
      */
     public function dispatch(string $taskSummary, array $workPackets, array $options = []): array
     {
@@ -144,5 +144,4 @@ class ForgeKanbanSwarmDispatcher
             ? 'kanban_policy_off'
             : 'forge_dispatch_disabled';
     }
-
 }

@@ -65,10 +65,13 @@ final class ForgeObraRuntime
     public function snapshot(ForgeObraId $obra): ForgeObraSnapshot
     {
         $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
-        if (! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
+        if (! $state instanceof AiForgeLongHorizonState) {
+            throw new InvalidArgumentException('forge_obra_not_found');
+        }
 
         $intake = AiForgeIntake::query()->find($obra->value);
         $binding = is_array($intake?->rich_input_payload) ? $intake->rich_input_payload : [];
+
         return ForgeObraSnapshot::fromState($state, (string) data_get($state->toArray(), 'commissioning_hash', ''),
             data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
@@ -78,12 +81,16 @@ final class ForgeObraRuntime
     {
         $intake = AiForgeIntake::query()->find($obra->value);
         $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
-        if (! $intake instanceof AiForgeIntake || ! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
+        if (! $intake instanceof AiForgeIntake || ! $state instanceof AiForgeLongHorizonState) {
+            throw new InvalidArgumentException('forge_obra_not_found');
+        }
         $packet = $this->cycles->selectPacket($intake, $state);
         $binding = is_array($intake->rich_input_payload) ? $intake->rich_input_payload : [];
         $snapshot = ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
-        if ($packet === null) return ForgeTickResult::idle($snapshot, 'no_eligible_packet');
+        if ($packet === null) {
+            return ForgeTickResult::idle($snapshot, 'no_eligible_packet');
+        }
         $built = $this->cycles->planExecution($packet, [
             'execution_mode' => $budget->allowProvider ? 'real' : 'safe_simulation', 'lease_seconds' => $budget->leaseSeconds,
             'lease_owner' => 'forge-obra-runtime', 'scope_path' => (string) ($packet->scope ?? 'work-packet/'.$packet->packet_id),
@@ -98,7 +105,9 @@ final class ForgeObraRuntime
     public function control(ForgeObraId $obra, ForgeControlCommand $command): ForgeObraSnapshot
     {
         $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
-        if (! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
+        if (! $state instanceof AiForgeLongHorizonState) {
+            throw new InvalidArgumentException('forge_obra_not_found');
+        }
         $reason = 'forge_control_'.$command->command;
         $cycle = $command->command === 'resume'
             ? ['resolve_blockers' => [$reason], 'cycle_id' => 'control-'.$command->command]
@@ -107,6 +116,7 @@ final class ForgeObraRuntime
 
         $intake = AiForgeIntake::query()->find($obra->value);
         $binding = is_array($intake?->rich_input_payload) ? $intake->rich_input_payload : [];
+
         return ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
     }

@@ -19,6 +19,7 @@ use App\Services\Ai\Programming\Forge\Intelligence\ForgeFailureIntelligenceServi
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeOutcomeMemoryService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeSpecialistWorkcellRouterService;
 use App\Services\Ai\Programming\Forge\Intelligence\ForgeWorkPacketCapabilityOrchestrator;
+use App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -668,7 +669,7 @@ class ForgeWorkPacketExecutionCycleService
         }
 
         [$testsRun, $assertions, $parseable] = $outputTail !== ''
-            ? \App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate::parseRunCounts($outputTail)
+            ? AtlasTaskCommitVerificationGate::parseRunCounts($outputTail)
             : [0, 0, false];
 
         if ($parseable) {
@@ -950,7 +951,9 @@ class ForgeWorkPacketExecutionCycleService
         try {
             $evidence = array_values(array_filter((array) ($cycle->evidence_refs ?? []), 'is_array'));
             $packet = AiForgeWorkPacket::query()->find($cycle->work_packet_id);
-            $objective = trim((string) ($packet?->objective ?? $packet?->title ?? $cycle->work_packet_canonical_id));
+            $objective = $packet === null
+                ? (string) $cycle->work_packet_canonical_id
+                : trim((string) ($packet->objective ?? $packet->title ?? $cycle->work_packet_canonical_id));
 
             $this->engineeringConductor->recordExternalEngineeringOutcome([
                 'source' => 'forge_work_packet_cycle',

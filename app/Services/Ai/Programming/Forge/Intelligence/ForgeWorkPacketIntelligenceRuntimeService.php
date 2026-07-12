@@ -19,8 +19,8 @@ final class ForgeWorkPacketIntelligenceRuntimeService
         $intake ??= $packet->intake;
         $expectedFiles = AiStringListNormalizer::trimmedStrings($packet->expected_files ?? []);
         $suggestedTests = AiStringListNormalizer::trimmedStrings($packet->suggested_tests ?? []);
-        $contextRefs = AiStringListNormalizer::trimmedStrings($intake?->context_refs ?? []);
-        $evidenceRefs = AiStringListNormalizer::trimmedStrings($intake?->evidence_refs ?? []);
+        $contextRefs = AiStringListNormalizer::trimmedStrings($intake === null ? [] : $intake->context_refs);
+        $evidenceRefs = AiStringListNormalizer::trimmedStrings($intake === null ? [] : $intake->evidence_refs);
         $objective = strtolower((string) $packet->objective.' '.(string) $packet->scope);
 
         $likelyFiles = $expectedFiles;

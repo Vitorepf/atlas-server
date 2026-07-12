@@ -6,6 +6,21 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int|string|null $id
+ * @property string|null $intake_id
+ * @property string|null $status
+ * @property string|null $current_milestone
+ * @property array<int|string,mixed>|null $milestone_progress
+ * @property array<int,mixed>|null $active_work_packets
+ * @property array<int,mixed>|null $completed_work_packets
+ * @property array<int,mixed>|null $blockers
+ * @property array<int,mixed>|null $evidence_refs
+ * @property array<string,mixed>|null $next_action
+ * @property array<string,mixed>|null $last_cycle_summary
+ * @property int|null $cycle_count
+ * @property \Carbon\CarbonInterface|null $completed_at
+ */
 class AiForgeLongHorizonState extends Model
 {
     use HasUuids;
@@ -50,6 +65,7 @@ class AiForgeLongHorizonState extends Model
         ];
     }
 
+    /** @return BelongsTo<AiForgeIntake, $this> */
     public function intake(): BelongsTo
     {
         return $this->belongsTo(AiForgeIntake::class, 'intake_id');
