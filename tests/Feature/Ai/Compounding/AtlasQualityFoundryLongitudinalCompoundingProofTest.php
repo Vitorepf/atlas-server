@@ -96,6 +96,8 @@ final class AtlasQualityFoundryLongitudinalCompoundingProofTest extends TestCase
             'confounders' => ['provider_drift' => 'controlled'], 'rollback' => 'route-v1', 'reversible' => true,
             'assignment_precedes_run' => true, 'real_outcome' => true, 'authority_hash' => str_repeat('1', 64),
             'scope' => 'atlas.route', 'expiry' => '2026-08-01T00:00:00Z',
+            'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z',
+            'run_at' => '2026-07-12T00:20:00Z', 'outcome_at' => '2026-07-12T01:00:00Z',
         ];
     }
 

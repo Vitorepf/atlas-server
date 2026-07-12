@@ -13,7 +13,7 @@ final readonly class CausalLearningCandidate
     /** @param array<string,mixed> $data */
     public static function fromArray(array $data): self
     {
-        $required = ['assignment_hash','experiment_hash','order_hash','run_hash','release_hash','outcome_hash','change_class','hypothesis','baseline','metric','window','effect','ci_low','ci_high','confounders','rollback','reversible','assignment_precedes_run','real_outcome','authority_hash','scope','expiry'];
+        $required = ['assignment_hash','experiment_hash','order_hash','run_hash','release_hash','outcome_hash','change_class','hypothesis','baseline','metric','window','effect','ci_low','ci_high','confounders','rollback','reversible','assignment_precedes_run','real_outcome','authority_hash','scope','expiry','assignment_at','release_at','run_at','outcome_at'];
         foreach ($required as $key) {
             if (! array_key_exists($key, $data)) throw new InvalidArgumentException('causal_candidate_'.$key.'_required');
         }
@@ -23,6 +23,9 @@ final readonly class CausalLearningCandidate
         if (! in_array($data['change_class'], ['routing','memory_policy','operational_policy','simplification','code_task'], true)) throw new InvalidArgumentException('causal_candidate_change_class_invalid');
         foreach (['hypothesis','baseline','metric','window','rollback','scope','expiry'] as $key) if (! is_string($data[$key]) || trim($data[$key]) === '') throw new InvalidArgumentException('causal_candidate_'.$key.'_required');
         if (date_create_immutable((string) $data['expiry']) === false) throw new InvalidArgumentException('causal_candidate_expiry_invalid');
+        foreach (['assignment_at','release_at','run_at','outcome_at'] as $key) {
+            if (! is_string($data[$key]) || date_create_immutable($data[$key]) === false) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
+        }
         foreach (['reversible','assignment_precedes_run','real_outcome'] as $key) if (! is_bool($data[$key])) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
         foreach (['effect','ci_low','ci_high'] as $key) if (! is_numeric($data[$key])) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
         if (! is_array($data['confounders']) || $data['confounders'] === []) throw new InvalidArgumentException('causal_candidate_confounders_required');

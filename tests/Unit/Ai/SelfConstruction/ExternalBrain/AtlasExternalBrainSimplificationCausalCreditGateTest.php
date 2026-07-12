@@ -84,6 +84,10 @@ final class AtlasExternalBrainSimplificationCausalCreditGateTest extends TestCas
                 'authority_hash' => $hash('authority'),
                 'scope' => 'atlas-dev:simplification:dead-helper',
                 'expiry' => '2026-12-31T00:00:00+00:00',
+                'assignment_at' => '2026-07-12T00:00:00Z',
+                'release_at' => '2026-07-12T00:10:00Z',
+                'run_at' => '2026-07-12T00:20:00Z',
+                'outcome_at' => '2026-07-12T01:00:00Z',
             ],
         ];
     }

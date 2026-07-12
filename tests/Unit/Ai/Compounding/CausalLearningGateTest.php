@@ -95,6 +95,19 @@ final class CausalLearningGateTest extends TestCase
         self::assertSame('promote_reversible', (new CausalLearningGate)->adjudicate($candidate)->verdict);
     }
 
+    public function test_out_of_order_temporal_evidence_is_held(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'run_at' => '2026-07-12T00:30:00Z',
+            'release_at' => '2026-07-12T01:00:00Z',
+        ]));
+
+        $verdict = (new CausalLearningGate)->adjudicate($candidate);
+
+        self::assertSame('hold', $verdict->verdict);
+        self::assertSame('causal_temporal_order_unproven', $verdict->reason);
+    }
+
     public function test_expired_reversible_evidence_is_held(): void
     {
         $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
@@ -121,6 +134,8 @@ final class CausalLearningGateTest extends TestCase
             'confounders' => ['provider_drift' => 'controlled'], 'rollback' => 'route-v1',
             'reversible' => true, 'assignment_precedes_run' => true, 'real_outcome' => true,
             'authority_hash' => $hash('1'), 'scope' => 'atlas.dev.routing', 'expiry' => '2026-08-01T00:00:00Z',
+            'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z',
+            'run_at' => '2026-07-12T00:20:00Z', 'outcome_at' => '2026-07-12T01:00:00Z',
         ];
     }
 }

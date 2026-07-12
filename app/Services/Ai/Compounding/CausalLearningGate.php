@@ -23,6 +23,8 @@ final class CausalLearningGate
             $reason = 'causal_binding_unproven';
         } elseif (($confounder = $this->uncontrolledConfounder($d['confounders'])) !== null) {
             $reason = 'causal_confounder_'.$confounder;
+        } elseif (! $this->temporalOrderIsProven($d)) {
+            $reason = 'causal_temporal_order_unproven';
         } elseif ((float) $d['ci_low'] <= 0.0 || (float) $d['effect'] <= 0.0) {
             $reason = 'causal_effect_uncertain';
         } elseif ($d['change_class'] === 'code_task') {
@@ -81,6 +83,26 @@ final class CausalLearningGate
         }
 
         return null;
+    }
+
+    /** @param array<string,mixed> $data */
+    private function temporalOrderIsProven(array $data): bool
+    {
+        $times = [];
+        foreach (['assignment_at', 'release_at', 'run_at', 'outcome_at'] as $key) {
+            $parsed = date_create_immutable((string) ($data[$key] ?? ''));
+            if ($parsed === false) {
+                return false;
+            }
+            $times[] = $parsed->getTimestamp();
+        }
+        for ($i = 1, $count = count($times); $i < $count; $i++) {
+            if ($times[$i] <= $times[$i - 1]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function record(CausalLearningCandidate $candidate, CausalLearningVerdict $verdict): void
