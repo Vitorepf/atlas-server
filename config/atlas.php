@@ -1057,6 +1057,21 @@ return [
             'limit' => (int) env('ATLAS_AUTONOMOUS_AUTO_APPLY_LIMIT', 50),
         ],
 
+        // MAXK-05 — property-gated signature verification for the autonomy ladder.
+        // The auto-apply gate (`AtlasAutonomousLearningApplier::decideCandidate`)
+        // interrogates the append-only ledger at `signature_ledger_path` when
+        // `signature_verification_enabled` is ON. A promotion_gate that lists
+        // `signatures` MUST carry receipt objects `{actor,nonce,policy_hash}`,
+        // never bare booleans — booleans are the adversarial input the MAXK-05
+        // test forges. Absent `signatures` payload = legacy shape, byte-safe.
+        'autonomy_ladder' => [
+            'signature_verification_enabled' => (bool) env('ATLAS_AUTONOMY_LADDER_SIGNATURE_VERIFICATION_ENABLED', true),
+            'signature_ledger_path' => env(
+                'ATLAS_AUTONOMY_LADDER_SIGNATURE_LEDGER_PATH',
+                storage_path('atlas-local/autonomy-ladder/signature-ledger.ndjson'),
+            ),
+        ],
+
         // atlas.ai.weekly_memory_digest — the Sunday report. READ-ONLY (never mutates),
         // so it defaults ON: every Sunday it reports everything saved to Atlas memory
         // that week + every auto-applied learning, each with a reverse handle.

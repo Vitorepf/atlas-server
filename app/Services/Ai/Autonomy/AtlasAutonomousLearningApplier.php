@@ -65,6 +65,11 @@ final class AtlasAutonomousLearningApplier
         private readonly AtlasLearningProposalApplier $applier,
         private readonly AtlasMemoryDeltaPromotionService $deltaPromoter,
         private readonly LongHorizonMemoryPromotionGuard $longHorizonGuard = new LongHorizonMemoryPromotionGuard,
+        // MAXK-05 — property-gated signature verification. When enabled (default
+        // ON since the ledger is fail-safe: absent `signatures` payload keeps
+        // the legacy behavior), boolean `true` in the promotion_gate no longer
+        // proves anything — only a receipt in the append-only ledger does.
+        private readonly ?AtlasAutonomyLadderSignatureLedger $signatureLedger = null,
     ) {}
 
     /**
@@ -360,6 +365,17 @@ final class AtlasAutonomousLearningApplier
             return ['auto_apply' => false, 'reason' => 'promotion_gate:'.$blockers];
         }
 
+        // MAXK-05 — property-gated signature verification. `promotion_gate.status`
+        // set to `pass` is not sufficient by itself: if the caller advertises
+        // `signatures` on the gate, every declared signature MUST match an
+        // append-only receipt in the ledger. Boolean `true` is never accepted
+        // — it is the exact input the adversarial test forges. Missing
+        // `signatures` key falls back to the legacy shape (audit unchanged).
+        $signatureVerdict = $this->verifyCandidateSignatures($candidate, $gate);
+        if ($signatureVerdict !== null) {
+            return $signatureVerdict;
+        }
+
         $refs = is_array($candidate->evidence_refs) ? array_values(array_filter($candidate->evidence_refs, static fn ($r): bool => $r !== null && $r !== '')) : [];
         if ($refs === []) {
             return ['auto_apply' => false, 'reason' => 'missing_evidence_refs'];
@@ -601,5 +617,62 @@ final class AtlasAutonomousLearningApplier
     private function tableReady(string $table): bool
     {
         return DatabaseTableAvailability::has($table);
+    }
+
+    /**
+     * MAXK-05 — verify property-gated signatures on a candidate's promotion_gate.
+     *
+     * Returns `null` when the check is satisfied (or absent by design). Returns
+     * a `{auto_apply: false, reason: ...}` verdict when the mutation must be
+     * blocked. Named reasons:
+     *   - `signature_forged_boolean:<name>`   — the gate sent `true`/`false`
+     *   - `signature_receipt_field_missing`   — receipt payload malformed
+     *   - `signature_receipt_missing:<name>`  — no matching row in the ledger
+     *   - `signature_nonce_reused:<name>`     — nonce already consumed
+     *
+     * @param  array<string,mixed>  $gate
+     * @return array{auto_apply:bool,reason:string}|null
+     */
+    private function verifyCandidateSignatures(AtlasAemorMemoryCandidate $candidate, array $gate): ?array
+    {
+        if (! (bool) config('atlas.ai.autonomy_ladder.signature_verification_enabled', true)) {
+            return null;
+        }
+
+        $signatures = $gate['signatures'] ?? null;
+        if (! is_array($signatures) || $signatures === []) {
+            // Legacy shape — no `signatures` payload, behavior unchanged.
+            return null;
+        }
+
+        $ledger = $this->signatureLedger ?? new AtlasAutonomyLadderSignatureLedger;
+        $targetId = (string) $candidate->getKey();
+        $targetKind = 'atlas_aemor_memory_candidate';
+
+        foreach ($signatures as $name => $receipt) {
+            $signature = (string) $name;
+            // The exact case the plan names: booleans (or any non-array) are
+            // rejected before touching the ledger — boolean no mapa deixa de
+            // ser aceito.
+            if (! is_array($receipt)) {
+                return ['auto_apply' => false, 'reason' => 'signature_forged_boolean:'.$signature];
+            }
+            $actor = isset($receipt['actor']) ? (string) $receipt['actor'] : '';
+            $nonce = isset($receipt['nonce']) ? (string) $receipt['nonce'] : '';
+            $policyHash = isset($receipt['policy_hash']) ? (string) $receipt['policy_hash'] : '';
+            $verdict = $ledger->verify(
+                $signature,
+                $actor,
+                $nonce,
+                $policyHash,
+                $targetKind,
+                $targetId,
+            );
+            if ($verdict['ok'] !== true) {
+                return ['auto_apply' => false, 'reason' => (string) $verdict['reason'].':'.$signature];
+            }
+        }
+
+        return null;
     }
 }
