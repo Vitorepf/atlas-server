@@ -100,6 +100,7 @@ use App\Console\Commands\AtlasCompactionSoakWatchCommand;
 use App\Console\Commands\AtlasContextFeedbackHealthCommand;
 use App\Console\Commands\AtlasContextLatencyCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
+use App\Console\Commands\AtlasAutonomosAutoApplyPreflightCommand;
 use App\Console\Commands\AtlasAutonomosPreflightCommand;
 use App\Console\Commands\AtlasContextSufficiencyCalibrationCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
@@ -412,6 +413,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasContextLatencyCommand::class,
         AtlasContextSufficiencyCalibrationCommand::class,
         AtlasAutonomosPreflightCommand::class,
+        AtlasAutonomosAutoApplyPreflightCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasContextPolicyTrendCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
