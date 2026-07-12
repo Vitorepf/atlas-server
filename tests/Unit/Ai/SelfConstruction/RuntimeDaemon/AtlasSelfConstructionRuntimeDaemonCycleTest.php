@@ -46,6 +46,56 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertTrue($out['action_feedback'][0]['retryable']);
     }
 
+    public function test_quality_foundry_24_7_fixture_covers_dry_rotation_outage_restart_authority_and_direct_commit(): void
+    {
+        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+
+        $dry = $cycle->tick($this->readyFacts(), []);
+        self::assertTrue($dry['dry_run']);
+        self::assertSame([], $dry['applied_actions']);
+
+        $outage = $cycle->tick($this->readyFacts(['planned_actions' => [
+            ['kind' => 'native_tick', 'idempotency_key' => 'outage-1'],
+        ]]), [
+            'apply' => true,
+            'action_callbacks' => ['native_tick' => static function (): array {
+                throw new \RuntimeException('provider_outage');
+            }],
+        ]);
+        self::assertSame('provider_outage', $outage['blocked_actions'][0]['error']);
+        self::assertTrue($outage['action_feedback'][0]['retryable']);
+
+        $restart = $cycle->tick($this->readyFacts([
+            'completed_action_keys' => ['authority-1'],
+            'planned_actions' => [['kind' => 'native_tick', 'idempotency_key' => 'authority-1']],
+        ]), ['apply' => true, 'action_callbacks' => ['native_tick' => static fn (): array => ['ok' => true]]]);
+        self::assertSame('idempotency_replay', $restart['withheld_actions'][0]['reason']);
+
+        $directCommit = $cycle->tick($this->readyFacts([
+            'planned_actions' => [['kind' => 'git', 'idempotency_key' => 'direct-commit-1']],
+        ]), ['apply' => true, 'action_callbacks' => ['git' => static fn (): array => ['ok' => true]]]);
+        self::assertSame('refused_action_kind:git', $directCommit['withheld_actions'][0]['reason']);
+
+        $zeroHuman = $cycle->tick($this->readyFacts([
+            'planned_actions' => [
+                ['kind' => 'human_action'], ['kind' => 'external_provider_call'],
+            ],
+        ]), ['apply' => true, 'action_callbacks' => [
+            'human_action' => static fn (): array => ['ok' => true],
+            'external_provider_call' => static fn (): array => ['ok' => true],
+        ]]);
+        self::assertSame([], $zeroHuman['applied_actions']);
+        self::assertCount(2, $zeroHuman['withheld_actions']);
+
+        for ($round = 1; $round <= 3; $round++) {
+            $continuous = $cycle->tick($this->readyFacts([
+                'planned_actions' => [['kind' => 'native_tick', 'idempotency_key' => 'continuous-'.$round]],
+            ]), ['apply' => true, 'action_callbacks' => ['native_tick' => static fn (): array => ['ok' => true]]]);
+            self::assertCount(1, $continuous['applied_actions']);
+            self::assertSame([], $continuous['blocked_actions']);
+        }
+    }
+
     public function test_executor_held_result_remains_retryable_not_applied_success(): void
     {
         $executor = new class extends AtlasSelfConstructionNativeActionExecutor

@@ -98,6 +98,34 @@ final class TaskQueueRegistryIndexStoreTest extends TestCase
         $this->assertContains('tp-209', $ids);
     }
 
+    public function test_more_than_five_hundred_live_entries_remain_visible_above_terminal_history_cap(): void
+    {
+        $store = $this->store();
+
+        for ($i = 0; $i < 600; $i++) {
+            $store->registerInRegistry([
+                'task_packet_id' => 'live-'.$i,
+                'task_packet_hash' => hash('sha256', 'live-'.$i),
+                'enqueued_at' => '2026-07-12T00:00:00Z',
+                'updated_at' => '2026-07-12T00:00:00Z',
+                'status' => 'queued',
+                'priority' => 5,
+                'tags' => ['autonomos-fixture'],
+            ]);
+        }
+
+        $registry = $store->loadRegistry();
+        $ids = array_column($registry['entries'], 'task_packet_id');
+
+        self::assertCount(600, $registry['entries']);
+        self::assertContains('live-0', $ids);
+        self::assertContains('live-599', $ids);
+        self::assertSame(600, count(array_filter(
+            $registry['entries'],
+            static fn (array $entry): bool => ($entry['status'] ?? null) === 'queued',
+        )));
+    }
+
     public function test_update_modifies_existing_entry(): void
     {
         $store = $this->store();
@@ -152,12 +180,17 @@ final class TaskQueueRegistryIndexStoreTest extends TestCase
 
         $registry = $this->store()->loadRegistry();
 
-        // Self-healed: trimmed to HARD_CAP entries.
-        $this->assertLessThanOrEqual(TaskQueueRegistryIndexStore::HARD_CAP, count($registry['entries']));
+        // Self-healed: all live entries remain visible; HARD_CAP applies only
+        // to terminal history and must never hide claimable work.
+        $this->assertCount(1200, $registry['entries']);
+        $this->assertSame('tp-bulk-0000', $registry['entries'][0]['task_packet_id']);
+        $this->assertSame('tp-bulk-1199', $registry['entries'][1199]['task_packet_id']);
         $this->assertNotEmpty($registry['entries']);
 
-        // The file on disk was rewritten (trimmed) by the bounded path.
+        // The bounded path leaves a valid canonical registry on disk while
+        // preserving every live entry.
         $rewritten = Storage::disk($this->diskName)->get(TaskQueueRegistryIndexStore::REGISTRY_PATH);
-        $this->assertLessThan(strlen($json), strlen($rewritten));
+        $decoded = json_decode($rewritten, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertCount(1200, $decoded['entries']);
     }
 }
