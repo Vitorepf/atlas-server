@@ -75,7 +75,9 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         ));
         foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
             self::assertTrue($manifest['manifests'][$mode]['evidence']['rollback_exercised']);
+            self::assertTrue($manifest['manifests'][$mode]['evidence']['outcome_writer_active']);
             self::assertNotContains('rollback_not_exercised', $manifest['manifests'][$mode]['blockers']);
+            self::assertNotContains('outcome_writer_inactive', $manifest['manifests'][$mode]['blockers']);
         }
     }
 }

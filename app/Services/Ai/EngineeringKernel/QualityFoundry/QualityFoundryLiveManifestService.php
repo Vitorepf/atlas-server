@@ -120,8 +120,12 @@ final class QualityFoundryLiveManifestService
             'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
             'evidence' => [
                 'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
             ],
-            'outcome_writer_active' => false,
+            // The canonical rollback suite asserts provisional and terminal
+            // outcome events through AtlasEvidenceLedger. This is test-path
+            // evidence only; it does not imply production cutover.
+            'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
             'command' => $receipt['command'],
             'exit_code' => $exitCode,
             'output_hash' => $receipt['output_hash'],
