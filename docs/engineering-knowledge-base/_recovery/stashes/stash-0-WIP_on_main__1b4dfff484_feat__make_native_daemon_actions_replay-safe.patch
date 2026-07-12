@@ -1,0 +1,227 @@
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 32e7f425ab..d46ee563b8 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -1,73 +1,107 @@
+ {
+-  "$comment": "Atlas Open Brain Gateway (AOBG) hooks — the brain reaches Claude Code through four seams. UserPromptSubmit (N1.F4) injects the unified context pack for the operator's PROMPT; PreToolUse (N2.F2) is the SENTINEL — it checks a proposed Edit/Write BEFORE it lands and warns (advisory, default) or — only when the operator armed atlas.aobg.guard.block_enabled AND the violation is highest-confidence — denies; PostToolUse (N2.F1) injects the brain-delta for the FILE the engine just touched; Stop (N2.F3) is STRUCTURAL capture — when the session ENDS it distils the transcript (touched files + outcome + explicit learnings) and feeds the brain via the governed write-back (provider-safe node, never a merge; learnings land pending_review, never auto-applied) so the session feeds the brain AUTOMATICALLY, not voluntarily. All are best-effort, provider-bound, read-only-to-the-provider, fail-OPEN (a brain outage degrades the hint / never blocks or stalls a session) and cost-free (local DB only, zero provider spend; capture distils deterministically with no LLM call). The guard is advisory-by-default: a false block bricks the session, so block is OPT-IN. ASYMMETRY (honest): these rich hooks (incl. PreToolUse deny + Stop capture) are a Claude-Code capability; Codex/Cursor reach the same brain only via the MCP-tool/CLI subset in .mcp.json (callable, not auto-fired, cannot deny a tool call or auto-capture at session end). MAXE-02: keep ONE relative hook path per AOBG script — absolute duplicates fire 2×/event.",
+-  "hooks": {
+-    "UserPromptSubmit": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-ctx.sh"
+-          }
++    "$comment": "Atlas Open Brain Gateway (AOBG) hooks — the brain reaches Claude Code through four seams. UserPromptSubmit (N1.F4) injects the unified context pack for the operator's PROMPT; PreToolUse (N2.F2) is the SENTINEL — it checks a proposed Edit/Write BEFORE it lands and warns (advisory, default) or — only when the operator armed atlas.aobg.guard.block_enabled AND the violation is highest-confidence — denies; PostToolUse (N2.F1) injects the brain-delta for the FILE the engine just touched; Stop (N2.F3) is STRUCTURAL capture — when the session ENDS it distils the transcript (touched files + outcome + explicit learnings) and feeds the brain via the governed write-back (provider-safe node, never a merge; learnings land pending_review, never auto-applied) so the session feeds the brain AUTOMATICALLY, not voluntarily. All are best-effort, provider-bound, read-only-to-the-provider, fail-OPEN (a brain outage degrades the hint / never blocks or stalls a session) and cost-free (local DB only, zero provider spend; capture distils deterministically with no LLM call). The guard is advisory-by-default: a false block bricks the session, so block is OPT-IN. ASYMMETRY (honest): these rich hooks (incl. PreToolUse deny + Stop capture) are a Claude-Code capability; Codex/Cursor reach the same brain only via the MCP-tool/CLI subset in .mcp.json (callable, not auto-fired, cannot deny a tool call or auto-capture at session end). MAXE-02: keep ONE relative hook path per AOBG script — absolute duplicates fire 2×/event.",
++    "hooks": {
++        "UserPromptSubmit": [
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-ctx.sh"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-heartbeat-alert.sh"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh reinject"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-ctx.sh"
++                    }
++                ]
++            }
++        ],
++        "PreCompact": [
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh write"
++                    }
++                ]
++            }
++        ],
++        "PreToolUse": [
++            {
++                "matcher": "Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-pretooluse-guard.sh"
++                    }
++                ]
++            },
++            {
++                "matcher": "Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-pretooluse-guard.sh"
++                    }
++                ]
++            }
++        ],
++        "PostToolUse": [
++            {
++                "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-postedit-context.sh"
++                    }
++                ]
++            },
++            {
++                "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-postedit-context.sh"
++                    }
++                ]
++            }
++        ],
++        "Stop": [
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-capture.sh"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-session-capture.sh"
++                    }
++                ]
++            }
+         ]
+-      },
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-heartbeat-alert.sh"
+-          }
+-        ]
+-      },
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh reinject"
+-          }
+-        ]
+-      }
+-    ],
+-    "PreCompact": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh write"
+-          }
+-        ]
+-      }
+-    ],
+-    "PreToolUse": [
+-      {
+-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-pretooluse-guard.sh"
+-          }
+-        ]
+-      }
+-    ],
+-    "PostToolUse": [
+-      {
+-        "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-postedit-context.sh"
+-          }
+-        ]
+-      }
+-    ],
+-    "Stop": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-capture.sh"
+-          }
+-        ]
+-      }
+-    ]
+-  }
++    }
+ }
+diff --git a/app/Services/Ai/AtlasOpenBrainContextPackService.php b/app/Services/Ai/AtlasOpenBrainContextPackService.php
+index c3065ce0fb..6d93900c3f 100644
+--- a/app/Services/Ai/AtlasOpenBrainContextPackService.php
++++ b/app/Services/Ai/AtlasOpenBrainContextPackService.php
+@@ -207,10 +207,26 @@ public function packFor(string $task, array $opts = []): array
+             $memoryBudget = $this->scaledBudget($memoryBudget, $budgetMultiplier);
+         }
+         $sourceSelectionPolicy = (array) ($contextDeliveryPolicy['source_selection_policy'] ?? []);
+-        if ((bool) ($sourceSelectionPolicy['applied_to_initial_pack'] ?? false)) {
++        $measuredApplied = (bool) ($sourceSelectionPolicy['applied_to_initial_pack'] ?? false);
++        if ($measuredApplied) {
+             $sourceMultipliers = (array) ($sourceSelectionPolicy['budget_multipliers'] ?? []);
+             $codeBudget = $this->scaledBudget($codeBudget, $this->floatMapValue($sourceMultipliers, 'code', 1.0));
+             $memoryBudget = $this->scaledBudget($memoryBudget, $this->floatMapValue($sourceMultipliers, 'memory', 1.0));
++        } else {
++            // MAXC-03: task-profile prior. Only applied when the MEASURED
++            // source-selection policy is NOT active (insufficient signal /
++            // observed / inactive). Measured wins the moment it lands.
++            try {
++                $taskPrior = app(\App\Services\Ai\Context\TaskProfileBudgetPriorService::class)->describe($task);
++                if (($taskPrior['applied'] ?? false) === true) {
++                    $priors = (array) ($taskPrior['prior_multipliers'] ?? []);
++                    $codeBudget = $this->scaledBudget($codeBudget, $this->floatMapValue($priors, 'code', 1.0));
++                    $memoryBudget = $this->scaledBudget($memoryBudget, $this->floatMapValue($priors, 'memory', 1.0));
++                    $contextDeliveryPolicy['task_profile_prior'] = $taskPrior;
++                }
++            } catch (Throwable) {
++                // Fail-open: never let the prior block the pack.
++            }
+         }
+ 
+         // The total budget is a real CEILING over the text sub-budgets (code +
+diff --git a/docs/superpowers/plans/quality-foundry/06-dev-forge-autonomos-dominance.md b/docs/superpowers/plans/quality-foundry/06-dev-forge-autonomos-dominance.md
+index 6b61447dcd..028984f3e9 100644
+--- a/docs/superpowers/plans/quality-foundry/06-dev-forge-autonomos-dominance.md
++++ b/docs/superpowers/plans/quality-foundry/06-dev-forge-autonomos-dominance.md
+@@ -161,7 +161,7 @@ ### Packet 4: Autônomos internal 24/7 productive cycle
+ 
+ - [ ] Write RED tests proving no external session counts as worker, no direct commit, no dry result burns target, no `served` target enters done-set, no bad post-commit verdict settles and no Constitution/claim/kill-switch self-modification.
+ - [x] Require 2–3 proposals ranked by leverage, simplification, recurrence, verifiability and blast radius; refuse proposals lacking finding/baseline/delta/rollback/test. Evidence: `AtlasTaskBrainReplenisherTest::test_autonomos_proposal_competition_selects_one_quality_complete_candidate_before_enqueue` proves a three-candidate competition and quality-contract gate; `AtlasExternalBrainProposalSelectionLoopTest::test_ranking_explicitly_penalizes_blast_radius_and_rewards_recurrence_and_verifiability` proves the explicit ranking dimensions.
+-- [ ] Make `next→seed`, scope reservation, worker cycle, report and restart idempotent; more than 500 live tasks remain visible.
++- [ ] Make `next→seed`, scope reservation, worker cycle, report and restart idempotent; more than 500 live tasks remain visible. Partial evidence: `AtlasNativeWorkerClaimExecuteReportCycleTest`, `AtlasSelfConstructionNativeActionExecutorTest`, `AtlasSelfConstructionRuntimeDaemonCycleTest::test_duplicate_idempotent_actions_execute_once_and_replay_is_withheld_after_restart` and `TaskQueueRegistryIndexStoreTest::test_cap_registry_never_hides_live_entries_above_hard_cap` pass; the seed/done-set battery remains blocked by the missing `AtlasLoopTrustLadder` owner.
+ - [ ] Call real provider via shared port, use isolated workcell/Kernel and keep primary+fallback provider; total outage pauses/retries without corruption.
+ - [ ] Enforce existing authority with nonce/replay/expiry/revocation; out-of-envelope work replans/quarantines and the daemon continues another eligible task.
+ - [ ] Allow autoexperiments only on reversible routing/memory/policy; code returns as a governed task and never promotes directly.

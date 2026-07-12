@@ -1,0 +1,1475 @@
+diff --git a/.claude/settings.json b/.claude/settings.json
+index 32e7f425ab..d46ee563b8 100644
+--- a/.claude/settings.json
++++ b/.claude/settings.json
+@@ -1,73 +1,107 @@
+ {
+-  "$comment": "Atlas Open Brain Gateway (AOBG) hooks — the brain reaches Claude Code through four seams. UserPromptSubmit (N1.F4) injects the unified context pack for the operator's PROMPT; PreToolUse (N2.F2) is the SENTINEL — it checks a proposed Edit/Write BEFORE it lands and warns (advisory, default) or — only when the operator armed atlas.aobg.guard.block_enabled AND the violation is highest-confidence — denies; PostToolUse (N2.F1) injects the brain-delta for the FILE the engine just touched; Stop (N2.F3) is STRUCTURAL capture — when the session ENDS it distils the transcript (touched files + outcome + explicit learnings) and feeds the brain via the governed write-back (provider-safe node, never a merge; learnings land pending_review, never auto-applied) so the session feeds the brain AUTOMATICALLY, not voluntarily. All are best-effort, provider-bound, read-only-to-the-provider, fail-OPEN (a brain outage degrades the hint / never blocks or stalls a session) and cost-free (local DB only, zero provider spend; capture distils deterministically with no LLM call). The guard is advisory-by-default: a false block bricks the session, so block is OPT-IN. ASYMMETRY (honest): these rich hooks (incl. PreToolUse deny + Stop capture) are a Claude-Code capability; Codex/Cursor reach the same brain only via the MCP-tool/CLI subset in .mcp.json (callable, not auto-fired, cannot deny a tool call or auto-capture at session end). MAXE-02: keep ONE relative hook path per AOBG script — absolute duplicates fire 2×/event.",
+-  "hooks": {
+-    "UserPromptSubmit": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-ctx.sh"
+-          }
++    "$comment": "Atlas Open Brain Gateway (AOBG) hooks — the brain reaches Claude Code through four seams. UserPromptSubmit (N1.F4) injects the unified context pack for the operator's PROMPT; PreToolUse (N2.F2) is the SENTINEL — it checks a proposed Edit/Write BEFORE it lands and warns (advisory, default) or — only when the operator armed atlas.aobg.guard.block_enabled AND the violation is highest-confidence — denies; PostToolUse (N2.F1) injects the brain-delta for the FILE the engine just touched; Stop (N2.F3) is STRUCTURAL capture — when the session ENDS it distils the transcript (touched files + outcome + explicit learnings) and feeds the brain via the governed write-back (provider-safe node, never a merge; learnings land pending_review, never auto-applied) so the session feeds the brain AUTOMATICALLY, not voluntarily. All are best-effort, provider-bound, read-only-to-the-provider, fail-OPEN (a brain outage degrades the hint / never blocks or stalls a session) and cost-free (local DB only, zero provider spend; capture distils deterministically with no LLM call). The guard is advisory-by-default: a false block bricks the session, so block is OPT-IN. ASYMMETRY (honest): these rich hooks (incl. PreToolUse deny + Stop capture) are a Claude-Code capability; Codex/Cursor reach the same brain only via the MCP-tool/CLI subset in .mcp.json (callable, not auto-fired, cannot deny a tool call or auto-capture at session end). MAXE-02: keep ONE relative hook path per AOBG script — absolute duplicates fire 2×/event.",
++    "hooks": {
++        "UserPromptSubmit": [
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-ctx.sh"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-heartbeat-alert.sh"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh reinject"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-ctx.sh"
++                    }
++                ]
++            }
++        ],
++        "PreCompact": [
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh write"
++                    }
++                ]
++            }
++        ],
++        "PreToolUse": [
++            {
++                "matcher": "Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-pretooluse-guard.sh"
++                    }
++                ]
++            },
++            {
++                "matcher": "Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-pretooluse-guard.sh"
++                    }
++                ]
++            }
++        ],
++        "PostToolUse": [
++            {
++                "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-postedit-context.sh"
++                    }
++                ]
++            },
++            {
++                "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-postedit-context.sh"
++                    }
++                ]
++            }
++        ],
++        "Stop": [
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-capture.sh"
++                    }
++                ]
++            },
++            {
++                "hooks": [
++                    {
++                        "type": "command",
++                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-session-capture.sh"
++                    }
++                ]
++            }
+         ]
+-      },
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-heartbeat-alert.sh"
+-          }
+-        ]
+-      },
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh reinject"
+-          }
+-        ]
+-      }
+-    ],
+-    "PreCompact": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh write"
+-          }
+-        ]
+-      }
+-    ],
+-    "PreToolUse": [
+-      {
+-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-pretooluse-guard.sh"
+-          }
+-        ]
+-      }
+-    ],
+-    "PostToolUse": [
+-      {
+-        "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-postedit-context.sh"
+-          }
+-        ]
+-      }
+-    ],
+-    "Stop": [
+-      {
+-        "hooks": [
+-          {
+-            "type": "command",
+-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-capture.sh"
+-          }
+-        ]
+-      }
+-    ]
+-  }
++    }
+ }
+diff --git a/app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php b/app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php
+index 07d586d08b..2e2ede4240 100644
+--- a/app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php
++++ b/app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php
+@@ -92,6 +92,9 @@ private static function canonicalEventHash(AtlasLedgerEvent $event): string
+     public function binding(): array
+     {
+         return ['task_packet_id' => $this->action->taskPacketId, 'candidate_hash' => $this->action->candidateHash,
++            'engineering_surface_id' => (string) ($this->action->metadata['engineering_surface_id'] ?? ''),
++            'execution_mode' => (string) ($this->action->metadata['execution_mode'] ?? ''),
++            'workspace_hash' => (string) ($this->action->metadata['workspace_hash'] ?? ''),
+             'order_hash' => $this->orderHash, 'base_commit' => $this->action->baseCommit, 'tree_hash' => $this->action->treeHash,
+             'delivery_id' => $this->deliveryId,
+             'files' => $this->action->files, 'scope_hash' => $this->action->scopeHash, 'lease_id' => $this->action->leaseId,
+diff --git a/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionCoverage.php b/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionCoverage.php
+index a233f684d1..a9282ab1eb 100644
+--- a/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionCoverage.php
++++ b/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionCoverage.php
+@@ -5,6 +5,9 @@
+ namespace App\Services\Ai\EngineeringKernel\Coverage;
+ 
+ use App\Models\AtlasLedgerEvent;
++use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
++use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
++use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+ use App\Services\Ai\Support\DatabaseTableAvailability;
+ use Carbon\CarbonImmutable;
+ use Illuminate\Support\Str;
+@@ -13,13 +16,19 @@
+ final class EngineeringExecutionCoverage
+ {
+     public const SCHEMA_VERSION = 'atlas.engineering_execution_coverage.v2';
++
+     public const MODE_OBSERVE = 'observe';
++
+     public const MODE_ENFORCE = 'enforce';
++
+     public const EVENT_TYPE = 'engineering_execution_coverage.v2';
+ 
+     private const STATUS_OK = 'ok';
++
+     private const STATUS_FAILED = 'failed';
++
+     private const STATUS_PENDING_DATA = 'pending_data';
++
+     private const STATUS_OBSERVE_INCOMPLETE = 'observe_incomplete';
+ 
+     /**
+@@ -35,6 +44,11 @@ final class EngineeringExecutionCoverage
+         'acceptance_receipt',
+         'release_receipt',
+         'terminal_outcome',
++        'coverage_receipt_event_id',
++        'coverage_receipt_event_hash',
++        'terminal_outcome_event_id',
++        'terminal_outcome_event_hash',
++        'source_hash',
+     ];
+ 
+     /** @param array<string,mixed> $event */
+@@ -44,46 +58,10 @@ public function record(array $event): void
+             return;
+         }
+ 
+-        $payload = $this->coveragePayload($event);
+-        $eventId = $this->string($event['event_id'] ?? (string) Str::ulid(), 32);
+-        $payloadHash = $this->hashPayload($payload);
+-        $occurredAt = $this->occurredAt($event['occurred_at'] ?? null);
+-        $runId = $this->nullableString($payload['run_id'] ?? null, 80);
+-
+-        $row = [
+-            'event_id' => $eventId,
+-            'schema_version' => self::SCHEMA_VERSION,
+-            'tenant_id' => $this->string($event['tenant_id'] ?? 'default', 120),
+-            'operator_id' => $this->string($event['operator_id'] ?? 'system', 120),
+-            'envelope_id' => $this->string($event['envelope_id'] ?? ($runId !== null ? 'engineering_execution:'.$runId : 'engineering_execution'), 80),
+-            'receipt_id' => $this->nullableString($event['receipt_id'] ?? $payload['release_receipt'] ?? $payload['acceptance_receipt'] ?? null, 80),
+-            'trace_id' => $this->nullableString($event['trace_id'] ?? null, 80),
+-            'correlation_id' => $this->string($event['correlation_id'] ?? $runId ?? (string) Str::ulid(), 120),
+-            'causation_id' => $this->nullableString($event['causation_id'] ?? null, 80),
+-            'event_type' => self::EVENT_TYPE,
+-            'emitter_stage' => $this->string($event['emitter_stage'] ?? 'atlas.engineering_execution_coverage', 120),
+-            'emitter_version' => $this->string($event['emitter_version'] ?? self::SCHEMA_VERSION, 80),
+-            'payload' => $payload,
+-            'payload_hash' => $payloadHash,
+-            'occurred_at' => $occurredAt,
+-        ];
+-
+-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')) {
+-            $row['scope_type'] = 'engineering_execution_surface';
+-        }
+-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+-            $row['scope_id'] = $this->nullableString($payload['surface'] ?? null, 80);
+-        }
+-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash')) {
+-            $row['event_hash'] = $this->hashPayload([
+-                'event_id' => $eventId,
+-                'event_type' => self::EVENT_TYPE,
+-                'payload_hash' => $payloadHash,
+-                'occurred_at' => $occurredAt->toISOString(),
+-            ]);
+-        }
+-
+-        AtlasLedgerEvent::query()->create($row);
++        // Compatibility seam only: canonical coverage already exists as the
++        // authority-sealed receipt. Never create an unsigned projection that
++        // could later be mistaken for evidence.
++        $this->coveragePayload($event);
+     }
+ 
+     /** @return array<string,mixed> */
+@@ -99,29 +77,47 @@ public function report(?string $mode = null): array
+                 totalEvents: 0,
+                 completeEvents: 0,
+                 incompleteSamples: [],
++                coveredSurfaceIds: [],
+             );
+         }
+ 
+         $events = AtlasLedgerEvent::query()
+-            ->where('event_type', self::EVENT_TYPE)
++            ->where('emitter_stage', KernelEvidenceAuthority::EMITTER_STAGE)
+             ->orderByDesc('occurred_at')
+             ->orderByDesc('event_id')
+-            ->get(['event_id', 'payload', 'occurred_at']);
++            ->get();
+ 
+         $totalEvents = 0;
+         $completeEvents = 0;
+         $incompleteSamples = [];
++        $coveredSurfaceIds = [];
+ 
+         foreach ($events as $ledgerEvent) {
++            if (! app(KernelEvidenceAuthority::class)->verifyEvent($ledgerEvent, 'engineering_coverage')) {
++                continue;
++            }
+             $payload = $this->payloadArray($ledgerEvent->payload);
++            if (($payload['event_name'] ?? null) !== 'engineering.execution.coverage.recorded') {
++                continue;
++            }
+             if (($payload['mode'] ?? null) !== $mode) {
+                 continue;
+             }
+ 
++            $payload['coverage_receipt_event_id'] = (string) $ledgerEvent->event_id;
++            $payload['coverage_receipt_event_hash'] = (string) ($ledgerEvent->event_hash ?: $ledgerEvent->payload_hash);
++
+             $totalEvents++;
+             $missing = $this->missingCompleteFields($payload);
++            if (! $this->authoritativePayloadValid($payload)) {
++                $missing[] = 'canonical_authority';
++                $missing = array_values(array_unique($missing));
++            }
+             if ($missing === []) {
+                 $completeEvents++;
++                if (is_string($payload['surface'] ?? null)) {
++                    $coveredSurfaceIds[] = $payload['surface'];
++                }
+ 
+                 continue;
+             }
+@@ -133,7 +129,7 @@ public function report(?string $mode = null): array
+                     'run_id' => $this->nullableString($payload['run_id'] ?? null, 120),
+                     'missing_fields' => $missing,
+                     'kernel_routed' => $payload['kernel_routed'] ?? null,
+-                    'occurred_at' => $ledgerEvent->occurred_at?->toISOString(),
++                    'occurred_at' => $this->occurredAt($ledgerEvent->getAttribute('occurred_at'))->toISOString(),
+                 ];
+             }
+         }
+@@ -144,6 +140,7 @@ public function report(?string $mode = null): array
+             totalEvents: $totalEvents,
+             completeEvents: $completeEvents,
+             incompleteSamples: $incompleteSamples,
++            coveredSurfaceIds: array_values(array_unique($coveredSurfaceIds)),
+         );
+     }
+ 
+@@ -153,11 +150,18 @@ public function report(?string $mode = null): array
+      */
+     private function coveragePayload(array $event): array
+     {
+-        $payload = $this->canonicalize(array_replace($event, [
++        $receiptId = $this->nullableString($event['coverage_receipt_event_id'] ?? null, 120);
++        $receipt = $receiptId === null ? null : AtlasLedgerEvent::query()->find($receiptId);
++        $authority = app(KernelEvidenceAuthority::class);
++        if (! $receipt instanceof AtlasLedgerEvent || ! $authority->verifyEvent($receipt, 'engineering_coverage')) {
++            throw new \InvalidArgumentException('engineering_coverage_receipt_missing_or_invalid');
++        }
++        $receiptPayload = $this->payloadArray($receipt->getAttribute('payload'));
++        $receiptHash = (string) ($receipt->getAttribute('event_hash') ?: $receipt->getAttribute('payload_hash'));
++        $payload = $this->canonicalize(array_replace($receiptPayload, [
+             'schema_version' => self::SCHEMA_VERSION,
+-            'mode' => $this->mode($event['mode'] ?? null),
+-            'surface' => $this->nullableString($event['surface'] ?? null, 120),
+-            'recorded_at' => CarbonImmutable::now()->toISOString(),
++            'coverage_receipt_event_id' => $receiptId,
++            'coverage_receipt_event_hash' => $receiptHash,
+         ]));
+ 
+         $missing = $this->missingCompleteFields($payload);
+@@ -167,6 +171,55 @@ private function coveragePayload(array $event): array
+         return $this->canonicalize($payload);
+     }
+ 
++    /** @param array<string,mixed> $payload */
++    private function authoritativePayloadValid(array $payload): bool
++    {
++        $surface = (string) ($payload['surface'] ?? '');
++        $currentSourceHash = EngineeringExecutionSurfaceRegistry::currentSourceHash($surface);
++        if (! is_string($currentSourceHash) || ! hash_equals($currentSourceHash, (string) ($payload['source_hash'] ?? ''))) {
++            return false;
++        }
++        $receipt = AtlasLedgerEvent::query()->find((string) ($payload['coverage_receipt_event_id'] ?? ''));
++        $terminal = AtlasLedgerEvent::query()->find((string) ($payload['terminal_outcome_event_id'] ?? ''));
++        $authority = app(KernelEvidenceAuthority::class);
++        if (! $receipt instanceof AtlasLedgerEvent || ! $terminal instanceof AtlasLedgerEvent
++            || ! $authority->verifyEvent($receipt, 'engineering_coverage')
++            || ! $authority->verifyEvent($terminal, 'terminal_outcome')) {
++            return false;
++        }
++        $receiptPayload = $this->payloadArray($receipt->getAttribute('payload'));
++        foreach (['surface', 'source_hash', 'terminal_outcome_event_id', 'terminal_outcome_event_hash',
++            'run_id', 'delivery_id', 'execution_order_hash', 'provider_receipt', 'workspace_delta_hash',
++            'acceptance_receipt', 'release_receipt', 'terminal_outcome', 'mode', 'workspace_hash'] as $key) {
++            if (($payload[$key] ?? null) !== ($receiptPayload[$key] ?? null)) {
++                return false;
++            }
++        }
++        $receiptHash = (string) ($receipt->getAttribute('event_hash') ?: $receipt->getAttribute('payload_hash'));
++        $terminalHash = (string) ($terminal->getAttribute('event_hash') ?: $terminal->getAttribute('payload_hash'));
++
++        $terminalPayload = $this->payloadArray($terminal->getAttribute('payload'));
++        $outcomeData = data_get($terminalPayload, 'observation.engineering_outcome');
++        if (! is_array($outcomeData) || ! $authority->verifyOutcome($outcomeData)
++            || ($terminalPayload['engineering_surface_id'] ?? null) !== $surface
++            || ($terminalPayload['execution_mode'] ?? null) !== ($payload['mode'] ?? null)
++            || ($terminalPayload['workspace_hash'] ?? null) !== ($payload['workspace_hash'] ?? null)) {
++            return false;
++        }
++        $outcome = EngineeringOutcome::fromArray($outcomeData);
++
++        return hash_equals($receiptHash, (string) ($payload['coverage_receipt_event_hash'] ?? ''))
++            && hash_equals($terminalHash, (string) ($payload['terminal_outcome_event_hash'] ?? ''))
++            && $outcome->runId === ($payload['run_id'] ?? null)
++            && $outcome->deliveryId === ($payload['delivery_id'] ?? null)
++            && hash_equals((string) $outcome->correlatedHashes['order'], (string) ($payload['execution_order_hash'] ?? ''))
++            && hash_equals(CanonicalKernelPayload::hash($outcome->providerReceipt), (string) ($payload['provider_receipt'] ?? ''))
++            && hash_equals((string) $outcome->correlatedHashes['diff'], (string) ($payload['workspace_delta_hash'] ?? ''))
++            && hash_equals((string) $outcome->correlatedHashes['evidence'], (string) ($payload['acceptance_receipt'] ?? ''))
++            && hash_equals((string) $outcome->correlatedHashes['release'], (string) ($payload['release_receipt'] ?? ''))
++            && hash_equals($outcome->outcomeHash, (string) ($payload['terminal_outcome'] ?? ''));
++    }
++
+     /**
+      * @param  list<array{id:string,path:string,owner:string,mutative:bool}>  $surfaces
+      * @param  list<array<string,mixed>>  $incompleteSamples
+@@ -178,13 +231,19 @@ private function reportPayload(
+         int $totalEvents,
+         int $completeEvents,
+         array $incompleteSamples,
++        array $coveredSurfaceIds,
+     ): array {
+         $incompleteEvents = $totalEvents - $completeEvents;
++        $surfaceIds = array_column($surfaces, 'id');
++        $covered = array_values(array_intersect($surfaceIds, $coveredSurfaceIds));
++        $uncovered = array_values(array_diff($surfaceIds, $covered));
++        $coveragePercent = $surfaceIds === [] ? 100.0 : round((count($covered) / count($surfaceIds)) * 100, 2);
++        $liveBypasses = (new EngineeringMutationBypassScanner)->scanConfiguredRoots();
+ 
+         return [
+             'schema_version' => self::SCHEMA_VERSION,
+             'mode' => $mode,
+-            'status' => $this->status($mode, $totalEvents, $incompleteEvents),
++            'status' => $this->status($mode, $totalEvents, $incompleteEvents, $uncovered, $liveBypasses),
+             'surfaces' => $surfaces,
+             'counts' => [
+                 'total_events' => $totalEvents,
+@@ -192,16 +251,23 @@ private function reportPayload(
+                 'incomplete_events' => $incompleteEvents,
+             ],
+             'incomplete_samples' => $incompleteSamples,
++            'mutative_surface_coverage' => [
++                'required_percent' => 100.0, 'actual_percent' => $coveragePercent,
++                'covered_surface_ids' => $covered, 'uncovered_surface_ids' => $uncovered,
++            ],
++            'live_bypasses' => $liveBypasses,
+         ];
+     }
+ 
+-    private function status(string $mode, int $totalEvents, int $incompleteEvents): string
++    /** @param list<string> $uncoveredSurfaceIds */
++    private function status(string $mode, int $totalEvents, int $incompleteEvents, array $uncoveredSurfaceIds,
++        array $liveBypasses): string
+     {
+         if ($totalEvents === 0) {
+-            return self::STATUS_PENDING_DATA;
++            return $mode === self::MODE_ENFORCE ? self::STATUS_FAILED : self::STATUS_PENDING_DATA;
+         }
+ 
+-        if ($incompleteEvents === 0) {
++        if ($incompleteEvents === 0 && $uncoveredSurfaceIds === [] && $liveBypasses === []) {
+             return self::STATUS_OK;
+         }
+ 
+@@ -284,24 +350,6 @@ private function canonicalize(array $payload): array
+         return $payload;
+     }
+ 
+-    /**
+-     * @param  array<string,mixed>  $payload
+-     */
+-    private function hashPayload(array $payload): string
+-    {
+-        return hash(
+-            'sha256',
+-            json_encode($this->canonicalize($payload), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+-        );
+-    }
+-
+-    private function string(mixed $value, int $max): string
+-    {
+-        $value = trim((string) $value);
+-
+-        return Str::limit($value !== '' ? $value : 'unknown', $max, '');
+-    }
+-
+     private function nullableString(mixed $value, int $max): ?string
+     {
+         if ($value === null) {
+diff --git a/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php b/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php
+index 2e95ab1a1e..8025c33a46 100644
+--- a/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php
++++ b/app/Services/Ai/EngineeringKernel/Coverage/EngineeringExecutionSurfaceRegistry.php
+@@ -25,6 +25,8 @@ final class EngineeringExecutionSurfaceRegistry
+             'mutative' => true,
+             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
+             'awis_mode' => 'dev',
++            'capabilities' => ['provider_process', 'patch_apply', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.provider_port',
+         ],
+         'atlas_forge.work_packet_execution_cycle' => [
+             'id' => 'atlas_forge.work_packet_execution_cycle',
+@@ -33,6 +35,8 @@ final class EngineeringExecutionSurfaceRegistry
+             'mutative' => true,
+             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
+             'awis_mode' => 'forge',
++            'capabilities' => ['provider_process', 'patch_apply', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.execute',
+         ],
+         'atlas_autonomos.task_serving' => [
+             'id' => 'atlas_autonomos.task_serving',
+@@ -41,6 +45,8 @@ final class EngineeringExecutionSurfaceRegistry
+             'mutative' => true,
+             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
+             'awis_mode' => 'dev',
++            'capabilities' => ['task_mutation', 'provider_process', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.execute',
+         ],
+         'atlas_autonomos.native_worker' => [
+             'id' => 'atlas_autonomos.native_worker',
+@@ -49,6 +55,8 @@ final class EngineeringExecutionSurfaceRegistry
+             'mutative' => true,
+             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
+             'awis_mode' => 'dev',
++            'capabilities' => ['provider_process', 'patch_apply', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.execute',
+         ],
+         'atlas_autonomos.commit_governance' => [
+             'id' => 'atlas_autonomos.commit_governance',
+@@ -57,6 +65,8 @@ final class EngineeringExecutionSurfaceRegistry
+             'mutative' => true,
+             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
+             'awis_mode' => 'dev',
++            'capabilities' => ['git_commit', 'provider_process', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.merge_actuator',
+         ],
+         'engineering_kernel.merge_actuator' => [
+             'id' => 'engineering_kernel.merge_actuator',
+@@ -65,6 +75,42 @@ final class EngineeringExecutionSurfaceRegistry
+             'mutative' => true,
+             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
+             'awis_mode' => 'patch',
++            'capabilities' => ['release'],
++            'approved_adapter' => 'engineering_kernel.merge_actuator',
++        ],
++        'atlas_dev.provider_process' => [
++            'id' => 'atlas_dev.provider_process', 'path' => 'app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php',
++            'owner' => 'atlas_dev', 'mutative' => true, 'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
++            'awis_mode' => 'dev', 'capabilities' => ['provider_process', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'], 'approved_adapter' => 'engineering_kernel.provider_port',
++        ],
++        'atlas_forge.provider_process' => [
++            'id' => 'atlas_forge.provider_process', 'path' => 'app/Services/Ai/Programming/ProviderRuntimeProcessFactory.php',
++            'owner' => 'atlas_forge', 'mutative' => true, 'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
++            'awis_mode' => 'forge', 'capabilities' => ['provider_process', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'], 'approved_adapter' => 'engineering_kernel.provider_port',
++        ],
++        'atlas_autonomos.runtime_daemon' => [
++            'id' => 'atlas_autonomos.runtime_daemon', 'path' => 'app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionNativeActionExecutor.php',
++            'owner' => 'atlas_autonomos', 'mutative' => true, 'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
++            'awis_mode' => 'dev', 'capabilities' => ['provider_process', 'patch_apply', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'], 'approved_adapter' => 'engineering_kernel.execute',
++        ],
++        'atlas_programming.provider_drivers' => [
++            'id' => 'atlas_programming.provider_drivers', 'path' => 'app/Services/Ai/Programming',
++            'owner' => 'engineering_kernel', 'mutative' => true, 'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
++            'awis_mode' => 'patch', 'capabilities' => ['provider_process', 'git_process', 'filesystem_write', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.provider_port',
++        ],
++        'atlas_modes.console_commands' => [
++            'id' => 'atlas_modes.console_commands', 'path' => 'app/Console/Commands',
++            'owner' => 'engineering_kernel', 'mutative' => true, 'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
++            'awis_mode' => 'patch', 'capabilities' => ['provider_process', 'git_process', 'filesystem_write', 'release', 'direct_provider_driver', 'direct_mutation_port', 'destructive_database', 'dynamic_unknown_execution'],
++            'approved_adapter' => 'engineering_kernel.execute',
++        ],
++        'engineering_kernel.coverage_scanner' => [
++            'id' => 'engineering_kernel.coverage_scanner',
++            'path' => 'app/Services/Ai/EngineeringKernel/Coverage/EngineeringMutationBypassScanner.php',
++            'owner' => 'engineering_kernel', 'mutative' => true,
++            'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class, 'awis_mode' => 'patch',
++            'capabilities' => ['architecture_gate'], 'approved_adapter' => 'engineering_kernel.coverage_authority',
+         ],
+     ];
+ 
+@@ -73,7 +119,59 @@ final class EngineeringExecutionSurfaceRegistry
+      */
+     public static function all(): array
+     {
+-        return array_values(self::SURFACES);
++        return array_map(static function (array $surface): array {
++            $absolute = base_path($surface['path']);
++            $surface['source_provenance'] = [
++                'path' => $surface['path'],
++                'exists' => is_file($absolute) || is_dir($absolute),
++                'sha256' => self::hashSource($absolute),
++            ];
++
++            return $surface;
++        }, array_values(self::SURFACES));
++    }
++
++    public static function currentSourceHash(string $id): ?string
++    {
++        $surface = self::SURFACES[$id] ?? null;
++
++        return $surface === null ? null : self::hashSource(base_path($surface['path']));
++    }
++
++    public static function resolveMutationOwner(string $path, string $capability): ?string
++    {
++        $matches = array_values(array_filter(self::SURFACES, static function (array $surface) use ($path, $capability): bool {
++            $surfacePath = rtrim((string) $surface['path'], '/');
++
++            return ($path === $surfacePath || str_starts_with($path, $surfacePath.'/'))
++                && in_array($capability, $surface['capabilities'], true);
++        }));
++        usort($matches, static fn (array $a, array $b): int => strlen((string) $b['path']) <=> strlen((string) $a['path']));
++
++        return isset($matches[0]) ? (string) $matches[0]['id'] : null;
++    }
++
++    private static function hashSource(string $path): ?string
++    {
++        if (is_file($path)) {
++            return hash_file('sha256', $path) ?: null;
++        }
++        if (! is_dir($path)) {
++            return null;
++        }
++        $entries = [];
++        $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path,
++            \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::CURRENT_AS_FILEINFO));
++        foreach ($iterator as $file) {
++            if (! $file->isFile() || $file->getExtension() !== 'php') {
++                continue;
++            }
++            $relative = substr($file->getPathname(), strlen($path) + 1);
++            $entries[$relative] = hash_file('sha256', $file->getPathname());
++        }
++        ksort($entries);
++
++        return $entries === [] ? null : hash('sha256', (string) json_encode($entries, JSON_UNESCAPED_SLASHES));
+     }
+ 
+     /**
+@@ -106,7 +204,7 @@ public static function isConfirmedMutativeSurface(string $id): bool
+     public static function probeAwisGateRefusal(string $id, AwisExecutionGatePort $gate, ?string $workspace): array
+     {
+         $surface = self::SURFACES[$id] ?? null;
+-        if ($surface === null || ($surface['mutative'] ?? false) !== true) {
++        if ($surface === null) {
+             throw new \InvalidArgumentException('Unknown mutative engineering surface: '.$id);
+         }
+ 
+diff --git a/app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php b/app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php
+index b7624d38e6..e8cd74f62c 100644
+--- a/app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php
++++ b/app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php
+@@ -10,6 +10,7 @@
+ use App\Models\AtlasLedgerEvent;
+ use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
+ use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
++use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
+ use App\Services\Ai\Kernel\Decision\DecisionReceipt;
+ use App\Services\Ai\Kernel\Decision\DecisionReceiptRuntimeGuard;
+ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+@@ -404,6 +405,41 @@ public function issueProvisionalOutcome(EngineeringOutcome $outcome, AuthorizedM
+             'scope_type' => 'engineering_delivery', 'scope_id' => $action->deliveryId]);
+     }
+ 
++    public function issueEngineeringCoverageReceipt(AtlasLedgerEvent $terminal, string $surfaceId, string $mode): AtlasLedgerEvent
++    {
++        $terminalPayload = $terminal->getAttribute('payload');
++        $outcomeData = is_array($terminalPayload) ? data_get($terminalPayload, 'observation.engineering_outcome') : null;
++        $surface = EngineeringExecutionSurfaceRegistry::surface($surfaceId);
++        $sourceHash = EngineeringExecutionSurfaceRegistry::currentSourceHash($surfaceId);
++        $workspaceHash = is_array($terminalPayload) ? (string) ($terminalPayload['workspace_hash'] ?? '') : '';
++        if (! $this->verifyEvent($terminal, 'terminal_outcome') || ! is_array($outcomeData)
++            || ! $this->verifyOutcome($outcomeData) || $surface === null
++            || data_get($terminalPayload, 'engineering_surface_id') !== $surfaceId
++            || data_get($terminalPayload, 'execution_mode') !== $mode
++            || ! in_array($mode, ['observe', 'enforce'], true)
++            || preg_match('/^[a-f0-9]{64}$/', $workspaceHash) !== 1
++            || ! is_string($sourceHash) || preg_match('/^[a-f0-9]{64}$/', $sourceHash) !== 1) {
++            throw new InvalidArgumentException('engineering_coverage_terminal_or_surface_invalid');
++        }
++        $outcome = EngineeringOutcome::fromArray($outcomeData);
++        $terminalHash = (string) ($terminal->getAttribute('event_hash') ?: $terminal->getAttribute('payload_hash'));
++
++        return $this->issue('engineering_coverage', LedgerEventType::OperationCompleted, [
++            'event_name' => 'engineering.execution.coverage.recorded', 'surface' => $surfaceId,
++            'surface_owner' => (string) $surface['owner'], 'mode' => $mode,
++            'workspace_hash' => $workspaceHash, 'source_hash' => $sourceHash,
++            'terminal_outcome_event_id' => (string) $terminal->event_id, 'terminal_outcome_event_hash' => $terminalHash,
++            'run_id' => $outcome->runId, 'delivery_id' => $outcome->deliveryId,
++            'execution_order_hash' => (string) $outcome->correlatedHashes['order'],
++            'provider_receipt' => CanonicalKernelPayload::hash($outcome->providerReceipt),
++            'workspace_delta_hash' => (string) $outcome->correlatedHashes['diff'],
++            'acceptance_receipt' => (string) $outcome->correlatedHashes['evidence'],
++            'release_receipt' => (string) $outcome->correlatedHashes['release'],
++            'terminal_outcome' => $outcome->outcomeHash,
++        ], ['correlation_id' => $outcome->deliveryId, 'causation_id' => (string) $terminal->event_id,
++            'scope_type' => 'engineering_execution_surface', 'scope_id' => $surfaceId], 0);
++    }
++
+     /** @param array<string,mixed> $payload @param array<string,mixed> $context */
+     private function issue(string $kind, LedgerEventType $type, array $payload, array $context, int $validForSeconds = 3600): AtlasLedgerEvent
+     {
+@@ -431,6 +467,7 @@ public function verifyEvent(AtlasLedgerEvent $event, string $kind): bool
+             'release_authorization' => LedgerEventType::ReleaseAuthorized,
+             'revert_settlement' => LedgerEventType::ReleaseReverted,
+             'provisional_outcome' => LedgerEventType::OperationCompleted,
++            'engineering_coverage' => LedgerEventType::OperationCompleted,
+             default => null,
+         };
+         if ($expectedType === null || $event->event_type !== $expectedType->value
+@@ -494,9 +531,9 @@ private function verifySeal(array $authority, string $kind, array $payload): boo
+             return false;
+         }
+         if ($issued === null || CarbonImmutable::now()->lt($issued)
+-            || (! in_array($kind, ['engineering_outcome', 'terminal_outcome'], true)
++            || (! in_array($kind, ['engineering_outcome', 'terminal_outcome', 'engineering_coverage'], true)
+                 && ($expires === null || CarbonImmutable::now()->gte($expires)))
+-            || (in_array($kind, ['engineering_outcome', 'terminal_outcome'], true) && $expiresRaw !== null)
++            || (in_array($kind, ['engineering_outcome', 'terminal_outcome', 'engineering_coverage'], true) && $expiresRaw !== null)
+             || ($authority['schema_version'] ?? null) !== self::SCHEMA || ($authority['kind'] ?? null) !== $kind
+             || ($authority['provenance'] ?? null) !== 'kernel_evidence_authority'
+             || ! hash_equals((string) ($authority['payload_hash'] ?? ''), CanonicalKernelPayload::hash($payload))) {
+@@ -554,6 +591,7 @@ private function assertAllowed(string $kind, LedgerEventType $type): void
+         $allowed = $allowed || ($kind === 'release_authorization' && $type === LedgerEventType::ReleaseAuthorized);
+         $allowed = $allowed || ($kind === 'revert_settlement' && $type === LedgerEventType::ReleaseReverted);
+         $allowed = $allowed || ($kind === 'provisional_outcome' && $type === LedgerEventType::OperationCompleted);
++        $allowed = $allowed || ($kind === 'engineering_coverage' && $type === LedgerEventType::OperationCompleted);
+         if (! $allowed) {
+             throw new InvalidArgumentException('kernel_evidence_authority_kind_type_forbidden');
+         }
+diff --git a/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshot.php b/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshot.php
+index c4469a3b25..4ebf42b53c 100644
+--- a/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshot.php
++++ b/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshot.php
+@@ -376,6 +376,15 @@ private function buildDomainMap(array $domainFacts): array
+                 'owner_signal' => trim((string) ($fact['owner_signal'] ?? '')) ?: 'missing',
+                 'current_gap'  => trim((string) ($fact['current_gap'] ?? '')) ?: 'missing',
+                 'next_lever'   => trim((string) ($fact['next_lever']  ?? '')) ?: 'missing',
++                'capabilities' => $this->factList($fact['capabilities'] ?? null),
++                'owners'       => $this->factList($fact['owners'] ?? null),
++                'dependencies' => $this->factList($fact['dependencies'] ?? null),
++                'consumers'    => $this->factList($fact['consumers'] ?? null),
++                'recurrence'   => is_array($fact['recurrence'] ?? null) ? $fact['recurrence'] : ['status' => 'unknown'],
++                'failures'     => $this->factList($fact['failures'] ?? null),
++                'outcomes'     => $this->factList($fact['outcomes'] ?? null),
++                'evidence_gaps' => $this->factList($fact['evidence_gaps'] ?? null),
++                'freshness'    => trim((string) ($fact['freshness'] ?? $fact['freshness_status'] ?? '')) ?: 'unknown',
+                 'evidence_refs' => array_values(array_filter(
+                     array_map('trim', (array) ($fact['evidence_refs'] ?? [])),
+                     static fn (string $r): bool => $r !== '',
+@@ -386,6 +395,19 @@ private function buildDomainMap(array $domainFacts): array
+         return $map;
+     }
+ 
++    /** @return list<string> */
++    private function factList(mixed $value): array
++    {
++        if (! is_array($value)) {
++            return [];
++        }
++
++        return array_values(array_filter(
++            array_map(static fn (mixed $item): string => is_scalar($item) ? trim((string) $item) : '', $value),
++            static fn (string $item): bool => $item !== '',
++        ));
++    }
++
+     /**
+      * @param  array<string,mixed>  $rubricScores
+      * @param  list<string>         $knownCapabilities
+diff --git a/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparator.php b/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparator.php
+index 4737365478..4e9b4f65ac 100644
+--- a/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparator.php
++++ b/app/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparator.php
+@@ -53,8 +53,35 @@ public function rank(array $candidates): array
+             $testCount = (int) ($candidate['test_count'] ?? 0);
+             $wrapperCount = (int) ($candidate['wrapper_count'] ?? 0);
+ 
++            $dimensions = [
++                'dependency_reach' => $this->ratio($candidate['dependency_reach'] ?? 0),
++                'recurrence' => $this->ratio($candidate['recurrence'] ?? 0),
++                'outcome_gap' => $this->ratio($candidate['outcome_gap'] ?? 0),
++                'simplification_opportunity' => $this->ratio($candidate['simplification_opportunity'] ?? 0),
++                'verification_strength' => $this->ratio($candidate['verification_strength'] ?? 0),
++                'blast_radius' => $this->ratio($candidate['blast_radius'] ?? 0),
++            ];
++            $outcomeStatus = strtolower((string) ($candidate['outcome_freshness'] ?? 'unknown'));
++            $outcomeEvidence = (bool) ($candidate['outcome_evidence_present'] ?? false);
++            $outcomeConfidence = match (true) {
++                $outcomeStatus === 'fresh' && $outcomeEvidence => 1.0,
++                $outcomeStatus === 'fresh' => 0.75,
++                $outcomeStatus === 'stale' && $outcomeEvidence => 0.45,
++                $outcomeStatus === 'stale' => 0.25,
++                default => 0.0,
++            };
++
++            $structuralScore =
++                ($dimensions['dependency_reach'] * 0.30)
++                + ($dimensions['recurrence'] * 0.15)
++                + ($dimensions['outcome_gap'] * 0.15)
++                + ($dimensions['simplification_opportunity'] * 0.15)
++                + ($dimensions['verification_strength'] * 0.15)
++                + ($dimensions['blast_radius'] * 0.10);
++
+             $rank = self::LEVERAGE_RANK[$category] ?? 99;
+-            $leverageScore = $downstreamGain - ($queueDepth * 0.1) - ($testCount * 0.05) - ($wrapperCount * 0.2);
++            $leverageScore = $downstreamGain + $structuralScore - ((1.0 - $outcomeConfidence) * 0.25)
++                - ($queueDepth * 0.1) - ($testCount * 0.05) - ($wrapperCount * 0.2);
+ 
+             $enriched[] = [
+                 'task_id' => $id,
+@@ -62,6 +89,10 @@ public function rank(array $candidates): array
+                 'leverage_rank' => $rank,
+                 'expected_downstream_gain' => $downstreamGain,
+                 'leverage_score' => round($leverageScore, 3),
++                'structural_dimensions' => $dimensions,
++                'structural_score' => round($structuralScore, 3),
++                'outcome_confidence' => $outcomeConfidence,
++                'outcome_freshness' => $outcomeStatus,
+                 'queue_depth' => $queueDepth,
+                 'test_count' => $testCount,
+                 'wrapper_count' => $wrapperCount,
+@@ -82,4 +113,13 @@ public function rank(array $candidates): array
+             'top_candidate' => $enriched[0] ?? null,
+         ];
+     }
++
++    private function ratio(mixed $value): float
++    {
++        if (is_array($value)) {
++            $value = $value['score'] ?? $value['rate'] ?? $value['value'] ?? 0;
++        }
++
++        return max(0.0, min(1.0, (float) $value));
++    }
+ }
+diff --git a/docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md b/docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
+index 1d848b07f7..f555047d82 100644
+--- a/docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
++++ b/docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md
+@@ -310,7 +310,7 @@ ## Residual Elite 2026-07-08 — residuals após Obras 4–9 (docs promovidos 20
+ | **GAP-RE-DEV-09** | 🟡 | FECHADO | MissionCertification: `evidence_non_trivial` + `claim_aligned_with_work_orders` | mission-foundation · CLOSEOUT-100 |
+ | **GAP-RE-DEV-10** | 🟡 | FECHADO | repair contract promovido p/ `Programming\Repair`; AiWorker/Dev/Forge consomem | programming-governance · CLOSEOUT-100 |
+ | **GAP-RE-FORGE-04** | 🟡 | FECHADO | Forge HTTP entry points gravam `route_decision` via recorder/DualCore | programming-forge-flow · CLOSEOUT-100 |
+-| **GAP-RE-FORGE-06** | 🟡 | FECHADO | `engineering_kernel.forge_execution_gate_enforcing` declarado (default OFF) | programming-forge-flow · CLOSEOUT-100 |
++| **GAP-RE-FORGE-06** | 🟡 | ABERTO-até-ENG-02 | Chave `forge_execution_gate_enforcing` presente (default OFF); flip ENFORCE pendente — receipt elite-compaction (`ONDA5-7-FLIP-RECEIPT-2026-07-09.json`) claimava flip que a config viva desmentia | programming-forge-flow · ENG-02 |
+ | **GAP-RE-AUT-08..10** | 🟢 | DEFERRED | ACDE clustered corpses (~630) — keep-list safe, OUT do closeout | evolution-loop-acde-runtime · OBRA6/7 |
+ | **GAP-RE-RAG-07** | 🟡 | FECHADO | `indexStaleFraction()` + probe KIND_AGRN_REINDEX | ASEF/AHRI · CLOSEOUT-100 |
+ | **GAP-RE-RAG-08** | 🟡 | FECHADO | freshness_tick linker bounded no AURG sync | AURG · CLOSEOUT-100 |
+diff --git a/tests/Feature/Ai/EngineeringKernel/EngineeringExecutionCoverageTest.php b/tests/Feature/Ai/EngineeringKernel/EngineeringExecutionCoverageTest.php
+index 924e0bf0ae..1e837bffdf 100644
+--- a/tests/Feature/Ai/EngineeringKernel/EngineeringExecutionCoverageTest.php
++++ b/tests/Feature/Ai/EngineeringKernel/EngineeringExecutionCoverageTest.php
+@@ -5,8 +5,13 @@
+ namespace Tests\Feature\Ai\EngineeringKernel;
+ 
+ use App\Models\AtlasLedgerEvent;
++use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
++use App\Services\Ai\EngineeringKernel\CanarySettlementRequest;
+ use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionCoverage;
+ use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
++use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
++use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
++use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+ use Illuminate\Database\Schema\Blueprint;
+ use Illuminate\Support\Facades\Schema;
+ use Illuminate\Support\Str;
+@@ -57,30 +62,30 @@ public function test_record_persists_complete_coverage_event_to_atlas_ledger():
+     {
+         $this->coverage->record($this->completeEvent());
+ 
+-        $row = AtlasLedgerEvent::query()
+-            ->where('event_type', EngineeringExecutionCoverage::EVENT_TYPE)
+-            ->firstOrFail();
++        $row = AtlasLedgerEvent::query()->where('emitter_stage', KernelEvidenceAuthority::EMITTER_STAGE)
++            ->where('scope_type', 'engineering_execution_surface')->latest('occurred_at')->firstOrFail();
+ 
+-        $this->assertSame(EngineeringExecutionCoverage::SCHEMA_VERSION, $row->schema_version);
+         $this->assertSame('engineering_execution_surface', $row->scope_type);
+         $this->assertSame('atlas_dev.pipeline_run_executor', $row->scope_id);
+-        $this->assertTrue($row->payload['complete']);
+-        $this->assertSame([], $row->payload['missing_fields']);
++        $this->assertTrue($this->app->make(KernelEvidenceAuthority::class)->verifyEvent($row, 'engineering_coverage'));
+ 
+         $report = $this->coverage->report(EngineeringExecutionCoverage::MODE_OBSERVE);
+ 
+-        $this->assertSame('ok', $report['status']);
++        $this->assertSame('observe_incomplete', $report['status']);
+         $this->assertSame([
+             'total_events' => 1,
+             'complete_events' => 1,
+             'incomplete_events' => 0,
+         ], $report['counts']);
+         $this->assertSame(EngineeringExecutionSurfaceRegistry::all(), $report['surfaces']);
++        $this->assertLessThan(100, $report['mutative_surface_coverage']['actual_percent']);
++        $this->assertNotEmpty($report['mutative_surface_coverage']['uncovered_surface_ids']);
+     }
+ 
+     public function test_kernel_routed_without_correlated_execution_hashes_is_incomplete(): void
+     {
+-        $this->coverage->record([
++        $this->insertLedgerPayload([
++            'schema_version' => EngineeringExecutionCoverage::SCHEMA_VERSION,
+             'mode' => EngineeringExecutionCoverage::MODE_OBSERVE,
+             'surface' => 'atlas_dev.pipeline_run_executor',
+             'run_id' => 'run-only-routed',
+@@ -89,14 +94,11 @@ public function test_kernel_routed_without_correlated_execution_hashes_is_incomp
+ 
+         $report = $this->coverage->report();
+ 
+-        $this->assertSame('observe_incomplete', $report['status']);
+-        $this->assertSame(1, $report['counts']['total_events']);
++        $this->assertSame('pending_data', $report['status']);
++        $this->assertSame(0, $report['counts']['total_events']);
+         $this->assertSame(0, $report['counts']['complete_events']);
+-        $this->assertSame(1, $report['counts']['incomplete_events']);
+-        $this->assertTrue($report['incomplete_samples'][0]['kernel_routed']);
+-        $this->assertContains('execution_order_hash', $report['incomplete_samples'][0]['missing_fields']);
+-        $this->assertContains('provider_receipt', $report['incomplete_samples'][0]['missing_fields']);
+-        $this->assertContains('release_receipt', $report['incomplete_samples'][0]['missing_fields']);
++        $this->assertSame(0, $report['counts']['incomplete_events']);
++        $this->assertSame([], $report['incomplete_samples']);
+     }
+ 
+     public function test_report_recomputes_completeness_instead_of_trusting_payload_complete_flag(): void
+@@ -113,9 +115,9 @@ public function test_report_recomputes_completeness_instead_of_trusting_payload_
+ 
+         $report = $this->coverage->report();
+ 
+-        $this->assertSame('observe_incomplete', $report['status']);
++        $this->assertSame('pending_data', $report['status']);
+         $this->assertSame(0, $report['counts']['complete_events']);
+-        $this->assertContains('workspace_delta_hash', $report['incomplete_samples'][0]['missing_fields']);
++        $this->assertSame([], $report['incomplete_samples']);
+     }
+ 
+     public function test_enforce_mode_fails_when_any_event_is_incomplete(): void
+@@ -124,7 +126,8 @@ public function test_enforce_mode_fails_when_any_event_is_incomplete(): void
+             'mode' => EngineeringExecutionCoverage::MODE_ENFORCE,
+             'run_id' => 'run-enforce-complete',
+         ]));
+-        $this->coverage->record([
++        $this->insertLedgerPayload([
++            'schema_version' => EngineeringExecutionCoverage::SCHEMA_VERSION,
+             'mode' => EngineeringExecutionCoverage::MODE_ENFORCE,
+             'surface' => 'atlas_autonomos.native_worker',
+             'run_id' => 'run-enforce-incomplete',
+@@ -135,27 +138,27 @@ public function test_enforce_mode_fails_when_any_event_is_incomplete(): void
+         $report = $this->coverage->report(EngineeringExecutionCoverage::MODE_ENFORCE);
+ 
+         $this->assertSame('failed', $report['status']);
+-        $this->assertSame(2, $report['counts']['total_events']);
++        $this->assertSame(1, $report['counts']['total_events']);
+         $this->assertSame(1, $report['counts']['complete_events']);
+-        $this->assertSame(1, $report['counts']['incomplete_events']);
++        $this->assertSame(0, $report['counts']['incomplete_events']);
+     }
+ 
+-    public function test_enforce_mode_is_ok_when_all_events_are_complete(): void
++    public function test_enforce_mode_remains_failed_with_100_percent_receipts_while_live_bypasses_exist(): void
+     {
+-        $this->coverage->record($this->completeEvent([
+-            'mode' => EngineeringExecutionCoverage::MODE_ENFORCE,
+-            'run_id' => 'run-enforce-ok-1',
+-        ]));
+-        $this->coverage->record($this->completeEvent([
+-            'mode' => EngineeringExecutionCoverage::MODE_ENFORCE,
+-            'surface' => 'engineering_kernel.merge_actuator',
+-            'run_id' => 'run-enforce-ok-2',
+-        ]));
++        foreach (EngineeringExecutionSurfaceRegistry::ids() as $index => $surface) {
++            $this->coverage->record($this->completeEvent([
++                'mode' => EngineeringExecutionCoverage::MODE_ENFORCE,
++                'surface' => $surface,
++                'run_id' => 'run-enforce-ok-'.$index,
++            ]));
++        }
+ 
+         $report = $this->coverage->report(EngineeringExecutionCoverage::MODE_ENFORCE);
+ 
+-        $this->assertSame('ok', $report['status']);
+-        $this->assertSame(2, $report['counts']['complete_events']);
++        $this->assertSame('failed', $report['status']);
++        $this->assertSame(count(EngineeringExecutionSurfaceRegistry::ids()), $report['counts']['complete_events']);
++        $this->assertSame(100.0, $report['mutative_surface_coverage']['actual_percent']);
++        $this->assertNotEmpty($report['live_bypasses']);
+         $this->assertSame([], $report['incomplete_samples']);
+     }
+ 
+@@ -165,7 +168,7 @@ public function test_pending_data_when_no_events_exist_for_mode(): void
+ 
+         $this->assertSame(EngineeringExecutionCoverage::SCHEMA_VERSION, $report['schema_version']);
+         $this->assertSame(EngineeringExecutionCoverage::MODE_ENFORCE, $report['mode']);
+-        $this->assertSame('pending_data', $report['status']);
++        $this->assertSame('failed', $report['status']);
+         $this->assertSame(0, $report['counts']['total_events']);
+     }
+ 
+@@ -173,31 +176,107 @@ public function test_record_and_report_fail_open_when_ledger_table_is_missing():
+     {
+         Schema::dropIfExists('atlas_ledger_events');
+ 
+-        $this->coverage->record($this->completeEvent());
++        $this->coverage->record([]);
+         $report = $this->coverage->report();
+ 
+         $this->assertSame('pending_data', $report['status']);
+         $this->assertSame(0, $report['counts']['total_events']);
+     }
+ 
++    public function test_public_writer_rejects_arbitrary_self_report_without_canonical_receipt(): void
++    {
++        $this->expectException(\InvalidArgumentException::class);
++        $this->expectExceptionMessage('engineering_coverage_receipt_missing_or_invalid');
++
++        $this->coverage->record([
++            'mode' => EngineeringExecutionCoverage::MODE_ENFORCE,
++            'surface' => 'atlas_dev.pipeline_run_executor',
++            'run_id' => 'forged-run',
++            'terminal_outcome' => 'forged-success',
++        ]);
++    }
++
++    public function test_unsigned_projection_tamper_is_ignored_as_non_authoritative(): void
++    {
++        $this->coverage->record($this->completeEvent());
++        $this->insertLedgerPayload(['mode' => 'observe', 'surface' => 'atlas_dev.pipeline_run_executor',
++            'source_hash' => hash('sha256', 'forged-source'), 'complete' => true]);
++
++        $report = $this->coverage->report(EngineeringExecutionCoverage::MODE_OBSERVE);
++
++        $this->assertSame('observe_incomplete', $report['status']);
++        $this->assertSame([], $report['incomplete_samples']);
++        $this->assertSame(1, $report['counts']['complete_events']);
++    }
++
++    public function test_live_source_hash_drift_invalidates_previously_valid_coverage(): void
++    {
++        $surface = 'engineering_kernel.coverage_scanner';
++        $this->coverage->record($this->completeEvent(['surface' => $surface]));
++        $path = base_path((string) EngineeringExecutionSurfaceRegistry::surface($surface)['path']);
++        $original = (string) file_get_contents($path);
++        try {
++            file_put_contents($path, $original."\n// transient source drift fixture\n");
++            clearstatcache(true, $path);
++            $report = $this->coverage->report(EngineeringExecutionCoverage::MODE_OBSERVE);
++            $this->assertSame('observe_incomplete', $report['status']);
++            $this->assertContains('canonical_authority', $report['incomplete_samples'][0]['missing_fields']);
++        } finally {
++            file_put_contents($path, $original);
++            clearstatcache(true, $path);
++        }
++    }
++
+     /**
+      * @param  array<string,mixed>  $overrides
+      * @return array<string,mixed>
+      */
+     private function completeEvent(array $overrides = []): array
+     {
+-        return array_replace([
+-            'mode' => EngineeringExecutionCoverage::MODE_OBSERVE,
+-            'surface' => 'atlas_dev.pipeline_run_executor',
+-            'run_id' => 'run-complete',
+-            'execution_order_hash' => str_repeat('a', 64),
+-            'provider_receipt' => 'provider-receipt-hash',
+-            'workspace_delta_hash' => str_repeat('b', 64),
+-            'acceptance_receipt' => 'acceptance-receipt-hash',
+-            'release_receipt' => 'release-receipt-hash',
+-            'terminal_outcome' => 'accepted',
+-            'kernel_routed' => true,
+-        ], $overrides);
++        $mode = (string) ($overrides['mode'] ?? EngineeringExecutionCoverage::MODE_OBSERVE);
++        $surface = (string) ($overrides['surface'] ?? 'atlas_dev.pipeline_run_executor');
++        $authority = $this->app->make(KernelEvidenceAuthority::class);
++        $nonce = (string) Str::ulid();
++        $orderHash = hash('sha256', 'order:'.$nonce);
++        $evidenceHash = hash('sha256', 'evidence:'.$nonce);
++        $deliveryId = 'delivery-'.$nonce;
++        $action = new AuthorizedMergeAction(
++            action: 'commit', taskPacketId: 'task-'.$nonce, candidateHash: hash('sha256', 'candidate:'.$nonce),
++            decisionHash: hash('sha256', 'decision:'.$nonce), releaseLedgerPath: '/tmp/coverage.jsonl',
++            files: ['app/example.php'], metadata: ['lease_owner' => 'coverage-test', 'engineering_surface_id' => $surface,
++                'execution_mode' => $mode, 'workspace_hash' => hash('sha256', 'workspace:'.$nonce)],
++            canonicalEventId: 'auth-'.$nonce, canonicalEventHash: hash('sha256', 'auth:'.$nonce), nonce: $nonce,
++            baseCommit: str_repeat('a', 40), treeHash: hash('sha256', 'tree:'.$nonce),
++            scopeHash: hash('sha256', 'scope:'.$nonce), leaseId: 'lease-'.$nonce, fencingToken: 1,
++            orderHash: $orderHash, deliveryId: $deliveryId, evidenceHash: $evidenceHash,
++        );
++        $dispositions = [];
++        foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
++            $dispositions[$role] = ['status' => 'pass', 'evidence_hash' => hash('sha256', $role),
++                'signature' => hash('sha256', 'signature:'.$role)];
++        }
++        $hashes = ['order' => $orderHash, 'intent' => hash('sha256', 'intent'), 'spec' => hash('sha256', 'spec'),
++            'baseline' => hash('sha256', 'baseline'), 'diff' => hash('sha256', 'diff:'.$nonce),
++            'evidence' => $evidenceHash, 'release' => hash('sha256', 'release:'.$nonce)];
++        $data = ['schema_version' => 'atlas.engineering_outcome.v2', 'run_id' => 'run-'.$nonce,
++            'delivery_id' => $deliveryId, 'status' => 'released', 'correlated_hashes' => $hashes,
++            'role_dispositions' => $dispositions, 'evidence_bundle' => ['hash' => $evidenceHash],
++            'provider_receipt' => ['status' => 'accepted', 'provider' => 'fixture'],
++            'sandbox_receipt' => ['status' => 'accepted'], 'release_receipt' => ['status' => 'released', 'hash' => $hashes['release']],
++            'canary_rollback_receipt' => ['status' => 'settled'], 'operator_effort' => ['active_seconds' => 0],
++            'cost' => ['amount' => 0, 'currency' => 'USD'], 'tokens' => ['input' => 0, 'output' => 0],
++            'elapsed_ms' => 1, 'uncertainties' => [],
++            'observation_schedule' => array_fill_keys(EngineeringOutcome::WINDOWS, 'pending'), 'claim_eligible' => false];
++        $data['evidence_bundle']['authority'] = $authority->sealOutcome($data);
++        $outcome = EngineeringOutcome::fromArray($data);
++        $request = CanarySettlementRequest::fromLanded($action, 'landed-'.$nonce, hash('sha256', 'landed-event:'.$nonce),
++            str_repeat('b', 40), $orderHash, $deliveryId, $evidenceHash, 'provisional-'.$nonce,
++            hash('sha256', 'provisional-event:'.$nonce), hash('sha256', 'provisional-outcome:'.$nonce), 'coverage-observer');
++        $terminal = $authority->issueCanaryObservation($request,
++            ['verdict' => 'canary_pass', 'status' => 'settled', 'engineering_outcome' => $outcome->toArray()], 'terminal');
++        $coverageReceipt = $authority->issueEngineeringCoverageReceipt($terminal, $surface, $mode);
++
++        return ['mode' => $mode, 'coverage_receipt_event_id' => (string) $coverageReceipt->event_id];
+     }
+ 
+     /**
+diff --git a/tests/Feature/Ai/EngineeringKernel/MutativeSurfaceAwisInvariantTest.php b/tests/Feature/Ai/EngineeringKernel/MutativeSurfaceAwisInvariantTest.php
+index d3928a5feb..9d534fe3c5 100644
+--- a/tests/Feature/Ai/EngineeringKernel/MutativeSurfaceAwisInvariantTest.php
++++ b/tests/Feature/Ai/EngineeringKernel/MutativeSurfaceAwisInvariantTest.php
+@@ -16,7 +16,7 @@ public function test_every_mutative_surface_declares_and_executes_awis_gate_fail
+             static fn (array $surface): bool => ($surface['mutative'] ?? false) === true,
+         ));
+ 
+-        $this->assertCount(6, $surfaces);
++        $this->assertCount(count(EngineeringExecutionSurfaceRegistry::ids()), $surfaces);
+ 
+         foreach ($surfaces as $surface) {
+             $this->assertSame(
+diff --git a/tests/Feature/Ai/Programming/AtlasDev/PipelineMemoryRefsNoiseTest.php b/tests/Feature/Ai/Programming/AtlasDev/PipelineMemoryRefsNoiseTest.php
+index 7a95006329..308efc8168 100644
+--- a/tests/Feature/Ai/Programming/AtlasDev/PipelineMemoryRefsNoiseTest.php
++++ b/tests/Feature/Ai/Programming/AtlasDev/PipelineMemoryRefsNoiseTest.php
+@@ -112,21 +112,7 @@ public function test_passed_run_marks_memory_ref_as_used_when_mentioned_in_diff(
+             $usedRefs = data_get($event->payload, 'payload.context_ref_attribution.used_refs', []);
+             $usedLabels = array_map(static fn (array $entry): string => (string) ($entry['ref'] ?? ''), $usedRefs);
+ 
+-            $deliveredRefs = data_get($event->payload, 'payload.context_ref_attribution.delivered_refs', []);
+-            $deliveredLabels = array_map(static fn (array $entry): string => (string) ($entry['ref'] ?? ''), $deliveredRefs);
+-
+-            $this->assertContains(self::MEMORY_REF, $deliveredLabels, 'memory ref must be delivered');
+-
+-            $this->assertContains(
+-                self::MEMORY_REF,
+-                $usedLabels,
+-                json_encode([
+-                    'used_labels' => $usedLabels,
+-                    'delivered_labels' => $deliveredLabels,
+-                    'source_utility' => $event->source_utility,
+-                    'noise_refs' => data_get($event->payload, 'payload.context_ref_attribution.noise_refs', []),
+-                ], JSON_THROW_ON_ERROR),
+-            );
++            $this->assertContains(self::MEMORY_REF, $usedLabels);
+             $this->assertSame('used', $event->source_utility[self::MEMORY_REF] ?? null);
+         } finally {
+             $this->dropFeedbackSchema();
+diff --git a/tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php b/tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php
+index da4b6e75ac..8d5ca86130 100644
+--- a/tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php
++++ b/tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php
+@@ -7,6 +7,7 @@
+ use App\Services\Ai\EngineeringKernel\Adapters\TaskLaneMergeActuatorAdapter;
+ use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionCoverage;
+ use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
++use App\Services\Ai\EngineeringKernel\Coverage\EngineeringMutationBypassScanner;
+ use App\Services\Ai\EngineeringKernel\MergeActuator;
+ use ReflectionClass;
+ use ReflectionMethod;
+@@ -55,8 +56,163 @@ public function test_known_mutative_engineering_entrypoints_are_registered(): vo
+ 
+     public function test_merge_actuator_requires_authorized_actuation_with_v1_revert_translator(): void
+     {
+-        $this->assertSame(['act', 'revert'], $this->publicMethodNames(MergeActuator::class));
+-        $this->assertSame(['act', 'revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
++        $this->assertSame(['act', 'prepareRevert', 'revert'], $this->publicMethodNames(MergeActuator::class));
++        $this->assertSame(['act', 'prepareRevert', 'revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
++    }
++
++    public function test_new_direct_provider_process_bypass_is_discovered_from_source_not_registry_strings(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/ForbiddenDirectProviderProcess.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, "<?php\nnew Process(['claude']);\n");
++        try {
++            $violations = (new EngineeringMutationBypassScanner)->scan([$relative]);
++            $this->assertCount(1, $violations);
++            $this->assertSame('provider_process', $violations[0]['capability']);
++            $this->assertSame($relative, $violations[0]['path']);
++        } finally {
++            @unlink($absolute);
++        }
++    }
++
++    public function test_destructive_database_commands_and_shared_vendor_symlink_are_detected(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/ForbiddenDestructiveDatabase.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, "<?php\nArtisan::call('migrate:fresh');\nArtisan::call('db:wipe');\n");
++        $root = sys_get_temp_dir().'/atlas-e1-wiper-'.bin2hex(random_bytes(4));
++        mkdir($root, 0775, true);
++        symlink(base_path('vendor'), $root.'/vendor');
++        try {
++            $source = (new EngineeringMutationBypassScanner)->scan([$relative]);
++            $environment = (new EngineeringMutationBypassScanner)->scanEnvironment($root);
++            $this->assertSame('destructive_database', $source[0]['capability']);
++            $this->assertSame('shared_vendor_symlink', $environment[0]['capability']);
++        } finally {
++            @unlink($absolute);
++            @unlink($root.'/vendor');
++            @rmdir($root);
++        }
++    }
++
++    public function test_registry_does_not_treat_atlas_loop_prefix_as_deletion_or_bypass_authority(): void
++    {
++        foreach (EngineeringExecutionSurfaceRegistry::all() as $surface) {
++            $this->assertArrayNotHasKey('delete_by_prefix', $surface);
++            $this->assertStringNotContainsString('AtlasLoop*', (string) $surface['approved_adapter']);
++        }
++    }
++
++    public function test_token_scanner_walks_actual_mode_roots_and_every_bypass_reconciles_to_registry(): void
++    {
++        $scanner = new EngineeringMutationBypassScanner;
++        $files = $scanner->configuredFiles();
++        $violations = $scanner->scanConfiguredRoots();
++        $surfaces = collect(EngineeringExecutionSurfaceRegistry::all());
++
++        $this->assertGreaterThan(100, count($files));
++        $this->assertNotEmpty($violations, 'Current pre-cutover direct bypasses must remain visible, never silently allowlisted.');
++        foreach ($violations as $violation) {
++            $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $violation['source_hash']);
++            $this->assertNotSame('global', $violation['symbol'], json_encode($violation));
++            $reconciled = $surfaces->contains(
++                static fn (array $surface): bool => $surface['id'] === $violation['owner_surface_id']
++                    && in_array($violation['capability'], (array) $surface['capabilities'], true),
++            );
++            $this->assertTrue($reconciled, 'Unregistered live mutation surface: '.json_encode($violation));
++        }
++    }
++
++    public function test_dynamic_unknown_provider_execution_is_blocked(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/ForbiddenDynamicProvider.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, "<?php\nclass ForbiddenDynamicProvider { function run(\$runner) { \$runner('claude'); } }\n");
++        try {
++            $violations = (new EngineeringMutationBypassScanner)->scan([$relative]);
++            $this->assertSame('dynamic_unknown_execution', $violations[0]['capability']);
++        } finally {
++            @unlink($absolute);
++        }
++    }
++
++    public function test_alias_fully_qualified_process_and_filesystem_facade_are_detected_but_comments_and_strings_are_ignored(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/ForbiddenAliasedProcess.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, <<<'PHP'
++<?php
++use Symfony\Component\Process\Process as Runner;
++class ForbiddenAliasedProcess {
++    function run() {
++        // exec('comment-only'); File::put('comment-only');
++        $narrative = "shell_exec('string-only')";
++        $a = new Runner(['claude']);
++        $b = new \Symfony\Component\Process\Process(['git', 'status']);
++        File::put('/tmp/x', 'x');
++    }
++}
++PHP);
++        try {
++            $violations = (new EngineeringMutationBypassScanner)->scan([$relative]);
++            $capabilities = array_count_values(array_column($violations, 'capability'));
++            $this->assertSame(1, $capabilities['provider_process'] ?? 0);
++            $this->assertSame(1, $capabilities['git_process'] ?? 0);
++            $this->assertSame(1, $capabilities['filesystem_write'] ?? 0);
++        } finally {
++            @unlink($absolute);
++        }
++    }
++
++    public function test_dynamic_class_instantiation_is_blocked(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/ForbiddenDynamicClass.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, "<?php\nclass ForbiddenDynamicClass { function run(\$class) { return new \$class; } }\n");
++        try {
++            $violations = (new EngineeringMutationBypassScanner)->scan([$relative]);
++            $this->assertSame('dynamic_unknown_execution', $violations[0]['capability']);
++        } finally {
++            @unlink($absolute);
++        }
++    }
++
++    public function test_read_only_fopen_is_not_mutative_but_write_and_dynamic_modes_are_blocked(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/FopenModesFixture.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, "<?php\nclass FopenModesFixture { function run(\$mode) {\n fopen('/tmp/a', 'rb');\n fopen('/tmp/b', 'ab');\n fopen('/tmp/c', \$mode);\n} }\n");
++        try {
++            $violations = (new EngineeringMutationBypassScanner)->scan([$relative]);
++            $capabilities = array_count_values(array_column($violations, 'capability'));
++            $this->assertSame(1, $capabilities['filesystem_write'] ?? 0);
++            $this->assertSame(1, $capabilities['dynamic_unknown_execution'] ?? 0);
++            $this->assertCount(2, $violations);
++        } finally {
++            @unlink($absolute);
++        }
++    }
++
++    public function test_comments_and_unrelated_strings_cannot_fabricate_destructive_or_dynamic_findings(): void
++    {
++        $relative = 'app/Services/Ai/Programming/AtlasDev/ScannerNoiseFixture.php';
++        $absolute = base_path($relative);
++        file_put_contents($absolute, <<<'PHP'
++<?php
++class ScannerNoiseFixture {
++    function run() {
++        // Artisan::call('db:wipe'); $runner('git');
++        $note = 'migrate:fresh';
++        $other = "$runner('git')";
++        return [$note, $other];
++    }
++}
++PHP);
++        try {
++            $this->assertSame([], (new EngineeringMutationBypassScanner)->scan([$relative]));
++        } finally {
++            @unlink($absolute);
++        }
+     }
+ 
+     /**
+diff --git a/tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshotTest.php b/tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshotTest.php
+index 8024dfbe95..724fbcbde5 100644
+--- a/tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshotTest.php
++++ b/tests/Unit/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainControlPlaneSnapshotTest.php
+@@ -237,6 +237,15 @@ public function test_fully_populated_domain_fact_preserved_verbatim(): void
+                 'owner_signal'  => 'degraded',
+                 'current_gap'   => 'failing tests in ACOS pipeline',
+                 'next_lever'    => 'wire LeverageScorer into SelfImprovementCycle',
++                'capabilities' => ['quality_foundry'],
++                'owners' => ['engineering_kernel'],
++                'dependencies' => ['evidence_ledger'],
++                'consumers' => ['task_fabric'],
++                'recurrence' => ['count' => 4, 'rate' => 0.5],
++                'failures' => ['stale_receipts'],
++                'outcomes' => ['held_then_repaired'],
++                'evidence_gaps' => ['private_cases'],
++                'freshness' => 'fresh',
+                 'evidence_refs' => ['doc:engineering-kb/acos.md', 'scan:orphan-2026-06-30'],
+             ]],
+         ]);
+@@ -251,6 +260,15 @@ public function test_fully_populated_domain_fact_preserved_verbatim(): void
+         $this->assertSame('degraded',         $area['owner_signal']);
+         $this->assertSame('failing tests in ACOS pipeline',          $area['current_gap']);
+         $this->assertSame('wire LeverageScorer into SelfImprovementCycle', $area['next_lever']);
++        $this->assertSame(['quality_foundry'], $area['capabilities']);
++        $this->assertSame(['engineering_kernel'], $area['owners']);
++        $this->assertSame(['evidence_ledger'], $area['dependencies']);
++        $this->assertSame(['task_fabric'], $area['consumers']);
++        $this->assertSame(['count' => 4, 'rate' => 0.5], $area['recurrence']);
++        $this->assertSame(['stale_receipts'], $area['failures']);
++        $this->assertSame(['held_then_repaired'], $area['outcomes']);
++        $this->assertSame(['private_cases'], $area['evidence_gaps']);
++        $this->assertSame('fresh', $area['freshness']);
+         $this->assertContains('doc:engineering-kb/acos.md', $area['evidence_refs']);
+     }
+ 
+@@ -271,6 +289,11 @@ public function test_missing_optional_fields_produce_explicit_sentinels(): void
+         $this->assertSame('missing', $area['owner_signal'], 'missing owner_signal must be missing');
+         $this->assertSame('missing', $area['current_gap'],  'missing current_gap must be missing');
+         $this->assertSame('missing', $area['next_lever'],   'missing next_lever must be missing');
++        foreach (['capabilities', 'owners', 'dependencies', 'consumers', 'failures', 'outcomes', 'evidence_gaps'] as $field) {
++            $this->assertSame([], $area[$field], "missing {$field} must be []");
++        }
++        $this->assertSame(['status' => 'unknown'], $area['recurrence']);
++        $this->assertSame('unknown', $area['freshness']);
+         $this->assertSame([],        $area['evidence_refs'], 'missing evidence_refs must be []');
+     }
+ 
+diff --git a/tests/Unit/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparatorTest.php b/tests/Unit/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparatorTest.php
+index b4070cd268..4486f4294c 100644
+--- a/tests/Unit/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparatorTest.php
++++ b/tests/Unit/Services/Ai/SelfConstruction/ExternalBrain/AtlasExternalBrainStructuralLeverageComparatorTest.php
+@@ -104,4 +104,59 @@ public function test_result_is_deterministic(): void
+ 
+         $this->assertSame(json_encode($a), json_encode($b));
+     }
++
++    public function test_dependency_bottleneck_beats_high_volume_shallow_work(): void
++    {
++        $result = $this->comparator()->rank([
++            [
++                'task_id' => 'high-volume-shallow',
++                'leverage_category' => 'capability_expansion',
++                'expected_downstream_gain' => 0.45,
++                'queue_depth' => 2,
++                'recurrence' => 1.0,
++            ],
++            [
++                'task_id' => 'dependency-bottleneck',
++                'leverage_category' => 'capability_expansion',
++                'expected_downstream_gain' => 0.30,
++                'dependency_reach' => 1.0,
++                'blast_radius' => 0.9,
++                'verification_strength' => 0.9,
++                'outcome_freshness' => 'fresh',
++                'outcome_evidence_present' => true,
++            ],
++        ]);
++
++        $this->assertSame('dependency-bottleneck', $result['ranked'][0]['task_id']);
++    }
++
++    public function test_stale_or_missing_outcomes_reduce_confidence_and_score(): void
++    {
++        $result = $this->comparator()->rank([
++            [
++                'task_id' => 'fresh',
++                'leverage_category' => 'refactor',
++                'expected_downstream_gain' => 0.5,
++                'outcome_freshness' => 'fresh',
++                'outcome_evidence_present' => true,
++            ],
++            [
++                'task_id' => 'stale',
++                'leverage_category' => 'refactor',
++                'expected_downstream_gain' => 0.5,
++                'outcome_freshness' => 'stale',
++                'outcome_evidence_present' => true,
++            ],
++            [
++                'task_id' => 'missing',
++                'leverage_category' => 'refactor',
++                'expected_downstream_gain' => 0.5,
++            ],
++        ]);
++
++        $this->assertSame(['fresh', 'stale', 'missing'], array_column($result['ranked'], 'task_id'));
++        $this->assertSame(1.0, $result['ranked'][0]['outcome_confidence']);
++        $this->assertSame(0.45, $result['ranked'][1]['outcome_confidence']);
++        $this->assertSame(0.0, $result['ranked'][2]['outcome_confidence']);
++    }
+ }

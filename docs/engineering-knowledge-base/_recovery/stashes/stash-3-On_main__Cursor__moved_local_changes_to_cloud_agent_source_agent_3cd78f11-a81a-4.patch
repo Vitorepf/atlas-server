@@ -1,0 +1,463 @@
+diff --git a/app/Console/Commands/AtlasBrainSeedCommand.php b/app/Console/Commands/AtlasBrainSeedCommand.php
+index 4e9788f0b3..79cfa039a2 100644
+--- a/app/Console/Commands/AtlasBrainSeedCommand.php
++++ b/app/Console/Commands/AtlasBrainSeedCommand.php
+@@ -15,6 +15,7 @@
+ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate;
+ use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecRepairHints;
+ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
++use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+ use App\Services\Engineering\EliteCompactionFreezeGuard;
+ use Illuminate\Console\Command;
+ use Throwable;
+diff --git a/app/Console/Commands/AtlasReviewDeepCommand.php b/app/Console/Commands/AtlasReviewDeepCommand.php
+index c7ff3602af..8d64a7284f 100644
+--- a/app/Console/Commands/AtlasReviewDeepCommand.php
++++ b/app/Console/Commands/AtlasReviewDeepCommand.php
+@@ -3,6 +3,7 @@
+ namespace App\Console\Commands;
+ 
+ use App\Models\AtlasTask;
++use App\Services\Engineering\CodeGraph\CodeGraphReviewContextAssembler;
+ use App\Services\Engineering\EngineeringReviewService;
+ use Illuminate\Console\Command;
+ 
+@@ -15,12 +16,17 @@ class AtlasReviewDeepCommand extends Command
+ 
+     protected $description = 'Run or record a deep engineering review with severity, confidence and category thresholds.';
+ 
+-    public function handle(EngineeringReviewService $reviews): int
++    public function handle(EngineeringReviewService $reviews, CodeGraphReviewContextAssembler $reviewAssembler): int
+     {
+         $taskId = trim((string) $this->option('task-id'));
+         $task = $taskId !== '' ? AtlasTask::query()->find($taskId) : null;
+         if (! $task) {
+-            $this->error('--task-id precisa apontar para uma task existente.');
++            $packet = $this->failClosedPacket($taskId);
++            if ((bool) $this->option('json')) {
++                $this->line(json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
++            } else {
++                $this->error('--task-id precisa apontar para uma task existente.');
++            }
+ 
+             return self::FAILURE;
+         }
+@@ -32,13 +38,189 @@ public function handle(EngineeringReviewService $reviews): int
+             ->all();
+ 
+         $payload = $reviews->deepReview($task, ['findings' => $findings, 'recorded_by' => 'atlas_cli']);
++        $packet = $this->buildReviewPacket($task, $payload, $reviewAssembler);
++
+         if ((bool) $this->option('json')) {
+-            $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
++            $this->line(json_encode($packet, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+         } else {
+-            $this->components->twoColumnDetail('Deep review', $payload['blocking'] ? 'blocked' : 'passed');
+-            $this->components->twoColumnDetail('Blocking findings', (string) data_get($payload, 'summary.blocking_count', 0));
++            $this->components->twoColumnDetail('Deep review', $packet['recommendation']);
++            $this->components->twoColumnDetail('Risk level', $packet['risk_level']);
++            $this->components->twoColumnDetail('Blocking findings', (string) count($packet['findings']));
++        }
++
++        return $packet['recommendation'] === 'reject' ? self::FAILURE : self::SUCCESS;
++    }
++
++    /**
++     * Build a structured review packet from the deep review payload.
++     *
++     * @param  array<string,mixed>  $payload  deepReview() return value
++     * @return array{schema_version:string,task_ref:array<string,mixed>,run_ref:array<string,mixed>,files_reviewed:array<int,string>,findings:array<int,array<string,mixed>>,risk_level:string,operator_next_actions:array<int,string>,recommendation:string,code_graph_context:array<string,mixed>}
++     */
++    private function buildReviewPacket(AtlasTask $task, array $payload, CodeGraphReviewContextAssembler $reviewAssembler): array
++    {
++        $recordedFindings = (array) ($payload['recorded_findings'] ?? []);
++        $summary = (array) ($payload['summary'] ?? []);
++        $blockingCount = (int) ($summary['blocking_count'] ?? 0);
++
++        // Extract unique file paths from findings
++        $filesReviewed = collect($recordedFindings)
++            ->pluck('file_path')
++            ->filter(fn (mixed $fp): bool => is_string($fp) && $fp !== '')
++            ->unique()
++            ->values()
++            ->all();
++
++        // Compute risk level from findings
++        $riskLevel = $this->computeRiskLevel($recordedFindings);
++
++        // Build operator next actions (verification commands)
++        $operatorNextActions = $this->buildOperatorNextActions($task, $recordedFindings, $riskLevel);
++
++        // Determine recommendation
++        $recommendation = $blockingCount > 0 ? 'reject' : 'approve';
++
++        // Assemble code graph context (blast radius) from the files touched by findings.
++        // Fail-open: if the assembler throws or returns empty, we still emit the packet.
++        $codeGraphContext = $this->assembleCodeGraphContext($filesReviewed, $reviewAssembler);
++
++        return [
++            'schema_version' => 'atlas.review_deep.packet.v1',
++            'task_ref' => [
++                'task_id' => $task->id,
++                'title' => (string) ($task->title ?? ''),
++                'status' => (string) ($task->status ?? ''),
++            ],
++            'run_ref' => [
++                'run_id' => (string) ($payload['run_id'] ?? ''),
++                'status' => $blockingCount > 0 ? 'failed' : 'passed',
++            ],
++            'files_reviewed' => $filesReviewed,
++            'findings' => $recordedFindings,
++            'risk_level' => $riskLevel,
++            'operator_next_actions' => $operatorNextActions,
++            'recommendation' => $recommendation,
++            'code_graph_context' => $codeGraphContext,
++        ];
++    }
++
++    /**
++     * Assemble code graph context (blast radius) for the files touched by findings.
++     *
++     * @param  array<int,string>  $filePaths
++     * @return array{schema_version:string,changed:array<int,string>,blast_radius:array<int,string>,stats:array<string,int>}
++     */
++    private function assembleCodeGraphContext(array $filePaths, CodeGraphReviewContextAssembler $reviewAssembler): array
++    {
++        try {
++            // Use file paths as node IDs for the review context.
++            $context = $reviewAssembler->assemble($filePaths, [], [], 0);
++
++            return $context;
++        } catch (\Throwable $e) {
++            // Fail-open: code graph context is supplementary, never blocks the packet.
++            return [
++                'schema_version' => CodeGraphReviewContextAssembler::SCHEMA,
++                'changed' => $filePaths,
++                'blast_radius' => [],
++                'stats' => [
++                    'changed' => count($filePaths),
++                    'blast_radius' => 0,
++                    'candidates' => count($filePaths),
++                    'included' => 0,
++                    'depth' => 0,
++                ],
++            ];
++        }
++    }
++
++    /**
++     * Compute risk level from findings.
++     */
++    private function computeRiskLevel(array $findings): string
++    {
++        foreach ($findings as $finding) {
++            $severity = (string) ($finding['severity'] ?? '');
++            if ($severity === 'p0') {
++                return 'critical';
++            }
++        }
++
++        foreach ($findings as $finding) {
++            $severity = (string) ($finding['severity'] ?? '');
++            $confidence = (float) ($finding['confidence'] ?? 0);
++            if ($severity === 'p1' && $confidence >= 0.8) {
++                return 'high';
++            }
+         }
+ 
+-        return $payload['blocking'] ? self::FAILURE : self::SUCCESS;
++        if (count($findings) > 0) {
++            return 'medium';
++        }
++
++        return 'low';
++    }
++
++    /**
++     * Build operator next actions based on findings and risk.
++     *
++     * @param  array<int,array<string,mixed>>  $findings
++     * @return array<int,string>
++     */
++    private function buildOperatorNextActions(AtlasTask $task, array $findings, string $riskLevel): array
++    {
++        $actions = [];
++
++        // Always include task verification
++        $actions[] = "php artisan atlas:task show {$task->id} --json";
++
++        // Add file-specific verification commands
++        foreach ($findings as $finding) {
++            $filePath = (string) ($finding['file_path'] ?? '');
++            if ($filePath !== '') {
++                $actions[] = "php artisan atlas:verify file {$filePath} --json";
++            }
++        }
++
++        // Add risk-specific actions
++        if ($riskLevel === 'critical') {
++            $actions[] = 'php artisan atlas:review:deep --task-id=' . $task->id . ' --json';
++            $actions[] = 'REVIEW: Critical findings require immediate operator attention';
++        } elseif ($riskLevel === 'high') {
++            $actions[] = 'php artisan atlas:review:deep --task-id=' . $task->id . ' --json';
++        }
++
++        return $actions;
++    }
++
++    /**
++     * Build a fail-closed packet when task is not found.
++     *
++     * @return array{schema_version:string,task_ref:array<string,mixed>,run_ref:array<string,mixed>,files_reviewed:array<int,string>,findings:array<int,array<string,mixed>>,risk_level:string,operator_next_actions:array<int,string>,recommendation:string,error:string,remediation:string}
++     */
++    private function failClosedPacket(?string $taskId): array
++    {
++        return [
++            'schema_version' => 'atlas.review_deep.packet.v1',
++            'task_ref' => [
++                'task_id' => $taskId ?? '',
++                'title' => '',
++                'status' => 'not_found',
++            ],
++            'run_ref' => [
++                'run_id' => '',
++                'status' => 'failed',
++            ],
++            'files_reviewed' => [],
++            'findings' => [],
++            'risk_level' => 'unknown',
++            'operator_next_actions' => [
++                'Verify task ID exists: php artisan atlas:task list --json',
++                'Check task status: php artisan atlas:task show <task-id> --json',
++            ],
++            'recommendation' => 'reject',
++            'error' => 'task_not_found',
++            'remediation' => 'Provide a valid --task-id that exists in the Atlas task registry.',
++        ];
+     }
+ }
+diff --git a/app/Services/Ai/Cli/AtlasCliDashboardService.php b/app/Services/Ai/Cli/AtlasCliDashboardService.php
+index 20404128b3..ee9bd22957 100644
+--- a/app/Services/Ai/Cli/AtlasCliDashboardService.php
++++ b/app/Services/Ai/Cli/AtlasCliDashboardService.php
+@@ -12,6 +12,7 @@
+ use App\Services\Ai\Runtime\WorkspaceProfiler;
+ use App\Services\Ai\Support\DatabaseTableAvailability;
+ use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
++use Throwable;
+ 
+ class AtlasCliDashboardService
+ {
+@@ -46,6 +47,9 @@ public function build(string $workspace, bool $refresh = false, int $limit = 8):
+                 'cache_key' => $profile->cacheKey,
+             ],
+             'atlas_ai' => $this->atlasAi($workspace),
++            'task_health' => $this->taskHealth(),
++            'brain_control_plane' => $this->brainControlPlane(),
++            'inbox_backlog' => $this->inboxBacklog(),
+             'providers' => $this->providers($limit),
+             'runtime' => $this->runtime(),
+             'recommended_commands' => $this->recommendedCommands($profile->dirtyFiles, $profile->testCommands),
+@@ -282,6 +286,150 @@ private function runtime(): array
+         ];
+     }
+ 
++    /**
++     * @return array<string,mixed>
++     */
++    private function taskHealth(): array
++    {
++        try {
++            $snapshot = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::coordinationHealth()->snapshot();
++            $d = (array) ($snapshot['queue_status_distribution'] ?? []);
++            $sv = (array) ($snapshot['servability'] ?? []);
++            $flags = array_keys(array_filter((array) ($snapshot['health_flags'] ?? [])));
++
++            return [
++                'available' => true,
++                'claimable_depth' => (int) ($snapshot['claimable_depth'] ?? 0),
++                'claimed_records' => (int) ($snapshot['claimed_records'] ?? 0),
++                'quarantined_count' => (int) ($snapshot['quarantined_count'] ?? 0),
++                'released' => (int) ($d['released'] ?? 0),
++                'completed' => (int) ($d['completed_dry_run'] ?? 0),
++                'servable_now' => (int) ($snapshot['servable_now'] ?? 0),
++                'waiting_on_deps' => (int) ($sv['waiting_on_inflight_deps'] ?? 0),
++                'blocked_by_dead_prereq' => (int) ($sv['blocked_by_dead_prereq'] ?? 0),
++                'active_leases' => (int) ($snapshot['active_leases'] ?? 0),
++                'leases_match_claimed' => (bool) ($snapshot['leases_match_claimed'] ?? false),
++                'recoverable_total' => (int) ($snapshot['recoverable']['total'] ?? 0),
++                'serve_success_rate' => (string) ($snapshot['serving']['serve_success_rate'] ?? '0'),
++                'r2_breach' => (bool) ($snapshot['serving']['r2_breach'] ?? false),
++                'healthy' => (bool) ($snapshot['healthy'] ?? false),
++                'flags' => $flags,
++            ];
++        } catch (Throwable $e) {
++            return [
++                'available' => false,
++                'warning' => 'task_health_unavailable: '.$e->getMessage(),
++            ];
++        }
++    }
++
++    /**
++     * @return array<string,mixed>
++     */
++    private function brainControlPlane(): array
++    {
++        $result = [
++            'available' => true,
++            'master_switch' => false,
++            'gates' => 'unknown',
++            'ratio' => 0,
++            'decisive' => 0,
++            'score' => 0,
++            'findings' => ['critical' => 0, 'warn' => 0, 'info' => 0],
++        ];
++
++        try {
++            $result['master_switch'] = \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch::enabled();
++        } catch (Throwable) {
++            $result['available'] = false;
++            $result['warning'] = 'brain_master_switch_unavailable';
++        }
++
++        try {
++            $inspector = new \App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector();
++            $inspectorHoles = count(app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor::class)->audit($inspector)['holes']);
++            $seedHoles = 0;
++            try {
++                $seedHoles = count(app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor::class)->audit(app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate::class))['holes']);
++            } catch (Throwable) {
++                // seed gate may not be wired
++            }
++            $totalHoles = $inspectorHoles + $seedHoles;
++            $result['gates'] = $totalHoles === 0 ? 'AIRTIGHT' : "HOLES:{$totalHoles}";
++        } catch (Throwable) {
++            $result['available'] = false;
++            $result['warning'] = ($result['warning'] ?? '').' brain_gates_unavailable';
++        }
++
++        try {
++            $scope = (string) app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry::class)->resolve('')['slug'];
++            $ledger = new \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger($scope, (string) config('atlas.brain.done_set_root'));
++            $served = 0;
++            $refused = 0;
++            foreach ($ledger->recentCycles(50) as $row) {
++                $status = (string) ($row['status'] ?? '');
++                if ($status === 'served' || $status === 'seeded') {
++                    $served++;
++                } elseif (in_array($status, ['refused', 'abstain', 'already_done', 'prepare_blocked', 'forbidden_target'], true)) {
++                    $refused++;
++                }
++            }
++            $decisive = $served + $refused;
++            $result['ratio'] = $decisive > 0 ? (int) round(($served * 100) / $decisive) : 0;
++            $result['decisive'] = $decisive;
++        } catch (Throwable) {
++            $result['available'] = false;
++            $result['warning'] = ($result['warning'] ?? '').' brain_ratio_unavailable';
++        }
++
++        try {
++            $score = app(\App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore::class)->compute(
++                ($result['gates'] === 'AIRTIGHT'),
++                $result['ratio'],
++                0,
++                0.0,
++                'stable'
++            )['score'];
++            $result['score'] = (int) $score;
++        } catch (Throwable) {
++            // score is optional
++        }
++
++        return $result;
++    }
++
++    /**
++     * @return array<string,mixed>
++     */
++    private function inboxBacklog(): array
++    {
++        if (! DatabaseTableAvailability::has('ai_inbox_items')) {
++            return [
++                'available' => false,
++                'warning' => 'ai_inbox_items_table_not_available',
++            ];
++        }
++
++        try {
++            $model = new \App\Models\AiInboxItem();
++            $table = $model->getTable();
++
++            return [
++                'available' => true,
++                'active' => (int) \DB::table($table)->where('status', 'active')->count(),
++                'unread' => (int) \DB::table($table)->where('status', 'unread')->count(),
++                'critical_active' => (int) \DB::table($table)->where('status', 'active')->where('severity', 'critical')->count(),
++                'critical_unread' => (int) \DB::table($table)->where('status', 'unread')->where('severity', 'critical')->count(),
++                'total_backlog' => (int) \DB::table($table)->whereIn('status', ['active', 'unread'])->count(),
++            ];
++        } catch (Throwable $e) {
++            return [
++                'available' => false,
++                'warning' => 'inbox_backlog_unavailable: '.$e->getMessage(),
++            ];
++        }
++    }
++
+     /**
+      * @param  array<int,string>  $dirtyFiles
+      * @param  array<int,string>  $testCommands
+diff --git a/tests/Unit/AtlasCliDashboardServiceTest.php b/tests/Unit/AtlasCliDashboardServiceTest.php
+index be98f59bb6..0ebc32fd64 100644
+--- a/tests/Unit/AtlasCliDashboardServiceTest.php
++++ b/tests/Unit/AtlasCliDashboardServiceTest.php
+@@ -50,5 +50,47 @@ public function test_dashboard_builds_operational_snapshot_without_database_tabl
+         $this->assertSame('read', $snapshot['runtime']['default_permission']);
+         $this->assertFalse($snapshot['runtime']['danger_allowed']);
+         $this->assertContains('atlas runtime package.detect', $snapshot['recommended_commands']);
++
++        // New control-plane sections must be present
++        $this->assertArrayHasKey('task_health', $snapshot);
++        $this->assertArrayHasKey('brain_control_plane', $snapshot);
++        $this->assertArrayHasKey('inbox_backlog', $snapshot);
++
++        // Each section degrades gracefully (warning or available=false) when sources are missing
++        $this->assertTrue(is_array($snapshot['task_health']));
++        $this->assertTrue(is_array($snapshot['brain_control_plane']));
++        $this->assertTrue(is_array($snapshot['inbox_backlog']));
++    }
++
++    public function test_dashboard_sections_degrade_with_warning_when_source_fails(): void
++    {
++        $service = app(AtlasCliDashboardService::class);
++        $snapshot = $service->build($this->workspace, refresh: true);
++
++        // task_health: may be available or degraded — either way it must NOT throw
++        $taskHealth = $snapshot['task_health'];
++        $this->assertTrue(is_array($taskHealth));
++        if (($taskHealth['available'] ?? true) !== true) {
++            $this->assertArrayHasKey('warning', $taskHealth);
++            $this->assertStringContainsString('task_health', $taskHealth['warning']);
++        }
++
++        // brain_control_plane: same fail-open contract
++        $brain = $snapshot['brain_control_plane'];
++        $this->assertTrue(is_array($brain));
++        if (($brain['available'] ?? true) !== true) {
++            $this->assertArrayHasKey('warning', $brain);
++        }
++
++        // inbox_backlog: table may or may not exist — either way, no fatal
++        $inbox = $snapshot['inbox_backlog'];
++        $this->assertTrue(is_array($inbox));
++        if (($inbox['available'] ?? true) !== true) {
++            $this->assertArrayHasKey('warning', $inbox);
++        }
++
++        // No section references the dead ACDE/loop as a source of truth
++        $json = json_encode($snapshot);
++        $this->assertStringNotContainsString('acde', strtolower($json));
+     }
+ }
