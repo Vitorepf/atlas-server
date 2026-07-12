@@ -186,7 +186,7 @@ Applicable evidence types are: unit, integration, contract, E2E, property, mutat
 Outcome dimensions include defects, incidents, rollback, rework, vulnerabilities/privacy, performance/resilience, adoption/impact, maintenance/simplification and product metric gap.
 
 - [ ] Write RED tests for missing status/source, outcome before release, wrong release hash, duplicate/contradictory observer, missing window, delayed observation, favorable default and immediate outcome treated as temporal.
-- [ ] Record `outcome.observed` for exactly 0h/24h/7d/30d/90d/150d with observer/provenance, release/order/spec/world hashes and uncertainty.
+- [x] Record `outcome.observed` for exactly 0h/24h/7d/30d/90d/150d with observer/provenance, release/order/spec/world hashes and uncertainty. Evidence: `EliteExecutorKernelReadOnlyVerticalTest::test_all_canonical_observation_windows_record_independent_receipts`, plus typed provenance/window validation in `TypedEngineeringContractTest`.
 - [ ] Materialize reconstructible `ai_run_outcomes` and temporal projections; absent remains `unknown`, historical gaps `legacy_unproven`.
 - [ ] Keep observation windows independent; 24h does not imply 7d and later contradiction supersedes eligibility without rewriting prior observations.
 - [ ] Route late adverse outcomes to learning hold and Rivals claim evaluation/revocation; no direct claim mutation.

@@ -18,6 +18,7 @@ use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringFinalCertifier;
+use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use App\Services\Ai\EngineeringKernel\EngineeringQualityCourt;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
@@ -1696,7 +1697,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'window' => '0h',
             'observed_at' => '2026-07-11T00:00:00+00:00',
             'metrics' => ['status' => 'read_only'],
-            'provenance' => ['source' => 'kernel_test'],
+            'provenance' => ['source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'read-only-spec'), 'world_hash' => hash('sha256', 'read-only-world'), 'uncertainty' => []],
         ]);
         $receipt = $kernel->observeOutcome($observation);
         $replay = $kernel->observeOutcome($observation);
@@ -1720,7 +1721,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'window' => '0h',
             'observed_at' => '2026-07-11T00:00:00+00:00',
             'metrics' => ['status' => 'read_only'],
-            'provenance' => ['source' => 'kernel_test'],
+            'provenance' => ['source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'read-only-spec'), 'world_hash' => hash('sha256', 'read-only-world'), 'uncertainty' => []],
         ];
         $kernel->observeOutcome(OutcomeObservation::fromArray($base));
 
@@ -1745,7 +1746,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'outcome_hash' => $outcome->outcomeHash,
             'observed_at' => '2026-07-11T00:00:00+00:00',
             'metrics' => ['status' => 'read_only'],
-            'provenance' => ['source' => 'kernel_test'],
+            'provenance' => ['source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'read-only-spec'), 'world_hash' => hash('sha256', 'read-only-world'), 'uncertainty' => []],
         ];
 
         $zeroHour = $kernel->observeOutcome(OutcomeObservation::fromArray($base + ['window' => '0h']));
@@ -1757,6 +1758,33 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             $twentyFourHours->ledgerEventRef,
             $kernel->observeOutcome(OutcomeObservation::fromArray($base + ['window' => '24h']))->ledgerEventRef,
         );
+    }
+
+    public function test_all_canonical_observation_windows_record_independent_receipts(): void
+    {
+        $kernel = app(EliteExecutorKernel::class);
+        $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
+        $base = [
+            'schema_version' => 'atlas.outcome_observation.v1',
+            'run_id' => $this->canonicalRunId ?? 'run-read-only',
+            'delivery_id' => 'delivery-read-only',
+            'release_hash' => $outcome->correlatedHashes['release'],
+            'order_hash' => $outcome->correlatedHashes['order'],
+            'outcome_hash' => $outcome->outcomeHash,
+            'observed_at' => '2026-07-01T00:00:00+00:00',
+            'metrics' => ['status' => 'read_only'],
+            'provenance' => [
+                'source' => 'kernel_test', 'release_at' => '2026-01-01T00:00:00+00:00',
+                'spec_hash' => hash('sha256', 'read-only-spec'), 'world_hash' => hash('sha256', 'read-only-world'),
+                'uncertainty' => [],
+            ],
+        ];
+        $receipts = [];
+        foreach (EngineeringOutcome::WINDOWS as $window) {
+            $receipts[] = $kernel->observeOutcome(OutcomeObservation::fromArray($base + ['window' => $window]))->ledgerEventRef;
+        }
+
+        $this->assertCount(count(EngineeringOutcome::WINDOWS), array_unique($receipts));
     }
 
     public function test_observe_outcome_refuses_unknown_correlation(): void
@@ -1771,7 +1799,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'order_hash' => hash('sha256', 'unknown-order'),
             'outcome_hash' => hash('sha256', 'unknown-outcome'),
             'window' => '0h', 'observed_at' => '2026-07-11T00:00:00+00:00',
-            'metrics' => ['status' => 'unknown'], 'provenance' => ['source' => 'kernel_test'],
+            'metrics' => ['status' => 'unknown'], 'provenance' => ['source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'unknown-spec'), 'world_hash' => hash('sha256', 'unknown-world'), 'uncertainty' => []],
         ]));
     }
 
@@ -1789,7 +1817,29 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'order_hash' => $outcome->correlatedHashes['order'],
             'outcome_hash' => $outcome->outcomeHash,
             'window' => '0h', 'observed_at' => '2026-07-11T00:00:00+00:00',
-            'metrics' => ['status' => 'read_only'], 'provenance' => ['source' => 'kernel_test'],
+            'metrics' => ['status' => 'read_only'], 'provenance' => ['source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'read-only-spec'), 'world_hash' => hash('sha256', 'read-only-world'), 'uncertainty' => []],
+        ]));
+    }
+
+    public function test_observe_outcome_refuses_spec_or_world_context_mismatch(): void
+    {
+        $kernel = app(EliteExecutorKernel::class);
+        $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_unknown_correlation');
+        $kernel->observeOutcome(OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1',
+            'run_id' => $this->canonicalRunId ?? 'run-read-only', 'delivery_id' => 'delivery-read-only',
+            'release_hash' => $outcome->correlatedHashes['release'],
+            'order_hash' => $outcome->correlatedHashes['order'], 'outcome_hash' => $outcome->outcomeHash,
+            'window' => '0h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'read_only'],
+            'provenance' => [
+                'source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00',
+                'spec_hash' => hash('sha256', 'mutated-spec'), 'world_hash' => hash('sha256', 'read-only-world'),
+                'uncertainty' => [],
+            ],
         ]));
     }
 

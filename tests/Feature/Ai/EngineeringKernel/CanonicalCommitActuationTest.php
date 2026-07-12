@@ -726,7 +726,7 @@ final class CanonicalCommitActuationTest extends TestCase
                 'signature' => hash('sha256', 'signature:'.$role)];
         }
         $hashes = ['order' => $action->orderHash, 'intent' => hash('sha256', 'intent'),
-            'spec' => hash('sha256', 'spec'), 'baseline' => hash('sha256', 'baseline'),
+            'spec' => hash('sha256', 'spec'), 'world' => hash('sha256', 'world'), 'baseline' => hash('sha256', 'baseline'),
             'diff' => hash('sha256', 'diff'), 'evidence' => $action->evidenceHash,
             'release' => hash('sha256', 'release-pending:'.$action->nonce)];
         $data = ['schema_version' => 'atlas.engineering_outcome.v2', 'run_id' => 'run-test',

@@ -276,7 +276,7 @@ final class TypedEngineeringContractTest extends TestCase
             'window' => '24h',
             'observed_at' => '2026-07-11T00:00:00+00:00',
             'metrics' => ['status' => 'healthy', 'escaped_defects' => 0],
-            'provenance' => ['source' => 'production'],
+            'provenance' => ['source' => 'production', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'spec'), 'world_hash' => hash('sha256', 'world'), 'uncertainty' => []],
         ]);
         $receipt = OutcomeLearningReceipt::fromObservation($observation);
 
@@ -290,7 +290,7 @@ final class TypedEngineeringContractTest extends TestCase
             'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
             'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
             'window' => '24h', 'observed_at' => '2026-07-11T00:00:00+00:00',
-            'metrics' => ['escaped_defects' => 0], 'provenance' => ['source' => 'production'],
+            'metrics' => ['escaped_defects' => 0], 'provenance' => ['source' => 'production', 'release_at' => '2026-07-10T00:00:00+00:00', 'spec_hash' => hash('sha256', 'spec'), 'world_hash' => hash('sha256', 'world'), 'uncertainty' => []],
         ];
 
         $this->expectException(InvalidArgumentException::class);
@@ -319,6 +319,31 @@ final class TypedEngineeringContractTest extends TestCase
             'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
             'window' => '0h', 'observed_at' => '2026-07-11T00:00:00Z',
             'metrics' => ['status' => 'ok'], 'provenance' => ['source' => 'test'],
+        ]);
+    }
+
+    public function test_observation_requires_release_timestamp_in_provenance(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_release_at_required');
+        OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
+            'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
+            'window' => '24h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'ok'], 'provenance' => ['source' => 'test'],
+        ]);
+    }
+
+    public function test_observation_rejects_unelapsed_window(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_window_not_elapsed');
+        OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
+            'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
+            'window' => '24h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'ok'],
+            'provenance' => ['source' => 'test', 'release_at' => '2026-07-10T12:00:00+00:00', 'spec_hash' => hash('sha256', 'spec'), 'world_hash' => hash('sha256', 'world'), 'uncertainty' => []],
         ]);
     }
 
@@ -386,6 +411,7 @@ final class TypedEngineeringContractTest extends TestCase
             'order' => hash('sha256', 'order'),
             'intent' => hash('sha256', 'intent'),
             'spec' => hash('sha256', 'spec'),
+            'world' => hash('sha256', 'world'),
             'baseline' => hash('sha256', 'baseline'),
             'diff' => hash('sha256', 'diff'),
             'evidence' => hash('sha256', 'evidence'),

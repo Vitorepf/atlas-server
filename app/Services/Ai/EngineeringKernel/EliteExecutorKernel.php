@@ -637,7 +637,7 @@ final class EliteExecutorKernel
             'status' => 'held',
             'correlated_hashes' => [
                 'order' => $order->canonicalHash(), 'intent' => $order->productIntentVerdictHash,
-                'spec' => $order->specHash, 'baseline' => hash('sha256', $candidate->baseCommit),
+                'spec' => $order->specHash, 'world' => $order->worldModelSnapshotHash, 'baseline' => hash('sha256', $candidate->baseCommit),
                 'diff' => $candidate->diffHash, 'evidence' => $action->evidenceHash, 'release' => $releaseHash,
             ],
             'role_dispositions' => $dispositions,
@@ -789,6 +789,7 @@ final class EliteExecutorKernel
                 'order' => $orderHash,
                 'intent' => $order->productIntentVerdictHash,
                 'spec' => $order->specHash,
+                'world' => $order->worldModelSnapshotHash,
                 'baseline' => hash('sha256', $order->baseCommit),
                 'diff' => hash('sha256', 'read-only:no-diff:'.$orderHash),
                 'evidence' => $evidenceHash,
@@ -904,7 +905,7 @@ final class EliteExecutorKernel
             'delivery_id' => $order->deliveryId, 'status' => 'blocked',
             'correlated_hashes' => [
                 'order' => $order->canonicalHash(), 'intent' => $order->productIntentVerdictHash,
-                'spec' => $order->specHash, 'baseline' => hash('sha256', $order->baseCommit),
+                'spec' => $order->specHash, 'world' => $order->worldModelSnapshotHash, 'baseline' => hash('sha256', $order->baseCommit),
                 'diff' => $diffHash, 'evidence' => $evidenceHash, 'release' => $releaseHash,
             ],
             'role_dispositions' => $dispositions,
@@ -933,7 +934,9 @@ final class EliteExecutorKernel
             || ! hash_equals((string) ($outcome['run_id'] ?? ''), $observation->runId)
             || ! hash_equals((string) ($outcome['delivery_id'] ?? ''), $observation->deliveryId)
             || ! hash_equals((string) ($outcome['outcome_hash'] ?? ''), $observation->outcomeHash)
-            || ! hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash)) {
+            || ! hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash)
+            || ! hash_equals((string) data_get($outcome, 'correlated_hashes.spec', ''), (string) ($observation->provenance['spec_hash'] ?? ''))
+            || ! hash_equals((string) data_get($outcome, 'correlated_hashes.world', ''), (string) ($observation->provenance['world_hash'] ?? ''))) {
             throw new \InvalidArgumentException('outcome_observation_unknown_correlation');
         }
         if (! in_array((string) ($outcome['status'] ?? ''), ['released', 'completed_read_only'], true)) {

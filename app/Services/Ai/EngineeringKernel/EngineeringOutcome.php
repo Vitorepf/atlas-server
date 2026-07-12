@@ -47,7 +47,7 @@ final readonly class EngineeringOutcome
             throw new InvalidArgumentException('schema_version_invalid');
         }
         $hashes = CanonicalKernelPayload::requireArray($data, 'correlated_hashes');
-        foreach (['order', 'intent', 'spec', 'baseline', 'diff', 'evidence', 'release'] as $name) {
+        foreach (['order', 'intent', 'spec', 'world', 'baseline', 'diff', 'evidence', 'release'] as $name) {
             CanonicalKernelPayload::requireHash($hashes, $name);
         }
         if (($data['claim_eligible'] ?? false) !== false) {
