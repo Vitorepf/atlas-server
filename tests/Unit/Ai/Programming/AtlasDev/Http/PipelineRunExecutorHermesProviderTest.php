@@ -54,6 +54,7 @@ final class PipelineRunExecutorHermesProviderTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->bindAllowedAwisGate();
 
         // E4 shadow-diff is off for these fixtures: they git-init a workspace
         // with `app/Foo.php` (a PHP file with a pure class method), so a hard

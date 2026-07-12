@@ -55,6 +55,7 @@ final class CriticProviderAgnosticTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->bindAllowedAwisGate();
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-critic-agnostic-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);

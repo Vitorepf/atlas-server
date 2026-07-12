@@ -30,6 +30,26 @@ use RuntimeException;
  */
 trait AtlasDevProviderFixtures
 {
+    private function bindAllowedAwisGate(): void
+    {
+        app()->instance(
+            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort::class,
+            new class implements \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort
+            {
+                public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+                {
+                    return [
+                        'allowed' => true,
+                        'status' => 'passed',
+                        'mode' => $mode,
+                        'workspace' => $workspace,
+                        'blockers' => [],
+                    ];
+                }
+            },
+        );
+    }
+
     /**
      * The M3 senior critic reviews every green run; its 'critic_reviewed'
      * flag downgrades PASSED->needs_review, polluting axis-isolated feature

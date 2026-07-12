@@ -49,6 +49,7 @@ final class PipelineRunExecutorTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->bindAllowedAwisGate();
 
         // E4 shadow-diff is off for these fixtures: the cursor/codex tests
         // git-init a workspace with `app/Foo.php` (a PHP file with a pure
