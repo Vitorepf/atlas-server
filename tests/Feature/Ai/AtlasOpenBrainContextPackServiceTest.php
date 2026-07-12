@@ -157,6 +157,80 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('expand:symbol:MissingSymbolXYZ', $on['markdown']);
     }
 
+    public function test_esp11_retrieval_agenda_is_attached_only_when_claims_or_unknowns_exist(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', true);
+
+        $noClaims = $this->service()->packFor('Investigate MissingSymbolXYZ implementation', [
+            'code_budget' => 0,
+            'memory_budget' => 0,
+        ]);
+        $this->assertArrayHasKey('sufficiency', $noClaims);
+        $this->assertArrayNotHasKey('retrieval_agenda', $noClaims);
+
+        $withClaim = $this->service()->packFor(
+            'The invariant is that MissingSymbolXYZ must stay provider-safe.',
+            [
+                'code_budget' => 0,
+                'memory_budget' => 0,
+            ],
+        );
+        $this->assertTrue((bool) data_get($withClaim, 'retrieval_agenda.present'));
+        $this->assertNotEmpty(data_get($withClaim, 'retrieval_agenda.claims'));
+        $this->assertNotEmpty(data_get($withClaim, 'retrieval_agenda.counter_evidence_slots'));
+        $this->assertTrue((bool) data_get($withClaim, 'retrieval_agenda.source.wired_into_packfor'));
+    }
+
+    public function test_esp11_flag_off_keeps_pack_without_retrieval_agenda(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', false);
+
+        $pack = $this->service()->packFor(
+            'The policy must enforce scoped commits only.',
+            [
+                'code_budget' => 0,
+                'memory_budget' => 0,
+            ],
+        );
+
+        $this->assertArrayNotHasKey('sufficiency', $pack);
+        $this->assertArrayNotHasKey('retrieval_agenda', $pack);
+    }
+
+    public function test_esp11_no_claims_pack_matches_maxc_baseline_except_volatile_fields(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', true);
+        $task = 'Investigate MissingSymbolXYZ implementation';
+        $opts = ['code_budget' => 0, 'memory_budget' => 0];
+
+        $baseline = $this->service()->packFor($task, $opts);
+        $repeat = $this->service()->packFor($task, $opts);
+
+        $this->assertArrayNotHasKey('retrieval_agenda', $baseline);
+        $this->assertSame(
+            $this->esp11ComparablePack($baseline),
+            $this->esp11ComparablePack($repeat),
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>
+     */
+    private function esp11ComparablePack(array $pack): array
+    {
+        unset(
+            $pack['context_pack_hash'],
+            $pack['generated_at'],
+            $pack['timings_ms'],
+            $pack['cache'],
+            $pack['markdown'],
+            $pack['context_feedback_request'],
+        );
+
+        return $pack;
+    }
+
     public function test_t4s5_pack_marks_an_open_tension_between_two_recalled_memories(): void
     {
         Schema::dropIfExists('atlas_memory_entry_relations');

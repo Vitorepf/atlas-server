@@ -14,6 +14,7 @@ use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use App\Services\Ai\Context\AtlasRetrievalFusionService;
 use App\Services\Ai\Context\PackSufficiencyBlockBuilder;
+use App\Services\Ai\Context\RetrievalAgendaComposer;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
 use App\Services\Ai\Context\TaskFacetExtractor;
 use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
@@ -165,6 +166,7 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasContextFeedbackSignalPolicy $feedbackSignalPolicy,
         private readonly TaskFacetExtractor $taskFacetExtractor,
         private readonly PackSufficiencyBlockBuilder $packSufficiencyBlockBuilder,
+        private readonly RetrievalAgendaComposer $retrievalAgendaComposer,
         private readonly AtlasOpenBrainMemoryProjectionSafetyGate $memoryProjectionSafetyGate,
     ) {}
 
@@ -362,6 +364,10 @@ class AtlasOpenBrainContextPackService
         }
         if ((bool) config('atlas.aobg.facet_retrieval', false)) {
             $pack['sufficiency'] = $this->sufficiencySection($task, $pack);
+            $retrievalAgenda = $this->retrievalAgendaSection($task, $pack);
+            if (($retrievalAgenda['present'] ?? false) === true) {
+                $pack['retrieval_agenda'] = $retrievalAgenda;
+            }
         }
 
         $pack['context_pack_hash'] = $this->contextPackHash($pack);
@@ -423,6 +429,23 @@ class AtlasOpenBrainContextPackService
         ) + [
             'schema_version' => 'atlas.aobg.pack_sufficiency.v1',
         ];
+    }
+
+    /**
+     * ESP-11 — attach the epistemic retrieval agenda only when claims or unknowns
+     * are present. Tasks without claims keep the pack byte-identical to MAXC-04.
+     *
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>
+     */
+    private function retrievalAgendaSection(string $task, array $pack): array
+    {
+        $facetExtraction = $this->taskFacetExtractor->extract($task);
+
+        return $this->retrievalAgendaComposer->compose($task, [
+            'facets' => (array) ($facetExtraction['facets'] ?? []),
+            'wired_into_packfor' => true,
+        ]);
     }
 
     /** @return list<string> */
