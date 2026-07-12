@@ -204,10 +204,10 @@ Every event has schema, run/delivery IDs, correlated hashes, timestamp and prove
 **Allowed files:** Architecture scanner/tests, claim-eligibility fields on existing outcomes, and the minimal Rivals receiving boundary after reconciling active Rivals work. Do not redesign the Rivals trial here; plan 07 owns that.
 
 - [ ] Write RED static tests locating `world_*`, `multiplier_proven`, `world_leading`, `world_10x_quality_proven`, `claim.issued` or `claim.revoked` writes outside the Rivals allowlist.
-- [ ] Write RED runtime tests proving temporal certification, outcome memory, mode runtime, learning and simulation cannot set `claim_eligible=true` or issue a claim.
-- [ ] Add a sole-authority guard: non-Rivals services may emit evidence and request evaluation only; Rivals validates and writes claim events/bundles.
-- [ ] Require scope, baseline, experiment/preregistration, exposure, statistics, expiration and evidence refs on every claim.
-- [ ] Route contradictory or late outcomes to Rivals evaluation/revocation rather than mutating claim state elsewhere.
+- [x] Write RED runtime tests proving temporal certification, outcome memory, mode runtime, learning and simulation cannot set `claim_eligible=true` or issue a claim.
+- [x] Add a sole-authority guard: non-Rivals services may emit evidence and request evaluation only; Rivals validates and writes claim events/bundles.
+- [x] Require scope, baseline, experiment/preregistration, exposure, statistics, expiration and evidence refs on every claim.
+- [x] Route contradictory or late outcomes to Rivals evaluation/revocation rather than mutating claim state elsewhere.
 - [ ] Run architecture scan, outcome/temporal/learning tests and focused Rivals claim-boundary tests.
 
 **GREEN acceptance:** repository scan and runtime tests find no external claim issuer; non-Rivals requests cannot mint or revoke a claim; all new outcomes default ineligible.
