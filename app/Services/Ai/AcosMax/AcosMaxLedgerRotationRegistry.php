@@ -170,6 +170,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MAXL-06 delta attribution reader',
             ],
+            'atlas.context.golden_counterfactual.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXL-07 paired golden counterfactual report',
+            ],
             'atlas.originator.predicted_impact_calibration.v1' => [
                 'max_size_mb' => 32,
                 'max_age_days' => 90,

@@ -254,6 +254,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:atlas.evidence.delta_attribution.v1',
             ],
             [
+                'slice' => 'MAXL-07',
+                'series' => GoldenCounterfactualReplayService::MEASURE_ID,
+                'path' => 'atlas:context:golden-counterfactual --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 90,
+                'ttl_source' => 'freeze:atlas.context.golden_counterfactual.v1',
+            ],
+            [
                 'slice' => 'MULTN17-04',
                 'series' => AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID,
                 'path' => 'atlas:brain:predicted-impact --json',

@@ -145,6 +145,7 @@ use App\Console\Commands\AtlasFlywheelLearningLatencyCommand;
 use App\Console\Commands\AtlasFlywheelLoopsCommand;
 use App\Console\Commands\AtlasForgeMultiNodeL410ProofCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
+use App\Console\Commands\AtlasGoldenCounterfactualReplayCommand;
 use App\Console\Commands\AtlasGovernanceAmendmentsCommand;
 use App\Console\Commands\AtlasImmuneCalibrationCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
@@ -401,6 +402,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasFlywheelLearningLatencyCommand::class,
         AtlasFlywheelLoopsCommand::class,
         AtlasForgeRuntimeCertifyCommand::class,
+        AtlasGoldenCounterfactualReplayCommand::class,
         AtlasGovernanceAmendmentsCommand::class,
         AtlasImmuneCalibrationCommand::class,
         AtlasEngineeringApiContractCommand::class,
