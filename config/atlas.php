@@ -2212,6 +2212,16 @@ return [
         'delta_series_enabled' => (bool) env('ATLAS_FABLE_DELTA_SERIES_ENABLED', true),
     ],
 
+    // MAXK-08 — envelope EPHEMERAL ceiling by reversal rate (ACOS Max LOTE 8 F2).
+    // Reads ASI-11 lineage rollback receipts and monotonic-DOWN-tightens the
+    // stored autonomy envelope IN MEMORY. Never writes to the envelope const.
+    // Widening is operator-only (MAXK-07 amendment). DEFAULT-OFF until the
+    // lineage ledger accumulates real reversals; otherwise the denominator is
+    // empty and tightening would be dishonest.
+    'maxk08' => [
+        'ephemeral_ceiling_enabled' => (bool) env('ATLAS_MAXK08_EPHEMERAL_CEILING_ENABLED', false),
+    ],
+
     'cognition' => [
         // L3-11: agenda diária do mint de pipeline receipts (sobe a dimensão mais fraca do
         // ACOS com evidência resolved, mirando os subsistemas partial). Default ON; reversível.
