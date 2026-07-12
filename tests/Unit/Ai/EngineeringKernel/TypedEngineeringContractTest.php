@@ -322,6 +322,22 @@ final class TypedEngineeringContractTest extends TestCase
         ]);
     }
 
+    public function test_observation_refuses_a_window_outside_the_temporal_schedule(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('window_invalid');
+        OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
+            'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
+            'window' => '1h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'ok'],
+            'provenance' => [
+                'source' => 'test', 'release_at' => '2026-07-10T00:00:00+00:00',
+                'spec_hash' => hash('sha256', 'spec'), 'world_hash' => hash('sha256', 'world'), 'uncertainty' => [],
+            ],
+        ]);
+    }
+
     public function test_observation_requires_release_timestamp_in_provenance(): void
     {
         $this->expectException(InvalidArgumentException::class);

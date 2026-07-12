@@ -1803,6 +1803,44 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         ]));
     }
 
+    public function test_observe_outcome_before_release_settlement_is_refused(): void
+    {
+        $runId = 'run-unsettled';
+        $deliveryId = 'delivery-unsettled';
+        $orderHash = hash('sha256', 'unsettled-order');
+        $releaseHash = hash('sha256', 'unsettled-release');
+        $specHash = hash('sha256', 'unsettled-spec');
+        $worldHash = hash('sha256', 'unsettled-world');
+        $outcomeHash = hash('sha256', 'unsettled-outcome');
+
+        app(AtlasEvidenceLedger::class)->record(LedgerEventType::OperationCompleted, [
+            'event_name' => 'engineering.outcome.recorded',
+            'order_hash' => $orderHash,
+            'outcome' => [
+                'run_id' => $runId, 'delivery_id' => $deliveryId, 'status' => 'held',
+                'outcome_hash' => $outcomeHash,
+                'correlated_hashes' => ['release' => $releaseHash, 'spec' => $specHash, 'world' => $worldHash],
+            ],
+        ], [
+            'event_id' => 'unsettled-outcome-event', 'correlation_id' => $deliveryId,
+            'scope_type' => 'engineering_delivery', 'scope_id' => $deliveryId,
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_release_not_settled');
+        app(EliteExecutorKernel::class)->observeOutcome(OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1',
+            'run_id' => $runId, 'delivery_id' => $deliveryId,
+            'release_hash' => $releaseHash, 'order_hash' => $orderHash, 'outcome_hash' => $outcomeHash,
+            'window' => '0h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'healthy'],
+            'provenance' => [
+                'source' => 'kernel_test', 'release_at' => '2026-07-10T00:00:00+00:00',
+                'spec_hash' => $specHash, 'world_hash' => $worldHash, 'uncertainty' => [],
+            ],
+        ]));
+    }
+
     public function test_observe_outcome_refuses_run_identity_mismatch(): void
     {
         $kernel = app(EliteExecutorKernel::class);
