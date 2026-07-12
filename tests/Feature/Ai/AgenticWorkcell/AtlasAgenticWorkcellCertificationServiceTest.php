@@ -84,4 +84,33 @@ class AtlasAgenticWorkcellCertificationServiceTest extends TestCase
         $this->assertStringContainsString('"schema_version": "atlas.agentic_workcell.certification.v1"', $certOutput);
         $this->assertStringContainsString('"status": "passed"', $certOutput);
     }
+
+    public function test_final_witness_requires_complete_independent_bundle_and_is_read_only(): void
+    {
+        $service = app(AtlasAgenticWorkcellCertificationService::class);
+        $blocked = $service->certifyFinalWitness([
+            'write_authority' => 'worktree_write',
+            'changed_files' => ['app/Example.php'],
+            'evidence_bundle' => ['frozen_spec' => ['hash' => 'spec']],
+        ]);
+        self::assertSame('blocked', $blocked['status']);
+        self::assertContains('final_certifier_write_authority_forbidden', $blocked['blockers']);
+        self::assertContains('independent_evidence_bundle_incomplete', $blocked['blockers']);
+
+        $passed = $service->certifyFinalWitness([
+            'write_authority' => 'read_only_no_merge',
+            'changed_files' => [],
+            'evidence_bundle' => [
+                'frozen_spec' => ['hash' => 'spec'],
+                'candidate_artifact' => ['hash' => 'artifact'],
+                'independent_evidence' => ['hash' => 'evidence', 'independent' => true],
+                'acceptance' => ['hash' => 'acceptance'],
+            ],
+        ]);
+        self::assertSame('passed', $passed['status']);
+        self::assertTrue($passed['certified']);
+        self::assertTrue($passed['final_certifier_policy']['read_only']);
+        self::assertFalse($passed['final_certifier_policy']['can_edit_code']);
+        self::assertFalse($passed['final_certifier_policy']['can_merge']);
+    }
 }

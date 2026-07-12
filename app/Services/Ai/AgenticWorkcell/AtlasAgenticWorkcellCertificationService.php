@@ -67,6 +67,54 @@ final class AtlasAgenticWorkcellCertificationService
     }
 
     /**
+     * Certify the final witness only from a complete, independent evidence bundle.
+     * The final certifier is read-only and never fills missing evidence.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function certifyFinalWitness(array $input): array
+    {
+        $bundle = is_array($input['evidence_bundle'] ?? null) ? $input['evidence_bundle'] : [];
+        $required = ['frozen_spec', 'candidate_artifact', 'independent_evidence', 'acceptance'];
+        $missing = array_values(array_filter($required, static fn (string $key): bool => ! is_array($bundle[$key] ?? null) || $bundle[$key] === []));
+        $writeAuthority = trim((string) ($input['write_authority'] ?? ''));
+        $changedFiles = is_array($input['changed_files'] ?? null) ? array_values(array_filter($input['changed_files'])) : [];
+        $independent = ($bundle['independent_evidence']['independent'] ?? false) === true;
+        $blockers = [];
+        if (! in_array($writeAuthority, ['read_only', 'read_only_no_merge'], true)) {
+            $blockers[] = 'final_certifier_write_authority_forbidden';
+        }
+        if ($changedFiles !== []) {
+            $blockers[] = 'final_certifier_changed_files_forbidden';
+        }
+        if ($missing !== []) {
+            $blockers[] = 'independent_evidence_bundle_incomplete';
+        }
+        if (! $independent) {
+            $blockers[] = 'independent_evidence_required';
+        }
+        $payload = [
+            'schema_version' => 'atlas.agentic_workcell.final_witness_certification.v1',
+            'status' => $blockers === [] ? 'passed' : 'blocked',
+            'certified' => $blockers === [],
+            'blockers' => $blockers,
+            'missing_bundle_parts' => $missing,
+            'write_authority' => $writeAuthority,
+            'changed_files' => $changedFiles,
+            'independent_evidence' => $independent,
+            'final_certifier_policy' => [
+                'read_only' => true,
+                'can_edit_code' => false,
+                'can_merge' => false,
+            ],
+        ];
+        $payload['certification_hash'] = MissionCanonicalHash::sha256($payload);
+
+        return $payload;
+    }
+
+    /**
      * @return array<string,mixed>
      */
     private function canonicalDoc(): array

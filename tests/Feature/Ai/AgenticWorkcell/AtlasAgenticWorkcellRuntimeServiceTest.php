@@ -257,6 +257,33 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         self::assertContains('mode_quality_bar_mismatch', $workcell['workcell_admission']['blockers']);
     }
 
+    public function test_r5_candidate_set_requires_competing_approaches_and_distinct_verifier_families(): void
+    {
+        $order = $this->executionOrder('candidate_set');
+        $order['risk_class'] = 'R5';
+        $workcell = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar experimento R5.', 'domain' => 'programming', 'topology' => 'tournament',
+            'candidate_approaches' => ['approach-a', 'approach-b'],
+            'verifier_families' => ['property', 'differential'],
+            'evidence_refs' => ['fixture:r5-evidence'], 'execution_order' => $order,
+        ]);
+        $competition = $workcell['workcell_admission']['candidate_competition'];
+        self::assertSame('admitted', $workcell['workcell_admission']['status']);
+        self::assertSame('configured', $competition['status']);
+        self::assertTrue($competition['independent_verifier_families']);
+        self::assertCount(2, $competition['candidates']);
+        self::assertNotSame($competition['candidates'][0]['approach_id'], $competition['candidates'][1]['approach_id']);
+        self::assertNotSame($competition['candidates'][0]['verifier_family'], $competition['candidates'][1]['verifier_family']);
+
+        $blocked = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar experimento R5.', 'domain' => 'programming', 'topology' => 'tournament',
+            'candidate_approaches' => ['only-one'], 'verifier_families' => ['same-family', 'same-family'],
+            'evidence_refs' => ['fixture:r5-evidence'], 'execution_order' => $order,
+        ]);
+        self::assertSame('blocked', $blocked['workcell_admission']['status']);
+        self::assertContains('r5_competing_approaches_required', $blocked['workcell_admission']['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function executionOrder(string $workTopology = 'candidate_set'): array
     {

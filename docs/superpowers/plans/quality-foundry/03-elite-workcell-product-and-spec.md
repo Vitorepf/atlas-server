@@ -188,9 +188,9 @@ Circuit breakers are fixed:
 - candidate with no frontier improvement ends that line, not the mission.
 
 - [x] Write RED state-machine tests for each breaker, kill/restart at every boundary and repeated identical evidence.
-- [ ] Add candidate-set tests proving R5 uses competing approaches and different verifier families when available.
+- [x] Add candidate-set tests proving R5 uses competing approaches and different verifier families when available.
 - [ ] Persist fingerprints, evidence deltas, approach IDs and terminal reasons in existing workcell events/outcomes.
-- [ ] Ensure final certifier never edits code and cannot certify without the complete independent evidence bundle.
+- [x] Ensure final certifier never edits code and cannot certify without the complete independent evidence bundle.
 - [ ] Reconcile incomplete workcells after crash without duplicate provider call, integration or disposition.
 - [ ] Run focused Workcell state/recovery/certification tests and neighboring Kernel replay tests.
 

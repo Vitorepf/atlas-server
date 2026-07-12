@@ -517,6 +517,28 @@ final class AtlasAgenticWorkcellRuntimeService
         if (array_key_exists('mode', $input) && (string) $input['mode'] !== $order->mode) {
             $blockers[] = 'mode_quality_bar_mismatch';
         }
+        $candidateApproaches = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $approach): string => is_array($approach)
+                ? trim((string) ($approach['approach_id'] ?? $approach['id'] ?? ''))
+                : trim((string) $approach),
+            is_array($input['candidate_approaches'] ?? null) ? $input['candidate_approaches'] : [],
+        ))));
+        $verifierFamilies = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $family): string => is_array($family)
+                ? trim((string) ($family['family_id'] ?? $family['id'] ?? ''))
+                : trim((string) $family),
+            is_array($input['verifier_families'] ?? null) ? $input['verifier_families'] : [],
+        ))));
+        $r5CompetitionRequired = $order->riskClass === 'R5';
+        if ($r5CompetitionRequired && $order->workTopology !== 'candidate_set') {
+            $blockers[] = 'r5_candidate_set_topology_required';
+        }
+        if ($r5CompetitionRequired && count($candidateApproaches) < 2) {
+            $blockers[] = 'r5_competing_approaches_required';
+        }
+        if ($r5CompetitionRequired && count($verifierFamilies) < 2) {
+            $blockers[] = 'r5_distinct_verifier_families_required';
+        }
         if ($evidenceRefs === [] && $order->riskClass !== 'R0') {
             $blockers[] = 'initial_evidence_refs_required';
         }
@@ -547,6 +569,20 @@ final class AtlasAgenticWorkcellRuntimeService
             'forbidden_scope' => $order->forbiddenScope,
             'candidate_sandboxes' => $sandboxes,
             'integration_lane' => ['mode' => 'serial', 'protected' => true],
+            'candidate_competition' => [
+                'required' => $r5CompetitionRequired,
+                'status' => $r5CompetitionRequired && count($candidateApproaches) >= 2 && count($verifierFamilies) >= 2 ? 'configured' : ($r5CompetitionRequired ? 'blocked' : 'not_required'),
+                'approaches' => $candidateApproaches,
+                'verifier_families' => $verifierFamilies,
+                'independent_verifier_families' => count($verifierFamilies) >= 2,
+                'candidates' => $r5CompetitionRequired
+                    ? array_map(static fn (int $index): array => [
+                        'candidate_id' => 'candidate-'.$index,
+                        'approach_id' => $candidateApproaches[$index - 1] ?? $candidateApproaches[($index - 1) % max(1, count($candidateApproaches))] ?? null,
+                        'verifier_family' => $verifierFamilies[$index - 1] ?? $verifierFamilies[($index - 1) % max(1, count($verifierFamilies))] ?? null,
+                    ], range(1, max(2, min($candidateCount, count($candidateApproaches)))))
+                    : [],
+            ],
             'judge_context' => ['includes' => ['frozen_spec', 'candidate_artifact', 'independent_evidence'], 'excludes' => ['author_defense']],
         ];
     }
