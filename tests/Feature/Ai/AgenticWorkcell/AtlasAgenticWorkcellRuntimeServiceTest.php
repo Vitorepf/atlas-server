@@ -169,4 +169,62 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         $this->assertStringNotContainsString($objective, $encoded);
         $this->assertStringContainsString('objective_hash', $encoded);
     }
+
+    public function test_execution_order_admission_binds_hashes_scope_evidence_and_isolated_candidates(): void
+    {
+        $workcell = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar entrega concorrente com verificação independente.',
+            'domain' => 'programming', 'topology' => 'tournament',
+            'evidence_refs' => ['fixture:order-evidence'], 'execution_order' => $this->executionOrder(),
+        ]);
+
+        $admission = $workcell['workcell_admission'];
+        self::assertSame('admitted', $admission['status']);
+        self::assertSame($this->executionOrder()['spec_hash'], $admission['spec_hash']);
+        self::assertSame(['app'], $admission['allowed_scope']);
+        self::assertCount(3, $admission['candidate_sandboxes']);
+        self::assertSame(3, count(array_unique(array_column($admission['candidate_sandboxes'], 'sandbox_ref'))));
+        self::assertSame('serial', $admission['integration_lane']['mode']);
+        self::assertNotContains('author_defense', $admission['judge_context']['includes']);
+        self::assertContains('author_defense', $admission['judge_context']['excludes']);
+    }
+
+    public function test_invalid_execution_order_blocks_workcell_admission(): void
+    {
+        $order = $this->executionOrder();
+        $order['spec_hash'] = '';
+        $workcell = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar entrega governada.', 'domain' => 'programming',
+            'evidence_refs' => ['fixture:order-evidence'], 'execution_order' => $order,
+        ]);
+
+        self::assertSame('blocked', $workcell['status']);
+        self::assertSame('blocked', $workcell['workcell_admission']['status']);
+        self::assertSame('execution_order_rejected', $workcell['workcell_admission']['reason']);
+    }
+
+    /** @return array<string,mixed> */
+    private function executionOrder(): array
+    {
+        $roles = [];
+        foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
+            $roles[$role] = ['depth' => 'standard', 'independent' => true];
+        }
+
+        return [
+            'schema_version' => 'atlas.execution_order.v2', 'run_id' => 'run-workcell', 'delivery_id' => 'delivery-workcell',
+            'mode' => 'forge', 'risk_class' => 'R3', 'complexity_band' => 'C3', 'duration_regime' => 'durable_task',
+            'work_topology' => 'candidate_set', 'product_intent_verdict_hash' => hash('sha256', 'intent-workcell'),
+            'spec_hash' => hash('sha256', 'spec-workcell'), 'world_model_snapshot_hash' => hash('sha256', 'world-workcell'),
+            'workspace' => 'atlas-server', 'base_commit' => str_repeat('a', 40), 'allowed_scope' => ['app'], 'forbidden_scope' => ['.env'],
+            'authority_envelope' => ['kind' => 'shared', 'authority_hash' => hash('sha256', 'authority-workcell')],
+            'decision_receipt' => ['decision_event_id' => 'decision-workcell'], 'operator_contract' => ['presence' => 'confirmed'],
+            'role_roster' => $roles, 'provider_route' => ['provider' => 'shared', 'model' => 'quality'],
+            'tool_permissions' => ['read' => true, 'mutate' => false],
+            'evidence_policy' => ['acceptance_event_id' => 'acceptance-workcell', 'role_disposition_event_ids' => array_fill_keys(array_keys($roles), 'role-event')],
+            'release_policy' => ['kind' => 'shared'], 'rollback_policy' => ['kind' => 'shared'],
+            'outcome_policy' => ['windows' => ['0h', '24h', '7d', '30d', '90d', '150d']],
+            'experiment_ref' => 'experiment-workcell', 'idempotency_key' => 'idempotency-workcell', 'budget_posture' => 'unbounded_quality_first',
+        ];
+    }
 }

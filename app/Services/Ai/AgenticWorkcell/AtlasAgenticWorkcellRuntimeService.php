@@ -10,6 +10,7 @@ use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
+use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -89,9 +90,13 @@ final class AtlasAgenticWorkcellRuntimeService
         $executionSchedule = $this->executionSchedule($topology, $roleRoster, $taskGraph, $risk);
         $verificationPlan = $this->verificationPlan($topology, $domain, $flowId, $risk, $roleRoster);
         $evidenceLedger = $this->evidenceLedger($objective, $roleRoster, $taskGraph, $evidenceRefs);
+        $workcellAdmission = $this->workcellAdmission($input, $topology, $roleRoster, $risk, $evidenceRefs);
         $memoryPacket = $this->memoryPacket($objective, $domain, $flowId, $topology, $roleRoster);
         $counterfactualReplay = $this->counterfactualReplay($objective, $domain, $flowId, $topology, $complexity, $risk);
         $learningPolicy = $this->learningPolicy($domain, $flowId, $topology, $risk);
+        if (($workcellAdmission['status'] ?? null) === 'blocked') {
+            $status = self::STATUS_BLOCKED;
+        }
         $controlPlaneSummary = $this->controlPlaneSummary($topology, $roleRoster, $taskGraph, $verificationPlan, $status);
 
         $payload = [
@@ -112,6 +117,7 @@ final class AtlasAgenticWorkcellRuntimeService
             'execution_schedule' => $executionSchedule,
             'verification_plan' => $verificationPlan,
             'evidence_ledger' => $evidenceLedger,
+            'workcell_admission' => $workcellAdmission,
             'memory_packet' => $memoryPacket,
             'counterfactual_replay' => $counterfactualReplay,
             'learning_policy' => $learningPolicy,
@@ -423,6 +429,88 @@ final class AtlasAgenticWorkcellRuntimeService
         }
 
         return self::STATUS_READY;
+    }
+
+    /**
+     * A workcell may be designed without an order for legacy planning callers, but when an
+     * ExecutionOrder is supplied it becomes the authority for hashes, risk, scope and evidence.
+     * This method is pure and only emits a receipt-shaped admission plan; it never executes.
+     *
+     * @return array<string,mixed>
+     */
+    private function workcellAdmission(array $input, string $topology, array $roles, int $risk, array $evidenceRefs): array
+    {
+        $rawOrder = $input['execution_order'] ?? null;
+        if ($rawOrder === null) {
+            return [
+                'schema_version' => 'atlas.agentic_workcell.admission.v1',
+                'status' => 'legacy_planning_only',
+                'reason' => 'execution_order_not_supplied',
+                'requires_execution_order_before_execution' => true,
+            ];
+        }
+        if (! is_array($rawOrder)) {
+            return ['schema_version' => 'atlas.agentic_workcell.admission.v1', 'status' => 'blocked', 'reason' => 'execution_order_invalid'];
+        }
+
+        try {
+            $order = ExecutionOrder::fromArray($rawOrder);
+        } catch (\Throwable $exception) {
+            return [
+                'schema_version' => 'atlas.agentic_workcell.admission.v1',
+                'status' => 'blocked',
+                'reason' => 'execution_order_rejected',
+                'detail' => $exception->getMessage(),
+            ];
+        }
+
+        $orderRoleIds = array_keys($order->roleRoster);
+        $workcellRoleIds = array_values(array_map(static fn (array $role): string => (string) $role['role_id'], $roles));
+        $blockers = [];
+        if ($orderRoleIds !== EngineeringRoleRoster::OFFICIAL_ROLES || $workcellRoleIds !== EngineeringRoleRoster::OFFICIAL_ROLES) {
+            $blockers[] = 'official_22_role_roster_required';
+        }
+        if ($order->roleRoster !== [] && count(array_unique($orderRoleIds)) !== count($orderRoleIds)) {
+            $blockers[] = 'role_ownership_overlap';
+        }
+        if ($order->allowedScope === []) {
+            $blockers[] = 'allowed_scope_required';
+        }
+        if ($order->authorityEnvelope['kind'] === '') {
+            $blockers[] = 'authority_required';
+        }
+        if ($order->evidencePolicy === [] || $order->evidencePolicy['acceptance_event_id'] === '') {
+            $blockers[] = 'evidence_policy_required';
+        }
+        if ($evidenceRefs === [] && $order->riskClass !== 'R0') {
+            $blockers[] = 'initial_evidence_refs_required';
+        }
+
+        $candidateCount = in_array($topology, ['parallel_scouts', 'tournament', 'red_blue_team', 'mapreduce_research', 'forge_milestone_crew'], true) ? 3 : 1;
+        $sandboxes = array_map(static fn (int $index): array => [
+            'candidate_id' => 'candidate-'.$index,
+            'sandbox_ref' => 'isolated:'.$order->deliveryId.':candidate-'.$index,
+            'owner' => 'candidate-'.$index,
+            'integration' => 'serial_only',
+        ], range(1, $candidateCount));
+
+        return [
+            'schema_version' => 'atlas.agentic_workcell.admission.v1',
+            'status' => $blockers === [] ? 'admitted' : 'blocked',
+            'blockers' => array_values(array_unique($blockers)),
+            'execution_order_hash' => $order->canonicalHash(),
+            'product_intent_verdict_hash' => $order->productIntentVerdictHash,
+            'spec_hash' => $order->specHash,
+            'world_model_snapshot_hash' => $order->worldModelSnapshotHash,
+            'risk_class' => $order->riskClass,
+            'evidence_policy' => $order->evidencePolicy,
+            'authority_kind' => $order->authorityEnvelope['kind'],
+            'allowed_scope' => $order->allowedScope,
+            'forbidden_scope' => $order->forbiddenScope,
+            'candidate_sandboxes' => $sandboxes,
+            'integration_lane' => ['mode' => 'serial', 'protected' => true],
+            'judge_context' => ['includes' => ['frozen_spec', 'candidate_artifact', 'independent_evidence'], 'excludes' => ['author_defense']],
+        ];
     }
 
     /**

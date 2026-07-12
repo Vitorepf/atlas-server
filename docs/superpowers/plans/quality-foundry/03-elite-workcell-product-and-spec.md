@@ -155,9 +155,9 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 - [ ] Write RED tests for a missing role, overlapping builder/verifier/final-certifier, ownership overlap, shared sandbox between candidates, unsupported topology, and mode-specific bar reduction.
 - [ ] Define mapping from `single|candidate_set|workcell|DAG|portfolio` to execution ordering and witness depth only; membership remains the exact 22-role roster.
-- [ ] Make workcell admission require frozen ProductIntent/spec/world hashes, authority, allowed scope, risk/depth and evidence policy from `ExecutionOrder`.
-- [ ] Allocate isolated candidate sandboxes and explicit ownership; integration lane is serial and protected by reservation/fencing.
-- [ ] Give judges only frozen spec, candidate artifact and independent evidence; author explanations are excluded from adjudication input.
+- [x] Make workcell admission require frozen ProductIntent/spec/world hashes, authority, allowed scope, risk/depth and evidence policy from `ExecutionOrder`.
+- [x] Allocate isolated candidate sandboxes and explicit ownership; integration lane is serial and protected by reservation/fencing.
+- [x] Give judges only frozen spec, candidate artifact and independent evidence; author explanations are excluded from adjudication input.
 - [ ] Run Workcell runtime/certification, Engineering Company role, ownership overlap, sandbox and parity tests.
 
 **GREEN acceptance:** every workcell has 22 dispositions, independent contexts, isolated candidates, serial integration and deterministic ownership; missing verifier holds the delivery.
