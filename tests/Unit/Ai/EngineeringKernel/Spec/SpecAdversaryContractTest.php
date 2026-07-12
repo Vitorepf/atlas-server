@@ -130,6 +130,22 @@ final class SpecAdversaryContractTest extends TestCase
         self::assertSame($intent->productAuthorityHash(), $reorderedIntent->productAuthorityHash());
     }
 
+    public function test_spec_bindings_are_required_by_authority_and_change_the_canonical_hash(): void
+    {
+        $base = [
+            'intent_text' => 'adicionar validação em EmailValidator.php',
+            'acceptance_criteria' => [['id' => 'a', 'description' => 'rejects invalid email', 'verification' => 'test']],
+            'product_intent_hash' => hash('sha256', 'intent'), 'world_snapshot_hash' => hash('sha256', 'world'),
+            'evidence_binding_hash' => hash('sha256', 'evidence'),
+        ];
+        $draft = SpecDraft::fromArray($base);
+        self::assertSame([], $draft->bindingGaps());
+        $mutated = $base;
+        $mutated['world_snapshot_hash'] = hash('sha256', 'changed-world');
+        self::assertNotSame($draft->authorityHash(), SpecDraft::fromArray($mutated)->authorityHash());
+        self::assertContains('missing_evidence_binding_hash', SpecDraft::fromArray(['intent_text' => 'x'])->bindingGaps());
+    }
+
     public function test_product_authority_api_has_no_caller_verdict_parameter(): void
     {
         $parameters = (new \ReflectionMethod(AtlasSpecGateAdapter::class, 'adjudicateProductAuthority'))->getParameters();

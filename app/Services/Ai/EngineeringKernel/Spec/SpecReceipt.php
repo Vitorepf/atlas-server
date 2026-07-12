@@ -23,7 +23,7 @@ final class SpecReceipt
      *
      * @return array<string,mixed>
      */
-    public static function seal(SpecVerdict $verdict, TrustLevel $lane): array
+    public static function seal(SpecVerdict $verdict, TrustLevel $lane, array $bindings = []): array
     {
         $body = [
             'schema_version' => self::SCHEMA,
@@ -32,6 +32,7 @@ final class SpecReceipt
             'status' => $verdict->status,
             'gaps' => $verdict->gaps,
             'provenance' => $verdict->provenance->toArray(),
+            'bindings' => $bindings,
         ];
         $body['receipt_hash'] = hash('sha256', json_encode($body, JSON_THROW_ON_ERROR));
 

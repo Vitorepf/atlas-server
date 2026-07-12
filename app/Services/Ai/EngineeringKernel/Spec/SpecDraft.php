@@ -34,6 +34,9 @@ final readonly class SpecDraft
         public array $security = [], public array $accessibility = [], public array $observability = [],
         public array $compatibility = [], public array $migration = [], public array $rollback = [],
         public array $oracles = [], public array $invalidityConditions = [],
+        public ?string $productIntentHash = null,
+        public ?string $worldSnapshotHash = null,
+        public ?string $evidenceBindingHash = null,
     ) {}
 
     /**
@@ -53,6 +56,9 @@ final readonly class SpecDraft
             observability: array_values((array) ($data['observability'] ?? [])), compatibility: array_values((array) ($data['compatibility'] ?? [])),
             migration: array_values((array) ($data['migration'] ?? [])), rollback: array_values((array) ($data['rollback'] ?? [])),
             oracles: array_values((array) ($data['oracles'] ?? [])), invalidityConditions: array_values((array) ($data['invalidity_conditions'] ?? [])),
+            productIntentHash: self::hashOrNull($data['product_intent_hash'] ?? null),
+            worldSnapshotHash: self::hashOrNull($data['world_snapshot_hash'] ?? null),
+            evidenceBindingHash: self::hashOrNull($data['evidence_binding_hash'] ?? null),
         );
     }
 
@@ -79,7 +85,22 @@ final readonly class SpecDraft
             'accessibility' => $this->accessibility, 'observability' => $this->observability, 'compatibility' => $this->compatibility,
             'migration' => $this->migration, 'rollback' => $this->rollback, 'oracles' => $this->oracles,
             'invalidity_conditions' => $this->invalidityConditions,
+            'product_intent_hash' => $this->productIntentHash, 'world_snapshot_hash' => $this->worldSnapshotHash,
+            'evidence_binding_hash' => $this->evidenceBindingHash,
         ]);
+    }
+
+    /** @return list<string> */
+    public function bindingGaps(): array
+    {
+        $gaps = [];
+        foreach (['productIntentHash' => 'product_intent_hash', 'worldSnapshotHash' => 'world_snapshot_hash', 'evidenceBindingHash' => 'evidence_binding_hash'] as $property => $name) {
+            if ($this->{$property} === null) {
+                $gaps[] = 'missing_'.$name;
+            }
+        }
+
+        return $gaps;
     }
 
     /**
@@ -94,5 +115,12 @@ final readonly class SpecDraft
             $this->acceptanceCriteria,
             static fn (array $ac): bool => ($ac['is_backstop'] ?? false) !== true,
         ));
+    }
+
+    private static function hashOrNull(mixed $value): ?string
+    {
+        $value = is_scalar($value) ? trim((string) $value) : '';
+
+        return preg_match('/^[a-f0-9]{64}$/i', $value) === 1 ? strtolower($value) : null;
     }
 }

@@ -49,7 +49,7 @@ final class AtlasSpecGateAdapter implements SpecAdversary
     public function adjudicateProductAuthority(SpecDraft $draft, IntentEnvelope $intent, TrustLevel $lane): array
     {
         $truth = (new AtlasProductTruthCompilerService)->compile(['human_request' => $intent->rawGoal]);
-        $gaps = array_values(array_unique([...$intent->productAuthorityGaps(), ...$draft->authorityGaps(),
+        $gaps = array_values(array_unique([...$intent->productAuthorityGaps(), ...$draft->authorityGaps(), ...$draft->bindingGaps(),
             'product_truth_resolver_unavailable', 'world_model_resolver_unavailable']));
         $verdict = $this->contest($draft, $intent, $lane);
         if (($truth['status'] ?? null) !== 'ready') {
@@ -62,7 +62,11 @@ final class AtlasSpecGateAdapter implements SpecAdversary
 
         return ['status' => $gaps === [] ? 'freeze' : 'hold', 'gaps' => array_values(array_unique($gaps)),
             'spec_hash' => $specHash, 'truth_hash' => $truth['truth_hash'] ?? null,
-            'spec_receipt' => SpecReceipt::seal($verdict, $lane), 'product_truth' => $truth];
+            'spec_receipt' => SpecReceipt::seal($verdict, $lane, [
+                'product_intent_hash' => $draft->productIntentHash,
+                'world_snapshot_hash' => $draft->worldSnapshotHash,
+                'evidence_binding_hash' => $draft->evidenceBindingHash,
+            ]), 'product_truth' => $truth];
     }
 
     /**
