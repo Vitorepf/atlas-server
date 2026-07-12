@@ -8,7 +8,10 @@ use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 
 final class AtlasDevExecutionService
 {
-    public function __construct(private readonly AtlasDevFastPathOrchestrator $orchestrator) {}
+    public function __construct(
+        private readonly AtlasDevFastPathOrchestrator $orchestrator,
+        private readonly ?DevKernelExecutionPort $kernel = null,
+    ) {}
 
     public function plan(DevIntent $intent): DevPlan
     {
@@ -37,9 +40,15 @@ final class AtlasDevExecutionService
             ]]);
         }
 
-        // The existing fast-path provider executor is intentionally not called here.
-        // Until the shared Kernel execution adapter is wired, Dev remains fail-closed
-        // after planning instead of creating a second mutative executor.
-        return DevRunResult::blocked($run, 'shared_kernel_execution_adapter_pending', $plan->planHash);
+        try {
+            $outcome = ($this->kernel ?? app(EliteExecutorKernelDevAdapter::class))->execute($run, $plan);
+        } catch (\Throwable $exception) {
+            return DevRunResult::blocked($run, 'shared_kernel_execution_failed', $plan->planHash, [
+                'exception' => $exception::class,
+                'reason' => $exception->getMessage(),
+            ]);
+        }
+
+        return DevRunResult::fromKernelOutcome($run, $plan->planHash, $outcome);
     }
 }
