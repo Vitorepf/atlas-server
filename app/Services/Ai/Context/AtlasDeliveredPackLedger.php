@@ -53,6 +53,7 @@ final class AtlasDeliveredPackLedger
                 'budgets' => (array) ($pack['budget'] ?? []),
                 'policy_snapshot' => (array) ($pack['context_delivery_policy'] ?? []),
                 'timings_ms' => $this->normalizeTimings((array) ($pack['timings_ms'] ?? [])),
+                'cache' => (array) ($pack['cache'] ?? []),
                 'ts' => (string) ($pack['generated_at'] ?? now()->toJSON()),
             ];
 

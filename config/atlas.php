@@ -4481,6 +4481,10 @@ return [
         // token budget at ~4 chars/token for CodeGraphContextRetriever).
         'code_budget_chars' => (int) env('ATLAS_AOBG_CODE_BUDGET_CHARS', 2500),
         'memory_budget_chars' => (int) env('ATLAS_AOBG_MEMORY_BUDGET_CHARS', 2000),
+        'pack_cache' => [
+            'enabled' => (bool) env('ATLAS_AOBG_PACK_CACHE_ENABLED', true),
+            'ttl_seconds' => (int) env('ATLAS_AOBG_PACK_CACHE_TTL_SECONDS', 300),
+        ],
         // Obra 7 / OPT-05: E-3 symbol budget alias (chars→~tokens at packFor; zero provider spend).
         'e3_symbol_budget_chars' => (int) env('ATLAS_AOBG_E3_SYMBOL_BUDGET_CHARS', (int) env('ATLAS_AOBG_CODE_BUDGET_CHARS', 2500)),
         // Obra 7 / OB-03: progressive disclosure manifest (Absorcao 4 phase 1).

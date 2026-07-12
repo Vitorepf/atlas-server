@@ -19,6 +19,7 @@ use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -69,6 +70,8 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         config()->set('atlas.aurg.query_rank_enabled', false); // deterministic, no runtime
         config()->set('atlas.aobg.include_runtime_compose', false);
         config()->set('atlas.aobg.delivered_pack_ledger.enabled', false);
+        config()->set('atlas.aobg.pack_cache.enabled', false);
+        Cache::flush();
     }
 
     protected function tearDown(): void
@@ -417,6 +420,45 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame('ok', $timingReport['status']);
         $this->assertTrue(is_numeric(data_get($timingReport, 'sections.code_graph.p95_ms')));
         $this->assertTrue(is_numeric(data_get($timingReport, 'trend.sections.memory.latest_p95_ms')));
+    }
+
+    public function test_pack_cache_reuses_workspace_query_and_corpus_fingerprint_until_corpus_changes(): void
+    {
+        $ledgerPath = $this->configureDeliveredPackLedger();
+        config()->set('atlas.aobg.pack_cache.enabled', true);
+        config()->set('atlas.aobg.pack_cache.ttl_seconds', 300);
+        Cache::flush();
+
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-cache-a', 'Embedding decision cache note A', true, 'normal');
+
+        $packA = $this->service()->packFor('embedding decision cache');
+        $packB = $this->service()->packFor('embedding decision cache');
+
+        $this->assertSame((string) $packA['context_pack_hash'], (string) $packB['context_pack_hash']);
+        $this->assertSame('miss', data_get($packA, 'cache.status'));
+        $this->assertSame('hit', data_get($packB, 'cache.status'));
+        $this->assertSame(data_get($packA, 'cache.query_hash'), data_get($packB, 'cache.query_hash'));
+        $this->assertSame(data_get($packA, 'cache.corpus_fingerprint'), data_get($packB, 'cache.corpus_fingerprint'));
+        $this->assertSame(0.0, data_get($packB, 'timings_ms.code_graph'));
+        $this->assertSame(0.0, data_get($packB, 'timings_ms.reality_graph'));
+        $this->assertSame(0.0, data_get($packB, 'timings_ms.memory'));
+
+        $ledger = new AtlasDeliveredPackLedger($ledgerPath);
+        $entries = $ledger->lookupMany([(string) $packA['context_pack_hash']])['entries'];
+        $this->assertSame(['miss', 'hit'], array_map(
+            static fn (array $entry): string => (string) data_get($entry, 'cache.status'),
+            $entries,
+        ));
+
+        $fingerprintBefore = (string) data_get($packB, 'cache.corpus_fingerprint');
+        $this->seedMemory('mem-cache-b', 'Embedding decision cache note B changes corpus fingerprint', true, 'normal');
+
+        $packC = $this->service()->packFor('embedding decision cache');
+
+        $this->assertSame('miss', data_get($packC, 'cache.status'));
+        $this->assertNotSame($fingerprintBefore, (string) data_get($packC, 'cache.corpus_fingerprint'));
     }
 
     public function test_feedback_request_preserves_bare_flow_id_without_relabeling_domain(): void
