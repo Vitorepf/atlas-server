@@ -79,6 +79,31 @@ final class VerificationCourtAcceptanceGateTest extends TestCase
         }
     }
 
+    public function test_master_plan_role_names_are_normalized_at_the_court_boundary(): void
+    {
+        $facts = $this->courtFacts();
+        $facts['required_roles'] = EngineeringRoleRoster::CANONICAL_ROLES;
+        $facts['dispositions'] = array_map(
+            static fn (array $disposition): array => array_replace($disposition, ['role' => EngineeringRoleRoster::canonicalRole((string) $disposition['role'])]),
+            $facts['dispositions'],
+        );
+
+        $verdict = (new VerificationCourtAcceptanceGate)->certify($this->bundle($facts), TrustLevel::Dev);
+
+        self::assertSame(CertVerdict::PROMOTE, $verdict->status);
+    }
+
+    public function test_unknown_master_role_is_fail_closed(): void
+    {
+        $facts = $this->courtFacts();
+        $facts['required_roles'][0] = 'invented_quality_role';
+
+        $verdict = (new VerificationCourtAcceptanceGate)->certify($this->bundle($facts), TrustLevel::Dev);
+
+        self::assertSame(CertVerdict::REFUSE, $verdict->status);
+        self::assertStringContainsString('unknown_quality_foundry_role', $verdict->invariants['verification_roles']['detail']);
+    }
+
     /** @param array<string,mixed>|null $facts */
     private function bundle(?array $facts = null): \App\Services\Ai\EngineeringKernel\AcceptanceBundle
     {

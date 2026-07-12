@@ -11,6 +11,50 @@ final class EngineeringRoleRoster
 {
     public const OFFICIAL_ROLES = AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLES;
 
+    /** The exact public vocabulary frozen by the Quality Foundry master plan. */
+    public const CANONICAL_ROLES = [
+        'product_strategy', 'product_management', 'domain_research', 'ux_research',
+        'interaction_design', 'visual_design', 'software_architecture', 'backend',
+        'frontend', 'mobile', 'data', 'qa_test', 'appsec_privacy',
+        'performance_resilience', 'devops_sre', 'observability', 'release',
+        'technical_docs_dx', 'maintainability_simplification', 'outcome_analysis',
+        'evidence_audit', 'final_certification',
+    ];
+
+    /** @var array<string,string> */
+    private const LEGACY_TO_CANONICAL = [
+        'architecture' => 'software_architecture',
+        'qa_testing' => 'qa_test',
+        'documentation_dx' => 'technical_docs_dx',
+        'maintenance_simplification' => 'maintainability_simplification',
+    ];
+
+    public static function canonicalRole(string $role): string
+    {
+        if (in_array($role, self::CANONICAL_ROLES, true)) {
+            return $role;
+        }
+        if (isset(self::LEGACY_TO_CANONICAL[$role])) {
+            return self::LEGACY_TO_CANONICAL[$role];
+        }
+
+        throw new InvalidArgumentException('unknown_quality_foundry_role:'.$role);
+    }
+
+    public static function runtimeRole(string $role): string
+    {
+        $canonical = self::canonicalRole($role);
+        $legacy = array_search($canonical, self::LEGACY_TO_CANONICAL, true);
+
+        return $legacy === false ? $canonical : $legacy;
+    }
+
+    /** @return list<string> */
+    public static function canonicalRoster(): array
+    {
+        return array_map(static fn (string $role): string => self::canonicalRole($role), self::OFFICIAL_ROLES);
+    }
+
     /**
      * @param  array<string,mixed>  $roster
      * @return array<string,array<string,mixed>>

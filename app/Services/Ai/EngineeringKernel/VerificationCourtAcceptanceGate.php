@@ -74,7 +74,12 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
     /** @return array{status:string,detail:string} */
     private function roles(array $facts): array
     {
-        $required = array_values(array_filter(array_map('strval', (array) ($facts['required_roles'] ?? []))));
+        $rawRequired = array_values(array_filter(array_map('strval', (array) ($facts['required_roles'] ?? []))));
+        try {
+            $required = array_map(static fn (string $role): string => EngineeringRoleRoster::runtimeRole($role), $rawRequired);
+        } catch (\InvalidArgumentException $exception) {
+            return ['status' => 'fail', 'detail' => $exception->getMessage()];
+        }
         $dispositions = is_array($facts['dispositions'] ?? null) ? $facts['dispositions'] : [];
         if ($required !== EngineeringRoleRoster::OFFICIAL_ROLES) {
             return [
@@ -85,7 +90,12 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
         $byRole = [];
         foreach ($dispositions as $disposition) {
             if (is_array($disposition)) {
-                $byRole[(string) ($disposition['role'] ?? '')] = $disposition;
+                try {
+                    $role = EngineeringRoleRoster::runtimeRole((string) ($disposition['role'] ?? ''));
+                } catch (\InvalidArgumentException) {
+                    $role = (string) ($disposition['role'] ?? '');
+                }
+                $byRole[$role] = $disposition;
             }
         }
         $blockers = [];

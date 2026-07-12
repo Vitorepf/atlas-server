@@ -52,6 +52,11 @@ evidence_audit, final_certification
 
 Each persisted disposition contains: schema, run/delivery/order hashes, role key, `pass|block|not_applicable`, risk/depth, applicability rule/hash, rationale, evidence refs/hashes, author/builder/verifier/final-certifier identities, signer/provenance, timestamp and canonical receipt hash.
 
+The public Quality Foundry vocabulary above is authoritative. The existing runtime aliases
+(`architecture`, `qa_testing`, `documentation_dx`, `maintenance_simplification`) are accepted only
+as a compatibility input at the Kernel boundary and are normalized to the four canonical keys;
+new Court facts and public rosters must use the canonical names.
+
 Official quality states are conjunctive:
 
 - `art_grade_delivery`: every applicable role passes and no red is hidden.

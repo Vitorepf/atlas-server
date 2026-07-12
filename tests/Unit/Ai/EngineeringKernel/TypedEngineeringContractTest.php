@@ -28,6 +28,19 @@ final class TypedEngineeringContractTest extends TestCase
         $this->assertCount(9, AtlasRealEngineeringCompanyRuntimeService::ROLES, 'Phase 1 migration remains explicit.');
     }
 
+    public function test_quality_foundry_public_roster_is_exactly_the_master_plan_vocabulary(): void
+    {
+        $this->assertCount(22, EngineeringRoleRoster::CANONICAL_ROLES);
+        $this->assertSame(
+            EngineeringRoleRoster::CANONICAL_ROLES,
+            EngineeringRoleRoster::canonicalRoster(),
+        );
+        $this->assertSame('software_architecture', EngineeringRoleRoster::canonicalRole('architecture'));
+        $this->assertSame('architecture', EngineeringRoleRoster::runtimeRole('software_architecture'));
+        $this->assertSame('qa_test', EngineeringRoleRoster::canonicalRole('qa_testing'));
+        $this->assertSame('documentation_dx', EngineeringRoleRoster::runtimeRole('technical_docs_dx'));
+    }
+
     public function test_execution_order_is_complete_canonical_and_deterministic(): void
     {
         $order = ExecutionOrder::fromArray($this->validOrder());
