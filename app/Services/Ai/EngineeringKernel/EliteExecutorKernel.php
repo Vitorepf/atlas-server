@@ -930,6 +930,8 @@ final class EliteExecutorKernel
         $outcome = (array) ($payload['outcome'] ?? []);
         if ($known === null || ! $this->ledger()->eventIntegrityValid($known)
             || ! hash_equals((string) ($payload['order_hash'] ?? ''), $observation->orderHash)
+            || ! hash_equals((string) ($outcome['run_id'] ?? ''), $observation->runId)
+            || ! hash_equals((string) ($outcome['delivery_id'] ?? ''), $observation->deliveryId)
             || ! hash_equals((string) ($outcome['outcome_hash'] ?? ''), $observation->outcomeHash)
             || ! hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash)) {
             throw new \InvalidArgumentException('outcome_observation_unknown_correlation');

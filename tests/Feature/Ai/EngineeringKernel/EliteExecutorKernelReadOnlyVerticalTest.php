@@ -1748,6 +1748,24 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         ]));
     }
 
+    public function test_observe_outcome_refuses_run_identity_mismatch(): void
+    {
+        $kernel = app(EliteExecutorKernel::class);
+        $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_unknown_correlation');
+        $kernel->observeOutcome(OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1',
+            'run_id' => 'forged-run-id', 'delivery_id' => 'delivery-read-only',
+            'release_hash' => $outcome->correlatedHashes['release'],
+            'order_hash' => $outcome->correlatedHashes['order'],
+            'outcome_hash' => $outcome->outcomeHash,
+            'window' => '0h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'read_only'], 'provenance' => ['source' => 'kernel_test'],
+        ]));
+    }
+
     /** @return array<string,mixed> */
     private function orderData(bool $seedEvidence = true, bool $completeApplicability = true): array
     {
