@@ -293,7 +293,7 @@
 
 ## LOTE 12 — Fecho (o mesmo corte)
 - [ ] Critérios §vii 1-10 + §viii 11-17 + pétreos §xiii + §xv 18-21 (mission_e2e ≥ alvo · N-Capture Drill executado · ≥1 volta proven_real fora de engenharia · Trajectory Vault com privacy provada) — verdes NO MESMO CORTE — pending
-- [ ] MAXG-08 (Marco Zero v2; gatilho ADV-01) — pending
+- [ ] MAXG-08 (Marco Zero v2; gatilho ADV-01) — blocked_by:ADV-01(veredito_10de10_confirmado),EVI-04/05/06 · slice §1142 é o SELO v2 pos-10/10 — pétreo §1143: "quando o v1 certificar 10/10, congelar régua nova sem invalidar a série v1". Mecânica pétrea §1144: `atlas:acos:marco-zero --freeze-v2` **gated: exige veredito ADV-01 confirmado no ledger** — hoje ADV-01 [x] landed em `435f0363d` com 6 vereditos externos no JSONL, mas o corte 2026-07-12 mostra `latest-per-certifier: 5 confirmed (PIP-07/COM-10/OPE-06/ENG-12/RAG-12) · 1 refuted (CPT-10 pending_soak / cross-week)` — 10/10 = **5/6, não fecha**. Gate pétreo `--freeze-v2` recusa payload até TODOS certifiers estarem `confirmed`. `EVI-04/05/06` (adversarial evidence) — precisam veredito estável cross-week para promoção. Aceite (§1145: "pós-freeze, série v1 recusa append novo, v2 appenda; `--report` mostra as duas janelas separadas; arquivos v1 byte-idênticos exceto linha `sealed`") só executa pós-veredito ADV-01 confirmado por todos os 6. **PROIBIDO fazer scaffold do freeze-v2 antes do gatilho** — pétreo §1143 "nunca substituir": criar payload v2 antes do gate transforma o selo em promessa unilateral (a exata falha que o gate previne). Este item CONTINUA registry-only até o gatilho do operador — não construir
 - [ ] MAXL-10 — pending
 - [ ] REC-04 flip shadow→atuar — **GATILHO EXCLUSIVO DO OPERADOR** (M>1, R>0, freios verdes) — pending
 
