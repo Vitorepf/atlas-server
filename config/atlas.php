@@ -1186,6 +1186,16 @@ return [
             'enabled' => (bool) env('ATLAS_AI_CREDIT_ASSIGNMENT_ENABLED', false),
         ],
 
+        // MULTJ-06 — abstraction ladder enqueue. Default OFF keeps propose()
+        // read-only; when ON, `atlas:ai:abstraction-ladder --enqueue` may
+        // materialise level-3 principles into ai_learning_candidates (same
+        // queue / ASI-02 door — never a parallel queue). Pack injection seam
+        // remains separate (`pack_injection_enabled`, also default-OFF).
+        'abstraction_ladder' => [
+            'enqueue_enabled' => (bool) env('ATLAS_AI_ABSTRACTION_LADDER_ENQUEUE_ENABLED', false),
+            'pack_injection_enabled' => (bool) env('ATLAS_AI_ABSTRACTION_LADDER_PACK_INJECTION_ENABLED', false),
+        ],
+
         // AP-819 Obra A (F1) — auto-feed do cérebro de falhas. Harvester lê falhas
         // REAIS de runtime (ai_job_attempts failed/timeout + ledger OPERATION_FAILED)
         // e alimenta failure_signatures via o classificador existente, preservando o

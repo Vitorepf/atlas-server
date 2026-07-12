@@ -344,6 +344,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:atlas.ai.counterfactual_lift.v2',
             ],
             [
+                'slice' => 'MULTJ-06',
+                'series' => AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID,
+                'path' => 'atlas:ai:abstraction-ladder --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-06')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.abstraction_ladder.v1',
+            ],
+            [
                 'slice' => 'TETO-02',
                 'series' => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
                 'path' => 'atlas:mission:e2e --json',

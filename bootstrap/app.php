@@ -24,6 +24,7 @@ use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
 use App\Console\Commands\AtlasAiAutonomousHoldingCommand;
 use App\Console\Commands\AtlasAiCaptureQualityAuditCommand;
+use App\Console\Commands\AtlasAiAbstractionLadderCommand;
 use App\Console\Commands\AtlasAiCounterfactualLiftCommand;
 use App\Console\Commands\AtlasAiCyberDomainCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
@@ -272,6 +273,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,
         AtlasAiAutonomousHoldingCommand::class,
+        AtlasAiAbstractionLadderCommand::class,
         AtlasAiCounterfactualLiftCommand::class,
         AtlasAiCyberDomainCommand::class,
         AtlasAiDecideCommand::class,
