@@ -125,9 +125,9 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 
 **Allowed files:** Forge family/models/tables and shared adapters; no second event/outcome ledger.
 
-- [ ] Write RED type/contract tests for commissioning missing authority/release/interruption policy, duplicate commissioning, non-idempotent tick/control/snapshot, simulation satisfying real state and two canonical cycles.
+- [x] Write RED type/contract tests for commissioning missing authority/release/interruption policy, duplicate commissioning, non-idempotent tick/control/snapshot, simulation satisfying real state and two canonical cycles. Evidence: `ForgeObraRuntimeContractTest`, `ForgeObraRuntimeTest` and focused `ForgeWorkPacketExecutionCycleServiceTest` cover frozen commissioning, duplicate commissioning, replayed controls, snapshot reload, simulation isolation, cycle replay and productive next-packet progression.
 - [x] Implement immutable Forge types and freeze commissioning into one authority-bound Obra identity.
-- [ ] Persist a DAG of resumable packets; dependencies advance only from real Kernel outcomes. Snapshot is rebuilt from canonical events.
+- [x] Persist a DAG of resumable packets; dependencies advance only from real Kernel outcomes. Snapshot is rebuilt from canonical events. Evidence: Forge packets/cycles persist dependency and canonical cycle state; `ForgeMultiAgentSchedulerServiceTest` proves topological ordering; `ForgeWorkPacketExecutionCycleServiceTest::test_select_packet_does_not_release_dependency_before_productive_completion` blocks dependency release until productive completion; runtime tests replay snapshot hashes after reload and canonical cycle projections remain stable.
 - [ ] Run supervisor/jobs/reaper with leases, heartbeat and fencing; provider start/poll/cancel/heartbeat goes through shared ports.
 - [ ] Execute each packet through Product/Spec/Workcell/Kernel; workers never touch main and integration is serial.
 - [ ] Support pause/drain/cancel/orphan recovery at every stage with zero duplicate effect.

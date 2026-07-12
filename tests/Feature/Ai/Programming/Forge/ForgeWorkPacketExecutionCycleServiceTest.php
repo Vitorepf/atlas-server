@@ -88,6 +88,31 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertNotSame($first, (string) $selected->packet_id, 'blocked packet must be excluded');
     }
 
+    public function test_select_packet_does_not_release_dependency_before_productive_completion(): void
+    {
+        $intake = $this->readyIntake();
+        $packets = $intake->workPackets()->orderBy('packet_position')->get();
+        $dependent = $packets[0];
+        $dependency = $packets[1];
+        $dependent->update(['dependencies' => [(string) $dependency->packet_id]]);
+        foreach ($packets->slice(2) as $other) {
+            $other->update(['status' => ForgeIntakeCanon::PACKET_STATUS_BLOCKED]);
+        }
+        $intake->refresh();
+
+        $selected = $this->cycles->selectPacket($intake);
+
+        $this->assertNotNull($selected);
+        $this->assertSame((string) $dependency->packet_id, (string) $selected->packet_id);
+
+        $dependency->update(['status' => ForgeIntakeCanon::PACKET_STATUS_DONE]);
+        $intake->refresh();
+        $selectedAfterCompletion = $this->cycles->selectPacket($intake);
+
+        $this->assertNotNull($selectedAfterCompletion);
+        $this->assertSame((string) $dependent->packet_id, (string) $selectedAfterCompletion->packet_id);
+    }
+
     public function test_plan_execution_defaults_to_safe_simulation_and_appends_simulation_log_evidence_kind(): void
     {
         $intake = $this->readyIntake();

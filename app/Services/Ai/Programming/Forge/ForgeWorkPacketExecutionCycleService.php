@@ -131,7 +131,43 @@ class ForgeWorkPacketExecutionCycleService
             }
         }
 
-        $available = $packets->reject(static fn (AiForgeWorkPacket $p): bool => in_array((string) $p->packet_id, $blockedPacketIds, true));
+        $completedPacketIds = [];
+        if ($state !== null) {
+            $completedPacketIds = array_merge(
+                $completedPacketIds,
+                array_values(array_filter(
+                    (array) ($state->completed_work_packets ?? []),
+                    static fn ($id): bool => is_string($id) && $id !== '',
+                )),
+            );
+        }
+        $completedPacketIds = array_merge(
+            $completedPacketIds,
+            $intake->workPackets()
+                ->where('status', ForgeIntakeCanon::PACKET_STATUS_DONE)
+                ->pluck('packet_id')
+                ->map(static fn ($id): string => (string) $id)
+                ->all(),
+        );
+        $completedPacketIds = array_values(array_unique($completedPacketIds));
+
+        // A packet can only become claimable after every declared dependency
+        // has a productive terminal outcome. Simulation, planned and merely
+        // claimed states never satisfy this gate.
+        $available = $packets->reject(function (AiForgeWorkPacket $packet) use ($blockedPacketIds, $completedPacketIds): bool {
+            if (in_array((string) $packet->packet_id, $blockedPacketIds, true)) {
+                return true;
+            }
+
+            foreach ((array) ($packet->dependencies ?? []) as $dependency) {
+                $dependencyId = is_string($dependency) ? trim($dependency) : '';
+                if ($dependencyId !== '' && ! in_array($dependencyId, $completedPacketIds, true)) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
         if ($available->isEmpty()) {
             return null;
         }
