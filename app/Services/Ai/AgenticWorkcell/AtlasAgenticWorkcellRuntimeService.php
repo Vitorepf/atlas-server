@@ -440,6 +440,15 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function workcellAdmission(array $input, string $topology, array $roles, int $risk, array $evidenceRefs): array
     {
+        $requestedTopology = AiValueNormalizer::trimmedScalarStringOrNull($input['topology'] ?? null);
+        if ($requestedTopology !== null && ! in_array($requestedTopology, self::TOPOLOGIES, true)) {
+            return [
+                'schema_version' => 'atlas.agentic_workcell.admission.v1',
+                'status' => 'blocked',
+                'reason' => 'unsupported_workcell_topology',
+                'requested_topology' => $requestedTopology,
+            ];
+        }
         $rawOrder = $input['execution_order'] ?? null;
         if ($rawOrder === null) {
             return [
@@ -467,6 +476,10 @@ final class AtlasAgenticWorkcellRuntimeService
         $orderRoleIds = array_keys($order->roleRoster);
         $workcellRoleIds = array_values(array_map(static fn (array $role): string => (string) $role['role_id'], $roles));
         $blockers = [];
+        $mappedTopology = $this->executionOrderTopologyMap($order->workTopology);
+        if ($mappedTopology !== $topology) {
+            $blockers[] = 'execution_order_topology_mismatch';
+        }
         if ($orderRoleIds !== EngineeringRoleRoster::OFFICIAL_ROLES || $workcellRoleIds !== EngineeringRoleRoster::OFFICIAL_ROLES) {
             $blockers[] = 'official_22_role_roster_required';
         }
@@ -503,6 +516,9 @@ final class AtlasAgenticWorkcellRuntimeService
             'spec_hash' => $order->specHash,
             'world_model_snapshot_hash' => $order->worldModelSnapshotHash,
             'risk_class' => $order->riskClass,
+            'required_depth' => EngineeringRoleRoster::depthProfile($order->riskClass),
+            'execution_order_topology' => $order->workTopology,
+            'aawr_topology' => $mappedTopology,
             'evidence_policy' => $order->evidencePolicy,
             'authority_kind' => $order->authorityEnvelope['kind'],
             'allowed_scope' => $order->allowedScope,
@@ -511,6 +527,18 @@ final class AtlasAgenticWorkcellRuntimeService
             'integration_lane' => ['mode' => 'serial', 'protected' => true],
             'judge_context' => ['includes' => ['frozen_spec', 'candidate_artifact', 'independent_evidence'], 'excludes' => ['author_defense']],
         ];
+    }
+
+    private function executionOrderTopologyMap(string $topology): string
+    {
+        return match ($topology) {
+            'single' => 'solo_agent',
+            'candidate_set' => 'tournament',
+            'workcell' => 'lead_workers',
+            'DAG' => 'critic_chain',
+            'portfolio' => 'parallel_scouts',
+            default => 'unsupported',
+        };
     }
 
     /**

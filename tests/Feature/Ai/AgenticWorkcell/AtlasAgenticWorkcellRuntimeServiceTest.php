@@ -203,8 +203,45 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         self::assertSame('execution_order_rejected', $workcell['workcell_admission']['reason']);
     }
 
+    public function test_execution_order_topology_mapping_is_explicit_for_every_kernel_topology(): void
+    {
+        $mapping = [
+            'single' => 'solo_agent', 'candidate_set' => 'tournament', 'workcell' => 'lead_workers',
+            'DAG' => 'critic_chain', 'portfolio' => 'parallel_scouts',
+        ];
+        foreach ($mapping as $kernelTopology => $aawrTopology) {
+            $workcell = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+                'objective' => 'Executar topology mapping governado.', 'domain' => 'programming',
+                'topology' => $aawrTopology, 'evidence_refs' => ['fixture:order-evidence'],
+                'execution_order' => $this->executionOrder($kernelTopology),
+            ]);
+            self::assertSame('admitted', $workcell['workcell_admission']['status'], $kernelTopology);
+            self::assertSame($kernelTopology, $workcell['workcell_admission']['execution_order_topology']);
+            self::assertSame($aawrTopology, $workcell['workcell_admission']['aawr_topology']);
+            self::assertNotEmpty($workcell['workcell_admission']['required_depth']);
+        }
+    }
+
+    public function test_unsupported_topology_and_mutated_roster_fail_closed(): void
+    {
+        $unsupported = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar trabalho.', 'domain' => 'programming', 'topology' => 'not-a-topology',
+        ]);
+        self::assertSame('blocked', $unsupported['status']);
+        self::assertSame('unsupported_workcell_topology', $unsupported['workcell_admission']['reason']);
+
+        $order = $this->executionOrder();
+        unset($order['role_roster']['backend']);
+        $mutated = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar trabalho.', 'domain' => 'programming', 'topology' => 'tournament',
+            'evidence_refs' => ['fixture:order-evidence'], 'execution_order' => $order,
+        ]);
+        self::assertSame('blocked', $mutated['status']);
+        self::assertSame('execution_order_rejected', $mutated['workcell_admission']['reason']);
+    }
+
     /** @return array<string,mixed> */
-    private function executionOrder(): array
+    private function executionOrder(string $workTopology = 'candidate_set'): array
     {
         $roles = [];
         foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
@@ -214,7 +251,7 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         return [
             'schema_version' => 'atlas.execution_order.v2', 'run_id' => 'run-workcell', 'delivery_id' => 'delivery-workcell',
             'mode' => 'forge', 'risk_class' => 'R3', 'complexity_band' => 'C3', 'duration_regime' => 'durable_task',
-            'work_topology' => 'candidate_set', 'product_intent_verdict_hash' => hash('sha256', 'intent-workcell'),
+            'work_topology' => $workTopology, 'product_intent_verdict_hash' => hash('sha256', 'intent-workcell'),
             'spec_hash' => hash('sha256', 'spec-workcell'), 'world_model_snapshot_hash' => hash('sha256', 'world-workcell'),
             'workspace' => 'atlas-server', 'base_commit' => str_repeat('a', 40), 'allowed_scope' => ['app'], 'forbidden_scope' => ['.env'],
             'authority_envelope' => ['kind' => 'shared', 'authority_hash' => hash('sha256', 'authority-workcell')],
