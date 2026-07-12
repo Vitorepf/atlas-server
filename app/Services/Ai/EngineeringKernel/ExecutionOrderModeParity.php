@@ -42,6 +42,9 @@ final class ExecutionOrderModeParity
             }
         }
 
+        ksort($parsed);
+        ksort($errors);
+
         $missingModes = array_values(array_diff(self::MODES, array_keys($parsed)));
         $unexpectedModes = array_values(array_diff(array_keys($parsed), self::MODES));
         $mismatches = [];
@@ -107,7 +110,9 @@ final class ExecutionOrderModeParity
             }
         }
 
-        $presentModes = array_keys($outcomes);
+        $normalizedOutcomes = $outcomes;
+        ksort($normalizedOutcomes);
+        $presentModes = array_keys($normalizedOutcomes);
         sort($presentModes);
         $requiredModes = self::MODES;
         sort($requiredModes);
@@ -115,6 +120,7 @@ final class ExecutionOrderModeParity
             'schema_version' => self::SCHEMA_VERSION,
             'parity' => $mismatches === [] && $presentModes === $requiredModes,
             'required_modes' => self::MODES,
+            'outcomes' => $normalizedOutcomes,
             'mismatches' => $mismatches,
             'claim_eligible_all_false' => array_reduce($outcomes, static fn (bool $ok, array $outcome): bool => $ok && ($outcome['claim_eligible'] ?? false) === false, true),
         ];

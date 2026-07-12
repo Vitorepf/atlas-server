@@ -33,6 +33,9 @@ final class ExecutionOrderModeParityTest extends TestCase
         self::assertTrue($report['parity']);
         self::assertSame([], $report['mismatches']);
         self::assertSame(64, strlen($report['parity_hash']));
+
+        $reversed = array_reverse($orders, true);
+        self::assertSame($report['parity_hash'], (new ExecutionOrderModeParity)->compareOrders($reversed)['parity_hash']);
     }
 
     public function test_changed_shared_spec_binding_is_not_mode_parity(): void
@@ -65,6 +68,13 @@ final class ExecutionOrderModeParityTest extends TestCase
         $report = (new ExecutionOrderModeParity)->compareTerminalOutcomes($outcomes);
         self::assertTrue($report['parity']);
         self::assertTrue($report['claim_eligible_all_false']);
+
+        $reversed = array_reverse($outcomes, true);
+        self::assertSame($report['parity_hash'], (new ExecutionOrderModeParity)->compareTerminalOutcomes($reversed)['parity_hash']);
+
+        $different = $outcomes;
+        $different['dev']['disposition'] = 'hold';
+        self::assertNotSame($report['parity_hash'], (new ExecutionOrderModeParity)->compareTerminalOutcomes($different)['parity_hash']);
 
         $outcomes['autonomos']['claim_eligible'] = true;
         $report = (new ExecutionOrderModeParity)->compareTerminalOutcomes($outcomes);
