@@ -1732,6 +1732,33 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         )));
     }
 
+    public function test_observation_windows_are_independent_and_replayable(): void
+    {
+        $kernel = app(EliteExecutorKernel::class);
+        $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
+        $base = [
+            'schema_version' => 'atlas.outcome_observation.v1',
+            'run_id' => $this->canonicalRunId ?? 'run-read-only',
+            'delivery_id' => 'delivery-read-only',
+            'release_hash' => $outcome->correlatedHashes['release'],
+            'order_hash' => $outcome->correlatedHashes['order'],
+            'outcome_hash' => $outcome->outcomeHash,
+            'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'read_only'],
+            'provenance' => ['source' => 'kernel_test'],
+        ];
+
+        $zeroHour = $kernel->observeOutcome(OutcomeObservation::fromArray($base + ['window' => '0h']));
+        $twentyFourHours = $kernel->observeOutcome(OutcomeObservation::fromArray($base + ['window' => '24h']));
+
+        $this->assertNotSame($zeroHour->ledgerEventRef, $twentyFourHours->ledgerEventRef);
+        $this->assertSame('held_for_causal_adjudication', $twentyFourHours->status);
+        $this->assertSame(
+            $twentyFourHours->ledgerEventRef,
+            $kernel->observeOutcome(OutcomeObservation::fromArray($base + ['window' => '24h']))->ledgerEventRef,
+        );
+    }
+
     public function test_observe_outcome_refuses_unknown_correlation(): void
     {
         $this->expectException(InvalidArgumentException::class);
