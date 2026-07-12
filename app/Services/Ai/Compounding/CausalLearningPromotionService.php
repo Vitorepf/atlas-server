@@ -17,6 +17,20 @@ final class CausalLearningPromotionService
         if ($verdict->verdict !== 'promote_reversible' || ! in_array($candidate->data['change_class'], ['routing', 'memory_policy', 'operational_policy'], true)) {
             throw new InvalidArgumentException('causal_policy_promotion_refused');
         }
+        $expectedDecisionHash = CompoundingHash::make([
+            'candidate' => $candidate->candidateHash,
+            'verdict' => $verdict->verdict,
+            'reason' => $verdict->reason,
+        ]);
+        if (! hash_equals($expectedDecisionHash, $verdict->decisionHash)) {
+            throw new InvalidArgumentException('causal_verdict_stale_or_mismatched');
+        }
+        if ($verdict->claimEligible) {
+            throw new InvalidArgumentException('causal_claim_authority_escalation');
+        }
+        if (date_create_immutable((string) $candidate->data['expiry']) <= new \DateTimeImmutable('now')) {
+            throw new InvalidArgumentException('causal_policy_promotion_expired');
+        }
         if ($candidate->data['reversible'] !== true || trim($candidate->data['rollback']) === '' || trim($nextVersion) === '') {
             throw new InvalidArgumentException('causal_policy_rollback_contract_invalid');
         }

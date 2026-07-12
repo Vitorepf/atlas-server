@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\Compounding;
 use App\Services\Ai\Compounding\CausalLearningCandidate;
 use App\Services\Ai\Compounding\CausalLearningGate;
 use App\Services\Ai\Compounding\CausalLearningPromotionService;
+use App\Services\Ai\Compounding\CausalLearningVerdict;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -42,6 +43,45 @@ final class CausalLearningPromotionTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         (new CausalLearningPromotionService)->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+    }
+
+    public function test_verdict_from_another_candidate_cannot_be_reused(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray($this->candidate());
+        $other = CausalLearningCandidate::fromArray(array_replace($this->candidate(), ['scope' => 'other.scope']));
+        $verdict = (new CausalLearningGate)->adjudicate($other);
+
+        $this->expectExceptionMessage('causal_verdict_stale_or_mismatched');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+    }
+
+    public function test_claim_eligibility_cannot_be_escalated_by_learning_layer(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray($this->candidate());
+        $gateVerdict = (new CausalLearningGate)->adjudicate($candidate);
+        $verdict = new CausalLearningVerdict($gateVerdict->verdict, $gateVerdict->reason, $gateVerdict->decisionHash, true);
+
+        $this->expectExceptionMessage('causal_claim_authority_escalation');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+    }
+
+    public function test_expired_candidate_cannot_be_promoted_even_with_a_stale_green_verdict(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->candidate(), [
+            'expiry' => '2026-07-01T00:00:00Z',
+        ]));
+        $verdict = new CausalLearningVerdict(
+            'promote_reversible',
+            'causal_evidence_admitted',
+            \App\Services\Ai\Compounding\CompoundingHash::make([
+                'candidate' => $candidate->candidateHash,
+                'verdict' => 'promote_reversible',
+                'reason' => 'causal_evidence_admitted',
+            ]),
+        );
+
+        $this->expectExceptionMessage('causal_policy_promotion_expired');
+        (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
     }
 
     /** @return array<string,mixed> */
