@@ -43,9 +43,13 @@ final class AtlasDevGateAdapter implements AcceptanceGate
     /** Pass-through so the adapter itself can be bound as the AcceptanceGate for a surface. */
     public function certify(AcceptanceBundle $bundle, TrustLevel $trust): CertVerdict
     {
-        return array_key_exists('verification_court', $bundle->nonFunctional)
-            ? (new VerificationCourtAcceptanceGate($this->floor))->certify($bundle, $trust)
-            : $this->floor->certify($bundle, $trust);
+        if (array_key_exists('verification_court', $bundle->nonFunctional)) {
+            return (new VerificationCourtAcceptanceGate($this->floor))->certify($bundle, $trust);
+        }
+
+        return $this->floor->certify($bundle, $trust)->withInvariant(
+            'verification_court_migration', 'observe', 'legacy_bundle_without_quality_foundry_court_facts',
+        );
     }
 
     /**

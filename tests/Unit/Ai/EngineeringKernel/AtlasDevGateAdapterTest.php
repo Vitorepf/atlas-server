@@ -54,6 +54,8 @@ final class AtlasDevGateAdapterTest extends TestCase
         $verdict = $adapter->certifyDevDelivery($this->passingDevEvidence(), TrustLevel::Dev);
 
         self::assertSame(CertVerdict::PROMOTE, $verdict->status, 'blockers: '.implode(',', $verdict->blockers));
+        self::assertSame('observe', $verdict->invariants['verification_court_migration']['status']);
+        self::assertSame('legacy_bundle_without_quality_foundry_court_facts', $verdict->invariants['verification_court_migration']['detail']);
     }
 
     public function test_mutation_report_from_verdict_maps_msi_and_no_op(): void

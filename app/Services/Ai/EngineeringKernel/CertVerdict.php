@@ -58,6 +58,18 @@ final readonly class CertVerdict
         return new self($this->status, $this->blockers, $this->invariants, $this->witnessSet, $receiptRef);
     }
 
+    /** Add an explicit migration/readiness fact without changing the decision. */
+    public function withInvariant(string $id, string $status, string $detail): self
+    {
+        return new self(
+            $this->status,
+            $this->blockers,
+            array_merge($this->invariants, [$id => ['status' => $status, 'detail' => $detail]]),
+            $this->witnessSet,
+            $this->receiptRef,
+        );
+    }
+
     public function promoted(): bool
     {
         return $this->status === self::PROMOTE;
