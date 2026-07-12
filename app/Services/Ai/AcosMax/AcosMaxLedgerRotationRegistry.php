@@ -236,6 +236,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
             ],
+            'atlas.n_capture_drill.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 365,
+                'mode' => 'append_forever',
+                'rationale' => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
+            ],
         ];
     }
 

@@ -350,6 +350,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_days' => \App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
                 'ttl_source' => 'freeze:atlas.immune.classifier_hybrid.v1',
             ],
+            [
+                'slice' => 'TETO-01',
+                'series' => \App\Services\Ai\AcosMax\AtlasNCaptureDrillService::MEASURE_ID,
+                'path' => storage_path(\App\Services\Ai\AcosMax\AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH),
+                'source_type' => 'jsonl',
+                'timestamp_field' => 'recorded_at',
+                'ttl_days' => 365,
+                'ttl_source' => 'freeze:atlas.n_capture_drill.v1',
+            ],
         ];
     }
 
