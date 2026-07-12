@@ -107,6 +107,8 @@ class AiProviderHandoffService
                 'long_horizon_compaction_receipt_scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_HANDOFF,
                 'long_horizon_compaction_receipt_coverage' => $receipt['must_keep_coverage'] ?? null,
                 'long_horizon_compaction_receipt_loss_risk' => $receipt['loss_risk'] ?? null,
+                'long_horizon_compaction_receipt_status' => $receipt['status'] ?? null,
+                'long_horizon_compaction_receipt_reason' => $receipt['reason'] ?? null,
             ]),
         ])->save();
 

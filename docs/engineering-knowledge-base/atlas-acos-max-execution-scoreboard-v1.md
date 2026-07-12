@@ -9,9 +9,9 @@
 - [ ] TETO-06 — blocked_by:ELEV-22 (deps: claims/blackboard; desbloqueia ao landar ELEV-22)
 - [x] TETO-09 — landed(8e8b54d42c) · Evidence Ledger event_id=`01KXA1SZ0TYE2VZ9HAG46YDY0D` · content_hash=`b6f672b050b12282540eeb797bedfec7ca70b7546fa7efa306c7c5da757c509d` · opção b endurecimento áreas 2/11/14 · gatilhos MULTX-02/incidente
 - [x] MAXG-01 (mínimo) — landed(f1f75d5dda) · freeze `aobg.latency_ledger.v1` content_hash=`9f1338cdd9d78e3a1b8e360455a8684fbdf22e8b0364877fb2704b2c5fe23fd3` · JSONL `storage/app/atlas/evidence/acos-measure-freeze.jsonl` · ledger `storage/atlas/aobg/latency-ledger/` · cmd `atlas:context:latency` · WDG `wdg-01.aobg_latency` · aceite pleno p95-de-1d = pending_window
-- [ ] MAXE-02 — pending
-- [ ] MAXE-03 — pending
-- [ ] MAXF-01 — pending
+- [x] MAXE-02 — landed · removed absolute duplicate AOBG hooks in .claude/settings.json (1×/event)
+- [x] MAXE-03 — landed · atlas-ctx.sh activate TTL 6h + hard timeout/perl-alarm on pack
+- [x] MAXF-01 — landed · compactForScope failed_open + repair migration receipts; live Schema@5433 pending_window (pgsql hang)
 - [ ] MAXE-01 — pending
 - [ ] ELEV-22 — pending
 

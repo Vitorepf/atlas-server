@@ -274,6 +274,8 @@ class AiCompactionServiceCompactForScopeTest extends TestCase
             ],
         ]);
 
+        $this->assertSame('failed_open', $out['status']);
+        $this->assertSame('atlas_long_horizon_compaction_receipts_table_missing', $out['reason']);
         $this->assertFalse($out['persisted']);
         $this->assertNull($out['compaction_receipt_id']);
         $this->assertNotSame('', (string) $out['receipt_uuid']);

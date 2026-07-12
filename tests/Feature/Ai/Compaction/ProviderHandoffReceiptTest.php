@@ -57,7 +57,31 @@ final class ProviderHandoffReceiptTest extends TestCase
         $this->assertSame(1.0, $receipt->must_keep_coverage);
         $this->assertSame([], $receipt->unresolved_loss);
         $this->assertSame(AtlasLongHorizonCanon::LOSS_RISK_LOW, $receipt->loss_risk);
+        $this->assertSame('persisted', data_get($handoff->metadata, 'long_horizon_compaction_receipt_status'));
         $this->assertSame($receipt->receipt_hash, data_get($handoff->metadata, 'long_horizon_compaction_receipt_hash'));
+    }
+
+    public function test_provider_switch_fails_open_when_receipts_table_is_missing(): void
+    {
+        [$thread, $session] = $this->threadSessionWithState();
+        Schema::dropIfExists('atlas_long_horizon_compaction_receipts');
+
+        $handoff = app(AiProviderHandoffService::class)->createIfSwitching(
+            $thread,
+            $session,
+            'gpt',
+            metadata: ['trigger' => 'missing_receipt_table_test'],
+        );
+
+        $this->assertInstanceOf(AiProviderHandoff::class, $handoff);
+        $this->assertDatabaseCount('ai_provider_handoffs', 1);
+        $this->assertFalse(Schema::hasTable('atlas_long_horizon_compaction_receipts'));
+        $this->assertSame('failed_open', data_get($handoff->metadata, 'long_horizon_compaction_receipt_status'));
+        $this->assertSame(
+            'atlas_long_horizon_compaction_receipts_table_missing',
+            data_get($handoff->metadata, 'long_horizon_compaction_receipt_reason'),
+        );
+        $this->assertNotEmpty(data_get($handoff->metadata, 'long_horizon_compaction_receipt_hash'));
     }
 
     public function test_skip_providers_come_from_config_not_hardcoded_list(): void

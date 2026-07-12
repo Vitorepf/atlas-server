@@ -827,10 +827,12 @@ class AiCompactionService
         $receiptHash = AtlasLongHorizonCompactionReceipt::canonicalReceiptHash($payload);
         $payload['receipt_hash'] = $receiptHash;
 
+        $hasReceiptTable = DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts');
+
         // Fail-open like persistConversationCompactionReceipt(): a missing
         // receipts table degrades to an unpersisted receipt instead of a
         // QueryException inside the gateway enqueue/handoff path.
-        $row = DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')
+        $row = $hasReceiptTable
             ? AtlasLongHorizonCompactionReceipt::query()->create($payload)
             : null;
 
@@ -842,6 +844,8 @@ class AiCompactionService
 
         return [
             'schema_version' => AtlasLongHorizonCanon::COMPACTION_RECEIPT_SCHEMA_VERSION,
+            'status' => $hasReceiptTable ? 'persisted' : 'failed_open',
+            'reason' => $hasReceiptTable ? null : 'atlas_long_horizon_compaction_receipts_table_missing',
             'persisted' => $row !== null,
             'compaction_receipt_id' => $row?->id,
             'receipt_uuid' => $payload['uuid'],
