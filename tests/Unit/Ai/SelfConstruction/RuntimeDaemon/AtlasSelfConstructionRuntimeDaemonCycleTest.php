@@ -122,6 +122,39 @@ final class AtlasSelfConstructionRuntimeDaemonCycleTest extends TestCase
         $this->assertSame('audit boom', $out['blocked_actions'][0]['error']);
     }
 
+    public function test_duplicate_idempotent_actions_execute_once_and_replay_is_withheld_after_restart(): void
+    {
+        $calls = 0;
+        $cycle = new AtlasSelfConstructionRuntimeDaemonCycle;
+        $facts = $this->readyFacts(['planned_actions' => [
+            ['kind' => 'native_tick', 'idempotency_key' => 'action-1'],
+            ['kind' => 'native_tick', 'idempotency_key' => 'action-1'],
+        ]]);
+        $callback = static function () use (&$calls): array {
+            $calls++;
+
+            return ['ok' => true];
+        };
+
+        $first = $cycle->tick($facts, ['apply' => true, 'action_callbacks' => ['native_tick' => $callback]]);
+        self::assertSame(1, $calls);
+        self::assertCount(1, $first['applied_actions']);
+        self::assertSame('duplicate_action', $first['withheld_actions'][0]['reason']);
+        self::assertSame(['action-1'], $first['idempotency']['duplicate_action_keys']);
+
+        $restarted = $cycle->tick(
+            $this->readyFacts([
+                'completed_action_keys' => ['action-1'],
+                'planned_actions' => [['kind' => 'native_tick', 'idempotency_key' => 'action-1']],
+            ]),
+            ['apply' => true, 'action_callbacks' => ['native_tick' => $callback]],
+        );
+        self::assertSame(1, $calls);
+        self::assertSame([], $restarted['applied_actions']);
+        self::assertSame('idempotency_replay', $restarted['withheld_actions'][0]['reason']);
+        self::assertSame(['action-1'], $restarted['idempotency']['replayed_action_keys']);
+    }
+
     public function test_refused_action_kinds_never_fire_even_with_callback(): void
     {
         $touched = false;

@@ -88,12 +88,44 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
         $appliedActions = [];
         $blockedActions = [];
         $withheldActions = [];
+        $seenActionKeys = [];
+        $replayedActionKeys = [];
+        $duplicateActionKeys = [];
+        $completedActionKeys = array_values(array_unique(array_filter(array_map(
+            static fn (mixed $key): string => trim((string) $key),
+            (array) ($facts['completed_action_keys'] ?? []),
+        ))));
 
         foreach ($plannedActions as $action) {
             if (! is_array($action)) {
                 continue;
             }
             $kind = (string) ($action['kind'] ?? '');
+            $actionKey = trim((string) ($action['idempotency_key'] ?? ''));
+
+            if ($actionKey !== '' && in_array($actionKey, $completedActionKeys, true)) {
+                $replayedActionKeys[] = $actionKey;
+                $withheldActions[] = [
+                    'kind' => $kind,
+                    'reason' => 'idempotency_replay',
+                    'idempotency_key' => $actionKey,
+                ];
+
+                continue;
+            }
+            if ($actionKey !== '' && in_array($actionKey, $seenActionKeys, true)) {
+                $duplicateActionKeys[] = $actionKey;
+                $withheldActions[] = [
+                    'kind' => $kind,
+                    'reason' => 'duplicate_action',
+                    'idempotency_key' => $actionKey,
+                ];
+
+                continue;
+            }
+            if ($actionKey !== '') {
+                $seenActionKeys[] = $actionKey;
+            }
 
             if (in_array($kind, self::REFUSED_ACTION_KINDS, true)) {
                 $withheldActions[] = [
@@ -161,7 +193,13 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
             }
         }
 
-        $cycleReceiptHash = $this->cycleReceiptHash($nextState, $appliedActions, $blockedActions, $poolReceipt);
+        $idempotency = [
+            'completed_action_keys' => $completedActionKeys,
+            'seen_action_keys' => $seenActionKeys,
+            'replayed_action_keys' => array_values(array_unique($replayedActionKeys)),
+            'duplicate_action_keys' => array_values(array_unique($duplicateActionKeys)),
+        ];
+        $cycleReceiptHash = $this->cycleReceiptHash($nextState, $appliedActions, $blockedActions, $poolReceipt, $idempotency);
         $actionFeedback = $this->buildActionFeedback($appliedActions, $withheldActions, $blockedActions);
 
         // Single-action-per-tick summary (AC): the first planned action IS the action this tick
@@ -207,6 +245,7 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
                 'next_safe_action' => $selectedFeedback['next_safe_action'] ?? 'no_action_this_tick',
             ],
             'safety_blockers' => array_values(array_unique($safetyBlockers)),
+            'idempotency' => $idempotency,
         ];
         $payload['daemon_cycle_hash'] = $this->hash($payload);
 
@@ -218,8 +257,9 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
      * @param  list<array<string,mixed>>  $applied
      * @param  list<array<string,mixed>>  $blocked
      * @param  array<string,mixed>|null  $poolReceipt
+     * @param  array<string,mixed>  $idempotency
      */
-    private function cycleReceiptHash(array $nextState, array $applied, array $blocked, ?array $poolReceipt): string
+    private function cycleReceiptHash(array $nextState, array $applied, array $blocked, ?array $poolReceipt, array $idempotency): string
     {
         $payload = [
             'daemon_status' => (string) ($nextState['status'] ?? ''),
@@ -227,6 +267,7 @@ final class AtlasSelfConstructionRuntimeDaemonCycle
             'applied_kinds' => array_values(array_map(static fn (array $a): string => (string) ($a['kind'] ?? ''), $applied)),
             'blocked_kinds' => array_values(array_map(static fn (array $a): string => (string) ($a['kind'] ?? ''), $blocked)),
             'pool_supervisor_hash' => (string) ($poolReceipt['supervisor_hash'] ?? ''),
+            'idempotency' => $idempotency,
         ];
 
         return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
