@@ -39,6 +39,26 @@ final class ForgeObraRuntimeContractTest extends TestCase
         ForgeControlCommand::fromString('commit_directly');
     }
 
+    public function test_commissioning_rejects_unknown_release_policy(): void
+    {
+        $this->expectExceptionMessage('forge_commissioning_release_policy_invalid');
+
+        ForgeCommissioning::fromArray([
+            ...$this->validCommissioning(),
+            'release_policy' => 'ship_without_canary',
+        ]);
+    }
+
+    public function test_commissioning_rejects_unknown_interruption_policy(): void
+    {
+        $this->expectExceptionMessage('forge_commissioning_interruption_policy_invalid');
+
+        ForgeCommissioning::fromArray([
+            ...$this->validCommissioning(),
+            'interruption_policy' => 'ignore_shutdown',
+        ]);
+    }
+
     public function test_snapshot_is_a_read_model_of_canonical_long_horizon_state(): void
     {
         $state = new AiForgeLongHorizonState([
@@ -51,5 +71,17 @@ final class ForgeObraRuntimeContractTest extends TestCase
         $this->assertSame('obra-123', $snapshot->obra->value);
         $this->assertSame(['packet-1'], $snapshot->activePackets);
         $this->assertSame(str_repeat('e', 64), $snapshot->commissioningHash);
+    }
+
+    /** @return array<string,mixed> */
+    private function validCommissioning(): array
+    {
+        return [
+            'prompt' => 'Run a durable engineering obra', 'workspace' => '/tmp/example-repo',
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ];
     }
 }

@@ -9,6 +9,10 @@ use InvalidArgumentException;
 
 final readonly class ForgeCommissioning
 {
+    public const RELEASE_POLICY_CANONICAL_COMMIT_WITH_CANARY = 'canonical_commit_with_canary';
+
+    public const INTERRUPTION_POLICY_PAUSE_DRAIN_RESUME = 'pause_drain_resume';
+
     private function __construct(
         public string $prompt, public string $workspace, public string $authorityHash,
         public string $productIntentHash, public string $specHash, public string $worldModelSnapshotHash,
@@ -33,6 +37,12 @@ final readonly class ForgeCommissioning
         if (! in_array($data['risk_class'], ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true)
             || $data['topology'] !== 'DAG') {
             throw new InvalidArgumentException('forge_commissioning_topology_or_risk_invalid');
+        }
+        if ($data['release_policy'] !== self::RELEASE_POLICY_CANONICAL_COMMIT_WITH_CANARY) {
+            throw new InvalidArgumentException('forge_commissioning_release_policy_invalid');
+        }
+        if ($data['interruption_policy'] !== self::INTERRUPTION_POLICY_PAUSE_DRAIN_RESUME) {
+            throw new InvalidArgumentException('forge_commissioning_interruption_policy_invalid');
         }
         $canonical = [
             'prompt' => trim($data['prompt']), 'workspace' => trim($data['workspace']), 'authority_hash' => $data['authority_hash'],
