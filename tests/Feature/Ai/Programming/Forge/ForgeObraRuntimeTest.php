@@ -189,4 +189,23 @@ final class ForgeObraRuntimeTest extends TestCase
         self::assertSame(2, $stateAfterResume?->cycle_count);
         self::assertSame($resumedReplay->stateHash, $stateAfterResume?->state_hash);
     }
+
+    public function test_heartbeat_is_fail_closed_when_obra_has_no_running_cycle(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra sem ciclo ativo para heartbeat', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        $commissioned = app(ForgeObraRuntime::class)->commission($commissioning);
+        $heartbeat = app(ForgeObraRuntime::class)->heartbeat($commissioned->obra);
+
+        self::assertSame('atlas.forge.heartbeat.v1', $heartbeat['schema']);
+        self::assertSame('idle', $heartbeat['status']);
+        self::assertFalse($heartbeat['renewed']);
+        self::assertSame('no_running_cycle', $heartbeat['reason']);
+    }
 }

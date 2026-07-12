@@ -12,6 +12,9 @@ use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
 use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
+use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
+use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +30,7 @@ final class ForgeObraRuntime
         private readonly ?EliteExecutorKernel $kernel = null,
         private readonly ?EngineeringModeExecutionOrderFactory $orders = null,
         private readonly ?AwisExecutionGatePort $workspaceExecutionGate = null,
+        private readonly ?ForgeScopeReservationService $scopeReservations = null,
     ) {}
 
     public function commission(ForgeCommissioning $commissioning): ForgeObraSnapshot
@@ -129,10 +133,21 @@ final class ForgeObraRuntime
         if (! $intake instanceof AiForgeIntake || ! $state instanceof AiForgeLongHorizonState) {
             throw new InvalidArgumentException('forge_obra_not_found');
         }
-        $packet = $this->cycles->selectPacket($intake, $state);
         $binding = is_array($intake->rich_input_payload) ? $intake->rich_input_payload : [];
         $snapshot = ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
+
+        $heartbeat = $this->heartbeat($obra, leaseSeconds: $budget->leaseSeconds);
+        if (in_array((string) ($heartbeat['status'] ?? ''), ['stale', 'blocked'], true)) {
+            return ForgeTickResult::blocked(
+                $snapshot,
+                (string) ($heartbeat['packet_id'] ?? 'unknown'),
+                (string) ($heartbeat['cycle_id'] ?? 'heartbeat'),
+                (string) ($heartbeat['reason'] ?? 'lease_heartbeat_rejected'),
+            );
+        }
+
+        $packet = $this->cycles->selectPacket($intake, $state);
         if ($packet === null) {
             return ForgeTickResult::idle($snapshot, 'no_eligible_packet');
         }
@@ -217,6 +232,74 @@ final class ForgeObraRuntime
 
         return ForgeTickResult::planned(ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')), (string) $packet->packet_id, (string) $cycle->cycle_id);
+    }
+
+    /**
+     * Renew the live scope lease for the currently running packet.
+     *
+     * This is the supervisor heartbeat seam: it carries the persisted owner,
+     * token and fencing number from the cycle plan back to the canonical lease
+     * owner. Missing or stale fencing data fails closed and never creates a
+     * replacement lease.
+     *
+     * @return array<string,mixed>
+     */
+    public function heartbeat(ForgeObraId $obra, ?string $cycleId = null, int $leaseSeconds = 900): array
+    {
+        $query = AiForgeWorkPacketExecutionCycle::query()
+            ->where('intake_id', $obra->value)
+            ->where('status', ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING)
+            ->orderByDesc('started_at');
+        if ($cycleId !== null && trim($cycleId) !== '') {
+            $query->where(function ($builder) use ($cycleId): void {
+                $builder->where('uuid', $cycleId)->orWhere('id', $cycleId);
+            });
+        }
+
+        $cycle = $query->first();
+        if (! $cycle instanceof AiForgeWorkPacketExecutionCycle) {
+            return [
+                'schema' => 'atlas.forge.heartbeat.v1',
+                'status' => 'idle',
+                'renewed' => false,
+                'reason' => 'no_running_cycle',
+            ];
+        }
+
+        $executionPlan = (array) ($cycle->execution_plan ?? []);
+        $reservation = is_array($executionPlan['scope_reservation'] ?? null)
+            ? $executionPlan['scope_reservation']
+            : [];
+        $required = ['id', 'lease_owner', 'lease_token', 'fencing_token'];
+        foreach ($required as $field) {
+            if (! array_key_exists($field, $reservation) || trim((string) $reservation[$field]) === '') {
+                return [
+                    'schema' => 'atlas.forge.heartbeat.v1',
+                    'status' => 'blocked',
+                    'renewed' => false,
+                    'cycle_id' => (string) $cycle->uuid,
+                    'reason' => 'scope_reservation_binding_missing:'.$field,
+                ];
+            }
+        }
+
+        $result = ($this->scopeReservations ?? app(ForgeScopeReservationService::class))->renew(
+            id: (string) $reservation['id'],
+            owner: (string) $reservation['lease_owner'],
+            token: (string) $reservation['lease_token'],
+            fence: (int) $reservation['fencing_token'],
+            leaseSeconds: max(1, $leaseSeconds),
+        );
+
+        return [
+            'schema' => 'atlas.forge.heartbeat.v1',
+            'status' => ($result['renewed'] ?? false) === true ? 'ok' : 'stale',
+            'renewed' => (bool) ($result['renewed'] ?? false),
+            'cycle_id' => (string) $cycle->uuid,
+            'packet_id' => (string) $cycle->work_packet_canonical_id,
+            'reservation' => $result['reservation'] ?? null,
+            'reason' => ($result['renewed'] ?? false) === true ? null : 'lease_fencing_or_expiry_rejected',
+        ];
     }
 
     /** @return list<string> */
