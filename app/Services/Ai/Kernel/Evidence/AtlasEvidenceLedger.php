@@ -401,6 +401,7 @@ class AtlasEvidenceLedger
             'chain_hash' => $receipt['chain_hash'] ?? null,
             'issued_at' => $receipt['issued_at'] ?? null,
             'expires_at' => $receipt['expires_at'] ?? null,
+            'metadata' => is_array($receipt['metadata'] ?? null) ? $receipt['metadata'] : [],
         ], $ledgerContext);
 
         return [
