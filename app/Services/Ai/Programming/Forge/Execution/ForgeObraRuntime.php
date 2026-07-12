@@ -244,15 +244,44 @@ final class ForgeObraRuntime
             throw new InvalidArgumentException('forge_obra_not_found');
         }
         $reason = 'forge_control_'.$command->command;
-        $cycle = $command->command === 'resume'
-            ? ['resolve_blockers' => [$reason], 'cycle_id' => 'control-'.$command->command]
-            : ['blockers' => [['scope' => 'obra', 'target' => $obra->value, 'reason' => $reason, 'resolved' => false]], 'cycle_id' => 'control-'.$command->command];
-        $state = $this->states->recordCycle($state, $cycle);
-
         $intake = AiForgeIntake::query()->find($obra->value);
         $binding = is_array($intake?->rich_input_payload) ? $intake->rich_input_payload : [];
 
+        $controlBlockerReasons = $this->controlBlockerReasons($state);
+        $alreadyApplied = $command->command === 'resume'
+            ? ! $this->hasUnresolvedBlocker($state, $controlBlockerReasons)
+            : $this->hasUnresolvedBlocker($state, [$reason]);
+        if ($alreadyApplied) {
+            return ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
+                data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
+        }
+
+        $cycle = $command->command === 'resume'
+            ? ['resolve_blockers' => $controlBlockerReasons, 'cycle_id' => 'control-'.$command->command]
+            : ['blockers' => [['scope' => 'obra', 'target' => $obra->value, 'reason' => $reason, 'resolved' => false]], 'cycle_id' => 'control-'.$command->command];
+        $state = $this->states->recordCycle($state, $cycle);
+
         return ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
+    }
+
+    /** @return list<string> */
+    private function controlBlockerReasons(AiForgeLongHorizonState $state): array
+    {
+        return ['forge_control_pause', 'forge_control_drain'];
+    }
+
+    /** @param list<string> $reasons */
+    private function hasUnresolvedBlocker(AiForgeLongHorizonState $state, array $reasons): bool
+    {
+        foreach ((array) $state->blockers as $blocker) {
+            if (is_array($blocker)
+                && ($blocker['resolved'] ?? false) !== true
+                && in_array((string) ($blocker['reason'] ?? ''), $reasons, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Programming\Forge;
 
+use App\Models\AiForgeLongHorizonState;
 use App\Models\AiForgeWorkPacket;
 use App\Models\AiForgeWorkPacketExecutionCycle;
 use App\Services\Ai\Programming\Forge\Execution\ForgeCommissioning;
+use App\Services\Ai\Programming\Forge\Execution\ForgeControlCommand;
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraId;
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraRuntime;
 use App\Services\Ai\Programming\Forge\Execution\ForgeTickBudget;
@@ -158,5 +160,33 @@ final class ForgeObraRuntimeTest extends TestCase
         self::assertSame(str_repeat('c', 64), $reloaded->specHash);
         self::assertSame(str_repeat('d', 64), $reloaded->worldModelSnapshotHash);
         self::assertSame(str_repeat('e', 64), $reloaded->marketDecisionHash);
+    }
+
+    public function test_replayed_control_command_has_zero_duplicate_effect(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra com controle resiliente a retry', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        $runtime = app(ForgeObraRuntime::class);
+        $commissioned = $runtime->commission($commissioning);
+
+        $paused = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('pause'));
+        $pausedReplay = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('pause'));
+        $stateAfterPause = AiForgeLongHorizonState::query()->where('intake_id', $commissioned->intakeId)->firstOrFail();
+
+        self::assertSame(1, $stateAfterPause->cycle_count);
+        self::assertSame($paused->stateHash, $pausedReplay->stateHash);
+
+        $runtime->control($commissioned->obra, ForgeControlCommand::fromString('resume'));
+        $resumedReplay = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('resume'));
+        $stateAfterResume = $stateAfterPause->fresh();
+
+        self::assertSame(2, $stateAfterResume?->cycle_count);
+        self::assertSame($resumedReplay->stateHash, $stateAfterResume?->state_hash);
     }
 }
