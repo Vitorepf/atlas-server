@@ -121,7 +121,7 @@
 - [ ] ESP-09 — pending
 - [ ] ESP-04 — pending
 - [ ] ESP-07 — pending
-- [ ] MAXJ-02 — pending
+- [x] MAXJ-02 — landed · `AtlasLearningDistiller` now writes candidate-local `payload.caused_by` behind default-OFF `atlas.ai.credit_assignment.enabled`, reusing `AtlasExternalBrainTaskOutcomeCausalAttributor`; OFF remains byte-identical, ON records `poor_spec_quality` / `good_execution` causes with evidence refs; no falseLearningGate/AEMOR seam touched; tests: `php artisan test tests/Unit/Ai/Compounding/DistillerAuthorAdapterSeamTest.php`
 - [ ] MAXH-04 — pending
 - [ ] MAXH-05 — pending
 - [ ] ESP-08 — pending

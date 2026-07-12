@@ -212,6 +212,50 @@ class DistillerAuthorAdapterSeamTest extends TestCase
         $this->assertSame('model_author', data_get($candidate->payload, 'author.source'));
     }
 
+    public function test_credit_assignment_flag_off_keeps_candidate_payload_byte_identical(): void
+    {
+        config(['atlas.ai.credit_assignment.enabled' => false]);
+        config(['atlas.ai.capture_quality_gate.mode' => 'observe']);
+
+        $candidate = (new AtlasLearningDistiller)->distill($this->outcome('atlas_debug', 'completed'), [
+            'evidence_refs' => ['trace:credit-off'],
+            'spec' => ['quality_score' => 0.1, 'has_acceptance_criteria' => false],
+        ]);
+
+        $this->assertArrayNotHasKey('caused_by', (array) $candidate->payload);
+    }
+
+    public function test_credit_assignment_records_poor_spec_cause_on_candidate_payload(): void
+    {
+        config(['atlas.ai.credit_assignment.enabled' => true]);
+        config(['atlas.ai.capture_quality_gate.mode' => 'observe']);
+
+        $candidate = (new AtlasLearningDistiller)->distill($this->outcome('atlas_forge', 'give_back'), [
+            'evidence_refs' => ['trace:poor-spec'],
+            'spec' => ['quality_score' => 0.2, 'has_acceptance_criteria' => true],
+            'outcome' => ['result' => 'give_back', 'had_evidence' => true],
+        ]);
+
+        $this->assertSame('poor_spec_quality', data_get($candidate->payload, 'caused_by.primary_cause'));
+        $this->assertNotEmpty(data_get($candidate->payload, 'caused_by.contributing_causes'));
+        $this->assertContains('trace:poor-spec', data_get($candidate->payload, 'caused_by.refs'));
+    }
+
+    public function test_credit_assignment_records_good_execution_cause_on_candidate_payload(): void
+    {
+        config(['atlas.ai.credit_assignment.enabled' => true]);
+        config(['atlas.ai.capture_quality_gate.mode' => 'observe']);
+
+        $candidate = (new AtlasLearningDistiller)->distill($this->outcome('atlas_review', 'success'), [
+            'evidence_refs' => ['trace:good-execution'],
+            'spec' => ['quality_score' => 0.9, 'evidence_strength' => 0.9, 'has_acceptance_criteria' => true],
+            'outcome' => ['result' => 'success', 'had_evidence' => true, 'shallow_success' => false],
+        ]);
+
+        $this->assertSame('good_execution', data_get($candidate->payload, 'caused_by.primary_cause'));
+        $this->assertSame('high', data_get($candidate->payload, 'caused_by.confidence'));
+    }
+
     private function outcome(string $flow, string $status): AiRunOutcome
     {
         return AiRunOutcome::query()->create([

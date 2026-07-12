@@ -1136,6 +1136,14 @@ return [
             'model_author_enabled' => (bool) env('ATLAS_DISTILLER_MODEL_AUTHOR_ENABLED', false),
         ],
 
+        // MAXJ-02 — candidate-local credit assignment. Default OFF keeps the
+        // AtlasLearningDistiller template payload byte-identical; when ON it
+        // writes payload.caused_by using the deterministic local causal
+        // attributor only. This never touches falseLearningGate/AEMOR.
+        'credit_assignment' => [
+            'enabled' => (bool) env('ATLAS_AI_CREDIT_ASSIGNMENT_ENABLED', false),
+        ],
+
         // AP-819 Obra A (F1) — auto-feed do cérebro de falhas. Harvester lê falhas
         // REAIS de runtime (ai_job_attempts failed/timeout + ledger OPERATION_FAILED)
         // e alimenta failure_signatures via o classificador existente, preservando o

@@ -4,6 +4,7 @@ namespace App\Services\Ai\Compounding;
 
 use App\Models\AiLearningCandidate;
 use App\Models\AiRunOutcome;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskOutcomeCausalAttributor;
 
 class AtlasLearningDistiller
 {
@@ -17,6 +18,7 @@ class AtlasLearningDistiller
      */
     public function __construct(
         private readonly ?DistillerAuthorAdapter $author = null,
+        private readonly ?AtlasExternalBrainTaskOutcomeCausalAttributor $causalAttributor = null,
     ) {}
 
     /**
@@ -112,6 +114,10 @@ class AtlasLearningDistiller
             ],
             'decided_at' => now(),
         ];
+        $causedBy = $this->causedBy($outcome, $signals, $evidenceRefs);
+        if ($causedBy !== null) {
+            $payload['payload']['caused_by'] = $causedBy;
+        }
         // ASI-09 audit — record which side of author≠judge produced the claim
         // (only when the model-author actually authored; template path leaves
         // the field absent so the OFF path is byte-identical).
@@ -150,6 +156,43 @@ class AtlasLearningDistiller
             'atlas_research' => 'retrieval_memory',
             default => 'routing_memory',
         };
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>|null
+     */
+    private function causedBy(AiRunOutcome $outcome, array $signals, array $evidenceRefs): ?array
+    {
+        if (! (bool) config('atlas.ai.credit_assignment.enabled', false)) {
+            return null;
+        }
+
+        $input = [
+            'spec' => $this->array($signals['spec'] ?? []),
+            'worker' => $this->array($signals['worker'] ?? []),
+            'queue' => $this->array($signals['queue'] ?? []),
+            'outcome' => $this->array($signals['outcome'] ?? []) + [
+                'result' => (string) $outcome->outcome_status,
+                'had_evidence' => $evidenceRefs !== [],
+            ],
+            'task_packet_id' => $this->string($signals['task_packet_id'] ?? $outcome->run_id ?? null),
+            'family' => $this->string($signals['task_class'] ?? $outcome->flow_id ?? null),
+        ];
+
+        $attribution = ($this->causalAttributor ?? new AtlasExternalBrainTaskOutcomeCausalAttributor)
+            ->attribute($input);
+
+        return [
+            'schema' => (string) ($attribution['schema'] ?? AtlasExternalBrainTaskOutcomeCausalAttributor::SCHEMA),
+            'primary_cause' => (string) ($attribution['primary_cause'] ?? AtlasExternalBrainTaskOutcomeCausalAttributor::CAUSE_UNKNOWN),
+            'contributing_causes' => array_values((array) ($attribution['contributing_causes'] ?? [])),
+            'confidence' => (string) ($attribution['confidence'] ?? 'low'),
+            'recommended_originator_adjustment' => (string) ($attribution['recommended_originator_adjustment'] ?? ''),
+            'attribution_id' => (string) ($attribution['attribution_id'] ?? ''),
+            'refs' => $evidenceRefs,
+        ];
     }
 
     /**
