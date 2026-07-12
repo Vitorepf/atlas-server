@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\EngineeringKernel;
 
 use App\Services\Ai\EngineeringKernel\Quality\QualityFoundryEventContract;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -62,5 +63,31 @@ final class QualityFoundryEventContractTest extends TestCase
         }
         $this->assertSame('legacy_unproven', $contract->legacyStatus([]));
         $this->assertSame('unknown', $contract->observationStatus(null));
+    }
+
+    public function test_replay_reads_existing_ledger_and_marks_non_contract_rows_legacy(): void
+    {
+        $ledger = $this->createMock(AtlasEvidenceLedger::class);
+        $ledger->method('eventsForScope')->willReturn([
+            ['event_id' => 'legacy', 'payload' => ['status' => 'passed'], 'envelope_id' => 'run-legacy'],
+            ['event_id' => 'canonical', 'envelope_id' => 'run-1', 'correlation_id' => 'delivery-1',
+                'occurred_at' => '2026-07-12T00:00:00Z', 'emitter_stage' => 'quality-court',
+                'payload' => ['event_name' => 'execution.started', 'correlated_hashes' => ['order' => hash('sha256', 'o')]]],
+        ]);
+
+        $replay = (new QualityFoundryEventContract)->replayLedger($ledger, 'delivery', 'delivery-1');
+
+        $this->assertSame(1, $replay['event_count']);
+        $this->assertSame(1, $replay['legacy_unproven_count']);
+    }
+
+    public function test_projection_hash_comparison_exposes_drift_without_mutating_the_projection(): void
+    {
+        $contract = new QualityFoundryEventContract;
+        $same = $contract->compareProjectionHashes(['status' => 'unknown'], ['status' => 'unknown']);
+        $different = $contract->compareProjectionHashes(['status' => 'unknown'], ['status' => 'pass']);
+
+        $this->assertSame('match', $same['status']);
+        $this->assertSame('drift', $different['status']);
     }
 }

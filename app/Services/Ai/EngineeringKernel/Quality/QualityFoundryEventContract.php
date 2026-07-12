@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\Quality;
 
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use InvalidArgumentException;
 
 /** Canonical validation/replay contract for constitutional event projections. */
@@ -81,6 +82,46 @@ final class QualityFoundryEventContract
     public function observationStatus(?array $observation): string
     {
         return $observation === null ? 'unknown' : (string) ($observation['status'] ?? 'unknown');
+    }
+
+    /** Replay only contract-bearing events from the existing canonical ledger. */
+    public function replayLedger(AtlasEvidenceLedger $ledger, string $scopeType, string $scopeId): array
+    {
+        $contractEvents = [];
+        $legacyCount = 0;
+        foreach ($ledger->eventsForScope($scopeType, $scopeId) as $row) {
+            $payload = is_array($row['payload'] ?? null) ? $row['payload'] : [];
+            if (! is_string($payload['event_name'] ?? null) || trim($payload['event_name']) === '') {
+                $legacyCount++;
+
+                continue;
+            }
+            $contractEvents[] = [
+                'schema' => $payload['schema'] ?? self::SCHEMA,
+                'event_name' => $payload['event_name'],
+                'run_id' => $payload['run_id'] ?? ($row['envelope_id'] ?? ''),
+                'delivery_id' => $payload['delivery_id'] ?? ($row['correlation_id'] ?? ''),
+                'occurred_at' => $row['occurred_at'] ?? ($payload['occurred_at'] ?? ''),
+                'provenance' => $payload['provenance'] ?? ($row['emitter_stage'] ?? ''),
+                'idempotency_key' => $payload['idempotency_key'] ?? ($row['event_id'] ?? ''),
+                'correlated_hashes' => $payload['correlated_hashes'] ?? ($payload['hashes'] ?? []),
+            ];
+        }
+
+        return $this->replay($contractEvents) + ['legacy_unproven_count' => $legacyCount];
+    }
+
+    /** @param array<string,mixed> $replayed @param array<string,mixed> $live */
+    public function compareProjectionHashes(array $replayed, array $live): array
+    {
+        $replayedHash = CanonicalKernelPayload::hash($replayed);
+        $liveHash = CanonicalKernelPayload::hash($live);
+
+        return [
+            'status' => hash_equals($replayedHash, $liveHash) ? 'match' : 'drift',
+            'replayed_hash' => $replayedHash,
+            'live_hash' => $liveHash,
+        ];
     }
 
     private function hash(array $event): string
