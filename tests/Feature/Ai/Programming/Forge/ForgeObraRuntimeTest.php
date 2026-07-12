@@ -12,6 +12,10 @@ use App\Services\Ai\Programming\Forge\Execution\ForgeControlCommand;
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraId;
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraRuntime;
 use App\Services\Ai\Programming\Forge\Execution\ForgeTickBudget;
+use App\Services\Ai\Programming\Forge\Execution\ForgeObraSupervisor;
+use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
+use App\Services\Ai\EngineeringKernel\ExecutionOrder;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesForgeLongHorizonStateTable;
@@ -25,6 +29,7 @@ final class ForgeObraRuntimeTest extends TestCase
     {
         parent::setUp();
         $this->createForgeLongHorizonStateTable();
+        $this->reservationMigration()->up();
         $this->app->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
         {
             /** @param array<int,string> $conversationTexts */
@@ -37,6 +42,7 @@ final class ForgeObraRuntimeTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->reservationMigration()->down();
         $this->dropForgeLongHorizonStateTable();
         parent::tearDown();
     }
@@ -319,5 +325,48 @@ final class ForgeObraRuntimeTest extends TestCase
         $replay = $runtime->providerCancel($snapshot->obra, (string) $cycle->uuid, $started['fencing_token'], 'test_cancel');
         self::assertSame('cancelled', $replay['status']);
         self::assertTrue($replay['replayed']);
+    }
+
+    public function test_unattended_supervisor_renews_provider_lifecycle_with_the_cycle_fence(): void
+    {
+        $this->app->instance(ForgeWorkPacketExecutionPort::class, new class implements ForgeWorkPacketExecutionPort
+        {
+            public function execute(ExecutionOrder $order): EngineeringOutcome
+            {
+                throw new \RuntimeException('fixture_provider_crash_after_start');
+            }
+        });
+
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Implementar refactor multi-modulo do provider router e adicionar testes de regressao para supervisor Forge', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+        $runtime = app(ForgeObraRuntime::class);
+        $snapshot = $runtime->commission($commissioning);
+
+        try {
+            $runtime->tick($snapshot->obra, ForgeTickBudget::fromArray([
+                'max_packets' => 1, 'lease_seconds' => 900, 'allow_provider' => true,
+            ]));
+            self::fail('fixture provider crash must interrupt the real tick');
+        } catch (\RuntimeException $exception) {
+            self::assertSame('fixture_provider_crash_after_start', $exception->getMessage());
+        }
+
+        $supervised = app(ForgeObraSupervisor::class)->run([$snapshot->intakeId], 900);
+
+        self::assertSame('ok', $supervised['status']);
+        self::assertCount(1, $supervised['heartbeats']);
+        self::assertSame('ok', $supervised['heartbeats'][0]['provider_heartbeat']['status']);
+        self::assertSame(1, $supervised['active_obra_count']);
+        self::assertSame(0, $supervised['stale_heartbeat_count']);
+    }
+
+    private function reservationMigration(): object
+    {
+        return require database_path('migrations/2026_07_11_130000_create_atlas_task_scope_reservations_table.php');
     }
 }

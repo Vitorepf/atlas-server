@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\Forge\Execution;
 
 use App\Models\AiForgeLongHorizonState;
+use App\Models\AiForgeWorkPacketExecutionCycle;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
 use App\Services\Ai\Programming\Forge\ForgeScopeReservationService;
 
 /** Canonical unattended supervisor for active Forge Obras. */
@@ -32,10 +34,27 @@ class ForgeObraSupervisor
         $reaped = $this->reservations->reapExpired();
         $heartbeats = [];
         foreach ($query->pluck('intake_id') as $intakeId) {
-            $heartbeat = $this->runtime->heartbeat(ForgeObraId::fromString((string) $intakeId), leaseSeconds: max(1, $leaseSeconds));
+            $obra = ForgeObraId::fromString((string) $intakeId);
+            $heartbeat = $this->runtime->heartbeat($obra, leaseSeconds: max(1, $leaseSeconds));
+            $cycle = AiForgeWorkPacketExecutionCycle::query()
+                ->where('intake_id', (string) $intakeId)
+                ->where('status', ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING)
+                ->orderByDesc('started_at')
+                ->first();
+            $providerLifecycle = is_array($cycle?->execution_plan)
+                && is_array($cycle->execution_plan['provider_lifecycle'] ?? null)
+                ? $cycle->execution_plan['provider_lifecycle']
+                : [];
+            if ($cycle instanceof AiForgeWorkPacketExecutionCycle && $providerLifecycle !== []) {
+                $heartbeat['provider_heartbeat'] = $this->runtime->providerHeartbeat(
+                    $obra,
+                    (string) $cycle->uuid,
+                    (int) ($providerLifecycle['fencing_token'] ?? 0),
+                );
+            }
             if (in_array((string) ($heartbeat['status'] ?? ''), ['stale', 'blocked'], true)) {
                 $heartbeat['orphan_recovery'] = $this->runtime->recoverOrphanedCycle(
-                    ForgeObraId::fromString((string) $intakeId),
+                    $obra,
                     (string) ($heartbeat['cycle_id'] ?? ''),
                 );
             }
