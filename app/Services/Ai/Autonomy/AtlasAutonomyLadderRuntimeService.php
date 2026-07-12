@@ -148,6 +148,90 @@ class AtlasAutonomyLadderRuntimeService
     }
 
     /**
+     * MAXK-06 — evaluate a promotion using metrics fetched from a sealed
+     * AUTHORITY, not from a caller-supplied map. This is the second forgeable
+     * input the plan names: pre-MAXK-06, the same actor who wanted the
+     * promotion could hand-craft the metrics that decided it via `--signals=`
+     * on `atlas:autonomy:ladder`. This method reads the metric map from the
+     * port instead, attaches the sealed provenance envelope to the verdict,
+     * and refuses when the authority reports the entry is missing or the
+     * on-disk seal was tampered with — silent zeros would be exactly the
+     * forgery the port exists to block.
+     *
+     * The existing {@see evaluatePromotion()} calculator surface is byte-
+     * identical for report mode; only this authoritative path binds to
+     * the port and is the promotion gate.
+     *
+     * @param  array{operator?:bool,architect?:bool,architect_human_review?:bool,trust_ledger_score?:float}  $signatures
+     * @return array<string,mixed>
+     */
+    public function evaluatePromotionAuthoritative(
+        string $currentLevel,
+        AtlasAutonomyMetricsAuthorityPort $authority,
+        array $signatures = [],
+    ): array {
+        $index = $this->levelIndex($currentLevel);
+        if ($index === null) {
+            $base = $this->result($currentLevel, null, false, [], [], 'unknown_level', 'unknown current level', []);
+            $base['metrics_authority'] = [
+                'source' => AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING,
+                'source_id' => $currentLevel,
+                'sealed_at' => '',
+                'entry_hash' => '',
+                'verified' => false,
+            ];
+
+            return $base;
+        }
+        if ($index >= count(self::LADDER) - 1) {
+            $base = $this->result($currentLevel, null, false, [], [], 'at_ceiling', 'already at L7 (top of ladder)', []);
+            $base['metrics_authority'] = [
+                'source' => AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING,
+                'source_id' => $currentLevel,
+                'sealed_at' => '',
+                'entry_hash' => '',
+                'verified' => false,
+            ];
+
+            return $base;
+        }
+
+        $next = self::LADDER[$index + 1];
+        $envelope = $authority->metricsFor($next['level']);
+        $provenance = is_array($envelope['provenance'] ?? null) ? $envelope['provenance'] : [];
+        $verified = (bool) ($provenance['verified'] ?? false);
+        $source = (string) ($provenance['source'] ?? AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING);
+
+        if (! $verified) {
+            $reason = $source === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED
+                ? 'metrics_authority_tampered'
+                : 'metrics_authority_missing';
+            $result = $this->result(
+                $currentLevel,
+                $next['level'],
+                false,
+                [],
+                [],
+                'blocked',
+                "promotion blocked: {$reason}",
+                $this->signaturesSatisfied($next['signature'], $signatures),
+            );
+            $result['metrics'] = [];
+            $result['metrics_authority'] = $provenance;
+            $result['refusal_reason'] = $reason;
+
+            return $result;
+        }
+
+        $metrics = is_array($envelope['metrics'] ?? null) ? $envelope['metrics'] : [];
+        $verdict = $this->evaluatePromotion($currentLevel, $metrics, $signatures);
+        $verdict['metrics'] = $metrics;
+        $verdict['metrics_authority'] = $provenance;
+
+        return $verdict;
+    }
+
+    /**
      * Automatic demote rule: a level whose exit criteria are breached for the
      * required number of consecutive most-recent cycles drops one level. The
      * runbook sets the trigger at 2 consecutive breaching cycles.
