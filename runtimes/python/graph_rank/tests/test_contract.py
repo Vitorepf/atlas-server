@@ -75,6 +75,36 @@ def test_receipt_carries_real_boundary_proof():
     assert out["scored"][0]["score"] > 0.0
 
 
+def test_ppr_shadow_receipt_compares_against_bfs_baseline():
+    out = run_manifest(
+        _manifest(
+            operation="ppr_shadow",
+            nodes=[
+                {"node_id": "memory:m1", "node_type": "memory", "path": "embedding decision", "capabilities": ["seed"]},
+                {"node_id": "code:c1", "node_type": "module", "path": "embedding code module", "capabilities": []},
+                {"node_id": "doc:d1", "node_type": "doc", "path": "unrelated doc", "capabilities": []},
+            ],
+            edges=[
+                {"from_node_id": "memory:m1", "to_node_id": "code:c1", "edge_type": "references", "confidence": 1.0},
+                {"from_node_id": "code:c1", "to_node_id": "doc:d1", "edge_type": "belongs_to", "confidence": 0.7},
+            ],
+            query={"textual_seeds": ["embedding"], "target_capabilities": ["seed"], "seed_node_ids": ["memory:m1"]},
+            baseline_order=["memory:m1", "doc:d1", "code:c1"],
+            targets=["code:c1"],
+        )
+    )
+
+    assert out["operation"] == "ppr_shadow"
+    assert out["boundary"]["graph_rank_in_python"] is True
+    assert out["seed_node_ids"] == ["memory:m1"]
+    assert "code:c1" in out["ppr_order"][:5]
+    assert out["dual_read"]["baseline"] == "bfs_insertion_order"
+    assert out["dual_read"]["candidate"] == "personalized_pagerank"
+    assert out["dual_read"]["cases"] == 1
+    assert out["dual_read"]["targets_available"] == 1
+    assert out["dual_read"]["ppr_recall_at_5"] >= out["dual_read"]["baseline_recall_at_5"]
+
+
 def test_probe_reports_availability_honestly():
     p = probe()
     assert isinstance(p, dict) and "available" in p

@@ -8,8 +8,10 @@ verifies (graph_rank_in_python=true, fabricated=false, real_graph_math=true) —
 the same anti-fake boundary the near_duplicate / stats_engine runtimes use, so a
 PHP hand-rolled stand-in can never pass back through.
 
-Operation:
+Operations:
   rank: {nodes:[...], edges:[...], query:{...}} -> {scored, ranked_order, ...}
+  ppr_shadow: {nodes:[...], edges:[...], query:{...}, baseline_order:[...],
+      targets:[...]} -> {ppr_order, ppr_scores, dual_read, ...}
 
 No secret/provider/model override is accepted (FORBIDDEN_KEYS) — the kernel
 governs those; this runtime only computes the graph math.
@@ -24,7 +26,7 @@ from . import scoring
 REQUEST_SCHEMA = "atlas.graph_rank.python_runtime.request.v1"
 RECEIPT_SCHEMA = "atlas.graph_rank.python_runtime.receipt.v1"
 
-VALID_OPERATIONS = {"rank"}
+VALID_OPERATIONS = {"rank", "ppr_shadow"}
 
 # The manifest must NOT carry secrets or runtime overrides — the kernel governs
 # those; this runtime only computes numbers over a handed-in graph.
@@ -71,14 +73,24 @@ def _boundary() -> Dict[str, Any]:
 
 def run_manifest(manifest: Dict[str, Any]) -> Dict[str, Any]:
     validate_manifest(manifest)
-    result = scoring.rank_nodes(
-        manifest["nodes"],
-        manifest["edges"],
-        manifest["query"],
-    )
+    operation = manifest["operation"]
+    if operation == "rank":
+        result = scoring.rank_nodes(
+            manifest["nodes"],
+            manifest["edges"],
+            manifest["query"],
+        )
+    else:
+        result = scoring.ppr_shadow(
+            manifest["nodes"],
+            manifest["edges"],
+            manifest["query"],
+            manifest.get("baseline_order"),
+            manifest.get("targets"),
+        )
     return {
         "schema_version": RECEIPT_SCHEMA,
-        "operation": "rank",
+        "operation": operation,
         **result,
         "boundary": _boundary(),
     }

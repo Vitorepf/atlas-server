@@ -80,4 +80,32 @@ final class GraphRankRuntimeClient
 
         return $result;
     }
+
+    /**
+     * Compute a shadow Personalized PageRank ordering for a traversed graph and
+     * compare it with the caller's BFS baseline. This is a dual-read operation:
+     * callers must not use it to replace live ordering without an explicit flip.
+     *
+     * @param  list<array<string,mixed>>  $nodes
+     * @param  list<array<string,mixed>>  $edges
+     * @param  array<string,mixed>  $query
+     * @param  list<string>  $baselineOrder
+     * @param  list<string>  $targets
+     * @return array<string,mixed>
+     */
+    public function pprShadow(array $nodes, array $edges, array $query, array $baselineOrder, array $targets = []): array
+    {
+        $result = $this->run([
+            'operation' => 'ppr_shadow',
+            'nodes' => array_values($nodes),
+            'edges' => array_values($edges),
+            'query' => $query,
+            'baseline_order' => array_values($baselineOrder),
+            'targets' => array_values($targets),
+        ]);
+
+        unset($result['boundary']);
+
+        return $result;
+    }
 }

@@ -21,6 +21,7 @@ use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
+use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
 
 final class AcosMaxMeasureSeriesRegistry
 {
@@ -452,6 +453,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => 60,
                 'ttl_source' => 'freeze:atlas.code_symbol_embedding_coverage.v1',
+            ],
+            [
+                'slice' => 'MAXD-04',
+                'series' => AtlasAurgPprShadowDualReadLedger::SCHEMA,
+                'path' => storage_path(AtlasAurgPprShadowDualReadLedger::RELATIVE_PATH),
+                'source_type' => 'jsonl',
+                'timestamp_field' => 'recorded_at',
+                'ttl_days' => 90,
+                'ttl_source' => 'maxd-04-ppr-shadow-dual-read-window',
             ],
         ];
     }

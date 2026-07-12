@@ -7,7 +7,9 @@ namespace Tests\Feature\Reality;
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
 use App\Services\Ai\AtlasOpenBrainMcpService;
+use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
+use App\Services\Ai\RuntimeBoundary\GraphRankRuntimeClient;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
@@ -403,6 +405,57 @@ final class AtlasAurgQueryTest extends TestCase
         foreach ($absent['nodes'] as $node) {
             $this->assertArrayNotHasKey('rank', $node);
         }
+    }
+
+    public function test_ppr_shadow_dual_read_is_default_off(): void
+    {
+        $ledgerPath = storage_path('framework/testing/aurg-ppr-shadow-default-off.jsonl');
+        File::delete($ledgerPath);
+        config()->set('atlas.aurg.query_ppr_shadow_enabled', false);
+        config()->set('atlas.aurg.query_ppr_shadow_ledger_path', $ledgerPath);
+
+        $result = $this->service()->query('embedding decision', ['ppr_targets' => [self::C1]]);
+
+        $this->assertArrayNotHasKey('ppr_shadow', $result);
+        $this->assertFileDoesNotExist($ledgerPath);
+    }
+
+    public function test_ppr_shadow_dual_read_records_ledger_without_reordering_answer(): void
+    {
+        if (! $this->app->make(GraphRankRuntimeClient::class)->available()) {
+            $this->markTestSkipped('graph_rank runtime is not available in this environment.');
+        }
+
+        $ledgerPath = storage_path('framework/testing/aurg-ppr-shadow-dual-read.jsonl');
+        File::delete($ledgerPath);
+        config()->set('atlas.aurg.query_ppr_shadow_enabled', true);
+        config()->set('atlas.aurg.query_ppr_shadow_ledger_path', $ledgerPath);
+        config()->set('atlas.aurg.query_ppr_shadow_latency_budget_ms', 2000);
+
+        $result = $this->service()->query('embedding decision', ['ppr_targets' => [self::C1]]);
+
+        $this->assertSame(AtlasRealityGraphQueryService::RANKING_BELOW_THRESHOLD, $result['ranking']);
+        $this->assertSame(self::M1, $result['nodes'][0]['id']);
+        $this->assertSame(AtlasAurgPprShadowDualReadLedger::SCHEMA, $result['ppr_shadow']['schema_version']);
+        $this->assertFalse($result['ppr_shadow']['applied_to_answer']);
+        $this->assertTrue($result['ppr_shadow']['ledger_recorded']);
+        $this->assertSame(1, $result['ppr_shadow']['cases']);
+        $this->assertSame(1, $result['ppr_shadow']['targets_available']);
+        $this->assertGreaterThanOrEqual(
+            $result['ppr_shadow']['baseline_recall_at_5'],
+            $result['ppr_shadow']['ppr_recall_at_5'],
+        );
+        $this->assertFileExists($ledgerPath);
+
+        $rows = array_values(array_filter(explode("\n", trim((string) File::get($ledgerPath)))));
+        $this->assertCount(1, $rows);
+        $receipt = json_decode($rows[0], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame(AtlasAurgPprShadowDualReadLedger::SCHEMA, $receipt['schema_version']);
+        $this->assertSame('MAXD-04', $receipt['slice']);
+        $this->assertSame('personalized_pagerank', $receipt['candidate']);
+        $this->assertSame('bfs_insertion_order', $receipt['baseline']);
+        $this->assertSame($result['ppr_shadow']['dual_read_hash'], $receipt['dual_read_hash']);
+        $this->assertNotSame('observed_no_targets', $receipt['status']);
     }
 
     public function test_command_runs_json_and_validates_input(): void

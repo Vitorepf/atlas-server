@@ -203,6 +203,7 @@ def _normalise_query(query: Dict[str, Any]) -> Dict[str, Any]:
         "target_flows": _str_list(query.get("target_flows")),
         "target_capabilities": _str_list(query.get("target_capabilities")),
         "target_risks": _str_list(query.get("target_risks")),
+        "seed_node_ids": _str_list(query.get("seed_node_ids")),
         "risk_elevated": bool(query.get("risk_elevated", False)),
         "boost_docs": bool(query.get("boost_docs", False)),
         "boost_tests": bool(query.get("boost_tests", False)),
@@ -379,6 +380,174 @@ def rank_nodes(
         "text_only_top_node": _text_only_top(node_list, q["textual_seeds"]),
         "graph_top_node": ranked_order[0] if ranked_order else None,
     }
+
+
+def ppr_shadow(
+    nodes: Any,
+    edges: Any,
+    query: Any,
+    baseline_order: Any,
+    targets: Any,
+) -> Dict[str, Any]:
+    """Compute a shadow Personalized PageRank order against the BFS baseline.
+
+    This operation is intentionally separate from rank_nodes(): MAXD-04 is a
+    dual-read shadow, so PPR must never become the answer ordering by accident.
+    The PHP side supplies the BFS insertion order as the baseline and records the
+    comparison in an append-only ledger.
+    """
+    node_list = [n for n in nodes if isinstance(n, dict)] if isinstance(nodes, list) else []
+    edge_list = [e for e in edges if isinstance(e, dict)] if isinstance(edges, list) else []
+    q = _normalise_query(query if isinstance(query, dict) else {})
+    node_ids = [_as_str(n.get("node_id")) for n in node_list if _as_str(n.get("node_id")) != ""]
+    known = set(node_ids)
+    baseline = [n for n in _str_list(baseline_order) if n in known]
+    for node_id in node_ids:
+        if node_id not in baseline:
+            baseline.append(node_id)
+
+    target_ids = [t for t in _str_list(targets) if t in known]
+    missing_targets = [t for t in _str_list(targets) if t not in known]
+
+    g = nx.Graph()
+    for node_id in node_ids:
+        g.add_node(node_id)
+    for edge in edge_list:
+        a = _as_str(edge.get("from_node_id"))
+        b = _as_str(edge.get("to_node_id"))
+        if a == "" or b == "" or a not in known or b not in known:
+            continue
+        existing = g.get_edge_data(a, b, default={}).get("weight", 0.0)
+        g.add_edge(a, b, weight=float(existing) + _ppr_edge_weight(edge))
+
+    seed_ids = _ppr_seed_ids(node_list, q)
+    if not seed_ids and baseline:
+        seed_ids = [baseline[0]]
+
+    if not node_ids:
+        scores: Dict[str, float] = {}
+    elif not seed_ids:
+        scores = {node_id: _round4(1.0 / len(node_ids)) for node_id in node_ids}
+    else:
+        personalisation = {node_id: 0.0 for node_id in node_ids}
+        share = 1.0 / len(seed_ids)
+        for seed_id in seed_ids:
+            personalisation[seed_id] = share
+        raw_scores = _pagerank_power(g, node_ids, personalisation)
+        scores = {node_id: _round4(float(raw_scores.get(node_id, 0.0))) for node_id in node_ids}
+
+    ppr_order = sorted(node_ids, key=lambda node_id: (-scores.get(node_id, 0.0), node_id))
+    baseline_top5 = baseline[:5]
+    ppr_top5 = ppr_order[:5]
+    target_set = set(target_ids)
+    baseline_hits = sorted(target_set & set(baseline_top5))
+    ppr_hits = sorted(target_set & set(ppr_top5))
+
+    return {
+        "schema_version": "atlas.ai.codebase_world_model.graph_rank.ppr_shadow.v1",
+        "ppr_order": ppr_order,
+        "ppr_scores": [{"node_id": node_id, "score": scores.get(node_id, 0.0)} for node_id in ppr_order],
+        "seed_node_ids": seed_ids,
+        "dual_read": {
+            "baseline": "bfs_insertion_order",
+            "candidate": "personalized_pagerank",
+            "baseline_top5": baseline_top5,
+            "ppr_top5": ppr_top5,
+            "targets": target_ids,
+            "missing_targets": missing_targets,
+            "targets_available": len(target_ids),
+            "cases": len(_str_list(targets)),
+            "baseline_hits_at_5": baseline_hits,
+            "ppr_hits_at_5": ppr_hits,
+            "baseline_recall_at_5": _recall_at_5(baseline_hits, target_ids),
+            "ppr_recall_at_5": _recall_at_5(ppr_hits, target_ids),
+        },
+    }
+
+
+def _ppr_seed_ids(nodes: List[Dict[str, Any]], query: Dict[str, Any]) -> List[str]:
+    explicit = _str_list(query.get("seed_node_ids"))
+    if explicit:
+        known = {_as_str(n.get("node_id")) for n in nodes}
+        return [node_id for node_id in explicit if node_id in known]
+
+    target_capabilities = set(query["target_capabilities"])
+    seeded: List[str] = []
+    for node in nodes:
+        node_id = _as_str(node.get("node_id"))
+        if node_id == "":
+            continue
+        capabilities = set(_str_list(node.get("capabilities")))
+        if capabilities & target_capabilities:
+            seeded.append(node_id)
+    return seeded
+
+
+def _ppr_edge_weight(edge: Dict[str, Any]) -> float:
+    value = edge.get("weight", edge.get("confidence", 1.0))
+    try:
+        weight = float(value)
+    except (TypeError, ValueError):
+        weight = 1.0
+    return max(0.01, weight)
+
+
+def _pagerank_power(
+    graph: nx.Graph,
+    node_ids: List[str],
+    personalization: Dict[str, float],
+    alpha: float = 0.85,
+    max_iter: int = 100,
+    tol: float = 1.0e-6,
+) -> Dict[str, float]:
+    """Personalized PageRank via numpy power iteration.
+
+    NetworkX 3.x delegates nx.pagerank to SciPy. The graph_rank runtime's
+    dependency boundary is deliberately networkx+numpy only, so MAXD-04 keeps
+    the graph representation in NetworkX and performs the tiny transition-matrix
+    iteration directly in numpy.
+    """
+    n = len(node_ids)
+    if n == 0:
+        return {}
+
+    index = {node_id: i for i, node_id in enumerate(node_ids)}
+    p = np.array([float(personalization.get(node_id, 0.0)) for node_id in node_ids], dtype=np.float64)
+    total_p = float(p.sum())
+    if total_p <= 0.0:
+        p = np.ones(n, dtype=np.float64) / np.float64(n)
+    else:
+        p = p / np.float64(total_p)
+
+    transition = np.zeros((n, n), dtype=np.float64)
+    for source in node_ids:
+        i = index[source]
+        weights: List[tuple[int, float]] = []
+        for target, data in graph[source].items():
+            if target not in index:
+                continue
+            weights.append((index[target], max(0.0, float(data.get("weight", 1.0)))))
+        total_weight = sum(weight for _, weight in weights)
+        if total_weight <= 0.0:
+            transition[i, :] = p
+            continue
+        for j, weight in weights:
+            transition[i, j] = weight / total_weight
+
+    x = np.ones(n, dtype=np.float64) / np.float64(n)
+    for _ in range(max_iter):
+        previous = x
+        x = alpha * previous.dot(transition) + (1.0 - alpha) * p
+        if float(np.abs(x - previous).sum()) < n * tol:
+            break
+
+    return {node_id: float(x[index[node_id]]) for node_id in node_ids}
+
+
+def _recall_at_5(hits: Sequence[str], targets: Sequence[str]) -> Optional[float]:
+    if not targets:
+        return None
+    return _round4(len(hits) / len(targets))
 
 
 def _text_only_top(nodes: List[Dict[str, Any]], seeds: Sequence[str]) -> Optional[str]:

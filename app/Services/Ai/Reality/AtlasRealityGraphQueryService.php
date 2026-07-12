@@ -10,6 +10,7 @@ use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\RuntimeBoundary\GraphRankRuntimeClient;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -181,6 +182,7 @@ class AtlasRealityGraphQueryService
         // ------------------------------------------------------------------
         // 4) RANKING — Python networkx via the boundary, or HONEST unranked.
         // ------------------------------------------------------------------
+        $pprShadow = $this->pprShadowDualRead($query, $terms, $traversal, $opts);
         [$orderedIds, $rankScores, $ranking] = $this->rank($traversal, $terms);
         $paths = $this->orderPaths($paths, $orderedIds);
 
@@ -200,6 +202,9 @@ class AtlasRealityGraphQueryService
             $perModule = (int) ($opts['expand_symbols_per_module']
                 ?? config('atlas.aurg.query_expand_symbols_per_module', self::EXPAND_SYMBOLS_PER_MODULE_DEFAULT));
             $result = $this->expandCodeSymbols($result, $perModule);
+        }
+        if ($pprShadow !== null) {
+            $result['ppr_shadow'] = $pprShadow;
         }
 
         return $result;
@@ -543,8 +548,7 @@ class AtlasRealityGraphQueryService
         bool $providerBound,
         string $workspaceId,
         array &$capsHit,
-    ): array
-    {
+    ): array {
         $seedRows = AtlasAurgNode::query()->whereIn('id', $seedIds)->get()->keyBy('id');
 
         $order = [];
@@ -882,6 +886,216 @@ class AtlasRealityGraphQueryService
         return [$ordered, $scores, self::RANKING_PYTHON];
     }
 
+    /**
+     * MAXD-04 — default-OFF PPR shadow dual-read against the BFS insertion
+     * order. The returned query answer is never reordered by this method; it
+     * only appends a governed JSONL ledger row for golden-v2/window analysis.
+     *
+     * @param  array{order:list<string>, nodesById:array<string,AtlasAurgNode>, edges:list<AtlasAurgEdge>, seedIds:array<string,bool>}  $traversal
+     * @param  list<string>  $terms
+     * @param  array<string,mixed>  $opts
+     * @return array<string,mixed>|null
+     */
+    private function pprShadowDualRead(string $query, array $terms, array $traversal, array $opts): ?array
+    {
+        if (! (bool) config('atlas.aurg.query_ppr_shadow_enabled', false)) {
+            return null;
+        }
+
+        $started = microtime(true);
+        $latencyBudgetMs = max(1, (int) config('atlas.aurg.query_ppr_shadow_latency_budget_ms', 2000));
+        $targets = $this->normaliseTargetNodeIds($opts['ppr_targets'] ?? $opts['targets'] ?? []);
+
+        if (! $this->graphRank->available()) {
+            return [
+                'schema_version' => AtlasAurgPprShadowDualReadLedger::SCHEMA,
+                'status' => 'runtime_absent',
+                'applied_to_answer' => false,
+                'ledger_recorded' => false,
+                'latency_budget_ms' => $latencyBudgetMs,
+            ];
+        }
+
+        try {
+            $shadow = $this->graphRank->pprShadow(
+                $this->rankNodePayloads($traversal, $terms),
+                $this->rankEdgePayloads($traversal, includeConfidence: true),
+                [
+                    'textual_seeds' => $terms,
+                    'target_files' => [],
+                    'target_flows' => [],
+                    'target_capabilities' => ['seed'],
+                    'target_risks' => [],
+                    'seed_node_ids' => array_keys($traversal['seedIds']),
+                    'risk_elevated' => false,
+                    'boost_docs' => false,
+                    'boost_tests' => false,
+                ],
+                $traversal['order'],
+                $targets,
+            );
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return [
+                'schema_version' => AtlasAurgPprShadowDualReadLedger::SCHEMA,
+                'status' => 'runtime_error',
+                'applied_to_answer' => false,
+                'ledger_recorded' => false,
+                'latency_budget_ms' => $latencyBudgetMs,
+            ];
+        }
+
+        $latencyMs = (int) round((microtime(true) - $started) * 1000);
+        $dualRead = (array) ($shadow['dual_read'] ?? []);
+        $cases = (int) ($dualRead['cases'] ?? count($targets));
+        $targetsAvailable = (int) ($dualRead['targets_available'] ?? 0);
+        $baselineRecall = $dualRead['baseline_recall_at_5'] ?? null;
+        $pprRecall = $dualRead['ppr_recall_at_5'] ?? null;
+        $withinLatencyBudget = $latencyMs < $latencyBudgetMs;
+        $status = $this->pprShadowStatus($cases, $targetsAvailable, $baselineRecall, $pprRecall, $withinLatencyBudget);
+        $hashPayload = [
+            'schema_version' => AtlasAurgPprShadowDualReadLedger::SCHEMA,
+            'query_hash' => hash('sha256', $query),
+            'terms' => $terms,
+            'baseline_top5' => $dualRead['baseline_top5'] ?? [],
+            'ppr_top5' => $dualRead['ppr_top5'] ?? [],
+            'targets' => $dualRead['targets'] ?? [],
+            'missing_targets' => $dualRead['missing_targets'] ?? [],
+            'latency_ms' => $latencyMs,
+            'status' => $status,
+        ];
+        $dualReadHash = hash('sha256', (string) json_encode($hashPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION));
+        $receipt = [
+            'schema_version' => AtlasAurgPprShadowDualReadLedger::SCHEMA,
+            'series' => 'atlas.aurg.ppr_shadow_dual_read.v1',
+            'slice' => 'MAXD-04',
+            'recorded_at' => now()->toJSON(),
+            'query_hash' => $hashPayload['query_hash'],
+            'terms' => $terms,
+            'node_count' => count($traversal['order']),
+            'edge_count' => count($traversal['edges']),
+            'baseline' => 'bfs_insertion_order',
+            'candidate' => 'personalized_pagerank',
+            'baseline_top5' => $dualRead['baseline_top5'] ?? [],
+            'ppr_top5' => $dualRead['ppr_top5'] ?? [],
+            'targets' => $dualRead['targets'] ?? [],
+            'missing_targets' => $dualRead['missing_targets'] ?? [],
+            'targets_available' => $targetsAvailable,
+            'cases' => $cases,
+            'baseline_recall_at_5' => $baselineRecall,
+            'ppr_recall_at_5' => $pprRecall,
+            'latency_ms' => $latencyMs,
+            'latency_budget_ms' => $latencyBudgetMs,
+            'within_latency_budget' => $withinLatencyBudget,
+            'status' => $status,
+            'dual_read_hash' => $dualReadHash,
+        ];
+
+        (new AtlasAurgPprShadowDualReadLedger)->append($receipt);
+
+        return [
+            'schema_version' => AtlasAurgPprShadowDualReadLedger::SCHEMA,
+            'status' => $status,
+            'applied_to_answer' => false,
+            'ledger_recorded' => true,
+            'series' => 'atlas.aurg.ppr_shadow_dual_read.v1',
+            'dual_read_hash' => $dualReadHash,
+            'baseline_top5' => $receipt['baseline_top5'],
+            'ppr_top5' => $receipt['ppr_top5'],
+            'targets_available' => $targetsAvailable,
+            'cases' => $cases,
+            'baseline_recall_at_5' => $baselineRecall,
+            'ppr_recall_at_5' => $pprRecall,
+            'latency_ms' => $latencyMs,
+            'latency_budget_ms' => $latencyBudgetMs,
+            'within_latency_budget' => $withinLatencyBudget,
+        ];
+    }
+
+    private function pprShadowStatus(int $cases, int $targetsAvailable, mixed $baselineRecall, mixed $pprRecall, bool $withinLatencyBudget): string
+    {
+        if ($cases <= 0) {
+            return 'observed_no_targets';
+        }
+        if ($targetsAvailable < $cases) {
+            return 'targets_missing';
+        }
+        if (! is_numeric($baselineRecall) || ! is_numeric($pprRecall)) {
+            return 'recall_unmeasured';
+        }
+        if (! $withinLatencyBudget) {
+            return 'latency_budget_exceeded';
+        }
+
+        return (float) $pprRecall >= (float) $baselineRecall
+            ? 'candidate_non_regression'
+            : 'candidate_regression';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normaliseTargetNodeIds(mixed $targets): array
+    {
+        if (is_string($targets)) {
+            $targets = preg_split('/[\s,]+/', $targets) ?: [];
+        }
+        if (! is_array($targets)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $target): string => trim((string) $target),
+            $targets,
+        ), static fn (string $target): bool => $target !== '')));
+    }
+
+    /**
+     * @param  array{order:list<string>, nodesById:array<string,AtlasAurgNode>, seedIds:array<string,bool>}  $traversal
+     * @param  list<string>  $terms
+     * @return list<array<string,mixed>>
+     */
+    private function rankNodePayloads(array $traversal, array $terms): array
+    {
+        $nodePayloads = [];
+        foreach ($traversal['order'] as $nodeId) {
+            $node = $traversal['nodesById'][$nodeId];
+            $nodePayloads[] = [
+                'node_id' => $nodeId,
+                'node_type' => (string) $node->kind,
+                'path' => $this->rankTextSurface($node),
+                'flow_id' => null,
+                'capabilities' => isset($traversal['seedIds'][$nodeId]) ? ['seed'] : [],
+                'risks' => [],
+            ];
+        }
+
+        return $nodePayloads;
+    }
+
+    /**
+     * @param  array{edges:list<AtlasAurgEdge>}  $traversal
+     * @return list<array<string,mixed>>
+     */
+    private function rankEdgePayloads(array $traversal, bool $includeConfidence = false): array
+    {
+        $edgePayloads = [];
+        foreach ($traversal['edges'] as $edge) {
+            $payload = [
+                'from_node_id' => (string) $edge->from_node_id,
+                'to_node_id' => (string) $edge->to_node_id,
+                'edge_type' => (string) $edge->kind,
+            ];
+            if ($includeConfidence) {
+                $payload['confidence'] = round((float) $edge->confidence, 4);
+            }
+            $edgePayloads[] = $payload;
+        }
+
+        return $edgePayloads;
+    }
+
     // ------------------------------------------------------------------
     // Payloads
     // ------------------------------------------------------------------
@@ -1040,6 +1254,7 @@ class AtlasRealityGraphQueryService
                     ->first(['id', 'slug', 'name', 'root_path']);
                 if ($moduleRow === null) {
                     $modulesMissing++;
+
                     continue;
                 }
 
@@ -1174,7 +1389,7 @@ class AtlasRealityGraphQueryService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int,AtlasAurgNode>
+     * @return Collection<int,AtlasAurgNode>
      */
     private function moduleCandidates(bool $providerBound, string $workspaceId)
     {
