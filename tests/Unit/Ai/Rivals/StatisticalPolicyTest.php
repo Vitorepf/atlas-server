@@ -37,8 +37,43 @@ class StatisticalPolicyTest extends TestCase
         $analysis = (new StatisticalPolicy)->evaluate($plan, $receipts);
 
         $this->assertTrue($analysis['adequate'], implode(',', $analysis['blockers']));
+        $this->assertSame(0.90, $analysis['preregistration']['target_power']);
         $this->assertSame(9, $analysis['segments'][0]['n']);
         $this->assertLessThanOrEqual(0.5, $analysis['segments'][0]['wilson_95']['width']);
+    }
+
+    public function test_attrition_and_duplicate_case_repetition_are_not_collapsed_into_a_green_rate(): void
+    {
+        [$plan, $receipts] = $this->sample(['c1', 'c2', 'c3']);
+        array_pop($receipts);
+        $receipts[] = $receipts[0];
+
+        $analysis = (new StatisticalPolicy)->evaluate($plan, $receipts);
+
+        $this->assertFalse($analysis['adequate']);
+        $this->assertNotEmpty(preg_grep('/itt_denominator_incomplete/', $analysis['blockers']));
+        $this->assertNotEmpty(preg_grep('/pseudoreplication_duplicate_unit/', $analysis['blockers']));
+    }
+
+    public function test_holm_controls_a_family_of_comparisons_before_significance_is_reported(): void
+    {
+        [$plan, $receipts] = $this->sample(['c1', 'c2', 'c3'], [
+            ['id' => 'atlas_vs_bare', 'p_value' => 0.010],
+            ['id' => 'atlas_vs_frontier', 'p_value' => 0.049],
+            ['id' => 'atlas_vs_human', 'p_value' => 0.200],
+        ]);
+
+        $analysis = (new StatisticalPolicy)->evaluate($plan, $receipts, [
+            ['id' => 'atlas_vs_bare', 'p_value' => 0.010],
+            ['id' => 'atlas_vs_frontier', 'p_value' => 0.049],
+            ['id' => 'atlas_vs_human', 'p_value' => 0.200],
+        ]);
+
+        $this->assertFalse($analysis['adequate']);
+        $this->assertSame('holm', $analysis['multiplicity']['method']);
+        $this->assertSame(0.03, $analysis['comparisons'][0]['adjusted_p_value']);
+        $this->assertFalse($analysis['comparisons'][1]['significant']);
+        $this->assertNotEmpty(preg_grep('/multiplicity_not_significant_after_holm/', $analysis['blockers']));
     }
 
     public function test_small_or_environment_dominated_sample_is_not_ready(): void
@@ -53,7 +88,7 @@ class StatisticalPolicyTest extends TestCase
     }
 
     /** @return array{RunPlan, list<RunReceipt>} */
-    private function sample(array $cases): array
+    private function sample(array $cases, array $comparisons = []): array
     {
         $plan = RunPlan::make(
             'tau2_bench',
@@ -62,6 +97,9 @@ class StatisticalPolicyTest extends TestCase
             3,
             ['max_usd' => 1.0, 'max_minutes' => 5],
             1,
+            null,
+            null,
+            $comparisons,
         );
         $preregistration = Preregistration::fromPlan($plan);
         $data = $plan->data;

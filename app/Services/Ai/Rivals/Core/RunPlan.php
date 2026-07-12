@@ -20,6 +20,7 @@ class RunPlan
         int $seed,
         ?array $judgeConfig = null,
         ?string $claimTier = null,
+        ?array $comparisons = null,
     ): self {
         $resolvedTier = ClaimTier::forPlan($suiteId, $arms, $claimTier);
         $data = [
@@ -39,6 +40,7 @@ class RunPlan
             'judge_config' => $judgeConfig,
             'claim_tier' => $resolvedTier,
             'preregistration_hash' => null,
+            'comparisons' => array_values($comparisons ?? []),
             'created_at' => now()->toIso8601String(),
         ];
 
@@ -68,6 +70,10 @@ class RunPlan
         if (($data['schema_version'] ?? null) === SchemaContract::RUN_PLAN
             && ! array_key_exists('preregistration_hash', $data)) {
             $data['preregistration_hash'] = null;
+        }
+        if (($data['schema_version'] ?? null) === SchemaContract::RUN_PLAN
+            && ! array_key_exists('comparisons', $data)) {
+            $data['comparisons'] = [];
         }
 
         $violations = SchemaContract::validate($data, SchemaContract::RUN_PLAN);

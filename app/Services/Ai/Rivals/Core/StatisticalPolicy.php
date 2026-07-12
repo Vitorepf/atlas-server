@@ -9,7 +9,7 @@ final class StatisticalPolicy
      * @param  list<RunReceipt>  $receipts
      * @return array{adequate: bool, blockers: list<string>, segments: list<array<string, mixed>>}
      */
-    public function evaluate(RunPlan $plan, array $receipts): array
+    public function evaluate(RunPlan $plan, array $receipts, array $comparisons = []): array
     {
         try {
             $preregistration = Preregistration::load($plan->runId());
@@ -31,6 +31,7 @@ final class StatisticalPolicy
             'suite_id' => $plan->data['suite_id'],
             'case_ids' => $plan->data['case_ids'],
             'arm_ids' => array_column($plan->data['arms'], 'arm_id'),
+            'comparisons' => array_values((array) ($plan->data['comparisons'] ?? [])),
             'repetitions' => $plan->data['repetitions'],
         ] as $field => $expected) {
             if (($preregistration->data[$field] ?? null) !== $expected) {
@@ -43,6 +44,19 @@ final class StatisticalPolicy
         }
 
         $blockers = [];
+        $plannedComparisons = array_values((array) ($preregistration->data['comparisons'] ?? []));
+        if ($comparisons === []) {
+            $comparisons = $plannedComparisons;
+        } elseif (json_encode($comparisons) !== json_encode($plannedComparisons)) {
+            $blockers[] = 'comparisons_not_preregistered';
+        }
+        $targetPower = (float) ($preregistration->data['target_power'] ?? 0.0);
+        if ($targetPower < 0.90) {
+            $blockers[] = 'preregistered_power_below_90_percent';
+        }
+        if (($preregistration->data['multiplicity']['method'] ?? null) !== 'holm') {
+            $blockers[] = 'multiplicity_policy_not_holm';
+        }
         $distinctCases = count(array_unique(array_map(
             fn (RunReceipt $receipt): string => (string) $receipt->data['case_id'],
             $receipts,
@@ -61,6 +75,18 @@ final class StatisticalPolicy
         foreach ($groups as $key => $items) {
             [$taskType, $armId] = explode('|', $key, 2);
             $n = count($items);
+            $unitKeys = array_map(
+                static fn (RunReceipt $receipt): string => $receipt->data['case_id'].'|'.$receipt->data['repetition'],
+                $items,
+            );
+            if (count($unitKeys) !== count(array_unique($unitKeys))) {
+                $blockers[] = 'pseudoreplication_duplicate_unit:'.$taskType.'|'.$armId;
+            }
+            $expectedAttempts = count($plan->data['case_ids']) * (int) $plan->data['repetitions'];
+            if (count(array_unique($unitKeys)) !== $expectedAttempts) {
+                $blockers[] = 'itt_denominator_incomplete:'.$taskType.'|'.$armId
+                    .'|'.count(array_unique($unitKeys)).'<'.$expectedAttempts;
+            }
             $successes = count(array_filter(
                 $items,
                 fn (RunReceipt $receipt): bool => $receipt->data['status'] === 'success',
@@ -94,11 +120,58 @@ final class StatisticalPolicy
             ];
         }
 
+        $adjustedComparisons = self::holm($comparisons, (float) $preregistration->data['alpha']);
+        foreach ($adjustedComparisons as $comparison) {
+            if (($comparison['raw_p_value'] ?? 1.0) < (float) $preregistration->data['alpha']
+                && ($comparison['significant'] ?? false) !== true) {
+                $blockers[] = 'multiplicity_not_significant_after_holm:'.$comparison['id'];
+            }
+        }
+
         return [
             'adequate' => $blockers === [],
             'blockers' => array_values(array_unique($blockers)),
             'segments' => $segments,
+            'preregistration' => [
+                'target_power' => $targetPower,
+                'analysis_population' => $preregistration->data['analysis_population'],
+            ],
+            'multiplicity' => $preregistration->data['multiplicity'],
+            'comparisons' => $adjustedComparisons,
         ];
+    }
+
+    /** @param list<array{id?: string, p_value: float|int}> $comparisons */
+    public static function holm(array $comparisons, float $alpha = 0.05): array
+    {
+        $ordered = [];
+        foreach ($comparisons as $index => $comparison) {
+            $pValue = (float) ($comparison['p_value'] ?? -1.0);
+            if ($pValue < 0.0 || $pValue > 1.0) {
+                $pValue = 1.0;
+            }
+            $ordered[] = [
+                'index' => $index,
+                'id' => (string) ($comparison['id'] ?? "comparison_{$index}"),
+                'raw_p_value' => $pValue,
+            ];
+        }
+        usort($ordered, static fn (array $a, array $b): int => $a['raw_p_value'] <=> $b['raw_p_value']);
+        $previous = 0.0;
+        foreach ($ordered as $rank => &$comparison) {
+            $adjusted = min(1.0, max($previous, $comparison['raw_p_value'] * (count($ordered) - $rank)));
+            $comparison['adjusted_p_value'] = round($adjusted, 6);
+            $comparison['significant'] = $adjusted <= $alpha;
+            $previous = $adjusted;
+        }
+        unset($comparison);
+        usort($ordered, static fn (array $a, array $b): int => $a['index'] <=> $b['index']);
+
+        return array_map(static function (array $comparison): array {
+            unset($comparison['index']);
+
+            return $comparison;
+        }, $ordered);
     }
 
     /** @return array{low: float, high: float, width: float} */

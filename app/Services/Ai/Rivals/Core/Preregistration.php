@@ -36,10 +36,15 @@ final class Preregistration
             'claim_tier' => $tier,
             'case_ids' => $plan->data['case_ids'],
             'arm_ids' => array_column($plan->data['arms'], 'arm_id'),
+            'comparisons' => array_values((array) ($plan->data['comparisons'] ?? [])),
             'repetitions' => $plan->data['repetitions'],
             'seed' => $plan->data['seed'],
             'alpha' => 0.05,
-            'target_power' => 0.80,
+            'target_power' => 0.90,
+            'multiplicity' => [
+                'method' => 'holm',
+                'family' => 'all_primary_comparisons',
+            ],
             'min_distinct_cases' => (int) config(
                 $public
                     ? 'atlas_rivals.claim.min_distinct_cases_public'
@@ -78,7 +83,7 @@ final class Preregistration
             'schema_version', 'run_id', 'revision', 'hypothesis',
             'primary_endpoint', 'secondary_endpoints', 'analysis_population',
             'pairing_key', 'suite_id', 'claim_tier', 'case_ids', 'arm_ids',
-            'repetitions', 'seed', 'alpha', 'target_power',
+            'comparisons', 'repetitions', 'seed', 'alpha', 'target_power', 'multiplicity',
             'min_distinct_cases', 'max_ci_width', 'missing_data_policy',
             'outlier_policy', 'stopping_rules', 'expansion_policy',
             'created_at', 'preregistration_hash',

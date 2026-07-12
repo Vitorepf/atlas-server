@@ -185,7 +185,11 @@ class Adjudicator
         if (ClaimTier::permitsInternalClaim($claimTier)) {
             $production = $this->productionBlockers($plan, $receipts, $pack);
             $internalBlockers = array_merge($internalBlockers, $production);
-            $statisticalAnalysis = (new StatisticalPolicy)->evaluate($plan, $receipts);
+            $statisticalAnalysis = (new StatisticalPolicy)->evaluate(
+                $plan,
+                $receipts,
+                (array) ($plan->data['comparisons'] ?? []),
+            );
             $internalBlockers = array_merge(
                 $internalBlockers,
                 $statisticalAnalysis['blockers'],
