@@ -43,13 +43,27 @@ final class CausalLearningGateTest extends TestCase
         CausalLearningCandidate::fromArray(array_replace($this->valid(), ['hypothesis' => '']));
     }
 
+    public function test_inconsistent_interval_is_rejected(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['ci_low' => 0.40, 'ci_high' => 0.10]));
+
+        self::assertSame('reject', (new CausalLearningGate)->adjudicate($candidate)->verdict);
+    }
+
+    public function test_assignment_and_execution_are_bound_to_the_same_order(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), ['order_hash' => str_repeat('0', 64)]));
+
+        self::assertSame('hold', (new CausalLearningGate)->adjudicate($candidate)->verdict);
+    }
+
     /** @return array<string,mixed> */
     private function valid(): array
     {
         $hash = static fn (string $c): string => str_repeat($c, 64);
 
         return [
-            'assignment_hash' => $hash('b'), 'experiment_hash' => $hash('c'),
+            'assignment_hash' => $hash('b'), 'experiment_hash' => $hash('c'), 'order_hash' => $hash('7'),
             'run_hash' => $hash('d'), 'release_hash' => $hash('e'), 'outcome_hash' => $hash('f'),
             'change_class' => 'routing', 'hypothesis' => 'The route improves verified outcomes',
             'baseline' => 'baseline-v1', 'metric' => 'verified_quality', 'window' => '7d',

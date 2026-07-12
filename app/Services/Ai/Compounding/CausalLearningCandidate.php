@@ -13,11 +13,11 @@ final readonly class CausalLearningCandidate
     /** @param array<string,mixed> $data */
     public static function fromArray(array $data): self
     {
-        $required = ['assignment_hash','experiment_hash','run_hash','release_hash','outcome_hash','change_class','hypothesis','baseline','metric','window','effect','ci_low','ci_high','confounders','rollback','reversible','assignment_precedes_run','real_outcome','authority_hash','scope','expiry'];
+        $required = ['assignment_hash','experiment_hash','order_hash','run_hash','release_hash','outcome_hash','change_class','hypothesis','baseline','metric','window','effect','ci_low','ci_high','confounders','rollback','reversible','assignment_precedes_run','real_outcome','authority_hash','scope','expiry'];
         foreach ($required as $key) {
             if (! array_key_exists($key, $data)) throw new InvalidArgumentException('causal_candidate_'.$key.'_required');
         }
-        foreach (['assignment_hash','experiment_hash','run_hash','release_hash','outcome_hash','authority_hash'] as $key) {
+        foreach (['assignment_hash','experiment_hash','order_hash','run_hash','release_hash','outcome_hash','authority_hash'] as $key) {
             if (preg_match('/^[a-f0-9]{64}$/', (string) $data[$key]) !== 1) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
         }
         if (! in_array($data['change_class'], ['routing','memory_policy','operational_policy','code_task'], true)) throw new InvalidArgumentException('causal_candidate_change_class_invalid');
