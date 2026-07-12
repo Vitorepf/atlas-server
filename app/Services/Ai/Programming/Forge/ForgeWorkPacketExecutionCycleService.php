@@ -10,6 +10,10 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
+use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
+use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
@@ -55,10 +59,9 @@ use Ramsey\Uuid\Uuid;
  * mutated on terminal transitions. Without a state, the cycle still records
  * a complete, audit-friendly row but no Obra-level projection happens.
  *
- * Out of scope here (explicitly forbidden by brief):
- *  - provider invocation;
- *  - rivals / benchmark;
- *  - sandboxed real execution mechanics.
+ * Provider/sandbox execution is reached only through the shared Kernel port
+ * exposed by executeRealCycle(); this lifecycle service never implements a
+ * second provider or sandbox mechanism. Rivals/benchmark remain out of scope.
  *
  * `safe_simulation` mode is the dry-run path. Its evidence must stay in the
  * simulation namespace and can never satisfy the productive `complete()`
@@ -81,6 +84,7 @@ class ForgeWorkPacketExecutionCycleService
         private readonly ?\App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService $engineeringConductor = null,
         ?AtlasDevGateAdapter $devGate = null,
         private readonly ?EliteExecutorKernel $eliteKernel = null,
+        private readonly ?ForgeWorkPacketExecutionPort $kernelExecution = null,
     ) {
         $this->devGate = $devGate ?? new AtlasDevGateAdapter;
     }
@@ -279,6 +283,90 @@ class ForgeWorkPacketExecutionCycleService
             'evidence_kinds_required' => $evidenceKinds,
             'initial_next_action' => $initialNextAction,
         ];
+    }
+
+    /**
+     * Execute a real running cycle through the shared Engineering Kernel.
+     * Safe simulation never reaches this method or a provider.
+     */
+    public function executeRealCycle(
+        AiForgeIntake $intake,
+        AiForgeWorkPacket $packet,
+        AiForgeWorkPacketExecutionCycle $cycle,
+        string $workspace,
+        string $baseCommit,
+        string $operatorId,
+        array $providerRoute = [],
+    ): EngineeringOutcome {
+        if ($cycle->execution_mode !== ForgeWorkPacketExecutionCycleCanon::MODE_REAL
+            || $cycle->status !== ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING) {
+            throw new ForgeWorkPacketExecutionCycleException('real_kernel_execution_requires_running_cycle');
+        }
+        if (trim($workspace) === '' || preg_match('/^[a-f0-9]{40,64}$/', strtolower(trim($baseCommit))) !== 1 || trim($operatorId) === '') {
+            throw new ForgeWorkPacketExecutionCycleException('real_kernel_execution_binding_invalid');
+        }
+
+        $plan = (array) ($cycle->execution_plan ?? []);
+        $reservation = (array) ($plan['scope_reservation'] ?? []);
+        if (($reservation['released_at'] ?? null) !== null || (string) ($reservation['id'] ?? '') === '') {
+            throw ForgeWorkPacketExecutionCycleException::completionWithoutLiveReservation($cycle->uuid);
+        }
+
+        $risk = $this->forgeRiskClass($packet->risk_band);
+        $allowedScope = array_values(array_filter(array_map('strval', (array) ($packet->expected_files ?? []))));
+        if ($allowedScope === []) {
+            $allowedScope = [(string) ($packet->scope ?: 'work-packet/'.$packet->packet_id)];
+        }
+        $route = array_merge(['provider' => 'atlas_kernel', 'model' => 'shared_quality_foundry'], $providerRoute);
+        $order = (new EngineeringModeExecutionOrderFactory)->make([
+            'run_id' => 'forge-cycle-'.$cycle->uuid,
+            'delivery_id' => 'forge-packet-'.$packet->packet_id,
+            'mode' => 'forge',
+            'risk_class' => $risk,
+            'complexity_band' => 'C3',
+            'duration_regime' => 'obra',
+            'work_topology' => 'DAG',
+            'product_intent_verdict_hash' => (string) $intake->intake_hash,
+            'spec_hash' => (string) $packet->packet_hash,
+            'world_model_snapshot_hash' => (string) ($intake->context_pack_hash ?: $intake->intake_hash),
+            'workspace' => trim($workspace),
+            'base_commit' => strtolower(trim($baseCommit)),
+            'allowed_scope' => $allowedScope,
+            'forbidden_scope' => ['.env', '.git/**'],
+            'authority_envelope' => [
+                'kind' => 'atlas_forge_work_packet_cycle',
+                'surface' => 'atlas_forge.work_packet_execution_cycle',
+                'operator_id' => trim($operatorId),
+                'cycle_id' => $cycle->uuid,
+                'lease_id' => (string) ($reservation['id'] ?? ''),
+                'fencing_token' => (int) ($reservation['fencing_token'] ?? 0),
+            ],
+            'decision_receipt' => ['decision_event_id' => 'forge-cycle-decision-'.$cycle->uuid],
+            'operator_contract' => ['presence' => 'confirmed', 'operator_id' => trim($operatorId)],
+            'provider_route' => $route,
+            'mutate' => true,
+            'release_kind' => 'canonical_commit_with_canary',
+            'rollback_kind' => 'canonical_revert_with_settlement',
+            'experiment_ref' => 'forge/'.$packet->packet_id,
+            'idempotency_key' => 'forge-cycle:'.$cycle->uuid,
+        ]);
+
+        return ($this->kernelExecution ?? app(ForgeWorkPacketExecutionPort::class))->execute($order);
+    }
+
+    private function forgeRiskClass(?string $riskBand): string
+    {
+        $value = strtoupper(trim((string) $riskBand));
+        if (in_array($value, array_keys(EngineeringRoleRoster::DEPTH_PROFILES), true)) {
+            return $value;
+        }
+
+        return match (strtolower(trim((string) $riskBand))) {
+            'low' => 'R1',
+            'medium' => 'R3',
+            'high', 'critical' => 'R5',
+            default => 'R4',
+        };
     }
 
     /**

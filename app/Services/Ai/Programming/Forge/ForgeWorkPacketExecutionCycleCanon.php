@@ -19,10 +19,10 @@ namespace App\Services\Ai\Programming\Forge;
  *  - it carries the resulting next_action so the long-horizon state knows
  *    what to do next.
  *
- * Out of scope for this layer:
- *  - actual provider invocation;
- *  - tool runtime / sandbox;
- *  - rivals battery, benchmark, scoring — explicitly forbidden by brief.
+ * Provider invocation and sandboxing are reached only through the shared
+ * Engineering Kernel port after a real cycle has a live reservation; this
+ * lifecycle contract never implements a second provider path. Rivals battery,
+ * benchmark and scoring remain out of scope.
  */
 final class ForgeWorkPacketExecutionCycleCanon
 {

@@ -13,6 +13,8 @@ use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
 use App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService;
 use App\Services\Ai\Programming\AtlasDev\Execution\DevPlanRunFacade;
+use App\Services\Ai\Programming\Forge\ForgeEliteKernelExecutionAdapter;
+use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\SymfonyProcessCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
@@ -89,6 +91,7 @@ final class AtlasDevServiceProvider extends ServiceProvider
 
         $this->app->bind(RunExecutor::class, KernelRunExecutor::class);
         $this->app->bind(DevPlanRunFacade::class, AtlasDevExecutionService::class);
+        $this->app->bind(ForgeWorkPacketExecutionPort::class, ForgeEliteKernelExecutionAdapter::class);
 
         $this->app->singleton(AtlasMinimaxFirstWorkerService::class, function (): AtlasMinimaxFirstWorkerService {
             return new AtlasMinimaxFirstWorkerService(
