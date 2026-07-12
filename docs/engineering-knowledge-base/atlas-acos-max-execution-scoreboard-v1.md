@@ -76,7 +76,7 @@
 - [ ] MAXK-05 — pending
 - [ ] MAXK-06 — pending
 - [x] MAXM-05 — landed · `surface_contract.v1.1` + `annotations.atlasContract` por tool (`stability/since/provider_bound/side_effect/cost_tier`); guard independente inspeciona handler read e recusa write-path rotulado read; `atlas_capabilities` expõe contrato por-tool
-- [ ] MAXM-08 — pending
+- [x] MAXM-08 — landed · `tools/list` default expõe 9 primárias + `atlas_tool_search` (≤10); `atlas_tool_search` resolve por intenção e retorna contratos por-tool; 64 tools legadas seguem chamáveis por nome; surface-review `removed_tools=0`, coverage=65/65
 - [ ] MAXN-03 (scaffold) — pending
 - [ ] MULTN15-06 — pending
 - [ ] ESP-02 — pending

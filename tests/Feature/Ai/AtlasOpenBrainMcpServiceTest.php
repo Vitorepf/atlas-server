@@ -245,7 +245,8 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         // + MCP runtime stale-session self-check (atlas_mcp_self_check) = 61.
         // NOTE: one tool was added upstream without updating this tally (pre-existing baseline = 62).
         // + PART 2 task-serving contract tools (atlas_next_task, atlas_task_report) = 64.
-        $this->assertCount(64, $structured['tools']);
+        // + ACOS Max MAXM-08 progressive discovery tool (atlas_tool_search) = 65.
+        $this->assertCount(65, $structured['tools']);
         $this->assertSame(AtlasOpenBrainMcpService::SERVER_VERSION, data_get($structured, 'server.version'));
         $this->assertSame(AtlasOpenBrainMcpService::RUNTIME_SCHEMA, data_get($structured, 'runtime.schema_version'));
         $this->assertContains('context_delivery_policy', data_get($structured, 'runtime.feature_flags'));
@@ -254,7 +255,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($structured, 'runtime.runtime_fingerprint'));
         $this->assertSame('atlas.open_brain.surface_contract.v1.1', data_get($structured, 'surface_contract.schema_version'));
         $this->assertSame(9, data_get($structured, 'surface_contract.primary_tool_count'));
-        $this->assertSame(55, data_get($structured, 'surface_contract.compatibility_tool_count'));
+        $this->assertSame(56, data_get($structured, 'surface_contract.compatibility_tool_count'));
         $this->assertContains('atlas_context_pack', data_get($structured, 'surface_contract.primary_tools'));
         $this->assertContains('atlas_claim_task', data_get($structured, 'surface_contract.primary_tools'));
         $this->assertSame(
@@ -330,7 +331,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('atlas.open_brain.surface_contract.v1.1', data_get($structured, 'surface_contract.schema_version'));
 
         $tools = collect($structured['tools'])->keyBy('name');
-        $this->assertCount(64, $tools);
+        $this->assertCount(65, $tools);
         foreach ($tools as $name => $tool) {
             $contract = data_get($tool, 'annotations.atlasContract');
             $this->assertIsArray($contract, "missing atlasContract for {$name}");
@@ -357,6 +358,43 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
             'read',
             data_get($tools->get('atlas_capabilities'), 'annotations.atlasContract.side_effect'),
         );
+    }
+
+    public function test_tools_list_defaults_to_primary_discovery_surface_and_keeps_compat_calls(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+
+        $list = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 712, 'method' => 'tools/list',
+        ])['result']['tools'];
+
+        $listedNames = array_column($list, 'name');
+        $this->assertLessThanOrEqual(10, count($list));
+        $this->assertContains('atlas_capabilities', $listedNames);
+        $this->assertContains('atlas_context_pack', $listedNames);
+        $this->assertContains('atlas_tool_search', $listedNames);
+        $this->assertNotContains('atlas_blackboard_status', $listedNames);
+
+        $search = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 713, 'method' => 'tools/call',
+            'params' => [
+                'name' => 'atlas_tool_search',
+                'arguments' => ['query' => 'blackboard active claims coordination', 'limit' => 5],
+            ],
+        ])['result']['structuredContent'];
+
+        $this->assertTrue($search['ok']);
+        $resultNames = array_column($search['tools'], 'name');
+        $this->assertContains('atlas_blackboard_status', $resultNames);
+        $this->assertIsArray(data_get($search, 'tools.0.annotations.atlasContract'));
+
+        $compat = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 714, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_blackboard_status', 'arguments' => []],
+        ]);
+
+        $this->assertArrayNotHasKey('error', $compat);
+        $this->assertSame('atlas_blackboard_status', data_get($compat, 'result.structuredContent.tool'));
     }
 
     public function test_mcp_self_check_reports_runtime_fingerprint_and_stale_expectations(): void

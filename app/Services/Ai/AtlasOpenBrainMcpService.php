@@ -214,7 +214,7 @@ class AtlasOpenBrainMcpService
         return match ($method) {
             'initialize' => $this->response($id, $this->initializeResult($request)),
             'ping' => $this->response($id, []),
-            'tools/list' => $this->response($id, ['tools' => $this->tools()]),
+            'tools/list' => $this->response($id, ['tools' => $this->listedTools($request)]),
             'tools/call' => $this->callTool($id, $request),
             default => $this->error($id, -32601, "Method [{$method}] not found."),
         };
@@ -1249,6 +1249,20 @@ class AtlasOpenBrainMcpService
                 'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
             ],
             [
+                'name' => 'atlas_tool_search',
+                'title' => 'Atlas Tool Search',
+                'description' => 'Busca tools MCP por intenção e retorna o subconjunto compatível com contrato atlasContract por-tool. Read-only; use quando tools/list mostrar só a superfície primária.',
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'query' => ['type' => 'string', 'description' => 'Intenção, termo ou nome parcial da tool.'],
+                        'limit' => ['type' => 'integer', 'description' => 'Máximo de tools retornadas (default 10, teto 25).'],
+                    ],
+                    'required' => ['query'],
+                ],
+                'annotations' => ['readOnlyHint' => true, 'destructiveHint' => false, 'openWorldHint' => false],
+            ],
+            [
                 'name' => 'atlas_next_task',
                 'title' => 'Atlas Next Task (PART 2 · the serving contract)',
                 'description' => 'PART 2 — o Atlas OFERECE a próxima task. PULL de UM task packet auto-suficiente (id, lease, allowed_files/escopo, critério de aceite, required_evidence, régua) da fila canônica, via claim ATÔMICO conflict-free. `client_id` é OPACO (qualquer IA/harness passa o seu; o servidor nunca ramifica em plataforma). Gated no loop master switch (OFF => disabled). Fila seca => no_claimable_task honesto + escalation needs_brain_origination (NÃO é erro). Dois client_id distintos recebem packets DISJUNTOS. Pareie com atlas_task_report ao terminar.',
@@ -1295,6 +1309,24 @@ class AtlasOpenBrainMcpService
         ];
 
         return array_map(fn (array $tool): array => $this->withSurfaceReviewAnnotation($tool), $tools);
+    }
+
+    /**
+     * @param  array<string,mixed>  $request
+     * @return array<int,array<string,mixed>>
+     */
+    private function listedTools(array $request): array
+    {
+        if ((bool) data_get($request, 'params.include_compatibility', false)) {
+            return $this->tools();
+        }
+
+        $primary = array_fill_keys([...self::PRIMARY_TOOLS, 'atlas_tool_search'], true);
+
+        return array_values(array_filter(
+            $this->tools(),
+            static fn (array $tool): bool => isset($primary[(string) ($tool['name'] ?? '')]),
+        ));
     }
 
     /**
@@ -1439,6 +1471,7 @@ class AtlasOpenBrainMcpService
                 'atlas_workspace_activate' => $this->toolResponse($id, $this->workspaceActivate($arguments)),
                 'atlas_claim_task' => $this->toolResponse($id, $this->claimTask($arguments)),
                 'atlas_blackboard_status' => $this->toolResponse($id, $this->blackboardStatus($arguments)),
+                'atlas_tool_search' => $this->toolResponse($id, $this->toolSearch($arguments)),
                 // PART 2 · A7 — the task-serving contract over MCP (same service as `atlas:task`, platform-free).
                 'atlas_next_task' => $this->toolResponse($id, $this->nextTask($arguments)),
                 'atlas_task_report' => $this->toolResponse($id, $this->taskReport($arguments)),
@@ -2579,6 +2612,63 @@ class AtlasOpenBrainMcpService
             'transport' => 'stdio',
             'remote_capable' => false,
             'generated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function toolSearch(array $arguments): array
+    {
+        $query = trim((string) ($arguments['query'] ?? ''));
+        if ($query === '') {
+            return ['ok' => false, 'tool' => 'atlas_tool_search', 'error' => 'query_required'];
+        }
+
+        $limit = min(25, max(1, (int) ($arguments['limit'] ?? 10)));
+        $tokens = array_values(array_filter(
+            preg_split('/[^a-z0-9_]+/i', mb_strtolower($query)) ?: [],
+            static fn (string $token): bool => $token !== '',
+        ));
+
+        $ranked = [];
+        foreach ($this->tools() as $tool) {
+            $name = mb_strtolower((string) ($tool['name'] ?? ''));
+            $title = mb_strtolower((string) ($tool['title'] ?? ''));
+            $description = mb_strtolower((string) ($tool['description'] ?? ''));
+            $score = str_contains($name, mb_strtolower($query)) ? 20 : 0;
+            $score += str_contains($title, mb_strtolower($query)) ? 10 : 0;
+            $score += str_contains($description, mb_strtolower($query)) ? 5 : 0;
+
+            foreach ($tokens as $token) {
+                if (str_contains($name, $token)) {
+                    $score += 6;
+                } elseif (str_contains($title, $token)) {
+                    $score += 3;
+                } elseif (str_contains($description, $token)) {
+                    $score += 1;
+                }
+            }
+
+            if ($score > 0) {
+                $ranked[] = ['score' => $score, 'name' => (string) ($tool['name'] ?? ''), 'tool' => $tool];
+            }
+        }
+
+        usort($ranked, static fn (array $a, array $b): int => ($b['score'] <=> $a['score']) ?: strcmp($a['name'], $b['name']));
+        $tools = array_map(static fn (array $row): array => $row['tool'], array_slice($ranked, 0, $limit));
+
+        return [
+            'ok' => true,
+            'tool' => 'atlas_tool_search',
+            'query' => $query,
+            'count' => count($tools),
+            'tools' => $tools,
+            'compatibility' => [
+                'all_legacy_tools_remain_callable_by_name' => true,
+                'full_inventory_tool' => 'atlas_capabilities',
+            ],
         ];
     }
 
