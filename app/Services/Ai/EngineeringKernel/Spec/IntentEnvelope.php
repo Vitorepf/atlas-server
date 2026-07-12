@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\Spec;
 
+use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use Carbon\CarbonImmutable;
 
 /**
@@ -82,7 +83,7 @@ final readonly class IntentEnvelope
 
     public function productAuthorityHash(): string
     {
-        return hash('sha256', json_encode(get_object_vars($this), JSON_THROW_ON_ERROR));
+        return CanonicalKernelPayload::hash(get_object_vars($this));
     }
 
     public function wasElicited(string $question): bool

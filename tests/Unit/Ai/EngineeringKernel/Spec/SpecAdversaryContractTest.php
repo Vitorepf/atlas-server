@@ -111,6 +111,25 @@ final class SpecAdversaryContractTest extends TestCase
         self::assertNotSame(SpecDraft::fromArray($base)->authorityHash(), SpecDraft::fromArray($changed)->authorityHash());
     }
 
+    public function test_spec_and_intent_authority_hashes_are_stable_under_map_reordering(): void
+    {
+        $spec = [
+            'intent_text' => 'x',
+            'acceptance_criteria' => [['id' => 'a', 'description' => 'does x']],
+            'invariants' => [['b' => 'two', 'a' => 'one']],
+            'non_functional_requirements' => ['n'], 'security' => ['s'], 'accessibility' => ['a'],
+            'observability' => ['o'], 'compatibility' => ['c'], 'migration' => ['m'], 'rollback' => ['r'],
+            'oracles' => ['q'], 'invalidity_conditions' => ['x'],
+        ];
+        $reorderedSpec = $spec;
+        $reorderedSpec['invariants'] = [['a' => 'one', 'b' => 'two']];
+        self::assertSame(SpecDraft::fromArray($spec)->authorityHash(), SpecDraft::fromArray($reorderedSpec)->authorityHash());
+
+        $intent = IntentEnvelope::fromArray(['raw_goal' => 'x', 'release_policy' => ['z' => 2, 'a' => 1]]);
+        $reorderedIntent = IntentEnvelope::fromArray(['raw_goal' => 'x', 'release_policy' => ['a' => 1, 'z' => 2]]);
+        self::assertSame($intent->productAuthorityHash(), $reorderedIntent->productAuthorityHash());
+    }
+
     public function test_product_authority_api_has_no_caller_verdict_parameter(): void
     {
         $parameters = (new \ReflectionMethod(AtlasSpecGateAdapter::class, 'adjudicateProductAuthority'))->getParameters();

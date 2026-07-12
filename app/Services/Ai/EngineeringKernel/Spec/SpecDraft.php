@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\Spec;
 
+use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+
 /**
  * Engineering Kernel value: the composed-but-not-yet-frozen spec the adversary attacks.
  *
@@ -70,14 +72,14 @@ final readonly class SpecDraft
 
     public function authorityHash(): string
     {
-        return hash('sha256', json_encode([
+        return CanonicalKernelPayload::hash([
             'intent_text' => $this->intentText, 'acceptance_criteria' => $this->acceptanceCriteria,
             'expected_files' => $this->expectedFiles, 'forbidden_files' => $this->forbiddenFiles, 'non_goals' => $this->nonGoals,
             'invariants' => $this->invariants, 'nfr' => $this->nonFunctionalRequirements, 'security' => $this->security,
             'accessibility' => $this->accessibility, 'observability' => $this->observability, 'compatibility' => $this->compatibility,
             'migration' => $this->migration, 'rollback' => $this->rollback, 'oracles' => $this->oracles,
             'invalidity_conditions' => $this->invalidityConditions,
-        ], JSON_THROW_ON_ERROR));
+        ]);
     }
 
     /**
