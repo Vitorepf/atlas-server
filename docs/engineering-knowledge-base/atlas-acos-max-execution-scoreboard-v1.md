@@ -32,7 +32,7 @@
 
 ## LOTE 2 — Réguas v2 congeladas (M1) — GATE M1: todo freeze com hash+judge≠author · golden v2 targets_available==cases · registry de séries populado
 - [x] ELEV-02 (ASI-METRIC) — landed · freeze `asi.metric.m.v1` content_hash=`edaa1866b556b356eeff8cf5f685bc4b7e8a56ba556ecd91ed4e2846b1977b6b` · formula_version=`asi_metric_m.v1` · denominator_min=8 · cmd `atlas:acos:m-series --json` · caso negativo `insufficient_signal` · registry=pending(ELEV-20s)
-- [ ] ELEV-12 — pending
+- [x] ELEV-12 — landed · freeze `acos.verified_share.v1` content_hash=`4d097e24e6c81ff6d5a1e991c153179a81194c6ae52a164c343e9c98352cfe07` · `judge_engine_id=codex-elev12-judge` ≠ `author_engine_id=cursor-acos-max-elev12` · cmd `atlas:acos:verified-share --json` · live window 14d: status=`below_threshold`, verified=0/65, share=0.0, threshold=0.80, min=50
 - [ ] ELEV-20s — pending
 - [ ] ELEV-25 — pending
 - [ ] MAXG-01 (completo) — pending
