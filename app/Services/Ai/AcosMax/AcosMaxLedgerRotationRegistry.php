@@ -1,0 +1,240 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\AcosMax;
+
+/**
+ * ELEV-24 — Registro de política de rotação/retenção POR ledger.
+ *
+ * O plano criou dezenas de JSONLs (immune_verdict, pattern-ledger, shadows,
+ * arena-runs, latency, séries v2) e só o latency ledger declarava rotação.
+ * Este registro paga a dívida: cada série declarada em ELEV-20s ganha um
+ * `rotation_policy = {max_size_mb, max_age_days, mode}`.
+ *
+ * `mode`:
+ *   - `append_forever` — nunca rotaciona (append-only auditáveis, cadeia hash).
+ *   - `rotate_size`   — quando o arquivo passa `max_size_mb`, rotaciona.
+ *   - `rotate_age`    — arquivos com `> max_age_days` são rotacionados.
+ *   - `rotate_hybrid` — o que estourar primeiro (tamanho OU idade).
+ *
+ * O guard arquitetural em `Elev24RotationRegistryTest` recusa qualquer série
+ * de ELEV-20s sem política declarada aqui.
+ */
+final class AcosMaxLedgerRotationRegistry
+{
+    /** @var array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}> */
+    private array $policies;
+
+    /**
+     * @param  array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale?:string}>|null  $policies
+     */
+    public function __construct(?array $policies = null)
+    {
+        $this->policies = self::normalize($policies ?? self::defaultPolicies());
+    }
+
+    /**
+     * @return array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}>
+     */
+    public function all(): array
+    {
+        return $this->policies;
+    }
+
+    /**
+     * @return array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}|null
+     */
+    public function policyFor(string $series): ?array
+    {
+        return $this->policies[$series] ?? null;
+    }
+
+    /**
+     * @return array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}>
+     */
+    public static function defaultPolicies(): array
+    {
+        return [
+            'aobg.latency_ledger.v1' => [
+                'max_size_mb' => 128,
+                'max_age_days' => 45,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'high-frequency append; MAXG-01 declares rotation contract',
+            ],
+            'asi.metric.m.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 180,
+                'mode' => 'rotate_size',
+                'rationale' => 'ELEV-02 metric M series; monthly append cadence',
+            ],
+            'acos.verified_share.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ELEV-12 verified-share observed daily',
+            ],
+            'acos.asi05.ledger_cleanup.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 365,
+                'mode' => 'append_forever',
+                'rationale' => 'one-time cleanup receipt; audit forever',
+            ],
+            'acos.esp00.ground_truth.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 365,
+                'mode' => 'append_forever',
+                'rationale' => 'ESP-00 ground-truth receipt; audit forever',
+            ],
+            'atlas.evidence_ledger.hash_chain.v1' => [
+                'max_size_mb' => 512,
+                'max_age_days' => 365,
+                'mode' => 'append_forever',
+                'rationale' => 'MAXL-02 hash chain: never rotate, integrity backbone',
+            ],
+            'atlas.memory.temporal_truth.v2' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 45,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXH-01 computed reader',
+            ],
+            'atlas.capture.cognitive_immune_audit.v2' => [
+                'max_size_mb' => 128,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXI-02 capture audit; DB table pruning',
+            ],
+            'atlas.immune.calibration.v1' => [
+                'max_size_mb' => 128,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXI-03 verdict ledger table',
+            ],
+            'acos.dead_series_watchdog.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ELEV-20s DB-backed watchdog run trail',
+            ],
+            'acos.operator_review_debt.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ELEV-25 review-debt watchdog trail',
+            ],
+            'atlas.ai.lesson_quality.v2' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXJ-01 lesson quality reader',
+            ],
+            'atlas.ai.lesson_type_yield.v2' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXJ-05 lesson type yield',
+            ],
+            'atlas.decide.route_regret.v2' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXK-01 route regret',
+            ],
+            'atlas.decide.cost_outcome_uncertainty.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTK-01 cost-outcome',
+            ],
+            'atlas.decide.zero_weight_outcomes.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ESP-05 zero-weight outcomes',
+            ],
+            'operator.approval_history.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 180,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTN15-02 approval history',
+            ],
+            'atlas.evidence.delta_attribution.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXL-06 delta attribution reader',
+            ],
+            'atlas.originator.predicted_impact_calibration.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTN17-04 originator impact',
+            ],
+            'acos.flywheel.loops.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTX-01 loops',
+            ],
+            'acos.learning_latency.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTX-06 learning latency',
+            ],
+            'acos.windows_orchestrator.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTX-09 windows DAG snapshot',
+            ],
+            'atlas.ai.lesson_half_life.v2' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTJ-01 lesson half-life',
+            ],
+            'atlas.ai.lesson_semantic_dedup.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTJ-02 dedup calibration',
+            ],
+            'atlas.ai.counterfactual_lift.v2' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTJ-03 counterfactual lift',
+            ],
+            'mission_e2e.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'TETO-02 mission e2e',
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $policies
+     * @return array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}>
+     */
+    private static function normalize(array $policies): array
+    {
+        $normalized = [];
+        foreach ($policies as $series => $policy) {
+            $mode = (string) ($policy['mode'] ?? 'rotate_hybrid');
+            if (! in_array($mode, ['append_forever', 'rotate_size', 'rotate_age', 'rotate_hybrid'], true)) {
+                $mode = 'rotate_hybrid';
+            }
+            $normalized[(string) $series] = [
+                'max_size_mb' => max(1, (int) ($policy['max_size_mb'] ?? 32)),
+                'max_age_days' => max(1, (int) ($policy['max_age_days'] ?? 30)),
+                'mode' => $mode,
+                'rationale' => (string) ($policy['rationale'] ?? ''),
+            ];
+        }
+
+        return $normalized;
+    }
+}
