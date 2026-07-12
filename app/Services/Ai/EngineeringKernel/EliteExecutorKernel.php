@@ -463,14 +463,20 @@ final class EliteExecutorKernel
                 'planned_commands' => [],
                 'replay_results' => [],
             ],
+            'requires_canary_settlement' => true,
             'budget_posture' => $order->budgetPosture,
             'base_commit' => $candidate->baseCommit,
-            'tree_hash' => $candidate->treeHash,
+            // The task-lane actuator's canonical preflight names this binding tree_hash
+            // but verifies the scoped git diff hash. Candidate receipts retain both hashes.
+            'tree_hash' => $candidate->diffHash,
             'lease_id' => (string) ($order->authorityEnvelope['lease_id'] ?? ''),
             'lease_owner' => (string) ($order->authorityEnvelope['lease_owner'] ?? ''),
             'fencing_token' => (int) ($order->authorityEnvelope['fencing_token'] ?? 0),
             'candidate_hash' => $candidate->candidateHash,
             'verification_hash' => $candidate->verificationHash,
+            'order_hash' => $order->canonicalHash(),
+            'delivery_id' => $order->deliveryId,
+            'evidence_hash' => $evidenceHash,
         ]);
 
         return ['verdict' => $verdict, 'governance' => $governance];
@@ -524,8 +530,18 @@ final class EliteExecutorKernel
         AiEngineeringCompanyCycle $cycle,
         MergeActuator $actuator,
         AtlasTaskPostLandCanarySentinel $sentinel,
+        ?VerifiedMutativeCandidate $preparedCandidate = null,
     ): array {
-        $candidate = $this->prepareMutativeCandidate($order);
+        $candidate = $preparedCandidate ?? $this->prepareMutativeCandidate($order);
+        if ($candidate->orderHash !== $order->canonicalHash()) {
+            return [
+                'status' => 'blocked', 'candidate' => VerifiedMutativeCandidate::blocked($order, ['prepared_candidate_order_mismatch']),
+                'governance' => null, 'actuation' => [
+                    'status' => 'blocked', 'acted' => false, 'release_uncertain' => false,
+                    'reason' => 'prepared_candidate_order_mismatch',
+                ],
+            ];
+        }
         if ($candidate->status === 'blocked') {
             return ['status' => 'blocked', 'candidate' => $candidate, 'governance' => null, 'actuation' => [
                 'status' => 'blocked', 'acted' => false, 'release_uncertain' => false,
