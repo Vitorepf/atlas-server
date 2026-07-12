@@ -1,0 +1,59 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Unit\Ai\Compounding;
+
+use App\Services\Ai\Compounding\CausalLearningCandidate;
+use App\Services\Ai\Compounding\CausalLearningGate;
+use App\Services\Ai\Compounding\CausalLearningPromotionService;
+use InvalidArgumentException;
+use PHPUnit\Framework\TestCase;
+
+final class CausalLearningPromotionTest extends TestCase
+{
+    public function test_reversible_promotion_is_scoped_and_expiring(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray($this->candidate());
+        $service = new CausalLearningPromotionService;
+        $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+
+        self::assertSame('promoted', $promotion->status);
+        self::assertSame('atlas.route', $promotion->scope);
+        self::assertSame('route-v1', $promotion->rollbackVersion);
+        self::assertFalse($promotion->claimEligible);
+    }
+
+    public function test_adverse_late_outcome_revokes_and_restores_previous_version(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray($this->candidate());
+        $service = new CausalLearningPromotionService;
+        $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+
+        $revoked = $service->revoke($promotion, 'late_regression');
+
+        self::assertSame('revoked', $revoked->status);
+        self::assertSame('route-v1', $revoked->activeVersion);
+    }
+
+    public function test_code_task_cannot_be_promoted_as_policy(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->candidate(), ['change_class' => 'code_task']));
+
+        $this->expectException(InvalidArgumentException::class);
+        (new CausalLearningPromotionService)->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2');
+    }
+
+    /** @return array<string,mixed> */
+    private function candidate(): array
+    {
+        return [
+            'assignment_hash' => str_repeat('b', 64), 'experiment_hash' => str_repeat('c', 64), 'order_hash' => str_repeat('7', 64),
+            'run_hash' => str_repeat('d', 64), 'release_hash' => str_repeat('e', 64), 'outcome_hash' => str_repeat('f', 64),
+            'change_class' => 'routing', 'hypothesis' => 'route improves quality', 'baseline' => 'route-v1', 'metric' => 'quality',
+            'window' => '7d', 'effect' => 0.18, 'ci_low' => 0.06, 'ci_high' => 0.3, 'confounders' => ['provider' => 'controlled'],
+            'rollback' => 'route-v1', 'reversible' => true, 'assignment_precedes_run' => true, 'real_outcome' => true,
+            'authority_hash' => str_repeat('1', 64), 'scope' => 'atlas.route', 'expiry' => '2026-08-01T00:00:00Z',
+        ];
+    }
+}
