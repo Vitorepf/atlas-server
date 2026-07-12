@@ -28,7 +28,7 @@
 - [x] MAXL-02 (+ELEV-11) — landed · Evidence Ledger `prev_event_hash` scoped hash-chain (`scope_type:scope_id`, fallback `correlation_id`); legacy rows labelled `chain_basis=legacy_unchained`; verifier detects gap/tamper; daily chain-head anchor writes git-tracked JSONL with declared threat model
 - [x] MAXN-01 — landed · operator_* schema reconciled via idempotent 2026_06_08_130000..150000 migrations; sqlite proof `operator_learning_signals` + live runtime capture writes `chat_explicit_operator_signal`; WDG `maxn-01.operator_learning_capture_schema` alerts on flag-ON+missing table; capture-fail counter exposed via cache report (`persistence=cache_counter_no_jsonl`, ASI-05 no new JSONL); phpunit guard proves no pgsql@5433; live migrate @5433 pending_window(SUB-01 snapshot not verified: ELEV-17 manifest missing `memory-substrate.sql`)
 - [x] ELEV-17 — landed · `atlas:substrate:restore-drill --json` restores SUB-01 snapshots only into disposable target (guard refuses canonical @5433); fixture acceptance `restored_ok`; corrupted snapshot returns `restore_failed` with named diff; WDG `wdg-01.substrate_restore_drill` alerts when last success >45d; live local snapshot restore pending_window(real SUB-01 manifest points to missing `memory-substrate.sql`)
-- [ ] TETO-05 — pending (obra-retro; cadência a cada fecho de lote daqui em diante)
+- [x] TETO-05 — landed · `atlas:acos:obra-retro --lote=0 --json` emite outcomes OUTC-01 com série `obra:acos-max` + candidatos pela fila normal CaptureQualityGate/ASI-02; aceite sqlite/fake-ledger cobre Lote 0 e rejeição de boilerplate
 
 ## LOTE 2 — Réguas v2 congeladas (M1) — GATE M1: todo freeze com hash+judge≠author · golden v2 targets_available==cases · registry de séries populado
 - [ ] ELEV-02 (ASI-METRIC) — pending

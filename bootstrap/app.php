@@ -16,6 +16,7 @@ use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
 use App\Console\Commands\AtlasAcosFreezeCommand;
+use App\Console\Commands\AtlasAcosObraRetroCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
@@ -236,6 +237,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
         AtlasAcosFreezeCommand::class,
+        AtlasAcosObraRetroCommand::class,
         AtlasAobgSemanticRetrievalLiftCommand::class,
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,

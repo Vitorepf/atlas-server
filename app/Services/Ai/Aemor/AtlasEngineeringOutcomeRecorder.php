@@ -229,12 +229,15 @@ class AtlasEngineeringOutcomeRecorder
             $runId = 'engineering-'.substr(hash('sha256', json_encode($input)), 0, 16);
         }
 
-        $flowId = match ($executor) {
-            'dev' => 'atlas_dev',
-            'forge' => 'atlas_forge',
-            'autonomos' => 'atlas_autonomos',
-            default => 'engineering_'.$executor,
-        };
+        $flowId = trim((string) ($input['outcome_flow_id'] ?? ''));
+        if ($flowId === '') {
+            $flowId = match ($executor) {
+                'dev' => 'atlas_dev',
+                'forge' => 'atlas_forge',
+                'autonomos' => 'atlas_autonomos',
+                default => 'engineering_'.$executor,
+            };
+        }
 
         $outcomeStatus = match ($status) {
             'succeeded' => 'passed',
@@ -253,6 +256,10 @@ class AtlasEngineeringOutcomeRecorder
                     'execution_quality' => data_get($input, 'metrics.tests_passed') === true ? 90 : 40,
                     'evidence_quality' => $evidenceRefs === [] ? 35 : 90,
                     'verified' => (bool) ($input['verified'] ?? ($outcomeStatus === 'passed')),
+                    'actor_tag' => isset($input['actor_tag']) ? (string) $input['actor_tag'] : null,
+                    'lote' => $input['lote'] ?? null,
+                    'slice_id' => isset($input['slice_id']) ? (string) $input['slice_id'] : null,
+                    'slice_state' => isset($input['slice_state']) ? (string) $input['slice_state'] : null,
                 ]);
                 $result['ai_run_outcome'] = [
                     'recorded' => true,
@@ -278,7 +285,7 @@ class AtlasEngineeringOutcomeRecorder
                 'result' => $liveResult,
                 'proven_real' => (bool) ($input['verified'] ?? false) && $outcomeStatus === 'passed',
                 'quality_score' => data_get($input, 'metrics.tests_passed') === true ? 1.0 : 0.0,
-                'actor' => 'engineering_outcome_spine:'.$executor,
+                'actor' => 'engineering_outcome_spine:'.(isset($input['actor_tag']) ? (string) $input['actor_tag'] : $executor),
             ]);
             $result['live_outcome'] = ['recorded' => true, 'receipt' => $record];
         } catch (Throwable) {
