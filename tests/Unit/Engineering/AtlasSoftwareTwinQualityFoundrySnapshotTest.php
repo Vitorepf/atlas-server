@@ -17,6 +17,7 @@ final class AtlasSoftwareTwinQualityFoundrySnapshotTest extends TestCase
         $second = AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts(array_replace($input, ['facts' => array_reverse($input['facts'])]));
 
         self::assertSame($first['snapshot_hash'], $second['snapshot_hash']);
+        self::assertSame('atlas.quality_foundry.reference.v1', $first['reference_envelope']);
         self::assertSame([], $first['unknown']);
         self::assertSame(['f2'], $first['stale']);
         self::assertArrayNotHasKey('payload', $first['facts'][0]);
