@@ -49,6 +49,15 @@ final class AtlasNativeWorkerCommandPlanRunnerTest extends TestCase
         $this->assertSame(0, $out['results'][0]['exit_code']);
     }
 
+    public function test_allowlisted_command_with_nonzero_exit_is_not_reported_as_ok(): void
+    {
+        $plan = [['name' => 'version_probe', 'argv' => ['/opt/homebrew/bin/php', '-r', 'exit(7);'], 'timeout_seconds' => 5]];
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->execute($this->envelope(), $plan, dryRun: false);
+
+        $this->assertSame(AtlasNativeWorkerCommandPlanRunner::STATUS_FAILED, $out['results'][0]['status']);
+        $this->assertSame(7, $out['results'][0]['exit_code']);
+    }
+
     public function test_command_not_in_allowlist_is_denied(): void
     {
         $plan = [['name' => 'forbidden_thing', 'argv' => ['/bin/echo', 'hi']]];

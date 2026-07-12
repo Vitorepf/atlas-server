@@ -34,6 +34,8 @@ final class AtlasNativeWorkerCommandPlanRunner
 
     public const STATUS_TIMEOUT = 'timeout';
 
+    public const STATUS_FAILED = 'failed';
+
     public const STATUS_DRY_RUN = 'dry_run';
 
     public const FORBIDDEN_LABELS = ['network', 'external_provider', 'shell_escape', 'unrestricted'];
@@ -97,10 +99,12 @@ final class AtlasNativeWorkerCommandPlanRunner
             $proc->setTimeout($timeout);
             $proc->run();
 
+            $exitCode = $proc->getExitCode();
+
             return [
                 'name' => $name,
-                'status' => self::STATUS_OK,
-                'exit_code' => $proc->getExitCode(),
+                'status' => $exitCode === 0 ? self::STATUS_OK : self::STATUS_FAILED,
+                'exit_code' => $exitCode,
                 'stdout_len' => strlen($proc->getOutput()),
                 'stderr_len' => strlen($proc->getErrorOutput()),
                 'timeout_seconds' => $timeout,
