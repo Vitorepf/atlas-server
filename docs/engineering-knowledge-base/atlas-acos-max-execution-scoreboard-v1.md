@@ -150,7 +150,7 @@
 - [x] MAXF-02 — landed · `atlas:compaction:recovery-sample --json` samples recent long-horizon compaction receipts, runs `CompactionRecoveryExecutor`, reports recovery_rate by kind/scope, appends provider-safe JSONL evidence without recovered raw content, and registers WDG check `maxf-02.compaction_recovery_sample`; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
 - [x] MAXF-03 — landed · `CompactionRecoveryExecutor` now resolves `conversation_turn:{id}` and `turn:{id}` recovery queries from `ai_messages` byte-intact while refusing `status=redacted` turns with named missing reason; MAXF-02 sampler regression remains green; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionTurnRecoveryTest.php tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
 - [ ] MAXF-08 — pending
-- [ ] MAXF-10 — pending
+- [x] MAXF-10 — landed · `AiCompactionService::compactLocked` marks net-negative candidates (`token_after >= token_before`) with `metadata.net_negative=true`, persists the candidate/receipt path for audit, but skips thread summary overwrite even when quality gate passes; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionQualityGateBlocksOverwriteTest.php`
 - [ ] MAXF-04 — pending
 - [ ] MAXF-06 — pending
 - [ ] MAXF-07 — pending

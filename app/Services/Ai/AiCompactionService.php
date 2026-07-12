@@ -111,7 +111,8 @@ class AiCompactionService
         $tokenBefore = (int) $compactableMessages->sum('token_estimate');
         $tokenAfter = max(1, (int) ceil(mb_strlen($summary) / 4));
         $qualityGateStatus = $this->qualityGateStatus($structured);
-        $summaryOverwriteAllowed = $qualityGateStatus !== 'needs_review';
+        $netNegative = $tokenBefore > 0 && $tokenAfter >= $tokenBefore;
+        $summaryOverwriteAllowed = $qualityGateStatus !== 'needs_review' && ! $netNegative;
 
         $compaction = AiCompaction::query()->create([
             'thread_id' => $thread->id,
@@ -130,6 +131,8 @@ class AiCompactionService
             'metadata' => array_merge($metadata, [
                 'created_by' => 'ai_compaction_service',
                 'compression_ratio_estimate' => $tokenBefore > 0 ? round($tokenAfter / $tokenBefore, 4) : null,
+                'net_negative' => $netNegative,
+                'net_negative_policy' => $netNegative ? 'record_candidate_without_thread_summary_overwrite' : null,
                 'protected_skill_message_count' => $protectedMessages->count(),
                 'protected_skill_names' => $protectedSkillNames,
                 'candidate_summary_hash' => hash('sha256', $summary),

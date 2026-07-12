@@ -67,6 +67,25 @@ final class CompactionQualityGateBlocksOverwriteTest extends TestCase
         $this->assertFalse((bool) data_get($passedCompaction->metadata, 'thread_summary_overwrite_skipped', false));
     }
 
+    public function test_net_negative_compaction_records_receipt_but_does_not_overwrite_thread_summary(): void
+    {
+        [$thread, $session] = $this->threadFixture(
+            previousSummary: 'compact human summary',
+            objective: 'Quality gate should pass but net-negative output must not overwrite.',
+        );
+        AiMessage::query()->where('thread_id', $thread->id)->update(['token_estimate' => 1]);
+
+        $compaction = app(AiCompactionService::class)->compact($thread, $session, 'manual');
+        $thread->refresh();
+
+        $this->assertSame('passed', $compaction->quality_gate_status);
+        $this->assertGreaterThanOrEqual($compaction->token_estimate_before, $compaction->token_estimate_after);
+        $this->assertTrue((bool) data_get($compaction->metadata, 'net_negative'));
+        $this->assertTrue((bool) data_get($compaction->metadata, 'thread_summary_overwrite_skipped'));
+        $this->assertSame('compact human summary', $thread->summary);
+        $this->assertSame($compaction->id, data_get($thread->metadata, 'last_compaction_id'));
+    }
+
     /**
      * @return array{0:AiThread,1:AiSession}
      */
