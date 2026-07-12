@@ -55,9 +55,10 @@ use Throwable;
  *       a module root_path (1.0) or under it / a label token equal to a module slug (0.7);
  *   (b) memory→domain 'belongs_to' — a memory tag / metadata domain field that
  *       resolves through CrossDomainTaxonomyMap (1.0, exact id resolution);
- *   (c) evidence→memory/code 'proves' — evidence target_id / metadata memory id equal
- *       to a memory source_id (1.0), or an evidence file path matching a module
- *       root_path (exact 1.0 / prefix 0.7);
+ *   (c) evidence→memory/code/mission/obra 'proves' — evidence target_id / metadata
+ *       memory id equal to a memory source_id (1.0), receipt/trace/correlation ids
+ *       equal to mission/obra meta ids (1.0), or an evidence file path matching a
+ *       module root_path (exact 1.0 / prefix 0.7);
  *   (d) code workspace→engineering domain 'belongs_to' (1.0, by construction).
  *   (e) doc→code/doc→memory 'references' — canonical doc citations that resolve
  *       to existing repo paths / ingested memory nodes.
@@ -1538,8 +1539,10 @@ class AtlasRealityGraphIngestionService
     }
 
     /**
-     * (c) evidence→memory/code 'proves': target_id / metadata memory id equal to a
-     * memory source_id (1.0); file path matching a module root (exact 1.0 / prefix 0.7).
+     * (c) evidence→memory/code/mission/obra 'proves': target_id / metadata memory id
+     * equal to a memory source_id (1.0); receipt/trace/correlation ids equal to
+     * mission/obra meta ids (1.0); file path matching a module root (exact 1.0 /
+     * prefix 0.7).
      */
     private function linkEvidence(): int
     {
@@ -1553,10 +1556,12 @@ class AtlasRealityGraphIngestionService
             $memoryBydSourceId[$memory['source_id']] = $memory['id'];
         }
         $modules = $this->brainNodes('code', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
+        $governedTargets = $this->evidenceGovernedTargetIndex();
 
         $edges = [];
         foreach ($evidence as $node) {
             $emitted = 0;
+            $seenTargets = [];
             foreach (['target_id', 'memory_ref'] as $field) {
                 $ref = $node['meta'][$field] ?? null;
                 if (is_string($ref) && isset($memoryBydSourceId[$ref])) {
@@ -1568,6 +1573,39 @@ class AtlasRealityGraphIngestionService
                         confidence: self::CONFIDENCE_EXACT,
                         meta: ['matched' => $field, 'value' => $ref],
                     );
+                    $emitted++;
+                    $seenTargets[$memoryBydSourceId[$ref]] = true;
+                }
+            }
+
+            foreach (['receipt_id', 'trace_id', 'correlation_id'] as $field) {
+                if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                    break;
+                }
+                $value = $node['meta'][$field] ?? null;
+                if (! is_string($value) || trim($value) === '') {
+                    continue;
+                }
+                foreach ($governedTargets[$field][$value] ?? [] as $target) {
+                    if ($emitted >= self::MAX_LINKS_PER_NODE) {
+                        break;
+                    }
+                    if (isset($seenTargets[$target['id']])) {
+                        continue;
+                    }
+                    $edges[] = $this->edge(
+                        from: $node['id'],
+                        to: $target['id'],
+                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_PROVES,
+                        source: 'linker_evidence',
+                        confidence: self::CONFIDENCE_EXACT,
+                        meta: [
+                            'matched' => $field,
+                            'value' => $value,
+                            'target_source_kind' => $target['source_kind'],
+                        ],
+                    );
+                    $seenTargets[$target['id']] = true;
                     $emitted++;
                 }
             }
@@ -1605,6 +1643,48 @@ class AtlasRealityGraphIngestionService
         }
 
         return $this->upsertEdges($edges);
+    }
+
+    /**
+     * Mission/obra targets whose ids are already present in the brain. This is
+     * strict cite-or-omit: only explicit receipt/trace/correlation fields create
+     * an index entry, and only exact event values can link.
+     *
+     * @return array<string,array<string,list<array{id:string,source_kind:string}>>>
+     */
+    private function evidenceGovernedTargetIndex(): array
+    {
+        $index = [
+            'receipt_id' => [],
+            'trace_id' => [],
+            'correlation_id' => [],
+        ];
+
+        foreach ([
+            ['source_kind' => 'mission', 'kind' => AtlasRealityGraphSnapshotBuilderService::NODE_MISSION],
+            ['source_kind' => 'obra', 'kind' => AtlasRealityGraphSnapshotBuilderService::NODE_OBRA],
+        ] as $targetSpec) {
+            foreach ($this->brainNodes($targetSpec['source_kind'], $targetSpec['kind']) as $node) {
+                $target = ['id' => $node['id'], 'source_kind' => $targetSpec['source_kind']];
+                foreach (['receipt', 'receipt_hash', 'receipt_id'] as $metaField) {
+                    foreach ($this->exactMetaStrings($node['meta'][$metaField] ?? null) as $value) {
+                        $index['receipt_id'][$value][] = $target;
+                    }
+                }
+                foreach (['trace_id', 'trace_ids', 'trace', 'traces'] as $metaField) {
+                    foreach ($this->exactMetaStrings($node['meta'][$metaField] ?? null) as $value) {
+                        $index['trace_id'][$value][] = $target;
+                    }
+                }
+                foreach (['correlation_id', 'correlation_ids', 'correlation', 'correlations'] as $metaField) {
+                    foreach ($this->exactMetaStrings($node['meta'][$metaField] ?? null) as $value) {
+                        $index['correlation_id'][$value][] = $target;
+                    }
+                }
+            }
+        }
+
+        return $index;
     }
 
     /**
@@ -2274,6 +2354,20 @@ class AtlasRealityGraphIngestionService
             static fn (mixed $item): string => is_string($item) ? trim($item) : '',
             $value,
         ), static fn (string $item): bool => $item !== ''));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function exactMetaStrings(mixed $value): array
+    {
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            return $trimmed === '' ? [] : [$trimmed];
+        }
+
+        return $this->normalizeStringList($value);
     }
 
     /**

@@ -78,6 +78,130 @@ final class AurgEvidenceLiveSourceTest extends TestCase
         );
     }
 
+    public function test_evidence_links_to_mission_and_obra_by_exact_receipt_trace_or_correlation_only(): void
+    {
+        AtlasAurgNode::query()->create([
+            'id' => 'mission:mission:mission-maxd02',
+            'kind' => 'mission',
+            'source_kind' => 'mission',
+            'source_id' => 'mission-maxd02',
+            'label' => 'MAXD-02 governed mission',
+            'workspace_id' => null,
+            'provider_safe' => true,
+            'sensitive' => false,
+            'meta' => [
+                'receipt' => 'receipt-maxd02-mission',
+                'trace_ids' => ['trace-maxd02-mission'],
+                'correlation_ids' => ['corr-maxd02-mission'],
+            ],
+            'content_hash' => hash('sha256', 'mission-maxd02'),
+        ]);
+        AtlasAurgNode::query()->create([
+            'id' => 'obra:obra:obra-maxd02',
+            'kind' => 'obra',
+            'source_kind' => 'obra',
+            'source_id' => 'obra-maxd02',
+            'label' => 'MAXD-02 governed obra',
+            'workspace_id' => null,
+            'provider_safe' => true,
+            'sensitive' => false,
+            'meta' => [
+                'receipt_hash' => 'receipt-maxd02-obra',
+                'trace_id' => 'trace-maxd02-obra',
+            ],
+            'content_hash' => hash('sha256', 'obra-maxd02'),
+        ]);
+
+        $receiptEvent = (string) Str::ulid();
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $receiptEvent,
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'maxd02-receipt',
+            'receipt_id' => 'receipt-maxd02-mission',
+            'trace_id' => 'trace-unmatched',
+            'correlation_id' => 'corr-unmatched',
+            'causation_id' => null,
+            'event_type' => 'MAXD02_RECEIPT_MATCH',
+            'emitter_stage' => 'atlas.test',
+            'emitter_version' => 'v1',
+            'payload' => [],
+            'payload_hash' => hash('sha256', 'maxd02-receipt'),
+            'occurred_at' => now()->addSecond(),
+        ]);
+        $traceEvent = (string) Str::ulid();
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $traceEvent,
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'maxd02-trace',
+            'receipt_id' => null,
+            'trace_id' => 'trace-maxd02-obra',
+            'correlation_id' => 'corr-unmatched-trace-event',
+            'causation_id' => null,
+            'event_type' => 'MAXD02_TRACE_MATCH',
+            'emitter_stage' => 'atlas.test',
+            'emitter_version' => 'v1',
+            'payload' => [],
+            'payload_hash' => hash('sha256', 'maxd02-trace'),
+            'occurred_at' => now()->addSeconds(2),
+        ]);
+        $unmatchedEvent = (string) Str::ulid();
+        AtlasLedgerEvent::query()->create([
+            'event_id' => $unmatchedEvent,
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'default',
+            'operator_id' => 'system',
+            'envelope_id' => 'maxd02-unmatched',
+            'receipt_id' => 'receipt-not-in-brain',
+            'trace_id' => 'trace-not-in-brain',
+            'correlation_id' => 'corr-not-in-brain',
+            'causation_id' => null,
+            'event_type' => 'MAXD02_NO_MATCH',
+            'emitter_stage' => 'atlas.test',
+            'emitter_version' => 'v1',
+            'payload' => [],
+            'payload_hash' => hash('sha256', 'maxd02-unmatched'),
+            'occurred_at' => now()->addSeconds(3),
+        ]);
+
+        $stats = $this->service()->sync(['evidence']);
+
+        $this->assertGreaterThanOrEqual(2, $stats['linkers']['evidence_links']);
+
+        $receiptEdge = AtlasAurgEdge::query()
+            ->where('from_node_id', 'evidence:evidence:'.$receiptEvent)
+            ->where('to_node_id', 'mission:mission:mission-maxd02')
+            ->where('kind', 'proves')
+            ->where('source', 'linker_evidence')
+            ->first();
+        $this->assertNotNull($receiptEdge);
+        $this->assertSame(1.0, (float) $receiptEdge->confidence);
+        $this->assertSame('receipt_id', $receiptEdge->meta['matched'] ?? null);
+        $this->assertSame('receipt-maxd02-mission', $receiptEdge->meta['value'] ?? null);
+
+        $traceEdge = AtlasAurgEdge::query()
+            ->where('from_node_id', 'evidence:evidence:'.$traceEvent)
+            ->where('to_node_id', 'obra:obra:obra-maxd02')
+            ->where('kind', 'proves')
+            ->where('source', 'linker_evidence')
+            ->first();
+        $this->assertNotNull($traceEdge);
+        $this->assertSame(1.0, (float) $traceEdge->confidence);
+        $this->assertSame('trace_id', $traceEdge->meta['matched'] ?? null);
+        $this->assertSame('trace-maxd02-obra', $traceEdge->meta['value'] ?? null);
+
+        $this->assertFalse(
+            AtlasAurgEdge::query()
+                ->where('from_node_id', 'evidence:evidence:'.$unmatchedEvent)
+                ->where('source', 'linker_evidence')
+                ->exists(),
+            'evidence without exact receipt/trace/correlation references must be omitted',
+        );
+    }
+
     private function service(): AtlasRealityGraphIngestionService
     {
         return new AtlasRealityGraphIngestionService(

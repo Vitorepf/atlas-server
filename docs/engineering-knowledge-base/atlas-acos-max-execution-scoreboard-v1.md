@@ -108,7 +108,7 @@
 - [ ] MAXD-09 — pending
 - [ ] MAXD-06 — pending
 - [ ] MAXD-08 — pending
-- [ ] MAXD-02 — pending
+- [x] MAXD-02 — landed · evidence linker now matches live ledger `receipt_id`/`trace_id`/`correlation_id` exactly to mission/obra brain-node `receipt`/`receipt_hash`/trace/correlation meta, emits `linker_evidence` `proves` edges with matched field+value, and omits unmatched events; live aceite `edges_by_source.linker_evidence ≥20` = pending_window(real ledger volume); tests: `php artisan test tests/Feature/Ai/Reality/AurgEvidenceLiveSourceTest.php`
 - [ ] MAXH-02 — pending
 - [ ] MAXI-04 — pending
 - [ ] MAXM-01 — pending
