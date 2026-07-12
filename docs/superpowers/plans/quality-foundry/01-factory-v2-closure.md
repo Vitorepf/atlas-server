@@ -155,10 +155,10 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 
 - [ ] Write RED vertical slices for provider refusal/timeout, sandbox escape, no-op delta, failed test/repair replay, verifier disagreement, ledger down before act, canary failure, revert failure, and crash between act and settle.
 - [ ] Run each slice separately and record the exact missing receipt or false terminal state.
-- [ ] Connect `AiProviderManager` through `ProviderPort`; execute in an isolated sandbox; collect commands, assertions, hashes, repair and regression evidence.
-- [ ] Require independent acceptance before the Governor issues `AuthorizedMergeAction`; revalidate nonce, scope, base/tree, lease and fencing at act time.
-- [ ] Implement `prepare → authorize → act → canary → settle`; uncertainty after an effect becomes `release_uncertain` and triggers reconciliation/quarantine.
-- [ ] Correlate provider, workspace, acceptance, release/canary/revert and outcome receipts in `atlas_ledger_events` and coverage v2.
+- [x] Connect `AiProviderManager` through `ProviderPort`; execute in an isolated sandbox; collect commands, assertions, hashes, repair and regression evidence.
+- [x] Require independent acceptance before the Governor issues `AuthorizedMergeAction`; revalidate nonce, scope, base/tree, lease and fencing at act time.
+- [x] Implement `prepare → authorize → act → canary → settle`; uncertainty after an effect becomes `release_uncertain` and triggers reconciliation/quarantine.
+- [x] Correlate provider, workspace, acceptance, release/canary/revert and outcome receipts in `atlas_ledger_events` and coverage v2.
 - [ ] Run fixture E2E, replay/reconciliation, neighboring gate/actuator/outcome suites, architecture bypass guard, Pint and PHPStan.
 
 **GREEN acceptance:** the fixture write run lands only after all receipts; canary happens before terminal success; injected failure causes zero unauthorized effect or a truthful revert/uncertain state; coverage contains every correlation hash.
