@@ -15,6 +15,7 @@ final class ProductIntentCourt
         private readonly ?AtlasEvidenceLedger $ledger = null,
         private readonly ?ProductIntentFalsificationProbe $probe = null,
         private readonly ?ProductIntentUncertaintyProbe $uncertaintyProbe = null,
+        private readonly ?ProductIntentClarificationContract $clarificationContract = null,
     ) {}
 
     public function adjudicate(ProductIntentCase $case): ProductIntentVerdict
@@ -60,6 +61,7 @@ final class ProductIntentCourt
             $blocking[] = 'provider_probe_'.$providerResult->suggestedStatus;
         }
         $blocking = array_values(array_unique($blocking));
+        $clarification = ($this->clarificationContract ?? new ProductIntentClarificationContract)->request($blocking);
 
         $status = 'admitted';
         if (in_array('unbounded_side_effect', $blocking, true)) {
@@ -86,6 +88,7 @@ final class ProductIntentCourt
             array_values(array_unique($blocking)), $intentHash, $truth,
             MissionCanonicalHash::sha256(['case' => $case->toArray(), 'objections' => [...$probeObjections, ...$providerObjections]]),
             $providerResult->outputHash,
+            $clarification,
         );
         if ($status === 'admitted') {
             $this->recordFrozenUnit($verdict);

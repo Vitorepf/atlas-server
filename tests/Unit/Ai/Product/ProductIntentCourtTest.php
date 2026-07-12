@@ -8,6 +8,7 @@ use App\Services\Ai\Product\ProductIntentCase;
 use App\Services\Ai\Product\ProductIntentCourt;
 use App\Services\Ai\Product\ProductIntentProbeResult;
 use App\Services\Ai\Product\ProductIntentUncertaintyProbe;
+use App\Services\Ai\Product\ProductIntentClarificationContract;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Models\AtlasLedgerEvent;
 use Tests\TestCase;
@@ -204,6 +205,27 @@ final class ProductIntentCourtTest extends TestCase
             'risk_class' => 'R1', 'world_snapshot_hash' => null, 'world_snapshot_status' => null,
         ])));
         self::assertSame('admitted', $low->status);
+    }
+
+    public function test_blocked_verdict_emits_one_bounded_clarification_without_auto_admission(): void
+    {
+        $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase(['metric' => ''])));
+
+        self::assertSame('revise', $verdict->status);
+        self::assertSame('required', $verdict->clarification['status']);
+        self::assertSame(1, $verdict->clarification['max_questions']);
+        self::assertCount(1, $verdict->clarification['questions']);
+    }
+
+    public function test_clarification_contract_rejects_empty_answer_and_versions_changed_answer(): void
+    {
+        $contract = new ProductIntentClarificationContract;
+        $request = $contract->request(['metric_missing'], 'operator');
+        self::assertSame('held', $contract->resolve($request, '')['status']);
+        $a = $contract->resolve($request, 'success rate over 30 days');
+        $b = $contract->resolve($request, 'success rate over 90 days');
+        self::assertSame('resolved', $a['status']);
+        self::assertNotSame($a['version_hash'], $b['version_hash']);
     }
 
     /** @return array<string,mixed> */
