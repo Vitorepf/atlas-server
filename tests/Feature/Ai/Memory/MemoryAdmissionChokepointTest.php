@@ -45,7 +45,9 @@ final class MemoryAdmissionChokepointTest extends TestCase
     public function test_secret_candidate_writeback_and_direct_record_are_observed_with_g3_receipts(): void
     {
         $candidateResult = app(AtlasMemoryCandidateGateService::class)->capture($this->candidatePayload([
-            'privacy_class' => 'secret',
+            'body' => "motivo: synthetic scanner fixture. provenance: \"MAXI-01 G3 scanner fixture.\"\nAWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE",
+            'privacy_class' => 'normal',
+            'immune_signals' => ['contains_secret' => false],
         ]), apply: true);
 
         $candidateEntry = $candidateResult['entry'];
@@ -54,26 +56,64 @@ final class MemoryAdmissionChokepointTest extends TestCase
         $this->assertSame('observe', data_get($candidateEntry->metadata, 'acos_max.asi_02.admission.mode'));
         $this->assertContains('G3', data_get($candidateEntry->metadata, 'acos_max.asi_02.admission.verdict.blocking_gate_ids'));
         $this->assertSame('secret_or_sensitive_present', data_get($candidateEntry->metadata, 'acos_max.asi_02.admission.verdict.reasons.G3'));
+        $this->assertTrue(data_get($candidateEntry->metadata, 'acos_max.asi_02.admission.derived_signals.contains_secret'));
+        $this->assertContains('CodeGraphSecretScanner', data_get($candidateEntry->metadata, 'acos_max.asi_02.admission.signal_sources.G3'));
         $this->assertContains('G3', data_get($candidateResult['quality'], 'admission.verdict.blocking_gate_ids'));
 
         $writeback = app(AtlasOpenBrainWriteBackService::class)->proposeLearning([
             'kind' => 'retrieval_hint',
-            'summary' => 'cache workspace resolution per request after a measured repeated lookup path',
+            'summary' => "cache workspace resolution per request after a measured repeated lookup path\n-----BEGIN PRIVATE KEY-----\nabc123synthetic\n-----END PRIVATE KEY-----",
             'evidence_refs' => ['app/Services/Engineering/CodeGraph/CodeGraphWorkspaceIdentity.php:42'],
-            'immune_signals' => ['contains_secret' => true],
+            'immune_signals' => ['contains_secret' => false],
         ]);
 
         $this->assertTrue($writeback['ok']);
         $this->assertSame('observe', data_get($writeback, 'memory_admission.mode'));
         $this->assertContains('G3', data_get($writeback, 'memory_admission.verdict.blocking_gate_ids'));
+        $this->assertTrue(data_get($writeback, 'memory_admission.derived_signals.contains_secret'));
 
         $directEntry = app(AtlasMemoryRegistryService::class)->record($this->entryAttributes([
             'source_type' => 'direct_record_test',
-            'privacy_class' => 'secret',
+            'privacy_class' => 'normal',
+            'body' => "motivo: synthetic PEM fixture.\n-----BEGIN PRIVATE KEY-----\nabc123synthetic\n-----END PRIVATE KEY-----",
+            'metadata' => [
+                'immune_signals' => ['contains_secret' => false],
+            ],
         ]));
 
         $this->assertSame('observe', data_get($directEntry->metadata, 'acos_max.asi_02.admission.mode'));
         $this->assertContains('G3', data_get($directEntry->metadata, 'acos_max.asi_02.admission.verdict.blocking_gate_ids'));
+        $this->assertTrue(data_get($directEntry->metadata, 'acos_max.asi_02.admission.derived_signals.contains_secret'));
+    }
+
+    public function test_contradictory_number_against_newer_same_scope_memory_is_observed_with_g4_receipt(): void
+    {
+        app(AtlasMemoryRegistryService::class)->record($this->entryAttributes([
+            'source_type' => 'newer_authority',
+            'title' => 'Authoritative latency fact',
+            'summary' => 'Atlas admission latency p95 is 120ms.',
+            'body' => 'motivo: newer measured authority. Atlas admission latency p95 is 120ms.',
+            'recorded_at' => now(),
+        ]));
+
+        $entry = app(AtlasMemoryRegistryService::class)->record($this->entryAttributes([
+            'source_type' => 'older_candidate',
+            'title' => 'Candidate latency fact',
+            'summary' => 'Atlas admission latency p95 is 240ms.',
+            'body' => 'motivo: stale claim under admission. Atlas admission latency p95 is 240ms.',
+            'recorded_at' => now()->subDay(),
+            'metadata' => [
+                'immune_signals' => ['contradicts_newer' => false],
+            ],
+        ]));
+
+        $receipt = data_get($entry->metadata, 'acos_max.asi_02.admission');
+
+        $this->assertSame('observe', $receipt['mode']);
+        $this->assertContains('G4', data_get($receipt, 'verdict.blocking_gate_ids'));
+        $this->assertSame('contradicts_newer_authority', data_get($receipt, 'verdict.reasons.G4'));
+        $this->assertTrue(data_get($receipt, 'derived_signals.contradicts_newer'));
+        $this->assertContains('FactPairPolarityContradictionDetector', data_get($receipt, 'signal_sources.G4'));
     }
 
     public function test_safe_direct_record_is_not_marked_as_g3_blocked(): void
@@ -87,7 +127,11 @@ final class MemoryAdmissionChokepointTest extends TestCase
 
         $this->assertSame('observe', $receipt['mode']);
         $this->assertSame('pass', data_get($receipt, 'verdict.gate_statuses.G3'));
+        $this->assertSame('pass', data_get($receipt, 'verdict.gate_statuses.G4'));
         $this->assertNotContains('G3', data_get($receipt, 'verdict.blocking_gate_ids'));
+        $this->assertNotContains('G4', data_get($receipt, 'verdict.blocking_gate_ids'));
+        $this->assertFalse(data_get($receipt, 'derived_signals.contains_secret'));
+        $this->assertFalse(data_get($receipt, 'derived_signals.contradicts_newer'));
     }
 
     public function test_admission_window_reports_pending_window_until_fifty_real_writes_exist(): void

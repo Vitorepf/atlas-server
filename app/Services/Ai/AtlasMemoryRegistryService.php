@@ -8,17 +8,22 @@ use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Services\Ai\Brain\AtlasMemoryJournal;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
+use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Memory\AtlasMemoryRationalePolicy;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
+use App\Services\Ai\Memory\LocalAgentIngestion\LocalAgentSecretScanner;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\MemoryScopeHelpers;
+use App\Services\Engineering\CodeGraph\CodeGraphSecretScanner;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Throwable;
@@ -26,6 +31,15 @@ use Throwable;
 class AtlasMemoryRegistryService
 {
     use MemoryScopeHelpers;
+
+    private const CALLER_PROTECTED_SIGNAL_KEYS = [
+        'contains_secret',
+        'contains_sensitive_unnecessary',
+        'contradicts_newer',
+        'provider_safe',
+        'signal_sources',
+        'derived_signals',
+    ];
 
     private AtlasMemoryPrivacyService $privacy;
 
@@ -39,6 +53,14 @@ class AtlasMemoryRegistryService
 
     private CognitiveImmunePromotionGateEvaluator $admissionEvaluator;
 
+    private CodeGraphSecretScanner $codeGraphSecretScanner;
+
+    private LocalAgentSecretScanner $localAgentSecretScanner;
+
+    private NumericRangeOverlapContradictionDetector $numericRangeDetector;
+
+    private FactPairPolarityContradictionDetector $factPolarityDetector;
+
     public function __construct(
         ?AtlasMemoryPrivacyService $privacy = null,
         ?MemoryQueryInput $input = null,
@@ -46,6 +68,10 @@ class AtlasMemoryRegistryService
         ?AtlasRealityGraphIngestionService $realityGraphIngestion = null,
         ?AtlasMemoryJournal $journal = null,
         ?CognitiveImmunePromotionGateEvaluator $admissionEvaluator = null,
+        ?CodeGraphSecretScanner $codeGraphSecretScanner = null,
+        ?LocalAgentSecretScanner $localAgentSecretScanner = null,
+        ?NumericRangeOverlapContradictionDetector $numericRangeDetector = null,
+        ?FactPairPolarityContradictionDetector $factPolarityDetector = null,
     ) {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
         $this->input = $input ?? app(MemoryQueryInput::class);
@@ -56,6 +82,10 @@ class AtlasMemoryRegistryService
         // SIS8 — journal-first reversibility; lazy + fail-open like the accrual above.
         $this->journal = $journal;
         $this->admissionEvaluator = $admissionEvaluator ?? app(CognitiveImmunePromotionGateEvaluator::class);
+        $this->codeGraphSecretScanner = $codeGraphSecretScanner ?? app(CodeGraphSecretScanner::class);
+        $this->localAgentSecretScanner = $localAgentSecretScanner ?? app(LocalAgentSecretScanner::class);
+        $this->numericRangeDetector = $numericRangeDetector ?? app(NumericRangeOverlapContradictionDetector::class);
+        $this->factPolarityDetector = $factPolarityDetector ?? app(FactPairPolarityContradictionDetector::class);
     }
 
     /**
@@ -237,7 +267,8 @@ class AtlasMemoryRegistryService
             $mode = 'observe';
         }
 
-        $verdict = $this->admissionEvaluator->evaluate($this->admissionSignals($attributes));
+        $signals = $this->admissionSignals($attributes);
+        $verdict = $this->admissionEvaluator->evaluate($signals);
         $blockingGateIds = array_values((array) ($verdict['blocking_gate_ids'] ?? []));
 
         return [
@@ -248,6 +279,8 @@ class AtlasMemoryRegistryService
             'writer' => $writer,
             'blocks_write' => $mode === 'enforce' && $blockingGateIds !== [],
             'verdict' => $verdict,
+            'derived_signals' => $this->admissionDerivedSignalSummary($signals),
+            'signal_sources' => is_array($signals['_signal_sources'] ?? null) ? $signals['_signal_sources'] : [],
             'evaluated_at' => now()->toJSON(),
         ];
     }
@@ -294,6 +327,7 @@ class AtlasMemoryRegistryService
         $immuneSignals = is_array($attributes['immune_signals'] ?? null)
             ? $attributes['immune_signals']
             : (is_array(data_get($metadata, 'immune_signals')) ? data_get($metadata, 'immune_signals') : []);
+        $callerSignals = $this->callerAdmissionSignals($immuneSignals);
         $privacyClass = strtolower($this->stringValue($attributes['privacy_class'] ?? data_get($metadata, 'privacy.class') ?? 'normal'));
         $externalAllowed = ! array_key_exists('external_ai_allowed', $attributes) || $attributes['external_ai_allowed'] !== false;
         $body = $this->stringValue($attributes['body'] ?? '');
@@ -304,8 +338,9 @@ class AtlasMemoryRegistryService
             || $this->stringValue($attributes['source_label'] ?? '') !== ''
             || (array) data_get($metadata, 'evidence_refs', []) !== []
             || (array) data_get($metadata, 'paths', []) !== [];
+        $derivedSignals = $this->deriveAdmissionSignals($attributes, $privacyClass, $externalAllowed, $title, $summary, $body);
 
-        return array_merge([
+        return array_merge($callerSignals, [
             'atomic_claim_present' => trim($body.$summary.$title) !== '',
             'claim_type' => $this->stringValue($attributes['memory_type'] ?? ($attributes['kind'] ?? 'technical_context')),
             'claim_source_present' => $sourcePresent,
@@ -313,15 +348,259 @@ class AtlasMemoryRegistryService
             'consent_granted' => (bool) data_get($metadata, 'consent_granted', true),
             'retention_ok' => (bool) data_get($metadata, 'retention_ok', true),
             'privacy_class' => $privacyClass !== '' ? $privacyClass : 'normal',
-            'provider_safe' => $externalAllowed && ! in_array($privacyClass, ['secret', 'sensitive'], true),
-            'contains_secret' => in_array($privacyClass, ['secret'], true) || $this->looksSecret($title."\n".$summary."\n".$body),
-            'contains_sensitive_unnecessary' => in_array($privacyClass, ['sensitive'], true) || ! $externalAllowed,
             'future_utility' => true,
             'novelty' => true,
             'outcome_validated' => (bool) data_get($metadata, 'outcome_validated', false),
             'promotion_mode_hint' => $this->stringValue(data_get($metadata, 'promotion_mode_hint', 'review')),
             'on_probation' => (bool) data_get($metadata, 'on_probation', false),
-        ], $immuneSignals);
+        ], $derivedSignals);
+    }
+
+    /**
+     * @param  array<string,mixed>  $immuneSignals
+     * @return array<string,mixed>
+     */
+    private function callerAdmissionSignals(array $immuneSignals): array
+    {
+        $protected = array_flip(self::CALLER_PROTECTED_SIGNAL_KEYS);
+
+        return array_filter(
+            $immuneSignals,
+            static fn (mixed $value, string|int $key): bool => is_string($key)
+                && ! isset($protected[$key])
+                && ! str_starts_with($key, '_'),
+            ARRAY_FILTER_USE_BOTH,
+        );
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function deriveAdmissionSignals(array $attributes, string $privacyClass, bool $externalAllowed, string $title, string $summary, string $body): array
+    {
+        $text = trim($title."\n".$summary."\n".$body);
+        $sources = [
+            'G3' => [],
+            'G4' => [],
+        ];
+
+        $containsSecret = in_array($privacyClass, ['secret'], true);
+        $containsSensitiveUnnecessary = in_array($privacyClass, ['sensitive'], true) || ! $externalAllowed;
+
+        $localScan = $this->localAgentSecretScanner->scanAndRedact($text);
+        if ($localScan['findings'] !== []) {
+            $containsSecret = true;
+            $sources['G3'][] = 'LocalAgentSecretScanner';
+        }
+
+        $codeGraphScan = $this->codeGraphSecretScanner->scan($text);
+        foreach ($codeGraphScan['findings'] as $finding) {
+            $severity = (string) ($finding['severity'] ?? '');
+            if ($severity === CodeGraphSecretScanner::SEVERITY_HIGH) {
+                $containsSecret = true;
+            } elseif ($severity !== '') {
+                $containsSensitiveUnnecessary = true;
+            }
+        }
+        if ($codeGraphScan['findings'] !== []) {
+            $sources['G3'][] = 'CodeGraphSecretScanner';
+        }
+
+        [$contradictsNewer, $contradictionSources] = $this->detectNewerMemoryContradiction($attributes, $text);
+        $sources['G4'] = $contradictionSources;
+
+        $containsSensitiveUnnecessary = $containsSensitiveUnnecessary && ! $containsSecret;
+
+        return [
+            'provider_safe' => $externalAllowed
+                && ! in_array($privacyClass, ['secret', 'sensitive'], true)
+                && ! $containsSecret
+                && ! $containsSensitiveUnnecessary,
+            'contains_secret' => $containsSecret,
+            'contains_sensitive_unnecessary' => $containsSensitiveUnnecessary,
+            'contradicts_newer' => $contradictsNewer,
+            '_signal_sources' => [
+                'G3' => array_values(array_unique($sources['G3'])),
+                'G4' => array_values(array_unique($sources['G4'])),
+            ],
+        ];
+    }
+
+    /**
+     * @return array{0: bool, 1: list<string>}
+     */
+    private function detectNewerMemoryContradiction(array $attributes, string $candidateText): array
+    {
+        $candidateFacts = $this->extractNumericFacts($candidateText);
+        $candidateRanges = $this->extractNumericRanges($candidateText);
+        if ($candidateFacts === [] && $candidateRanges === []) {
+            return [false, []];
+        }
+
+        $candidateRecordedAt = $this->recordedAt($attributes['recorded_at'] ?? null);
+        if (! $candidateRecordedAt instanceof Carbon) {
+            return [false, []];
+        }
+
+        $scopeType = $this->stringValue($attributes['scope_type'] ?? ($attributes['scope'] ?? 'global'));
+        $scopeType = $scopeType !== '' ? $scopeType : 'global';
+        $scopeId = $scopeType === 'global'
+            ? null
+            : $this->stringValue($attributes['scope_id'] ?? null);
+
+        $query = AtlasMemoryEntry::query()
+            ->where('scope_type', $scopeType)
+            ->where('recorded_at', '>', $candidateRecordedAt);
+        $scopeId === null
+            ? $query->whereNull('scope_id')
+            : $query->where('scope_id', $scopeId);
+
+        $newerEntries = $query
+            ->orderByDesc('recorded_at')
+            ->limit(50)
+            ->get(['title', 'summary', 'body']);
+
+        $sources = [];
+        foreach ($newerEntries as $entry) {
+            $newerText = trim((string) $entry->title."\n".(string) $entry->summary."\n".(string) $entry->body);
+            foreach ($candidateFacts as $candidateFact) {
+                foreach ($this->extractNumericFacts($newerText) as $newerFact) {
+                    $result = $this->factPolarityDetector->detect($candidateFact, $newerFact);
+                    if ($result['contradicts']) {
+                        $sources[] = 'FactPairPolarityContradictionDetector';
+
+                        return [true, $sources];
+                    }
+                }
+            }
+
+            foreach ($candidateRanges as $candidateRange) {
+                foreach ($this->extractNumericRanges($newerText) as $newerRange) {
+                    if ($candidateRange['subject'] !== $newerRange['subject']) {
+                        continue;
+                    }
+
+                    $relationship = $this->numericRangeDetector->detect(
+                        $candidateRange['min'],
+                        $candidateRange['max'],
+                        $newerRange['min'],
+                        $newerRange['max'],
+                    );
+                    if ($relationship === 'disjoint') {
+                        $sources[] = 'NumericRangeOverlapContradictionDetector';
+
+                        return [true, $sources];
+                    }
+                }
+            }
+        }
+
+        return [false, []];
+    }
+
+    /**
+     * @return list<array{subject:string,predicate:string,negated:bool,value:string}>
+     */
+    private function extractNumericFacts(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        preg_match_all(
+            '/\b([A-Za-z][A-Za-z0-9 _\/-]{2,80}?)\s+(?:is|=|:)\s*(-?\d+(?:\.\d+)?)(?:\s*([A-Za-z%]+))?/i',
+            $text,
+            $matches,
+            PREG_SET_ORDER,
+        );
+
+        $facts = [];
+        foreach ($matches as $match) {
+            $subject = $this->normalizeFactSubject((string) ($match[1] ?? ''));
+            if ($subject === '') {
+                continue;
+            }
+            $unit = strtolower((string) ($match[3] ?? ''));
+            $facts[] = [
+                'subject' => $subject,
+                'predicate' => $unit !== '' ? 'value:'.$unit : 'value',
+                'negated' => false,
+                'value' => (string) ($match[2] ?? ''),
+            ];
+        }
+
+        return $facts;
+    }
+
+    /**
+     * @return list<array{subject:string,min:float,max:float}>
+     */
+    private function extractNumericRanges(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        preg_match_all(
+            '/\b([A-Za-z][A-Za-z0-9 _\/-]{2,80}?)\s+(?:range|window)\s*(?:is|=|:)?\s*(-?\d+(?:\.\d+)?)\s*(?:\.\.|-|to)\s*(-?\d+(?:\.\d+)?)/i',
+            $text,
+            $matches,
+            PREG_SET_ORDER,
+        );
+
+        $ranges = [];
+        foreach ($matches as $match) {
+            $subject = $this->normalizeFactSubject((string) ($match[1] ?? ''));
+            if ($subject === '') {
+                continue;
+            }
+            $min = (float) ($match[2] ?? 0);
+            $max = (float) ($match[3] ?? 0);
+            $ranges[] = [
+                'subject' => $subject,
+                'min' => min($min, $max),
+                'max' => max($min, $max),
+            ];
+        }
+
+        return $ranges;
+    }
+
+    private function normalizeFactSubject(string $subject): string
+    {
+        $subject = strtolower(trim(preg_replace('/\s+/', ' ', $subject) ?? ''));
+        $lastSentence = preg_split('/[.!?]\s+/', $subject);
+        $subject = is_array($lastSentence) ? (string) end($lastSentence) : $subject;
+
+        return trim($subject, " \t\n\r\0\x0B:-");
+    }
+
+    private function recordedAt(mixed $value): ?Carbon
+    {
+        try {
+            if ($value instanceof Carbon) {
+                return $value;
+            }
+            if ($value instanceof \DateTimeInterface || is_string($value)) {
+                return Carbon::parse($value);
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{contains_secret: bool, contains_sensitive_unnecessary: bool, contradicts_newer: bool}
+     */
+    private function admissionDerivedSignalSummary(array $signals): array
+    {
+        return [
+            'contains_secret' => ($signals['contains_secret'] ?? false) === true,
+            'contains_sensitive_unnecessary' => ($signals['contains_sensitive_unnecessary'] ?? false) === true,
+            'contradicts_newer' => ($signals['contradicts_newer'] ?? false) === true,
+        ];
     }
 
     /**
@@ -337,11 +616,6 @@ class AtlasMemoryRegistryService
     private function stringValue(mixed $value): string
     {
         return is_scalar($value) ? trim((string) $value) : '';
-    }
-
-    private function looksSecret(string $text): bool
-    {
-        return preg_match('/\b(sk-[A-Za-z0-9_-]{12,}|api[_-]?key|secret[_-]?key|password|token=)/i', $text) === 1;
     }
 
     /**
