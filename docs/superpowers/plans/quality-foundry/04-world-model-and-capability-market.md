@@ -206,10 +206,10 @@ The matrix crosses efficient/intermediate/frontier models with bare/Atlas/compet
 
 **Allowed files:** Software Twin/Atlas Decide readiness projections, canonical docs and focused tests.
 
-- [ ] Define readiness checks for fact-family coverage, workspace isolation, temporal freshness, calibration, snapshot determinism, no unknown critical fact, quality-first selection, route replay and no claim writer.
-- [ ] Add RED state tests proving green readiness cannot set `multiplier_proven`, `world_leading` or `world_10x_quality_proven`.
-- [ ] Roll out as read-only snapshot comparison, market shadow, limited sandbox traffic and governed mode enablement after parity.
-- [ ] Produce a manifest containing real test/receipt/evidence refs and unresolved unknown/stale facts.
+- [x] Define readiness checks for fact-family coverage, workspace isolation, temporal freshness, calibration, snapshot determinism, no unknown critical fact, quality-first selection, route replay and no claim writer.
+- [x] Add RED state tests proving green readiness cannot set `multiplier_proven`, `world_leading` or `world_10x_quality_proven`.
+- [x] Roll out as read-only snapshot comparison, market shadow, limited sandbox traffic and governed mode enablement after parity.
+- [x] Produce a manifest containing real test/receipt/evidence refs and unresolved unknown/stale facts.
 
 **GREEN acceptance:** readiness is truthful and operational; comparative state remains `world_10x_quality_proof_pending` until Rivals evidence exists.
 
