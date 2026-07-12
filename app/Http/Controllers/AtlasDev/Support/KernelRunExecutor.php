@@ -8,6 +8,7 @@ use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService;
 use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
 use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevPlan;
 use App\Services\Ai\Programming\AtlasDev\Execution\DevRunResult;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult;
@@ -57,7 +58,10 @@ final class KernelRunExecutor implements RunExecutor
             'constraints' => $envelope->userConstraints,
         ]);
         $run = ConfirmedDevRun::fromIntent($intent, $intent->operatorId, $intent->authorityHash);
-        $result = $this->execution->run($run);
+        // Preserve the plan that produced the typed intent. The facade must
+        // not discover or route a second time after the v1 envelope has been
+        // translated and bound to its authority/spec/world hashes.
+        $result = $this->execution->run($run, DevPlan::fromResult($intent, $plan));
 
         return $this->toLegacyResult($result, $taskContract, $runId);
     }

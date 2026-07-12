@@ -25,9 +25,12 @@ final class AtlasDevExecutionService
         return DevPlan::fromResult($intent, $result);
     }
 
-    public function run(ConfirmedDevRun $run): DevRunResult
+    public function run(ConfirmedDevRun $run, ?DevPlan $planned = null): DevRunResult
     {
-        $plan = $this->plan($run->intent);
+        // A caller that already completed the governed plan phase must pass
+        // that exact plan through. Re-planning here would let discovery,
+        // routing or blockers drift between approval and execution.
+        $plan = $planned ?? $this->plan($run->intent);
         if ($plan->isBlocked()) {
             return DevRunResult::blocked($run, 'dev_plan_blocked', $plan->planHash, ['blockers' => $plan->result->blockers]);
         }
