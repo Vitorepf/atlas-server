@@ -2632,6 +2632,12 @@ return [
         // ordinary orphan_wiring candidates; closed/dead evidence is dropped. Default OFF is byte-identical.
         'multi_source_opportunity_scanner_enabled' => (bool) env('ATLAS_LOOP_MULTI_SOURCE_OPPORTUNITY_SCANNER_ENABLED', false),
 
+        // MULTN17-02 — composed obra arc origination. When armed under leverage-first origination,
+        // neighbor candidates (organ dependency graph) may serialize into one arc with thesis,
+        // completion criterion, and kill-gate; each task still passes architect + seed gates individually.
+        // Default OFF ⇒ zero arcs and byte-identical produce().
+        'composed_obra_arc_enabled' => (bool) env('ATLAS_LOOP_COMPOSED_OBRA_ARC_ENABLED', false),
+
         // CONTRACT-GAP ORIGINATION: when ON, the automated origination writer prompt
         // (AtlasLoopComprehensionOriginator::buildPrompt) surfaces interfaces declared in scope with ZERO
         // implementer (declared-but-unfulfilled contracts) as a high-leverage axis — architecture-completion,

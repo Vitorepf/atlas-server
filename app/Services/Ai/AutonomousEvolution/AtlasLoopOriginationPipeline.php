@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AcosMax\ComposedObraArcComposer;
+use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;
@@ -30,6 +32,9 @@ use Throwable;
  */
 final class AtlasLoopOriginationPipeline
 {
+    /** @var array<string,mixed>|null */
+    private ?array $lastComposedArc = null;
+
     public function __construct(
         private readonly ?AtlasLoopComprehensionOriginator $originator = null,
         private readonly ?AtlasLoopArchitectPhaseGate $gate = null,
@@ -125,7 +130,7 @@ final class AtlasLoopOriginationPipeline
             'summary' => $objective,
         ]);
 
-        return [
+        $result = [
             'produced' => true,
             'action' => $frontier['action'],                       // proceed | abstain (park + ask the operator)
             'operator_question' => $frontier['operator_question'], // non-null ⇒ the loop is asking, not guessing
@@ -134,6 +139,11 @@ final class AtlasLoopOriginationPipeline
             'obligations' => array_values((array) ($verdict['obligations'] ?? [])),
             'reason' => null,
         ];
+        if ($this->lastComposedArc !== null) {
+            $result['composed_arc'] = $this->lastComposedArc;
+        }
+
+        return $result;
     }
 
     /**
@@ -164,7 +174,8 @@ final class AtlasLoopOriginationPipeline
         }
         $dropped = [];
         $valid = []; // ordered [objective, rel, yield_path] in leverage-ranked order (was: take first via ??=)
-        foreach ($ranked as $candidate) {
+        $groundedForArc = [];
+        foreach ($ranked as $index => $candidate) {
             if (! is_array($candidate)) {
                 continue;
             }
@@ -182,9 +193,19 @@ final class AtlasLoopOriginationPipeline
             }
 
             $valid[] = [$objective, $rel, $this->yieldPathForCandidate($candidate)];
+            $groundedForArc[] = array_merge($candidate, [
+                'id' => (string) ($candidate['id'] ?? 'rank-'.$index),
+                'summary' => $objective,
+                'target_path' => $rel,
+            ]);
         }
 
         $this->appendLeverageDroppedCandidates($dropped);
+
+        $arcPick = $this->composedArcFirstTask($groundedForArc);
+        if ($arcPick !== null) {
+            return $arcPick;
+        }
 
         // QUEUE-AWARE ORIGINATION: consider CODE *and* the live TASK QUEUE. Demote any candidate whose target
         // already has a LIVE task packet (seeded by ANY brain/session) below fresh ones, so the brain stops
@@ -497,6 +518,46 @@ final class AtlasLoopOriginationPipeline
         }
 
         return $keys;
+    }
+
+    /**
+     * MULTN17-02 — when armed, compose neighbor candidates into one obra arc and originate
+     * the first ordered task. Flag OFF ⇒ null (byte-identical single-task pick).
+     *
+     * @param  list<array<string,mixed>>  $groundedCandidates
+     * @return array{0:string,1:string}|null
+     */
+    private function composedArcFirstTask(array $groundedCandidates): ?array
+    {
+        $this->lastComposedArc = null;
+        if (! (bool) config('atlas.loop.composed_obra_arc_enabled', false)) {
+            return null;
+        }
+
+        $composed = ComposedObraArcComposer::compose($groundedCandidates, [], [
+            'enabled' => true,
+        ]);
+        if (($composed['composed'] ?? false) !== true) {
+            return null;
+        }
+
+        $arc = is_array($composed['arcs'][0] ?? null) ? $composed['arcs'][0] : null;
+        if ($arc === null) {
+            return null;
+        }
+
+        ComposedObraArcLifecycle::register($arc);
+        $first = is_array($arc['tasks'][0] ?? null) ? $arc['tasks'][0] : null;
+        if ($first === null) {
+            return null;
+        }
+
+        $this->lastComposedArc = $arc;
+
+        return [
+            (string) ($first['objective'] ?? ''),
+            ltrim((string) ($first['target_path'] ?? ''), '/'),
+        ];
     }
 
     private function yieldPathForCandidate(array $candidate): string
