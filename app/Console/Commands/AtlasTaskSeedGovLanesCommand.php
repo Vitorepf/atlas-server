@@ -146,7 +146,7 @@ final class AtlasTaskSeedGovLanesCommand extends Command
      */
     private function toPacketInput(array $spec, string $id, array $reviewedAxisExceptions = []): array
     {
-        return [
+        $input = [
             'task_packet_id' => $id,
             'objective' => (string) ($spec['objective'] ?? ''),
             'source' => 'autonomous-gov-bootstrap',
@@ -161,6 +161,14 @@ final class AtlasTaskSeedGovLanesCommand extends Command
             'wave' => (int) ($spec['wave'] ?? 1),
             'reviewed_axis_exceptions' => $reviewedAxisExceptions,
         ];
+        if (($spec['quality_foundry_required'] ?? false) === true) {
+            $input['quality_foundry_required'] = true;
+            if (is_array($spec['execution_order'] ?? null)) {
+                $input['execution_order'] = $spec['execution_order'];
+            }
+        }
+
+        return $input;
     }
 
     /** @param array<string,mixed> $payload */
