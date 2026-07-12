@@ -166,7 +166,7 @@
 - [ ] MAXK-02 — pending
 - [ ] MAXK-03 — pending
 - [x] MAXL-03 — landed · `EvidenceLedgerIntegrityWatchdogCheck` (id `wdg-01.evidence_ledger_integrity`) roda diário sobre `EvidenceLedgerHashChainIntegrityVerifier::verifyStoredChainsForDay()` (mesmo verificador do MAXL-02); tamper ⇒ alert `evidence_ledger_tampered`, gap ⇒ alert `evidence_ledger_gap`, chains intactas ⇒ `ok`; JSONL append-only `storage/atlas/evidence-ledger-integrity/integrity.jsonl` recebe linha diária `{date, chains, chain_details:[{chain_key, chain_length, status, gap_count, tampered_count, tampered_event_ids, legacy_unchained_count}], tampered_total, gap_total}` (zero payload cru — só ids/hashes/contagens); registrado no `AppServiceProvider::registerAcosWatchdogChecks()`; tests: `php artisan test tests/Feature/Ai/AcosMax/Maxl03EvidenceLedgerIntegrityWatchdogTest.php tests/Feature/Ai/Cognition/AtlasWatchdogFrameworkTest.php`
-- [ ] MAXL-04 — pending
+- [x] MAXL-04 — landed · `atlas:acos:delta-series-v2 --json` appenda `acos-delta-series.v2.jsonl` (arquivo separado da v1, byte-identity preservada); `by_area.<area>.{overall,code,doc,pipeline}` + `aggregate`, ≥14 áreas (subsystems + v4 supplementals: IMMUNE/MEMORY/CONTEXT/GOVERNANCE/DECIDE/COMPOUND/REALITY/TEOS/COGNITION/AUTONOMY/PATAMAR-4/AEMOR/LONG-HORIZON/OPEN-BRAIN/EVIDENCE/…); mesmo ladder ready=10/partial=6/building=3/blocked=0 da v1 (áreas nunca contam história diferente do agregado); idempotente por data, `--date` retroativo recusado sem opt-in; `recorded_at.date==date`; provenance `resolved-evidence`; tests: `tests/Feature/Ai/AcosMax/Maxl04PerAreaDeltaSeriesV2Test.php`
 - [ ] MAXL-05 — pending
 - [ ] MAXL-07 — pending
 - [ ] MAXL-08 — pending

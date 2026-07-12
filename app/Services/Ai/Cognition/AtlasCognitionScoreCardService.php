@@ -471,9 +471,14 @@ class AtlasCognitionScoreCardService
     }
 
     /**
+     * MAXL-04 needs the v4 supplemental rows to build the per-area v2 series
+     * without shadow-computing them. Exposed as a public read-model so the
+     * v2 producer can group subsystems + supplementals by `group` using the
+     * SAME shape the v1 aggregate is built from.
+     *
      * @return list<array<string,mixed>>
      */
-    private function v4SupplementalRows(): array
+    public function v4SupplementalRows(): array
     {
         $rows = [];
         foreach (self::V4_SUPPLEMENTAL_SUBSYSTEMS as [$acronym, $name, $group, $serviceClass]) {
