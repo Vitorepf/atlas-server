@@ -18,6 +18,7 @@ Neste repo (`atlas-server`), **toda IA (Cursor, Claude Code, Codex, Composer, cl
 5. **NUNCA** `git pull` / `git pull --rebase` sem o operador pedir. Se `main` local e `origin/main` divergirem durante a obra ACOS Max: **a main local é a fonte da verdade**; reportar e pedir OK explícito para `git push --force-with-lease origin main`. Não “resolver” com merge.
 6. Se a UI/git entrar em `MERGE_IN_PROGRESS` por pull acidental: `git merge --abort` imediatamente e reportar.
 7. Subagents herdam esta regra: commits deles também só na `main` local do worktree principal — não spawnar branch paralela.
+8. **NUNCA** usar `git stash` / auto-stash para “sumir” com WIP de obra. WIP útil vai para commit escopado na `main` (mesmo incompleto + `pending_window` honesto). Se achar stash de obra: **reaplicar na main e commitar** — não dropar conteúdo real.
 
 ## Por quê
 

@@ -25,6 +25,7 @@ Neste repo (`atlas-server`), **toda IA trabalha exclusivamente na branch local `
 5. **NUNCA** `git pull` / `git pull --rebase` sem o operador pedir. Se `main` local e `origin/main` divergirem durante ACOS Max: **a main local é a fonte da verdade**; reportar e pedir OK explícito para `git push --force-with-lease origin main`. Não “resolver” com merge.
 6. Se a UI/git entrar em `MERGE_IN_PROGRESS` por pull acidental: `git merge --abort` imediatamente e reportar.
 7. Subagents herdam esta regra.
+8. **NUNCA** `git stash` para esconder WIP de obra. Commit escopado na `main` (honesto). Stash encontrado → reaplicar + commitar na main.
 
 ## Espelho Cursor
 
