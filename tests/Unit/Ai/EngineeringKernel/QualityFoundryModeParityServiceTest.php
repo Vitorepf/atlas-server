@@ -57,6 +57,20 @@ final class QualityFoundryModeParityServiceTest extends TestCase
         self::assertSame(['autonomos'], $report['missing_modes']);
     }
 
+    public function test_failure_matrix_keeps_contradiction_drift_collision_outage_and_crash_fail_closed(): void
+    {
+        foreach (['contradiction', 'spec_drift', 'ownership_collision', 'provider_outage', 'verifier_outage', 'crash_between_act_and_settle'] as $fixture) {
+            $blocked = ['applicability' => 'blocked', 'disposition' => 'block', 'verdict' => 'hold', 'authorization' => 'refused', 'canary' => 'not_run', 'status' => 'blocked', 'claim_eligible' => false, 'failure_fixture' => $fixture];
+            $receipts = [];
+            foreach (['dev', 'forge', 'autonomos'] as $mode) {
+                $receipts[$mode] = array_replace($this->receipt('R3'), ['terminal_outcome' => $blocked]);
+            }
+            $report = (new QualityFoundryModeParityService)->compare($receipts);
+            self::assertTrue($report['parity'], $fixture);
+            self::assertTrue($report['terminal_parity']['claim_eligible_all_false']);
+        }
+    }
+
     /** @return array<string,mixed> */
     private function receipt(string $risk): array
     {
