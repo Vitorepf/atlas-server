@@ -217,7 +217,7 @@ Brain → Proposal Arena → Product/Spec Courts → atomic reservation
 - [ ] Autônomos readiness: staging/limited fixture cycle, >500 visible tasks, zero-human proof, dry rotation, restart and a defined 24h/7d soak start receipt.
 - [ ] Verify all modes use one Kernel/bar and produce comparable quality-loss inputs; cost/time/operator effort remain secondary metrics.
 - [ ] State-test that canary/readiness cannot imply elapsed soak, `quality_foundry_ready`, `multiplier_proven`, `world_leading` or 10×.
-- [ ] Produce three mode manifests with live test/evidence refs and blockers.
+- [x] Produce three mode manifests with live test/evidence refs and blockers. Evidence: `atlas:engineering:quality-foundry-manifests --json` emits live Kernel/Dev/Forge/Autônomos manifests; the three mode manifests contain executed test commands, exit/output/duration receipt metadata, SHA-256 test refs and explicit blockers, while comparative/soak claims remain false.
 
 **GREEN acceptance:** each mode is implementation/canary ready at its proven scope; no soak is marked elapsed and no dominance claim is issued.
 
