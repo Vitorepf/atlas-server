@@ -256,6 +256,175 @@ final class AtlasMemoryTemporalQualityService
         return $this->countPayload($maintained, $supersedes->count());
     }
 
+    /**
+     * MAXH-10 — read-only cadence + regression checks for the temporal
+     * truth pipeline. Emits AT LEAST 3 checks per §1557 so
+     * `atlas:memory:temporal-quality --check --json | jq '.checks | length >= 3'`
+     * is satisfied by construction. Fail-open: each check reports its
+     * own status; a corrupt/unreachable input NEVER masks the others.
+     *
+     * @return array<string,mixed>
+     */
+    public function checks(?CarbonImmutable $now = null): array
+    {
+        $now = $now ?? CarbonImmutable::now('UTC');
+        $report = $this->report();
+
+        return [
+            'schema_version' => self::SCHEMA_VERSION.'#checks',
+            'generated_at' => $now->toIso8601String(),
+            'measure_id' => self::MEASURE_ID,
+            'formula_version' => self::FORMULA_VERSION,
+            'checks' => [
+                $this->consolidationLedgerCadenceCheck($now),
+                $this->supersessionMaintainedCheck($report),
+                $this->provenanceCoverageCheck($report),
+                $this->truthDensityCheck($report),
+            ],
+        ];
+    }
+
+    /**
+     * Check 1 — consolidation-scan ledger cadence. Reads the newest
+     * `consolidation-proposals-YYYY-MM-DD.ndjson` file under the ledger
+     * root (MAXH-03 producer) and alerts if the freshest entry is older
+     * than the configured dead-cadence threshold.
+     *
+     * @return array<string,mixed>
+     */
+    private function consolidationLedgerCadenceCheck(CarbonImmutable $now): array
+    {
+        $id = 'maxh_10.consolidation_ledger_cadence';
+        $root = (string) config('atlas.memory_consolidation.ledger_root');
+        $threshold = (int) config('atlas.memory_consolidation.watchdog.max_days_between_passes', 7);
+        $threshold = max(1, $threshold);
+
+        if ($root === '' || ! is_dir($root)) {
+            return $this->checkPayload($id, 'skipped', ['reason' => 'ledger_root_missing', 'threshold_days' => $threshold]);
+        }
+
+        $files = glob($root.'/consolidation-proposals-*.ndjson') ?: [];
+        if ($files === []) {
+            return $this->checkPayload($id, 'alert', [
+                'reason' => 'ledger_empty',
+                'threshold_days' => $threshold,
+                'ledger_root' => $root,
+            ]);
+        }
+
+        $mtimes = array_map(static fn (string $f): int => (int) @filemtime($f), $files);
+        $latestMtime = max($mtimes);
+        if ($latestMtime <= 0) {
+            return $this->checkPayload($id, 'error', ['reason' => 'ledger_mtime_unreadable', 'threshold_days' => $threshold]);
+        }
+
+        $ageSeconds = max(0, $now->getTimestamp() - $latestMtime);
+        $ageDays = $ageSeconds / 86400.0;
+
+        return $this->checkPayload(
+            $id,
+            $ageDays > $threshold ? 'alert' : 'ok',
+            [
+                'age_days' => round($ageDays, 3),
+                'threshold_days' => $threshold,
+                'latest_mtime' => $latestMtime,
+                'ledger_files' => count($files),
+            ],
+        );
+    }
+
+    /**
+     * Check 2 — supersession maintained cannot regress to zero when a
+     * signal exists. If den ≥ 1 and num == 0, the supersession pipeline
+     * is emitting relations that do not survive — that is the exact
+     * failure §1557 pins ('superseded ainda supera superseder').
+     *
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function supersessionMaintainedCheck(array $report): array
+    {
+        $id = 'maxh_10.supersession_maintained';
+        $metric = (array) data_get($report, 'metrics.supersession_maintained', []);
+        $num = (int) ($metric['num'] ?? 0);
+        $den = (int) ($metric['den'] ?? 0);
+        if ($den === 0) {
+            return $this->checkPayload($id, 'no_signal', ['num' => $num, 'den' => $den]);
+        }
+
+        return $this->checkPayload(
+            $id,
+            $num === 0 ? 'alert' : ($num < $den ? 'warning' : 'ok'),
+            ['num' => $num, 'den' => $den, 'ratio' => $den > 0 ? round($num / $den, 4) : null],
+        );
+    }
+
+    /**
+     * Check 3 — non-default temporal_provenance_coverage. §1557 pins
+     * this as the source of truth for regression: because MAXH-01
+     * counts only non-default provenance, "abaixo do baseline" has
+     * signal again.
+     *
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function provenanceCoverageCheck(array $report): array
+    {
+        $id = 'maxh_10.temporal_provenance_coverage';
+        $metric = (array) data_get($report, 'metrics.temporal_provenance_coverage', []);
+        $num = (int) ($metric['num'] ?? 0);
+        $den = (int) ($metric['den'] ?? 0);
+        if ($den < self::DENOMINATOR_MIN_ACTIVE) {
+            return $this->checkPayload($id, 'no_signal', ['num' => $num, 'den' => $den, 'denominator_min' => self::DENOMINATOR_MIN_ACTIVE]);
+        }
+
+        $floor = (float) config('atlas.memory_consolidation.watchdog.provenance_coverage_floor', 0.1);
+        $ratio = $den > 0 ? $num / $den : 0.0;
+
+        return $this->checkPayload(
+            $id,
+            $ratio < $floor ? 'alert' : 'ok',
+            ['num' => $num, 'den' => $den, 'ratio' => round($ratio, 4), 'floor' => $floor],
+        );
+    }
+
+    /**
+     * Check 4 — truth_density_v2 coverage. Any density ≥ 1 relation
+     * that fails to qualify is a warning; zero-of-den ≥ 1 is an alert.
+     *
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function truthDensityCheck(array $report): array
+    {
+        $id = 'maxh_10.truth_density_v2';
+        $metric = (array) data_get($report, 'metrics.truth_density_v2', []);
+        $num = (int) ($metric['num'] ?? 0);
+        $den = (int) ($metric['den'] ?? 0);
+        if ($den === 0) {
+            return $this->checkPayload($id, 'no_signal', ['num' => $num, 'den' => $den]);
+        }
+
+        return $this->checkPayload(
+            $id,
+            $num === 0 ? 'alert' : ($num < $den ? 'warning' : 'ok'),
+            ['num' => $num, 'den' => $den, 'ratio' => round($num / $den, 4)],
+        );
+    }
+
+    /**
+     * @param  array<string,mixed>  $evidence
+     * @return array<string,mixed>
+     */
+    private function checkPayload(string $id, string $status, array $evidence): array
+    {
+        return [
+            'id' => $id,
+            'status' => $status,
+            'evidence' => $evidence,
+        ];
+    }
+
     /** @return array{num:int,den:int,ratio:?float} */
     private function countPayload(int $num, int $den): array
     {

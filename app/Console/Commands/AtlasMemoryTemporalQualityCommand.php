@@ -11,15 +11,20 @@ final class AtlasMemoryTemporalQualityCommand extends Command
 {
     protected $signature = 'atlas:memory:temporal-quality
         {--freeze-payload : Print the MAXH-01 measure freeze payload instead of the live report}
+        {--check : MAXH-10 — emit the cadence + regression checks (≥3) instead of the metrics report}
         {--json : Print machine-readable JSON}';
 
-    protected $description = 'MAXH-01 — read-only temporal truth v2 quality meter for Atlas Memory.';
+    protected $description = 'MAXH-01 — read-only temporal truth v2 quality meter (MAXH-10 --check adds cadence+regression watchdog checks).';
 
     public function handle(AtlasMemoryTemporalQualityService $quality): int
     {
-        $payload = (bool) $this->option('freeze-payload')
-            ? ['freeze_payload' => AtlasMemoryTemporalQualityService::freezePayload()]
-            : ['memory_temporal_quality' => $quality->report()];
+        if ((bool) $this->option('check')) {
+            $payload = ['memory_temporal_quality_checks' => $quality->checks()];
+        } elseif ((bool) $this->option('freeze-payload')) {
+            $payload = ['freeze_payload' => AtlasMemoryTemporalQualityService::freezePayload()];
+        } else {
+            $payload = ['memory_temporal_quality' => $quality->report()];
+        }
 
         if ((bool) $this->option('json')) {
             $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION));
@@ -31,6 +36,22 @@ final class AtlasMemoryTemporalQualityCommand extends Command
             $freeze = $payload['freeze_payload'];
             $this->components->twoColumnDetail('Measure', (string) ($freeze['measure_id'] ?? 'unknown'));
             $this->components->twoColumnDetail('Formula', (string) ($freeze['formula_version'] ?? 'unknown'));
+
+            return self::SUCCESS;
+        }
+
+        if (isset($payload['memory_temporal_quality_checks'])) {
+            $checks = (array) ($payload['memory_temporal_quality_checks']['checks'] ?? []);
+            $this->components->twoColumnDetail('<fg=bright-blue;options=bold>MAXH-10 checks</>', (string) count($checks));
+            foreach ($checks as $check) {
+                if (! is_array($check)) {
+                    continue;
+                }
+                $this->components->twoColumnDetail(
+                    (string) ($check['id'] ?? 'unknown'),
+                    (string) ($check['status'] ?? 'unknown'),
+                );
+            }
 
             return self::SUCCESS;
         }
