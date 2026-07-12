@@ -159,6 +159,9 @@ final class AtlasLoopOriginationPipeline
     private function leverageFirstMaterialTarget(AtlasLoopScopeComprehensionModel $model, string $repoRoot, array $refusalCounts = []): ?array
     {
         $ranked = ($this->selector ?? new AtlasLoopCrossTypeLeverageSelector)->rankedForModel($model);
+        if ((bool) config('atlas.loop.multi_source_opportunity_scanner_enabled', false)) {
+            $ranked = array_merge($this->multiSourceOpportunityCandidates($repoRoot), $ranked);
+        }
         $dropped = [];
         $valid = []; // ordered [objective, rel, yield_path] in leverage-ranked order (was: take first via ??=)
         foreach ($ranked as $candidate) {
@@ -209,6 +212,135 @@ final class AtlasLoopOriginationPipeline
             (bool) config('atlas.loop.origination_refusal_memory_enabled', false),
             (int) config('atlas.loop.origination_refusal_memory_min', 2),
         );
+    }
+
+    /**
+     * MULTN17-03 — local, evidence-backed opportunity leads. These are emitted
+     * as ordinary orphan_wiring candidates so the existing selector/yield/queue
+     * logic remains the only picker; this scanner only adds grounded sources.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function multiSourceOpportunityCandidates(string $repoRoot): array
+    {
+        $repoRoot = rtrim($repoRoot, '/');
+        if ($repoRoot === '') {
+            return [];
+        }
+
+        return array_values(array_merge(
+            $this->openGapOpportunityCandidates($repoRoot),
+            $this->ponytailOpportunityCandidates($repoRoot),
+        ));
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function openGapOpportunityCandidates(string $repoRoot): array
+    {
+        $ledger = $repoRoot.'/docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md';
+        if (! is_file($ledger)) {
+            return [];
+        }
+
+        $lines = @file($ledger, FILE_IGNORE_NEW_LINES);
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        $candidates = [];
+        foreach ($lines as $index => $line) {
+            $text = trim((string) $line);
+            if ($text === '' || ! str_contains($text, '[ ]')) {
+                continue;
+            }
+            $rel = $this->firstBacktickedRepoPath($text);
+            if ($rel === null || ! is_file($repoRoot.'/'.$rel)) {
+                continue;
+            }
+
+            $candidates[] = $this->evidenceOpportunityCandidate(
+                source: 'open_gap_ledger',
+                summary: $text,
+                targetPath: $rel,
+                evidenceFile: 'docs/engineering-knowledge-base/atlas-open-gaps-regressions-ledger.md',
+                evidenceLine: $index + 1,
+            );
+        }
+
+        return $candidates;
+    }
+
+    /** @return list<array<string,mixed>> */
+    private function ponytailOpportunityCandidates(string $repoRoot): array
+    {
+        $roots = ['app', 'tests'];
+        $candidates = [];
+        foreach ($roots as $root) {
+            $dir = $repoRoot.'/'.$root;
+            if (! is_dir($dir)) {
+                continue;
+            }
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+            );
+            foreach ($iterator as $file) {
+                if (! $file instanceof \SplFileInfo || ! $file->isFile()) {
+                    continue;
+                }
+                $path = $file->getPathname();
+                $lines = @file($path, FILE_IGNORE_NEW_LINES);
+                if (! is_array($lines)) {
+                    continue;
+                }
+                foreach ($lines as $index => $line) {
+                    $text = trim((string) $line);
+                    if (! str_contains($text, 'ponytail:')) {
+                        continue;
+                    }
+                    $rel = ltrim(str_replace($repoRoot, '', $path), '/');
+                    $candidates[] = $this->evidenceOpportunityCandidate(
+                        source: 'ponytail_debt',
+                        summary: $text,
+                        targetPath: $rel,
+                        evidenceFile: $rel,
+                        evidenceLine: $index + 1,
+                    );
+                    break;
+                }
+            }
+        }
+
+        return $candidates;
+    }
+
+    /** @return array<string,mixed> */
+    private function evidenceOpportunityCandidate(string $source, string $summary, string $targetPath, string $evidenceFile, int $evidenceLine): array
+    {
+        return [
+            'kind' => AtlasLoopComprehensionOriginationCandidates::KIND_ORPHAN_WIRING,
+            'summary' => "Evidence-backed opportunity ({$source}): {$summary}",
+            'target_path' => ltrim($targetPath, '/'),
+            'target_fqcn' => null,
+            'members' => [],
+            'capability' => null,
+            'evidence' => [
+                'source' => $source,
+                'file' => $evidenceFile,
+                'line' => $evidenceLine,
+                'resolves_to_file' => true,
+            ],
+        ];
+    }
+
+    private function firstBacktickedRepoPath(string $line): ?string
+    {
+        if (preg_match('/`([^`]+)`/', $line, $matches) !== 1) {
+            return null;
+        }
+
+        $path = ltrim(str_replace('\\', '/', trim((string) $matches[1])), '/');
+
+        return preg_match('/^(app|tests|config|routes|docs)\//', $path) === 1 ? $path : null;
     }
 
     /**

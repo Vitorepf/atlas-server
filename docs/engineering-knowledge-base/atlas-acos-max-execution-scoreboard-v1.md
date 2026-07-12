@@ -117,7 +117,7 @@
 
 ## LOTE 6 — VERTICAL 1 (subset mínimo + MARCO; gate F1→F2)
 - [x] MAXN-04 — landed · `AtlasLoopOriginationPipeline` now has default-OFF proven-yield origination (`atlas.loop.origination_yield_enabled`) stacked under leverage-first: `yieldAwarePick()` orders known paths by `PathYieldEwma` while preserving unknown-yield exploration; `AtlasBrainPathYieldEwma` ignores raw accepted samples unless `proven_real=true`; `AtlasBrainPatternLearningLedger` stores the proven-real fact; tests: `php artisan test tests/Unit/Ai/AutonomousEvolution/AtlasLoopOriginationPipelineYieldTest.php`
-- [ ] MULTN17-03 — pending
+- [x] MULTN17-03 — landed · `AtlasLoopOriginationPipeline` now has default-OFF `atlas.loop.multi_source_opportunity_scanner_enabled`; when ON under leverage-first it prepends local evidence-backed leads from open gaps ledger rows and `ponytail:` debt that resolve to real repo files, emits them as ordinary unscored `orphan_wiring` candidates, drops closed/dead evidence, and leaves existing selector/yield/queue/refusal logic as the only picker; existing 0-caller orphans remain supplied by `AtlasLoopComprehensionOriginationCandidates`; tests: `php artisan test tests/Feature/Loop/AtlasLoopLeverageFirstOriginationTest.php`
 - [ ] ESP-09 — pending
 - [ ] ESP-04 — pending
 - [ ] ESP-07 — pending

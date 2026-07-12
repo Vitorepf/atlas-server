@@ -2558,6 +2558,11 @@ return [
         // priority over known low-yield paths. Default OFF keeps the existing leverage-ranked pick unchanged.
         'origination_yield_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_YIELD_ENABLED', false),
 
+        // MULTN17-03 — evidence-backed multi-source opportunity leads. When armed under leverage-first
+        // origination, local open gaps and ponytail debt that resolve to real repo files are added as
+        // ordinary orphan_wiring candidates; closed/dead evidence is dropped. Default OFF is byte-identical.
+        'multi_source_opportunity_scanner_enabled' => (bool) env('ATLAS_LOOP_MULTI_SOURCE_OPPORTUNITY_SCANNER_ENABLED', false),
+
         // CONTRACT-GAP ORIGINATION: when ON, the automated origination writer prompt
         // (AtlasLoopComprehensionOriginator::buildPrompt) surfaces interfaces declared in scope with ZERO
         // implementer (declared-but-unfulfilled contracts) as a high-leverage axis — architecture-completion,
