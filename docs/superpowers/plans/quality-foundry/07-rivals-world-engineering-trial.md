@@ -189,12 +189,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 
 **Allowed files:** Rivals statistical/core/report services and deterministic statistical fixtures/tests.
 
-- [ ] Write RED fixtures for underpowered sample, unit/repetition pseudoreplication, attrition exclusion, zero denominator, best-run choice, multiplicity without correction, wide interval, one campaign only and critical-dimension regression.
-- [ ] Require power ≥90% before the run; case/repo is unit and repetitions are nested.
-- [ ] Implement intent-to-treat estimates with hierarchical bootstrap or mixed effects; time-to-event via survival/RMST; counts via Poisson/negative-binomial/event limits as preregistered.
-- [ ] Apply Holm or frozen hierarchical testing; report effect, IC95, exposure, attrition and sensitivity analyses.
-- [ ] Require three campaigns and no best-run cherry-pick for world claims.
-- [ ] Validate statistical routines against fixed reference fixtures and property tests; replay yields byte-stable policy/result hashes.
+- [x] Write RED fixtures for underpowered sample, unit/repetition pseudoreplication, attrition exclusion, zero denominator, best-run choice, multiplicity without correction, wide interval, one campaign only and critical-dimension regression.
+- [x] Require power ≥90% before the run; case/repo is unit and repetitions are nested.
+- [x] Implement intent-to-treat estimates with hierarchical bootstrap or mixed effects; time-to-event via survival/RMST; counts via Poisson/negative-binomial/event limits as preregistered.
+- [x] Apply Holm or frozen hierarchical testing; report effect, IC95, exposure, attrition and sensitivity analyses.
+- [x] Require three campaigns and no best-run cherry-pick for world claims. <!-- three-campaign gate lives in WorldTrialReadiness; no-best-run enforced structurally (Adjudicator exact-set equality) and by sensitivity.best_case never being the claim basis; public-claim wiring lands with packet 6. -->
+- [x] Validate statistical routines against fixed reference fixtures and property tests; replay yields byte-stable policy/result hashes.
 
 **GREEN acceptance:** every false-claim fixture rejects; adequate fixtures reproduce expected estimates/intervals/corrections; uncertainty never becomes a favorable default.
 
