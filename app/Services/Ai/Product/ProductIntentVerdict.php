@@ -29,6 +29,7 @@ final readonly class ProductIntentVerdict
         public string $intentHash,
         public array $productTruth,
         public ?string $falsificationHash = null,
+        public ?string $providerProbeHash = null,
         public string $schemaVersion = 'atlas.product_intent_verdict.v1',
     ) {}
 
@@ -47,6 +48,7 @@ final readonly class ProductIntentVerdict
             'world_snapshot_hash' => $this->worldSnapshotHash, 'blocking_reasons' => $this->blockingReasons,
             'intent_hash' => $this->intentHash, 'product_truth' => $this->productTruth,
             'falsification_hash' => $this->falsificationHash,
+            'provider_probe_hash' => $this->providerProbeHash,
         ];
     }
 }

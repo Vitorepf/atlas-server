@@ -6,6 +6,8 @@ namespace Tests\Unit\Ai\Product;
 
 use App\Services\Ai\Product\ProductIntentCase;
 use App\Services\Ai\Product\ProductIntentCourt;
+use App\Services\Ai\Product\ProductIntentProbeResult;
+use App\Services\Ai\Product\ProductIntentUncertaintyProbe;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Models\AtlasLedgerEvent;
 use Tests\TestCase;
@@ -169,6 +171,39 @@ final class ProductIntentCourtTest extends TestCase
         $court = new ProductIntentCourt;
         self::assertSame($court->adjudicate($a)->intentHash, $court->adjudicate($b)->intentHash);
         self::assertSame($court->adjudicate($a)->falsificationHash, $court->adjudicate($b)->falsificationHash);
+    }
+
+    public function test_provider_probe_can_only_demote_and_never_admit(): void
+    {
+        $probe = new class implements ProductIntentUncertaintyProbe {
+            public function probe(ProductIntentCase $case): ProductIntentProbeResult
+            {
+                return ProductIntentProbeResult::available($case, ['alternative_dominates'], 'revise');
+            }
+        };
+        $verdict = (new ProductIntentCourt(uncertaintyProbe: $probe))->adjudicate(ProductIntentCase::fromArray($this->validCase()));
+
+        self::assertSame('revise', $verdict->status);
+        self::assertContains('alternative_dominates', $verdict->blockingReasons);
+        self::assertNotEmpty($verdict->providerProbeHash);
+    }
+
+    public function test_required_depth_provider_outage_holds_but_low_risk_uses_deterministic_floor(): void
+    {
+        $probe = new class implements ProductIntentUncertaintyProbe {
+            public function probe(ProductIntentCase $case): ProductIntentProbeResult
+            {
+                return ProductIntentProbeResult::unavailable($case);
+            }
+        };
+        $risky = (new ProductIntentCourt(uncertaintyProbe: $probe))->adjudicate(ProductIntentCase::fromArray($this->validCase()));
+        self::assertSame('held', $risky->status);
+        self::assertContains('provider_probe_unavailable_required_depth', $risky->blockingReasons);
+
+        $low = (new ProductIntentCourt(uncertaintyProbe: $probe))->adjudicate(ProductIntentCase::fromArray($this->validCase([
+            'risk_class' => 'R1', 'world_snapshot_hash' => null, 'world_snapshot_status' => null,
+        ])));
+        self::assertSame('admitted', $low->status);
     }
 
     /** @return array<string,mixed> */

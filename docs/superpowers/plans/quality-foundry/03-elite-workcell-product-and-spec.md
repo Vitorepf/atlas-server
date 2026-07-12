@@ -103,11 +103,11 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 **Allowed files:** Product family, current world/context readers, focused tests.
 
 - [ ] Write RED cases for vanity metric, contradictory sources, proxy-user mismatch, impossible observation window, hidden non-goal, irreversible side effect, privacy/security omission and alternative that dominates the proposed solution.
-- [ ] Add deterministic probes for required fields/contradictions and independent provider-assisted probes for domain/UX/product uncertainty.
-- [ ] Ensure provider probes can only add `revise|refused|held` evidence; they never grant admission.
+- [x] Add deterministic probes for required fields/contradictions and independent provider-assisted probes for domain/UX/product uncertainty.
+- [x] Ensure provider probes can only add `revise|refused|held` evidence; they never grant admission.
 - [ ] Route genuine operator-owned ambiguity to one bounded clarification contract. Runtime specialist review is never required.
 - [x] Hash each probe input/output and bind accepted resolutions to a new ProductIntent version; silent drift is impossible.
-- [ ] Run golden corpus, adversarial mutation, provider-unavailable and replay tests.
+- [x] Run golden corpus, adversarial mutation, provider-unavailable and replay tests.
 
 **GREEN acceptance:** every seeded contradiction or gaming case is caught; provider outage preserves deterministic blocking rules; a changed answer creates a new intent version/hash.
 

@@ -14,6 +14,7 @@ final class ProductIntentCourt
         private readonly ?AtlasProductTruthCompilerService $compiler = null,
         private readonly ?AtlasEvidenceLedger $ledger = null,
         private readonly ?ProductIntentFalsificationProbe $probe = null,
+        private readonly ?ProductIntentUncertaintyProbe $uncertaintyProbe = null,
     ) {}
 
     public function adjudicate(ProductIntentCase $case): ProductIntentVerdict
@@ -24,6 +25,7 @@ final class ProductIntentCourt
             'route' => $d['mode'],
         ]);
         $probe = $this->probe ?? new ProductIntentFalsificationProbe;
+        $providerResult = $this->providerResult($case);
         $blocking = [];
         foreach (['problem', 'user', 'value'] as $key) {
             if (($d[$key] ?? null) === null) $blocking[] = $key.'_missing';
@@ -49,13 +51,21 @@ final class ProductIntentCourt
         }
 
         $probeObjections = $probe->objections($case);
-        $blocking = array_merge($blocking, $probeObjections);
+        $providerObjections = $providerResult->available ? $providerResult->objections : [];
+        $blocking = array_merge($blocking, $probeObjections, $providerObjections);
+        if (! $providerResult->available && $risk >= 3) {
+            $blocking[] = 'provider_probe_unavailable_required_depth';
+        }
+        if (in_array($providerResult->suggestedStatus, ['revise', 'held', 'refused'], true)) {
+            $blocking[] = 'provider_probe_'.$providerResult->suggestedStatus;
+        }
         $blocking = array_values(array_unique($blocking));
 
         $status = 'admitted';
         if (in_array('unbounded_side_effect', $blocking, true)) {
             $status = 'refused';
-        } elseif (in_array('world_snapshot_missing', $blocking, true) || in_array('world_snapshot_stale', $blocking, true)) {
+        } elseif (in_array('world_snapshot_missing', $blocking, true) || in_array('world_snapshot_stale', $blocking, true)
+            || in_array('provider_probe_unavailable_required_depth', $blocking, true)) {
             $status = 'held';
         } elseif ($blocking !== []) {
             $status = 'revise';
@@ -74,13 +84,27 @@ final class ProductIntentCourt
             $d['non_goals'], $d['hypotheses'], $d['uncertainties'], $d['alternatives'], $d['falsifiers'],
             $d['side_effects'], $d['acceptance'], $d['release_policy'], $d['outcome_policy'], $d['world_snapshot_hash'],
             array_values(array_unique($blocking)), $intentHash, $truth,
-            MissionCanonicalHash::sha256(['case' => $case->toArray(), 'objections' => $probeObjections]),
+            MissionCanonicalHash::sha256(['case' => $case->toArray(), 'objections' => [...$probeObjections, ...$providerObjections]]),
+            $providerResult->outputHash,
         );
         if ($status === 'admitted') {
             $this->recordFrozenUnit($verdict);
         }
 
         return $verdict;
+    }
+
+    private function providerResult(ProductIntentCase $case): ProductIntentProbeResult
+    {
+        if (! $this->uncertaintyProbe instanceof ProductIntentUncertaintyProbe) {
+            return ProductIntentProbeResult::available($case);
+        }
+
+        try {
+            return $this->uncertaintyProbe->probe($case);
+        } catch (\Throwable) {
+            return ProductIntentProbeResult::unavailable($case, 'provider_probe_exception');
+        }
     }
 
     private function recordFrozenUnit(ProductIntentVerdict $verdict): void
