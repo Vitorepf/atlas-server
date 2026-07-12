@@ -84,6 +84,20 @@ class AgentControlPlaneScopeRepairInputRebuilderTest extends TestCase
         self::assertSame(['app/Forbidden.php'], $result['forbidden_files']);
     }
 
+    public function test_repair_input_preserves_quality_foundry_order_binding(): void
+    {
+        $order = ['schema_version' => 'atlas.execution_order.v2', 'order_hash' => str_repeat('a', 64)];
+        $packet = $this->basePacket([
+            'quality_foundry_required' => true,
+            'execution_order' => $order,
+        ]);
+
+        $result = AgentControlPlaneScopeRepairInputRebuilder::repairInputKeepingScope($packet, []);
+
+        self::assertTrue($result['quality_foundry_required']);
+        self::assertSame($order, $result['execution_order']);
+    }
+
     public function test_repair_input_keeping_scope_synthesises_minimal_criterion_when_empty(): void
     {
         $packet = $this->basePacket([

@@ -84,7 +84,7 @@ final class AgentControlPlaneScopeRepairInputRebuilder
             $objective .= ' Scope reconciliation: the pétreo path(s) ['.implode(', ', $scrubPaths).'] are operator-wired, not worker scope. Implement only the buildable allowed_files + tests; do not edit the pétreo path(s).';
         }
 
-        return [
+        $input = [
             'task_packet_id' => (string) data_get($packet, 'task_packet_id', ''),
             'objective' => $objective,
             // The seam decision survives every rebuild (repair, scope expansion) —
@@ -107,6 +107,17 @@ final class AgentControlPlaneScopeRepairInputRebuilder
             'lease_ttl_seconds' => (int) data_get($packet, 'lease_requirements.lease_ttl_seconds', 1800),
             'rollback_strategy' => (string) data_get($packet, 'rollback_requirements.rollback_strategy', 'plan_only'),
         ];
+        // Quality Foundry is a frozen execution contract, not repair metadata.
+        // Preserve it through every rebuild so retries cannot silently downgrade
+        // a packet to the legacy path or change its order hash.
+        if (($packet['quality_foundry_required'] ?? false) === true) {
+            $input['quality_foundry_required'] = true;
+            if (is_array($packet['execution_order'] ?? null)) {
+                $input['execution_order'] = $packet['execution_order'];
+            }
+        }
+
+        return $input;
     }
 
     /**
