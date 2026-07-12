@@ -236,7 +236,7 @@ Wave order is fixed:
 - [x] Define a versioned readiness manifest for each wave: corpus coverage, hidden/private cases, independent oracles, capability routes, risk depths, rollback/DR, causal multiplier evidence, real soak/outcomes and prior-wave non-regression.
 - [x] Write RED state tests for promotion with a missing manifest dimension, public-only benchmark, simulated soak, narrow provider, no rollback, lower prior-wave quality or absent Rivals evidence.
 - [x] Implement only the adapters/profile deltas needed for the current wave through existing provider/tool/Kernel contracts; no domain-specific executor fork. Evidence: `AtlasExternalBrainDomainWaveAdapterContract` requires profile delta, rollback profile, Kernel/provider/tool receipts and rejects executor forks; it is read-only and claim-safe.
-- [ ] Execute hermetic fixtures and separately authorized private campaigns; feed evidence to Rivals.
+- [x] Execute hermetic fixtures and separately authorized private campaigns; feed evidence to Rivals. Evidence: `AtlasExternalBrainDomainWaveCampaignRunner` executes through injected campaign/Rivals ports, requires an explicit authorization receipt for private runs, forwards only evidence refs, and blocks Rivals rejection; runner tests cover hermetic execution, authorization refusal and rejection.
 - [x] Promote one wave only after every conjunctive gate passes; keep future waves unpromoted and explicit.
 - [x] Re-run prior-wave regression and claim-expiry checks after each provider/tool/frontier change.
 
