@@ -1599,16 +1599,41 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     public function markResolved(string $taskPacketId, string $leaseId, string $agentId, string $commitSha): array
     {
+        $queueRecord = $this->queue->get($taskPacketId);
+        if ($queueRecord === null) {
+            return $this->envelope('resolve_blocked', ['reason' => 'task_packet_not_found', 'task_packet_id' => $taskPacketId]);
+        }
+
+        // A daemon/provider retry may arrive after the first resolve released
+        // the lease. Replay the same terminal result without appending a second
+        // resolution or learning receipt. A different commit for the same
+        // terminal packet remains blocked, so idempotency cannot hide drift.
+        $queueStatus = (string) ($queueRecord['status'] ?? '');
+        $resolvedCommitSha = (string) data_get($queueRecord, 'metadata.commit_sha', '');
+        if ($queueStatus === 'completed_dry_run' && $resolvedCommitSha !== '') {
+            if ($resolvedCommitSha !== $commitSha) {
+                return $this->envelope('resolve_blocked', [
+                    'reason' => 'task_already_resolved_with_different_commit',
+                    'task_packet_id' => $taskPacketId,
+                    'resolved_commit_sha' => $resolvedCommitSha,
+                    'requested_commit_sha' => $commitSha,
+                ]);
+            }
+
+            return $this->envelope('task_resolved', [
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'commit_sha' => $commitSha,
+                'queue_transition' => 'completed_dry_run',
+                'replayed' => true,
+            ]);
+        }
+
         $lease = $this->leases->get($leaseId);
         if ($lease === null || (string) $lease['task_packet_id'] !== $taskPacketId) {
             return $this->envelope('resolve_blocked', ['reason' => 'lease_not_found_or_mismatch', 'task_packet_id' => $taskPacketId]);
         }
 
-        $queueRecord = $this->queue->get($taskPacketId);
-        if ($queueRecord === null) {
-            return $this->envelope('resolve_blocked', ['reason' => 'task_packet_not_found', 'task_packet_id' => $taskPacketId]);
-        }
-        $queueStatus = (string) ($queueRecord['status'] ?? '');
         $queueLeaseId = (string) data_get($queueRecord, 'metadata.lease_id', '');
         $queueAgentId = (string) data_get($queueRecord, 'metadata.agent_id', '');
         if ($queueStatus !== 'claimed') {
@@ -1677,6 +1702,36 @@ final class AgentControlPlaneTaskQueueOrchestrator
      */
     public function completeDryRun(string $taskPacketId, string $leaseId, array $evidence = []): array
     {
+        $existingRecord = $this->queue->get($taskPacketId);
+        if ((string) ($existingRecord['status'] ?? '') === 'completed_dry_run') {
+            $completionReceipt = collect((array) ($existingRecord['receipts'] ?? []))
+                ->filter(static fn (mixed $receipt): bool => is_array($receipt) && ($receipt['receipt_kind'] ?? '') === 'dry_run_completion_recorded')
+                ->last();
+            $incomingHash = $evidence === []
+                ? ''
+                : (string) data_get($this->validateCompletionEvidence(
+                    $this->completionEvidence($evidence),
+                    ['task_packet_id' => $taskPacketId, 'lease_id' => $leaseId, 'agent_id' => '', 'allowed_files' => $this->allowedFilesForRecord($existingRecord)],
+                ), 'evidence_hash', '');
+            $recordedHash = (string) data_get($completionReceipt, 'evidence_hash', '');
+            if ($incomingHash === '' || ($recordedHash !== '' && hash_equals($recordedHash, $incomingHash))) {
+                return $this->envelope('completed_dry_run', [
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'queue_status_at_completion' => 'completed_dry_run',
+                    'completion_real_allowed' => false,
+                    'replayed' => true,
+                ]);
+            }
+
+            return $this->envelope('complete_dry_run_blocked', [
+                'reason' => 'dry_run_completion_replay_evidence_mismatch',
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'completion_real_allowed' => false,
+            ]);
+        }
+
         $lease = $this->leases->get($leaseId);
         if ($lease === null) {
             return $this->envelope('complete_dry_run_blocked', ['reason' => 'lease_not_found']);

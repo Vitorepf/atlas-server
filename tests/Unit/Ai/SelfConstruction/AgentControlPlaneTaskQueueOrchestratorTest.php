@@ -201,6 +201,25 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
         $this->assertTrue(data_get($receipt, 'files_changed_within_allowed_scope'));
     }
 
+    public function test_complete_dry_run_replay_is_idempotent_after_lease_release(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('dry-replay')]);
+        $claim = $svc->claimNext('agent-replay');
+        $evidence = $this->completionEvidenceFor('dry-replay', $claim['lease_id'], 'agent-replay', [
+            'files_changed' => ['app/Services/Ai/SelfConstruction/dry-replay.php'],
+            'commands_run' => ['php artisan test --filter=dry-replay: passed'],
+            'git_status_short' => ' M app/Services/Ai/SelfConstruction/dry-replay.php',
+        ]);
+
+        $first = $svc->completeDryRun('dry-replay', $claim['lease_id'], $evidence);
+        $second = $svc->completeDryRun('dry-replay', $claim['lease_id'], $evidence);
+
+        $this->assertSame('completed_dry_run', $first['event']);
+        $this->assertSame('completed_dry_run', $second['event']);
+        $this->assertTrue((bool) ($second['replayed'] ?? false));
+    }
+
     public function test_complete_dry_run_blocks_when_evidence_hash_does_not_match_payload(): void
     {
         $svc = $this->orchestrator();
@@ -659,7 +678,7 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
         }
     }
 
-    public function test_mark_resolved_duplicate_is_blocked_after_first_resolve(): void
+    public function test_mark_resolved_duplicate_replays_after_first_resolve(): void
     {
         $svc = $this->orchestrator();
         $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-dup')]);
@@ -670,7 +689,21 @@ final class AgentControlPlaneTaskQueueOrchestratorTest extends TestCase
         $this->assertSame('task_resolved', $first['event']);
 
         $second = $svc->markResolved('resolve-dup', $leaseId, 'agent-dup', 'abc123');
-        $this->assertSame('resolve_blocked', $second['event']);
+        $this->assertSame('task_resolved', $second['event']);
+        $this->assertTrue((bool) ($second['replayed'] ?? false));
+    }
+
+    public function test_mark_resolved_replay_with_different_commit_is_blocked(): void
+    {
+        $svc = $this->orchestrator();
+        $svc->prepareAndEnqueue(['task_packet' => $this->input('resolve-drift')]);
+        $claim = $svc->claimNext('agent-drift');
+
+        $svc->markResolved('resolve-drift', (string) $claim['lease_id'], 'agent-drift', 'abc123');
+        $replay = $svc->markResolved('resolve-drift', (string) $claim['lease_id'], 'agent-drift', 'different');
+
+        $this->assertSame('resolve_blocked', $replay['event']);
+        $this->assertSame('task_already_resolved_with_different_commit', $replay['reason']);
     }
 
     public function test_orchestrator_idempotent_enqueue(): void
