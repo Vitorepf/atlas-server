@@ -560,6 +560,10 @@ class AtlasSoftwareTwinRuntimeService
         if ($workspace === '' || preg_match('/^[a-f0-9]{40,64}$/', $baseCommit) !== 1 || $consumer === '' || $asOf === '') {
             throw new InvalidArgumentException('software_twin_quality_snapshot_context_invalid');
         }
+        $asOfTime = date_create_immutable($asOf);
+        if ($asOfTime === false) {
+            throw new InvalidArgumentException('software_twin_quality_snapshot_as_of_invalid');
+        }
         $supported = ['code','contract','deploy_runtime','flag','incident','ownership','outcome','performance','security','docs','decision','concurrent_work','tool_provider'];
         $facts = [];
         $byId = [];
@@ -578,6 +582,14 @@ class AtlasSoftwareTwinRuntimeService
             }
             $status = (string) ($fact['status'] ?? 'unknown');
             if (! in_array($status, ['fresh','stale','unknown','conflicted'], true)) throw new InvalidArgumentException('software_twin_quality_snapshot_freshness_invalid');
+            $validFrom = date_create_immutable((string) $fact['valid_from']);
+            $validUntil = $fact['valid_until'] === null ? null : date_create_immutable((string) $fact['valid_until']);
+            $observedAt = date_create_immutable((string) $fact['observed_at']);
+            if ($validFrom > $asOfTime || $observedAt > $asOfTime) {
+                $status = 'unknown';
+            } elseif ($validUntil !== null && $validUntil < $asOfTime) {
+                $status = 'stale';
+            }
             $ref = ['id' => $id, 'type' => (string) $fact['type'], 'workspace_id' => $workspace, 'source' => (string) $fact['source'], 'hash' => (string) $fact['hash'], 'status' => $status,
                 'valid_from' => $fact['valid_from'] ?? null, 'valid_until' => $fact['valid_until'] ?? null, 'observed_at' => $fact['observed_at'] ?? null];
             $byId[$id][] = $ref;

@@ -79,6 +79,18 @@ final class AtlasSoftwareTwinQualityFoundrySnapshotTest extends TestCase
         self::assertSame([], $snapshot['conflicted']);
     }
 
+    public function test_future_or_expired_fact_is_not_treated_as_current_at_as_of(): void
+    {
+        $input = $this->input();
+        $input['facts'][] = array_replace($input['facts'][0], [
+            'id' => 'future', 'valid_from' => '2026-07-13T00:00:00Z', 'observed_at' => '2026-07-13T00:00:00Z',
+        ]);
+        $snapshot = AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts($input);
+
+        self::assertContains('future', $snapshot['unknown']);
+        self::assertSame('unknown', collect($snapshot['facts'])->firstWhere('id', 'future')['status']);
+    }
+
     public function test_snapshot_exposes_calibration_and_unresolved_prediction_refs_without_granting_claim(): void
     {
         $input = $this->input();
