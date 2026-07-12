@@ -50,6 +50,12 @@
 
 set -u
 
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -f "$HOOK_DIR/atlas-hook-backpressure.sh" ]; then
+    # ASI-04: coalesce/cap background hook fan-out and shed auxiliary load.
+    . "$HOOK_DIR/atlas-hook-backpressure.sh" 2>/dev/null || true
+fi
+
 # Total char budget for the file-context delta (matches config
 # atlas.aobg.file_context.budget_chars default). Overridable for the dry-run via
 # ATLAS_AOBG_FC_HOOK_BUDGET; never trusted from the event.
@@ -106,6 +112,10 @@ if [ ! -f "$ATLAS_SERVER_DIR/artisan" ]; then
 fi
 [ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
 cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
+
+if command -v atlas_hook_backpressure_enter >/dev/null 2>&1; then
+    atlas_hook_backpressure_enter "PostToolUse" "$WORKSPACE_DIR|$RAW_PATH" 1
+fi
 
 # Run the proven file-context retrieval under a HARD timeout. Capture stdout only;
 # swallow stderr/non-zero (never block). The command is fail-safe by contract (exit

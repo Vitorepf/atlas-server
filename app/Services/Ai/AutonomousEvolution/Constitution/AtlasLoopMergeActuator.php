@@ -44,9 +44,9 @@ final class AtlasLoopMergeActuator
      *
      * @param  Closure():T  $critical
      * @return array{acquired:bool,result?:T,reason?:string,waited_seconds:float}
-     *               acquired=true  => $critical rodou sob o lock; 'result' carrega o retorno.
-     *               acquired=false => 'reason' ∈ {repo_not_git, lock_open_failed, lock_timeout}.
-     *               lock_timeout    => o CALLER DEVE re-enfileirar (deferred-retry); NUNCA dropar.
+     *                                                                            acquired=true  => $critical rodou sob o lock; 'result' carrega o retorno.
+     *                                                                            acquired=false => 'reason' ∈ {repo_not_git, lock_open_failed, lock_timeout}.
+     *                                                                            lock_timeout    => o CALLER DEVE re-enfileirar (deferred-retry); NUNCA dropar.
      */
     public function withMainMergeLock(string $repoRoot, Closure $critical, float $timeoutSeconds = self::DEFAULT_TIMEOUT_SECONDS): array
     {
@@ -119,15 +119,28 @@ final class AtlasLoopMergeActuator
      * tree against THIS exact battery, once. Any divergence (tree moved since the gate, battery bumped,
      * replayed nonce, parse error) ⇒ NO commit. This is what makes the gate's verdict enforceable at merge.
      *
-     * @param  list<string>  $changedFiles    repo-relative paths the candidate touched
+     * @param  list<string>  $changedFiles  repo-relative paths the candidate touched
      * @param  list<string>  $consumedNonces  nonces already spent (replay defense)
-     * @return array{committed:bool, reason:string, commit:?string, tree_sha?:string}
+     * @param  Closure(string):array<string,mixed>|null  $commitAfterTokenVerified
+     * @return array<string,mixed>
      */
-    public function commitWithConstitutionToken(string $repoRoot, array $changedFiles, string $message, string $token, string $batteryRootHash, string $nonce, array $consumedNonces = []): array
-    {
+    public function commitWithConstitutionToken(
+        string $repoRoot,
+        array $changedFiles,
+        string $message,
+        string $token,
+        string $batteryRootHash,
+        string $nonce,
+        array $consumedNonces = [],
+        bool $lockAlreadyHeld = false,
+        ?Closure $commitAfterTokenVerified = null,
+    ): array {
         $repoRoot = rtrim($repoRoot, '/');
-        $locked = $this->withMainMergeLock($repoRoot, function () use ($repoRoot, $changedFiles, $message, $token, $batteryRootHash, $nonce, $consumedNonces): array {
-            $this->git($repoRoot, array_merge(['add', '--'], $changedFiles));
+        $critical = function () use ($repoRoot, $changedFiles, $message, $token, $batteryRootHash, $nonce, $consumedNonces, $commitAfterTokenVerified): array {
+            [$addOk, $addOut] = $this->git($repoRoot, array_merge(['add', '--'], $changedFiles));
+            if (! $addOk) {
+                return ['committed' => false, 'reason' => 'git_add_failed', 'commit' => null, 'stderr' => $addOut];
+            }
 
             [$treeOk, $treeOut] = $this->git($repoRoot, ['write-tree']);
             if (! $treeOk) {
@@ -145,14 +158,24 @@ final class AtlasLoopMergeActuator
                 return ['committed' => false, 'reason' => 'php_lint_failed', 'commit' => null, 'tree_sha' => $postApplyTreeSha];
             }
 
-            [$cok] = $this->git($repoRoot, ['-c', 'user.email=loop@atlas', '-c', 'user.name=atlas-loop', 'commit', '-q', '-m', $message !== '' ? $message : 'atlas loop constitution commit', '--no-gpg-sign']);
+            if ($commitAfterTokenVerified !== null) {
+                return $commitAfterTokenVerified($postApplyTreeSha);
+            }
+
+            [$cok] = $this->git($repoRoot, array_merge(['-c', 'user.email=loop@atlas', '-c', 'user.name=atlas-loop', 'commit', '-q', '-m', $message !== '' ? $message : 'atlas loop constitution commit', '--no-gpg-sign', '--'], $changedFiles));
             if (! $cok) {
                 return ['committed' => false, 'reason' => 'commit_failed', 'commit' => null, 'tree_sha' => $postApplyTreeSha];
             }
             [, $sha] = $this->git($repoRoot, ['rev-parse', 'HEAD']);
 
             return ['committed' => true, 'reason' => 'constitution_token_verified', 'commit' => trim($sha), 'tree_sha' => $postApplyTreeSha];
-        });
+        };
+
+        if ($lockAlreadyHeld) {
+            return $critical();
+        }
+
+        $locked = $this->withMainMergeLock($repoRoot, $critical);
 
         if (($locked['acquired'] ?? false) !== true) {
             return ['committed' => false, 'reason' => 'lock_'.((string) ($locked['reason'] ?? 'unavailable')), 'commit' => null];

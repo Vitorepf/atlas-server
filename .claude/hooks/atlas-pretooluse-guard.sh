@@ -39,6 +39,12 @@
 
 set -u
 
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -f "$HOOK_DIR/atlas-hook-backpressure.sh" ]; then
+    # ASI-04: coalesce/cap hook fan-out and shed auxiliary guard load fail-open.
+    . "$HOOK_DIR/atlas-hook-backpressure.sh" 2>/dev/null || true
+fi
+
 # Char budget for the assembled warning text (matches config
 # atlas.aobg.guard.budget_chars default). Overridable for the dry-run; never trusted
 # from the event.
@@ -117,6 +123,10 @@ if [ ! -f "$ATLAS_SERVER_DIR/artisan" ]; then
 fi
 [ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
 cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
+
+if command -v atlas_hook_backpressure_enter >/dev/null 2>&1; then
+    atlas_hook_backpressure_enter "PreToolUse" "$WORKSPACE_DIR|$RAW_PATH" 1
+fi
 
 # Assemble the artisan args. The diff is passed only when present (a long diff is
 # fine — it is a local CLI arg, never a provider prompt).

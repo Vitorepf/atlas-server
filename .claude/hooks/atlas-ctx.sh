@@ -39,6 +39,12 @@
 
 set -u
 
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
+if [ -f "$HOOK_DIR/atlas-hook-backpressure.sh" ]; then
+    # ASI-04: coalesce/cap hook fan-out; UserPromptSubmit is never load-shed.
+    . "$HOOK_DIR/atlas-hook-backpressure.sh" 2>/dev/null || true
+fi
+
 # Total char budget for the fused pack (matches config atlas.aobg.budget_chars default).
 # Overridable for the dry-run via ATLAS_AOBG_HOOK_BUDGET; never trusted from the event.
 ATLAS_AOBG_HOOK_BUDGET="${ATLAS_AOBG_HOOK_BUDGET:-6000}"
@@ -83,6 +89,10 @@ if [ ! -f "$ATLAS_SERVER_DIR/artisan" ]; then
 fi
 [ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
 cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
+
+if command -v atlas_hook_backpressure_enter >/dev/null 2>&1; then
+    atlas_hook_backpressure_enter "UserPromptSubmit" "$WORKSPACE_DIR|$PROMPT" 0
+fi
 
 # MAXE-03 — activate with TTL marker so UserPromptSubmit never re-pays activation every turn.
 # Marker path is workspace-keyed; TTL default 6h. Disable activate with ATLAS_AOBG_HOOK_AUTO_ACTIVATE=0.

@@ -21,7 +21,7 @@
 - [ ] ASI-02 (+ELEV-08) — pending
 - [ ] MAXI-01 — pending
 - [ ] ASI-03 — pending
-- [ ] ASI-04 — pending
+- [x] ASI-04 — landed · hook coalescing/cap/load-shed shell backpressure · bancada `scripts/verify-asi04-hooks.sh`: coalescing runs=1 coalesced=5; global_cap runs=1 cap_skips=2; forced_load PostToolUse runs=0 shed=1; UserPromptSubmit no-shed runs=1
 - [ ] ESP-01 — pending
 - [ ] MAXK-07 (+ELEV-09) — pending
 - [ ] MAXL-01 — pending
