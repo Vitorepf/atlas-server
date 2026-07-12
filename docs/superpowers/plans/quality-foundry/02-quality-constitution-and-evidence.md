@@ -118,7 +118,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 - [ ] Write RED construction tests for missing/unknown role, missing disposition, favorable default, N/A without rule/rationale/evidence/signer, stale hash, duplicate disposition and absence of any one of 22 roles.
 - [ ] Write RED tests proving `not_applicable` cannot be chosen from mode or implementation convenience and cannot be signed by the author.
-- [ ] Implement immutable disposition validation and canonical hashing. Legal statuses are exactly `pass`, `block`, `not_applicable`.
+- [x] Implement immutable disposition validation and canonical hashing. Legal statuses are exactly `pass`, `block`, `not_applicable`.
 - [ ] Store dispositions in existing role-run records and append `role.disposition.recorded` to `atlas_ledger_events`; retries with the same hash are idempotent and conflicting hashes block.
 - [ ] Make missing or invalid dispositions materialize as `block` in acceptance, not as a persisted fake disposition.
 - [ ] Run focused disposition tests, role-run persistence/replay, AcceptanceBundle and neighboring outcome suites.
