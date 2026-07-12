@@ -406,6 +406,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_days' => 60,
                 'ttl_source' => 'freeze:atlas.kb_embedding_coverage.v1',
             ],
+            [
+                'slice' => 'MAXA-06',
+                'series' => AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID,
+                'path' => 'AtlasCodeSymbolEmbeddingCoverageService::report',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 60,
+                'ttl_source' => 'freeze:atlas.code_symbol_embedding_coverage.v1',
+            ],
         ];
     }
 
