@@ -49,6 +49,27 @@ class AtlasNativeWorkerClaimEnvelopeAdapterTest extends TestCase
         self::assertStringStartsWith('adapter_', $verdict['adapter_hash']);
     }
 
+    public function test_quality_foundry_order_is_not_dropped_from_claim_envelope(): void
+    {
+        $order = (new \ReflectionClass(\Tests\Unit\Ai\EngineeringKernel\TypedEngineeringContractTest::class))
+            ->getMethod('validOrder');
+        $order->setAccessible(true);
+        $fixture = new \Tests\Unit\Ai\EngineeringKernel\TypedEngineeringContractTest('test_execution_order_is_complete_canonical_and_deterministic');
+        $executionOrder = $order->invoke($fixture);
+        $executionOrder['mode'] = 'autonomos';
+        $executionOrder['duration_regime'] = 'continuous';
+        $executionOrder['work_topology'] = 'workcell';
+
+        $verdict = (new AtlasNativeWorkerClaimEnvelopeAdapter)->adapt($this->validClaim([
+            'quality_foundry_required' => true,
+            'execution_order' => $executionOrder,
+        ]));
+
+        self::assertTrue($verdict['ok']);
+        self::assertTrue($verdict['normalized_packet']['quality_foundry_required']);
+        self::assertSame($executionOrder, $verdict['normalized_packet']['execution_order']);
+    }
+
     public function test_missing_lease_fails_closed(): void
     {
         $claim = $this->validClaim();

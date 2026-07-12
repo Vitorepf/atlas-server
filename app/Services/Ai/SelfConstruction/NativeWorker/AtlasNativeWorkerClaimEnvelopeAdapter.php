@@ -166,6 +166,12 @@ final class AtlasNativeWorkerClaimEnvelopeAdapter
             'final_runtime_owner' => 'atlas_native',
             'steady_state_runtime_owner' => $steady !== '' ? $steady : 'atlas_server',
         ];
+        if (($packet['quality_foundry_required'] ?? false) === true) {
+            $normalized['quality_foundry_required'] = true;
+            if (is_array($packet['execution_order'] ?? null)) {
+                $normalized['execution_order'] = $packet['execution_order'];
+            }
+        }
 
         return [
             'schema' => self::SCHEMA,

@@ -7,6 +7,7 @@ use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketS
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaVersioning;
 use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
+use App\Services\Ai\SelfConstruction\NativeWorker\AutonomosExecutionOrderBinding;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
@@ -270,6 +271,19 @@ final class AgentControlPlaneTaskPacketBuilder
             ));
         }
 
+        $qualityFoundryRequired = ($input['quality_foundry_required'] ?? false) === true;
+        $qualityFoundryBinding = null;
+        if ($qualityFoundryRequired) {
+            try {
+                $qualityFoundryBinding = AutonomosExecutionOrderBinding::fromPayload($input);
+                if ($qualityFoundryBinding === null) {
+                    $blockingReasons[] = 'quality_foundry_execution_order_missing';
+                }
+            } catch (\Throwable $exception) {
+                $blockingReasons[] = 'quality_foundry_execution_order_invalid:'.$exception->getMessage();
+            }
+        }
+
         $riskLevel = strtolower(trim((string) ($input['risk_level'] ?? 'low')));
         if (! in_array($riskLevel, ['low', 'medium', 'high', 'critical'], true)) {
             $warnings[] = 'risk_level_unknown_defaulting_low';
@@ -480,6 +494,13 @@ final class AgentControlPlaneTaskPacketBuilder
                 ? sprintf('Task packet %s planned for objective "%s" (%d allowed paths).', $packetId, Str::limit($objective, 80), count($allowed))
                 : sprintf('Task packet %s blocked: %s.', $packetId, implode(', ', $blockingReasons)),
         ];
+        if ($qualityFoundryRequired) {
+            $packet['quality_foundry_required'] = true;
+            if ($qualityFoundryBinding !== null) {
+                $packet['execution_order'] = $qualityFoundryBinding['execution_order'];
+                $packet['execution_order_hash'] = $qualityFoundryBinding['order_hash'];
+            }
+        }
 
         $packet['task_packet_hash'] = $this->stableHash($this->normalizeForHash($packet));
 
