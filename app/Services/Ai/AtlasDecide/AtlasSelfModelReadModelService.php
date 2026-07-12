@@ -41,6 +41,7 @@ final class AtlasSelfModelReadModelService
     public function __construct(
         private readonly AtlasDecideLiveOutcomeFeedbackService $outcomes,
         private readonly ?AtlasExternalBrainModelCapabilityGapLedger $gapLedger = null,
+        private readonly ?AtlasSelfModelCalibrationBandService $calibration = null,
     ) {}
 
     /**
@@ -138,8 +139,11 @@ final class AtlasSelfModelReadModelService
 
         // Deprioritize routes whose capability appears in the gap ledger.
         $gappedCapabilities = (array) $gapReport['capabilities'];
+        // ASI-15 — derived confidence band per candidate (function of {n, proven_rate}).
+        $calibration = $this->calibration ?? new AtlasSelfModelCalibrationBandService;
         foreach ($candidates as &$candidate) {
             $candidate['gap_open'] = in_array($candidate['route'], $gappedCapabilities, true);
+            $candidate['calibration_band'] = $calibration->classifyCandidate($candidate);
         }
         unset($candidate);
 
