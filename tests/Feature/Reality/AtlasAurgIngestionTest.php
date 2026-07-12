@@ -283,6 +283,72 @@ final class AtlasAurgIngestionTest extends TestCase
         );
     }
 
+    public function test_docs_authority_graph_imports_doc_to_doc_edges_cite_or_omit(): void
+    {
+        $sourceDoc = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
+        $ownerDoc = 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md';
+        DB::table('atlas_docs_authority_graph')->insert([
+            [
+                'needle_kind' => 'doc_path',
+                'needle' => $sourceDoc,
+                'needle_normalized' => mb_strtolower($sourceDoc),
+                'owner_doc_path' => $ownerDoc,
+                'owner_doc_id' => 'acos-max-frontier',
+                'owner_basis' => 'doc_path_fixture',
+                'confidence' => 100,
+                'owner_implementation_state' => 'current',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'needle_kind' => 'doc_path',
+                'needle' => $ownerDoc,
+                'needle_normalized' => mb_strtolower($ownerDoc),
+                'owner_doc_path' => $ownerDoc,
+                'owner_doc_id' => 'self-loop',
+                'owner_basis' => 'doc_path_fixture',
+                'confidence' => 100,
+                'owner_implementation_state' => 'current',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'needle_kind' => 'doc_path',
+                'needle' => 'docs/engineering-knowledge-base/not-ingested.md',
+                'needle_normalized' => 'docs/engineering-knowledge-base/not-ingested.md',
+                'owner_doc_path' => $ownerDoc,
+                'owner_doc_id' => 'missing-source',
+                'owner_basis' => 'doc_path_fixture',
+                'confidence' => 100,
+                'owner_implementation_state' => 'current',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $stats = $this->service()->sync(['docs']);
+
+        $this->assertSame(1, $stats['linkers']['doc_authority']);
+        $edge = AtlasAurgEdge::query()
+            ->where('from_node_id', 'doc:doc:'.$sourceDoc)
+            ->where('to_node_id', 'doc:doc:'.$ownerDoc)
+            ->where('kind', 'references')
+            ->where('source', 'linker_doc_authority')
+            ->first();
+        $this->assertNotNull($edge);
+        $this->assertSame(1.0, (float) $edge->confidence);
+        $this->assertSame('doc_path', $edge->meta['needle_kind'] ?? null);
+        $this->assertSame('doc_path_fixture', $edge->meta['owner_basis'] ?? null);
+        $this->assertFalse(
+            AtlasAurgEdge::query()
+                ->where('from_node_id', 'doc:doc:'.$ownerDoc)
+                ->where('to_node_id', 'doc:doc:'.$ownerDoc)
+                ->where('source', 'linker_doc_authority')
+                ->exists(),
+            'authority import must omit self-links',
+        );
+    }
+
     public function test_rerun_is_idempotent_no_duplicates(): void
     {
         $service = $this->service();
@@ -391,6 +457,7 @@ final class AtlasAurgIngestionTest extends TestCase
             'migrations/2026_05_02_000000_create_atlas_memory_entries_table.php',
             'migrations/2026_05_02_004000_create_atlas_verbatim_memories_table.php',
             'migrations/2026_05_02_010000_create_atlas_engineering_code_intelligence_tables.php',
+            'migrations/2026_05_31_210000_create_atlas_docs_authority_graph_table.php',
             'migrations/2026_05_20_150000_create_atlas_strategic_reality_tables.php',
             'migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php',
         ] as $file) {

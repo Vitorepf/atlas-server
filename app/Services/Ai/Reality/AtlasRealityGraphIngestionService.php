@@ -163,6 +163,7 @@ class AtlasRealityGraphIngestionService
             'code_domain' => $this->linkWorkspaceToEngineeringDomain(),
             'doc_code' => $this->linkDocsToCode(),
             'doc_code_index' => $this->linkDocsToCodeIndex(),
+            'doc_authority' => $this->linkDocsToAuthorityGraph(),
             'doc_memory' => $this->linkDocsToMemory(),
         ];
 
@@ -1898,6 +1899,65 @@ class AtlasRealityGraphIngestionService
                     'sample_link_hash' => $linkHashes[0] ?? null,
                     'link_types' => $linkTypes,
                 ],
+            );
+        }
+
+        return $this->upsertEdges($edges);
+    }
+
+    /**
+     * MAXD-09: import the docs authority read-model as bounded doc→doc edges.
+     * A row only links when its needle is an explicit canonical doc path and both
+     * endpoints are already AURG doc nodes; capability/doc-id needles remain in the
+     * authority table for locate(), not guessed into graph edges.
+     */
+    private function linkDocsToAuthorityGraph(): int
+    {
+        if (! $this->tableExists('atlas_docs_authority_graph')) {
+            return 0;
+        }
+
+        $docNodeByPath = [];
+        foreach ($this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC) as $doc) {
+            $path = (string) ($doc['meta']['path'] ?? $doc['source_id']);
+            if (str_starts_with($path, 'docs/engineering-knowledge-base/')) {
+                $docNodeByPath[$path] = $doc['id'];
+            }
+        }
+        if ($docNodeByPath === []) {
+            return 0;
+        }
+
+        $rows = DB::table('atlas_docs_authority_graph')
+            ->whereIn('needle_kind', ['doc_path', 'doc'])
+            ->where('needle', 'like', 'docs/engineering-knowledge-base/%')
+            ->where('owner_doc_path', 'like', 'docs/engineering-knowledge-base/%')
+            ->orderBy('needle')
+            ->orderByDesc('confidence')
+            ->orderBy('owner_doc_path')
+            ->limit($this->cap('docs_authority_links_limit', 10000))
+            ->get(['needle_kind', 'needle', 'owner_doc_path', 'owner_basis', 'confidence', 'owner_doc_id']);
+
+        $edges = [];
+        foreach ($rows as $row) {
+            $from = $docNodeByPath[(string) $row->needle] ?? null;
+            $to = $docNodeByPath[(string) $row->owner_doc_path] ?? null;
+            if ($from === null || $to === null || $from === $to) {
+                continue;
+            }
+            $edges[] = $this->edge(
+                from: $from,
+                to: $to,
+                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                source: 'linker_doc_authority',
+                confidence: self::CONFIDENCE_EXACT,
+                meta: array_filter([
+                    'needle_kind' => (string) $row->needle_kind,
+                    'needle' => (string) $row->needle,
+                    'owner_basis' => (string) $row->owner_basis,
+                    'authority_confidence' => (int) $row->confidence,
+                    'owner_doc_id' => is_string($row->owner_doc_id ?? null) ? (string) $row->owner_doc_id : null,
+                ], static fn ($value): bool => $value !== null),
             );
         }
 
