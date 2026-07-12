@@ -6,8 +6,8 @@
 
 ## LOTE 0 — Higiene imediata (M0) — GATE: hooks 1×/evento · baseline latência carimbada · receipts vivos · refs impressos · ESP-00 publicado
 - [x] ESP-00 — landed(bb15641a19) · Evidence Ledger `EVIDENCE_PACKED` event_id=`01KXA1JWR53YAYT915GTGS0RXB` · content_hash=`e71448b0b81b65da3e16aa86927f9c0c632234efb7cae13b2fad789c3efd4b87` · unexplained=0 · JSONL runtime=`storage/app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl`
-- [ ] TETO-06 — pending (protocolo de execução paralela — ANTES de qualquer engine começar)
-- [ ] TETO-09 — pending (veredito das áreas 2/11/14)
+- [ ] TETO-06 — blocked_by:ELEV-22 (deps: claims/blackboard; desbloqueia ao landar ELEV-22)
+- [x] TETO-09 — landed(8e8b54d42c) · Evidence Ledger event_id=`01KXA1SZ0TYE2VZ9HAG46YDY0D` · content_hash=`b6f672b050b12282540eeb797bedfec7ca70b7546fa7efa306c7c5da757c509d` · opção b endurecimento áreas 2/11/14 · gatilhos MULTX-02/incidente
 - [ ] MAXG-01 (mínimo) — pending
 - [ ] MAXE-02 — pending
 - [ ] MAXE-03 — pending
