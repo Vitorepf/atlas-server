@@ -6,6 +6,7 @@ namespace App\Services\Ai\AcosMax;
 
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
+use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
@@ -152,6 +153,15 @@ final class AcosMaxMeasureSeriesRegistry
                 ],
                 'ttl_days' => AtlasOperatorReviewDebtMeter::TTL_DAYS,
                 'ttl_source' => 'freeze:acos.operator_review_debt.v1',
+            ],
+            [
+                'slice' => 'MULTK-01',
+                'series' => AtlasDecideCostOutcomeRouter::MULTK01_MEASURE_ID,
+                'path' => 'AtlasDecideCostOutcomeRouter::costOutcomeCandidates',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AtlasDecideCostOutcomeRouter::multk01FreezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
             ],
         ];
     }

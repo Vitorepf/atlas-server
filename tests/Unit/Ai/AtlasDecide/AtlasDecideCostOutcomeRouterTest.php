@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AtlasDecide;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use Tests\TestCase;
 
 class AtlasDecideCostOutcomeRouterTest extends TestCase
@@ -266,5 +267,104 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
 
         $this->assertSame(2, $byProvider['codex_cli']);
         $this->assertSame(0, $byProvider['claude_cli']);
+    }
+
+    public function test_multk01_interval_is_insufficient_below_three_certified_samples(): void
+    {
+        $router = $this->buildRouter();
+
+        $candidates = $router->costOutcomeCandidates([
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r1'),
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r2'),
+        ], $this->cfg(['min_evidence' => 1]));
+
+        $this->assertSame('insufficient_n', $candidates[0]['uncertainty_interval']['status']);
+        $this->assertSame(2, $candidates[0]['uncertainty_interval']['n']);
+        $this->assertArrayNotHasKey('lower_bound', $candidates[0]['uncertainty_interval']);
+    }
+
+    public function test_multk01_interval_is_deterministic_and_width_shrinks_with_more_evidence(): void
+    {
+        $router = $this->buildRouter();
+
+        $small = $router->costOutcomeCandidates([
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r1'),
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r2'),
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r3'),
+        ], $this->cfg(['min_evidence' => 1]))[0]['uncertainty_interval'];
+
+        $smallAgain = $router->costOutcomeCandidates([
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r1'),
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r2'),
+            $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r3'),
+        ], $this->cfg(['min_evidence' => 1]))[0]['uncertainty_interval'];
+
+        $large = $router->costOutcomeCandidates(array_map(
+            fn (int $i): array => $this->certifiedEntry('codex_cli', 'gpt-5.5', runId: 'r'.$i),
+            range(1, 20),
+        ), $this->cfg(['min_evidence' => 1]))[0]['uncertainty_interval'];
+
+        $this->assertSame($small, $smallAgain);
+        $this->assertSame('ok', $small['status']);
+        $this->assertSame('ok', $large['status']);
+        $this->assertLessThan(
+            $small['upper_bound'] - $small['lower_bound'],
+            $large['upper_bound'] - $large['lower_bound'],
+        );
+    }
+
+    public function test_multk01_interval_does_not_change_cost_outcome_selection(): void
+    {
+        config(['atlas.patamar4.adml_cost_outcome.enabled' => true]);
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService();
+        $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
+        foreach (range(1, 3) as $i) {
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.92,
+                'cost_usd' => 0.05,
+                'entry_hash' => 'codex-'.$i,
+            ]);
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => 'claude_cli',
+                'model' => 'opus',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.93,
+                'cost_usd' => 0.10,
+                'entry_hash' => 'claude-'.$i,
+            ]);
+        }
+
+        $router = new AtlasDecideCostOutcomeRouter(
+            $feedback,
+            static fn ($p) => is_string($p) && $p !== '' ? $p : null,
+            static fn ($provider, $model) => is_string($model) && $model !== '' ? $model : null,
+            static fn ($p) => in_array($p, ['codex_cli', 'claude_cli', 'minimax'], true),
+            static fn ($v) => is_numeric($v) ? (float) $v : null,
+        );
+
+        $route = $router->costOutcomeRoute('backend', 'builder', 'laravel', 'schema.v1');
+
+        $this->assertSame('ready', $route['status']);
+        $this->assertSame('codex_cli', data_get($route, 'selected.provider'));
+        $this->assertSame('ok', data_get($route, 'selected.uncertainty_interval.status'));
+    }
+
+    public function test_multk01_series_is_registered_for_elev20s(): void
+    {
+        $entry = collect((new AcosMaxMeasureSeriesRegistry())->entries())
+            ->firstWhere('slice', 'MULTK-01');
+
+        $this->assertSame(AtlasDecideCostOutcomeRouter::MULTK01_MEASURE_ID, $entry['series'] ?? null);
+        $this->assertSame('computed_reader_field', $entry['source_type'] ?? null);
+        $this->assertSame('freeze:atlas.decide.cost_outcome_uncertainty.v1', $entry['ttl_source'] ?? null);
     }
 }

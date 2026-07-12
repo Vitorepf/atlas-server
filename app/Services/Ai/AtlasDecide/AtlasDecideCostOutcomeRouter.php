@@ -32,6 +32,12 @@ class AtlasDecideCostOutcomeRouter
     // verbatim); the offline ledger feeds again only via the Rivals 2.0 ledger.
     public const STALE_AGE_DAYS = 14;
 
+    public const MULTK01_MEASURE_ID = 'atlas.decide.cost_outcome_uncertainty.v1';
+
+    public const MULTK01_INTERVAL_MIN_N = 3;
+
+    private const MULTK01_Z_90 = 1.644854;
+
     /**
      * @param  Closure(mixed): ?string  $canonicalProviderKey
      * @param  Closure(?string, mixed): ?string  $canonicalModelForProvider
@@ -177,6 +183,31 @@ class AtlasDecideCostOutcomeRouter
             : false;
 
         return $this->floors()->atlasDecideCostOutcomeConfig($enabled);
+    }
+
+    /** @return array<string,mixed> */
+    public static function multk01FreezePayload(): array
+    {
+        return [
+            'kind' => 'measure_freeze',
+            'measure_id' => self::MULTK01_MEASURE_ID,
+            'formula_version' => 'multk01.beta_uncertainty.v1',
+            'formula' => 'For each provider/model candidate, publish a Beta posterior uncertainty band derived only from successes=certified_count and failures=total_count-certified_count; routing order must not consume the band in MULTK-01.',
+            'thresholds' => [
+                'denominator_min_certified_samples' => self::MULTK01_INTERVAL_MIN_N,
+                'quantile' => 0.90,
+                'insufficient_status' => 'insufficient_n',
+            ],
+            'denominator_min' => self::MULTK01_INTERVAL_MIN_N,
+            'ttl_days' => 30,
+            'author_engine_id' => 'cursor-acos-max-multk01',
+            'judge_engine_id' => 'codex-independent-multk01-judge',
+            'reader' => [
+                'surface' => 'AtlasDecideCostOutcomeRouter::costOutcomeCandidates',
+                'field' => 'uncertainty_interval',
+            ],
+            'dual_read_required' => false,
+        ];
     }
 
     /**
@@ -365,12 +396,55 @@ class AtlasDecideCostOutcomeRouter
                 'provider_resolvable' => (bool) $group['provider_resolvable'],
                 'blockers' => array_values(array_unique($blockers)),
                 'evidence_deficit' => max(0, (int) $cfg['min_evidence'] - $certifiedCount),
+                'uncertainty_interval' => $this->uncertaintyInterval($certifiedCount, $totalCount),
             ];
         }
 
         usort($candidates, static fn (array $a, array $b): int => strcmp($a['provider'].$a['model'], $b['provider'].$b['model']));
 
         return $candidates;
+    }
+
+    /**
+     * MULTK-01: frozen read-only uncertainty band derived only from observed
+     * certified/failed evidence. This field is published for downstream
+     * abstention/cascade policy; routing order above remains unchanged.
+     *
+     * @return array<string,mixed>
+     */
+    private function uncertaintyInterval(int $successes, int $n): array
+    {
+        if ($successes < self::MULTK01_INTERVAL_MIN_N) {
+            return [
+                'status' => 'insufficient_n',
+                'n' => $successes,
+                'denominator_min' => self::MULTK01_INTERVAL_MIN_N,
+                'reason' => 'certified_count_below_min',
+            ];
+        }
+
+        $failures = max(0, $n - $successes);
+        $alpha = $successes + 1;
+        $beta = $failures + 1;
+        $sum = $alpha + $beta;
+        $mean = $alpha / $sum;
+        $variance = ($alpha * $beta) / (($sum ** 2) * ($sum + 1));
+        $radius = self::MULTK01_Z_90 * sqrt($variance);
+
+        return [
+            'status' => 'ok',
+            'n' => $successes,
+            'total_count' => $n,
+            'successes' => $successes,
+            'failures' => $failures,
+            'posterior' => [
+                'alpha' => $alpha,
+                'beta' => $beta,
+                'quantile_approximation' => 'normal_90pct_from_beta_posterior',
+            ],
+            'lower_bound' => round(max(0.0, $mean - $radius), 6),
+            'upper_bound' => round(min(1.0, $mean + $radius), 6),
+        ];
     }
 
     public function isCertifiedCostOutcomeEntry(array $entry): bool
