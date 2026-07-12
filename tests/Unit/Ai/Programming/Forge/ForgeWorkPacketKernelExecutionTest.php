@@ -89,7 +89,7 @@ final class ForgeWorkPacketKernelExecutionTest extends TestCase
             $captured->authorityEnvelope['integration_lock_key'],
         );
         self::assertSame('fixture-provider', $captured->providerRoute['provider']);
-        self::assertSame('forge-cycle:cycle-1', $captured->idempotencyKey);
+        self::assertSame('forge-cycle:cycle-1:attempt:1', $captured->idempotencyKey);
     }
 
     public function test_safe_simulation_cannot_reach_kernel_execution_port(): void
@@ -127,5 +127,77 @@ final class ForgeWorkPacketKernelExecutionTest extends TestCase
         } finally {
             self::assertSame(0, $calls);
         }
+    }
+
+    public function test_real_cycle_retry_uses_fresh_attempt_key_without_changing_checkout_binding(): void
+    {
+        $captured = [];
+        $port = new class($captured) implements ForgeWorkPacketExecutionPort
+        {
+            public function __construct(private array &$captured) {}
+
+            public function execute(ExecutionOrder $order): EngineeringOutcome
+            {
+                $this->captured[] = $order;
+                throw new \RuntimeException('fixture_kernel_stop_after_capture');
+            }
+        };
+        $this->app->instance(ForgeWorkPacketExecutionPort::class, $port);
+
+        $intake = new AiForgeIntake([
+            'id' => 'intake-retry',
+            'intake_hash' => str_repeat('a', 64),
+            'context_pack_hash' => str_repeat('b', 64),
+        ]);
+        $packet = new AiForgeWorkPacket([
+            'id' => 'packet-retry',
+            'packet_id' => 'packet-canonical-retry',
+            'packet_hash' => str_repeat('c', 64),
+            'objective' => 'Retry bounded change',
+            'scope' => 'app/Services/Retry.php',
+            'expected_files' => ['app/Services/Retry.php'],
+            'risk_band' => 'R4',
+        ]);
+        $cycle = new AiForgeWorkPacketExecutionCycle([
+            'uuid' => 'cycle-retry',
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+            'status' => ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING,
+            'execution_plan' => [
+                'scope_reservation' => [
+                    'id' => 'reservation-retry',
+                    'fencing_token' => 8,
+                    'released_at' => null,
+                ],
+            ],
+        ]);
+
+        foreach ([1, 2] as $attempt) {
+            try {
+                app(ForgeWorkPacketExecutionCycleService::class)->executeRealCycle(
+                    $intake,
+                    $packet,
+                    $cycle,
+                    '/tmp/forge-retry-workspace',
+                    str_repeat('d', 40),
+                    'operator-retry',
+                    ['provider' => 'fixture-provider'],
+                    $attempt,
+                );
+                self::fail('shared kernel fixture should stop after capturing the order');
+            } catch (\RuntimeException $exception) {
+                self::assertSame('fixture_kernel_stop_after_capture', $exception->getMessage());
+            }
+        }
+
+        self::assertCount(2, $captured);
+        self::assertNotSame($captured[0]->idempotencyKey, $captured[1]->idempotencyKey);
+        self::assertSame('forge-cycle:cycle-retry:attempt:1', $captured[0]->idempotencyKey);
+        self::assertSame('forge-cycle:cycle-retry:attempt:2', $captured[1]->idempotencyKey);
+        self::assertSame($captured[0]->workspace, $captured[1]->workspace);
+        self::assertSame($captured[0]->baseCommit, $captured[1]->baseCommit);
+        self::assertSame(
+            $captured[0]->authorityEnvelope['integration_lock_key'],
+            $captured[1]->authorityEnvelope['integration_lock_key'],
+        );
     }
 }

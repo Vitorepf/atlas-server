@@ -297,6 +297,7 @@ class ForgeWorkPacketExecutionCycleService
         string $baseCommit,
         string $operatorId,
         array $providerRoute = [],
+        int $attempt = 1,
     ): EngineeringOutcome {
         if ($cycle->execution_mode !== ForgeWorkPacketExecutionCycleCanon::MODE_REAL
             || $cycle->status !== ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING) {
@@ -304,6 +305,9 @@ class ForgeWorkPacketExecutionCycleService
         }
         if (trim($workspace) === '' || preg_match('/^[a-f0-9]{40,64}$/', strtolower(trim($baseCommit))) !== 1 || trim($operatorId) === '') {
             throw new ForgeWorkPacketExecutionCycleException('real_kernel_execution_binding_invalid');
+        }
+        if ($attempt < 1) {
+            throw new ForgeWorkPacketExecutionCycleException('real_kernel_execution_attempt_invalid');
         }
 
         $plan = (array) ($cycle->execution_plan ?? []);
@@ -338,20 +342,21 @@ class ForgeWorkPacketExecutionCycleService
                 'surface' => 'atlas_forge.work_packet_execution_cycle',
                 'operator_id' => trim($operatorId),
                 'cycle_id' => $cycle->uuid,
+                'attempt_number' => $attempt,
                 'lease_id' => (string) ($reservation['id'] ?? ''),
                 'fencing_token' => (int) ($reservation['fencing_token'] ?? 0),
                 'sandbox_required' => true,
                 'source_workspace_read_only' => true,
                 'integration_lock_key' => ForgeEliteKernelExecutionAdapter::workspaceLockKey(trim($workspace)),
             ],
-            'decision_receipt' => ['decision_event_id' => 'forge-cycle-decision-'.$cycle->uuid],
+            'decision_receipt' => ['decision_event_id' => 'forge-cycle-decision-'.$cycle->uuid.':attempt:'.$attempt],
             'operator_contract' => ['presence' => 'confirmed', 'operator_id' => trim($operatorId)],
             'provider_route' => $route,
             'mutate' => true,
             'release_kind' => 'canonical_commit_with_canary',
             'rollback_kind' => 'canonical_revert_with_settlement',
             'experiment_ref' => 'forge/'.$packet->packet_id,
-            'idempotency_key' => 'forge-cycle:'.$cycle->uuid,
+            'idempotency_key' => 'forge-cycle:'.$cycle->uuid.':attempt:'.$attempt,
         ]);
 
         return ($this->kernelExecution ?? app(ForgeWorkPacketExecutionPort::class))->execute($order);
