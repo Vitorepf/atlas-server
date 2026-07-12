@@ -13,6 +13,7 @@ use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
+use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
@@ -84,6 +85,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         foreach ($this->tempDirs as $dir) {
             (new Process(['rm', '-rf', $dir]))->run();
         }
+        @unlink(AtlasCognitiveWorkingSetMemoryService::sharedPath());
         parent::tearDown();
     }
 
@@ -459,6 +461,37 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
 
         $this->assertSame('miss', data_get($packC, 'cache.status'));
         $this->assertNotSame($fingerprintBefore, (string) data_get($packC, 'cache.corpus_fingerprint'));
+    }
+
+    public function test_session_working_set_demotes_refs_already_delivered_in_the_same_session(): void
+    {
+        @unlink(AtlasCognitiveWorkingSetMemoryService::sharedPath());
+        $this->seedMemory('mem-working-a', 'Working set memory alpha', true, 'normal', body: 'working set memory alpha body');
+        $this->seedMemory('mem-working-b', 'Working set memory beta', true, 'normal', body: 'working set memory beta body');
+
+        $opts = [
+            'session_id' => '11111111-1111-4111-8111-111111111111',
+            'memory_budget' => 260,
+            'code_budget' => 0,
+        ];
+        $first = $this->service()->packFor('working set memory', $opts);
+        $second = $this->service()->packFor('working set memory', $opts);
+
+        $firstRefs = array_values(array_filter(array_map(
+            static fn (array $item): string => AtlasCanonicalContextRef::fromMemoryItem($item),
+            (array) ($first['memory'] ?? []),
+        )));
+        $secondRefs = array_values(array_filter(array_map(
+            static fn (array $item): string => AtlasCanonicalContextRef::fromMemoryItem($item),
+            (array) ($second['memory'] ?? []),
+        )));
+
+        $this->assertNotEmpty($firstRefs);
+        $this->assertSame([], array_values(array_intersect($firstRefs, $secondRefs)));
+        $this->assertGreaterThan(0, (int) data_get($second, 'provenance.memory.feedback_demoted_count'));
+        $this->assertFileExists(AtlasCognitiveWorkingSetMemoryService::sharedPath());
+        $state = json_decode((string) file_get_contents(AtlasCognitiveWorkingSetMemoryService::sharedPath()), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertArrayHasKey('session:11111111-1111-4111-8111-111111111111', (array) ($state['working_set'] ?? []));
     }
 
     public function test_feedback_request_preserves_bare_flow_id_without_relabeling_domain(): void

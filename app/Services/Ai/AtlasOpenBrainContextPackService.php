@@ -12,6 +12,7 @@ use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use App\Services\Ai\Context\AtlasRetrievalFusionService;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
@@ -188,7 +189,11 @@ class AtlasOpenBrainContextPackService
         );
         $memoryBudget = $this->intOpt($opts, 'memory_budget', (int) config('atlas.aobg.memory_budget_chars', 2000));
         $changedFiles = $this->stringList($opts['changed_files'] ?? []);
+        $sessionWorkingSetScope = $this->sessionWorkingSetScope($opts);
         $packCache = $this->packCacheContext($task, $workspaceId, $changedFiles);
+        if ($sessionWorkingSetScope !== null) {
+            $packCache['enabled'] = false;
+        }
         if (($packCache['enabled'] ?? false) === true) {
             $cached = $this->cachedPackResponse($packCache, $latencyStartedAt);
             if ($cached !== null) {
@@ -196,10 +201,20 @@ class AtlasOpenBrainContextPackService
             }
         }
         $contextDeliveryPolicy = $this->contextDeliveryPolicy($opts);
+        $sessionDemoteRefs = $this->sessionWorkingSetDemoteRefs($sessionWorkingSetScope);
         $opts['_demote_context_refs'] = array_values(array_unique(array_merge(
             $this->stringList($contextDeliveryPolicy['demote_context_refs'] ?? []),
+            $sessionDemoteRefs,
             $this->concentrationDemoteContextRefs(),
         )));
+        if ($sessionWorkingSetScope !== null) {
+            $contextDeliveryPolicy['session_working_set'] = [
+                'schema_version' => 'atlas.aobg.session_working_set.v1',
+                'scope' => $sessionWorkingSetScope,
+                'demote_ref_count' => count($sessionDemoteRefs),
+                'state_path' => AtlasCognitiveWorkingSetMemoryService::sharedPath(),
+            ];
+        }
         $budgetMultiplier = (float) ($contextDeliveryPolicy['initial_context_budget_multiplier'] ?? 1.0);
         if ((bool) ($contextDeliveryPolicy['applied_to_initial_budget'] ?? false) && $budgetMultiplier > 0 && $budgetMultiplier < 1.0) {
             $totalBudget = $this->scaledBudget($totalBudget, $budgetMultiplier);
@@ -359,10 +374,64 @@ class AtlasOpenBrainContextPackService
         if ((bool) config('atlas.aobg.delivered_pack_ledger.enabled', true)) {
             AtlasDeliveredPackLedger::fromConfig()->record($pack);
         }
+        $this->recordSessionWorkingSetDelivery($sessionWorkingSetScope, $pack);
 
         $this->recordLatencySample($latencyStartedAt, $pack);
 
         return $pack;
+    }
+
+    /** @param array<string,mixed> $opts */
+    private function sessionWorkingSetScope(array $opts): ?string
+    {
+        $sessionId = trim((string) ($opts['session_id'] ?? data_get($opts, 'context.session_id', '')));
+
+        return $sessionId !== '' ? 'session:'.$sessionId : null;
+    }
+
+    /** @return list<string> */
+    private function sessionWorkingSetDemoteRefs(?string $scope): array
+    {
+        if ($scope === null) {
+            return [];
+        }
+
+        try {
+            $state = (new AtlasCognitiveWorkingSetMemoryService(AtlasCognitiveWorkingSetMemoryService::sharedPath()))
+                ->workingSet($scope, AtlasCognitiveWorkingSetMemoryService::MODE_PERFORMANCE);
+
+            return AtlasCanonicalContextRef::uniqueStrings(array_map(
+                static fn (array $item): string => (string) ($item['content_hash'] ?? ''),
+                (array) ($state['items'] ?? []),
+            ));
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /** @param array<string,mixed> $pack */
+    private function recordSessionWorkingSetDelivery(?string $scope, array $pack): void
+    {
+        if ($scope === null) {
+            return;
+        }
+
+        try {
+            $workingSet = new AtlasCognitiveWorkingSetMemoryService(AtlasCognitiveWorkingSetMemoryService::sharedPath());
+            foreach (AtlasCanonicalContextRef::deliveredFromPack($pack) as $ref) {
+                $workingSet->track($scope, [
+                    'content_hash' => $ref,
+                    'content' => $ref,
+                    'type' => 'context_ref',
+                    'scope_ref' => $scope,
+                    'must_keep' => false,
+                    'recorded_at' => now()->toJSON(),
+                    'last_used_at' => now()->toJSON(),
+                ]);
+            }
+        } catch (Throwable) {
+            // MAXE-06 is an optimization: context delivery must fail open.
+        }
     }
 
     /** @param array<string,mixed> $pack */
