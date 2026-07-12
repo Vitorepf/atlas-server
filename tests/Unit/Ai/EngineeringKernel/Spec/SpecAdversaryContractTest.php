@@ -137,6 +137,7 @@ final class SpecAdversaryContractTest extends TestCase
             'acceptance_criteria' => [['id' => 'a', 'description' => 'rejects invalid email', 'verification' => 'test']],
             'product_intent_hash' => hash('sha256', 'intent'), 'world_snapshot_hash' => hash('sha256', 'world'),
             'evidence_binding_hash' => hash('sha256', 'evidence'),
+            'author_identity' => 'builder-family', 'final_witness_identity' => 'verifier-family',
         ];
         $draft = SpecDraft::fromArray($base);
         self::assertSame([], $draft->bindingGaps());
@@ -144,6 +145,27 @@ final class SpecAdversaryContractTest extends TestCase
         $mutated['world_snapshot_hash'] = hash('sha256', 'changed-world');
         self::assertNotSame($draft->authorityHash(), SpecDraft::fromArray($mutated)->authorityHash());
         self::assertContains('missing_evidence_binding_hash', SpecDraft::fromArray(['intent_text' => 'x'])->bindingGaps());
+        $selfReview = $base;
+        $selfReview['final_witness_identity'] = 'builder-family';
+        self::assertContains('self_review_author_equals_final_witness', SpecDraft::fromArray($selfReview)->bindingGaps());
+    }
+
+    public function test_each_spec_authority_dimension_is_individually_detected_when_missing(): void
+    {
+        $base = [
+            'intent_text' => 'adicionar validação em EmailValidator.php',
+            'acceptance_criteria' => [['id' => 'a']], 'invariants' => ['i'],
+            'non_functional_requirements' => ['n'], 'security' => ['s'], 'accessibility' => ['a'],
+            'observability' => ['o'], 'compatibility' => ['c'], 'migration' => ['m'], 'rollback' => ['r'],
+            'oracles' => ['q'], 'invalidity_conditions' => ['x'],
+            'product_intent_hash' => hash('sha256', 'intent'), 'world_snapshot_hash' => hash('sha256', 'world'),
+            'evidence_binding_hash' => hash('sha256', 'evidence'), 'author_identity' => 'builder', 'final_witness_identity' => 'verifier',
+        ];
+        foreach (['acceptance_criteria', 'invariants', 'non_functional_requirements', 'security', 'accessibility', 'observability', 'compatibility', 'migration', 'rollback', 'oracles', 'invalidity_conditions'] as $field) {
+            $mutated = $base;
+            $mutated[$field] = [];
+            self::assertContains('missing_'.str_replace('non_functional_requirements', 'non_functional_requirements', $field), SpecDraft::fromArray($mutated)->authorityGaps(), $field);
+        }
     }
 
     public function test_product_authority_api_has_no_caller_verdict_parameter(): void

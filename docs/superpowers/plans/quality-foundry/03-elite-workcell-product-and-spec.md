@@ -127,8 +127,8 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** `EngineeringKernel/Spec/**`, minimal ProductIntent adapter, focused spec tests.
 
-- [ ] Write RED tests for ProductIntent-hash mismatch, stale world snapshot, missing invariants/NFR/security/accessibility/observability/compatibility/migration/rollback/roles/oracles/invalidators, and spec mutation after freeze.
-- [ ] Write RED self-review tests where spec author and final spec witness are the same identity.
+- [x] Write RED tests for ProductIntent-hash mismatch, stale world snapshot, missing invariants/NFR/security/accessibility/observability/compatibility/migration/rollback/roles/oracles/invalidators, and spec mutation after freeze.
+- [x] Write RED self-review tests where spec author and final spec witness are the same identity.
 - [x] Extend `SpecDraft`/`SpecReceipt` with the fixed ProductIntent/world/evidence bindings and deterministic frozen hash.
 - [x] Deepen `SovereignSpecFloor` and witnesses; model shadows may contest but cannot grant freeze.
 - [x] Require a new version/hash whenever acceptance, scope, world snapshot or relevant constraint changes.

@@ -66,6 +66,8 @@ final class AtlasSpecGateAdapter implements SpecAdversary
                 'product_intent_hash' => $draft->productIntentHash,
                 'world_snapshot_hash' => $draft->worldSnapshotHash,
                 'evidence_binding_hash' => $draft->evidenceBindingHash,
+                'author_identity' => $draft->authorIdentity,
+                'final_witness_identity' => $draft->finalWitnessIdentity,
             ]), 'product_truth' => $truth];
     }
 

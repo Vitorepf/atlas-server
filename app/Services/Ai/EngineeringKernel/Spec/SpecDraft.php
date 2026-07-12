@@ -37,6 +37,8 @@ final readonly class SpecDraft
         public ?string $productIntentHash = null,
         public ?string $worldSnapshotHash = null,
         public ?string $evidenceBindingHash = null,
+        public ?string $authorIdentity = null,
+        public ?string $finalWitnessIdentity = null,
     ) {}
 
     /**
@@ -59,6 +61,8 @@ final readonly class SpecDraft
             productIntentHash: self::hashOrNull($data['product_intent_hash'] ?? null),
             worldSnapshotHash: self::hashOrNull($data['world_snapshot_hash'] ?? null),
             evidenceBindingHash: self::hashOrNull($data['evidence_binding_hash'] ?? null),
+            authorIdentity: self::identityOrNull($data['author_identity'] ?? null),
+            finalWitnessIdentity: self::identityOrNull($data['final_witness_identity'] ?? null),
         );
     }
 
@@ -87,6 +91,7 @@ final readonly class SpecDraft
             'invalidity_conditions' => $this->invalidityConditions,
             'product_intent_hash' => $this->productIntentHash, 'world_snapshot_hash' => $this->worldSnapshotHash,
             'evidence_binding_hash' => $this->evidenceBindingHash,
+            'author_identity' => $this->authorIdentity, 'final_witness_identity' => $this->finalWitnessIdentity,
         ]);
     }
 
@@ -98,6 +103,11 @@ final readonly class SpecDraft
             if ($this->{$property} === null) {
                 $gaps[] = 'missing_'.$name;
             }
+        }
+        if ($this->authorIdentity === null) $gaps[] = 'missing_author_identity';
+        if ($this->finalWitnessIdentity === null) $gaps[] = 'missing_final_witness_identity';
+        if ($this->authorIdentity !== null && $this->authorIdentity === $this->finalWitnessIdentity) {
+            $gaps[] = 'self_review_author_equals_final_witness';
         }
 
         return $gaps;
@@ -122,5 +132,12 @@ final readonly class SpecDraft
         $value = is_scalar($value) ? trim((string) $value) : '';
 
         return preg_match('/^[a-f0-9]{64}$/i', $value) === 1 ? strtolower($value) : null;
+    }
+
+    private static function identityOrNull(mixed $value): ?string
+    {
+        $value = is_scalar($value) ? trim((string) $value) : '';
+
+        return $value === '' ? null : $value;
     }
 }
