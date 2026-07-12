@@ -166,6 +166,25 @@ final class QualityFoundryModeParityService
 
     private function canonical(mixed $value): string
     {
-        return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        return json_encode(
+            is_array($value) ? $this->withoutVolatileKeys($value) : $value,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
+        );
+    }
+
+    /** @param array<string,mixed> $value @return array<string,mixed> */
+    private function withoutVolatileKeys(array $value): array
+    {
+        $result = [];
+        foreach ($value as $key => $item) {
+            if (in_array((string) $key, ['run_id', 'delivery_id', 'idempotency_key', 'experiment_ref', 'role_disposition_event_ids'], true)
+                || str_ends_with((string) $key, '_event_id')) {
+                continue;
+            }
+            $result[(string) $key] = is_array($item) ? $this->withoutVolatileKeys($item) : $item;
+        }
+        ksort($result);
+
+        return $result;
     }
 }

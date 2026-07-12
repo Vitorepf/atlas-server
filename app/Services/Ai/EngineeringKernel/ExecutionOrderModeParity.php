@@ -156,7 +156,7 @@ final class ExecutionOrderModeParity
     {
         $result = [];
         foreach ($value as $key => $item) {
-            if (in_array($key, ['run_id', 'delivery_id', 'idempotency_key', 'experiment_ref'], true)
+            if (in_array($key, ['run_id', 'delivery_id', 'idempotency_key', 'experiment_ref', 'role_disposition_event_ids'], true)
                 || str_ends_with((string) $key, '_event_id')) {
                 continue;
             }

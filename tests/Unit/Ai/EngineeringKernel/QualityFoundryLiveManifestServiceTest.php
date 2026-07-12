@@ -26,7 +26,7 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertSame(4, $manifest['summary']['required_modes']);
         self::assertSame(0, $manifest['summary']['ready_modes']);
         self::assertContains('provider_invocation_not_once', $manifest['blockers']);
-        self::assertContains('mode_parity_missing', $manifest['blockers']);
+        self::assertNotContains('mode_parity_missing', $manifest['blockers']);
 
         foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
             self::assertNotSame([], $manifest['manifests'][$mode]['receipt_hashes']);
@@ -79,5 +79,21 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
             self::assertNotContains('rollback_not_exercised', $manifest['manifests'][$mode]['blockers']);
             self::assertNotContains('outcome_writer_inactive', $manifest['manifests'][$mode]['blockers']);
         }
+    }
+
+    public function test_live_manifest_derives_mode_parity_from_the_shared_execution_order_factory(): void
+    {
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static fn (array $command, string $cwd): array => [
+                'exit_code' => 0,
+                'output' => implode(' ', $command).' @ '.$cwd,
+            ],
+        );
+
+        $manifest = $service->build();
+
+        self::assertNotContains('mode_parity_missing', $manifest['blockers']);
+        self::assertTrue($manifest['parity_evidence']['parity']);
     }
 }

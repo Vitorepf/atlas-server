@@ -88,6 +88,7 @@ final class QualityFoundryModeReadinessManifestService
                 'replay_only' => ($shadow['replay_only'] ?? false) === true,
                 'mutation_allowed' => ($shadow['mutation_allowed'] ?? true) === true,
             ],
+            'parity_evidence' => is_array($input['mode_parity_evidence'] ?? null) ? $input['mode_parity_evidence'] : null,
             'claim_eligible' => false,
             'comparative_claims_allowed' => false,
         ];

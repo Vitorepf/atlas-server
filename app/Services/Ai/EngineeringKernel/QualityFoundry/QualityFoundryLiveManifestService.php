@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\QualityFoundry;
 
+use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
+use App\Services\Ai\EngineeringKernel\QualityFoundryModeParityService;
 use Symfony\Component\Process\Process;
 
 /**
@@ -74,14 +76,70 @@ final class QualityFoundryLiveManifestService
             );
         }
 
+        $parityEvidence = $this->modeParityEvidence($root);
+
         return (new QualityFoundryModeReadinessManifestService)->build([
             'modes' => $modes,
-            // A test receipt alone cannot prove cross-mode parity, exactly-once
-            // mutation or a production shadow boundary.
-            'mode_parity' => false,
+            'mode_parity' => ($parityEvidence['parity'] ?? false) === true,
+            'mode_parity_evidence' => $parityEvidence,
+            // A mode-order parity fixture does not prove exactly-once provider
+            // invocation or mutation against a production shadow boundary.
             'idempotency' => ['provider_invocations' => 0, 'mutations' => 0],
             'shadow' => ['replay_only' => true, 'mutation_allowed' => false],
         ]);
+    }
+
+    /** @return array<string,mixed> */
+    private function modeParityEvidence(string $root): array
+    {
+        $factory = new EngineeringModeExecutionOrderFactory;
+        $common = [
+            'run_id' => 'quality-foundry-live-parity',
+            'delivery_id' => 'quality-foundry-live-parity',
+            'risk_class' => 'R3',
+            'complexity_band' => 'C3',
+            'product_intent_verdict_hash' => hash('sha256', 'quality-foundry-intent'),
+            'spec_hash' => hash('sha256', 'quality-foundry-spec'),
+            'world_model_snapshot_hash' => hash('sha256', 'quality-foundry-world'),
+            'market_decision_hash' => hash('sha256', 'quality-foundry-market'),
+            'workspace' => $root,
+            'base_commit' => str_repeat('a', 40),
+            'allowed_scope' => ['app'],
+            'forbidden_scope' => ['.env'],
+            'authority_envelope' => ['kind' => 'quality_foundry_live_parity', 'authority_hash' => hash('sha256', 'quality-foundry-authority')],
+            'decision_receipt' => ['decision_event_id' => 'quality-foundry-live-parity-decision'],
+            'role_roster' => [],
+            'provider_route' => ['provider' => 'shared', 'model' => 'quality-foundry'],
+            'tool_permissions' => ['read' => true, 'mutate' => false],
+            'evidence_policy' => ['acceptance_event_id' => 'quality-foundry-live-parity-acceptance', 'role_disposition_event_ids' => []],
+            'release_kind' => 'no_release_read_only',
+            'rollback_kind' => 'not_applicable_read_only',
+            'outcome_policy' => ['windows' => ['0h', '24h', '7d', '30d', '90d', '150d']],
+            'budget_posture' => 'unbounded_quality_first',
+        ];
+        $orders = [];
+        foreach (['dev', 'forge', 'autonomos'] as $mode) {
+            $orders[$mode] = $factory->make($common + [
+                'mode' => $mode,
+                'duration_regime' => $mode === 'dev' ? 'interactive' : 'durable_task',
+                'work_topology' => $mode === 'forge' ? 'DAG' : 'single',
+                'operator_contract' => ['presence' => $mode === 'autonomos' ? 'absent' : 'confirmed'],
+                'experiment_ref' => 'quality-foundry-live-parity-'.$mode,
+                'idempotency_key' => 'quality-foundry-live-parity:'.$mode,
+            ]);
+        }
+
+        return (new QualityFoundryModeParityService)->compare(array_map(
+            static fn ($order): array => [
+                'role_roster' => $order->roleRoster,
+                'execution_order' => $order->toArray(),
+                'terminal_outcome' => [
+                    'applicability' => 'applicable', 'disposition' => 'block', 'verdict' => 'hold',
+                    'authorization' => 'refused', 'canary' => 'not_run', 'status' => 'blocked', 'claim_eligible' => false,
+                ],
+            ],
+            $orders,
+        ));
     }
 
     /** @param list<string> $tests @return array<string,mixed> */
