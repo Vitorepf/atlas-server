@@ -9,6 +9,7 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionH
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionRuntime;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerRecoverableProductionRuntime;
+use App\Services\Ai\SelfConstruction\NativeWorker\AutonomosExecutionOrderBinding;
 
 /**
  * Typed productive seam for daemon actions.
@@ -55,6 +56,17 @@ class AtlasSelfConstructionNativeActionExecutor
             if (! is_array($claim)) {
                 return ['status' => 'held', 'reason' => 'no_claimable_task', 'retryable' => true];
             }
+            $qualityFoundryBinding = null;
+            if (($action['quality_foundry_required'] ?? false) === true) {
+                try {
+                    $qualityFoundryBinding = AutonomosExecutionOrderBinding::fromPayload($action + $claim);
+                } catch (\Throwable $exception) {
+                    return ['status' => 'held', 'reason' => $exception->getMessage(), 'retryable' => false];
+                }
+                if ($qualityFoundryBinding === null) {
+                    return ['status' => 'held', 'reason' => 'quality_foundry_execution_order_missing', 'retryable' => false];
+                }
+            }
             if (! $this->provider instanceof ProviderPort) {
                 return ['status' => 'held', 'reason' => 'provider_port_unavailable', 'retryable' => true];
             }
@@ -71,7 +83,7 @@ class AtlasSelfConstructionNativeActionExecutor
             }
             $providerReceipt = is_array($manifest['provider_receipt'] ?? null) ? $manifest['provider_receipt'] : null;
             try {
-                $providerReceipt ??= $this->provider->invoke([
+                $providerRequest = [
                     'execute_provider' => true,
                     'capability' => 'atlas.self_construction.native_patch_plan',
                     'provider' => $providerKey,
@@ -83,7 +95,11 @@ class AtlasSelfConstructionNativeActionExecutor
                     'claim' => $claim,
                     'action' => $action,
                     'state_hash' => (string) ($state['state_hash'] ?? ''),
-                ]);
+                ];
+                if ($qualityFoundryBinding !== null) {
+                    $providerRequest['quality_foundry'] = $qualityFoundryBinding;
+                }
+                $providerReceipt ??= $this->provider->invoke($providerRequest);
             } catch (\Throwable $e) {
                 return [
                     'status' => 'held',

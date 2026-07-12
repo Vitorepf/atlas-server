@@ -73,6 +73,14 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
             throw new RuntimeException('execution envelope fail-closed: non Atlas-native simplicity_contract: '.$simplicity);
         }
 
+        $qualityFoundryBinding = null;
+        if (($packet['quality_foundry_required'] ?? false) === true) {
+            $qualityFoundryBinding = AutonomosExecutionOrderBinding::fromPayload($packet);
+            if ($qualityFoundryBinding === null) {
+                throw new RuntimeException('execution envelope fail-closed: quality_foundry_execution_order_missing');
+            }
+        }
+
         $commandBoundary = array_values(array_unique(array_filter(
             array_merge($acceptance, $this->normalizeStringList($packet['gates'] ?? null)),
             static fn (string $c): bool => str_contains($c, '/opt/homebrew/bin/php artisan'),
@@ -96,6 +104,9 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilder
             'evidence_template' => $this->redactSensitive(is_array($packet['evidence_template'] ?? null) ? $packet['evidence_template'] : array_fill_keys($requiredEvidence, null)),
             'proof_fields' => $requiredEvidence,
         ];
+        if ($qualityFoundryBinding !== null) {
+            $envelope['quality_foundry'] = $qualityFoundryBinding;
+        }
 
         $envelope['envelope_hash'] = $this->hash($envelope);
 

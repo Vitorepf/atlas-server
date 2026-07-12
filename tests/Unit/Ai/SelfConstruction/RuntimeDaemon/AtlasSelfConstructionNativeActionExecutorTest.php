@@ -34,6 +34,31 @@ final class AtlasSelfConstructionNativeActionExecutorTest extends TestCase
         self::assertSame(0, $calls);
     }
 
+    public function test_quality_foundry_native_tick_requires_execution_order_before_provider_invocation(): void
+    {
+        $calls = 0;
+        $provider = new class($calls) implements ProviderPort
+        {
+            public function __construct(private int &$calls) {}
+
+            public function invoke(array $request): array
+            {
+                $this->calls++;
+
+                return ['status' => 'ok'];
+            }
+        };
+
+        $result = (new AtlasSelfConstructionNativeActionExecutor(production: $this->runtime(), provider: $provider))
+            ->execute([
+                'kind' => 'native_tick', 'provider' => 'test', 'model' => 'model',
+                'quality_foundry_required' => true,
+            ], []);
+
+        self::assertSame('quality_foundry_execution_order_missing', $result['reason']);
+        self::assertSame(0, $calls);
+    }
+
     private function runtime(): AtlasNativeWorkerProductionRuntime
     {
         return new class implements AtlasNativeWorkerProductionRuntime

@@ -77,6 +77,15 @@ final class AtlasNativeWorkerExecutionEnvelopeBuilderTest extends TestCase
         (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
     }
 
+    public function test_quality_foundry_packet_requires_brain_supplied_execution_order(): void
+    {
+        $p = $this->validPacket();
+        $p['quality_foundry_required'] = true;
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('quality_foundry_execution_order_missing');
+        (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($p);
+    }
+
     public function test_provider_prompt_is_strictly_null_no_prompt_field_leaks(): void
     {
         $e = (new AtlasNativeWorkerExecutionEnvelopeBuilder)->build($this->validPacket());

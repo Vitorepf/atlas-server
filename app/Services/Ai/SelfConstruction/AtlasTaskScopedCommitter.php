@@ -14,6 +14,7 @@ use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\SelfConstruction\GovernedTargets\AtlasTaskPropertyGatedTargetPolicy;
+use App\Services\Ai\SelfConstruction\NativeWorker\AutonomosExecutionOrderBinding;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -262,6 +263,10 @@ final class AtlasTaskScopedCommitter
 
         try {
             $criteria = ['task_packet_id' => $taskPacketId, 'allowed_files' => $allowedFiles];
+            $executionOrderBinding = AutonomosExecutionOrderBinding::fromPayload($verification);
+            if ($executionOrderBinding !== null) {
+                $criteria['execution_order_hash'] = $executionOrderBinding['order_hash'];
+            }
             $criteriaHash = CriteriaCanonicalizer::hash($criteria);
             $verdict = $kernel->autonomosGate()->certifyAutonomosDelivery([
                 'criteria_hash' => $criteriaHash,
@@ -275,6 +280,7 @@ final class AtlasTaskScopedCommitter
                     'assertions_executed' => (int) ($execution['assertions_executed'] ?? 0),
                     'selected_tests' => array_values(array_map('strval', (array) ($execution['selected_tests'] ?? []))),
                     'artifacts' => [],
+                    'execution_order_hash' => $executionOrderBinding['order_hash'] ?? null,
                 ],
                 'mutation_report' => ['decision_surface_added' => false],
                 'security_scan' => [
