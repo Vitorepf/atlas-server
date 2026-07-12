@@ -17,8 +17,10 @@ final class CausalLearningGate
         $verdict = 'hold'; $reason = 'causal_evidence_incomplete';
         if ((float) $d['ci_low'] > (float) $d['ci_high'] || (float) $d['effect'] < (float) $d['ci_low'] || (float) $d['effect'] > (float) $d['ci_high']) {
             $verdict = 'reject'; $reason = 'causal_interval_inconsistent';
-        } elseif ($d['assignment_precedes_run'] !== true || $d['real_outcome'] !== true || $d['assignment_hash'] === str_repeat('0', 64) || $d['order_hash'] === str_repeat('0', 64)) {
-            $reason = 'assignment_or_real_outcome_unproven';
+        } elseif (date_create_immutable((string) $d['expiry']) <= new \DateTimeImmutable('now')) {
+            $reason = 'promotion_expired';
+        } elseif ($d['assignment_precedes_run'] !== true || $d['real_outcome'] !== true || $this->hasZeroBinding($d)) {
+            $reason = 'causal_binding_unproven';
         } elseif ((float) $d['ci_low'] <= 0.0 || (float) $d['effect'] <= 0.0) {
             $reason = 'causal_effect_uncertain';
         } elseif ($d['change_class'] === 'code_task') {
@@ -35,6 +37,16 @@ final class CausalLearningGate
         $this->record($candidate, $result);
 
         return $result;
+    }
+
+    /** @param array<string,mixed> $data */
+    private function hasZeroBinding(array $data): bool
+    {
+        foreach (['assignment_hash', 'experiment_hash', 'order_hash', 'run_hash', 'release_hash', 'outcome_hash', 'authority_hash'] as $key) {
+            if ((string) ($data[$key] ?? '') === str_repeat('0', 64)) return true;
+        }
+
+        return false;
     }
 
     private function record(CausalLearningCandidate $candidate, CausalLearningVerdict $verdict): void

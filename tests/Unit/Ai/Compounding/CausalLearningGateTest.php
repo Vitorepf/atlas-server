@@ -57,6 +57,28 @@ final class CausalLearningGateTest extends TestCase
         self::assertSame('hold', (new CausalLearningGate)->adjudicate($candidate)->verdict);
     }
 
+    public function test_all_execution_bindings_must_be_nonzero_before_learning_can_promote(): void
+    {
+        foreach (['experiment_hash', 'run_hash', 'release_hash', 'outcome_hash', 'authority_hash'] as $binding) {
+            $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [$binding => str_repeat('0', 64)]));
+
+            self::assertSame('hold', (new CausalLearningGate)->adjudicate($candidate)->verdict, $binding);
+            self::assertSame('causal_binding_unproven', (new CausalLearningGate)->adjudicate($candidate)->reason, $binding);
+        }
+    }
+
+    public function test_expired_reversible_evidence_is_held(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'expiry' => '2026-07-01T00:00:00Z',
+        ]));
+
+        $verdict = (new CausalLearningGate)->adjudicate($candidate);
+
+        self::assertSame('hold', $verdict->verdict);
+        self::assertSame('promotion_expired', $verdict->reason);
+    }
+
     /** @return array<string,mixed> */
     private function valid(): array
     {

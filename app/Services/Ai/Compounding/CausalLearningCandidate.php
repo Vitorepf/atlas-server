@@ -22,6 +22,7 @@ final readonly class CausalLearningCandidate
         }
         if (! in_array($data['change_class'], ['routing','memory_policy','operational_policy','code_task'], true)) throw new InvalidArgumentException('causal_candidate_change_class_invalid');
         foreach (['hypothesis','baseline','metric','window','rollback','scope','expiry'] as $key) if (! is_string($data[$key]) || trim($data[$key]) === '') throw new InvalidArgumentException('causal_candidate_'.$key.'_required');
+        if (date_create_immutable((string) $data['expiry']) === false) throw new InvalidArgumentException('causal_candidate_expiry_invalid');
         foreach (['reversible','assignment_precedes_run','real_outcome'] as $key) if (! is_bool($data[$key])) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
         foreach (['effect','ci_low','ci_high'] as $key) if (! is_numeric($data[$key])) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
         if (! is_array($data['confounders']) || $data['confounders'] === []) throw new InvalidArgumentException('causal_candidate_confounders_required');
