@@ -113,6 +113,34 @@ final class AtlasNativeWorkerCommandPlanRunnerTest extends TestCase
         $this->assertSame('malformed_command', $out['results'][0]['reason']);
     }
 
+    public function test_shell_escape_argv_is_denied_even_when_command_name_is_allowlisted(): void
+    {
+        $plan = [['name' => 'version_probe', 'argv' => ['/bin/sh', '-c', 'echo safe'], 'timeout_seconds' => 5]];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->execute($this->envelope(), $plan, dryRun: true);
+
+        $this->assertSame(AtlasNativeWorkerCommandPlanRunner::STATUS_DENIED, $out['results'][0]['status']);
+        $this->assertSame('shell_escape_argv', $out['results'][0]['reason']);
+    }
+
+    public function test_env_allowlist_is_the_only_env_surface_exposed_to_dry_run(): void
+    {
+        $plan = [[
+            'name' => 'version_probe',
+            'argv' => ['/bin/true'],
+            'timeout_s' => 7,
+            'env' => ['PUBLIC_VAR' => 'visible', 'ATLAS_SECRET' => 'hidden'],
+            'env_allowlist' => ['PUBLIC_VAR'],
+        ]];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->execute($this->envelope(), $plan, dryRun: true);
+
+        $this->assertSame(AtlasNativeWorkerCommandPlanRunner::STATUS_DRY_RUN, $out['results'][0]['status']);
+        $this->assertSame(['PUBLIC_VAR' => 'visible'], $out['results'][0]['would_run']['env_redacted']);
+        $this->assertSame(['PUBLIC_VAR'], $out['results'][0]['would_run']['env_allowlist']);
+        $this->assertSame(7, $out['results'][0]['would_run']['timeout_seconds']);
+    }
+
     // --- validate() — facts-only plan validator ----------------------
 
     private function validateEnvelope(): array
@@ -167,6 +195,33 @@ final class AtlasNativeWorkerCommandPlanRunnerTest extends TestCase
         $this->assertTrue($out['passed']);
         $this->assertSame([], $out['rejections']);
         $this->assertCount(1, $out['accepted']);
+    }
+
+    public function test_validate_rejects_shell_escape_argv(): void
+    {
+        $plan = [['name' => 'run_tests', 'argv' => ['/bin/bash', '-c', 'php artisan test'], 'timeout_seconds' => 60]];
+
+        $out = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+
+        $this->assertFalse($out['passed']);
+        $this->assertSame('shell_escape_argv', $out['rejections'][0]['reason']);
+    }
+
+    public function test_validate_counts_legacy_shell_strings_in_observe_and_rejects_when_enforced(): void
+    {
+        $plan = [['name' => 'run_tests', 'command' => 'php artisan test', 'timeout_seconds' => 60]];
+
+        $observe = (new AtlasNativeWorkerCommandPlanRunner)->validate($this->validateEnvelope(), $plan);
+        $enforce = (new AtlasNativeWorkerCommandPlanRunner)->validate(
+            array_merge($this->validateEnvelope(), ['structured_command_enforce' => true]),
+            $plan,
+        );
+
+        $this->assertTrue($observe['passed']);
+        $this->assertSame(1, $observe['legacy_command_count']);
+        $this->assertSame('legacy_observe', $observe['accepted'][0]['status']);
+        $this->assertFalse($enforce['passed']);
+        $this->assertSame('legacy_shell_string', $enforce['rejections'][0]['reason']);
     }
 
     // ── AC: scope safety, timeout safety, dry-run behavior, command family, evidence capture ──

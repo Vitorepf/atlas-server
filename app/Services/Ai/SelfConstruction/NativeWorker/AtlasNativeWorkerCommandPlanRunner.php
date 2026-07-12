@@ -11,8 +11,8 @@ use Throwable;
 /**
  * Safe local command-plan executor for Atlas-native worker gates. STRICTLY allowlisted: only commands
  * present in the execution-envelope's `gates`/`command_allowlist` may run. Supports dry_run that VALIDATES
- * without executing. Enforces per-command timeout, cwd, env-redaction (no SECRET-looking vars), and
- * REFUSES any command whose metadata declares network or external-provider intent.
+ * without executing. Enforces per-command timeout, cwd, env allowlist/redaction, and REFUSES any command
+ * whose metadata or parsed argv declares shell/network/external-provider intent.
  *
  * INVARIANTS:
  *   - DRY-RUN: never invokes Process; emits would_run entries.
@@ -41,7 +41,7 @@ final class AtlasNativeWorkerCommandPlanRunner
 
     /**
      * @param  array<string,mixed>  $envelope  AtlasNativeWorkerExecutionEnvelopeBuilder envelope
-     * @param  list<array<string,mixed>>  $commandPlan  list of {name, argv, cwd?, env?, labels?, timeout_seconds?}
+     * @param  list<array<string,mixed>>  $commandPlan  list of {name, argv, cwd?, timeout_s?, env_allowlist?, labels?}
      * @return array{schema:string, dry_run:bool, results:list<array<string,mixed>>}
      */
     public function execute(array $envelope, array $commandPlan, bool $dryRun = false): array
@@ -69,12 +69,16 @@ final class AtlasNativeWorkerCommandPlanRunner
         $name = trim((string) ($cmd['name'] ?? ''));
         $argv = is_array($cmd['argv'] ?? null) ? array_values(array_map('strval', $cmd['argv'])) : [];
         $cwd = (string) ($cmd['cwd'] ?? sys_get_temp_dir());
-        $env = is_array($cmd['env'] ?? null) ? $this->redactEnv($cmd['env']) : [];
+        $envAllowlist = $this->envAllowlist($cmd);
+        $env = is_array($cmd['env'] ?? null) ? $this->redactEnv($this->allowlistedEnv($cmd['env'], $envAllowlist)) : [];
         $labels = is_array($cmd['labels'] ?? null) ? array_map('strval', $cmd['labels']) : [];
-        $timeout = max(1, (int) ($cmd['timeout_seconds'] ?? 30));
+        $timeout = max(1, (int) ($cmd['timeout_seconds'] ?? $cmd['timeout_s'] ?? 30));
 
         if ($name === '' || $argv === []) {
             return ['name' => $name, 'status' => self::STATUS_DENIED, 'reason' => 'malformed_command'];
+        }
+        if ($this->isShellEscapeArgv($argv)) {
+            return ['name' => $name, 'status' => self::STATUS_DENIED, 'reason' => 'shell_escape_argv'];
         }
         foreach ($labels as $label) {
             if (in_array(strtolower($label), self::FORBIDDEN_LABELS, true)) {
@@ -88,7 +92,13 @@ final class AtlasNativeWorkerCommandPlanRunner
             return [
                 'name' => $name,
                 'status' => self::STATUS_DRY_RUN,
-                'would_run' => ['argv' => $argv, 'cwd' => $cwd, 'env_redacted' => $env, 'timeout_seconds' => $timeout],
+                'would_run' => array_filter([
+                    'argv' => $argv,
+                    'cwd' => $cwd,
+                    'env_redacted' => $env,
+                    'env_allowlist' => $envAllowlist,
+                    'timeout_seconds' => $timeout,
+                ], static fn (mixed $value): bool => $value !== null),
             ];
         }
 
@@ -146,6 +156,8 @@ final class AtlasNativeWorkerCommandPlanRunner
 
         $rejections = [];
         $accepted = [];
+        $legacyCommandCount = 0;
+        $structuredCommandEnforce = ($envelope['structured_command_enforce'] ?? false) === true;
 
         foreach ($commandPlan as $cmd) {
             if (! is_array($cmd)) {
@@ -153,9 +165,37 @@ final class AtlasNativeWorkerCommandPlanRunner
             }
             $name = trim((string) ($cmd['name'] ?? ''));
             $argv = is_array($cmd['argv'] ?? null) ? array_values(array_map('strval', $cmd['argv'])) : [];
+            $legacyShellString = trim((string) ($cmd['command'] ?? '')) !== '' && $argv === [];
+            $timeoutValue = $cmd['timeout_seconds'] ?? $cmd['timeout_s'] ?? null;
 
-            if (! array_key_exists('timeout_seconds', $cmd) || $cmd['timeout_seconds'] === null || (int) $cmd['timeout_seconds'] <= 0) {
+            if ($timeoutValue === null || (int) $timeoutValue <= 0) {
                 $rejections[] = ['name' => $name, 'reason' => 'missing_timeout'];
+
+                continue;
+            }
+            if ($legacyShellString) {
+                $legacyCommandCount++;
+                if ($structuredCommandEnforce) {
+                    $rejections[] = ['name' => $name, 'reason' => 'legacy_shell_string'];
+
+                    continue;
+                }
+                if ($acceptanceCommands !== null && ! in_array($name, $acceptanceCommands, true)) {
+                    $rejections[] = ['name' => $name, 'reason' => 'not_acceptance_command'];
+
+                    continue;
+                }
+                $accepted[] = [
+                    'name' => $name,
+                    'status' => 'legacy_observe',
+                    'command_family' => trim((string) ($cmd['family'] ?? '')),
+                    'requires_evidence_capture' => $acceptanceCommands !== null && in_array($name, $acceptanceCommands, true),
+                ];
+
+                continue;
+            }
+            if ($this->isShellEscapeArgv($argv)) {
+                $rejections[] = ['name' => $name, 'reason' => 'shell_escape_argv'];
 
                 continue;
             }
@@ -177,7 +217,7 @@ final class AtlasNativeWorkerCommandPlanRunner
                     continue;
                 }
             }
-            if ($maxTimeoutSeconds !== null && (int) $cmd['timeout_seconds'] > $maxTimeoutSeconds) {
+            if ($maxTimeoutSeconds !== null && (int) $timeoutValue > $maxTimeoutSeconds) {
                 $rejections[] = ['name' => $name, 'reason' => 'timeout_exceeds_ceiling'];
 
                 continue;
@@ -207,6 +247,7 @@ final class AtlasNativeWorkerCommandPlanRunner
             'rejections' => $rejections,
             'accepted' => $accepted,
             'dry_run' => true,
+            'legacy_command_count' => $legacyCommandCount,
         ];
     }
 
@@ -237,6 +278,21 @@ final class AtlasNativeWorkerCommandPlanRunner
         return isset($argv[0]) && in_array(basename($argv[0]), self::FORBIDDEN_PROVIDER_BINARIES, true);
     }
 
+    private function isShellEscapeArgv(array $argv): bool
+    {
+        $shells = ['sh', 'bash', 'zsh', 'dash', 'fish', 'ksh'];
+        $count = count($argv);
+        for ($i = 0; $i < $count - 1; $i++) {
+            $binary = strtolower(basename((string) $argv[$i]));
+            $next = strtolower((string) $argv[$i + 1]);
+            if (in_array($binary, $shells, true) && str_starts_with($next, '-') && str_contains($next, 'c')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param  array<string,mixed>  $envelope
      * @return list<string>
@@ -247,6 +303,34 @@ final class AtlasNativeWorkerCommandPlanRunner
         $gates = is_array($envelope['gates'] ?? null) ? array_map('strval', $envelope['gates']) : [];
 
         return array_values(array_unique(array_filter(array_merge($explicit, $gates), static fn (string $s): bool => $s !== '')));
+    }
+
+    /** @param array<string,mixed> $cmd @return list<string>|null */
+    private function envAllowlist(array $cmd): ?array
+    {
+        if (! is_array($cmd['env_allowlist'] ?? null)) {
+            return null;
+        }
+
+        return array_values(array_filter(array_map('strval', $cmd['env_allowlist']), static fn (string $key): bool => $key !== ''));
+    }
+
+    /** @param array<string,mixed> $env @param list<string>|null $allowlist @return array<string,mixed> */
+    private function allowlistedEnv(array $env, ?array $allowlist): array
+    {
+        if ($allowlist === null) {
+            return $env;
+        }
+
+        $allowed = array_fill_keys($allowlist, true);
+        $out = [];
+        foreach ($env as $key => $value) {
+            if (isset($allowed[(string) $key])) {
+                $out[(string) $key] = $value;
+            }
+        }
+
+        return $out;
     }
 
     /**

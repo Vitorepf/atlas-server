@@ -79,7 +79,7 @@
 - [x] MAXM-08 — landed · `tools/list` default expõe 9 primárias + `atlas_tool_search` (≤10); `atlas_tool_search` resolve por intenção e retorna contratos por-tool; 64 tools legadas seguem chamáveis por nome; surface-review `removed_tools=0`, coverage=65/65
 - [x] MAXN-03 (scaffold) — landed · `OperatorProfileFeedbackService` calcula ajuste puro por comportamento com n<10 ⇒ `insufficient_sample`, apply gera reverse-handle e revert restaura confidence/status; digest expõe `behavior_confidence_curve`; fecho M4 continua pendente em `MAXN-03 (fecho)` até MAXN-02/outcomes reais
 - [ ] MULTN15-06 — pending
-- [ ] ESP-02 — pending
+- [x] ESP-02 — landed · `AtlasNativeWorkerCommandPlanRunner` valida comandos estruturados por `argv/cwd/timeout_s/env_allowlist`; `sh|bash|zsh -c` em argv é recusado com `shell_escape_argv`; shell-string legado é contado em observe e recusado com `structured_command_enforce`; test: `php artisan test tests/Unit/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerCommandPlanRunnerTest.php`
 - [ ] ESP-03 — pending
 - [ ] ESP-05 — pending
 - [ ] ELEV-19 — pending
