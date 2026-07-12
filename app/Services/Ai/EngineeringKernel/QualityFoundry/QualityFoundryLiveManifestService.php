@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\QualityFoundry;
 
 use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
+use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use App\Services\Ai\EngineeringKernel\QualityFoundryModeParityService;
 use Symfony\Component\Process\Process;
 
@@ -17,6 +18,7 @@ final class QualityFoundryLiveManifestService
 {
     private const ROLLBACK_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php';
     private const EXACTLY_ONCE_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/QualityFoundryExactlyOnceEvidenceTest.php';
+    private const COVERAGE_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/QualityFoundryExecutionCoverageEvidenceTest.php';
 
     /** @var array<string,list<string>> */
     private const MODE_TESTS = [
@@ -76,6 +78,7 @@ final class QualityFoundryLiveManifestService
                     ...$tests,
                     self::ROLLBACK_EVIDENCE_TEST,
                     self::EXACTLY_ONCE_EVIDENCE_TEST,
+                    self::COVERAGE_EVIDENCE_TEST,
                 ])),
                 $root,
             );
@@ -176,6 +179,7 @@ final class QualityFoundryLiveManifestService
         $result = ($this->runner)(array_merge([PHP_BINARY, 'artisan', 'test'], $tests), $root);
         $output = (string) ($result['output'] ?? '');
         $exitCode = (int) ($result['exit_code'] ?? 1);
+        $coverageEvidence = $this->coverageEvidenceFromOutput($output);
         $receipt = [
             'schema' => 'atlas.quality_foundry.live_test_receipt.v1',
             'mode' => $mode,
@@ -192,13 +196,14 @@ final class QualityFoundryLiveManifestService
             'receipt_hashes' => [hash('sha256', json_encode($receipt, JSON_UNESCAPED_SLASHES) ?: '')],
             'test_refs' => $testRefs,
             'kernel_routed' => $exitCode === 0,
-            'coverage_percent' => 0,
+            'coverage_percent' => $coverageEvidence['coverage_percent'] ?? 0,
             'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
             'evidence' => [
                 'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'exactly_once_provider' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'exactly_once_mutation' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+                'coverage' => $coverageEvidence,
             ],
             // The canonical rollback suite asserts provisional and terminal
             // outcome events through AtlasEvidenceLedger. This is test-path
@@ -208,6 +213,42 @@ final class QualityFoundryLiveManifestService
             'exit_code' => $exitCode,
             'output_hash' => $receipt['output_hash'],
             'duration_ms' => $receipt['duration_ms'],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function coverageEvidenceFromOutput(string $output): array
+    {
+        if (preg_match('/QUALITY_FOUNDRY_COVERAGE_JSON=(\{[^\r\n]*\})/', $output, $matches) !== 1) {
+            return [];
+        }
+
+        $evidence = json_decode($matches[1], true);
+        if (! is_array($evidence) || ($evidence['schema'] ?? null) !== 'atlas.quality_foundry.coverage_evidence.v1') {
+            return [];
+        }
+
+        $registered = array_values(array_unique(array_map('strval', (array) ($evidence['registered_surfaces'] ?? []))));
+        $covered = array_values(array_unique(array_map('strval', (array) ($evidence['covered_surfaces'] ?? []))));
+        sort($registered, SORT_STRING);
+        sort($covered, SORT_STRING);
+        $canonical = EngineeringExecutionSurfaceRegistry::ids();
+        sort($canonical, SORT_STRING);
+        $total = (int) ($evidence['total_events'] ?? 0);
+        $complete = (int) ($evidence['complete_events'] ?? 0);
+        $percent = (int) ($evidence['coverage_percent'] ?? 0);
+        if ($registered !== $canonical || $covered !== $canonical || $total !== count($canonical)
+            || $complete !== $total || $percent !== 100) {
+            return [];
+        }
+
+        return [
+            'schema' => (string) $evidence['schema'],
+            'registered_surfaces' => $registered,
+            'covered_surfaces' => $covered,
+            'total_events' => $total,
+            'complete_events' => $complete,
+            'coverage_percent' => $percent,
         ];
     }
 }

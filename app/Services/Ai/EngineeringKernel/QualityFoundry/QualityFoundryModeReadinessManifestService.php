@@ -44,6 +44,7 @@ final class QualityFoundryModeReadinessManifestService
                     'duration_ms' => isset($receipt['duration_ms']) ? (int) $receipt['duration_ms'] : null,
                 ],
                 'evidence' => is_array($receipt['evidence'] ?? null) ? $receipt['evidence'] : [],
+                'coverage_percent' => (int) ($receipt['coverage_percent'] ?? 0),
                 'blockers' => $modeBlockers,
                 'claim_eligible' => false,
             ];

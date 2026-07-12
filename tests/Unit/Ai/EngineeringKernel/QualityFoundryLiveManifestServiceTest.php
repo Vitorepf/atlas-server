@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\EngineeringKernel;
 
 use App\Services\Ai\EngineeringKernel\QualityFoundry\QualityFoundryLiveManifestService;
+use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use Tests\TestCase;
 
 final class QualityFoundryLiveManifestServiceTest extends TestCase
@@ -102,5 +103,35 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
 
         self::assertNotContains('mode_parity_missing', $manifest['blockers']);
         self::assertTrue($manifest['parity_evidence']['parity']);
+    }
+
+    public function test_coverage_percent_requires_a_valid_structured_six_surface_receipt(): void
+    {
+        $surfaceIds = EngineeringExecutionSurfaceRegistry::ids();
+        $marker = 'QUALITY_FOUNDRY_COVERAGE_JSON='.json_encode([
+            'schema' => 'atlas.quality_foundry.coverage_evidence.v1',
+            'covered_surfaces' => $surfaceIds,
+            'registered_surfaces' => $surfaceIds,
+            'complete_events' => 6,
+            'total_events' => 6,
+            'coverage_percent' => 100,
+        ], JSON_THROW_ON_ERROR);
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static function (array $command, string $cwd) use ($marker): array {
+                return [
+                'exit_code' => 0,
+                'output' => $marker,
+                ];
+            },
+        );
+
+        $manifest = $service->build();
+
+        foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
+            self::assertSame(100, $manifest['manifests'][$mode]['coverage_percent']);
+            self::assertNotContains('coverage_not_complete', $manifest['manifests'][$mode]['blockers']);
+            self::assertSame(6, $manifest['manifests'][$mode]['evidence']['coverage']['complete_events']);
+        }
     }
 }
