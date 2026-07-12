@@ -55,8 +55,8 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
 
     public function test_merge_actuator_requires_authorized_actuation_with_v1_revert_translator(): void
     {
-        $this->assertSame(['act', 'revert'], $this->publicMethodNames(MergeActuator::class));
-        $this->assertSame(['act', 'revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
+        $this->assertSame(['act', 'prepareRevert', 'revert'], $this->publicMethodNames(MergeActuator::class));
+        $this->assertSame(['act', 'prepareRevert', 'revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
     }
 
     /**
