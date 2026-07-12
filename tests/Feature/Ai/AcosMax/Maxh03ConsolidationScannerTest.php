@@ -253,6 +253,99 @@ final class Maxh03ConsolidationScannerTest extends TestCase
         $this->assertNotNull($operational->valid_until);
     }
 
+    public function test_maxh07_cluster_synthesis_default_off_is_inert(): void
+    {
+        config(['atlas.memory_consolidation.cluster_synthesis_enabled' => false]);
+
+        $entries = $this->seedClusterCorpus();
+        $scanner = new MemoryConsolidationScanner(new StubMemoryPairwiseCosineScorer(
+            $this->stubScoresForPairs($entries, threshold: 0.91),
+        ));
+
+        $report = $scanner->scan(MemoryConsolidationScanner::MODE_ENFORCE);
+
+        $this->assertSame('disabled', data_get($report, 'cluster_synthesis.status'));
+        $this->assertSame(0, data_get($report, 'cluster_synthesis.applied'));
+        $this->assertSame(0, AtlasMemoryEntry::query()->where('source_type', 'maxh07_cluster_synthesis')->count());
+        $this->assertSame(3, AtlasMemoryEntry::query()->where('status', 'active')->count());
+    }
+
+    public function test_maxh07_cluster_synthesis_authors_canonical_memory_and_is_reversible(): void
+    {
+        config([
+            'atlas.memory_consolidation.cluster_synthesis_enabled' => true,
+            'atlas.ai.capture_quality_gate.mode' => 'observe',
+            'atlas.memory_admission.mode' => 'observe',
+        ]);
+
+        $entries = $this->seedClusterCorpus();
+        $scanner = new MemoryConsolidationScanner(new StubMemoryPairwiseCosineScorer(
+            $this->stubScoresForPairs($entries, threshold: 0.91),
+        ));
+
+        $report = $scanner->scan(MemoryConsolidationScanner::MODE_ENFORCE);
+
+        $this->assertSame('applied', data_get($report, 'cluster_synthesis.status'));
+        $this->assertSame(1, data_get($report, 'cluster_synthesis.applied'));
+        $application = (array) data_get($report, 'cluster_synthesis.applications.0', []);
+        $canonicalId = (string) ($application['canonical_memory_entry_id'] ?? '');
+        $this->assertNotSame('', $canonicalId);
+
+        $canonical = AtlasMemoryEntry::query()->findOrFail($canonicalId);
+        $this->assertSame('active', $canonical->status);
+        $this->assertSame('maxh07_cluster_synthesis', $canonical->source_type);
+        $this->assertSame('MAXH-07 redundant memory cluster synthesis', $canonical->source_label);
+        $this->assertCount(3, (array) data_get($canonical->metadata, 'acos_max.maxh07.member_ids'));
+        $this->assertSame('cursor-acos-max-maxh07-cluster-author', data_get($canonical->metadata, 'acos_max.maxh07.author_engine_id'));
+        $this->assertSame('codex-independent-maxh07-cluster-judge', data_get($canonical->metadata, 'acos_max.maxh07.judge_engine_id'));
+        $this->assertNotSame(
+            data_get($canonical->metadata, 'acos_max.maxh07.author_engine_id'),
+            data_get($canonical->metadata, 'acos_max.maxh07.judge_engine_id'),
+            'MAXH-07 must preserve author != judge on every synthesized canonical.',
+        );
+
+        foreach ($entries as $entry) {
+            $entry->refresh();
+            $this->assertSame('archived', $entry->status);
+            $this->assertSame((string) $canonical->id, (string) $entry->superseded_by_id);
+            $this->assertNotNull($entry->archived_at);
+            $this->assertContains('memory_entry:'.$entry->id, (array) data_get($canonical->metadata, 'acos_max.maxh07.evidence_refs'));
+        }
+
+        $handle = (string) ($application['reverse_handle'] ?? '');
+        $this->assertNotSame('', $handle);
+        $reverted = $scanner->reverseApplication($handle);
+        $this->assertTrue($reverted['ok']);
+
+        $canonical->refresh();
+        $this->assertSame('archived', $canonical->status);
+        foreach ($entries as $entry) {
+            $entry->refresh();
+            $this->assertSame('active', $entry->status);
+            $this->assertNull($entry->superseded_by_id);
+            $this->assertNull($entry->archived_at);
+        }
+    }
+
+    public function test_maxh07_refuses_simulated_live_clusters_even_when_enabled(): void
+    {
+        config(['atlas.memory_consolidation.cluster_synthesis_enabled' => true]);
+
+        $entries = $this->seedClusterCorpus([
+            'metadata' => ['acos_max' => ['maxh07' => ['simulated_cluster' => true]]],
+        ]);
+        $scanner = new MemoryConsolidationScanner(new StubMemoryPairwiseCosineScorer(
+            $this->stubScoresForPairs($entries, threshold: 0.91),
+        ));
+
+        $report = $scanner->scan(MemoryConsolidationScanner::MODE_ENFORCE);
+
+        $this->assertSame('refused', data_get($report, 'cluster_synthesis.status'));
+        $this->assertSame(0, data_get($report, 'cluster_synthesis.applied'));
+        $this->assertSame('simulated_live_cluster_refused', data_get($report, 'cluster_synthesis.refusals.0.reason'));
+        $this->assertSame(0, AtlasMemoryEntry::query()->where('source_type', 'maxh07_cluster_synthesis')->count());
+    }
+
     /**
      * @return list<AtlasMemoryEntry>
      */
@@ -272,6 +365,27 @@ final class Maxh03ConsolidationScannerTest extends TestCase
                 'scope_type' => $i % 2 === 0 ? 'project' : 'global',
                 'recorded_at' => CarbonImmutable::now()->subDays($i)->subHour()->toIso8601String(),
             ]);
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param  array<string,mixed>  $overrides
+     * @return list<AtlasMemoryEntry>
+     */
+    private function seedClusterCorpus(array $overrides = []): array
+    {
+        $entries = [];
+        for ($i = 0; $i < 3; $i++) {
+            $entries[] = $this->memory('clustered retention policy', array_merge([
+                'memory_type' => 'technical_context',
+                'summary' => 'consolidation fixture clustered retention policy member '.$i,
+                'body' => 'consolidation fixture clustered retention policy member '.$i,
+                'confidence' => 0.5,
+                'recorded_at' => CarbonImmutable::now()->subDays(45 + $i)->toIso8601String(),
+                'source_id' => 'maxh07-fixture-'.$i,
+            ], $overrides));
         }
 
         return $entries;

@@ -6,9 +6,13 @@ namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
+use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
+use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
+use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
+use App\Services\Ai\LongHorizon\StrategicForgettingService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -42,6 +46,8 @@ final class MemoryConsolidationScanner
 {
     public const SCHEMA_VERSION = 'atlas.memory.consolidation_proposal.v1';
 
+    public const CLUSTER_SYNTHESIS_SCHEMA_VERSION = 'atlas.memory.cluster_synthesis.v1';
+
     public const MODE_OBSERVE = 'observe';
 
     public const MODE_ENFORCE = 'enforce';
@@ -65,6 +71,9 @@ final class MemoryConsolidationScanner
         private readonly ?FactPairPolarityContradictionDetector $factPolarity = null,
         private readonly ?NumericRangeOverlapContradictionDetector $numericRange = null,
         private readonly ?TemporalSupersessionClassifier $temporalClassifier = null,
+        private readonly ?StrategicForgettingService $strategicForgetting = null,
+        private readonly ?AtlasMemoryRegistryService $registry = null,
+        private readonly ?AtlasCaptureQualityGate $captureGate = null,
     ) {}
 
     /**
@@ -186,6 +195,13 @@ final class MemoryConsolidationScanner
         $enforce = $mode === self::MODE_ENFORCE
             ? $this->enforceProposals($proposals, $now)
             : ['applied' => 0, 'review_bucket' => 0, 'skipped' => 0, 'applications' => [], 'review_items' => []];
+        $clusterSynthesis = $this->synthesizeClusters(
+            $mode,
+            $proposals,
+            $activesById,
+            $confidenceFloor,
+            $now,
+        );
 
         $ledgerPath = $this->appendLedger($proposals, $now, [
             'mode' => $mode,
@@ -195,6 +211,11 @@ final class MemoryConsolidationScanner
             'qualified' => $qualified,
             'relations_written' => (int) $enforce['applied'],
             'review_bucket' => (int) $enforce['review_bucket'],
+            'cluster_synthesis' => [
+                'status' => $clusterSynthesis['status'] ?? 'unknown',
+                'applied' => $clusterSynthesis['applied'] ?? 0,
+                'candidate_clusters' => $clusterSynthesis['candidate_clusters'] ?? 0,
+            ],
         ]);
 
         return [
@@ -215,6 +236,7 @@ final class MemoryConsolidationScanner
             'non_degenerate_verb_count' => $nonDegenerateVerbCount,
             'relations_written' => (int) $enforce['applied'],
             'enforce' => $enforce,
+            'cluster_synthesis' => $clusterSynthesis,
             'ledger_path' => $ledgerPath,
             'proposal_count' => count($proposals),
             'proposals' => $proposals,
@@ -476,6 +498,532 @@ final class MemoryConsolidationScanner
     }
 
     /**
+     * MAXH-07 — default-off redundant cluster synthesis.
+     *
+     * The AUTHOR is deterministic/local and only sees already-active memory rows.
+     * The JUDGES are separate: CaptureQualityGate, ASI-02 admission via
+     * AtlasMemoryRegistryService, and the frozen confidence floor. Clusters are
+     * sourced from real scanner proposals plus StrategicForgetting `compress`
+     * decisions; no caller can inject a prebuilt/simulated cluster.
+     *
+     * @param  list<array<string,mixed>>  $proposals
+     * @param  array<string,AtlasMemoryEntry>  $activesById
+     * @return array<string,mixed>
+     */
+    private function synthesizeClusters(
+        string $mode,
+        array $proposals,
+        array $activesById,
+        float $confidenceFloor,
+        CarbonImmutable $now,
+    ): array {
+        if (! (bool) config('atlas.memory_consolidation.cluster_synthesis_enabled', false)) {
+            return $this->clusterSynthesisDisabledReport();
+        }
+
+        $minMembers = max(3, (int) config('atlas.memory_consolidation.cluster_synthesis_min_members', 3));
+        $author = trim((string) config('atlas.memory_consolidation.cluster_synthesis_author_engine_id', 'cursor-acos-max-maxh07-cluster-author'));
+        $judge = trim((string) config('atlas.memory_consolidation.cluster_synthesis_judge_engine_id', 'codex-independent-maxh07-cluster-judge'));
+        if ($author === '' || $judge === '' || $author === $judge) {
+            return $this->clusterSynthesisReport('blocked', [], [[
+                'reason' => 'author_judge_invariant_violation',
+                'author_engine_id' => $author,
+                'judge_engine_id' => $judge,
+            ]], [], $minMembers);
+        }
+
+        $clusters = $this->clusterCandidates($proposals, $activesById, $minMembers, $now);
+        if ($clusters === []) {
+            return $this->clusterSynthesisReport('no_qualified_cluster', [], [], [], $minMembers);
+        }
+
+        $applications = [];
+        $refusals = [];
+        $shadow = [];
+        foreach ($clusters as $memberIds) {
+            $members = array_values(array_filter(
+                array_map(static fn (string $id): ?AtlasMemoryEntry => $activesById[$id] ?? null, $memberIds),
+            ));
+            if (count($members) < $minMembers) {
+                continue;
+            }
+            if ($this->containsSimulatedClusterMember($members)) {
+                $refusals[] = [
+                    'reason' => 'simulated_live_cluster_refused',
+                    'member_ids' => array_map(static fn (AtlasMemoryEntry $entry): string => (string) $entry->getAttribute('id'), $members),
+                ];
+
+                continue;
+            }
+
+            $authored = $this->authorClusterCanonical($members, $author, $judge, $now);
+            $judgment = $this->judgeClusterCanonical($authored, $members, $confidenceFloor, $judge);
+            if (($judgment['admit'] ?? false) !== true) {
+                $refusals[] = $judgment + [
+                    'member_ids' => array_map(static fn (AtlasMemoryEntry $entry): string => (string) $entry->getAttribute('id'), $members),
+                ];
+
+                continue;
+            }
+
+            if ($mode !== self::MODE_ENFORCE) {
+                $shadow[] = [
+                    'member_ids' => array_map(static fn (AtlasMemoryEntry $entry): string => (string) $entry->getAttribute('id'), $members),
+                    'candidate_hash' => hash('sha256', json_encode($authored, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: ''),
+                ];
+
+                continue;
+            }
+
+            $applications[] = $this->applyClusterSynthesis($authored, $members, $now);
+        }
+
+        $status = match (true) {
+            $applications !== [] => 'applied',
+            $shadow !== [] => 'shadow_proposed',
+            $refusals !== [] => 'refused',
+            default => 'no_qualified_cluster',
+        };
+
+        return $this->clusterSynthesisReport($status, $applications, $refusals, $shadow, $minMembers, count($clusters));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function clusterSynthesisDisabledReport(): array
+    {
+        return [
+            'schema_version' => self::CLUSTER_SYNTHESIS_SCHEMA_VERSION,
+            'status' => 'disabled',
+            'enabled' => false,
+            'candidate_clusters' => 0,
+            'applied' => 0,
+            'refusals' => [],
+            'shadow_proposals' => [],
+            'applications' => [],
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $applications
+     * @param  list<array<string,mixed>>  $refusals
+     * @param  list<array<string,mixed>>  $shadow
+     * @return array<string,mixed>
+     */
+    private function clusterSynthesisReport(
+        string $status,
+        array $applications,
+        array $refusals,
+        array $shadow,
+        int $minMembers,
+        int $candidateClusters = 0,
+    ): array {
+        return [
+            'schema_version' => self::CLUSTER_SYNTHESIS_SCHEMA_VERSION,
+            'status' => $status,
+            'enabled' => true,
+            'min_members' => $minMembers,
+            'candidate_clusters' => $candidateClusters,
+            'applied' => count($applications),
+            'refusals' => $refusals,
+            'shadow_proposals' => $shadow,
+            'applications' => $applications,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $proposals
+     * @param  array<string,AtlasMemoryEntry>  $activesById
+     * @return list<list<string>>
+     */
+    private function clusterCandidates(array $proposals, array $activesById, int $minMembers, CarbonImmutable $now): array
+    {
+        $compressIds = $this->strategicCompressIds($now);
+        if ($compressIds === []) {
+            return [];
+        }
+
+        $allowed = array_fill_keys(array_values(array_intersect(array_keys($activesById), $compressIds)), true);
+        $eligible = [
+            AtlasMemoryConflictResolutionService::VERDICT_RELATED => true,
+            AtlasMemoryConflictResolutionService::VERDICT_COMPATIBLE => true,
+        ];
+        $adjacency = [];
+        foreach ($proposals as $proposal) {
+            $sourceId = (string) ($proposal['source_id'] ?? '');
+            $targetId = (string) ($proposal['target_id'] ?? '');
+            if ($sourceId === '' || $targetId === '' || ! isset($allowed[$sourceId], $allowed[$targetId])) {
+                continue;
+            }
+            if (! isset($eligible[(string) ($proposal['verdict'] ?? '')])) {
+                continue;
+            }
+            if (($proposal['confidence_floor_ok'] ?? false) !== true) {
+                continue;
+            }
+            $adjacency[$sourceId][$targetId] = true;
+            $adjacency[$targetId][$sourceId] = true;
+        }
+
+        $ids = array_values(array_unique(array_keys($adjacency)));
+        sort($ids);
+        $clusters = [];
+        $used = [];
+        $count = count($ids);
+        for ($i = 0; $i < $count; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                for ($k = $j + 1; $k < $count; $k++) {
+                    $seed = [$ids[$i], $ids[$j], $ids[$k]];
+                    if (array_intersect($seed, $used) !== []) {
+                        continue;
+                    }
+                    if (! $this->completeCluster($seed, $adjacency)) {
+                        continue;
+                    }
+                    $cluster = $seed;
+                    foreach ($ids as $candidate) {
+                        if (in_array($candidate, $cluster, true) || in_array($candidate, $used, true)) {
+                            continue;
+                        }
+                        if ($this->connectedToAll($candidate, $cluster, $adjacency)) {
+                            $cluster[] = $candidate;
+                        }
+                    }
+                    if (count($cluster) >= $minMembers) {
+                        sort($cluster);
+                        $clusters[] = $cluster;
+                        array_push($used, ...$cluster);
+                    }
+                }
+            }
+        }
+
+        return $clusters;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function strategicCompressIds(CarbonImmutable $now): array
+    {
+        $plan = ($this->strategicForgetting ?? new StrategicForgettingService)->plan([
+            'now' => $now,
+            'limit' => 500,
+        ]);
+        if (($plan['status'] ?? null) !== StrategicForgettingService::STATUS_READY) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ((array) ($plan['decisions'] ?? []) as $decision) {
+            if (($decision['policy'] ?? null) === AtlasLongHorizonCanon::FORGETTING_POLICY_COMPRESS) {
+                $id = (string) ($decision['memory_entry_id'] ?? '');
+                if ($id !== '') {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  list<string>  $ids
+     * @param  array<string,array<string,bool>>  $adjacency
+     */
+    private function completeCluster(array $ids, array $adjacency): bool
+    {
+        foreach ($ids as $source) {
+            foreach ($ids as $target) {
+                if ($source === $target) {
+                    continue;
+                }
+                if (! isset($adjacency[$source][$target])) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<string>  $cluster
+     * @param  array<string,array<string,bool>>  $adjacency
+     */
+    private function connectedToAll(string $candidate, array $cluster, array $adjacency): bool
+    {
+        foreach ($cluster as $member) {
+            if (! isset($adjacency[$candidate][$member])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function containsSimulatedClusterMember(array $members): bool
+    {
+        foreach ($members as $member) {
+            if ((bool) data_get($member->getAttribute('metadata'), 'acos_max.maxh07.simulated_cluster', false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     * @return array<string,mixed>
+     */
+    private function authorClusterCanonical(array $members, string $author, string $judge, CarbonImmutable $now): array
+    {
+        $title = $this->commonTitle($members);
+        $memberIds = [];
+        $evidenceRefs = [];
+        $bodyLines = [
+            'Canonical synthesis of a redundant Atlas memory cluster.',
+            '',
+        ];
+        foreach ($members as $member) {
+            $id = (string) $member->getAttribute('id');
+            $memberIds[] = $id;
+            $evidenceRefs[] = 'memory_entry:'.$id;
+            $sourceType = (string) ($member->getAttribute('source_type') ?? '');
+            $sourceId = (string) ($member->getAttribute('source_id') ?? '');
+            if ($sourceType !== '' && $sourceId !== '') {
+                $evidenceRefs[] = $sourceType.':'.$sourceId;
+            }
+            $summary = trim((string) ($member->getAttribute('summary') ?: $member->getAttribute('body') ?: $member->getAttribute('title')));
+            $bodyLines[] = '- '.$summary.' [memory_entry:'.$id.']';
+        }
+        $memberIds = array_values(array_unique($memberIds));
+        sort($memberIds);
+        $evidenceRefs = array_values(array_unique($evidenceRefs));
+
+        $privacyClass = $this->clusterPrivacyClass($members);
+        $providerSafe = ! in_array($privacyClass, ['secret', 'sensitive'], true)
+            && ! in_array(false, array_map(static fn (AtlasMemoryEntry $entry): bool => (bool) $entry->getAttribute('external_ai_allowed'), $members), true);
+        $metadata = [
+            'acos_max' => [
+                'maxh07' => [
+                    'schema_version' => self::CLUSTER_SYNTHESIS_SCHEMA_VERSION,
+                    'author_engine_id' => $author,
+                    'judge_engine_id' => $judge,
+                    'author_neq_judge' => $author !== $judge,
+                    'member_ids' => $memberIds,
+                    'evidence_refs' => $evidenceRefs,
+                    'reversible' => true,
+                    'authored_at' => $now->toIso8601String(),
+                ],
+            ],
+            'evidence_refs' => $evidenceRefs,
+            'outcome_validated' => true,
+            'promotion_mode_hint' => 'maxh07_cluster_synthesis',
+        ];
+
+        return [
+            'memory_type' => $this->clusterMemoryType($members),
+            'scope_type' => $this->clusterScopeType($members),
+            'scope_id' => $this->clusterScopeId($members),
+            'title' => 'Canonical synthesis: '.$title,
+            'body' => implode("\n", $bodyLines),
+            'summary' => 'Canonical synthesis of '.count($members).' redundant memory entries for '.$title.'.',
+            'confidence' => min(0.99, max(0.0, $this->clusterConfidence($members))),
+            'privacy_class' => $privacyClass,
+            'external_ai_allowed' => $providerSafe,
+            'redaction_status' => 'clean',
+            'source_type' => 'maxh07_cluster_synthesis',
+            'source_id' => hash('sha256', implode('|', $memberIds)),
+            'source_label' => 'MAXH-07 redundant memory cluster synthesis',
+            'status' => 'active',
+            'tags' => ['acos-max', 'maxh07', 'cluster-synthesis'],
+            'metadata' => $metadata,
+            'recorded_at' => $now,
+            'last_used_at' => $now,
+            'authority_level' => 'confirmed',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $authored
+     * @param  list<AtlasMemoryEntry>  $members
+     * @return array<string,mixed>
+     */
+    private function judgeClusterCanonical(array $authored, array $members, float $confidenceFloor, string $judge): array
+    {
+        unset($confidenceFloor); // The floor is enforced on every pairwise edge before a cluster can reach this judge.
+        foreach ($members as $member) {
+            if (! in_array('memory_entry:'.$member->getAttribute('id'), (array) data_get($authored, 'metadata.evidence_refs', []), true)) {
+                return ['admit' => false, 'reason' => 'missing_member_evidence_ref'];
+            }
+        }
+
+        $gate = ($this->captureGate ?? app(AtlasCaptureQualityGate::class))->assess([
+            'kind' => 'maxh07_cluster_synthesis',
+            'claim' => (string) ($authored['summary'] ?? ''),
+            'content' => $authored,
+        ]);
+        if ((string) config('atlas.ai.capture_quality_gate.mode', 'observe') === 'enforce'
+            && ($gate['admit'] ?? false) !== true) {
+            return ['admit' => false, 'reason' => 'capture_quality_gate', 'capture_quality' => $gate];
+        }
+
+        $admission = ($this->registry ?? app(AtlasMemoryRegistryService::class))->evaluateAdmission($authored, $judge);
+        if (($admission['blocks_write'] ?? false) === true) {
+            return ['admit' => false, 'reason' => 'asi_02_admission_blocked', 'admission' => $admission];
+        }
+
+        return ['admit' => true, 'capture_quality' => $gate, 'admission' => $admission];
+    }
+
+    /**
+     * @param  array<string,mixed>  $authored
+     * @param  list<AtlasMemoryEntry>  $members
+     * @return array<string,mixed>
+     */
+    private function applyClusterSynthesis(array $authored, array $members, CarbonImmutable $now): array
+    {
+        $previous = [];
+        foreach ($members as $member) {
+            $previous[(string) $member->getAttribute('id')] = [
+                'status' => (string) $member->getAttribute('status'),
+                'archived_at' => $member->archived_at?->toIso8601String(),
+                'superseded_by_id' => $member->getAttribute('superseded_by_id'),
+                'valid_until' => $member->valid_until?->toIso8601String(),
+            ];
+        }
+        data_set($authored, 'metadata.acos_max.maxh07.previous_members', $previous);
+
+        $canonical = ($this->registry ?? app(AtlasMemoryRegistryService::class))->record($authored);
+        foreach ($members as $member) {
+            AtlasMemoryEntryRelation::query()->create([
+                'id' => (string) Str::uuid(),
+                'source_memory_entry_id' => (string) $member->getAttribute('id'),
+                'target_memory_entry_id' => (string) $canonical->getAttribute('id'),
+                'relation_type' => AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES,
+                'status' => 'resolved',
+                'confidence' => (float) ($authored['confidence'] ?? 0.0),
+                'reason' => 'MAXH-07 cluster synthesis supersedence.',
+                'metadata' => [
+                    'maxh07' => true,
+                    'canonical_memory_entry_id' => (string) $canonical->getAttribute('id'),
+                    'member_id' => (string) $member->getAttribute('id'),
+                ],
+                'marked_by_actor' => AtlasMemoryConflictResolutionService::ACTOR_ATLAS,
+                'marked_by_model' => (string) data_get($authored, 'metadata.acos_max.maxh07.judge_engine_id'),
+                'judgment_status' => 'judged',
+                'evidence_refs' => ['memory_entry:'.$member->getAttribute('id')],
+                'verdict_schema_version' => self::CLUSTER_SYNTHESIS_SCHEMA_VERSION,
+            ]);
+            $member->forceFill([
+                'status' => 'archived',
+                'archived_at' => $now,
+                'superseded_by_id' => (string) $canonical->getAttribute('id'),
+                'valid_until' => $now,
+            ])->save();
+        }
+
+        return [
+            'canonical_memory_entry_id' => (string) $canonical->getAttribute('id'),
+            'member_ids' => array_map(static fn (AtlasMemoryEntry $entry): string => (string) $entry->getAttribute('id'), $members),
+            'reverse_handle' => 'maxh07:'.$canonical->getAttribute('id'),
+        ];
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function commonTitle(array $members): string
+    {
+        $titles = array_values(array_unique(array_filter(array_map(
+            static fn (AtlasMemoryEntry $entry): string => trim((string) $entry->getAttribute('title')),
+            $members,
+        ))));
+
+        return $titles[0] ?? 'memory cluster';
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function clusterMemoryType(array $members): string
+    {
+        $types = array_values(array_unique(array_filter(array_map(
+            static fn (AtlasMemoryEntry $entry): string => (string) $entry->getAttribute('memory_type'),
+            $members,
+        ))));
+
+        return count($types) === 1 ? $types[0] : 'technical_context';
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function clusterScopeType(array $members): string
+    {
+        $scopes = array_values(array_unique(array_map(
+            static fn (AtlasMemoryEntry $entry): string => (string) $entry->getAttribute('scope_type'),
+            $members,
+        )));
+
+        return count($scopes) === 1 ? $scopes[0] : 'global';
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function clusterScopeId(array $members): ?string
+    {
+        $scopeIds = array_values(array_unique(array_map(
+            static fn (AtlasMemoryEntry $entry): string => (string) ($entry->getAttribute('scope_id') ?? ''),
+            $members,
+        )));
+
+        return count($scopeIds) === 1 && $scopeIds[0] !== '' ? $scopeIds[0] : null;
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function clusterPrivacyClass(array $members): string
+    {
+        $rank = ['normal' => 0, 'private' => 1, 'sensitive' => 2, 'secret' => 3];
+        $winner = 'normal';
+        foreach ($members as $member) {
+            $privacy = (string) ($member->getAttribute('privacy_class') ?? 'normal');
+            if (($rank[$privacy] ?? 0) > ($rank[$winner] ?? 0)) {
+                $winner = $privacy;
+            }
+        }
+
+        return $winner;
+    }
+
+    /**
+     * @param  list<AtlasMemoryEntry>  $members
+     */
+    private function clusterConfidence(array $members): float
+    {
+        $values = array_values(array_filter(array_map(
+            static fn (AtlasMemoryEntry $entry): ?float => is_numeric($entry->getAttribute('confidence'))
+                ? (float) $entry->getAttribute('confidence')
+                : null,
+            $members,
+        ), static fn (?float $value): bool => $value !== null));
+        if ($values === []) {
+            return 0.0;
+        }
+
+        return array_sum($values) / count($values);
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $proposals
      * @param  array<string,mixed>  $summary
      */
@@ -613,6 +1161,10 @@ final class MemoryConsolidationScanner
     /** @return array{ok:bool,reason?:string} */
     public function reverseApplication(string $handle): array
     {
+        if (str_starts_with($handle, 'maxh07:')) {
+            return $this->reverseClusterApplication(substr($handle, strlen('maxh07:')));
+        }
+
         if (! str_starts_with($handle, 'maxh04:')) {
             return ['ok' => false, 'reason' => 'invalid_reverse_handle'];
         }
@@ -635,6 +1187,46 @@ final class MemoryConsolidationScanner
             'valid_until' => $previous['valid_until'] ?? null,
         ])->save();
         $relation->forceFill(['status' => 'dismissed'])->save();
+
+        return ['ok' => true];
+    }
+
+    /** @return array{ok:bool,reason?:string} */
+    private function reverseClusterApplication(string $canonicalId): array
+    {
+        /** @var AtlasMemoryEntry|null $canonical */
+        $canonical = AtlasMemoryEntry::query()->find($canonicalId);
+        if ($canonical === null) {
+            return ['ok' => false, 'reason' => 'canonical_memory_not_found'];
+        }
+        $previousMembers = (array) data_get($canonical->metadata, 'acos_max.maxh07.previous_members', []);
+        if ($previousMembers === []) {
+            return ['ok' => false, 'reason' => 'cluster_previous_state_missing'];
+        }
+
+        foreach ($previousMembers as $memberId => $previous) {
+            $member = AtlasMemoryEntry::query()->find((string) $memberId);
+            if ($member === null) {
+                continue;
+            }
+            $member->forceFill([
+                'status' => (string) ($previous['status'] ?? 'active'),
+                'archived_at' => $previous['archived_at'] ?? null,
+                'superseded_by_id' => $previous['superseded_by_id'] ?? null,
+                'valid_until' => $previous['valid_until'] ?? null,
+            ])->save();
+        }
+
+        AtlasMemoryEntryRelation::query()
+            ->where('target_memory_entry_id', $canonicalId)
+            ->where('relation_type', AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES)
+            ->where('metadata->maxh07', true)
+            ->update(['status' => 'dismissed']);
+
+        $canonical->forceFill([
+            'status' => 'archived',
+            'archived_at' => CarbonImmutable::now('UTC'),
+        ])->save();
 
         return ['ok' => true];
     }

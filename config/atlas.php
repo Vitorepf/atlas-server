@@ -267,6 +267,15 @@ return [
             'ATLAS_MEMORY_CONSOLIDATION_LEDGER_ROOT',
             storage_path('atlas-local/memory-consolidation'),
         ),
+        // MAXH-07 — redundant cluster synthesis (many active rows -> one canonical row).
+        // Default OFF: the pair scanner remains byte-safe until a real qualified
+        // cluster soak exists. When ON, clusters are sourced only from real scanner
+        // proposals + StrategicForgetting `compress` decisions; simulated markers
+        // are refused even in enforce mode.
+        'cluster_synthesis_enabled' => (bool) env('ATLAS_MEMORY_CLUSTER_SYNTHESIS_ENABLED', false),
+        'cluster_synthesis_min_members' => (int) env('ATLAS_MEMORY_CLUSTER_SYNTHESIS_MIN_MEMBERS', 3),
+        'cluster_synthesis_author_engine_id' => env('ATLAS_MEMORY_CLUSTER_SYNTHESIS_AUTHOR_ENGINE_ID', 'cursor-acos-max-maxh07-cluster-author'),
+        'cluster_synthesis_judge_engine_id' => env('ATLAS_MEMORY_CLUSTER_SYNTHESIS_JUDGE_ENGINE_ID', 'codex-independent-maxh07-cluster-judge'),
     ],
 
     /*
