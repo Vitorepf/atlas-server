@@ -4467,6 +4467,11 @@ return [
         // L3-6: rerank semântico da seção de memória do context pack via o engine local
         // real (embeddings sobre os itens recuperados). Default OFF; fail-open sem venv.
         'semantic_retrieval' => (bool) env('ATLAS_AOBG_SEMANTIC_RETRIEVAL', false),
+        // MAXC-01: facet decomposition determinística no packFor (TaskFacetExtractor
+        // routes typed sub-queries per source; passes extra são peek `record_usage=false`).
+        // Default-OFF: pacote é byte-idêntico enquanto flag desligada; ligar só depois de
+        // A/B provado no golden v2 (ELEV-01).
+        'facet_retrieval' => (bool) env('ATLAS_AOBG_FACET_RETRIEVAL', false),
         // Deterministic cross-source Reciprocal Rank Fusion receipt. It only
         // reorders already provider-safe refs and invokes no provider.
         // Mode ladder: offline → shadow → canary → default (see AtlasIntelligenceRolloutMode).

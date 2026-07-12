@@ -89,7 +89,7 @@
 - [x] TETO-08 — landed · `atlas:acos:cockpit --json` agrega read-only M, R, loops/funil, janelas/caminho crítico, flips pendentes, review-debt, freios e lote corrente do scoreboard; cada seção cita fonte, fontes futuras ficam `unavailable` (ex.: MULTX-02/funnel) e o comando declara `mutates_state=false`; test/smoke: `php artisan test tests/Feature/Console/AtlasAcosCockpitCommandTest.php` + `php artisan atlas:acos:cockpit --json`
 
 ## LOTE 4 — Ligar o fluxo (F1; FLIPS = OPERADOR) — GATE F1-fluxo: ≥5 outcomes/dia 7d · decision_id 100% · reflection/pattern com dado real · distiller shadow dual-read
-- [ ] MAXC-01 — pending
+- [x] MAXC-01 — landed · `TaskFacetExtractor` pure deterministic extractor (symbol/path/command/phrase/term) sob flag `atlas.aobg.facet_retrieval` default-OFF; unit fixtures determinísticas cobrem FQCN/path/command/quoted-phrase/dedupe/empty; extrator zero-deps não faz DB nem provider call; passadas peek `record_usage=false` só ligam com flag ON (wiring in packFor pendente MAXC-02); A/B no golden v2 pending_window(flag OFF); tests: `php artisan test tests/Unit/Ai/Context/TaskFacetExtractorTest.php`
 - [ ] MAXC-02 — pending
 - [ ] MAXC-06 — pending
 - [ ] ASI-06 (preflight; FLIP = operador) — pending
