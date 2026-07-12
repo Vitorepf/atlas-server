@@ -21,6 +21,8 @@ final class CausalLearningGate
             $reason = 'promotion_expired';
         } elseif ($d['assignment_precedes_run'] !== true || $d['real_outcome'] !== true || $this->hasZeroBinding($d)) {
             $reason = 'causal_binding_unproven';
+        } elseif (($confounder = $this->uncontrolledConfounder($d['confounders'])) !== null) {
+            $reason = 'causal_confounder_'.$confounder;
         } elseif ((float) $d['ci_low'] <= 0.0 || (float) $d['effect'] <= 0.0) {
             $reason = 'causal_effect_uncertain';
         } elseif ($d['change_class'] === 'code_task') {
@@ -47,6 +49,38 @@ final class CausalLearningGate
         }
 
         return false;
+    }
+
+    /**
+     * Known confounders are admissible only when the supplied declaration says
+     * they were controlled, mitigated, absent, or otherwise bounded. An
+     * unrecognised/non-empty state is held rather than interpreted as safe.
+     *
+     * @param array<string,mixed> $confounders
+     */
+    private function uncontrolledConfounder(array $confounders): ?string
+    {
+        foreach ([
+            'selection_bias',
+            'regression_to_mean',
+            'concurrent_change',
+            'novelty_provider_drift',
+            'outcome_lag',
+        ] as $key) {
+            if (! array_key_exists($key, $confounders)) {
+                continue;
+            }
+
+            $value = $confounders[$key];
+            $safe = is_string($value)
+                ? in_array(strtolower(trim($value)), ['controlled', 'mitigated', 'absent', 'bounded', 'none'], true)
+                : $value === false || $value === 0;
+            if (! $safe) {
+                return $key;
+            }
+        }
+
+        return null;
     }
 
     private function record(CausalLearningCandidate $candidate, CausalLearningVerdict $verdict): void

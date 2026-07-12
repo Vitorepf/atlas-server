@@ -67,6 +67,34 @@ final class CausalLearningGateTest extends TestCase
         }
     }
 
+    public function test_known_uncontrolled_confounders_hold_learning(): void
+    {
+        foreach (['selection_bias', 'regression_to_mean', 'concurrent_change', 'novelty_provider_drift', 'outcome_lag'] as $key) {
+            $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+                'confounders' => [$key => 'uncontrolled'],
+            ]));
+            $verdict = (new CausalLearningGate)->adjudicate($candidate);
+
+            self::assertSame('hold', $verdict->verdict, $key);
+            self::assertSame('causal_confounder_'.$key, $verdict->reason, $key);
+        }
+    }
+
+    public function test_controlled_confounder_declaration_does_not_block_learning(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
+            'confounders' => [
+                'selection_bias' => 'controlled',
+                'regression_to_mean' => 'mitigated',
+                'concurrent_change' => 'absent',
+                'novelty_provider_drift' => 'controlled',
+                'outcome_lag' => 'bounded',
+            ],
+        ]));
+
+        self::assertSame('promote_reversible', (new CausalLearningGate)->adjudicate($candidate)->verdict);
+    }
+
     public function test_expired_reversible_evidence_is_held(): void
     {
         $candidate = CausalLearningCandidate::fromArray(array_replace($this->valid(), [
