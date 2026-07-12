@@ -31,7 +31,7 @@
 - [x] TETO-05 — landed · `atlas:acos:obra-retro --lote=0 --json` emite outcomes OUTC-01 com série `obra:acos-max` + candidatos pela fila normal CaptureQualityGate/ASI-02; aceite sqlite/fake-ledger cobre Lote 0 e rejeição de boilerplate
 
 ## LOTE 2 — Réguas v2 congeladas (M1) — GATE M1: todo freeze com hash+judge≠author · golden v2 targets_available==cases · registry de séries populado
-- [ ] ELEV-02 (ASI-METRIC) — pending
+- [x] ELEV-02 (ASI-METRIC) — landed · freeze `asi.metric.m.v1` content_hash=`edaa1866b556b356eeff8cf5f685bc4b7e8a56ba556ecd91ed4e2846b1977b6b` · formula_version=`asi_metric_m.v1` · denominator_min=8 · cmd `atlas:acos:m-series --json` · caso negativo `insufficient_signal` · registry=pending(ELEV-20s)
 - [ ] ELEV-12 — pending
 - [ ] ELEV-20s — pending
 - [ ] ELEV-25 — pending

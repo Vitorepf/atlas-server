@@ -15,7 +15,8 @@ final class AtlasAcosFreezeCommand extends Command
     public const JSONL_RELATIVE_PATH = 'app/atlas/evidence/acos-measure-freeze.jsonl';
 
     protected $signature = 'atlas:acos:freeze
-        {--json= : Measure-freeze payload JSON; omitted uses the MAXG-01 default freeze payload}';
+        {--json= : Measure-freeze payload JSON; omitted uses the MAXG-01 default freeze payload}
+        {--path= : Override freeze JSONL path (tests and explicit operator freezes)}';
 
     protected $description = 'Record an ACOS measure_freeze in the Evidence Ledger with independent judge assertion.';
 
@@ -39,13 +40,14 @@ final class AtlasAcosFreezeCommand extends Command
 
         // JSONL is the durable freeze surface when Postgres availability checks hang
         // (Schema::hasTable can block without throwing). Always check/write JSONL first.
-        if ($this->jsonlAlreadyFrozen($measureId)) {
+        $jsonlPath = $this->freezePath();
+        if ($this->jsonlAlreadyFrozen($measureId, $jsonlPath)) {
             return $this->emit([
                 'ok' => true,
                 'status' => 'already_frozen',
                 'measure_id' => $measureId,
                 'storage' => 'jsonl',
-                'jsonl_path' => storage_path(self::JSONL_RELATIVE_PATH),
+                'jsonl_path' => $jsonlPath,
             ], self::SUCCESS);
         }
 
@@ -57,7 +59,6 @@ final class AtlasAcosFreezeCommand extends Command
 
         // JSONL-first: Postgres Schema::hasTable can hang without throwing when the
         // local container is wedged; freeze must still seal. DB mirror is optional later.
-        $jsonlPath = storage_path(self::JSONL_RELATIVE_PATH);
         @mkdir(dirname($jsonlPath), 0775, true);
         (new JsonlReceiptStore($jsonlPath))->append($payload);
 
@@ -75,9 +76,8 @@ final class AtlasAcosFreezeCommand extends Command
         ], self::SUCCESS);
     }
 
-    private function jsonlAlreadyFrozen(string $measureId): bool
+    private function jsonlAlreadyFrozen(string $measureId, string $path): bool
     {
-        $path = storage_path(self::JSONL_RELATIVE_PATH);
         if (! is_file($path)) {
             return false;
         }
@@ -102,6 +102,16 @@ final class AtlasAcosFreezeCommand extends Command
         }
 
         return false;
+    }
+
+    private function freezePath(): string
+    {
+        $path = $this->option('path');
+        if (is_string($path) && trim($path) !== '') {
+            return trim($path);
+        }
+
+        return storage_path(self::JSONL_RELATIVE_PATH);
     }
 
     /** @return array<string,mixed> */
@@ -130,6 +140,38 @@ final class AtlasAcosFreezeCommand extends Command
         ];
     }
 
+    /** @return array<string,mixed> */
+    public static function asiMetricMFreezePayload(): array
+    {
+        return [
+            'kind' => 'measure_freeze',
+            'measure_id' => AtlasAcosMSeriesCommand::MEASURE_ID,
+            'formula_version' => AtlasAcosMSeriesCommand::FORMULA_VERSION,
+            'formula' => AtlasAcosMSeriesCommand::FORMULA_TEXT,
+            'thresholds' => [
+                'denominator_min_turns_per_arm' => AtlasAcosMSeriesCommand::DENOMINATOR_MIN,
+                'raw_value_per_turn_must_be_positive' => true,
+            ],
+            'denominator_min' => AtlasAcosMSeriesCommand::DENOMINATOR_MIN,
+            'ttl_days' => 90,
+            'author_engine_id' => 'cursor-acos-max-elev-02',
+            'judge_engine_id' => 'codex-independent-measure-judge',
+            'series' => [
+                'id' => 'm_measured.v1',
+                'reader_command' => 'atlas:acos:m-series --json',
+                'default_input_path' => 'storage/app/atlas/evidence/acos-m-series-input.jsonl',
+                'registry_status' => 'pending_elev_20s',
+            ],
+            'components' => [
+                'context_component' => 'used_ratio_measured * (post_execution_utility / 100)',
+                'green_component' => 'green_run_pass_rate',
+                'rework_component' => 'rework_avoided / turns',
+            ],
+            'comparison' => 'M = value_per_turn_acos / value_per_turn_raw, grouped separately by window and mode (interactive|delegated).',
+            'dual_read_required' => false,
+        ];
+    }
+
     /** @return array<string,mixed>|null */
     private function payloadFromOption(): ?array
     {
@@ -150,6 +192,10 @@ final class AtlasAcosFreezeCommand extends Command
     /** @param array<string,mixed> $payload */
     private function recordDualRead(string $measureId, array $payload): int
     {
+        if (($payload['dual_read_required'] ?? true) === false) {
+            return self::SUCCESS;
+        }
+
         try {
             $thresholds = (array) ($payload['thresholds'] ?? []);
             $dual = [
