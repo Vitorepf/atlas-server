@@ -36,12 +36,14 @@ final class AtlasBrainPathYieldCommand extends Command
             $tail[] = [
                 'action_hint' => (string) ($row['action_hint'] ?? ''),
                 'result_kind' => (string) ($row['result_kind'] ?? ''),
+                'proven_real' => ($row['proven_real'] ?? null) === true,
             ];
         }
         foreach ($reflectionRows as $row) {
             $tail[] = [
                 'action_hint' => (string) (data_get($row, 'signals.0', '')),
                 'result_kind' => $this->mapReflectionKind((string) ($row['result_kind'] ?? '')),
+                'proven_real' => ($row['proven_real'] ?? null) === true,
             ];
         }
 

@@ -14,7 +14,7 @@ use Throwable;
  * Consumed by AtlasBrainCausalEffectGate + read-only path-yield surface.
  *
  * NO-SCALAR (mirrors AtlasBrainReflectionStream): stores raw facts only —
- * scope, task_id, action_hint, result_kind, evidence refs. No stored score.
+ * scope, task_id, action_hint, result_kind, proven_real, evidence refs. No stored score.
  */
 final class AtlasBrainPatternLearningLedger
 {
@@ -48,7 +48,7 @@ final class AtlasBrainPatternLearningLedger
     }
 
     /**
-     * @param  array<string,mixed>  $entry {scope, task_id, action_hint, result_kind, evidence_refs?}
+     * @param  array<string,mixed>  $entry {scope, task_id, action_hint, result_kind, proven_real?, evidence_refs?}
      * @return array<string,mixed>|null Written row, or null on fail-closed.
      */
     public function append(array $entry, ?int $at = null): ?array
@@ -70,6 +70,7 @@ final class AtlasBrainPatternLearningLedger
             'task_id' => $taskId,
             'action_hint' => $actionHint,
             'result_kind' => $resultKind,
+            'proven_real' => ($entry['proven_real'] ?? null) === true,
             'evidence_refs' => array_values(array_filter(
                 (array) ($entry['evidence_refs'] ?? []),
                 static fn ($ref): bool => is_string($ref) && trim($ref) !== '',

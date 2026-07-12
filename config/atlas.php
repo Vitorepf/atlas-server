@@ -2542,6 +2542,11 @@ return [
         // under leverage_first_origination_enabled + ATLAS_LOOP_MASTER_ENABLED + AtlasBrainMasterSwitch.
         'origination_queue_dedup_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_QUEUE_DEDUP_ENABLED', false),
 
+        // MAXN-04 — proven-yield origination. When armed under the leverage-first path, candidates are ordered
+        // by PathYieldEwma samples anchored in proven_real outcomes only; unknown-yield paths keep exploration
+        // priority over known low-yield paths. Default OFF keeps the existing leverage-ranked pick unchanged.
+        'origination_yield_enabled' => (bool) env('ATLAS_LOOP_ORIGINATION_YIELD_ENABLED', false),
+
         // CONTRACT-GAP ORIGINATION: when ON, the automated origination writer prompt
         // (AtlasLoopComprehensionOriginator::buildPrompt) surfaces interfaces declared in scope with ZERO
         // implementer (declared-but-unfulfilled contracts) as a high-leverage axis — architecture-completion,

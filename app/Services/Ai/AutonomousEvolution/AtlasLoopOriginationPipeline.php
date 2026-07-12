@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
 use App\Services\Engineering\EliteCompactionFreezeGuard;
@@ -156,7 +160,7 @@ final class AtlasLoopOriginationPipeline
     {
         $ranked = ($this->selector ?? new AtlasLoopCrossTypeLeverageSelector)->rankedForModel($model);
         $dropped = [];
-        $valid = []; // ordered [objective, rel] in leverage-ranked order (was: take first via ??=)
+        $valid = []; // ordered [objective, rel, yield_path] in leverage-ranked order (was: take first via ??=)
         foreach ($ranked as $candidate) {
             if (! is_array($candidate)) {
                 continue;
@@ -174,7 +178,7 @@ final class AtlasLoopOriginationPipeline
                 continue;
             }
 
-            $valid[] = [$objective, $rel];
+            $valid[] = [$objective, $rel, $this->yieldPathForCandidate($candidate)];
         }
 
         $this->appendLeverageDroppedCandidates($dropped);
@@ -185,6 +189,15 @@ final class AtlasLoopOriginationPipeline
         // queue => byte-identical. Composes BEFORE refusalAwarePick so both demotions stack.
         if ((bool) config('atlas.loop.origination_queue_dedup_enabled', false)) {
             $valid = self::queueAwareDemote($valid, $this->liveQueuedKeys());
+        }
+
+        $yieldPick = self::yieldAwarePick(
+            $valid,
+            $this->provenYieldByPath(),
+            (bool) config('atlas.loop.origination_yield_enabled', false),
+        );
+        if ($yieldPick !== null) {
+            $valid = [$yieldPick];
         }
 
         // ORIGINATION REFUSAL MEMORY (S215 — Discovery→Brain coupling): demote targets the brain has
@@ -263,6 +276,47 @@ final class AtlasLoopOriginationPipeline
     }
 
     /**
+     * Pure proven-yield selection over leverage-ranked candidates. Unknown-yield
+     * paths stay ahead of known low-yield paths to preserve exploration; known
+     * paths are ordered by proven_real EWMA only, never raw accept/refuse counts.
+     *
+     * @param  list<array{0:string,1:string,2?:string|null}>  $valid
+     * @param  array<string,array{ewma?:float,samples?:int}>  $yieldByPath
+     * @return array{0:string,1:string,2?:string|null}|null
+     */
+    public static function yieldAwarePick(array $valid, array $yieldByPath, bool $enabled): ?array
+    {
+        if ($valid === []) {
+            return null;
+        }
+        if (! $enabled || $yieldByPath === []) {
+            return $valid[0];
+        }
+
+        $unknown = [];
+        $known = [];
+        foreach ($valid as $index => $pair) {
+            $path = is_string($pair[2] ?? null) ? (string) $pair[2] : '';
+            if ($path === '' || ! isset($yieldByPath[$path])) {
+                $unknown[] = [$index, $pair];
+            } else {
+                $known[] = [$index, $pair, (float) ($yieldByPath[$path]['ewma'] ?? 0.0)];
+            }
+        }
+
+        if ($unknown !== []) {
+            return $unknown[0][1];
+        }
+        usort($known, static function (array $a, array $b): int {
+            $byYield = $b[2] <=> $a[2];
+
+            return $byYield !== 0 ? $byYield : ($a[0] <=> $b[0]);
+        });
+
+        return $known[0][1] ?? $valid[0];
+    }
+
+    /**
      * Canonical path key both the candidate side and the queue side reduce to, so the membership test can
      * never silently miss on a leading slash / backslash / './' prefix / surrounding whitespace. NO case-fold
      * (both sides derive case from the same real filesystem walk — folding would only risk a false collision).
@@ -311,6 +365,50 @@ final class AtlasLoopOriginationPipeline
         }
 
         return $keys;
+    }
+
+    private function yieldPathForCandidate(array $candidate): string
+    {
+        return match ((string) ($candidate['kind'] ?? '')) {
+            AtlasLoopComprehensionOriginationCandidates::KIND_ORPHAN_WIRING => 'pattern-design',
+            AtlasLoopComprehensionOriginationCandidates::KIND_DOC_GAP_CAPABILITY => 'frontier-harvest',
+            default => 'comprehension-deepening',
+        };
+    }
+
+    /** @return array<string,array{ewma:float,samples:int}> */
+    private function provenYieldByPath(): array
+    {
+        try {
+            $tail = [];
+            foreach (app(AtlasBrainPatternLearningLedger::class)->entries() as $row) {
+                $tail[] = [
+                    'action_hint' => (string) ($row['action_hint'] ?? ''),
+                    'result_kind' => (string) ($row['result_kind'] ?? ''),
+                    'proven_real' => ($row['proven_real'] ?? null) === true,
+                ];
+            }
+            foreach (app(AtlasBrainReflectionStream::class)->entries() as $row) {
+                $tail[] = [
+                    'action_hint' => (string) (data_get($row, 'signals.0', '')),
+                    'result_kind' => match ((string) ($row['result_kind'] ?? '')) {
+                        AtlasBrainReflectionStream::KIND_SUCCESS => AtlasBrainPatternLearningLedger::RESULT_ACCEPTED,
+                        AtlasBrainReflectionStream::KIND_BLOCKED => AtlasBrainPatternLearningLedger::RESULT_BLOCKED,
+                        AtlasBrainReflectionStream::KIND_CLEAN_NO_OP => AtlasBrainPatternLearningLedger::RESULT_NO_OP,
+                        default => AtlasBrainPatternLearningLedger::RESULT_REJECTED,
+                    },
+                    'proven_real' => ($row['proven_real'] ?? null) === true,
+                ];
+            }
+
+            return (array) data_get(
+                app(AtlasBrainPathYieldEwma::class)->compute($tail, app(AtlasBrainHintToPathTranslator::class)),
+                'by_path',
+                [],
+            );
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**

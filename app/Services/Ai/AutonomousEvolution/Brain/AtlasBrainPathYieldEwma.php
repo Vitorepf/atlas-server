@@ -20,7 +20,7 @@ final class AtlasBrainPathYieldEwma
     public const DEFAULT_ALPHA = 0.3;
 
     /**
-     * @param  list<array{action_hint?:string, result_kind?:string}>  $reflectionTail
+     * @param  list<array{action_hint?:string, result_kind?:string, proven_real?:bool}>  $reflectionTail
      * @return array{schema:string, alpha:float, by_path:array<string, array{ewma:float, samples:int}>}
      */
     public function compute(array $reflectionTail, AtlasBrainHintToPathTranslator $translator, float $alpha = self::DEFAULT_ALPHA): array
@@ -37,7 +37,10 @@ final class AtlasBrainPathYieldEwma
             if ($path === null) {
                 continue;
             }
-            $sampleYield = $kind === 'accepted' ? 1.0 : 0.0;
+            if (! array_key_exists('proven_real', $r)) {
+                continue;
+            }
+            $sampleYield = (($r['proven_real'] ?? false) === true && $kind === 'accepted') ? 1.0 : 0.0;
             if (! isset($state[$path])) {
                 $state[$path] = ['ewma' => $sampleYield, 'samples' => 1];
             } else {
