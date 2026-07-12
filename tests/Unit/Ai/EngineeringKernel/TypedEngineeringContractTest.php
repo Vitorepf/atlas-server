@@ -275,13 +275,39 @@ final class TypedEngineeringContractTest extends TestCase
             'outcome_hash' => hash('sha256', 'outcome'),
             'window' => '24h',
             'observed_at' => '2026-07-11T00:00:00+00:00',
-            'metrics' => ['escaped_defects' => 0],
+            'metrics' => ['status' => 'healthy', 'escaped_defects' => 0],
             'provenance' => ['source' => 'production'],
         ]);
         $receipt = OutcomeLearningReceipt::fromObservation($observation);
 
         $this->assertSame($observation->canonicalHash(), $receipt->observationHash);
         $this->assertSame('held_for_causal_adjudication', $receipt->status);
+    }
+
+    public function test_observation_requires_explicit_status_and_source(): void
+    {
+        $base = [
+            'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
+            'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
+            'window' => '24h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['escaped_defects' => 0], 'provenance' => ['source' => 'production'],
+        ];
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_status_required');
+        OutcomeObservation::fromArray($base);
+    }
+
+    public function test_observation_rejects_missing_observer_source_even_with_status(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_source_required');
+        OutcomeObservation::fromArray([
+            'schema_version' => 'atlas.outcome_observation.v1', 'run_id' => 'run', 'delivery_id' => 'delivery',
+            'release_hash' => hash('sha256', 'release'), 'order_hash' => hash('sha256', 'order'), 'outcome_hash' => hash('sha256', 'outcome'),
+            'window' => '24h', 'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'healthy'], 'provenance' => [],
+        ]);
     }
 
     public function test_observation_refuses_non_canonical_iso_timestamp(): void

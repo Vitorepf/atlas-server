@@ -34,6 +34,18 @@ final readonly class OutcomeObservation
             throw new InvalidArgumentException('observed_at_invalid');
         }
 
+        $metrics = CanonicalKernelPayload::requireArray($data, 'metrics');
+        if (! is_string($metrics['status'] ?? null) || trim($metrics['status']) === '') {
+            throw new InvalidArgumentException('outcome_observation_status_required');
+        }
+        $provenance = $data['provenance'] ?? null;
+        if (! is_array($provenance) || $provenance === []) {
+            throw new InvalidArgumentException('outcome_observation_source_required');
+        }
+        if (! is_string($provenance['source'] ?? null) || trim($provenance['source']) === '') {
+            throw new InvalidArgumentException('outcome_observation_source_required');
+        }
+
         return new self(
             schemaVersion: $schema,
             runId: CanonicalKernelPayload::requireString($data, 'run_id'),
@@ -43,8 +55,8 @@ final readonly class OutcomeObservation
             outcomeHash: CanonicalKernelPayload::requireHash($data, 'outcome_hash'),
             window: CanonicalKernelPayload::requireEnum($data, 'window', EngineeringOutcome::WINDOWS),
             observedAt: $observedAt,
-            metrics: CanonicalKernelPayload::requireArray($data, 'metrics'),
-            provenance: CanonicalKernelPayload::requireArray($data, 'provenance'),
+            metrics: $metrics,
+            provenance: $provenance,
         );
     }
 
