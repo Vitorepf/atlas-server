@@ -38,6 +38,8 @@ class AtlasDecideCostOutcomeRouter
 
     private const MULTK01_Z_90 = 1.644854;
 
+    private const MAXK03_FORMULA_VERSION = 'atlas.decide.multi_objective_route.v1';
+
     /**
      * @param  Closure(mixed): ?string  $canonicalProviderKey
      * @param  Closure(?string, mixed): ?string  $canonicalModelForProvider
@@ -130,18 +132,34 @@ class AtlasDecideCostOutcomeRouter
             ]);
         }
 
-        usort($scorePreserving, static function (array $a, array $b): int {
-            $cost = ((float) ($a['average_cost_estimate'] ?? INF)) <=> ((float) ($b['average_cost_estimate'] ?? INF));
-            if ($cost !== 0) {
-                return $cost;
-            }
-            $score = ((float) ($b['average_score'] ?? 0.0)) <=> ((float) ($a['average_score'] ?? 0.0));
-            if ($score !== 0) {
-                return $score;
-            }
+        if ((bool) ($cfg['multi_objective_enabled'] ?? false)) {
+            $scorePreserving = $this->withMultiObjectiveScores($scorePreserving, $cfg);
+            usort($scorePreserving, static function (array $a, array $b): int {
+                $objective = ((float) data_get($b, 'multi_objective.score', 0.0)) <=> ((float) data_get($a, 'multi_objective.score', 0.0));
+                if ($objective !== 0) {
+                    return $objective;
+                }
+                $score = ((float) ($b['average_score'] ?? 0.0)) <=> ((float) ($a['average_score'] ?? 0.0));
+                if ($score !== 0) {
+                    return $score;
+                }
 
-            return ((int) ($b['certified_count'] ?? 0)) <=> ((int) ($a['certified_count'] ?? 0));
-        });
+                return ((int) ($b['certified_count'] ?? 0)) <=> ((int) ($a['certified_count'] ?? 0));
+            });
+        } else {
+            usort($scorePreserving, static function (array $a, array $b): int {
+                $cost = ((float) ($a['average_cost_estimate'] ?? INF)) <=> ((float) ($b['average_cost_estimate'] ?? INF));
+                if ($cost !== 0) {
+                    return $cost;
+                }
+                $score = ((float) ($b['average_score'] ?? 0.0)) <=> ((float) ($a['average_score'] ?? 0.0));
+                if ($score !== 0) {
+                    return $score;
+                }
+
+                return ((int) ($b['certified_count'] ?? 0)) <=> ((int) ($a['certified_count'] ?? 0));
+            });
+        }
 
         $selected = $scorePreserving[0];
         $fallbackPool = $scorePreserving;
@@ -182,7 +200,14 @@ class AtlasDecideCostOutcomeRouter
             ? (bool) config('atlas.patamar4.adml_cost_outcome.enabled', false)
             : false;
 
-        return $this->floors()->atlasDecideCostOutcomeConfig($enabled);
+        $cfg = $this->floors()->atlasDecideCostOutcomeConfig($enabled);
+        $multiObjective = (array) config('atlas.patamar4.adml_cost_outcome.multi_objective', []);
+
+        return array_replace($cfg, [
+            'multi_objective_enabled' => (bool) ($multiObjective['enabled'] ?? false),
+            'multi_objective_risk_class' => (string) ($multiObjective['risk_class'] ?? 'default'),
+            'multi_objective_weights' => $this->operatorAuthoredMultiObjectiveWeights((array) ($multiObjective['weights'] ?? [])),
+        ]);
     }
 
     /** @return array<string,mixed> */
@@ -274,6 +299,7 @@ class AtlasDecideCostOutcomeRouter
                 'certified_receipt_id' => $entry['certified_receipt_id'] ?? null,
                 'score_total' => $score,
                 'cost_estimate' => $entry['cost_usd'] ?? null,
+                'latency_ms' => $entry['latency_ms'] ?? null,
                 'tokens_used' => $entry['tokens_used'] ?? null,
                 'quality_score' => $quality,
                 'valid_for_ranking' => ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS && $score !== null,
@@ -309,6 +335,8 @@ class AtlasDecideCostOutcomeRouter
                 'score_sum' => 0.0,
                 'cost_sum' => 0.0,
                 'cost_count' => 0,
+                'latency_sum' => 0,
+                'latency_count' => 0,
                 'token_sum' => 0,
                 'token_count' => 0,
                 'zero_weight_outcome_count' => 0,
@@ -355,6 +383,10 @@ class AtlasDecideCostOutcomeRouter
                 $groups[$key]['token_sum'] += (int) $entry['tokens_used'];
                 $groups[$key]['token_count']++;
             }
+            if (isset($entry['latency_ms']) && is_numeric($entry['latency_ms']) && (int) $entry['latency_ms'] >= 0) {
+                $groups[$key]['latency_sum'] += (int) $entry['latency_ms'];
+                $groups[$key]['latency_count']++;
+            }
         }
 
         $candidates = [];
@@ -397,6 +429,8 @@ class AtlasDecideCostOutcomeRouter
                 'average_score' => $averageScore,
                 'average_cost_estimate' => $averageCost,
                 'cost_sample_count' => (int) $group['cost_count'],
+                'average_latency_ms' => (int) $group['latency_count'] > 0 ? (int) round((int) $group['latency_sum'] / (int) $group['latency_count']) : null,
+                'latency_sample_count' => (int) $group['latency_count'],
                 'average_tokens_used' => (int) $group['token_count'] > 0 ? (int) round((int) $group['token_sum'] / (int) $group['token_count']) : null,
                 'zero_weight_outcome_count' => (int) $group['zero_weight_outcome_count'],
                 'confidence' => $this->confidenceFor($certifiedCount),
@@ -455,6 +489,68 @@ class AtlasDecideCostOutcomeRouter
             ],
             'lower_bound' => round(max(0.0, $mean - $radius), 6),
             'upper_bound' => round(min(1.0, $mean + $radius), 6),
+        ];
+    }
+
+    /**
+     * MAXK-03 — operator-authored weights only. Caller-supplied metrics on
+     * entries/candidates never influence this score.
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @param  array<string,mixed>  $cfg
+     * @return list<array<string,mixed>>
+     */
+    private function withMultiObjectiveScores(array $candidates, array $cfg): array
+    {
+        $weights = $this->operatorAuthoredMultiObjectiveWeights((array) ($cfg['multi_objective_weights'] ?? []));
+        $riskClass = (string) ($cfg['multi_objective_risk_class'] ?? 'default');
+
+        return array_values(array_map(function (array $candidate) use ($weights, $riskClass): array {
+            $scoreComponent = max(0.0, min(1.0, ((float) ($candidate['average_score'] ?? 0.0)) / 100.0));
+            $cost = $candidate['average_cost_estimate'] ?? null;
+            $latency = $candidate['average_latency_ms'] ?? null;
+            $costComponent = is_numeric($cost) ? 1.0 / (1.0 + max(0.0, (float) $cost)) : 0.0;
+            $latencyComponent = is_numeric($latency) ? 1.0 / (1.0 + (max(0.0, (float) $latency) / 1000.0)) : 0.0;
+            $score = ($scoreComponent * $weights['success'])
+                + ($costComponent * $weights['cost'])
+                + ($latencyComponent * $weights['latency']);
+
+            $candidate['multi_objective'] = [
+                'schema_version' => self::MAXK03_FORMULA_VERSION,
+                'risk_class' => $riskClass,
+                'source' => 'operator_config',
+                'caller_supplied_weights_allowed' => false,
+                'weights' => $weights,
+                'components' => [
+                    'success' => round($scoreComponent, 6),
+                    'cost' => round($costComponent, 6),
+                    'latency' => round($latencyComponent, 6),
+                ],
+                'score' => round($score, 6),
+            ];
+
+            return $candidate;
+        }, $candidates));
+    }
+
+    /**
+     * @param  array<string,mixed>  $weights
+     * @return array{success:float,cost:float,latency:float}
+     */
+    private function operatorAuthoredMultiObjectiveWeights(array $weights): array
+    {
+        $success = isset($weights['success']) && is_numeric($weights['success']) ? max(0.0, (float) $weights['success']) : 0.0;
+        $cost = isset($weights['cost']) && is_numeric($weights['cost']) ? max(0.0, (float) $weights['cost']) : 1.0;
+        $latency = isset($weights['latency']) && is_numeric($weights['latency']) ? max(0.0, (float) $weights['latency']) : 0.0;
+        $sum = $success + $cost + $latency;
+        if ($sum <= 0.0) {
+            return ['success' => 0.0, 'cost' => 1.0, 'latency' => 0.0];
+        }
+
+        return [
+            'success' => round($success / $sum, 6),
+            'cost' => round($cost / $sum, 6),
+            'latency' => round($latency / $sum, 6),
         ];
     }
 

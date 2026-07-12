@@ -55,7 +55,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
     }
 
     /** @return array<string,mixed> */
-    private function certifiedEntry(string $provider, string $model, float $score = 90.0, float $cost = 0.05, string $runId = 'r1'): array
+    private function certifiedEntry(string $provider, string $model, float $score = 90.0, float $cost = 0.05, string $runId = 'r1', ?int $latencyMs = null): array
     {
         return [
             'provider' => $provider,
@@ -66,6 +66,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
             'hard_failures' => [],
             'score_total' => $score,
             'cost_estimate' => $cost,
+            'latency_ms' => $latencyMs,
             'recorded_at' => '2026-06-01T00:00:00+00:00',
             'run_id' => $runId,
             'evidence_source' => 'forge_rivals_provider_performance_ledger',
@@ -378,6 +379,110 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
         $this->assertSame('ok', data_get($route, 'selected.uncertainty_interval.status'));
     }
 
+    public function test_maxk03_default_multi_objective_weights_preserve_cost_first_selection(): void
+    {
+        config([
+            'atlas.patamar4.adml_cost_outcome.enabled' => true,
+            'atlas.patamar4.adml_cost_outcome.multi_objective' => [
+                'enabled' => true,
+                'risk_class' => 'default',
+                'weights' => ['success' => 0.0, 'cost' => 1.0, 'latency' => 0.0],
+            ],
+        ]);
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService();
+        $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
+        foreach (range(1, 3) as $i) {
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'codex-maxk03-'.$i,
+                'quality_score' => 0.91,
+                'cost_usd' => 0.05,
+                'latency_ms' => 3000,
+                'entry_hash' => 'codex-maxk03-'.$i,
+            ]);
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => 'claude_cli',
+                'model' => 'opus',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'claude-maxk03-'.$i,
+                'quality_score' => 0.91,
+                'cost_usd' => 0.10,
+                'latency_ms' => 100,
+                'entry_hash' => 'claude-maxk03-'.$i,
+            ]);
+        }
+
+        $route = $this->routerWithFeedback($feedback)->costOutcomeRoute('backend', 'builder', 'laravel', 'schema.v1');
+
+        $this->assertSame('ready', $route['status']);
+        $this->assertSame('codex_cli', data_get($route, 'selected.provider'));
+        $this->assertSame(1.0, data_get($route, 'selected.multi_objective.weights.cost'));
+        $this->assertSame('operator_config', data_get($route, 'selected.multi_objective.source'));
+    }
+
+    public function test_maxk03_latency_weight_can_choose_faster_route_and_ignores_caller_weights(): void
+    {
+        config([
+            'atlas.patamar4.adml_cost_outcome.enabled' => true,
+            'atlas.patamar4.adml_cost_outcome.multi_objective' => [
+                'enabled' => true,
+                'risk_class' => 'interactive',
+                'weights' => ['success' => 0.0, 'cost' => 0.0, 'latency' => 1.0],
+            ],
+        ]);
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService();
+        $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
+        foreach (range(1, 3) as $i) {
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'codex-latency-'.$i,
+                'quality_score' => 0.91,
+                'cost_usd' => 0.01,
+                'latency_ms' => 4000,
+                'entry_hash' => 'codex-latency-'.$i,
+                'multi_objective' => ['score' => 999.0, 'weights' => ['latency' => 0.0]],
+            ]);
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => 'claude_cli',
+                'model' => 'opus',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'claude-latency-'.$i,
+                'quality_score' => 0.91,
+                'cost_usd' => 0.20,
+                'latency_ms' => 100,
+                'entry_hash' => 'claude-latency-'.$i,
+            ]);
+        }
+
+        $route = $this->routerWithFeedback($feedback)->costOutcomeRoute('backend', 'builder', 'laravel', 'schema.v1');
+
+        $this->assertSame('ready', $route['status']);
+        $this->assertSame('claude_cli', data_get($route, 'selected.provider'));
+        $this->assertSame('interactive', data_get($route, 'selected.multi_objective.risk_class'));
+        $this->assertSame(1.0, data_get($route, 'selected.multi_objective.weights.latency'));
+        $this->assertFalse(data_get($route, 'selected.multi_objective.caller_supplied_weights_allowed'));
+    }
+
     public function test_unverified_live_successes_do_not_change_cost_outcome_candidate_score_or_cost(): void
     {
         $router = $this->buildRouter();
@@ -437,5 +542,16 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
         $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::ZERO_WEIGHT_MEASURE_ID, $entry['series'] ?? null);
         $this->assertSame('computed_reader_field', $entry['source_type'] ?? null);
         $this->assertSame('freeze:atlas.decide.zero_weight_outcomes.v1', $entry['ttl_source'] ?? null);
+    }
+
+    private function routerWithFeedback(AtlasDecideLiveOutcomeFeedbackService $feedback): AtlasDecideCostOutcomeRouter
+    {
+        return new AtlasDecideCostOutcomeRouter(
+            $feedback,
+            static fn ($p) => is_string($p) && $p !== '' ? $p : null,
+            static fn ($provider, $model) => is_string($model) && $model !== '' ? $model : null,
+            static fn ($p) => in_array($p, ['codex_cli', 'claude_cli', 'minimax'], true),
+            static fn ($v) => is_numeric($v) ? (float) $v : null,
+        );
     }
 }

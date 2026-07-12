@@ -2443,6 +2443,15 @@ return [
             'max_score_drop' => max(0.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MAX_SCORE_DROP', 3.0)),
             'require_measured_cost' => (bool) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_REQUIRE_MEASURED_COST', true),
             'min_cost_samples' => max(1, (int) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MIN_COST_SAMPLES', 1)),
+            'multi_objective' => [
+                'enabled' => (bool) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MULTI_OBJECTIVE_ENABLED', false),
+                'risk_class' => (string) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_MULTI_OBJECTIVE_RISK_CLASS', 'default'),
+                'weights' => [
+                    'success' => max(0.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_WEIGHT_SUCCESS', 0.0)),
+                    'cost' => max(0.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_WEIGHT_COST', 1.0)),
+                    'latency' => max(0.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_WEIGHT_LATENCY', 0.0)),
+                ],
+            ],
         ],
         'adml_provider_aliases' => [
             'anthropic_claude' => 'claude_cli',
