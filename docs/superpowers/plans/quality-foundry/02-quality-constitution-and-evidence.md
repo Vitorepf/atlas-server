@@ -142,7 +142,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 **Allowed files:** listed Kernel acceptance files, existing Workcell certification, Verification Court evidence contract and their tests.
 
 - [x] Write RED tests for missing unit/integration/contract/E2E/security/privacy/performance/accessibility/chaos/recovery/replay/static/compatibility/migration/rollback/outcome evidence when the risk/applicability policy requires it.
-- [ ] Write RED tests for stale command results, zero assertions, fixed smoke, lint-as-suite, evidence whose file/spec/order hash differs, and author=verifier/final-certifier.
+- [x] Write RED tests for stale command results, zero assertions, fixed smoke, lint-as-suite, evidence whose file/spec/order hash differs, and author=verifier/final-certifier.
 - [x] Add an applicability matrix keyed by role, risk and delivery facts; every skipped evidence type requires the same N/A proof contract.
 - [x] Bind raw criteria, frozen spec/world snapshot, changed-file hashes, provider/workspace/release receipts, commands/exit codes/timeouts/assertions, repair/replay/regression and role dispositions into one deterministic acceptance hash.
 - [x] Require builder, verifier and final certifier contexts to be independent; for R4/R5 use different model families when available, otherwise hold with `independent_verifier_unavailable`.
