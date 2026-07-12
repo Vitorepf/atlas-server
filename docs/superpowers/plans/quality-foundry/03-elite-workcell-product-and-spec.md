@@ -217,7 +217,7 @@ Circuit breakers are fixed:
 - [x] Assert identical ProductIntent/spec/world hashes, risk/depth policy, 22-role membership, evidence floor and Kernel order; only operator/duration/topology fields may differ.
 - [x] Inject contradiction, spec drift, ownership collision, provider outage, verifier outage and crash; assert the same fail-closed decision in every mode.
 - [x] Assert zero direct provider, workspace, acceptance or release bypass from Product/Spec/Workcell paths.
-- [ ] Produce a readiness manifest with live receipt/test refs and no unresolved parity mutation.
+- [x] Produce a readiness manifest with live receipt/test refs and no unresolved parity mutation.
 
 **GREEN acceptance:** the complete pre-execution chain is deterministic, replayable and mode-parity; no Court or Workcell can issue a comparative claim or terminal release state.
 

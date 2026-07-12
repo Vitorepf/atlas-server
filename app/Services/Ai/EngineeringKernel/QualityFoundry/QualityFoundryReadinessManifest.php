@@ -140,11 +140,39 @@ final class QualityFoundryReadinessManifest
             'packets' => $plans,
             'open_items' => $openItems,
             'evidence_boundary' => 'checklist_audit_only_runtime_evidence_must_be_verified_separately',
+            'verification_refs' => $this->verificationRefs(),
         ];
         $payload['manifest_hash'] = CanonicalKernelPayload::hash($payload);
         $payload['generated_at'] = now()->toIso8601String();
 
         return $payload;
+    }
+
+    /** @return array<string,mixed> */
+    private function verificationRefs(): array
+    {
+        $paths = [
+            'tests/Unit/Ai/EngineeringKernel/QualityFoundryModeParityServiceTest.php',
+            'tests/Unit/Ai/EngineeringKernel/ExecutionOrderModeParityTest.php',
+            'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
+            'tests/Feature/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeServiceTest.php',
+        ];
+        $refs = array_map(function (string $path): array {
+            $absolute = $this->absolutePath($path);
+
+            return [
+                'kind' => 'test_ref',
+                'path' => $path,
+                'exists' => is_file($absolute),
+                'sha256' => is_file($absolute) ? hash_file('sha256', $absolute) : null,
+            ];
+        }, $paths);
+
+        return [
+            'status' => collect($refs)->every(fn (array $ref): bool => $ref['exists'] === true) ? 'refs_present' : 'refs_missing',
+            'test_command' => 'php artisan test tests/Unit/Ai/EngineeringKernel/QualityFoundryModeParityServiceTest.php tests/Unit/Ai/EngineeringKernel/ExecutionOrderModeParityTest.php tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php tests/Feature/Ai/AgenticWorkcell/AtlasAgenticWorkcellRuntimeServiceTest.php',
+            'refs' => $refs,
+        ];
     }
 
     private function absolutePath(string $path): string

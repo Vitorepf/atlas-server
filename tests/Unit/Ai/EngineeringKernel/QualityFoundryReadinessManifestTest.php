@@ -23,6 +23,9 @@ final class QualityFoundryReadinessManifestTest extends TestCase
             count($manifest['open_items']),
         );
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $manifest['manifest_hash']);
+        self::assertSame('refs_present', $manifest['verification_refs']['status']);
+        self::assertNotEmpty($manifest['verification_refs']['refs']);
+        self::assertTrue(collect($manifest['verification_refs']['refs'])->every(fn (array $ref): bool => $ref['exists'] && is_string($ref['sha256'])));
     }
 
     public function test_manifest_hash_is_stable_and_each_packet_has_a_truthful_breakdown(): void
