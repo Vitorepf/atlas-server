@@ -212,9 +212,9 @@ Circuit breakers are fixed:
 
 **Allowed files:** cross-mode fixture tests and minimal adapters in the families above; no new orchestration runtime.
 
-- [ ] Write RED end-to-end parity tests that fail on divergent intent/spec/world/order hashes, roster/evidence depth or mode-specific fail-open behavior.
-- [ ] Build R0, R3 and R5 fixtures and run each through Dev, Forge and Autônomos entry adapters.
-- [ ] Assert identical ProductIntent/spec/world hashes, risk/depth policy, 22-role membership, evidence floor and Kernel order; only operator/duration/topology fields may differ.
+- [x] Write RED end-to-end parity tests that fail on divergent intent/spec/world/order hashes, roster/evidence depth or mode-specific fail-open behavior.
+- [x] Build R0, R3 and R5 fixtures and run each through Dev, Forge and Autônomos entry adapters.
+- [x] Assert identical ProductIntent/spec/world hashes, risk/depth policy, 22-role membership, evidence floor and Kernel order; only operator/duration/topology fields may differ.
 - [ ] Inject contradiction, spec drift, ownership collision, provider outage, verifier outage and crash; assert the same fail-closed decision in every mode.
 - [ ] Assert zero direct provider, workspace, acceptance or release bypass from Product/Spec/Workcell paths.
 - [ ] Produce a readiness manifest with live receipt/test refs and no unresolved parity mutation.
