@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\Spec;
 
 use App\Services\Ai\EngineeringKernel\TrustLevel;
-use App\Services\Ai\Product\AtlasProductTruthCompilerService;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Product\AtlasProductTruthCompilerService;
 
 /**
  * Engineering Kernel adapter: promotes the real AtlasDev spec machinery through the sovereign spec

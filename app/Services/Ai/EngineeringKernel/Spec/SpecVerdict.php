@@ -25,8 +25,8 @@ final readonly class SpecVerdict
     public const HOLD = 'hold';
 
     /**
-     * @param  string  $status                        one of FREEZE|REVISE|REFUSE|HOLD
-     * @param  list<string>  $gaps                     invariant ids / findings that blocked freeze (empty iff FREEZE)
+     * @param  string  $status  one of FREEZE|REVISE|REFUSE|HOLD
+     * @param  list<string>  $gaps  invariant ids / findings that blocked freeze (empty iff FREEZE)
      * @param  array<string,array{status:string,detail:string}>  $invariants  per-floor audit trail
      */
     public function __construct(

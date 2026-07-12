@@ -22,11 +22,11 @@ final readonly class CertVerdict
     public const REVIEW = 'review';
 
     /**
-     * @param  string  $status              one of PROMOTE|HOLD|REFUSE|REVIEW
-     * @param  list<string>  $blockers       invariant ids that did not pass (empty iff PROMOTE)
+     * @param  string  $status  one of PROMOTE|HOLD|REFUSE|REVIEW
+     * @param  list<string>  $blockers  invariant ids that did not pass (empty iff PROMOTE)
      * @param  array<string,array{status:string,detail:string}>  $invariants  per-invariant audit trail
-     * @param  string  $witnessSet          the witness-set descriptor for the trust level
-     * @param  string|null  $receiptRef      pointer to the sealed receipt, once written
+     * @param  string  $witnessSet  the witness-set descriptor for the trust level
+     * @param  string|null  $receiptRef  pointer to the sealed receipt, once written
      */
     public function __construct(
         public string $status,

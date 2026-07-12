@@ -4,6 +4,73 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel\Adapters;
 
+use App\Services\Ai\Aemor\AtlasAemorCertificationService;
+use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellCertificationService;
+use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionCertificationService;
+use App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionCertificationService;
+use App\Services\Ai\Compounding\AtlasTemporalCertificationService;
+use App\Services\Ai\Context\AtlasContextQualityCertificationService;
+use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceCertificationService;
+use App\Services\Ai\ConversationOps\AtlasConversationOperationsCertificationService;
+use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryCertificationService;
+use App\Services\Ai\LongHorizon\AtlasTeosFinalCertificationService;
+use App\Services\Ai\LongHorizon\AtlasTeosIncrement2CertificationService;
+use App\Services\Ai\LongHorizon\AtlasTeosReadinessCertificationService;
+use App\Services\Ai\LongHorizon\LongHorizonContinuityCertificationService;
+use App\Services\Ai\Mission\MissionCertificationService;
+use App\Services\Ai\Obra\AtlasObraCertificationService;
+use App\Services\Ai\PersistentContext\AtlasPersistentContextCertificationService;
+use App\Services\Ai\Product\AtlasAiProductCertificationService;
+use App\Services\Ai\Product\AtlasAiRuntimeUxCertificationService;
+use App\Services\Ai\Product\AtlasProductDeliveryCertificationService;
+use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
+use App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopCertificationService;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRunCertificationService;
+use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
+use App\Services\Ai\Programming\AtlasForgeRuntimeCertificationService;
+use App\Services\Ai\Programming\DevForgeRobustFlowCertificationService;
+use App\Services\Ai\Programming\Forge\Qa\ForgeObraCertificationService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
+use App\Services\Ai\ProgrammingRuntime\AtlasProgrammingFinalCertificationService;
+use App\Services\Ai\RealitySandbox\AtlasAutonomousRealitySandboxCertificationService;
+use App\Services\Ai\Router\AtlasAiHyperflowCertificationService;
+use App\Services\Ai\RouterRuntime\AtlasDesktopHyperflowIntegrationCertificationService;
+use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticCostImportRuntimeCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticWorkProductCollectionCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspaceCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernanceApprovalCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskQueueLeaseCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkerTaskEligibilityCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceCertificationService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCertificationService;
+use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeCertificationService;
+use App\Services\Ai\SelfConstruction\Support\AgentValidationGateCertificationService;
+use App\Services\Ai\SelfConstruction\Support\AtlasSelfProgrammingSafetyContractCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentCycleCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AaeosL7CompletionCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RealCycleCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopChaosCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanDeliveryCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchStressCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSystemCertificationService;
+use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipLiveCycleCertificationService;
+use App\Services\Ai\StrategicReality\AtlasStrategicRealityCertificationService;
+use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionCertificationService;
+use App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService;
+use App\Services\Ai\Vox\Gate\VoxV5CertificationService;
+use App\Services\Ai\Vox\Gate\VoxV68CertificationService;
+use App\Services\Ai\Vox\Gate\VoxV6CertificationService;
+use App\Services\Engineering\AtlasSoftwareTwinVerifiedEvolutionCertificationService;
+
 /**
  * OBRA #5 S0 — ledger deterministico de classificacao dos *CertificationService.
  *
@@ -20,83 +87,83 @@ namespace App\Services\Ai\EngineeringKernel\Adapters;
 final class CertifierClassificationLedger
 {
     public const A_DELIVERY = [
-        \App\Services\Ai\Obra\AtlasObraCertificationService::class,
-        \App\Services\Ai\Programming\Forge\Qa\ForgeObraCertificationService::class,
+        AtlasObraCertificationService::class,
+        ForgeObraCertificationService::class,
     ];
 
     public const B_STATE = [
         // Reclassificado 05/07: certify() sem argumentos rodando smokes do runtime AVER
         // = auditor de ESTADO, nao juiz de entrega (a 1a classificacao errou; leitura direta corrigiu).
-        \App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionCertificationService::class,
-        \App\Services\Ai\Aemor\AtlasAemorCertificationService::class,
-        \App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellCertificationService::class,
-        \App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionCertificationService::class,
-        \App\Services\Ai\AutonomousWorkExecution\AtlasAutonomousWorkExecutionCertificationService::class,
-        \App\Services\Ai\Compounding\AtlasTemporalCertificationService::class,
-        \App\Services\Ai\Context\AtlasContextQualityCertificationService::class,
-        \App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceCertificationService::class,
-        \App\Services\Ai\ConversationOps\AtlasConversationOperationsCertificationService::class,
-        \App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryCertificationService::class,
-        \App\Services\Ai\LongHorizon\AtlasTeosFinalCertificationService::class,
-        \App\Services\Ai\LongHorizon\AtlasTeosIncrement2CertificationService::class,
-        \App\Services\Ai\LongHorizon\AtlasTeosReadinessCertificationService::class,
-        \App\Services\Ai\LongHorizon\LongHorizonContinuityCertificationService::class,
-        \App\Services\Ai\Mission\MissionCertificationService::class,
-        \App\Services\Ai\PersistentContext\AtlasPersistentContextCertificationService::class,
-        \App\Services\Ai\Product\AtlasAiProductCertificationService::class,
-        \App\Services\Ai\Product\AtlasAiRuntimeUxCertificationService::class,
-        \App\Services\Ai\Product\AtlasProductDeliveryCertificationService::class,
-        \App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService::class,
-        \App\Services\Ai\Programming\AtlasDev\Runtime\AtlasDevDesktopCertificationService::class,
-        \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevRunCertificationService::class,
-        \App\Services\Ai\Programming\AtlasForgeContinuumCertificationService::class,
-        \App\Services\Ai\Programming\AtlasForgeRuntimeCertificationService::class,
-        \App\Services\Ai\Programming\DevForgeRobustFlowCertificationService::class,
-        \App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService::class,
-        \App\Services\Ai\ProgrammingRuntime\AtlasProgrammingFinalCertificationService::class,
-        \App\Services\Ai\RealitySandbox\AtlasAutonomousRealitySandboxCertificationService::class,
-        \App\Services\Ai\Router\AtlasAiHyperflowCertificationService::class,
-        \App\Services\Ai\RouterRuntime\AtlasDesktopHyperflowIntegrationCertificationService::class,
-        \App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AgentExecution\MultiAgentCycleCertificationService::class,
-        \App\Services\Ai\StrategicReality\AtlasStrategicRealityCertificationService::class,
-        \App\Services\Ai\Voice\AtlasVoiceRuntimeCertificationService::class,
-        \App\Services\Engineering\AtlasSoftwareTwinVerifiedEvolutionCertificationService::class,
+        AtlasVerifiedExecutionCertificationService::class,
+        AtlasAemorCertificationService::class,
+        AtlasAgenticWorkcellCertificationService::class,
+        AtlasAutonomousEvolutionCertificationService::class,
+        AtlasAutonomousWorkExecutionCertificationService::class,
+        AtlasTemporalCertificationService::class,
+        AtlasContextQualityCertificationService::class,
+        AtlasContextIntelligenceCertificationService::class,
+        AtlasConversationOperationsCertificationService::class,
+        AtlasIntelligenceFactoryCertificationService::class,
+        AtlasTeosFinalCertificationService::class,
+        AtlasTeosIncrement2CertificationService::class,
+        AtlasTeosReadinessCertificationService::class,
+        LongHorizonContinuityCertificationService::class,
+        MissionCertificationService::class,
+        AtlasPersistentContextCertificationService::class,
+        AtlasAiProductCertificationService::class,
+        AtlasAiRuntimeUxCertificationService::class,
+        AtlasProductDeliveryCertificationService::class,
+        AtlasCodeEnterpriseCertificationService::class,
+        AtlasDevDesktopCertificationService::class,
+        DevRunCertificationService::class,
+        AtlasForgeContinuumCertificationService::class,
+        AtlasForgeRuntimeCertificationService::class,
+        DevForgeRobustFlowCertificationService::class,
+        AtlasFrontendRunCertificationService::class,
+        AtlasProgrammingFinalCertificationService::class,
+        AtlasAutonomousRealitySandboxCertificationService::class,
+        AtlasAiHyperflowCertificationService::class,
+        AtlasDesktopHyperflowIntegrationCertificationService::class,
+        AtlasRuntimeEfficiencyGovernorCertificationService::class,
+        MultiAgentCycleCertificationService::class,
+        AtlasStrategicRealityCertificationService::class,
+        AtlasVoiceRuntimeCertificationService::class,
+        AtlasSoftwareTwinVerifiedEvolutionCertificationService::class,
     ];
 
     public const C_PARKED = [
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AaeosL7CompletionCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Ap786RealCycleCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusLoopOperationalCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopAutonomyCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\LoopChaosCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\PlanDeliveryCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchStressCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\StewardshipBranchSystemCertificationService::class,
-        \App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipLiveCycleCertificationService::class,
+        AaeosL7CompletionCertificationService::class,
+        Ap786RealCycleCertificationService::class,
+        AreaFocusLoopCertificationService::class,
+        AreaFocusLoopOperationalCertificationService::class,
+        LoopAutonomyCertificationService::class,
+        LoopChaosCertificationService::class,
+        PlanDeliveryCertificationService::class,
+        StewardshipBranchStressCertificationService::class,
+        StewardshipBranchSystemCertificationService::class,
+        StewardshipLiveCycleCertificationService::class,
     ];
 
     public const D_ISOLATED = [
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneExecutionWorkspaceCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneGovernanceApprovalCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneMultiAgentLoopCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneRuntimePilotCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskQueueLeaseCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneWorkerTaskEligibilityCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentDispatchPlannerCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentMergeReviewCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeEvidenceCertificationService::class,
-        \App\Services\Ai\SelfConstruction\ControlPlane\AgentRuntimeRegistryCertificationService::class,
-        \App\Services\Ai\SelfConstruction\Support\AgentValidationGateCertificationService::class,
-        \App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionRealProviderSmokeCertificationService::class,
-        \App\Services\Ai\SelfConstruction\Support\AtlasSelfProgrammingSafetyContractCertificationService::class,
-        \App\Services\Ai\Vox\Gate\VoxV5CertificationService::class,
-        \App\Services\Ai\Vox\Gate\VoxV68CertificationService::class,
-        \App\Services\Ai\Vox\Gate\VoxV6CertificationService::class,
+        AgentControlPlaneAdapterExecutionRuntimeBoundaryCertificationService::class,
+        AgentControlPlaneAutomaticCostImportRuntimeCertificationService::class,
+        AgentControlPlaneAutomaticWorkProductCollectionCertificationService::class,
+        AgentControlPlaneExecutionWorkspaceCertificationService::class,
+        AgentControlPlaneGovernanceApprovalCertificationService::class,
+        AgentControlPlaneMultiAgentLoopCertificationService::class,
+        AgentControlPlaneRuntimePilotCertificationService::class,
+        AgentControlPlaneTaskQueueLeaseCertificationService::class,
+        AgentControlPlaneWorkerTaskEligibilityCertificationService::class,
+        AgentDispatchPlannerCertificationService::class,
+        AgentMergeReviewCertificationService::class,
+        AgentRuntimeEvidenceCertificationService::class,
+        AgentRuntimeRegistryCertificationService::class,
+        AgentValidationGateCertificationService::class,
+        AtlasSelfConstructionRealProviderSmokeCertificationService::class,
+        AtlasSelfProgrammingSafetyContractCertificationService::class,
+        VoxV5CertificationService::class,
+        VoxV68CertificationService::class,
+        VoxV6CertificationService::class,
     ];
 
     /** @return array<class-string, string> */

@@ -37,15 +37,33 @@ final class QualityFoundryCapabilityReadinessService
         ];
 
         $blockers = [];
-        if (! $checks['fact_family_coverage']) $blockers[] = 'fact_family_coverage_missing';
-        if (! $checks['workspace_isolation']) $blockers[] = 'workspace_isolation_invalid';
-        if (! $checks['temporal_freshness']) $blockers[] = 'temporal_freshness_invalid';
-        if (! $checks['calibration']) $blockers[] = 'calibration_invalid';
-        if (! $checks['snapshot_determinism']) $blockers[] = 'snapshot_determinism_invalid';
-        if (! $checks['no_unknown_critical_fact']) $blockers[] = 'unknown_critical_facts';
-        if (! $checks['quality_first_selection']) $blockers[] = 'quality_first_selection_invalid';
-        if (! $checks['route_replay']) $blockers[] = 'route_replay_invalid';
-        if (! $checks['no_claim_writer']) $blockers[] = 'claim_writer_present';
+        if (! $checks['fact_family_coverage']) {
+            $blockers[] = 'fact_family_coverage_missing';
+        }
+        if (! $checks['workspace_isolation']) {
+            $blockers[] = 'workspace_isolation_invalid';
+        }
+        if (! $checks['temporal_freshness']) {
+            $blockers[] = 'temporal_freshness_invalid';
+        }
+        if (! $checks['calibration']) {
+            $blockers[] = 'calibration_invalid';
+        }
+        if (! $checks['snapshot_determinism']) {
+            $blockers[] = 'snapshot_determinism_invalid';
+        }
+        if (! $checks['no_unknown_critical_fact']) {
+            $blockers[] = 'unknown_critical_facts';
+        }
+        if (! $checks['quality_first_selection']) {
+            $blockers[] = 'quality_first_selection_invalid';
+        }
+        if (! $checks['route_replay']) {
+            $blockers[] = 'route_replay_invalid';
+        }
+        if (! $checks['no_claim_writer']) {
+            $blockers[] = 'claim_writer_present';
+        }
 
         $ready = $blockers === [];
         $payload = [

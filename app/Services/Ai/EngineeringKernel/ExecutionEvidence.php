@@ -16,12 +16,12 @@ namespace App\Services\Ai\EngineeringKernel;
 final readonly class ExecutionEvidence
 {
     /**
-     * @param  list<string>  $commands       the actual commands run (e.g. ['php artisan test ...'])
-     * @param  string  $claimedStatus         what the evidence claims: 'passed' | 'failed' | 'unknown'
-     * @param  int  $testsRun                  number of test cases actually executed
-     * @param  int  $assertionsExecuted        number of assertions actually executed
-     * @param  list<string>  $selectedTests    the suite the evidence CLAIMS to represent
-     * @param  list<string>  $artifacts        files produced by the run
+     * @param  list<string>  $commands  the actual commands run (e.g. ['php artisan test ...'])
+     * @param  string  $claimedStatus  what the evidence claims: 'passed' | 'failed' | 'unknown'
+     * @param  int  $testsRun  number of test cases actually executed
+     * @param  int  $assertionsExecuted  number of assertions actually executed
+     * @param  list<string>  $selectedTests  the suite the evidence CLAIMS to represent
+     * @param  list<string>  $artifacts  files produced by the run
      */
     public function __construct(
         public array $commands,

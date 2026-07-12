@@ -19,8 +19,8 @@ use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\RealExecution\AtlasRealEngineeringExecutionKernelService;
-use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
@@ -369,14 +369,14 @@ final class EliteExecutorKernel
         }
         try {
             $sandbox = ($this->mutativeSandbox ?? app(AtlasSelfConstructionHermeticSandboxApplyService::class))->execute([
-            'idempotency_key' => $order->idempotencyKey,
-            'source_repo' => $order->workspace,
-            'base_commit' => $order->baseCommit,
-            'task_packet_id' => $order->deliveryId,
-            'lease_id' => (string) ($order->authorityEnvelope['lease_id'] ?? ''),
-            'allowed_files' => $allowed,
-            'patch_plan' => (array) ($provider['patch_plan'] ?? []),
-            'provider_receipt' => $provider,
+                'idempotency_key' => $order->idempotencyKey,
+                'source_repo' => $order->workspace,
+                'base_commit' => $order->baseCommit,
+                'task_packet_id' => $order->deliveryId,
+                'lease_id' => (string) ($order->authorityEnvelope['lease_id'] ?? ''),
+                'allowed_files' => $allowed,
+                'patch_plan' => (array) ($provider['patch_plan'] ?? []),
+                'provider_receipt' => $provider,
             ]);
         } catch (\Throwable $e) {
             return VerifiedMutativeCandidate::blocked($order, ['sandbox_exception:'.$e::class], $provider);

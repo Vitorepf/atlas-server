@@ -104,8 +104,12 @@ final readonly class SpecDraft
                 $gaps[] = 'missing_'.$name;
             }
         }
-        if ($this->authorIdentity === null) $gaps[] = 'missing_author_identity';
-        if ($this->finalWitnessIdentity === null) $gaps[] = 'missing_final_witness_identity';
+        if ($this->authorIdentity === null) {
+            $gaps[] = 'missing_author_identity';
+        }
+        if ($this->finalWitnessIdentity === null) {
+            $gaps[] = 'missing_final_witness_identity';
+        }
         if ($this->authorIdentity !== null && $this->authorIdentity === $this->finalWitnessIdentity) {
             $gaps[] = 'self_review_author_equals_final_witness';
         }

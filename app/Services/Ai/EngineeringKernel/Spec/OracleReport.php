@@ -14,8 +14,8 @@ namespace App\Services\Ai\EngineeringKernel\Spec;
 final readonly class OracleReport
 {
     /**
-     * @param  string  $mode                     SpecProvenance::ORACLE_* — executional | structural_only | unmeasured
-     * @param  list<string>  $redCriteriaIds      behavioral AC ids that FAILED (went RED) against the no-op impl
+     * @param  string  $mode  SpecProvenance::ORACLE_* — executional | structural_only | unmeasured
+     * @param  list<string>  $redCriteriaIds  behavioral AC ids that FAILED (went RED) against the no-op impl
      */
     public function __construct(
         public string $mode,

@@ -20,6 +20,7 @@ use App\Services\Ai\EngineeringKernel\TrustLevel;
  *
  * Only the operator sealing an explicit cross-family review yields CrossFamilyWitnessed — model
  * agreement alone never does.
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class AdvisorWitnessResolver implements WitnessResolver

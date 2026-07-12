@@ -14,7 +14,7 @@ use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 final class QualityFoundryProjectionRebuilder
 {
     /**
-     * @param list<array<string,mixed>> $events
+     * @param  list<array<string,mixed>>  $events
      * @return array<string,mixed>
      */
     public function rebuild(array $events): array
@@ -102,8 +102,8 @@ final class QualityFoundryProjectionRebuilder
     }
 
     /**
-     * @param list<array<string,mixed>> $events
-     * @param array<string,mixed> $live
+     * @param  list<array<string,mixed>>  $events
+     * @param  array<string,mixed>  $live
      * @return array<string,mixed>
      */
     public function compare(array $events, array $live): array

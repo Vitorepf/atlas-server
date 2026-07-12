@@ -21,8 +21,8 @@ final readonly class SpecProvenance
     public const ORACLE_UNMEASURED = 'unmeasured';
 
     /**
-     * @param  string  $frozenHash                    sha256(canonicalize(criteria)) — computed here, never accepted from upstream
-     * @param  list<string>  $ambiguityFindings        findings the deterministic producer emitted
+     * @param  string  $frozenHash  sha256(canonicalize(criteria)) — computed here, never accepted from upstream
+     * @param  list<string>  $ambiguityFindings  findings the deterministic producer emitted
      */
     public function __construct(
         public string $frozenHash,

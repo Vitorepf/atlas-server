@@ -147,7 +147,9 @@ final readonly class ExecutionOrder
             'idempotency_key' => $this->idempotencyKey,
             'budget_posture' => $this->budgetPosture,
         ];
-        if ($this->marketDecisionHash !== null) $payload['market_decision_hash'] = $this->marketDecisionHash;
+        if ($this->marketDecisionHash !== null) {
+            $payload['market_decision_hash'] = $this->marketDecisionHash;
+        }
 
         return $payload;
     }

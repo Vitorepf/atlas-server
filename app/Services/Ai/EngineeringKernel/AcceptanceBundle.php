@@ -19,18 +19,18 @@ namespace App\Services\Ai\EngineeringKernel;
 final readonly class AcceptanceBundle
 {
     /**
-     * @param  string  $criteriaHash          hash of the acceptance criteria this bundle claims to satisfy
-     * @param  string  $frozenHash            hash of the criteria the certified suite was frozen against
-     * @param  list<string>  $changedFiles    files the diff touches
+     * @param  string  $criteriaHash  hash of the acceptance criteria this bundle claims to satisfy
+     * @param  string  $frozenHash  hash of the criteria the certified suite was frozen against
+     * @param  list<string>  $changedFiles  files the diff touches
      * @param  array<int,array{symbol:string,has_criterion:bool,has_test:bool}>  $changedPublicSymbols
-     * @param  ExecutionEvidence  $execution   REAL test-execution evidence (never a lint-as-suite claim)
+     * @param  ExecutionEvidence  $execution  REAL test-execution evidence (never a lint-as-suite claim)
      * @param  array{kill_ratio?:float,mutants_generated?:int,decision_surface_added?:bool}  $mutationReport
      * @param  array{secret_free?:bool,critical_sast?:int,critical_cve?:int,ran?:bool}  $securityScan
      * @param  array<int,array{name:string,provider_family:string,approved:bool}>  $judges
-     * @param  int  $contextSufficiency        0..100, re-proved inside the gate
+     * @param  int  $contextSufficiency  0..100, re-proved inside the gate
      * @param  array<string,array<string,mixed>>  $nonFunctional  Obra #3 evidence keyed by slot:
-     *          performance_budget{applies,budget,measured}, migration_safety{probed,safe,reasons},
-     *          architecture_no_regression{violations}, property_clean_for_tagged{tagged,checked,violations}
+     *                                                            performance_budget{applies,budget,measured}, migration_safety{probed,safe,reasons},
+     *                                                            architecture_no_regression{violations}, property_clean_for_tagged{tagged,checked,violations}
      */
     public function __construct(
         public string $criteriaHash,

@@ -50,6 +50,7 @@ final class QualityFoundryReadinessManifest
                     'completed_items' => 0,
                     'open_items' => 0,
                 ];
+
                 continue;
             }
 
