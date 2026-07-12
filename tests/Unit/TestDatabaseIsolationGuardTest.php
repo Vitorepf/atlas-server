@@ -22,4 +22,16 @@ final class TestDatabaseIsolationGuardTest extends TestCase
         self::assertSame('sqlite', DB::connection()->getDriverName(), 'suite must never run on a live database');
         self::assertSame(':memory:', config('database.connections.sqlite.database'));
     }
+
+    public function test_phpunit_connection_never_resolves_to_canonical_pgsql_5433(): void
+    {
+        $connection = config('database.default');
+        $database = config('database.connections.'.$connection);
+
+        self::assertIsArray($database);
+        self::assertFalse(
+            ($database['driver'] ?? null) === 'pgsql' && (int) ($database['port'] ?? 5432) === 5433,
+            'phpunit must never resolve RefreshDatabase/migrations to canonical pgsql@5433',
+        );
+    }
 }

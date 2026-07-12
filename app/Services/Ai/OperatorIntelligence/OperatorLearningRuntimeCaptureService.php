@@ -5,17 +5,26 @@ namespace App\Services\Ai\OperatorIntelligence;
 use App\Jobs\OperatorComprehensionExtractionJob;
 use App\Models\AiTrace;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class OperatorLearningRuntimeCaptureService
 {
-    private const REQUIRED_TABLES = [
+    public const REQUIRED_TABLES = [
         'operator_learning_signals',
         'operator_learning_candidates',
         'operator_profile_items',
         'operator_profile_policy_rules',
+        'operator_profile_feedback_events',
+        'operator_profile_snapshots',
+        'operator_pattern_detections',
+        'operator_skill_proposals',
     ];
+
+    public const FAILURE_COUNTER_CACHE_KEY = 'atlas.operator_learning_runtime_capture.failure_count';
+
+    public const LAST_FAILURE_CACHE_KEY = 'atlas.operator_learning_runtime_capture.last_failure';
 
     public function __construct(
         private readonly OperatorLearningSignalDetector $detector,
@@ -28,7 +37,25 @@ class OperatorLearningRuntimeCaptureService
      */
     public function captureFromTrace(AiTrace $trace, string $input, array $options = []): ?array
     {
-        if (! $this->isRuntimeCaptureAvailable($trace, $options)) {
+        $availability = $this->runtimeCaptureAvailability($trace, $options);
+        if (! (bool) $availability['available']) {
+            if (($availability['reason'] ?? null) === 'missing_operator_tables') {
+                $failureCount = $this->incrementFailureCounter('missing_operator_tables', [
+                    'trace_id' => (string) $trace->id,
+                    'source_type' => (string) $trace->source_type,
+                    'missing_tables' => $availability['missing_tables'],
+                ]);
+
+                return [
+                    'schema_version' => 'atlas.operator_learning_runtime_capture.v1',
+                    'status' => 'failed',
+                    'reason' => 'missing_operator_tables',
+                    'trace_id' => (string) $trace->id,
+                    'missing_tables' => $availability['missing_tables'],
+                    'failure_count' => $failureCount,
+                ];
+            }
+
             return null;
         }
 
@@ -83,10 +110,17 @@ class OperatorLearningRuntimeCaptureService
 
             return $receipt;
         } catch (Throwable $e) {
+            $failureCount = $this->incrementFailureCounter('exception', [
+                'trace_id' => (string) $trace->id,
+                'source_type' => (string) $trace->source_type,
+                'error' => $e->getMessage(),
+            ]);
+
             Log::warning('operator_learning_runtime_capture_failed', [
                 'trace_id' => $trace->id,
                 'source_type' => $trace->source_type,
                 'error' => $e->getMessage(),
+                'failure_count' => $failureCount,
             ]);
 
             return [
@@ -94,30 +128,56 @@ class OperatorLearningRuntimeCaptureService
                 'status' => 'failed',
                 'reason' => 'exception',
                 'trace_id' => (string) $trace->id,
+                'failure_count' => $failureCount,
             ];
         }
     }
 
     /**
-     * @param  array<string,mixed>  $options
+     * @return array{schema_version:string,enabled:bool,chat_capture_enabled:bool,required_tables:list<string>,missing_tables:list<string>,failure_count:int,last_failure:array<string,mixed>|null,persistence:string}
      */
-    private function isRuntimeCaptureAvailable(AiTrace $trace, array $options): bool
+    public function captureFailureReport(): array
+    {
+        $lastFailure = Cache::get(self::LAST_FAILURE_CACHE_KEY);
+
+        return [
+            'schema_version' => 'atlas.operator_learning_runtime_capture_failures.v1',
+            'enabled' => (bool) config('atlas_operator_intelligence.enabled', true),
+            'chat_capture_enabled' => (bool) config('atlas_operator_intelligence.chat_capture_enabled', true),
+            'required_tables' => self::REQUIRED_TABLES,
+            'missing_tables' => DatabaseTableAvailability::missing(self::REQUIRED_TABLES),
+            'failure_count' => (int) Cache::get(self::FAILURE_COUNTER_CACHE_KEY, 0),
+            'last_failure' => is_array($lastFailure) ? $lastFailure : null,
+            'persistence' => 'cache_counter_no_jsonl',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $options
+     * @return array{available:bool,reason:string|null,missing_tables:list<string>}
+     */
+    private function runtimeCaptureAvailability(AiTrace $trace, array $options): array
     {
         if (! (bool) config('atlas_operator_intelligence.enabled', true)) {
-            return false;
+            return ['available' => false, 'reason' => 'operator_intelligence_disabled', 'missing_tables' => []];
         }
         if (! (bool) config('atlas_operator_intelligence.chat_capture_enabled', true)) {
-            return false;
+            return ['available' => false, 'reason' => 'chat_capture_disabled', 'missing_tables' => []];
         }
 
         $allowed = config('atlas_operator_intelligence.chat_capture_source_types', ['manual', 'app', 'voice_realtime']);
         $allowed = is_array($allowed) ? $allowed : ['manual', 'app', 'voice_realtime'];
         $sourceType = (string) ($trace->source_type ?: ($options['source_type'] ?? ''));
         if (! in_array($sourceType, $allowed, true)) {
-            return false;
+            return ['available' => false, 'reason' => 'source_type_not_allowed', 'missing_tables' => []];
         }
 
-        return DatabaseTableAvailability::all(self::REQUIRED_TABLES);
+        $missingTables = DatabaseTableAvailability::missing(self::REQUIRED_TABLES);
+        if ($missingTables !== []) {
+            return ['available' => false, 'reason' => 'missing_operator_tables', 'missing_tables' => $missingTables];
+        }
+
+        return ['available' => true, 'reason' => null, 'missing_tables' => []];
     }
 
     /**
@@ -175,5 +235,24 @@ class OperatorLearningRuntimeCaptureService
         $metadata['operator_learning_capture'] = $receipt;
 
         $trace->forceFill(['metadata' => $metadata])->save();
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     */
+    private function incrementFailureCounter(string $reason, array $context): int
+    {
+        Cache::add(self::FAILURE_COUNTER_CACHE_KEY, 0);
+        $count = Cache::increment(self::FAILURE_COUNTER_CACHE_KEY);
+        $count = is_int($count) ? $count : ((int) Cache::get(self::FAILURE_COUNTER_CACHE_KEY, 0) + 1);
+
+        Cache::put(self::FAILURE_COUNTER_CACHE_KEY, $count);
+        Cache::put(self::LAST_FAILURE_CACHE_KEY, array_merge($context, [
+            'reason' => $reason,
+            'recorded_at' => now()->toIso8601String(),
+            'failure_count' => $count,
+        ]));
+
+        return $count;
     }
 }

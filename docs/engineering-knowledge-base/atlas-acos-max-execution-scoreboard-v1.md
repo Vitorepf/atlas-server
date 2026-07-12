@@ -26,7 +26,7 @@
 - [ ] MAXK-07 (+ELEV-09) — pending
 - [x] MAXL-01 — landed · additive ledger repair migration restores `event_hash`/`scope_type`/`scope_id`, backfills stored rows, and guards scoped lookups
 - [x] MAXL-02 (+ELEV-11) — landed · Evidence Ledger `prev_event_hash` scoped hash-chain (`scope_type:scope_id`, fallback `correlation_id`); legacy rows labelled `chain_basis=legacy_unchained`; verifier detects gap/tamper; daily chain-head anchor writes git-tracked JSONL with declared threat model
-- [ ] MAXN-01 — pending
+- [x] MAXN-01 — landed · operator_* schema reconciled via idempotent 2026_06_08_130000..150000 migrations; sqlite proof `operator_learning_signals` + live runtime capture writes `chat_explicit_operator_signal`; WDG `maxn-01.operator_learning_capture_schema` alerts on flag-ON+missing table; capture-fail counter exposed via cache report (`persistence=cache_counter_no_jsonl`, ASI-05 no new JSONL); phpunit guard proves no pgsql@5433; live migrate @5433 pending_window(SUB-01 snapshot not verified: ELEV-17 manifest missing `memory-substrate.sql`)
 - [x] ELEV-17 — landed · `atlas:substrate:restore-drill --json` restores SUB-01 snapshots only into disposable target (guard refuses canonical @5433); fixture acceptance `restored_ok`; corrupted snapshot returns `restore_failed` with named diff; WDG `wdg-01.substrate_restore_drill` alerts when last success >45d; live local snapshot restore pending_window(real SUB-01 manifest points to missing `memory-substrate.sql`)
 - [ ] TETO-05 — pending (obra-retro; cadência a cada fecho de lote daqui em diante)
 
