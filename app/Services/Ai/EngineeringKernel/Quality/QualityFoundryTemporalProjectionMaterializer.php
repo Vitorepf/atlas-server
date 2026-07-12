@@ -17,6 +17,7 @@ final class QualityFoundryTemporalProjectionMaterializer
     public function __construct(
         private readonly QualityFoundryTemporalProjectionRebuilder $rebuilder,
         private readonly AtlasCompoundingOutcomeEvaluator $evaluator,
+        private readonly ?QualityFoundryLateOutcomeAdjudicator $lateAdjudicator = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -63,6 +64,7 @@ final class QualityFoundryTemporalProjectionMaterializer
         ];
         /** @var AiRunOutcome $materialized */
         $materialized = $this->evaluator->evaluate($input);
+        $lateAdjudication = $this->lateAdjudicator?->adjudicate($projection, null, $ledger);
 
         return [
             'status' => 'materialized',
@@ -71,6 +73,7 @@ final class QualityFoundryTemporalProjectionMaterializer
             'temporal_state' => $projection['temporal_state'],
             'claim_eligible' => false,
             'learning_required' => true,
+            'late_adjudication' => $lateAdjudication,
             'projection' => $projection,
         ];
     }
