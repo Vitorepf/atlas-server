@@ -104,7 +104,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 - [ ] Make HTTP, CLI, Desktop, Mission and Senior Loop call `plan/run`; prohibit direct provider/workspace/release logic in adapters.
 - [ ] Preserve checkout source byte-for-byte until authorized integration; retries reset only isolated sandboxes and integration is serial.
 - [x] Keep any technical complexity in Dev when duration/topology fit; hand off to Forge only for duration/topology and make the handoff idempotent. Evidence: `AtlasDevExecutionServiceTest` now rejects Forge routing for `interactive/single`, permits only durable regimes with `workcell/DAG/portfolio`, and proves a stable `handoff.idempotency_key` across repeated runs; 11 tests / 37 assertions pass.
-- [ ] Measure operator questions, minutes, overrides, cancellations, handoffs and active time without using them to lower quality.
+- [x] Measure operator questions, minutes, overrides, cancellations, handoffs and active time without using them to lower quality. Evidence: `AtlasDevOperatorInteractionTelemetry` emits `atlas.dev.operator_interaction_telemetry.v1`, aggregates persisted plan metadata events, returns `pending_data` instead of fabricated zeros, and exposes no quality/release fields; 3 focused tests pass.
 - [ ] Run façade, WIP tracked/untracked/rename/delete/binary/concurrent-change, surface parity, R5, retry/recovery and architecture tests.
 
 **GREEN acceptance:** conversation-first R0–R5 works through one façade; no GET mutation, WIP loss, direct provider or duplicate release; Forge handoff occurs only by explicit contract and is idempotent.

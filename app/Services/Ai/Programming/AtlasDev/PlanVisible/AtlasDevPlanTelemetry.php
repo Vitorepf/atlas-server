@@ -54,6 +54,7 @@ final class AtlasDevPlanTelemetry
      */
     public function snapshot(?\DateTimeInterface $from = null, ?\DateTimeInterface $to = null): array
     {
+        $interactionTelemetry = new AtlasDevOperatorInteractionTelemetry;
         $query = AtlasProgrammingWorkItem::query()
             ->whereNotNull('plan_hash');
 
@@ -88,6 +89,7 @@ final class AtlasDevPlanTelemetry
                     'pending_rate' => null,
                 ],
                 'revisions_avg_per_item' => null,
+                'operator_interaction' => $interactionTelemetry->aggregate([]),
             ];
         }
 
@@ -95,6 +97,7 @@ final class AtlasDevPlanTelemetry
         $rejected = 0;
         $pending = 0;
         $totalRevisions = 0;
+        $operatorEvents = [];
 
         foreach ($items as $item) {
             $plan = (array) ($item->plan_json ?? []);
@@ -108,6 +111,7 @@ final class AtlasDevPlanTelemetry
             $meta = (array) ($item->metadata_json ?? []);
             $revisions = (array) ($meta['plan_revisions'] ?? []);
             $totalRevisions += count($revisions);
+            $operatorEvents = [...$operatorEvents, ...(array) ($meta['operator_interaction_events'] ?? [])];
         }
 
         return [
@@ -130,6 +134,7 @@ final class AtlasDevPlanTelemetry
                 'pending_rate' => round($pending / $total, 4),
             ],
             'revisions_avg_per_item' => round($totalRevisions / $total, 4),
+            'operator_interaction' => $interactionTelemetry->aggregate($operatorEvents),
         ];
     }
 }
