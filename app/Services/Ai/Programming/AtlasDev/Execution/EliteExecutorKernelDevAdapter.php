@@ -32,7 +32,11 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
         $roles = [];
         $roleEvents = [];
         foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
-            $roles[$role] = ['depth' => 'quality_foundry'];
+            $roles[$role] = [
+                'depth' => $this->depthForRisk($intent->riskClass, $role),
+                'risk_band' => $intent->riskClass,
+                'independent_context' => in_array($role, ['qa_testing', 'evidence_audit', 'final_certification'], true),
+            ];
             $roleEvents[$role] = 'dev-role-'.$run->runHash.'-'.$role;
         }
 
@@ -85,5 +89,20 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
         }
 
         return $commit;
+    }
+
+    private function depthForRisk(string $riskClass, string $role): string
+    {
+        $risk = (int) ltrim(strtoupper(trim($riskClass)), 'R');
+
+        return match (true) {
+            $risk <= 1 => 'minimal_evidence',
+            $risk <= 3 => 'light_independent_review',
+            $risk <= 5 => 'standard_contract_integration',
+            $risk <= 7 => 'multi_verifier_regression_compatibility',
+            $risk <= 9 && in_array($role, ['appsec_privacy', 'performance_resilience', 'devops_sre', 'evidence_audit'], true) => 'security_mutation_property_chaos_rollback',
+            $risk <= 9 => 'deep_independent_regression',
+            default => 'competing_candidates_different_family_disaster_drill',
+        };
     }
 }
