@@ -84,7 +84,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 - [x] Implement atomic acquire/renew/release/takeover and compare-and-swap fencing in the existing Forge repository/service. Do not add a parallel Forge cycle.
 - [x] Emit canonical reservation receipts into `atlas_ledger_events` only after the database transaction commits.
 - [x] Make Forge completion require a live reservation, final Kernel outcome and successful settlement; an expired lease yields `held` or retry, never success.
-- [ ] Run focused tests, the neighboring Forge cycle/continuation suites, migration fresh/rollback on an isolated database, architecture validation, Pint and PHPStan for touched paths.
+- [x] Run focused tests, the neighboring Forge cycle/continuation suites, migration fresh/rollback on an isolated database, architecture validation, Pint and PHPStan for touched paths.
 
 **GREEN acceptance:** exactly one active owner; stale workers perform zero effects; retries return the prior receipt; recovery resumes or releases without duplicate work; P0-13 is `CLOSED` with evidence.
 
