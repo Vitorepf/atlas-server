@@ -43,6 +43,10 @@ final class EngineeringQualityCourt
         if ($role === 'final_certification' || ! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)) {
             throw new InvalidArgumentException('mutative_quality_role_invalid');
         }
+        $explicit = $this->explicitMutativeNotApplicable($case, $role);
+        if ($explicit instanceof RoleDisposition) {
+            return $explicit;
+        }
         if ($role === 'qa_testing') {
             $rows = AiEngineeringCompanyRoleRun::query()
                 ->where('engagement_record_id', $case->engagementRecordId)
@@ -134,6 +138,35 @@ final class EngineeringQualityCourt
         return RoleDisposition::ownerEvidenceAbsent(
             $case, $role, self::MUTATIVE_ABSENCE_DOMAIN,
             $this->sign(self::MUTATIVE_ABSENCE_DOMAIN, $payload),
+        );
+    }
+
+    private function explicitMutativeNotApplicable(CandidateQualityCase $case, string $role): ?RoleDisposition
+    {
+        $matrix = data_get($case->order->evidencePolicy, 'mutative_applicability');
+        $matrixHash = (string) data_get($case->order->evidencePolicy, 'mutative_applicability_hash', '');
+        $entry = is_array($matrix) ? ($matrix[$role] ?? null) : null;
+        if (! is_array($matrix) || ! is_array($entry) || ($entry['status'] ?? null) !== 'not_applicable'
+            || ! is_string($entry['rule'] ?? null) || trim($entry['rule']) === ''
+            || ! is_string($entry['justification'] ?? null) || trim($entry['justification']) === ''
+            || ! hash_equals($matrixHash, CanonicalKernelPayload::hash($matrix))) {
+            return null;
+        }
+        $unsigned = [
+            'role' => $role, 'rule' => $entry['rule'], 'justification' => $entry['justification'],
+            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
+            'tree_hash' => $case->candidate->treeHash, 'matrix_hash' => $matrixHash,
+        ];
+        $expectedEvidenceHash = CanonicalKernelPayload::hash($unsigned);
+        if (! hash_equals((string) ($entry['evidence_hash'] ?? ''), $expectedEvidenceHash)) {
+            return null;
+        }
+        $domain = self::MUTATIVE_ABSENCE_DOMAIN;
+
+        return RoleDisposition::mutativeNotApplicable(
+            $case, $role, $entry['rule'], $entry['justification'], $domain, $this->sign($domain, $unsigned + [
+                'evidence_hash' => $expectedEvidenceHash,
+            ]),
         );
     }
 

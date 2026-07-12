@@ -21,6 +21,8 @@ final readonly class RoleDisposition
         public string $treeHash,
         public string $signerContext,
         public string $signature,
+        public string $applicabilityRule = '',
+        public string $justification = '',
     ) {
         if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true)
             || ! in_array($status, self::STATUSES, true)
@@ -37,6 +39,26 @@ final readonly class RoleDisposition
             $role, 'block', 'owner_evidence_absent', $case->order->canonicalHash(), $case->order->specHash,
             $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash,
             $signerContext, $signature,
+        );
+    }
+
+    public static function mutativeNotApplicable(
+        CandidateQualityCase $case,
+        string $role,
+        string $rule,
+        string $justification,
+        string $signerContext,
+        string $signature,
+    ): self {
+        if (! in_array($role, EngineeringRoleRoster::OFFICIAL_ROLES, true) || $role === 'final_certification'
+            || $rule === '' || $justification === '') {
+            throw new InvalidArgumentException('mutative_not_applicable_invalid');
+        }
+
+        return new self(
+            $role, 'not_applicable', $justification, $case->order->canonicalHash(), $case->order->specHash,
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash,
+            $signerContext, $signature, $rule, $justification,
         );
     }
 
@@ -133,18 +155,26 @@ final readonly class RoleDisposition
         }
 
         return new self($role, $status, $reason, $case->order->canonicalHash(), $case->order->specHash,
-            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature);
+            $case->candidate->candidateHash, $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature,
+            $status === 'not_applicable' ? 'surface_scope_excludes_'.$role : '',
+            $status === 'not_applicable' ? $reason : '');
     }
 
     /** @return array<string,string> */
     public function toArray(): array
     {
-        return [
+        $data = [
             'role' => $this->role, 'status' => $this->status, 'reason' => $this->reason,
             'order_hash' => $this->orderHash, 'spec_hash' => $this->specHash,
             'candidate_hash' => $this->candidateHash, 'diff_hash' => $this->diffHash,
             'tree_hash' => $this->treeHash, 'signer_context' => $this->signerContext,
             'signature' => $this->signature,
         ];
+        if ($this->status === 'not_applicable') {
+            $data['applicability_rule'] = $this->applicabilityRule !== '' ? $this->applicabilityRule : 'court_scope_rule_'.$this->role;
+            $data['justification'] = $this->justification !== '' ? $this->justification : $this->reason;
+        }
+
+        return $data;
     }
 }
