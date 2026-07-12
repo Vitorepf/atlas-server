@@ -108,7 +108,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 - [x] Route provider invocation through `ProviderPort`, materialize a hermetic sandbox, apply only inside that sandbox, and send evidence to the independent gate.
 - [x] Persist claim/execution/apply/report receipts with one idempotency key and reconcile incomplete chains after restart.
 - [x] Map total provider unavailability to durable pause/retry. Map apply or ledger failure to `held|blocked|release_uncertain`, never resolved.
-- [ ] Run focused and neighboring task-serving/governance suites, process restart tests, architecture bypass guard, Pint and PHPStan.
+- [x] Run focused and neighboring task-serving/governance suites, process restart tests, architecture bypass guard, Pint and PHPStan.
 
 **GREEN acceptance:** no productive callback, no dry default, no self-verification, no direct provider bypass, no lost task after failure, safe kill/restart, and P0-19 `CLOSED`.
 
