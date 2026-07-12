@@ -12,6 +12,7 @@ use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Memory\AtlasMemoryRationalePolicy;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
+use App\Services\Ai\Memory\AtlasMemoryTemporalDefaultDeriver;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\LocalAgentIngestion\LocalAgentSecretScanner;
 use App\Services\Ai\Memory\MemoryQueryInput;
@@ -61,6 +62,8 @@ class AtlasMemoryRegistryService
 
     private FactPairPolarityContradictionDetector $factPolarityDetector;
 
+    private AtlasMemoryTemporalDefaultDeriver $temporalDefaultDeriver;
+
     public function __construct(
         ?AtlasMemoryPrivacyService $privacy = null,
         ?MemoryQueryInput $input = null,
@@ -72,6 +75,7 @@ class AtlasMemoryRegistryService
         ?LocalAgentSecretScanner $localAgentSecretScanner = null,
         ?NumericRangeOverlapContradictionDetector $numericRangeDetector = null,
         ?FactPairPolarityContradictionDetector $factPolarityDetector = null,
+        ?AtlasMemoryTemporalDefaultDeriver $temporalDefaultDeriver = null,
     ) {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
         $this->input = $input ?? app(MemoryQueryInput::class);
@@ -86,6 +90,7 @@ class AtlasMemoryRegistryService
         $this->localAgentSecretScanner = $localAgentSecretScanner ?? app(LocalAgentSecretScanner::class);
         $this->numericRangeDetector = $numericRangeDetector ?? app(NumericRangeOverlapContradictionDetector::class);
         $this->factPolarityDetector = $factPolarityDetector ?? app(FactPairPolarityContradictionDetector::class);
+        $this->temporalDefaultDeriver = $temporalDefaultDeriver ?? app(AtlasMemoryTemporalDefaultDeriver::class);
     }
 
     /**
@@ -1109,8 +1114,28 @@ class AtlasMemoryRegistryService
                 $payload[$temporalField] = $attributes[$temporalField];
             }
         }
+        $payload = $this->applyTemporalDefaults($payload);
 
         return $this->privacy->normalizeForStorage($payload, $attributes);
+    }
+
+    /**
+     * MAXH-02 — derive default temporal truth fields at the single Registry
+     * funnel. These defaults are explicitly tagged as type-map defaults so
+     * MAXH-01 does not count them as non-default temporal provenance.
+     *
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function applyTemporalDefaults(array $payload): array
+    {
+        foreach (['observed_at', 'stale_after', 'authority_level'] as $field) {
+            if (! DatabaseTableAvailability::hasColumn('atlas_memory_entries', $field)) {
+                return $payload;
+            }
+        }
+
+        return $this->temporalDefaultDeriver->applyMissing($payload);
     }
 
     /**

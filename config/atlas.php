@@ -482,6 +482,40 @@ return [
         ],
     ],
 
+    // MAXH-02 — default temporal truth derivation for Atlas Memory. These are
+    // type-map defaults, tagged as `default_type_map`, and therefore do not count
+    // as non-default temporal provenance in MAXH-01.
+    'memory_temporal_defaults' => [
+        'authority_by_type' => [
+            'decision' => 'canonical',
+            'preference' => 'operator',
+            'feedback' => 'operational',
+            'technical_context' => 'operational',
+            'issue' => 'operational',
+            'resolution' => 'operational',
+            'benchmark_observation' => 'measured',
+            'harness_learning' => 'measured',
+            'anti_memory' => 'safety',
+            'strategic_insight' => 'strategic',
+            'refutation_memory' => 'canonical',
+        ],
+        // Null TTL means the type is durable until superseded/retracted. Decaying
+        // types are operational observations whose truth changes with runtime.
+        'ttl_days_by_type' => [
+            'decision' => null,
+            'preference' => null,
+            'feedback' => 180,
+            'technical_context' => 90,
+            'issue' => 90,
+            'resolution' => 180,
+            'benchmark_observation' => 45,
+            'harness_learning' => 120,
+            'anti_memory' => null,
+            'strategic_insight' => 180,
+            'refutation_memory' => null,
+        ],
+    ],
+
     'semantic_memory' => [
         'vault_path' => env('ATLAS_VAULT_PATH', dirname(base_path()).'/AtlasVault'),
         'embedding_dimensions' => (int) env('ATLAS_SEMANTIC_EMBEDDING_DIMENSIONS', 384),
