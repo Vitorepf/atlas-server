@@ -20,7 +20,7 @@ final readonly class CausalLearningCandidate
         foreach (['assignment_hash','experiment_hash','order_hash','run_hash','release_hash','outcome_hash','authority_hash'] as $key) {
             if (preg_match('/^[a-f0-9]{64}$/', (string) $data[$key]) !== 1) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');
         }
-        if (! in_array($data['change_class'], ['routing','memory_policy','operational_policy','code_task'], true)) throw new InvalidArgumentException('causal_candidate_change_class_invalid');
+        if (! in_array($data['change_class'], ['routing','memory_policy','operational_policy','simplification','code_task'], true)) throw new InvalidArgumentException('causal_candidate_change_class_invalid');
         foreach (['hypothesis','baseline','metric','window','rollback','scope','expiry'] as $key) if (! is_string($data[$key]) || trim($data[$key]) === '') throw new InvalidArgumentException('causal_candidate_'.$key.'_required');
         if (date_create_immutable((string) $data['expiry']) === false) throw new InvalidArgumentException('causal_candidate_expiry_invalid');
         foreach (['reversible','assignment_precedes_run','real_outcome'] as $key) if (! is_bool($data[$key])) throw new InvalidArgumentException('causal_candidate_'.$key.'_invalid');

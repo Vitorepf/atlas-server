@@ -84,17 +84,44 @@ fi
 [ -f "$ATLAS_SERVER_DIR/artisan" ] || exit 0
 cd "$ATLAS_SERVER_DIR" 2>/dev/null || exit 0
 
-# Best-effort workspace activation: bind the opened folder into AWIS, install/merge
-# provider bootstrap files, and index the CodeGraph on the first prompt for a new
-# workspace. Subsequent prompts are cheap because activation sees the workspace is
-# already indexed. Disable with ATLAS_AOBG_HOOK_AUTO_ACTIVATE=0.
-if [ "${ATLAS_AOBG_HOOK_AUTO_ACTIVATE:-1}" = "1" ]; then
+# MAXE-03 — activate with TTL marker so UserPromptSubmit never re-pays activation every turn.
+# Marker path is workspace-keyed; TTL default 6h. Disable activate with ATLAS_AOBG_HOOK_AUTO_ACTIVATE=0.
+# Disable TTL (always activate) with ATLAS_AOBG_ACTIVATE_TTL_SECONDS=0.
+ATLAS_AOBG_ACTIVATE_TTL_SECONDS="${ATLAS_AOBG_ACTIVATE_TTL_SECONDS:-21600}"
+ATLAS_AOBG_CTX_HOOK_TIMEOUT="${ATLAS_AOBG_CTX_HOOK_TIMEOUT:-25}"
+WS_KEY="$(printf '%s' "$WORKSPACE_DIR" | cksum | cut -d' ' -f1)"
+ACTIVATE_MARKER="${TMPDIR:-/tmp}/atlas-aobg-activate-${WS_KEY}"
+
+should_activate() {
+    [ "${ATLAS_AOBG_HOOK_AUTO_ACTIVATE:-1}" = "1" ] || return 1
+    [ "${ATLAS_AOBG_ACTIVATE_TTL_SECONDS}" -gt 0 ] 2>/dev/null || return 0
+    [ -f "$ACTIVATE_MARKER" ] || return 0
+    local age
+    age=$(( $(date +%s) - $(stat -f %m "$ACTIVATE_MARKER" 2>/dev/null || stat -c %Y "$ACTIVATE_MARKER" 2>/dev/null || echo 0) ))
+    [ "$age" -ge "${ATLAS_AOBG_ACTIVATE_TTL_SECONDS}" ]
+}
+
+if should_activate; then
     php artisan atlas:aobg:workspace activate --workspace="$WORKSPACE_DIR" --json >/dev/null 2>&1 || true
+    printf '%s' "$(date +%s)" > "$ACTIVATE_MARKER" 2>/dev/null || true
 fi
 
-# Run the proven unified retrieval. Capture stdout only; swallow stderr/non-zero (never
-# block). The command is fail-safe by contract (exit 0 + honest-empty pack on any fault).
-PACK_JSON="$(php artisan atlas:context-pack "$PROMPT" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json 2>/dev/null || true)"
+# MAXE-03 — hard wall-clock bound on the pack call (same pattern as atlas-postedit-context.sh).
+# Fail-open: timeout/missing binary ⇒ empty pack ⇒ silent exit 0.
+PACK_JSON=""
+if command -v timeout >/dev/null 2>&1; then
+    PACK_JSON="$(timeout "${ATLAS_AOBG_CTX_HOOK_TIMEOUT}s" \
+        php artisan atlas:context-pack "$PROMPT" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json \
+        2>/dev/null || true)"
+elif command -v gtimeout >/dev/null 2>&1; then
+    PACK_JSON="$(gtimeout "${ATLAS_AOBG_CTX_HOOK_TIMEOUT}s" \
+        php artisan atlas:context-pack "$PROMPT" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json \
+        2>/dev/null || true)"
+else
+    PACK_JSON="$(perl -e 'alarm shift; exec @ARGV' "$ATLAS_AOBG_CTX_HOOK_TIMEOUT" \
+        php artisan atlas:context-pack "$PROMPT" --workspace="$WORKSPACE_DIR" --budget="$ATLAS_AOBG_HOOK_BUDGET" --json \
+        2>/dev/null || true)"
+fi
 [ -n "$PACK_JSON" ] || exit 0
 
 # Only inject when the pack actually carries SOMETHING — the sum of the three section
