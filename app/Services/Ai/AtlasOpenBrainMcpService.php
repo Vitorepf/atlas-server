@@ -1408,6 +1408,7 @@ class AtlasOpenBrainMcpService
         if (! is_array($arguments)) {
             return $this->toolError($id, 'Tool arguments must be an object.', ['tool' => $name]);
         }
+        $quota = $this->mcpClientQuota($arguments);
 
         try {
             $response = match ($name) {
@@ -1479,11 +1480,12 @@ class AtlasOpenBrainMcpService
                 'atlas_task_report' => $this->toolResponse($id, $this->taskReport($arguments)),
                 default => $this->error($id, -32602, "Unknown Atlas MCP tool [{$name}]."),
             };
-            $this->recordMcpToolUsageTelemetry($name, $this->mcpToolCallStatus($response));
+            $response = $this->withMcpQuotaEnvelope($response, $quota);
+            $this->recordMcpToolUsageTelemetry($name, $this->mcpToolCallStatus($response), $quota);
 
             return $response;
         } catch (Throwable $exception) {
-            $this->recordMcpToolUsageTelemetry($name, 'error');
+            $this->recordMcpToolUsageTelemetry($name, 'error', $quota);
 
             return $this->toolError($id, $exception->getMessage(), [
                 'tool' => $name,
@@ -1510,7 +1512,10 @@ class AtlasOpenBrainMcpService
         return 'ok';
     }
 
-    private function recordMcpToolUsageTelemetry(string $toolName, string $status): void
+    /**
+     * @param  array<string,mixed>  $quota
+     */
+    private function recordMcpToolUsageTelemetry(string $toolName, string $status, array $quota = []): void
     {
         if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
             return;
@@ -1527,11 +1532,90 @@ class AtlasOpenBrainMcpService
                     'tool_name' => $toolName,
                     'called_at' => now()->toIso8601String(),
                     'status' => $status,
+                    'client_id_hash' => (string) ($quota['client_id_hash'] ?? ''),
+                    'quota_status' => (string) ($quota['status'] ?? 'unavailable'),
+                    'rate_softcapped' => (bool) ($quota['rate_softcapped'] ?? false),
                 ],
             ]);
         } catch (Throwable) {
             // fail-open: telemetry must never block tool execution
         }
+    }
+
+    /**
+     * MAXM-07 — local, provider-safe soft cadence accounting by opaque client id.
+     * Fail-open: missing/broken telemetry never blocks read tools.
+     *
+     * @param  array<string,mixed>  $arguments
+     * @return array<string,mixed>
+     */
+    private function mcpClientQuota(array $arguments): array
+    {
+        $windowSeconds = max(1, (int) config('atlas.aobg.mcp_quota.window_seconds', 60));
+        $callsPerWindow = max(1, (int) config('atlas.aobg.mcp_quota.calls_per_window', 120));
+        $clientId = $this->string($arguments['client_id'] ?? ($arguments['client'] ?? null)) ?? 'anonymous';
+        $clientHash = substr(hash('sha256', $clientId), 0, 16);
+        $base = [
+            'schema' => 'atlas.open_brain.mcp_quota.v1',
+            'client_id_hash' => $clientHash,
+            'calls_per_window' => $callsPerWindow,
+            'window_seconds' => $windowSeconds,
+            'rate_softcapped' => false,
+            'retry_after_seconds' => 0,
+        ];
+
+        if (! DatabaseTableAvailability::has('ai_telemetry_events')) {
+            return $base + ['status' => 'unavailable', 'reason' => 'telemetry_table_missing'];
+        }
+
+        try {
+            $windowStart = now()->subSeconds($windowSeconds);
+            $recent = AiTelemetryEvent::query()
+                ->where('event_name', self::MCP_TOOL_USAGE_EVENT_NAME)
+                ->latest('received_at')
+                ->limit(max(500, $callsPerWindow * 4))
+                ->get()
+                ->filter(fn (AiTelemetryEvent $event): bool => $event->received_at !== null && $event->received_at->greaterThanOrEqualTo($windowStart))
+                ->filter(fn (AiTelemetryEvent $event): bool => data_get($event->metadata, 'client_id_hash') === $clientHash);
+            $callsInWindow = $recent->count();
+            $softcapped = $callsInWindow >= $callsPerWindow;
+
+            return array_merge($base, [
+                'status' => $softcapped ? 'rate_softcapped' : 'ok',
+                'calls_in_window' => $callsInWindow,
+                'rate_softcapped' => $softcapped,
+                'retry_after_seconds' => $softcapped ? $windowSeconds : 0,
+            ]);
+        } catch (Throwable) {
+            return $base + ['status' => 'unavailable', 'reason' => 'quota_accounting_failed'];
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $response
+     * @param  array<string,mixed>  $quota
+     * @return array<string,mixed>
+     */
+    private function withMcpQuotaEnvelope(array $response, array $quota): array
+    {
+        if (! isset($response['result']) || ! is_array($response['result'])) {
+            return $response;
+        }
+
+        $structured = data_get($response, 'result.structuredContent');
+        if (! is_array($structured)) {
+            return $response;
+        }
+
+        $structured['quota'] = $quota;
+        if (($quota['rate_softcapped'] ?? false) === true) {
+            $structured['rate_softcapped'] = true;
+            $structured['retry_after_seconds'] = (int) ($quota['retry_after_seconds'] ?? 0);
+        }
+        data_set($response, 'result.structuredContent', $structured);
+        data_set($response, 'result.content.0.text', json_encode($structured, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return $response;
     }
 
     /**
@@ -2728,6 +2812,9 @@ class AtlasOpenBrainMcpService
                 'write_files' => (int) config('atlas.aobg.write_back.max_files', 50),
                 'write_memory_refs' => (int) config('atlas.aobg.write_back.max_memory_refs', 25),
                 'context_budget_chars' => (int) config('atlas.aobg.budget_chars', 6000),
+                'calls_per_window' => (int) config('atlas.aobg.mcp_quota.calls_per_window', 120),
+                'window_seconds' => (int) config('atlas.aobg.mcp_quota.window_seconds', 60),
+                'rate_limit_mode' => 'soft_fail_open',
             ],
             'timeouts' => [
                 'file_context_soft_ms' => (int) config('atlas.aobg.file_context.soft_budget_ms', 1500),

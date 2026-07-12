@@ -4651,6 +4651,12 @@ return [
             'enabled' => (bool) env('ATLAS_AOBG_PACK_CACHE_ENABLED', true),
             'ttl_seconds' => (int) env('ATLAS_AOBG_PACK_CACHE_TTL_SECONDS', 300),
         ],
+        // MAXM-07 — soft MCP call cadence by opaque client_id. Fail-open:
+        // accounting failure annotates quota as unavailable and never blocks reads.
+        'mcp_quota' => [
+            'calls_per_window' => max(1, (int) env('ATLAS_AOBG_MCP_QUOTA_CALLS_PER_WINDOW', 120)),
+            'window_seconds' => max(1, (int) env('ATLAS_AOBG_MCP_QUOTA_WINDOW_SECONDS', 60)),
+        ],
         // Obra 7 / OPT-05: E-3 symbol budget alias (chars→~tokens at packFor; zero provider spend).
         'e3_symbol_budget_chars' => (int) env('ATLAS_AOBG_E3_SYMBOL_BUDGET_CHARS', (int) env('ATLAS_AOBG_CODE_BUDGET_CHARS', 2500)),
         // Obra 7 / OB-03: progressive disclosure manifest (Absorcao 4 phase 1).
