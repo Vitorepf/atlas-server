@@ -120,13 +120,11 @@ final class Maxm01ProviderLeakCorpusTest extends TestCase
     }
 
     /**
-     * BASELINE: normal-class + external_ai_allowed=true entries flow through the
-     * current denylist. Custom markers (this corpus, by construction) escape the
-     * 11 regexes, so providerBody() leaks the marker unchanged. This test does
-     * NOT assert zero \u2014 it PINS the current baseline so MAXM-04 can prove it
-     * dropped the count.
+     * MAXM-04: normal-class + external_ai_allowed=true is not enough to emit raw
+     * memory text. Byte-identical redacted fields are omitted unless a write-path
+     * `provider_body_verified` stamp exists.
      */
-    public function test_normal_class_baseline_is_deterministic_and_matches_pin(): void
+    public function test_maxm04_normal_class_without_verified_provider_body_never_leaks_marker(): void
     {
         $privacy = app(AtlasMemoryPrivacyService::class);
 
@@ -141,36 +139,49 @@ final class Maxm01ProviderLeakCorpusTest extends TestCase
             );
 
             $body = $privacy->providerBody($entry);
+            $summary = (string) ($privacy->providerSummary($entry) ?? '');
             if (str_contains($body, $marker)) {
                 $leakedIds[] = (string) $payload['id'];
+            }
+            if (str_contains($summary, $marker)) {
+                $leakedIds[] = (string) $payload['id'].':summary';
             }
         }
 
         sort($leakedIds);
 
-        // Pinned baseline: 24 payloads, all custom markers escape the 11 canonical regexes
-        // and every one appears verbatim in providerBody(). This is exactly the surface
-        // MAXM-04 will collapse to zero via allowlisted composition.
-        $expectedBaseline = [
-            'LEAK-001','LEAK-002','LEAK-003','LEAK-004','LEAK-005','LEAK-006',
-            'LEAK-007','LEAK-008','LEAK-009','LEAK-010','LEAK-011','LEAK-012',
-            'LEAK-013','LEAK-014','LEAK-015','LEAK-016','LEAK-017','LEAK-018',
-            'LEAK-019','LEAK-020','LEAK-021','LEAK-022','LEAK-023','LEAK-024',
-        ];
         $this->assertSame(
-            $expectedBaseline,
+            [],
             $leakedIds,
-            'MAXM-01 baseline drift: the set of payloads that leak through providerBody() '
-            .'must be deterministic. If MAXM-02/-04 shrank the set, update this pin in the '
-            .'landing slice; do not silently loosen it.'
+            'MAXM-04 provider-bound allowlist drift: unverified normal memory must not emit corpus markers.'
         );
 
-        $this->writeLeakReceipt('normal_class_baseline_leaks', [
+        $this->writeLeakReceipt('normal_class_maxm04_allowlisted_projection', [
             'total_payloads' => count($this->corpus()['payloads']),
             'leaked_count' => count($leakedIds),
             'leaked_ids' => $leakedIds,
-            'redaction_hits_by_regex' => 0,
+            'requires_provider_body_verified' => true,
         ]);
+    }
+
+    public function test_maxm04_provider_body_verified_stamp_allows_byte_identical_body(): void
+    {
+        $privacy = app(AtlasMemoryPrivacyService::class);
+        $payload = $this->corpus()['payloads'][0];
+        $entry = $this->makeEntry($payload, privacyClass: 'normal', externalAiAllowed: true);
+        $entry->forceFill([
+            'redacted_body' => (string) $payload['body'],
+            'redacted_summary' => (string) $payload['body'],
+            'metadata' => array_merge((array) $entry->metadata, [
+                'privacy' => array_merge((array) data_get($entry->metadata, 'privacy', []), [
+                    'provider_body_verified' => true,
+                ]),
+            ]),
+        ])->save();
+        $entry = $entry->refresh();
+
+        $this->assertStringContainsString((string) $payload['marker'], $privacy->providerBody($entry));
+        $this->assertStringContainsString((string) $payload['marker'], (string) $privacy->providerSummary($entry));
     }
 
     /**

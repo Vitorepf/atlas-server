@@ -845,8 +845,8 @@ class AtlasProviderProjectionService
         $safeText = trim((string) data_get($entry->metadata, 'provider_projection.safe_text', ''));
         $classification = data_get($entry->metadata, 'provider_projection.classification');
         $gate = $this->memoryProjectionSafetyGate->evaluate([
-            'summary' => (string) ($this->privacy->providerSummary($entry) ?? ''),
-            'excerpt' => (string) $this->privacy->providerBody($entry),
+            'summary' => (string) ($entry->summary ?? ''),
+            'excerpt' => (string) $entry->body,
             'title' => (string) $title,
             'source' => (string) ($entry->source_type ?: $entry->source_id ?: $entry->id),
             'recorded_at' => (string) ($entry->recorded_at ?? ''),
@@ -870,12 +870,22 @@ class AtlasProviderProjectionService
         }
         $text = Str::limit(trim($text), $this->projectionInput()->memoryChars(), '...');
         if ($text === '') {
-            return '';
+            $text = 'corpo omitido; ref '.$this->memoryRef($entry);
         }
 
         $scope = $entry->scope_id ? $entry->scope_type : ($entry->scope_type ?: 'global');
 
         return '- ['.$entry->memory_type.']['.$scope.'] '.Str::limit((string) $title, 80, '').': '.$text;
+    }
+
+    private function memoryRef(AtlasMemoryEntry $entry): string
+    {
+        $hash = trim((string) ($entry->content_hash ?? ''));
+        if ($hash === '') {
+            $hash = hash('sha256', (string) $entry->id);
+        }
+
+        return 'memory:'.substr($hash, 0, 16);
     }
 
     private function classificationLabel(mixed $classification): string

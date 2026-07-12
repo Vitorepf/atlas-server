@@ -151,14 +151,45 @@ class AtlasMemoryPrivacyService
 
     public function providerSummary(AtlasMemoryEntry $entry): ?string
     {
-        $value = $entry->redacted_summary ?: ($entry->summary ? AtlasSecurity::redactString((string) $entry->summary) : null);
+        $value = $this->providerBoundText(
+            (string) ($entry->summary ?? ''),
+            $entry->redacted_summary,
+            $entry,
+        );
 
         return $value === '' ? null : $value;
     }
 
     public function providerBody(AtlasMemoryEntry $entry): string
     {
-        return (string) ($entry->redacted_body ?: AtlasSecurity::redactString((string) $entry->body));
+        return $this->providerBoundText((string) $entry->body, $entry->redacted_body, $entry);
+    }
+
+    private function providerBoundText(string $raw, mixed $redacted, AtlasMemoryEntry $entry): string
+    {
+        if (! is_string($redacted) || trim($redacted) === '') {
+            return '';
+        }
+
+        $redacted = AtlasSecurity::redactString(trim($redacted));
+        if ($redacted === '') {
+            return '';
+        }
+
+        // MAXM-04: provider-bound memory is composed from allowlisted projection
+        // fields. A redacted value that is byte-identical to raw text is still raw
+        // unless a write-path verification stamp explicitly authorizes it.
+        if ($raw !== '' && $redacted === trim($raw) && ! $this->providerBodyVerified($entry)) {
+            return '';
+        }
+
+        return $redacted;
+    }
+
+    private function providerBodyVerified(AtlasMemoryEntry $entry): bool
+    {
+        return data_get($entry->metadata, 'privacy.provider_body_verified') === true
+            || data_get($entry->metadata, 'provider_projection.provider_body_verified') === true;
     }
 
     private function queryEntries(array $filters): Builder
