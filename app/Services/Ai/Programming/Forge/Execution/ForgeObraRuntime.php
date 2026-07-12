@@ -35,11 +35,19 @@ final class ForgeObraRuntime
                 'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
                 'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
                 'market_decision_hash' => $commissioning->marketDecisionHash,
+                'rich_input_payload' => [
+                    'schema_version' => 'atlas.quality_foundry.mode_binding.v1',
+                    'product_intent_hash' => $commissioning->productIntentHash,
+                    'spec_hash' => $commissioning->specHash,
+                    'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
+                    'market_decision_hash' => $commissioning->marketDecisionHash,
+                ],
                 'release_policy' => $commissioning->releasePolicy, 'interruption_policy' => $commissioning->interruptionPolicy,
             ]);
             $state = $this->states->initializeForIntake($intake);
 
-            return ForgeObraSnapshot::fromState($state, $commissioning->commissioningHash);
+            return ForgeObraSnapshot::fromState($state, $commissioning->commissioningHash, $commissioning->productIntentHash,
+                $commissioning->specHash, $commissioning->worldModelSnapshotHash, $commissioning->marketDecisionHash);
         });
     }
 
@@ -59,7 +67,11 @@ final class ForgeObraRuntime
         $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
         if (! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
 
-        return ForgeObraSnapshot::fromState($state, (string) data_get($state->toArray(), 'commissioning_hash', ''));
+        $intake = AiForgeIntake::query()->find($obra->value);
+        $binding = is_array($intake?->rich_input_payload) ? $intake->rich_input_payload : [];
+        return ForgeObraSnapshot::fromState($state, (string) data_get($state->toArray(), 'commissioning_hash', ''),
+            data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
+            data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
     }
 
     public function tick(ForgeObraId $obra, ForgeTickBudget $budget): ForgeTickResult
@@ -68,7 +80,9 @@ final class ForgeObraRuntime
         $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
         if (! $intake instanceof AiForgeIntake || ! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
         $packet = $this->cycles->selectPacket($intake, $state);
-        $snapshot = ForgeObraSnapshot::fromState($state, '');
+        $binding = is_array($intake->rich_input_payload) ? $intake->rich_input_payload : [];
+        $snapshot = ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
+            data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
         if ($packet === null) return ForgeTickResult::idle($snapshot, 'no_eligible_packet');
         $built = $this->cycles->planExecution($packet, [
             'execution_mode' => $budget->allowProvider ? 'real' : 'safe_simulation', 'lease_seconds' => $budget->leaseSeconds,
@@ -77,7 +91,8 @@ final class ForgeObraRuntime
         $cycle = $this->cycles->startCycle($intake, $packet, $built, $state);
         $state->refresh();
 
-        return ForgeTickResult::planned(ForgeObraSnapshot::fromState($state, ''), (string) $packet->packet_id, (string) $cycle->cycle_id);
+        return ForgeTickResult::planned(ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
+            data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')), (string) $packet->packet_id, (string) $cycle->cycle_id);
     }
 
     public function control(ForgeObraId $obra, ForgeControlCommand $command): ForgeObraSnapshot
@@ -90,6 +105,9 @@ final class ForgeObraRuntime
             : ['blockers' => [['scope' => 'obra', 'target' => $obra->value, 'reason' => $reason, 'resolved' => false]], 'cycle_id' => 'control-'.$command->command];
         $state = $this->states->recordCycle($state, $cycle);
 
-        return ForgeObraSnapshot::fromState($state, '');
+        $intake = AiForgeIntake::query()->find($obra->value);
+        $binding = is_array($intake?->rich_input_payload) ? $intake->rich_input_payload : [];
+        return ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
+            data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
     }
 }

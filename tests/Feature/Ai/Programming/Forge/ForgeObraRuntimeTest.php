@@ -43,6 +43,10 @@ final class ForgeObraRuntimeTest extends TestCase
         $snapshot = $runtime->commission($commissioning);
 
         $this->assertSame('active', $snapshot->status);
+        $this->assertSame(str_repeat('b', 64), $snapshot->productIntentHash);
+        $this->assertSame(str_repeat('c', 64), $snapshot->specHash);
+        $this->assertSame(str_repeat('d', 64), $snapshot->worldModelSnapshotHash);
+        $this->assertNull($snapshot->marketDecisionHash);
         $this->assertDatabaseCount('ai_forge_intakes', 1);
         $this->assertDatabaseCount('ai_forge_long_horizon_states', 1);
 
@@ -69,5 +73,32 @@ final class ForgeObraRuntimeTest extends TestCase
 
         self::assertSame(str_repeat('e', 64), $commissioning->marketDecisionHash);
         self::assertSame($commissioning->marketDecisionHash, ForgeCommissioning::fromArray($commissioning->toArray())->marketDecisionHash);
+    }
+
+    public function test_snapshot_replays_world_and_market_hashes_after_reload(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra replay de bindings', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'market_decision_hash' => str_repeat('e', 64), 'release_policy' => 'canonical_commit_with_canary',
+            'interruption_policy' => 'pause_drain_resume', 'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+        $runtime = app(ForgeObraRuntime::class);
+        $created = $runtime->commission($commissioning);
+        $this->assertDatabaseHas('ai_forge_intakes', [
+            'id' => $created->intakeId,
+        ]);
+        $persistedBinding = (array) \App\Models\AiForgeIntake::query()->findOrFail($created->intakeId)->rich_input_payload;
+        self::assertSame(str_repeat('b', 64), $persistedBinding['product_intent_hash']);
+        self::assertSame(str_repeat('c', 64), $persistedBinding['spec_hash']);
+        self::assertSame(str_repeat('d', 64), $persistedBinding['world_model_snapshot_hash']);
+        self::assertSame(str_repeat('e', 64), $persistedBinding['market_decision_hash']);
+        $reloaded = $runtime->snapshot($created->obra);
+
+        self::assertSame(str_repeat('b', 64), $reloaded->productIntentHash);
+        self::assertSame(str_repeat('c', 64), $reloaded->specHash);
+        self::assertSame(str_repeat('d', 64), $reloaded->worldModelSnapshotHash);
+        self::assertSame(str_repeat('e', 64), $reloaded->marketDecisionHash);
     }
 }

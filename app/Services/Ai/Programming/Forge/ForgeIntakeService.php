@@ -633,6 +633,18 @@ class ForgeIntakeService
             'schema_version' => is_string($value['schema_version'] ?? null)
                 ? $value['schema_version']
                 : 'atlas.rich_input.payload.v1',
+            'product_intent_hash' => is_string($value['product_intent_hash'] ?? null) && $value['product_intent_hash'] !== ''
+                ? $value['product_intent_hash']
+                : null,
+            'spec_hash' => is_string($value['spec_hash'] ?? null) && $value['spec_hash'] !== ''
+                ? $value['spec_hash']
+                : null,
+            'world_model_snapshot_hash' => is_string($value['world_model_snapshot_hash'] ?? null) && $value['world_model_snapshot_hash'] !== ''
+                ? $value['world_model_snapshot_hash']
+                : null,
+            'market_decision_hash' => is_string($value['market_decision_hash'] ?? null) && $value['market_decision_hash'] !== ''
+                ? $value['market_decision_hash']
+                : null,
             'uploaded_image_ids' => $uploadedImages !== [] ? $uploadedImages : null,
             'uploaded_document_ids' => $uploadedDocuments !== [] ? $uploadedDocuments : null,
             'url_attachments' => $urlAttachments !== [] ? $urlAttachments : null,
