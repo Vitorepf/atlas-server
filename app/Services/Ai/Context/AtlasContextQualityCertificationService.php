@@ -39,6 +39,7 @@ final class AtlasContextQualityCertificationService
         private readonly AtlasRetrievalEvaluationBenchmarkArenaService $retrievalArena,
         private readonly AtlasContextParetoFrontierRuntimeService $paretoFrontier,
         private readonly LocalRagBenchmarkService $localRagBenchmark,
+        private readonly ?RealOutcomeCrosscheckReader $realOutcomeCrosscheckReader = null,
     ) {}
 
     /**
@@ -131,6 +132,7 @@ final class AtlasContextQualityCertificationService
                 'selected_candidates' => (int) data_get($pareto, 'summary.selected_candidates', 0),
             ],
             'metrics' => $metrics,
+            'real_outcome_crosscheck' => $this->realOutcomeCrosscheckSection(),
             'blockers' => $blockers,
             'claim_policy' => [
                 'score_from_real_measurement_only' => true,
@@ -642,5 +644,31 @@ final class AtlasContextQualityCertificationService
     private function clampUnit(float $value): float
     {
         return max(0.0, min(1.0, $value));
+    }
+
+    /**
+     * MAXL-09 — additive real outcome cross-check block. Report-only sidecar
+     * that reads ARFL `used_ratio` and live-outcomes `green_run_pass_rate`
+     * with own denominators, side-by-side, NEVER fused with `quality_score`.
+     * The synthetic score above is byte-identical whether this block is
+     * populated or `unavailable` — the point of MAXL-09 is context, not a new
+     * scalar.
+     *
+     * @return array<string,mixed>
+     */
+    private function realOutcomeCrosscheckSection(): array
+    {
+        if ($this->realOutcomeCrosscheckReader === null) {
+            return [
+                'schema_version' => RealOutcomeCrosscheckReader::SCHEMA_VERSION,
+                'status' => 'unavailable',
+                'reason' => 'reader_not_bound',
+                'source' => ['read_only' => true, 'fuses_to_scalar' => false],
+                'used_ratio' => ['basis' => 'unavailable', 'reason' => 'reader_not_bound', 'value' => null, 'n' => 0],
+                'green_run_pass_rate' => ['basis' => 'unavailable', 'reason' => 'reader_not_bound', 'value' => null, 'n' => 0],
+            ];
+        }
+
+        return $this->realOutcomeCrosscheckReader->crossCheck();
     }
 }

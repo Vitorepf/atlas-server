@@ -226,7 +226,7 @@
 - [ ] MAXJ-07 — pending
 - [ ] MAXJ-08 — pending
 - [ ] MAXK-09 — pending
-- [ ] MAXL-09 — pending
+- [x] MAXL-09 — landed · `RealOutcomeCrosscheckReader` (SCHEMA `atlas.context.real_outcome_crosscheck.v1`) additively cruzes ACQCG with real outcomes side-by-side (§1826-1829): `used_ratio` from ARFL `measured=true` events (filtered by `AtlasContextFeedbackSignalPolicy::isMeasuredAggregateEligible` — `transcript_inferred` excluded) + `green_run_pass_rate` from `atlas_decide/live_outcomes.jsonl` (`proven_real=true AND verified_basis ∈ {server_verified, gates_passed}` — same criterion as ASI-13 `basis=proven`); each component publishes its OWN denominator with `basis`; `n < min_events` OR `measured_share = 0` ⇒ `basis=unavailable` with named `reason` (`no_arfl_events_in_window` / `measured_below_min` / `measured_share_zero` / `live_outcomes_log_absent` / `verified_outcomes_below_min`) — nunca fabricates a number. `source.fuses_to_scalar=false` cravado; `atlas:context:quality-certify --json` ganha bloco aditivo `real_outcome_crosscheck.{used_ratio, green_run_pass_rate, source}`; `quality_score` byte-idêntico com reader bound-vs-null (provado pelo teste, § anti-fusão lição do "92"); tests: `php artisan test tests/Feature/Ai/Context/Maxl09RealOutcomeCrosscheckTest.php` + regressão `tests/Feature/Ai/Context/ContextQualityCertificationTest.php`
 - [ ] MULTV-02 — pending
 - [ ] MULTV-03 — pending
 - [ ] MULTV-09 — pending
