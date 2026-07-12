@@ -1587,6 +1587,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck::class,
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }
