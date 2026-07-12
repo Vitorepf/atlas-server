@@ -30,7 +30,11 @@ final class ProductIntentCourt
         if (($d['observation_window'] ?? null) === null) $blocking[] = 'observation_window_missing';
         if ($d['source_refs'] === []) $blocking[] = 'source_provenance_missing';
         if ($d['falsifiers'] === []) $blocking[] = 'falsifier_missing';
+        if ($d['acceptance'] === []) $blocking[] = 'acceptance_missing';
         if (($truth['status'] ?? null) !== 'ready') $blocking[] = 'product_truth_not_ready';
+        if (array_intersect(array_map('strval', $d['constraints']), array_map('strval', $d['non_goals'])) !== []) {
+            $blocking[] = 'contradictory_constraints';
+        }
 
         $risk = (int) substr((string) $d['risk_class'], 1);
         if ($risk >= 3 && (($d['world_snapshot_hash'] ?? null) === null || ($d['world_snapshot_status'] ?? null) !== 'fresh')) {

@@ -74,6 +74,17 @@ final class ProductIntentCourtTest extends TestCase
         self::assertSame($dev->intentHash, $autonomos->intentHash);
     }
 
+    public function test_contradictory_constraints_and_missing_acceptance_require_revision(): void
+    {
+        $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase([
+            'constraints' => ['no_external_write'], 'non_goals' => ['no_external_write'], 'acceptance' => [],
+        ])));
+
+        self::assertSame('revise', $verdict->status);
+        self::assertContains('contradictory_constraints', $verdict->blockingReasons);
+        self::assertContains('acceptance_missing', $verdict->blockingReasons);
+    }
+
     /** @return array<string,mixed> */
     private function validCase(array $overrides = []): array
     {
