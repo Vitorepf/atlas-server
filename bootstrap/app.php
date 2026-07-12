@@ -115,6 +115,7 @@ use App\Console\Commands\AtlasEngineeringEnforceReadinessCommand;
 use App\Console\Commands\AtlasEngineeringHarnessabilityCalibrateCommand;
 use App\Console\Commands\AtlasEngineeringKnowledgeCommand;
 use App\Console\Commands\AtlasEngineeringQualityScanCommand;
+use App\Console\Commands\AtlasEngineeringQualityFoundryReadinessCommand;
 use App\Console\Commands\AtlasEngineeringReplayCommand;
 use App\Console\Commands\AtlasEngineeringRunCommand;
 use App\Console\Commands\AtlasEngineeringSbomCommand;
@@ -356,6 +357,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringKnowledgeCommand::class,
         AtlasEliteCompactionCommand::class,
         AtlasEngineeringQualityScanCommand::class,
+        AtlasEngineeringQualityFoundryReadinessCommand::class,
         AtlasEngineeringReplayCommand::class,
         AtlasEngineeringRunCommand::class,
         AtlasEngineeringSbomCommand::class,
