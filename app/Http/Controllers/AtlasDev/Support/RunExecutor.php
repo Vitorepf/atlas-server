@@ -12,7 +12,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
  * Surface boundary between the HTTP run endpoint and the run-path services
  * (provider, scope guard, verification, completion, receipt composition).
  *
- * Default implementation lives in {@see PipelineRunExecutor}. Tests bind a
+ * Default implementation lives in {@see KernelRunExecutor}. Tests bind a
  * fake here so the controller stays pure and never calls real provider.
  *
  * Core (Pipeline/Gate/Provider/Repair) does NOT depend on this interface;

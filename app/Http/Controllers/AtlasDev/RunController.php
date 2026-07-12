@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev;
 
 use App\Http\Controllers\AtlasDev\Support\CompactSddUnavailableException;
-use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
 use App\Http\Controllers\AtlasDev\Support\RunExecutionResult;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Http\Controllers\Controller;
@@ -336,10 +335,6 @@ final class RunController extends Controller
         LightTaskContract $taskContract,
         ProviderPromptProjection $promptProjection,
     ): void {
-        if ($this->executor instanceof PipelineRunExecutor) {
-            return;
-        }
-
         try {
             $consult = app(ProviderGovernanceConsult::class);
             if (is_object($consult) && method_exists($consult, 'consultBeforeSpawn')) {
@@ -361,9 +356,6 @@ final class RunController extends Controller
         LightTaskContract $taskContract,
         RunExecutionResult $result,
     ): void {
-        if ($this->executor instanceof PipelineRunExecutor) {
-            return;
-        }
         if ($result->completionState === 'no_patch_needed') {
             return;
         }
