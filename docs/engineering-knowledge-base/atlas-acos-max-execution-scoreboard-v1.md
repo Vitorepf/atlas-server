@@ -104,7 +104,7 @@
 - [ ] ELEV-21 — pending
 - [ ] MAXA-05 — blocked_by:MEM-05 v1 (dep externa: rehydration precedes chunk-level embedding)
 - [ ] MAXA-06 (fase 1) — pending
-- [ ] MAXD-01 — pending
+- [x] MAXD-01 — landed · AURG sync imports current `atlas_engineering_doc_links` as aggregated doc→module `linker_doc_code_index` edges via direct `module_id` or `symbol_id→module_id`, meta `{link_count,sample_link_hash,link_types}`; RAG-10 coverage excludes `linker_doc_code_index` while status still reports `edges_by_source`; live aceite `edges_by_source.linker_doc_code_index ≥500` + doc-with-code-edge baseline lift = pending_window(real Code Intelligence volume); tests: `php artisan test tests/Feature/Reality/AtlasAurgIngestionTest.php tests/Feature/Ai/Cognition/AurgCoverageGateTest.php`
 - [ ] MAXD-09 — pending
 - [ ] MAXD-06 — pending
 - [ ] MAXD-08 — pending

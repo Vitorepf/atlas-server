@@ -39,6 +39,15 @@ use Throwable;
  */
 class AtlasRealityGraphStatusService
 {
+    /**
+     * MAXD import linkers densify doc navigation but must not move the RAG-10
+     * memory cross-layer gate.
+     */
+    private const RAG10_EXCLUDED_LINKER_SOURCES = [
+        'linker_doc_code_index',
+        'linker_doc_authority',
+    ];
+
     public function __construct(
         private readonly AtlasUnifiedRealityGraphTemporalService $temporal,
     ) {}
@@ -156,6 +165,7 @@ class AtlasRealityGraphStatusService
             ->join('atlas_aurg_nodes as from_node', 'from_node.id', '=', 'edge.from_node_id')
             ->join('atlas_aurg_nodes as to_node', 'to_node.id', '=', 'edge.to_node_id')
             ->where('edge.source', 'like', 'linker_%')
+            ->whereNotIn('edge.source', self::RAG10_EXCLUDED_LINKER_SOURCES)
             ->get([
                 'from_node.id as from_id',
                 'from_node.source_kind as from_source_kind',

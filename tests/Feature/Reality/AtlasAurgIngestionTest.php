@@ -203,6 +203,86 @@ final class AtlasAurgIngestionTest extends TestCase
         );
     }
 
+    public function test_doc_code_index_imports_current_links_aggregated_to_module_edges(): void
+    {
+        $docPath = 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md';
+        $moduleId = (string) DB::table('atlas_engineering_code_modules')
+            ->where('slug', 'services-ai-reality')
+            ->value('id');
+        $symbolId = (string) Str::uuid();
+        DB::table('atlas_engineering_code_symbols')->insert([
+            'id' => $symbolId,
+            'workspace_id' => 'atlas-server',
+            'module_id' => $moduleId,
+            'symbol_type' => 'class',
+            'symbol_name' => 'AtlasRealityGraphIngestionService',
+            'file_path' => 'app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php',
+            'language' => 'php',
+            'status' => 'active',
+            'source_hash' => hash('sha256', 'maxd01-symbol'),
+            'related_doc_ids_json' => '[]',
+            'metadata' => '{}',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        foreach ([
+            ['kind' => 'module_path', 'module_id' => $moduleId, 'symbol_id' => null, 'hash' => 'maxd01-direct'],
+            ['kind' => 'symbol_path', 'module_id' => null, 'symbol_id' => $symbolId, 'hash' => 'maxd01-symbol'],
+        ] as $row) {
+            DB::table('atlas_engineering_doc_links')->insert([
+                'id' => (string) Str::uuid(),
+                'workspace_id' => 'atlas-server',
+                'knowledge_item_id' => null,
+                'module_id' => $row['module_id'],
+                'symbol_id' => $row['symbol_id'],
+                'link_type' => $row['kind'],
+                'status' => 'current',
+                'canonical_path' => $docPath,
+                'target_path' => 'app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php',
+                'doc_hash' => hash('sha256', $docPath),
+                'target_hash' => hash('sha256', 'app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php'),
+                'link_hash' => hash('sha256', $row['hash']),
+                'metadata' => '{}',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        DB::table('atlas_engineering_doc_links')->insert([
+            'id' => (string) Str::uuid(),
+            'workspace_id' => 'other-workspace',
+            'knowledge_item_id' => null,
+            'module_id' => $moduleId,
+            'symbol_id' => null,
+            'link_type' => 'module_path',
+            'status' => 'current',
+            'canonical_path' => $docPath,
+            'target_path' => 'app/Services/Ai/Reality/AtlasRealityGraphIngestionService.php',
+            'doc_hash' => hash('sha256', $docPath),
+            'target_hash' => hash('sha256', 'other'),
+            'link_hash' => hash('sha256', 'maxd01-other-workspace'),
+            'metadata' => '{}',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $stats = $this->service()->sync(['docs', 'code']);
+
+        $this->assertSame(1, $stats['linkers']['doc_code_index']);
+        $edge = AtlasAurgEdge::query()
+            ->where('from_node_id', 'doc:doc:'.$docPath)
+            ->where('to_node_id', 'code:module:atlas-server/services-ai-reality')
+            ->where('kind', 'references')
+            ->where('source', 'linker_doc_code_index')
+            ->first();
+        $this->assertNotNull($edge);
+        $this->assertSame(1.0, (float) $edge->confidence);
+        $this->assertSame(2, $edge->meta['link_count'] ?? null);
+        $this->assertSame(
+            min(hash('sha256', 'maxd01-direct'), hash('sha256', 'maxd01-symbol')),
+            $edge->meta['sample_link_hash'] ?? null,
+        );
+    }
+
     public function test_rerun_is_idempotent_no_duplicates(): void
     {
         $service = $this->service();

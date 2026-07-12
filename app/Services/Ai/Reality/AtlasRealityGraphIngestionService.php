@@ -162,6 +162,7 @@ class AtlasRealityGraphIngestionService
             'evidence_links' => $this->linkEvidence(),
             'code_domain' => $this->linkWorkspaceToEngineeringDomain(),
             'doc_code' => $this->linkDocsToCode(),
+            'doc_code_index' => $this->linkDocsToCodeIndex(),
             'doc_memory' => $this->linkDocsToMemory(),
         ];
 
@@ -1776,6 +1777,131 @@ class AtlasRealityGraphIngestionService
         }
 
         return $edges;
+    }
+
+    /**
+     * MAXD-01: import audited Code Intelligence doc→code links as aggregated
+     * doc→module edges. The symbols stay in Code Intelligence; AURG only stores the
+     * bounded module-level bridge and cites the indexed link hash.
+     */
+    private function linkDocsToCodeIndex(): int
+    {
+        if (! $this->tableExists('atlas_engineering_doc_links') || ! $this->tableExists('atlas_engineering_code_modules')) {
+            return 0;
+        }
+
+        $docNodeByPath = [];
+        foreach ($this->brainNodes('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC) as $doc) {
+            $path = (string) ($doc['meta']['path'] ?? $doc['source_id']);
+            if (str_starts_with($path, 'docs/engineering-knowledge-base/')) {
+                $docNodeByPath[$path] = $doc['id'];
+            }
+        }
+        if ($docNodeByPath === []) {
+            return 0;
+        }
+
+        $defaultWorkspace = (string) config('atlas.code_graph.default_workspace_id', 'atlas-server');
+        $moduleHasWorkspace = DatabaseTableAvailability::hasColumn('atlas_engineering_code_modules', 'workspace_id');
+        $modulesById = [];
+        $moduleQuery = DB::table('atlas_engineering_code_modules')
+            ->where('status', 'active')
+            ->whereNull('archived_at');
+        if ($moduleHasWorkspace) {
+            $moduleQuery->where('workspace_id', $defaultWorkspace);
+        }
+        $moduleColumns = $moduleHasWorkspace ? ['id', 'workspace_id', 'slug'] : ['id', 'slug'];
+        foreach ($moduleQuery->get($moduleColumns) as $module) {
+            $workspaceId = is_string($module->workspace_id ?? null) && (string) $module->workspace_id !== ''
+                ? (string) $module->workspace_id
+                : $defaultWorkspace;
+            $modulesById[(string) $module->id] = $this->nodeKey(
+                'code',
+                AtlasRealityGraphSnapshotBuilderService::NODE_MODULE,
+                $workspaceId.'/'.(string) $module->slug,
+            );
+        }
+        if ($modulesById === []) {
+            return 0;
+        }
+
+        $symbolModuleById = [];
+        if ($this->tableExists('atlas_engineering_code_symbols')) {
+            $symbolQuery = DB::table('atlas_engineering_code_symbols')
+                ->where('status', 'active')
+                ->whereNull('archived_at');
+            if (DatabaseTableAvailability::hasColumn('atlas_engineering_code_symbols', 'workspace_id')) {
+                $symbolQuery->where('workspace_id', $defaultWorkspace);
+            }
+            foreach ($symbolQuery->get(['id', 'module_id']) as $symbol) {
+                if ($symbol->module_id !== null) {
+                    $symbolModuleById[(string) $symbol->id] = (string) $symbol->module_id;
+                }
+            }
+        }
+
+        $linkQuery = DB::table('atlas_engineering_doc_links')
+            ->where('status', 'current')
+            ->whereNull('archived_at')
+            ->where('canonical_path', 'like', 'docs/engineering-knowledge-base/%')
+            ->orderBy('canonical_path')
+            ->orderBy('link_hash');
+        if (DatabaseTableAvailability::hasColumn('atlas_engineering_doc_links', 'workspace_id')) {
+            $linkQuery->where('workspace_id', $defaultWorkspace);
+        }
+
+        $groups = [];
+        foreach ($linkQuery->get(['canonical_path', 'module_id', 'symbol_id', 'link_type', 'link_hash']) as $link) {
+            $docPath = (string) $link->canonical_path;
+            $docNodeId = $docNodeByPath[$docPath] ?? null;
+            if ($docNodeId === null) {
+                continue;
+            }
+
+            $moduleId = is_string($link->module_id ?? null) && (string) $link->module_id !== ''
+                ? (string) $link->module_id
+                : ($symbolModuleById[(string) ($link->symbol_id ?? '')] ?? null);
+            if ($moduleId === null) {
+                continue;
+            }
+            $moduleNodeId = $modulesById[$moduleId] ?? null;
+            if ($moduleNodeId === null) {
+                continue;
+            }
+
+            $key = $docNodeId.'|'.$moduleNodeId;
+            $groups[$key] ??= [
+                'from' => $docNodeId,
+                'to' => $moduleNodeId,
+                'link_hashes' => [],
+                'link_types' => [],
+            ];
+            $groups[$key]['link_hashes'][] = (string) $link->link_hash;
+            $groups[$key]['link_types'][(string) $link->link_type] = true;
+        }
+
+        $edges = [];
+        foreach ($groups as $group) {
+            $linkHashes = array_values(array_unique(array_filter($group['link_hashes'], 'is_string')));
+            sort($linkHashes, SORT_STRING);
+            $linkTypes = array_keys($group['link_types']);
+            sort($linkTypes, SORT_STRING);
+
+            $edges[] = $this->edge(
+                from: $group['from'],
+                to: $group['to'],
+                kind: AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                source: 'linker_doc_code_index',
+                confidence: self::CONFIDENCE_EXACT,
+                meta: [
+                    'link_count' => count($linkHashes),
+                    'sample_link_hash' => $linkHashes[0] ?? null,
+                    'link_types' => $linkTypes,
+                ],
+            );
+        }
+
+        return $this->upsertEdges($edges);
     }
 
     /**

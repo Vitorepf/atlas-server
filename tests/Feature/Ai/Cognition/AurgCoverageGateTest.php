@@ -55,6 +55,35 @@ final class AurgCoverageGateTest extends TestCase
         $this->assertContains('cross_layer_linker_zero:linker_memory_domain', $report['blocking']);
     }
 
+    public function test_rag10_coverage_count_excludes_doc_code_index_edges(): void
+    {
+        $this->node('memory:memory_entry:m1', 'memory', 'memory_entry', 'm1');
+        $this->node('code:module:atlas-server/app', 'code', 'module', 'atlas-server/app');
+        $this->node('doc:doc:docs/engineering-knowledge-base/example.md', 'doc', 'doc', 'docs/engineering-knowledge-base/example.md');
+        AtlasAurgEdge::query()->create([
+            'from_node_id' => 'memory:memory_entry:m1',
+            'to_node_id' => 'code:module:atlas-server/app',
+            'kind' => 'references',
+            'source' => 'linker_memory_code',
+            'confidence' => 1.0,
+            'meta' => [],
+        ]);
+        AtlasAurgEdge::query()->create([
+            'from_node_id' => 'doc:doc:docs/engineering-knowledge-base/example.md',
+            'to_node_id' => 'code:module:atlas-server/app',
+            'kind' => 'references',
+            'source' => 'linker_doc_code_index',
+            'confidence' => 1.0,
+            'meta' => ['link_count' => 10],
+        ]);
+
+        $status = app(AtlasRealityGraphStatusService::class)->status();
+
+        $this->assertSame(1, $status['coverage']['cross_layer_linker_edges']);
+        $this->assertSame(1.0, $status['coverage']['memory_cross_layer_coverage_ratio']);
+        $this->assertSame(1, $status['store']['edges_by_source']['linker_doc_code_index']);
+    }
+
     public function test_rag_dimension_watchdog_reports_concentration_masked_by_delivery_filter(): void
     {
         $quality = Mockery::mock(AtlasMemoryQualityService::class);
