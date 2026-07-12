@@ -82,4 +82,48 @@ final class AtlasExternalBrainCapabilityDriftWorkProposerTest extends TestCase
         $this->assertSame([], $result['proposals']);
         $this->assertSame('duplicate_fingerprint', $result['findings'][0]['blocked_reason']);
     }
+
+    public function test_expected_drift_is_observed_without_originating_repair_work(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityDriftWorkProposer)->propose($this->input([
+            'findings' => [$this->finding(['expected_drift' => true])],
+        ]));
+
+        $this->assertFalse($result['has_material_drift']);
+        $this->assertSame('expected_drift', $result['findings'][0]['classification']);
+        $this->assertSame('expected_drift', $result['findings'][0]['blocked_reason']);
+    }
+
+    public function test_model_provider_tool_and_harness_regressions_share_the_same_governed_path(): void
+    {
+        $findings = array_map(
+            fn (string $source): array => $this->finding([
+                'area_id' => $source,
+                'drift_type' => $source.'_drift',
+                'material_regression' => true,
+            ]),
+            ['model', 'provider', 'tool', 'harness'],
+        );
+        $input = $this->input([
+            'findings' => $findings,
+            'target_paths' => [
+                'model' => 'app/Services/Ai/ModelRoute.php',
+                'provider' => 'app/Services/Ai/ProviderPort.php',
+                'tool' => 'app/Services/Ai/ToolGateway.php',
+                'harness' => 'app/Services/Ai/HarnessContract.php',
+            ],
+        ]);
+
+        $result = (new AtlasExternalBrainCapabilityDriftWorkProposer)->propose($input);
+
+        $this->assertCount(4, $result['proposals']);
+        $this->assertSame(
+            ['model', 'provider', 'tool', 'harness'],
+            array_column($result['findings'], 'area_id'),
+        );
+        $this->assertSame(
+            ['task_fabric_proposal', 'task_fabric_proposal', 'task_fabric_proposal', 'task_fabric_proposal'],
+            array_column($result['proposals'], 'destination'),
+        );
+    }
 }
