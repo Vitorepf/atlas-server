@@ -130,6 +130,33 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('rehydrate decision:lost-decision from canonical sources', $pack['markdown']);
     }
 
+    public function test_maxc04_sufficiency_block_is_attached_only_when_facet_retrieval_is_enabled(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', false);
+        $off = $this->service()->packFor('Investigate MissingSymbolXYZ implementation', [
+            'code_budget' => 0,
+            'memory_budget' => 0,
+        ]);
+
+        $this->assertArrayNotHasKey('sufficiency', $off);
+        $this->assertStringNotContainsString('## Suficiência', $off['markdown']);
+
+        config()->set('atlas.aobg.facet_retrieval', true);
+        $on = $this->service()->packFor('Investigate MissingSymbolXYZ implementation', [
+            'code_budget' => 0,
+            'memory_budget' => 0,
+        ]);
+
+        $this->assertTrue((bool) data_get($on, 'sufficiency.present'));
+        $this->assertTrue((bool) data_get($on, 'sufficiency.not_enough_context'));
+        $this->assertSame(
+            ['expand:symbol:MissingSymbolXYZ'],
+            data_get($on, 'sufficiency.handles'),
+        );
+        $this->assertStringContainsString('## Suficiência', $on['markdown']);
+        $this->assertStringContainsString('expand:symbol:MissingSymbolXYZ', $on['markdown']);
+    }
+
     public function test_t4s5_pack_marks_an_open_tension_between_two_recalled_memories(): void
     {
         Schema::dropIfExists('atlas_memory_entry_relations');

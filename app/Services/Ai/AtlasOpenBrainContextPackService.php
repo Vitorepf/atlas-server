@@ -12,7 +12,9 @@ use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use App\Services\Ai\Context\AtlasRetrievalFusionService;
+use App\Services\Ai\Context\PackSufficiencyBlockBuilder;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\Context\TaskFacetExtractor;
 use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Obra\AtlasObraStateService;
@@ -159,6 +161,8 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasFusionInjectionApplier $fusionApplier,
         private readonly AtlasMemoryUsageService $memoryUsage,
         private readonly AtlasContextFeedbackSignalPolicy $feedbackSignalPolicy,
+        private readonly TaskFacetExtractor $taskFacetExtractor,
+        private readonly PackSufficiencyBlockBuilder $packSufficiencyBlockBuilder,
     ) {}
 
     /**
@@ -353,6 +357,9 @@ class AtlasOpenBrainContextPackService
         if ($compacted !== null) {
             $pack['compacted'] = $compacted;
         }
+        if ((bool) config('atlas.aobg.facet_retrieval', false)) {
+            $pack['sufficiency'] = $this->sufficiencySection($task, $pack);
+        }
 
         $pack['context_pack_hash'] = $this->contextPackHash($pack);
         $pack['context_feedback_request'] = $this->contextFeedbackRequest($pack, $opts);
@@ -392,6 +399,27 @@ class AtlasOpenBrainContextPackService
         $sessionId = trim((string) ($opts['session_id'] ?? data_get($opts, 'context.session_id', '')));
 
         return $sessionId !== '' ? 'session:'.$sessionId : null;
+    }
+
+    /**
+     * MAXC-04 — attach the honest sufficiency block to the provider pack only
+     * when deterministic facet retrieval is explicitly enabled.
+     *
+     * @param  array<string,mixed>  $pack
+     * @return array<string,mixed>
+     */
+    private function sufficiencySection(string $task, array $pack): array
+    {
+        $facetExtraction = $this->taskFacetExtractor->extract($task);
+
+        return $this->packSufficiencyBlockBuilder->build(
+            (array) ($facetExtraction['facets'] ?? []),
+            (array) ($pack['code_graph'] ?? []),
+            (array) ($pack['memory'] ?? []),
+            (array) ($pack['reality_graph_paths'] ?? []),
+        ) + [
+            'schema_version' => 'atlas.aobg.pack_sufficiency.v1',
+        ];
     }
 
     /** @return list<string> */
