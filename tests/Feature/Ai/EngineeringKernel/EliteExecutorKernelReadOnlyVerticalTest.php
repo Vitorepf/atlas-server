@@ -1686,7 +1686,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     {
         $kernel = app(EliteExecutorKernel::class);
         $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
-        $receipt = $kernel->observeOutcome(OutcomeObservation::fromArray([
+        $observation = OutcomeObservation::fromArray([
             'schema_version' => 'atlas.outcome_observation.v1',
             'run_id' => $this->canonicalRunId ?? 'run-read-only',
             'delivery_id' => 'delivery-read-only',
@@ -1697,10 +1697,39 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             'observed_at' => '2026-07-11T00:00:00+00:00',
             'metrics' => ['status' => 'read_only'],
             'provenance' => ['source' => 'kernel_test'],
-        ]));
+        ]);
+        $receipt = $kernel->observeOutcome($observation);
+        $replay = $kernel->observeOutcome($observation);
 
         $this->assertSame('held_for_causal_adjudication', $receipt->status);
         $this->assertNotNull($receipt->ledgerEventRef);
+        $this->assertSame($receipt->ledgerEventRef, $replay->ledgerEventRef);
+    }
+
+    public function test_contradictory_observation_for_same_delivery_and_window_is_rejected(): void
+    {
+        $kernel = app(EliteExecutorKernel::class);
+        $outcome = $kernel->execute(ExecutionOrder::fromArray($this->orderData()));
+        $base = [
+            'schema_version' => 'atlas.outcome_observation.v1',
+            'run_id' => $this->canonicalRunId ?? 'run-read-only',
+            'delivery_id' => 'delivery-read-only',
+            'release_hash' => $outcome->correlatedHashes['release'],
+            'order_hash' => $outcome->correlatedHashes['order'],
+            'outcome_hash' => $outcome->outcomeHash,
+            'window' => '0h',
+            'observed_at' => '2026-07-11T00:00:00+00:00',
+            'metrics' => ['status' => 'read_only'],
+            'provenance' => ['source' => 'kernel_test'],
+        ];
+        $kernel->observeOutcome(OutcomeObservation::fromArray($base));
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('outcome_observation_contradictory');
+        $kernel->observeOutcome(OutcomeObservation::fromArray(array_replace(
+            $base,
+            ['metrics' => ['status' => 'regressed']],
+        )));
     }
 
     public function test_observe_outcome_refuses_unknown_correlation(): void

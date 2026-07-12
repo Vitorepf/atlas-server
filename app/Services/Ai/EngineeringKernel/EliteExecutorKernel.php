@@ -934,6 +934,28 @@ final class EliteExecutorKernel
             || ! hash_equals((string) data_get($outcome, 'correlated_hashes.release', ''), $observation->releaseHash)) {
             throw new \InvalidArgumentException('outcome_observation_unknown_correlation');
         }
+        if (! in_array((string) ($outcome['status'] ?? ''), ['released', 'completed_read_only'], true)) {
+            throw new \InvalidArgumentException('outcome_observation_release_not_settled');
+        }
+
+        foreach ($this->ledger()->eventsForCorrelation($observation->deliveryId) as $rawEvent) {
+            if (($rawEvent['payload']['event_name'] ?? null) !== 'outcome.observed') {
+                continue;
+            }
+            $prior = (array) ($rawEvent['payload']['observation'] ?? []);
+            if (($prior['order_hash'] ?? null) !== $observation->orderHash
+                || ($prior['window'] ?? null) !== $observation->window) {
+                continue;
+            }
+            $priorHash = (string) ($rawEvent['payload']['observation_hash'] ?? '');
+            if ($priorHash === $observation->canonicalHash()) {
+                return OutcomeLearningReceipt::fromObservation(
+                    $observation,
+                    (string) ($rawEvent['event_hash'] ?? $rawEvent['event_id'] ?? ''),
+                );
+            }
+            throw new \InvalidArgumentException('outcome_observation_contradictory');
+        }
         $event = $this->ledger()->record(LedgerEventType::SloObserved, [
             'schema_version' => 'atlas.outcome_observed.v1',
             'event_name' => 'outcome.observed',
