@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
  * real vectors by atlas:semantic:reembed right after this runs.
  *
  * Postgres/pgvector cannot cast VECTOR(1536)->VECTOR(384), so the column is
- * dropped and re-added at the configured dimension and the ivfflat index rebuilt.
+ * dropped and re-added at the configured dimension and the HNSW index rebuilt.
  */
 return new class extends Migration
 {
@@ -40,7 +40,7 @@ return new class extends Migration
             DB::statement("DROP INDEX IF EXISTS {$index};");
             DB::statement("ALTER TABLE {$table} DROP COLUMN IF EXISTS embedding;");
             DB::statement("ALTER TABLE {$table} ADD COLUMN embedding vector({$dim});");
-            DB::statement("CREATE INDEX {$index} ON {$table} USING ivfflat (embedding vector_cosine_ops);");
+            DB::statement("CREATE INDEX {$index} ON {$table} USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);");
         }
     }
 
@@ -56,7 +56,7 @@ return new class extends Migration
             DB::statement("DROP INDEX IF EXISTS {$index};");
             DB::statement("ALTER TABLE {$table} DROP COLUMN IF EXISTS embedding;");
             DB::statement("ALTER TABLE {$table} ADD COLUMN embedding vector(1536);");
-            DB::statement("CREATE INDEX {$index} ON {$table} USING ivfflat (embedding vector_cosine_ops);");
+            DB::statement("CREATE INDEX {$index} ON {$table} USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);");
         }
     }
 };

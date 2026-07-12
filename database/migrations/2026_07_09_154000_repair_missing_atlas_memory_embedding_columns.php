@@ -30,7 +30,7 @@ return new class extends Migration
             }
             if (! $this->indexExists($index)) {
                 DB::statement(
-                    "CREATE INDEX {$index} ON {$table} USING ivfflat (embedding vector_cosine_ops);",
+                    "CREATE INDEX {$index} ON {$table} USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);",
                 );
             }
         }

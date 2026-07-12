@@ -40,7 +40,7 @@ return new class extends Migration
             DB::statement('CREATE UNIQUE INDEX idx_ai_attachment_index_hash ON ai_attachment_index_entries(content_hash);');
             DB::statement('CREATE INDEX idx_ai_attachment_index_thread ON ai_attachment_index_entries(thread_id, indexed_at DESC);');
             DB::statement('CREATE INDEX idx_ai_attachment_index_attachment ON ai_attachment_index_entries(attachment_id);');
-            DB::statement('CREATE INDEX idx_ai_attachment_index_embedding ON ai_attachment_index_entries USING ivfflat (embedding vector_cosine_ops);');
+            DB::statement('CREATE INDEX idx_ai_attachment_index_embedding ON ai_attachment_index_entries USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);');
 
             return;
         }

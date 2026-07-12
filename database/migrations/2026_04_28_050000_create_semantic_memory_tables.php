@@ -76,7 +76,7 @@ return new class extends Migration
             DB::statement('CREATE INDEX idx_semantic_notes_last_activated ON semantic_notes(last_activated_at DESC NULLS LAST);');
             DB::statement('CREATE INDEX idx_semantic_notes_frontmatter_gin ON semantic_notes USING GIN(frontmatter);');
             DB::statement('CREATE INDEX idx_semantic_notes_domains_gin ON semantic_notes USING GIN(domains);');
-            DB::statement('CREATE INDEX idx_semantic_notes_embedding ON semantic_notes USING ivfflat (embedding vector_cosine_ops);');
+            DB::statement('CREATE INDEX idx_semantic_notes_embedding ON semantic_notes USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);');
             DB::statement(<<<'SQL'
                 CREATE TRIGGER trg_semantic_notes_updated_at
                 BEFORE UPDATE ON semantic_notes

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
  * `atlas_memory_entries` + `atlas_verbatim_memories` were retrieved KEYWORD-only
  * (scope SQL filter + substring lexical score) and had NO embedding column —
  * real vector search existed only for `semantic_notes`. This adds a pgvector
- * `embedding` column + an ivfflat cosine index to both tables, sized to the REAL
+ * `embedding` column + an HNSW cosine index to both tables, sized to the REAL
  * local model dimension (fastembed BAAI/bge-small = 384-d by config), mirroring
  * the `semantic_notes` precedent (create_semantic_memory_tables +
  * align_semantic_embedding_dimension_to_real_model).
@@ -47,7 +47,7 @@ return new class extends Migration
             }
 
             DB::statement("ALTER TABLE {$table} ADD COLUMN embedding vector({$dim});");
-            DB::statement("CREATE INDEX {$index} ON {$table} USING ivfflat (embedding vector_cosine_ops);");
+            DB::statement("CREATE INDEX {$index} ON {$table} USING hnsw (embedding vector_cosine_ops) WITH (m=16, ef_construction=64);");
         }
     }
 
