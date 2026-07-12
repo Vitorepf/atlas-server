@@ -11,6 +11,7 @@ use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleCanon;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleException;
+use App\Services\Ai\Programming\Forge\ForgeEliteKernelExecutionAdapter;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
 use Tests\TestCase;
@@ -81,6 +82,12 @@ final class ForgeWorkPacketKernelExecutionTest extends TestCase
         self::assertTrue($captured->toolPermissions['mutate']);
         self::assertSame('reservation-1', $captured->authorityEnvelope['lease_id']);
         self::assertSame(7, $captured->authorityEnvelope['fencing_token']);
+        self::assertTrue($captured->authorityEnvelope['sandbox_required']);
+        self::assertTrue($captured->authorityEnvelope['source_workspace_read_only']);
+        self::assertSame(
+            ForgeEliteKernelExecutionAdapter::workspaceLockKey('/tmp/forge-workspace'),
+            $captured->authorityEnvelope['integration_lock_key'],
+        );
         self::assertSame('fixture-provider', $captured->providerRoute['provider']);
         self::assertSame('forge-cycle:cycle-1', $captured->idempotencyKey);
     }

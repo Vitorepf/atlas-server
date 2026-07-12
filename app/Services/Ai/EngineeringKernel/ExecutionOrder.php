@@ -78,6 +78,18 @@ final readonly class ExecutionOrder
         }
         $authority = CanonicalKernelPayload::requireArray($data, 'authority_envelope');
         CanonicalKernelPayload::requireString($authority, 'kind');
+        $toolPermissions = self::toolPermissions($data);
+        $mode = (string) ($data['mode'] ?? '');
+        if ($mode === 'forge'
+            && ($toolPermissions['mutate'] ?? false) === true
+            && ($authority['surface'] ?? null) === 'atlas_forge.work_packet_execution_cycle') {
+            if (($authority['sandbox_required'] ?? false) !== true
+                || ($authority['source_workspace_read_only'] ?? false) !== true
+                || ! is_string($authority['integration_lock_key'] ?? null)
+                || trim((string) $authority['integration_lock_key']) === '') {
+                throw new InvalidArgumentException('forge_mutative_order_requires_sandbox_read_only_and_serial_lock');
+            }
+        }
         $roster = EngineeringRoleRoster::validateRoster(CanonicalKernelPayload::requireArray($data, 'role_roster'));
         $decisionReceipt = self::decisionReceipt($data);
 
@@ -102,7 +114,7 @@ final readonly class ExecutionOrder
             operatorContract: self::requiredNested($data, 'operator_contract', ['presence']),
             roleRoster: $roster,
             providerRoute: self::requiredNested($data, 'provider_route', ['provider', 'model']),
-            toolPermissions: self::toolPermissions($data),
+            toolPermissions: $toolPermissions,
             evidencePolicy: self::evidencePolicy($data),
             releasePolicy: self::requiredNested($data, 'release_policy', ['kind']),
             rollbackPolicy: self::requiredNested($data, 'rollback_policy', ['kind']),
