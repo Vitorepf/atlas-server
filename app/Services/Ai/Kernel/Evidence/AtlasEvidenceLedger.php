@@ -15,12 +15,17 @@ use App\Services\Ai\Kernel\Slo\KernelSloAssessment;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
 class AtlasEvidenceLedger
 {
     public const SCHEMA_VERSION = 'atlas.ledger_event.v1';
+
+    public const CHAIN_BASIS_HASH_CHAINED = 'hash_chained';
+
+    public const CHAIN_BASIS_LEGACY_UNCHAINED = 'legacy_unchained';
 
     public function __construct(
         private readonly FailureClassifier $failureClassifier,
@@ -81,13 +86,65 @@ class AtlasEvidenceLedger
             'occurred_at' => $occurredAt,
         ];
 
-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')) {
+        $hasScopeType = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type');
+        $hasScopeId = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
+        $hasEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash');
+        $hasPrevEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'prev_event_hash');
+        $hasChainBasis = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_basis');
+
+        if ($hasScopeType) {
             $row['scope_type'] = $scopeType;
         }
-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+        if ($hasScopeId) {
             $row['scope_id'] = $scopeId;
         }
-        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash')) {
+        if ($hasPrevEventHash) {
+            $row['prev_event_hash'] = null;
+        }
+        if ($hasChainBasis) {
+            $row['chain_basis'] = self::CHAIN_BASIS_HASH_CHAINED;
+        }
+
+        $write = function () use (
+            $row,
+            $hasEventHash,
+            $hasPrevEventHash,
+            $eventId,
+            $type,
+            $envelopeId,
+            $correlationId,
+            $causationId,
+            $scopeType,
+            $scopeId,
+            $payloadHash,
+            $occurredAt,
+        ): AtlasLedgerEvent {
+            if ($hasPrevEventHash) {
+                $row['prev_event_hash'] = $this->previousEventHashForChain($scopeType, $scopeId, $correlationId);
+            }
+            if ($hasEventHash) {
+                $row['event_hash'] = self::computeEventHash([
+                    'event_id' => $eventId,
+                    'event_type' => $type->value,
+                    'envelope_id' => $envelopeId,
+                    'correlation_id' => $correlationId,
+                    'causation_id' => $causationId,
+                    'scope_type' => $scopeType,
+                    'scope_id' => $scopeId,
+                    'prev_event_hash' => $row['prev_event_hash'] ?? null,
+                    'payload_hash' => $payloadHash,
+                    'occurred_at' => $occurredAt->toISOString(),
+                ]);
+            }
+
+            return AtlasLedgerEvent::query()->create($row);
+        };
+
+        if ($hasPrevEventHash && $hasEventHash) {
+            return DB::transaction($write);
+        }
+
+        if ($hasEventHash) {
             $row['event_hash'] = self::computeEventHash([
                 'event_id' => $eventId,
                 'event_type' => $type->value,
@@ -96,6 +153,7 @@ class AtlasEvidenceLedger
                 'causation_id' => $causationId,
                 'scope_type' => $scopeType,
                 'scope_id' => $scopeId,
+                'prev_event_hash' => $row['prev_event_hash'] ?? null,
                 'payload_hash' => $payloadHash,
                 'occurred_at' => $occurredAt->toISOString(),
             ]);
@@ -124,6 +182,34 @@ class AtlasEvidenceLedger
             'sha256',
             json_encode($filtered, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         );
+    }
+
+    private function previousEventHashForChain(?string $scopeType, ?string $scopeId, string $correlationId): ?string
+    {
+        $query = AtlasLedgerEvent::query()
+            ->whereNotNull('event_hash')
+            ->where('event_hash', '<>', '')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('event_id')
+            ->lockForUpdate();
+
+        if (DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_basis')) {
+            $query->where('chain_basis', self::CHAIN_BASIS_HASH_CHAINED);
+        }
+
+        if ($scopeType !== null
+            && $scopeId !== null
+            && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
+            && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
+            $query->where('scope_type', $scopeType)->where('scope_id', $scopeId);
+        } else {
+            $query->where('correlation_id', $correlationId);
+        }
+
+        $previous = $query->first();
+        $hash = $previous?->getAttribute('event_hash');
+
+        return is_string($hash) && preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? $hash : null;
     }
 
     /**

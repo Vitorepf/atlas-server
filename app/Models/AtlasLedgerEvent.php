@@ -31,6 +31,8 @@ class AtlasLedgerEvent extends Model
         'scope_type',
         'scope_id',
         'event_hash',
+        'prev_event_hash',
+        'chain_basis',
         'occurred_at',
     ];
 

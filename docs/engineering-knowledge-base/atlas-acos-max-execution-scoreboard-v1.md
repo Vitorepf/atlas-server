@@ -25,7 +25,7 @@
 - [ ] ESP-01 — pending
 - [ ] MAXK-07 (+ELEV-09) — pending
 - [x] MAXL-01 — landed · additive ledger repair migration restores `event_hash`/`scope_type`/`scope_id`, backfills stored rows, and guards scoped lookups
-- [ ] MAXL-02 (+ELEV-11) — pending
+- [x] MAXL-02 (+ELEV-11) — landed · Evidence Ledger `prev_event_hash` scoped hash-chain (`scope_type:scope_id`, fallback `correlation_id`); legacy rows labelled `chain_basis=legacy_unchained`; verifier detects gap/tamper; daily chain-head anchor writes git-tracked JSONL with declared threat model
 - [ ] MAXN-01 — pending
 - [ ] ELEV-17 — pending
 - [ ] TETO-05 — pending (obra-retro; cadência a cada fecho de lote daqui em diante)
