@@ -8,6 +8,7 @@ use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticNote;
 use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
+use App\Services\Ai\Memory\AtlasMemoryRecallCache;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
@@ -46,6 +47,7 @@ class AtlasHybridMemoryRetrievalService
         private readonly AtlasMemoryUsageService $usage,
         private readonly AtlasMemoryVectorSearchService $vectorSearch,
         private readonly AtlasMemoryRecallConcentrationDemotion $concentrationDemotion = new AtlasMemoryRecallConcentrationDemotion,
+        private readonly AtlasMemoryRecallCache $recallCache = new AtlasMemoryRecallCache,
     ) {}
 
     /**
@@ -58,6 +60,14 @@ class AtlasHybridMemoryRetrievalService
     {
         $latencyStartedAt = hrtime(true);
         $query = trim($query);
+
+        $cacheKey = $this->recallCache->keyFor($query, $context, $this->cacheFilterKeys($filters), $options);
+        $cacheEnabled = $this->recallCache->isEnabled();
+        $cached = $cacheEnabled ? $this->recallCache->get($cacheKey) : null;
+        if (is_array($cached) && is_array($cached['recall'] ?? null)) {
+            return $this->handleRecallCacheHit($cached, $query, $context, $options, $latencyStartedAt);
+        }
+
         $limit = $this->input->recallLimit($options['limit'] ?? null);
         $registryLimit = $this->input->registryCandidateLimit($options['registry_limit'] ?? null, $limit);
         $verbatimLimit = $this->input->verbatimCandidateLimit($options['verbatim_limit'] ?? null, $limit);
@@ -87,6 +97,7 @@ class AtlasHybridMemoryRetrievalService
         $result = [
             'query' => $query,
             'context' => $this->publicContext($context),
+            'cached' => false,
             'summary' => [
                 'registry_candidates' => count($registry),
                 'verbatim_candidates' => count($verbatim),
@@ -112,7 +123,71 @@ class AtlasHybridMemoryRetrievalService
 
         $this->recordLatencySample($latencyStartedAt, $result);
 
+        if ($cacheEnabled && $query !== '') {
+            try {
+                $this->recallCache->put($cacheKey, [
+                    'schema_version' => 'atlas.memory.recall_cache.v1',
+                    'stored_at' => now()?->toJSON() ?? date(DATE_ATOM),
+                    'recall' => $result,
+                ]);
+            } catch (\Throwable) {
+                // fail-open: cache is optimization, never a correctness gate.
+            }
+        }
+
         return $result;
+    }
+
+    /**
+     * @param  array<string,mixed>  $cached
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $options
+     * @return array<string,mixed>
+     */
+    private function handleRecallCacheHit(
+        array $cached,
+        string $query,
+        array $context,
+        array $options,
+        int $latencyStartedAt,
+    ): array {
+        $result = is_array($cached['recall'] ?? null) ? $cached['recall'] : [];
+        $result['cached'] = true;
+
+        // Delivery usage is re-recorded on hit (context_pack surface is delivered
+        // regardless of cache). We NEVER re-record pre_filter (denominator inflation).
+        if (($options['record_usage'] ?? true) === true) {
+            $recall = is_array($result['recall'] ?? null) ? $result['recall'] : [];
+            $usage = $this->usage->recordRecallUsages(
+                $query,
+                $this->publicContext($context),
+                $recall,
+                [
+                    'source' => is_scalar($options['requester'] ?? null)
+                        ? (string) $options['requester']
+                        : 'atlas_memory_recall.cache_hit',
+                    'cached' => true,
+                ],
+            );
+            if (isset($result['summary']) && is_array($result['summary'])) {
+                $result['summary']['usage_recorded_count'] = (int) ($usage['recorded_count'] ?? 0);
+                $result['summary']['usage_audit_id'] = $usage['audit_id'] ?? null;
+                $result['summary']['cache_hit'] = true;
+            }
+        }
+
+        $this->recordLatencySample($latencyStartedAt, $result);
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string,mixed>  $filters
+     * @return array<string,mixed>
+     */
+    private function cacheFilterKeys(array $filters): array
+    {
+        return $filters;
     }
 
     /** @param array<string,mixed> $recall */

@@ -76,8 +76,13 @@ return [
         ],
 
         // KEYSTONE FLAGS — external brain perception is default ON; opt out with env only when debugging.
-        'reflection_enabled' => (bool) env('ATLAS_BRAIN_REFLECTION_ENABLED', false),
+        // ASI-08: reflection stream is default ON (local, cheap, reversible by env). It is
+        // NOT a master flip; this is a write-local diagnostic so the derivative second stops
+        // being zero. Governed by env only for tests/debug that need silence.
+        'reflection_enabled' => (bool) env('ATLAS_BRAIN_REFLECTION_ENABLED', true),
         'reflection_root' => storage_path('app/atlas/brain/reflection-stream.ndjson'),
+        // Where the pattern-learning ledger is appended (SERVER-SIDE at landing seam).
+        'pattern_learning_ledger' => storage_path('atlas-loop/pattern-learning-ledger.jsonl'),
         'causal_selector_enabled' => (bool) env('ATLAS_BRAIN_CAUSAL_SELECTOR_ENABLED', false),
         // Structural-signal digest (comprehension-deepening): when ON, brain:next injects top-K orphan/clone/
         // doc-stated-gap signals into the served payload so the pasted brain can originate against multi-file
@@ -435,6 +440,14 @@ return [
     'memory' => [
         // ACOS FEE-04: land default-OFF; flip only after watchdog soak + rollback trigger.
         'feedback_ranking_enabled' => (bool) env('ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED', false),
+
+        // MAXB-09: recall cache by query_hash (usage-safe).
+        // TTL is clamped to [60, 900] seconds by AtlasMemoryRecallCache to prevent
+        // stale delivery beyond the spec window.
+        'recall_cache' => [
+            'enabled' => (bool) env('ATLAS_MEMORY_RECALL_CACHE_ENABLED', true),
+            'ttl_seconds' => (int) env('ATLAS_MEMORY_RECALL_CACHE_TTL_SECONDS', 600),
+        ],
     ],
 
     'semantic_memory' => [

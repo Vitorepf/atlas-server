@@ -1529,6 +1529,8 @@ class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
         $this->registerAcosWatchdogChecks();
 
+        \App\Models\AtlasMemoryEntry::observe(\App\Observers\AtlasMemoryRecallCacheObserver::class);
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 AtlasTaskMaestroCostCommand::class,
