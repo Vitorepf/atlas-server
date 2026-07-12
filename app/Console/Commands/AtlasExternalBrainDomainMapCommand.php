@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBreakthroughPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityMapDriftDetector;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityDriftWorkProposer;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainDomainWaveReadinessManifest;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEvidenceFreshnessBackfillPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMaturityGapIndex;
 use Illuminate\Console\Command;
@@ -51,6 +52,7 @@ final class AtlasExternalBrainDomainMapCommand extends Command
         $backfillPlanner = new AtlasExternalBrainEvidenceFreshnessBackfillPlanner;
         $breakthroughPlanner = new AtlasExternalBrainBreakthroughPlanner;
         $driftWorkProposer = new AtlasExternalBrainCapabilityDriftWorkProposer;
+        $domainWaveReadiness = new AtlasExternalBrainDomainWaveReadinessManifest;
 
         $maturityGaps = $maturityGapIndex->compute(
             is_array($facts['rubric'] ?? null) ? $facts['rubric'] : [],
@@ -86,6 +88,11 @@ final class AtlasExternalBrainDomainMapCommand extends Command
             'active_reservations' => $facts['active_reservations'] ?? [],
         ]);
 
+        $waveReadiness = $domainWaveReadiness->evaluate([
+            'requested_wave' => $facts['requested_wave'] ?? 1,
+            'waves' => $facts['waves'] ?? [],
+        ]);
+
         // Priority target: missing evidence and high-impact capability drift always come before
         // originating more work off an unproven or stale domain map.
         $hasMissingEvidence = (bool) ($evidenceBackfill['is_backfill_needed'] ?? false);
@@ -115,6 +122,7 @@ final class AtlasExternalBrainDomainMapCommand extends Command
             'maturity_gaps' => $maturityGaps,
             'capability_drift' => $capabilityDrift,
             'drift_work' => $driftWork,
+            'domain_wave_readiness' => $waveReadiness,
             'evidence_backfill' => $evidenceBackfill,
             'breakthrough_plan' => $breakthroughPlan,
         ];
