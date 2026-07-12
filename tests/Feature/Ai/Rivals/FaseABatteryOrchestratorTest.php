@@ -52,6 +52,20 @@ class FaseABatteryOrchestratorTest extends TestCase
         }
     }
 
+    public function test_dry_run_fast_is_one_case_one_rep_ten_suites(): void
+    {
+        $payload = (new FaseABatteryOrchestrator)->dryRun('bare', true);
+        $this->assertTrue($payload['fast']);
+        $this->assertSame('fast', $payload['profile']);
+        $this->assertFalse($payload['claim_ready']);
+        $this->assertSame(10, $payload['suite_count']);
+        foreach ($payload['plans'] as $plan) {
+            $this->assertSame(1, $plan['case_count'], $plan['suite_id']);
+            $this->assertSame(1, $plan['repetitions'], $plan['suite_id']);
+            $this->assertSame(1, $plan['units_expected'], $plan['suite_id']);
+        }
+    }
+
     public function test_battery_cli_dry_run_action(): void
     {
         config()->set('atlas_rivals.enabled', false);
@@ -143,6 +157,10 @@ class FaseABatteryOrchestratorTest extends TestCase
 
     public function test_execute_blocked_off_mac_without_allow(): void
     {
+        if (PHP_OS_FAMILY === 'Darwin') {
+            $this->markTestSkipped('mac_only gate is Darwin pass-through; Linux CI covers the block');
+        }
+
         config()->set('atlas_rivals.enabled', true);
         config()->set('atlas_rivals.provider_spend_allowed', true);
         config()->set('atlas_rivals.fase_a.allow_execute', false);

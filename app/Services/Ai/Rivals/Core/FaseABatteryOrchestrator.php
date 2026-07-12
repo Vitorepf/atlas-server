@@ -19,7 +19,7 @@ class FaseABatteryOrchestrator
     /**
      * @return array<string, mixed>
      */
-    public function dryRun(string $mode = 'bare'): array
+    public function dryRun(string $mode = 'bare', bool $fast = false): array
     {
         $mode = $this->assertMode($mode);
         if ($mode === 'model_matrix') {
@@ -35,8 +35,9 @@ class FaseABatteryOrchestrator
             : $this->suites->externalSuiteIds();
 
         $casePacks = (array) config('atlas_rivals.fase_a.case_packs', []);
-        $repetitions = (int) config('atlas_rivals.fase_a.default_repetitions', 3);
-        $minCases = (int) config('atlas_rivals.fase_a.min_distinct_cases', 3);
+        $profile = $this->applyFastProfile($fast);
+        $repetitions = $profile['repetitions'];
+        $minCases = $profile['min_distinct_cases'];
         $plans = [];
         foreach ($suites as $suiteId) {
             $cases = array_values(array_unique(array_map('strval', (array) ($casePacks[$suiteId] ?? []))));
@@ -44,6 +45,9 @@ class FaseABatteryOrchestrator
                 throw new RuntimeException(
                     "rivals_battery_case_pack_too_small:{$suiteId}:".count($cases)."<{$minCases}"
                 );
+            }
+            if ($fast) {
+                $cases = array_slice($cases, 0, 1);
             }
             $arms = $mode === 'uplift'
                 ? ["{$primary}@bare", "{$primary}@atlas_dev"]
@@ -63,12 +67,39 @@ class FaseABatteryOrchestrator
         return [
             'schema_version' => 'atlas.rivals2.fase_a_battery_dry_run.v1',
             'mode' => $mode,
+            'fast' => $fast,
+            'profile' => $profile['name'],
             'primary_model' => $primary,
             'provider_binding' => 'hermes+verboo',
             'execute_allowed_here' => false,
-            'hint' => 'dry-run only — use --mode=prepare on Mac (no native spend); --mode=execute is Mac-only',
+            'claim_ready' => false,
+            'hint' => $fast
+                ? 'fast profile = 1 case × 1 rep × N suites — pipeline proof only, not claim-ready'
+                : 'dry-run only — use --mode=prepare on Mac (no native spend); --mode=execute is Mac-only',
             'suite_count' => count($plans),
             'plans' => $plans,
+        ];
+    }
+
+    /**
+     * Fast = pipeline smoke across all suites (1×1), never claim-ready.
+     *
+     * @return array{name: string, repetitions: int, min_distinct_cases: int}
+     */
+    private function applyFastProfile(bool $fast): array
+    {
+        if ($fast) {
+            return [
+                'name' => 'fast',
+                'repetitions' => 1,
+                'min_distinct_cases' => 1,
+            ];
+        }
+
+        return [
+            'name' => 'default',
+            'repetitions' => (int) config('atlas_rivals.fase_a.default_repetitions', 3),
+            'min_distinct_cases' => (int) config('atlas_rivals.fase_a.min_distinct_cases', 3),
         ];
     }
 
@@ -78,7 +109,7 @@ class FaseABatteryOrchestrator
      *
      * @return array<string, mixed>
      */
-    public function prepare(string $mode = 'bare', bool $approveProviderSpend = false): array
+    public function prepare(string $mode = 'bare', bool $approveProviderSpend = false, bool $fast = false): array
     {
         if (! (bool) config('atlas_rivals.enabled', false)) {
             throw new RuntimeException('atlas_rivals_disabled');
@@ -90,13 +121,13 @@ class FaseABatteryOrchestrator
             throw new RuntimeException('rivals_provider_spend_not_allowed');
         }
 
-        $dry = $this->dryRun($mode);
+        $dry = $this->dryRun($mode, $fast);
         $prepared = [];
         $errors = [];
         foreach ($dry['plans'] as $planSpec) {
             $suiteId = (string) $planSpec['suite_id'];
             try {
-                $prepared[] = $this->prepareOneSuite($planSpec, $approveProviderSpend);
+                $prepared[] = $this->prepareOneSuite($planSpec, $approveProviderSpend, $fast);
             } catch (\Throwable $e) {
                 $errors[] = ['suite_id' => $suiteId, 'error' => $e->getMessage()];
             }
@@ -105,9 +136,14 @@ class FaseABatteryOrchestrator
         return [
             'schema_version' => 'atlas.rivals2.fase_a_battery_prepare.v1',
             'mode' => $mode,
+            'fast' => $fast,
+            'profile' => $dry['profile'],
             'primary_model' => $dry['primary_model'],
             'execute_allowed_here' => false,
-            'hint' => 'prepare imports cases + persists plans/manifests + soft preflight — native runner is separate (execute / Mac)',
+            'claim_ready' => false,
+            'hint' => $fast
+                ? 'fast prepare = 1×1 pipeline proof — not claim-ready; native runner is separate (execute / Mac)'
+                : 'prepare imports cases + persists plans/manifests + soft preflight — native runner is separate (execute / Mac)',
             'prepared' => $prepared,
             'errors' => $errors,
             'status' => $errors === [] ? 'ok' : 'error',
@@ -118,7 +154,7 @@ class FaseABatteryOrchestrator
      * @param  array<string, mixed>  $planSpec
      * @return array<string, mixed>
      */
-    private function prepareOneSuite(array $planSpec, bool $approveProviderSpend): array
+    private function prepareOneSuite(array $planSpec, bool $approveProviderSpend, bool $fast = false): array
     {
         $suiteId = (string) $planSpec['suite_id'];
         $fixtureRoot = $this->assertFixtureRoot((string) $planSpec['fixture_root']);
@@ -183,6 +219,8 @@ class FaseABatteryOrchestrator
         $data['environment']['source_repo'] = $suiteId;
         $data['environment']['approve_provider_spend'] = $approveProviderSpend;
         $data['environment']['fase_a_battery'] = true;
+        $data['environment']['fase_a_fast'] = $fast;
+        $data['environment']['claim_ready'] = false;
         $data['environment']['adapter_hash'] = hash(
             'sha256',
             $adapter::class.'|'.(string) config('atlas_rivals.version', '2.0')
@@ -203,7 +241,10 @@ class FaseABatteryOrchestrator
             }
             $units[] = $case;
         }
-        FrozenUnitManifest::fromPlan($plan, $units, app()->environment('testing'))->persist();
+        // Fase A case packs live under tests/Fixtures — they are not mined
+        // repo snapshots. Freeze still stamps content-addressed units, with
+        // synthetic=true when base/golden/hidden proof are absent. Claims stay closed.
+        FrozenUnitManifest::fromPlan($plan, $units, allowSynthetic: true)->persist();
         (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED, [
             'suite_id' => $suiteId,
             'cases' => count($caseIds),
@@ -321,6 +362,7 @@ class FaseABatteryOrchestrator
         string $mode = 'bare',
         bool $approveProviderSpend = false,
         bool $unitsDryRun = false,
+        bool $fast = false,
     ): array {
         $this->assertExecuteAllowed($unitsDryRun);
 
@@ -340,7 +382,7 @@ class FaseABatteryOrchestrator
         $smokeGate = $unitsDryRun
             ? ['required_suites' => [], 'running' => 0, 'blocked' => [], 'note' => 'smoke skipped for --dry-run']
             : $this->assertSmokesReady($mode);
-        $prepared = $this->prepare($mode, $approveProviderSpend);
+        $prepared = $this->prepare($mode, $approveProviderSpend, $fast);
         if (($prepared['status'] ?? null) !== 'ok') {
             return $prepared + [
                 'schema_version' => 'atlas.rivals2.fase_a_battery_execute.v1',
@@ -370,8 +412,11 @@ class FaseABatteryOrchestrator
         return [
             'schema_version' => 'atlas.rivals2.fase_a_battery_execute.v1',
             'mode' => $mode,
+            'fast' => $fast,
+            'profile' => $prepared['profile'] ?? ($fast ? 'fast' : 'default'),
             'units_dry_run' => $unitsDryRun,
             'execute_allowed_here' => ! $unitsDryRun,
+            'claim_ready' => false,
             'smoke' => $smokeGate,
             'prepared' => $prepared,
             'suite_results' => $suiteResults,
@@ -386,7 +431,9 @@ class FaseABatteryOrchestrator
             'status' => $errors === [] ? 'ok' : 'error',
             'hint' => $unitsDryRun
                 ? 'dry-run only — no provider spend; re-run without --dry-run on Mac to execute'
-                : 'native units executed; see suite_results + enterprise_report',
+                : ($fast
+                    ? 'fast native units executed — pipeline proof only, claim_allowed=false'
+                    : 'native units executed; see suite_results + enterprise_report'),
         ];
     }
 

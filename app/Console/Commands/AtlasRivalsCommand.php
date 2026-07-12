@@ -58,6 +58,7 @@ class AtlasRivalsCommand extends Command
         {--budget= : (plan) budget USD}
         {--max-minutes= : (plan) hard wall-clock cap per native execution}
         {--approve-provider-spend : (plan) aprovação explícita de spend}
+        {--fast : (battery) 1 case × 1 rep × N suites — pipeline proof, not claim-ready}
         {--dry-run : (battery execute) lista/valida units sem gastar provider}
         {--replace-import : (import-results) substitui receipts/evidence anteriores}
         {--strict : falha se smoke blocked / uplift unsupported}
@@ -188,6 +189,7 @@ class AtlasRivalsCommand extends Command
     private function runBattery(): array
     {
         $mode = (string) ($this->option('mode') ?: 'bare');
+        $fast = (bool) $this->option('fast');
         $orchestrator = new FaseABatteryOrchestrator;
         if ($mode === 'status') {
             return $orchestrator->status();
@@ -198,6 +200,7 @@ class AtlasRivalsCommand extends Command
                     (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
                     (bool) $this->option('dry-run'),
+                    $fast,
                 );
             } catch (\Throwable $e) {
                 return [
@@ -212,6 +215,7 @@ class AtlasRivalsCommand extends Command
                 return $orchestrator->prepare(
                     (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
+                    $fast,
                 );
             } catch (\Throwable $e) {
                 return ['status' => 'error', 'error' => $e->getMessage()];
@@ -219,7 +223,7 @@ class AtlasRivalsCommand extends Command
         }
 
         try {
-            return $orchestrator->dryRun($mode) + ['status' => 'ok'];
+            return $orchestrator->dryRun($mode, $fast) + ['status' => 'ok'];
         } catch (\Throwable $e) {
             return ['status' => 'error', 'error' => $e->getMessage()];
         }
