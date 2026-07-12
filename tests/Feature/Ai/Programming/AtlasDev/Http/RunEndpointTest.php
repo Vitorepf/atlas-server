@@ -15,6 +15,8 @@ use App\Services\Ai\Programming\AtlasDev\Runtime\RunWorkerDispatcher;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Support\Carbon;
 use Tests\Concerns\BootsCompoundingSchema;
 
@@ -399,6 +401,10 @@ final class RunEndpointTest extends AtlasDevHttpTestCase
         $plan = $this->plan();
 
         AtlasWorkspaceProfile::query()->where('slug', 'atlas-dev-http')->delete();
+        $this->app->instance(
+            AwisExecutionGatePort::class,
+            $this->app->make(AtlasWorkspaceIntelligenceExecutionGateService::class),
+        );
 
         $response = $this->withHeaders($this->headers)
             ->postJson('/ai/interactions/atlas-dev/run', [

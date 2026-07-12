@@ -8,6 +8,7 @@ use App\Models\AtlasWorkspaceProfile;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
@@ -73,6 +74,7 @@ abstract class AtlasDevHttpTestCase extends TestCase
             "<?php\nclass FooServiceTest {}\n",
         );
         $this->bootstrapAwisWorkspaceRegistry();
+        $this->bindAllowedAwisExecutionGate();
 
         $this->app->instance(AtlasOpenBrainService::class, new FakeAtlasOpenBrainService);
 
@@ -186,6 +188,26 @@ abstract class AtlasDevHttpTestCase extends TestCase
                 'status' => 'active',
             ],
         );
+    }
+
+    protected function bindAllowedAwisExecutionGate(): void
+    {
+        $this->app->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
+        {
+            /**
+             * @param  array<int,string>  $conversationTexts
+             * @return array<string,mixed>
+             */
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return [
+                    'allowed' => true,
+                    'status' => 'ready',
+                    'mode' => $mode,
+                    'blockers' => [],
+                ];
+            }
+        });
     }
 
     /**

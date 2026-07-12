@@ -24,7 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
 use App\Services\Ai\Programming\AtlasDev\SeniorLoop\SeniorEngineerLoopExecutionReporter;
 use App\Services\Ai\Programming\AtlasDev\Surface\HttpResponseRedactor;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use App\Support\AtlasSecurity;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Http\JsonResponse;
@@ -115,7 +115,7 @@ final class RunController extends Controller
             ], 422);
         }
 
-        $awisGate = app(AtlasWorkspaceIntelligenceExecutionGateService::class)->gate(
+        $awisGate = app(AwisExecutionGatePort::class)->gate(
             workspace: (string) ($envelopePayload['workspace'] ?? ''),
             mode: 'dev',
             task: (string) data_get($taskContractPayload, 'objective', data_get($taskContractPayload, 'intent', 'atlas dev run')),

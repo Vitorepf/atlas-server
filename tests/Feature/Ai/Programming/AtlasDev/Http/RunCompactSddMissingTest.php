@@ -52,7 +52,7 @@ final class RunCompactSddMissingTest extends TestCase
         // compact-sdd attestation this test pins; allow it so the 422 typed
         // code — not ATLAS_DEV_AWIS_EXECUTION_BLOCKED — is what surfaces.
         app()->instance(
-            \App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService::class,
+            \App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort::class,
             new class
             {
                 public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
