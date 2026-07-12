@@ -252,7 +252,7 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('context_pack_runtime_fingerprint', data_get($structured, 'runtime.feature_flags'));
         $this->assertContains('mcp_runtime_self_check', data_get($structured, 'runtime.feature_flags'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($structured, 'runtime.runtime_fingerprint'));
-        $this->assertSame('atlas.open_brain.surface_contract.v1', data_get($structured, 'surface_contract.schema_version'));
+        $this->assertSame('atlas.open_brain.surface_contract.v1.1', data_get($structured, 'surface_contract.schema_version'));
         $this->assertSame(9, data_get($structured, 'surface_contract.primary_tool_count'));
         $this->assertSame(55, data_get($structured, 'surface_contract.compatibility_tool_count'));
         $this->assertContains('atlas_context_pack', data_get($structured, 'surface_contract.primary_tools'));
@@ -318,6 +318,47 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertSame('string', data_get($contextFeedbackTool, 'inputSchema.properties.flow_id.type'));
     }
 
+    public function test_capabilities_exposes_tool_contracts_with_independent_write_path_guard(): void
+    {
+        $service = $this->app->make(AtlasOpenBrainMcpService::class);
+        $response = $service->handleJsonRpc([
+            'jsonrpc' => '2.0', 'id' => 711, 'method' => 'tools/call',
+            'params' => ['name' => 'atlas_capabilities', 'arguments' => []],
+        ]);
+
+        $structured = $response['result']['structuredContent'];
+        $this->assertSame('atlas.open_brain.surface_contract.v1.1', data_get($structured, 'surface_contract.schema_version'));
+
+        $tools = collect($structured['tools'])->keyBy('name');
+        $this->assertCount(64, $tools);
+        foreach ($tools as $name => $tool) {
+            $contract = data_get($tool, 'annotations.atlasContract');
+            $this->assertIsArray($contract, "missing atlasContract for {$name}");
+            $this->assertContains($contract['stability'] ?? null, ['stable', 'experimental', 'deprecated']);
+            $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}$/', (string) ($contract['since'] ?? ''));
+            $this->assertIsBool($contract['provider_bound'] ?? null);
+            $this->assertContains($contract['side_effect'] ?? null, ['read', 'write']);
+            $this->assertContains($contract['cost_tier'] ?? null, ['free_local', 'local_cpu', 'local_io', 'external']);
+        }
+
+        foreach ($this->mutativeMcpToolHandlersFromSource() as $toolName) {
+            $this->assertSame(
+                'write',
+                data_get($tools->get($toolName), 'annotations.atlasContract.side_effect'),
+                "{$toolName} reaches a write path and must not be labelled read",
+            );
+        }
+
+        $this->assertSame(
+            'write',
+            data_get($tools->get('atlas_memory_record'), 'annotations.atlasContract.side_effect'),
+        );
+        $this->assertSame(
+            'read',
+            data_get($tools->get('atlas_capabilities'), 'annotations.atlasContract.side_effect'),
+        );
+    }
+
     public function test_mcp_self_check_reports_runtime_fingerprint_and_stale_expectations(): void
     {
         $service = $this->app->make(AtlasOpenBrainMcpService::class);
@@ -368,6 +409,81 @@ class AtlasOpenBrainMcpServiceTest extends TestCase
         $this->assertContains('atlas_future_tool', data_get($stale, 'checks.missing_tool_names'));
         $this->assertNotEmpty($stale['next_actions']);
         $this->assertFalse(data_get($stale, 'runtime.raw_prompt_exposed'));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function mutativeMcpToolHandlersFromSource(): array
+    {
+        $source = File::get(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
+        preg_match_all(
+            '/\'([^\']+)\'\s*=>\s*\$this->toolResponse\(\$id,\s*\$this->([A-Za-z0-9_]+)\(/',
+            $source,
+            $matches,
+            PREG_SET_ORDER,
+        );
+
+        $mutative = [];
+        foreach ($matches as $match) {
+            $tool = (string) $match[1];
+            $method = (string) $match[2];
+            $body = $this->mcpMethodBody($source, $method);
+            foreach ([
+                '->save(',
+                '::create(',
+                '->create(',
+                '->update(',
+                '->delete(',
+                '->forceFill(',
+                'AtlasOpenBrainWriteBackService',
+                'recordOutcome(',
+                'proposeLearning(',
+                'claim(',
+                'release(',
+                'memoryRecord(',
+                'memoryArchive(',
+                'memoryLink(',
+                'memorySupersede(',
+                'taskStart(',
+                'taskProgress(',
+                'taskComplete(',
+                'nextTask(',
+                'taskReport(',
+            ] as $token) {
+                if (str_contains($body, $token)) {
+                    $mutative[] = $tool;
+
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($mutative));
+    }
+
+    private function mcpMethodBody(string $source, string $method): string
+    {
+        $needle = 'function '.$method.'(';
+        $offset = strpos($source, $needle);
+        $this->assertNotFalse($offset, "handler {$method} not found");
+        $open = strpos($source, '{', $offset);
+        $this->assertNotFalse($open, "handler {$method} body not found");
+
+        $depth = 0;
+        $length = strlen($source);
+        for ($i = $open; $i < $length; $i++) {
+            if ($source[$i] === '{') {
+                $depth++;
+            } elseif ($source[$i] === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($source, $open, $i - $open + 1);
+                }
+            }
+        }
+
+        $this->fail("handler {$method} body not closed");
     }
 
     public function test_context_feedback_tool_captures_provider_safe_retrieval_roi(): void

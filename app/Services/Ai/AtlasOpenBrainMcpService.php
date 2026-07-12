@@ -114,6 +114,28 @@ class AtlasOpenBrainMcpService
 
     public const SURFACE_REVIEW_SCHEMA = 'atlas.open_brain.surface_review.v1';
 
+    /**
+     * Tool business side-effects, independent from telemetry writes emitted by the transport.
+     *
+     * @var list<string>
+     */
+    private const WRITE_TOOLS = [
+        'atlas_memory_record',
+        'atlas_context_feedback',
+        'atlas_record_outcome',
+        'atlas_propose_learning',
+        'atlas_workspace_activate',
+        'atlas_claim_task',
+        'atlas_task_start',
+        'atlas_task_progress',
+        'atlas_task_complete',
+        'atlas_memory_archive',
+        'atlas_memory_link',
+        'atlas_memory_supersede',
+        'atlas_next_task',
+        'atlas_task_report',
+    ];
+
     private string $processStartedAt;
 
     public function __construct(
@@ -1292,9 +1314,27 @@ class AtlasOpenBrainMcpService
                 'zero_removals_in_current_slice' => true,
             ],
         ];
+        $annotations['atlasContract'] = $this->atlasToolContract($name, $annotations);
         $tool['annotations'] = $annotations;
 
         return $tool;
+    }
+
+    /**
+     * @param  array<string,mixed>  $annotations
+     * @return array<string,mixed>
+     */
+    private function atlasToolContract(string $name, array $annotations): array
+    {
+        $sideEffect = in_array($name, self::WRITE_TOOLS, true) ? 'write' : 'read';
+
+        return [
+            'stability' => 'stable',
+            'since' => '2026-07-12',
+            'provider_bound' => true,
+            'side_effect' => $sideEffect,
+            'cost_tier' => ((bool) ($annotations['openWorldHint'] ?? false)) ? 'external' : 'local_cpu',
+        ];
     }
 
     /**
@@ -2558,12 +2598,17 @@ class AtlasOpenBrainMcpService
         ));
 
         return [
-            'schema_version' => 'atlas.open_brain.surface_contract.v1',
+            'schema_version' => 'atlas.open_brain.surface_contract.v1.1',
             'status' => 'stable',
             'primary_tool_count' => count($primary),
             'primary_tools' => $primary,
             'compatibility_tool_count' => max(0, count($allNames) - count($primary)),
             'compatibility_aliases' => self::COMPATIBILITY_ALIASES,
+            'tool_contracts' => collect($this->tools())
+                ->mapWithKeys(static fn (array $tool): array => [
+                    (string) ($tool['name'] ?? '') => data_get($tool, 'annotations.atlasContract', []),
+                ])
+                ->all(),
             'deprecation_policy' => [
                 'minimum_observation_days' => 90,
                 'usage_evidence_required' => true,
