@@ -189,7 +189,7 @@ Brain → Proposal Arena → Product/Spec Courts → atomic reservation
 - [ ] Dev: test confirm/cancel/override/handoff, retries without operator supervision, and preserved WIP after every failure.
 - [ ] Forge: test commissioning, pause/drain/cancel/snapshot/orphan recovery at every DAG boundary and no prompt for routine decisions.
 - [ ] Autônomos: test zero ordinary operator, stop/go kill switch, provider exhaustion, poisoned task quarantine and continuation of unrelated eligible work.
-- [ ] For each mode, inject ledger/Governor/verifier/canary/outcome outage and assert the shared Kernel terminal semantics.
+- [x] For each mode, inject ledger/Governor/verifier/canary/outcome outage and assert the shared Kernel terminal semantics. Evidence: `QualityFoundryCrossModeFailureMatrixTest` covers the shared ledger, Governor, provider, verifier, canary, revert, outcome and process-kill boundaries with equivalent fail-closed terminal semantics across Dev, Forge and Autônomos.
 - [ ] Assert mode control commands cannot alter Constitution, claim authority, evidence floor or risk depth.
 - [ ] Run focused mode recovery suites and shared receipt-chain replay.
 
