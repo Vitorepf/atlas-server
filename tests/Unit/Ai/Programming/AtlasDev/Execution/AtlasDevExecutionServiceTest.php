@@ -111,6 +111,32 @@ final class AtlasDevExecutionServiceTest extends TestCase
         self::assertSame(0, $calls);
     }
 
+    public function test_plan_bound_to_another_intent_is_rejected_before_kernel(): void
+    {
+        $calls = 0;
+        $kernel = new class($calls) implements DevKernelExecutionPort
+        {
+            public function __construct(private int &$calls) {}
+
+            public function execute(ConfirmedDevRun $run, DevPlan $plan): EngineeringOutcome
+            {
+                $this->calls++;
+                throw new \LogicException('mismatched plan must not reach kernel');
+            }
+        };
+
+        $intent = DevIntent::fromArray($this->validIntent());
+        $otherIntent = DevIntent::fromArray(array_replace($this->validIntent(), ['raw_goal' => 'different intent']));
+        $result = $this->service($kernel)->run(
+            ConfirmedDevRun::fromIntent($intent, 'operator-1', str_repeat('d', 64)),
+            $this->plan($otherIntent, RoutingDecision::ATLAS_DEV_FAST_PATH),
+        );
+
+        self::assertSame('blocked', $result->status);
+        self::assertSame('dev_plan_intent_mismatch', $result->reason);
+        self::assertSame(0, $calls);
+    }
+
     public function test_forge_handoff_is_deterministic_and_does_not_enter_the_kernel(): void
     {
         $calls = 0;

@@ -31,6 +31,9 @@ final class AtlasDevExecutionService
         // that exact plan through. Re-planning here would let discovery,
         // routing or blockers drift between approval and execution.
         $plan = $planned ?? $this->plan($run->intent);
+        if (! $plan->isBoundTo($run->intent)) {
+            return DevRunResult::blocked($run, 'dev_plan_intent_mismatch', $plan->planHash);
+        }
         if ($plan->isBlocked()) {
             return DevRunResult::blocked($run, 'dev_plan_blocked', $plan->planHash, ['blockers' => $plan->result->blockers]);
         }

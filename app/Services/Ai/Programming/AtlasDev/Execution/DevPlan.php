@@ -25,4 +25,9 @@ final readonly class DevPlan
     public function isBlocked(): bool { return $this->result->isBlocked(); }
 
     public function requiresForgeHandoff(): bool { return $this->result->isForgePreview(); }
+
+    public function isBoundTo(DevIntent $intent): bool
+    {
+        return hash_equals($this->intent->intentHash, $intent->intentHash);
+    }
 }
