@@ -342,6 +342,18 @@ class AtlasRealEngineeringCompanyRuntimeService
 
                 continue;
             }
+            if ($role === 'backend') {
+                try {
+                    $backendRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateBackendOwnerReceipt($engagement, $cycle, $case);
+                    $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                    app(KernelEvidenceAuthority::class)->issueMutativeRoleDisposition($backendRun, $case, []);
+                    $dispositions[$role] = $disposition;
+
+                    continue;
+                } catch (\Throwable) {
+                    // Missing backend contract authority remains a sovereign block below.
+                }
+            }
             $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
             $this->persistMutativeDisposition($engagement, $cycle, $case, $disposition, EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN, 'v1');
             $dispositions[$role] = $disposition;
