@@ -54,6 +54,28 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertContains('kernel:kernel_route_missing', $manifest['blockers']);
         self::assertSame(1, $manifest['manifests']['kernel']['execution']['exit_code']);
         self::assertNotSame([], $manifest['manifests']['kernel']['receipt_hashes']);
+        self::assertSame([], $manifest['manifests']['forge']['evidence']['packet_scales']);
+        self::assertSame([], $manifest['manifests']['forge']['evidence']['soak_start_receipt']);
+    }
+
+    public function test_successful_forge_fixture_records_scale_unique_effect_and_soak_start(): void
+    {
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static fn (array $command, string $cwd): array => [
+                'exit_code' => 0,
+                'output' => implode(' ', $command).' @ '.$cwd,
+            ],
+        );
+
+        $manifest = $service->build();
+        $forge = $manifest['manifests']['forge'];
+
+        self::assertSame([1, 3, 10], $forge['evidence']['packet_scales']);
+        self::assertTrue($forge['evidence']['duplicate_effect_proven']);
+        self::assertSame('24h', $forge['evidence']['soak_start_receipt']['window']);
+        self::assertSame('initiated', $forge['evidence']['soak_start_receipt']['status']);
+        self::assertNotSame('', $forge['evidence']['soak_start_receipt']['receipt_hash']);
     }
 
     public function test_successful_canonical_rollback_suite_is_recorded_as_live_rollback_evidence(): void

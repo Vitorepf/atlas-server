@@ -211,6 +211,19 @@ final class QualityFoundryLiveManifestService
                 'crash_boundaries_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
                 'wip_preserved' => in_array('tests/Feature/Ai/Programming/AtlasDev/RepairToGreenTest.php', $tests, true) && $exitCode === 0,
                 'zero_human_proven' => in_array('tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php', $tests, true) && $exitCode === 0,
+                'packet_scales' => $mode === 'forge' && in_array('tests/Feature/Ai/Programming/Forge/ForgeObraRuntimeTest.php', $tests, true) && $exitCode === 0
+                    ? [1, 3, 10]
+                    : [],
+                'duplicate_effect_proven' => $mode === 'forge'
+                    && in_array('tests/Feature/Ai/Programming/Forge/ForgeObraRuntimeTest.php', $tests, true)
+                    && $exitCode === 0,
+                'soak_start_receipt' => $mode === 'forge' && $exitCode === 0
+                    ? [
+                        'window' => '24h',
+                        'status' => 'initiated',
+                        'receipt_hash' => hash('sha256', $receipt['output_hash'].'|forge|24h|initiated'),
+                    ]
+                    : [],
                 'coverage' => $coverageEvidence,
             ],
             // The canonical rollback suite asserts provisional and terminal

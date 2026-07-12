@@ -100,6 +100,21 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertContains('dev:operator_effort_evidence_missing', $manifest['blockers']);
     }
 
+    public function test_forge_readiness_requires_packet_scale_unique_effect_and_soak_start_receipt(): void
+    {
+        $input = $this->input();
+        unset($input['modes']['forge']['evidence']['packet_scales']);
+        unset($input['modes']['forge']['evidence']['duplicate_effect_proven']);
+        unset($input['modes']['forge']['evidence']['soak_start_receipt']);
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertSame('blocked', $manifest['status']);
+        self::assertContains('forge:packet_scale_evidence_missing', $manifest['blockers']);
+        self::assertContains('forge:duplicate_effect_evidence_missing', $manifest['blockers']);
+        self::assertContains('forge:soak_start_receipt_missing', $manifest['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
@@ -125,6 +140,13 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
                 'operator_effort' => [
                     'measurement_mode' => 'observed_operator_runs',
                     'run_count' => 1,
+                ],
+                'packet_scales' => [1, 3, 10],
+                'duplicate_effect_proven' => true,
+                'soak_start_receipt' => [
+                    'window' => '24h',
+                    'status' => 'initiated',
+                    'receipt_hash' => hash('sha256', 'soak-start:'.$mode),
                 ],
             ],
         ];

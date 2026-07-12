@@ -173,6 +173,23 @@ final class QualityFoundryModeReadinessManifestService
                 $blockers[] = 'operator_effort_evidence_missing';
             }
         }
+        if ($mode === 'forge') {
+            $scales = array_values(array_unique(array_map('intval', (array) ($evidence['packet_scales'] ?? []))));
+            sort($scales, SORT_NUMERIC);
+            if ($scales !== [1, 3, 10]) {
+                $blockers[] = 'packet_scale_evidence_missing';
+            }
+            if (($evidence['duplicate_effect_proven'] ?? false) !== true) {
+                $blockers[] = 'duplicate_effect_evidence_missing';
+            }
+            $soak = is_array($evidence['soak_start_receipt'] ?? null) ? $evidence['soak_start_receipt'] : [];
+            if (($soak['window'] ?? null) !== '24h'
+                || ($soak['status'] ?? null) !== 'initiated'
+                || ! is_string($soak['receipt_hash'] ?? null)
+                || trim($soak['receipt_hash']) === '') {
+                $blockers[] = 'soak_start_receipt_missing';
+            }
+        }
 
         return $blockers;
     }
