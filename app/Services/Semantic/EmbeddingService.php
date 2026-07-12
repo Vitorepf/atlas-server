@@ -16,6 +16,7 @@ class EmbeddingService
         'model' => 'pending',
         'semantic' => true,
         'fallback' => false,
+        'external_fallback' => 'opt_in_off',
     ];
 
     private SemanticRagRuntimeClient $client;
@@ -48,7 +49,7 @@ class EmbeddingService
                 );
             } catch (Throwable $throwable) {
                 report($throwable);
-                if (! (bool) config('atlas.semantic_memory.embedding_fallback_enabled', true)) {
+                if (! (bool) config('atlas.semantic_memory.embedding_fallback_enabled', false)) {
                     throw $throwable;
                 }
                 // fall through to OpenAI (also real) — never to a hash fake.
@@ -94,6 +95,7 @@ class EmbeddingService
             'semantic' => true,
             'fallback' => false,
             'dimensions' => count($vector),
+            'external_fallback' => $this->externalFallbackStatus(),
         ];
 
         return array_map('floatval', $vector);
@@ -114,8 +116,13 @@ class EmbeddingService
 
     private function shouldUseOpenAi(string $provider, bool $allowExternalProvider): bool
     {
-        return ($provider === 'openai' || $allowExternalProvider)
-            && trim((string) config('atlas.semantic_memory.embedding_api_key')) !== '';
+        $hasKey = trim((string) config('atlas.semantic_memory.embedding_api_key')) !== '';
+        if (! $hasKey) {
+            return false;
+        }
+
+        return $provider === 'openai'
+            || ($allowExternalProvider && (bool) config('atlas.semantic_memory.embedding_fallback_enabled', false));
     }
 
     /**
@@ -149,6 +156,7 @@ class EmbeddingService
             'semantic' => true,
             'fallback' => false,
             'dimensions' => count($vector),
+            'external_fallback' => $this->externalFallbackStatus(),
         ];
 
         return $vector;
@@ -235,6 +243,7 @@ class EmbeddingService
             'semantic' => true,
             'fallback' => false,
             'dimensions' => count($vector),
+            'external_fallback' => $this->externalFallbackStatus(),
         ];
         $this->lastInfo['dimensions'] = count($vector);
 
@@ -247,5 +256,12 @@ class EmbeddingService
             'atlas.semantic_memory.semantic_rag_model',
             'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
         );
+    }
+
+    public function externalFallbackStatus(): string
+    {
+        return (bool) config('atlas.semantic_memory.embedding_fallback_enabled', false)
+            ? 'opt_in_on'
+            : 'opt_in_off';
     }
 }

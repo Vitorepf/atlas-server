@@ -445,7 +445,7 @@ return [
         'embedding_api_key' => env('OPENAI_API_KEY'),
         'embedding_base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'embedding_timeout_seconds' => (int) env('ATLAS_SEMANTIC_EMBEDDING_TIMEOUT_SECONDS', 20),
-        'embedding_fallback_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_FALLBACK_ENABLED', true),
+        'embedding_fallback_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_FALLBACK_ENABLED', false),
         'embedding_cache_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_CACHE_ENABLED', true),
         'embedding_cache_ttl_seconds' => (int) env('ATLAS_SEMANTIC_EMBEDDING_CACHE_TTL_SECONDS', 3600),
         'semantic_rag_model' => env('ATLAS_SEMANTIC_RAG_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'),

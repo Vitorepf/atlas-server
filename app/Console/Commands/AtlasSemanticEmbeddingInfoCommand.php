@@ -23,6 +23,7 @@ class AtlasSemanticEmbeddingInfoCommand extends Command
     {
         try {
             $result = $embedding->lastInfo();
+            $result['external_fallback'] = $embedding->externalFallbackStatus();
         } catch (Throwable $e) {
             $result = ['error' => $e::class, 'message' => $e->getMessage()];
         }

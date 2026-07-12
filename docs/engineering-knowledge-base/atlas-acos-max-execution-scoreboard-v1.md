@@ -65,7 +65,7 @@
 - [x] MAXA-02 — landed(abf571a8f) · memo por request + cache persistente por hash(provider/model/text); teste prova 2 chamadas iguais no processo = 1 embed e novo serviço = 0 embeds; troca de modelo reembeda
 - [x] MAXA-07 — landed · vector indexes now build/repair/convert as HNSW `m=16, ef_construction=64` across the 4 pgvector tables; live conversion migration drops old ivfflat indexes; sqlite remains no-op; test: `php artisan test tests/Unit/Ai/AcosMax/Maxa07HnswVectorIndexMigrationTest.php`
 - [x] MAXA-01 — landed(abf571a8f) · daemon residente `semantic_rag` via Unix socket JSONL + manifest sha256; `SemanticRagRuntimeClient` usa daemon e cai para spawn se socket/daemon ausente; probe warm_embed_ms=3.324
-- [ ] MAXA-10 — pending
+- [x] MAXA-10 — landed · semantic spine external fallback default-OFF; OpenAI requires explicit provider or opt-in fallback flag (key alone is ignored); `atlas:semantic:embedding-info --json` reports `external_fallback=opt_in_off`; test: `php artisan test tests/Unit/Semantic/EmbeddingServiceTest.php`
 - [x] MAXB-01 — landed(abf571a8f) · GÊMEO fechado pelo landing MAXA-01+MAXA-02 (mesmo sha); ranking intocado, cache/daemon apenas removem overhead; fallback spawn negativo coberto
 - [ ] MAXE-04 — pending (harmonizado com MAXG-01 — uma régua, duas granularidades; ver plano vi-b)
 - [ ] MAXE-05 — pending
