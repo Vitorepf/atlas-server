@@ -10,8 +10,8 @@ use App\Models\AiLearningCandidate;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
 use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
-use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
+use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -171,6 +171,60 @@ final class AtlasLessonQualityServiceTest extends TestCase
         $this->assertSame(1, $rareType['case_count']);
         $this->assertSame('case_count_below_lesson_type_floor', $rareType['reason']);
         $this->assertNull($rareType['passed_rate_lift']);
+    }
+
+    public function test_learning_curriculum_is_neutral_without_measured_lesson_type_yield(): void
+    {
+        $output = new BufferedOutput;
+        $exit = Artisan::call('atlas:ai:learning-curriculum', ['--json' => true], $output);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(trim($output->fetch()), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('atlas.ai.learning_curriculum.v1', $payload['schema_version']);
+        $this->assertSame('insufficient_signal', $payload['status']);
+        $this->assertSame([], $payload['ranking']);
+        $this->assertSame('neutral', data_get($payload, 'global_prior.mode'));
+        $this->assertSame(1.0, data_get($payload, 'global_prior.evidence_multiplier'));
+        $this->assertFalse(data_get($payload, 'claim_policy.distiller_live_policy_changed'));
+        $this->assertFalse(data_get($payload, 'claim_policy.category_disabled'));
+    }
+
+    public function test_learning_curriculum_prioritizes_positive_lift_and_requires_more_evidence_for_non_positive_lift(): void
+    {
+        CarbonImmutable::setTestNow('2026-07-12T06:00:00+00:00');
+
+        $routing = $this->activeMemory('routing_memory', 'atlas_dev');
+        $refutation = $this->activeMemory('refutation_memory', 'atlas_dev');
+        for ($i = 1; $i <= 10; $i++) {
+            $this->recallLiftFeedback('curriculum-routing-'.$i, 'atlas_dev', $i <= 8 ? 'passed' : 'failed', [$routing->memory_hash => 'useful']);
+            $this->recallLiftFeedback('curriculum-refutation-'.$i, 'atlas_dev', $i <= 3 ? 'passed' : 'failed', [$refutation->memory_hash => 'useful']);
+            $this->recallLiftFeedback('curriculum-baseline-'.$i, 'atlas_dev', $i <= 5 ? 'passed' : 'failed', ['docs/base-'.$i => 'useful']);
+        }
+
+        $output = new BufferedOutput;
+        $exit = Artisan::call('atlas:ai:learning-curriculum', ['--json' => true], $output);
+
+        $this->assertSame(0, $exit);
+        $payload = json_decode(trim($output->fetch()), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('atlas.ai.lesson_type_yield.v2', data_get($payload, 'inputs.lesson_type_yield.measure_id'));
+        $this->assertSame(2, data_get($payload, 'totals.measured_categories'));
+
+        $routingRow = collect($payload['ranking'])->firstWhere('category.memory_type', 'routing_memory');
+        $refutationRow = collect($payload['ranking'])->firstWhere('category.memory_type', 'refutation_memory');
+
+        $this->assertSame('positive_roi', $routingRow['bucket']);
+        $this->assertSame(0.3, $routingRow['signals']['passed_rate_lift']);
+        $this->assertGreaterThan(1.0, $routingRow['prior']['effort_multiplier']);
+        $this->assertLessThan(1.0, $routingRow['prior']['evidence_multiplier']);
+
+        $this->assertSame('non_positive_roi', $refutationRow['bucket']);
+        $this->assertSame(-0.2, $refutationRow['signals']['passed_rate_lift']);
+        $this->assertLessThan(1.0, $refutationRow['prior']['effort_multiplier']);
+        $this->assertGreaterThan(1.0, $refutationRow['prior']['evidence_multiplier']);
+        $this->assertTrue($refutationRow['prior']['category_still_allowed']);
     }
 
     /**

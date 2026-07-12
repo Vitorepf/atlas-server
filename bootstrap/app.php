@@ -32,6 +32,7 @@ use App\Console\Commands\AtlasAiDynamicComputeMarketCommand;
 use App\Console\Commands\AtlasAiEngineeringCompanyCommand;
 use App\Console\Commands\AtlasAiFinanceDomainCommand;
 use App\Console\Commands\AtlasAiHyperflowCommand;
+use App\Console\Commands\AtlasAiLearningCurriculumCommand;
 use App\Console\Commands\AtlasAiLedgerCommand;
 use App\Console\Commands\AtlasAiLedgerProjectionCommand;
 use App\Console\Commands\AtlasAiLessonDedupCalibrationCommand;
@@ -54,11 +55,14 @@ use App\Console\Commands\AtlasAiStrategyDomainCommand;
 use App\Console\Commands\AtlasAiWeeklyMemoryDigestCommand;
 use App\Console\Commands\AtlasAobgSemanticRetrievalLiftCommand;
 use App\Console\Commands\AtlasApplyLearningCommand;
+use App\Console\Commands\AtlasAutonomosAutoApplyPreflightCommand;
+use App\Console\Commands\AtlasAutonomosPreflightCommand;
 use App\Console\Commands\AtlasBlogEditorialPlanCommand;
 use App\Console\Commands\AtlasBrainContractGapsCommand;
 use App\Console\Commands\AtlasBrainCycleCapsuleCommand;
 use App\Console\Commands\AtlasBrainFrontierIngestCommand;
 use App\Console\Commands\AtlasBrainNextCommand;
+use App\Console\Commands\AtlasBrainPathYieldCommand;
 use App\Console\Commands\AtlasBrainPredictedImpactCommand;
 use App\Console\Commands\AtlasBrainQueuedTargetsCommand;
 use App\Console\Commands\AtlasBrainSeedCommand;
@@ -83,9 +87,6 @@ use App\Console\Commands\AtlasCliProvidersCommand;
 use App\Console\Commands\AtlasCliQualityCommand;
 use App\Console\Commands\AtlasCliReleaseCommand;
 use App\Console\Commands\AtlasCliRollbackCommand;
-use App\Console\Commands\AtlasDecideSelfModelCommand;
-use App\Console\Commands\AtlasMemoryConcentrationV2Command;
-use App\Console\Commands\AtlasRollbackCascadeCommand;
 use App\Console\Commands\AtlasCliScheduleCommand;
 use App\Console\Commands\AtlasCliSetupCommand;
 use App\Console\Commands\AtlasCliSkillsCommand;
@@ -104,11 +105,9 @@ use App\Console\Commands\AtlasCompactionSoakWatchCommand;
 use App\Console\Commands\AtlasContextFeedbackHealthCommand;
 use App\Console\Commands\AtlasContextLatencyCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
-use App\Console\Commands\AtlasAutonomosAutoApplyPreflightCommand;
-use App\Console\Commands\AtlasAutonomosPreflightCommand;
-use App\Console\Commands\AtlasBrainPathYieldCommand;
 use App\Console\Commands\AtlasContextSufficiencyCalibrationCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
+use App\Console\Commands\AtlasDecideSelfModelCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
 use App\Console\Commands\AtlasDevDesktopEfficiencyEvidenceCommand;
@@ -152,6 +151,8 @@ use App\Console\Commands\AtlasInsightWatchCommand;
 use App\Console\Commands\AtlasIntelligenceRolloutPromoteCommand;
 use App\Console\Commands\AtlasLearnProjectCommand;
 use App\Console\Commands\AtlasMemoryBackfillMetadataCommand;
+use App\Console\Commands\AtlasMemoryConcentrationV2Command;
+use App\Console\Commands\AtlasMemoryConsolidationScanCommand;
 use App\Console\Commands\AtlasMemoryCurateCommand;
 use App\Console\Commands\AtlasMemoryFeedbackCommand;
 use App\Console\Commands\AtlasMemoryMaintenanceCommand;
@@ -159,7 +160,6 @@ use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
 use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
-use App\Console\Commands\AtlasMemoryConsolidationScanCommand;
 use App\Console\Commands\AtlasMemoryTemporalQualityCommand;
 use App\Console\Commands\AtlasMineHeldEvidenceCommand;
 use App\Console\Commands\AtlasMissionE2eRateCommand;
@@ -187,6 +187,7 @@ use App\Console\Commands\AtlasProgrammingTestImpactBenchmarkCommand;
 use App\Console\Commands\AtlasPromotionsCommand;
 use App\Console\Commands\AtlasProposalCommand;
 use App\Console\Commands\AtlasProposalScanCommand;
+use App\Console\Commands\AtlasRollbackCascadeCommand;
 use App\Console\Commands\AtlasRuntimeCommand;
 use App\Console\Commands\AtlasSchedulerEnsureLaunchdCommand;
 use App\Console\Commands\AtlasSchedulerHeartbeatCommand;
@@ -279,6 +280,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiLedgerProjectionCommand::class,
         AtlasAiLessonDedupCalibrationCommand::class,
         AtlasAiLessonHalfLifeCommand::class,
+        AtlasAiLearningCurriculumCommand::class,
         AtlasAiLocalRagBenchmarkCommand::class,
         AtlasAiLocalRagReadinessCommand::class,
         AtlasAiMarketingDomainCommand::class,
