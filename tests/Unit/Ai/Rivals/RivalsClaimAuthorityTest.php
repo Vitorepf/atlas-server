@@ -41,6 +41,24 @@ final class RivalsClaimAuthorityTest extends TestCase
         self::assertFalse($revoked['claim_eligible']);
     }
 
+    public function test_claim_rejects_effect_outside_interval(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new RivalsClaimAuthority)->issue(array_replace($this->evidence(), ['effect' => 0.50]));
+    }
+
+    public function test_claim_rejects_expiry_beyond_ninety_days(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new RivalsClaimAuthority)->issue(array_replace($this->evidence(), ['expires_at' => '2026-12-31T00:00:00Z']));
+    }
+
+    public function test_claim_requires_content_addressed_evidence_refs(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new RivalsClaimAuthority)->issue(array_replace($this->evidence(), ['evidence_refs' => []]));
+    }
+
     /** @return array<string,mixed> */
     private function evidence(): array
     {
@@ -52,6 +70,7 @@ final class RivalsClaimAuthorityTest extends TestCase
             'exposure' => ['campaigns' => 3, 'attempts' => 300, 'distinct_cases' => 3],
             'issued_at' => '2026-07-12T00:00:00Z', 'expires_at' => '2026-10-10T00:00:00Z',
             'invalidators' => ['frontier_change', 'late_adverse_outcome'],
+            'evidence_refs' => ['rivals://evidence-pack/b', 'ledger://experiment/c'],
         ];
     }
 }
