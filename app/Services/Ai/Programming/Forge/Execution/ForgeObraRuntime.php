@@ -302,6 +302,50 @@ final class ForgeObraRuntime
         ];
     }
 
+    /**
+     * Convert an orphaned running cycle into a terminal blocked cycle.
+     *
+     * The supervisor calls this only after the lease heartbeat has failed. It
+     * is deliberately idempotent: a cycle already terminal is reported as
+     * already_recovered and never receives a second transition.
+     *
+     * @return array<string,mixed>
+     */
+    public function recoverOrphanedCycle(ForgeObraId $obra, ?string $cycleId = null): array
+    {
+        $query = AiForgeWorkPacketExecutionCycle::query()
+            ->where('intake_id', $obra->value)
+            ->where('status', ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING)
+            ->orderByDesc('started_at');
+        if ($cycleId !== null && trim($cycleId) !== '') {
+            $query->where(function ($builder) use ($cycleId): void {
+                $builder->where('uuid', $cycleId)->orWhere('id', $cycleId);
+            });
+        }
+
+        $cycle = $query->first();
+        if (! $cycle instanceof AiForgeWorkPacketExecutionCycle) {
+            return [
+                'schema' => 'atlas.forge.orphan_recovery.v1',
+                'status' => 'idle',
+                'recovered' => false,
+                'reason' => 'no_running_cycle',
+            ];
+        }
+
+        $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
+        $blocked = $this->cycles->block($cycle, 'scope_lease_lost_orphan_recovery', $state);
+
+        return [
+            'schema' => 'atlas.forge.orphan_recovery.v1',
+            'status' => 'recovered',
+            'recovered' => true,
+            'cycle_id' => (string) $blocked->uuid,
+            'packet_id' => (string) $blocked->work_packet_canonical_id,
+            'reason' => (string) $blocked->failure_reason,
+        ];
+    }
+
     /** @return list<string> */
     private function packetScope(AiForgeWorkPacket $packet): array
     {

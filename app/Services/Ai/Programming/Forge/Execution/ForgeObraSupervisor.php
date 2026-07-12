@@ -33,6 +33,12 @@ class ForgeObraSupervisor
         $heartbeats = [];
         foreach ($query->pluck('intake_id') as $intakeId) {
             $heartbeat = $this->runtime->heartbeat(ForgeObraId::fromString((string) $intakeId), leaseSeconds: max(1, $leaseSeconds));
+            if (in_array((string) ($heartbeat['status'] ?? ''), ['stale', 'blocked'], true)) {
+                $heartbeat['orphan_recovery'] = $this->runtime->recoverOrphanedCycle(
+                    ForgeObraId::fromString((string) $intakeId),
+                    (string) ($heartbeat['cycle_id'] ?? ''),
+                );
+            }
             $heartbeats[] = $heartbeat;
         }
 
