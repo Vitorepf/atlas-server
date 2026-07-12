@@ -45,7 +45,10 @@ final class AtlasExternalBrainProposalSelectionLoop
      */
     public function select(array $candidates, array $composeOptions = []): array
     {
-        $arenaResult = $this->arena->compete(['proposals' => $candidates]);
+        $arenaResult = $this->arena->compete([
+            'proposals' => $candidates,
+            'require_competition' => (bool) ($composeOptions['require_competition'] ?? false),
+        ]);
 
         $batch = null;
         if ($arenaResult['verdict'] === AtlasExternalBrainProposalArena::VERDICT_WINNER_SELECTED) {
@@ -93,6 +96,7 @@ final class AtlasExternalBrainProposalSelectionLoop
                 AtlasExternalBrainProposalArena::DISQUALIFY_NO_EVIDENCE_PATH => 'require_runnable_evidence_path',
                 AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM  => 'ensure_independent_evidence_quorum',
                 AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM    => 'avoid_template_farm_patterns',
+                AtlasExternalBrainProposalArena::DISQUALIFY_COMPETITION_QUORUM => 'generate_independent_competing_proposals',
                 default                                                     => null,
             };
             if ($pattern !== null) {

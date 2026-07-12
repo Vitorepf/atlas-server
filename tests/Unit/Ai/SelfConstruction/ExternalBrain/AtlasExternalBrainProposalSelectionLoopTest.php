@@ -80,6 +80,17 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
         $this->assertSame([], $result['next_batch_avoid_patterns']);
     }
 
+    public function test_required_competition_is_forwarded_and_escalates_single_candidate(): void
+    {
+        $loop = new AtlasExternalBrainProposalSelectionLoop();
+
+        $result = $loop->select([$this->candidate('only', 0.9)], ['require_competition' => true]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $this->assertNull($result['winner']);
+        $this->assertContains('generate_independent_competing_proposals', $result['next_batch_avoid_patterns']);
+    }
+
     public function test_rejected_reasons_are_preserved_verbatim_in_rejected_dossier(): void
     {
         $loop = new AtlasExternalBrainProposalSelectionLoop();

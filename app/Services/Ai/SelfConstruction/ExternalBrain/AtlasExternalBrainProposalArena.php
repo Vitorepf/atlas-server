@@ -47,6 +47,7 @@ final class AtlasExternalBrainProposalArena
     public const DISQUALIFY_NO_EVIDENCE_PATH   = 'no_runnable_evidence_path';
     public const DISQUALIFY_EVIDENCE_QUORUM    = 'evidence_quorum';
     public const DISQUALIFY_TEMPLATE_FARM      = 'template_farm';
+    public const DISQUALIFY_COMPETITION_QUORUM = 'competition_quorum';
 
     private const IMPLEMENTABILITY_FLOOR    = 0.30;
     private const TEMPLATE_FARM_SIMILARITY  = 0.70;
@@ -79,6 +80,25 @@ final class AtlasExternalBrainProposalArena
     public function compete(array $input): array
     {
         $proposals = is_array($input['proposals'] ?? null) ? $input['proposals'] : [];
+
+        // Elevated-risk or topologically ambiguous work must have independent
+        // alternatives before the arena may select a winner. The default stays
+        // permissive for low-risk callers and preserves the single-proposal path.
+        $competitionRequired = (bool) ($input['require_competition'] ?? false);
+        if ($competitionRequired && count($proposals) < 2) {
+            $rejected = array_map(static fn (array $proposal): array => [
+                'proposal_id' => (string) ($proposal['proposal_id'] ?? ''),
+                'reason' => self::DISQUALIFY_COMPETITION_QUORUM,
+            ], array_values(array_filter($proposals, 'is_array')));
+
+            return [
+                'schema' => self::SCHEMA,
+                'verdict' => self::VERDICT_ALL_REJECTED,
+                'winner' => null,
+                'rejected' => $rejected,
+                'arena_hash' => $this->hash(null, $rejected),
+            ];
+        }
 
         $scored   = [];
         $rejected = [];

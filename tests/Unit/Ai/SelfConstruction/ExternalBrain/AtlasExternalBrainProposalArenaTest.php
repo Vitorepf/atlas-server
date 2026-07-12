@@ -58,6 +58,32 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
         $this->assertSame([], $result['rejected']);
     }
 
+    public function test_required_competition_rejects_single_proposal(): void
+    {
+        $result = $this->arena->compete([
+            'proposals' => [$this->proposal('only')],
+            'require_competition' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $this->assertNull($result['winner']);
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_COMPETITION_QUORUM, $result['rejected'][0]['reason']);
+    }
+
+    public function test_required_competition_still_selects_best_independent_proposal(): void
+    {
+        $result = $this->arena->compete([
+            'proposals' => [
+                $this->proposal('low', ['leverage' => 0.2]),
+                $this->proposal('high', ['leverage' => 0.9]),
+            ],
+            'require_competition' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_WINNER_SELECTED, $result['verdict']);
+        $this->assertSame('high', $result['winner']['proposal_id']);
+    }
+
     public function test_highest_leverage_wins_over_lower_leverage(): void
     {
         $result = $this->arena->compete(['proposals' => [
