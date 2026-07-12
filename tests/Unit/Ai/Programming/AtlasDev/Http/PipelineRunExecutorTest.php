@@ -50,6 +50,7 @@ final class PipelineRunExecutorTest extends TestCase
     {
         parent::setUp();
         $this->bindAllowedAwisGate();
+        config()->set('atlas.programming.strict_retrieval_gate', false);
 
         // E4 shadow-diff is off for these fixtures: the cursor/codex tests
         // git-init a workspace with `app/Foo.php` (a PHP file with a pure
