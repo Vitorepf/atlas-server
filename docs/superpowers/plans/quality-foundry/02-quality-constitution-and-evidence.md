@@ -179,7 +179,7 @@ claim.evaluated, claim.issued, claim.revoked
 
 Every event has schema, run/delivery IDs, correlated hashes, timestamp and provenance.
 
-- [ ] Write RED schema tests for missing IDs/hash/provenance, out-of-order release/canary/outcome, duplicate idempotency key with divergent content, and a projection that assumes pass when an event is absent.
+- [x] Write RED schema tests for missing IDs/hash/provenance, out-of-order release/canary/outcome, duplicate idempotency key with divergent content, and a projection that assumes pass when an event is absent.
 - [ ] Implement event validation and deterministic replay through the existing ledger.
 - [ ] Make legacy rows with no provenance/evidence `legacy_unproven`; make absent current observations `unknown`.
 - [ ] Rebuild role, acceptance, release, outcome and claim-eligibility projections from events and compare hashes to live projections.
