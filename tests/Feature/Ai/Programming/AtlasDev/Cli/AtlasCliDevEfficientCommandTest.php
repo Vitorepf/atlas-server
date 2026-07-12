@@ -26,7 +26,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenIssue;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenResult;
 use App\Services\Ai\Programming\AtlasDev\Security\ConfirmationTokenService;
-use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Schema\Blueprint;
@@ -890,7 +890,7 @@ DIFF;
 
     private function bindContextAttributionAwisGate(): void
     {
-        $this->app->instance(AtlasWorkspaceIntelligenceExecutionGateService::class, new class
+        $this->app->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
         {
             /**
              * @param  list<string>  $conversationTexts
