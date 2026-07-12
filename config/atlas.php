@@ -4698,6 +4698,9 @@ return [
         // Default-OFF: pacote é byte-idêntico enquanto flag desligada; ligar só depois de
         // A/B provado no golden v2 (ELEV-01).
         'facet_retrieval' => (bool) env('ATLAS_AOBG_FACET_RETRIEVAL', false),
+        // RAGX-08 extension: claim/span/content-version refs over the already
+        // delivered pack. Default-OFF; no new retrieval pass, DB write, or LLM.
+        'span_level_retrieval' => (bool) env('ATLAS_AOBG_SPAN_LEVEL_RETRIEVAL', false),
         // MAXE-07: source budget multipliers from measured expected value
         // (used_ratio * post_execution_utility by source bucket). Default-OFF;
         // v1 fixed-step source policy remains authoritative until enough measured

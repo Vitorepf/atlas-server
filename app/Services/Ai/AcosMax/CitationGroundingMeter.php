@@ -55,7 +55,7 @@ final class CitationGroundingMeter
      */
     private static function refs(string $text): array
     {
-        preg_match_all('/(?:ref=)?((?:memory|graph|sym):[A-Za-z0-9._:-]+)/', $text, $matches);
+        preg_match_all('/(?:ref=)?((?:code|memory|graph|sym):[A-Za-z0-9._:-]+)/', $text, $matches);
 
         return array_values(array_unique($matches[1] ?? []));
     }

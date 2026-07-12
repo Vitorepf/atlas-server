@@ -203,6 +203,83 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertArrayNotHasKey('retrieval_agenda', $pack);
     }
 
+    public function test_ragx08_span_level_retrieval_stays_default_off_even_with_claims(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', true);
+        config()->set('atlas.aobg.span_level_retrieval', false);
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock): void {
+            $mock->shouldReceive('recall')->andReturn([
+                'summary' => ['policy' => 'provider_safe_only', 'recall_count' => 1, 'redacted_ref_count' => 0],
+                'recall' => [[
+                    'source_ref_type' => 'atlas_memory_entry',
+                    'source_ref_id' => 'mem-span-off',
+                    'type' => 'decision',
+                    'title' => 'Span fixture note',
+                    'summary' => 'Provider-safe summary',
+                    'body' => 'The policy must enforce scoped commits only on local main.',
+                    'source_type' => 'memory_entry',
+                    'content_hash' => 'content-v1',
+                    'privacy_class' => 'normal',
+                    'score' => 1.0,
+                ]],
+            ]);
+        });
+
+        $pack = $this->service()->packFor(
+            'The policy must enforce scoped commits only.',
+            [
+                'code_budget' => 0,
+            ],
+        );
+
+        $this->assertArrayHasKey('retrieval_agenda', $pack);
+        $this->assertArrayNotHasKey('span_level_retrieval', $pack);
+        $this->assertStringNotContainsString('## Span-level citations', $pack['markdown']);
+    }
+
+    public function test_ragx08_span_level_retrieval_resolves_claim_span_when_enabled(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', true);
+        config()->set('atlas.aobg.span_level_retrieval', true);
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock): void {
+            $mock->shouldReceive('recall')->andReturn([
+                'summary' => ['policy' => 'provider_safe_only', 'recall_count' => 1, 'redacted_ref_count' => 0],
+                'recall' => [[
+                    'source_ref_type' => 'atlas_memory_entry',
+                    'source_ref_id' => 'mem-span-on',
+                    'type' => 'decision',
+                    'title' => 'Span fixture note',
+                    'summary' => 'Provider-safe summary',
+                    'body' => 'Unrelated intro. The policy must enforce scoped commits only on local main. Final note.',
+                    'source_type' => 'memory_entry',
+                    'content_hash' => 'content-v1',
+                    'privacy_class' => 'normal',
+                    'score' => 1.0,
+                ]],
+            ]);
+        });
+
+        $pack = $this->service()->packFor(
+            'The policy must enforce scoped commits only.',
+            [
+                'code_budget' => 0,
+            ],
+        );
+
+        $this->assertTrue((bool) data_get($pack, 'span_level_retrieval.present'));
+        $this->assertSame('resolved', data_get($pack, 'span_level_retrieval.claims.0.status'));
+        $spanRef = (string) data_get($pack, 'span_level_retrieval.claims.0.spans.0.span_ref');
+        $parentRef = (string) data_get($pack, 'span_level_retrieval.claims.0.spans.0.parent_ref');
+
+        $this->assertMatchesRegularExpression('/^memory:[a-f0-9]{32}:span:[a-f0-9]{16}:v:[a-f0-9]{12}$/', $spanRef);
+        $this->assertTrue(AtlasCanonicalContextRef::isSpanRef($spanRef));
+        $this->assertSame($parentRef, AtlasCanonicalContextRef::parentRefFromSpanRef($spanRef));
+        $this->assertSame('The policy must enforce scoped commits only on local main.', data_get($pack, 'span_level_retrieval.claims.0.spans.0.span_excerpt'));
+        $this->assertContains($spanRef, AtlasCanonicalContextRef::deliveredFromPack($pack));
+        $this->assertStringContainsString('## Span-level citations', $pack['markdown']);
+        $this->assertStringContainsString('ref='.$spanRef, $pack['markdown']);
+    }
+
     public function test_esp11_no_claims_pack_matches_maxc_baseline_except_volatile_fields(): void
     {
         config()->set('atlas.aobg.facet_retrieval', true);

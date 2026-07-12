@@ -16,6 +16,8 @@ final class AtlasCanonicalContextRef
 
     private const CANONICAL_PATTERN = '/^(code|memory|graph):[a-f0-9]{32}$/';
 
+    private const SPAN_PATTERN = '/^((?:code|memory|graph):[a-f0-9]{32}):span:([a-f0-9]{16}):v:([a-f0-9]{12})$/';
+
     /**
      * @param  array<string,mixed>  $item
      */
@@ -102,6 +104,21 @@ final class AtlasCanonicalContextRef
             }
         }
 
+        foreach ((array) data_get($pack, 'span_level_retrieval.claims', []) as $claim) {
+            if (! is_array($claim)) {
+                continue;
+            }
+            foreach ((array) ($claim['spans'] ?? []) as $span) {
+                if (! is_array($span)) {
+                    continue;
+                }
+                $ref = trim((string) ($span['span_ref'] ?? ''));
+                if (self::isSpanRef($ref)) {
+                    $refs[] = $ref;
+                }
+            }
+        }
+
         return array_slice(self::uniqueStrings($refs), 0, max(0, $limit));
     }
 
@@ -131,6 +148,32 @@ final class AtlasCanonicalContextRef
     public static function isCanonical(string $ref): bool
     {
         return preg_match(self::CANONICAL_PATTERN, trim($ref)) === 1;
+    }
+
+    public static function spanRef(string $parentRef, string $contentVersion, int $start, int $end): string
+    {
+        $parentRef = trim($parentRef);
+        $contentVersion = trim($contentVersion);
+        $start = max(0, $start);
+        $end = max($start, $end);
+        $spanHash = substr(hash('sha256', $parentRef.'|'.$contentVersion.'|'.$start.'|'.$end), 0, 16);
+        $versionHash = substr(hash('sha256', $contentVersion), 0, 12);
+
+        return $parentRef.':span:'.$spanHash.':v:'.$versionHash;
+    }
+
+    public static function isSpanRef(string $ref): bool
+    {
+        return preg_match(self::SPAN_PATTERN, trim($ref)) === 1;
+    }
+
+    public static function parentRefFromSpanRef(string $ref): ?string
+    {
+        if (preg_match(self::SPAN_PATTERN, trim($ref), $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
     }
 
     public static function isMemoryRef(string $ref): bool
@@ -214,6 +257,10 @@ final class AtlasCanonicalContextRef
         }
 
         $forms = [$ref];
+        $parentRef = self::parentRefFromSpanRef($ref);
+        if ($parentRef !== null) {
+            $forms[] = $parentRef;
+        }
         if (preg_match('/^memory:([a-f0-9]{32})$/', $ref, $matches) === 1) {
             $forms[] = $matches[1];
         }

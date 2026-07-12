@@ -18,6 +18,7 @@ use App\Services\Ai\Context\AtlasRetrievalFusionService;
 use App\Services\Ai\Context\PackSufficiencyBlockBuilder;
 use App\Services\Ai\Context\RetrievalAgendaComposer;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\Context\SpanLevelRetrievalResolver;
 use App\Services\Ai\Context\TaskFacetExtractor;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
@@ -117,6 +118,7 @@ class AtlasOpenBrainContextPackService
         'retrieval_fusion_receipt',
         'same_layer_path_omission_provenance',
         'separator_term_expansion',
+        'span_level_retrieval',
         'pack_section_timings',
         'test_symbol_on_demand_expansion',
         'obra_working_set_lineage',
@@ -173,6 +175,7 @@ class AtlasOpenBrainContextPackService
         private readonly TaskFacetExtractor $taskFacetExtractor,
         private readonly PackSufficiencyBlockBuilder $packSufficiencyBlockBuilder,
         private readonly RetrievalAgendaComposer $retrievalAgendaComposer,
+        private readonly SpanLevelRetrievalResolver $spanLevelRetrievalResolver,
         private readonly AtlasOpenBrainMemoryProjectionSafetyGate $memoryProjectionSafetyGate,
     ) {}
 
@@ -381,6 +384,12 @@ class AtlasOpenBrainContextPackService
             $retrievalAgenda = $this->retrievalAgendaSection($task, $pack);
             if (($retrievalAgenda['present'] ?? false) === true) {
                 $pack['retrieval_agenda'] = $retrievalAgenda;
+                if ((bool) config('atlas.aobg.span_level_retrieval', false)) {
+                    $spanLevelRetrieval = $this->spanLevelRetrievalResolver->resolve($pack);
+                    if (($spanLevelRetrieval['present'] ?? false) === true) {
+                        $pack['span_level_retrieval'] = $spanLevelRetrieval;
+                    }
+                }
             }
         }
 
@@ -3882,6 +3891,37 @@ class AtlasOpenBrainContextPackService
             // any fault → no marks, pack byte-identical).
             foreach (app(AtlasDialecticTensionService::class)->tensionMarks($memory) as $mark) {
                 $lines[] = $mark;
+            }
+        }
+
+        $spanLevel = (array) ($pack['span_level_retrieval'] ?? []);
+        if (($spanLevel['present'] ?? false) === true) {
+            $lines[] = '';
+            $lines[] = '## Span-level citations';
+            $lines[] = '- claim/span refs are deterministic over delivered content only; cite `ref=...` exactly when using a span.';
+            foreach (array_slice((array) ($spanLevel['claims'] ?? []), 0, 8) as $claim) {
+                if (! is_array($claim)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '- claim=%s status=%s',
+                    mb_substr((string) ($claim['claim'] ?? ''), 0, 160),
+                    (string) ($claim['status'] ?? 'unknown'),
+                );
+                foreach (array_slice((array) ($claim['spans'] ?? []), 0, 3) as $span) {
+                    if (! is_array($span)) {
+                        continue;
+                    }
+                    $lines[] = sprintf(
+                        '  - ref=%s parent=%s content_version=%s bytes=%d-%d — %s',
+                        (string) ($span['span_ref'] ?? ''),
+                        (string) ($span['parent_ref'] ?? ''),
+                        substr((string) ($span['content_version'] ?? ''), 0, 16),
+                        (int) ($span['start'] ?? 0),
+                        (int) ($span['end'] ?? 0),
+                        mb_substr((string) ($span['span_excerpt'] ?? ''), 0, 180),
+                    );
+                }
             }
         }
 
