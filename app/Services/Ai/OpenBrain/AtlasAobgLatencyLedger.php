@@ -93,13 +93,17 @@ final class AtlasAobgLatencyLedger
      *   schema_version:string,
      *   status:string,
      *   generated_at:string,
+     *   window_1d:array<string,mixed>,
+     *   ops:array<string,array<string,mixed>>,
+     *   trend:array<string,mixed>,
      *   days:array<string,array{date:string,samples:int,ops:array<string,array<string,mixed>>}>
      * }
      */
     public function report(?string $day = null, int $days = 7): array
     {
+        $windowDay = $day !== null ? $this->normalizeDay($day) : gmdate('Y-m-d');
         $dayKeys = $day !== null
-            ? [$this->normalizeDay($day)]
+            ? [$windowDay]
             : $this->latestDays(max(1, $days));
 
         $reports = [];
@@ -107,11 +111,15 @@ final class AtlasAobgLatencyLedger
             $rows = $this->readDay($dayKey);
             $reports[$dayKey] = $this->summarizeDay($dayKey, $rows);
         }
+        $windowSummary = $reports[$windowDay] ?? $this->summarizeDay($windowDay, $this->readDay($windowDay));
 
         return [
             'schema_version' => 'atlas.aobg.latency_report.v1',
             'status' => $this->sampleCount($reports) > 0 ? 'ok' : 'empty',
             'generated_at' => gmdate('c'),
+            'window_1d' => $this->windowReport($windowSummary),
+            'ops' => $windowSummary['ops'],
+            'trend' => $this->trendReport($reports),
             'days' => $reports,
         ];
     }
@@ -155,6 +163,67 @@ final class AtlasAobgLatencyLedger
             'samples' => array_sum(array_map(static fn (array $stats): int => (int) $stats['samples'], $ops)),
             'ops' => $ops,
         ];
+    }
+
+    /** @param array{date:string,samples:int,ops:array<string,array<string,mixed>>} $summary */
+    private function windowReport(array $summary): array
+    {
+        return $summary + [
+            'status' => $summary['samples'] > 0 ? 'ok' : 'insufficient_signal',
+            'reason' => $summary['samples'] > 0 ? 'samples_present' : 'insufficient_1d_window',
+        ];
+    }
+
+    /** @param array<string,array{date:string,samples:int,ops:array<string,array<string,mixed>>}> $reports */
+    private function trendReport(array $reports): array
+    {
+        ksort($reports);
+
+        $pointsByOp = [];
+        foreach ($reports as $date => $report) {
+            foreach ($report['ops'] as $op => $stats) {
+                $pointsByOp[$op][] = [
+                    'date' => (string) $date,
+                    'samples' => (int) ($stats['samples'] ?? 0),
+                    'p50_ms' => $stats['p50_ms'] ?? null,
+                    'p95_ms' => $stats['p95_ms'] ?? null,
+                ];
+            }
+        }
+        ksort($pointsByOp);
+
+        $ops = [];
+        foreach ($pointsByOp as $op => $points) {
+            $latest = $points[array_key_last($points)] ?? null;
+            $previous = count($points) > 1 ? $points[count($points) - 2] : null;
+            $latestP95 = is_numeric($latest['p95_ms'] ?? null) ? (float) $latest['p95_ms'] : null;
+            $previousP95 = is_numeric($previous['p95_ms'] ?? null) ? (float) $previous['p95_ms'] : null;
+            $delta = $latestP95 !== null && $previousP95 !== null
+                ? $this->roundOrNull($latestP95 - $previousP95)
+                : null;
+
+            $ops[$op] = [
+                'points' => $points,
+                'latest_p95_ms' => $this->roundOrNull($latestP95),
+                'previous_p95_ms' => $this->roundOrNull($previousP95),
+                'delta_p95_ms' => $delta,
+                'direction' => $this->trendDirection($delta),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.aobg.latency_trend.v1',
+            'ops' => $ops,
+        ];
+    }
+
+    private function trendDirection(?float $delta): string
+    {
+        if ($delta === null) {
+            return 'unknown';
+        }
+
+        return $delta < 0.0 ? 'improved' : ($delta > 0.0 ? 'regressed' : 'flat');
     }
 
     /** @param list<float> $values */

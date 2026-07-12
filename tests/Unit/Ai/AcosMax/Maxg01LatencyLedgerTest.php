@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AcosMax;
 
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Models\AtlasLedgerEvent;
+use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -69,6 +70,61 @@ final class Maxg01LatencyLedgerTest extends TestCase
         self::assertSame(4, $stats['samples']);
         self::assertSame(25.0, $stats['p50_ms']);
         self::assertSame(38.5, $stats['p95_ms']);
+    }
+
+    public function test_one_day_window_exposes_top_level_ops_and_trend_when_samples_exist(): void
+    {
+        $ledger = new AtlasAobgLatencyLedger($this->ledgerRoot);
+        $today = gmdate('Y-m-d');
+        $yesterday = gmdate('Y-m-d', strtotime('-1 day'));
+
+        foreach ([400.0, 500.0] as $ms) {
+            $ledger->record('pack', $ms, refs: 1, budgetChars: 1000, ts: $yesterday.'T12:00:00+00:00');
+        }
+        foreach ([100.0, 200.0] as $ms) {
+            $ledger->record('pack', $ms, refs: 1, budgetChars: 1000, ts: $today.'T12:00:00+00:00');
+        }
+        $ledger->record('recall', 10.0, refs: 1, budgetChars: 100, ts: $today.'T12:01:00+00:00');
+        $ledger->record('hook', 300.0, refs: 0, budgetChars: null, ts: $today.'T12:02:00+00:00');
+
+        $report = $ledger->report(days: 2);
+
+        self::assertSame('ok', $report['window_1d']['status']);
+        self::assertSame($today, $report['window_1d']['date']);
+        self::assertSame(195.0, data_get($report, 'ops.pack.p95_ms'));
+        self::assertSame(data_get($report, 'window_1d.ops'), $report['ops']);
+        self::assertSame([$yesterday, $today], array_column(data_get($report, 'trend.ops.pack.points'), 'date'));
+        self::assertSame(-300.0, data_get($report, 'trend.ops.pack.delta_p95_ms'));
+        self::assertSame('improved', data_get($report, 'trend.ops.pack.direction'));
+    }
+
+    public function test_one_day_window_reports_insufficient_signal_without_samples(): void
+    {
+        $ledger = new AtlasAobgLatencyLedger($this->ledgerRoot);
+
+        $report = $ledger->report(day: gmdate('Y-m-d'));
+
+        self::assertSame('insufficient_signal', $report['window_1d']['status']);
+        self::assertSame('insufficient_1d_window', $report['window_1d']['reason']);
+        self::assertSame([], $report['ops']);
+        self::assertSame([], $report['trend']['ops']);
+    }
+
+    public function test_latency_ledger_series_is_registered_in_elev20s_registry(): void
+    {
+        $entry = null;
+        foreach ((new AcosMaxMeasureSeriesRegistry())->entries() as $candidate) {
+            if (($candidate['series'] ?? null) === 'aobg.latency_ledger.v1') {
+                $entry = $candidate;
+                break;
+            }
+        }
+
+        self::assertIsArray($entry);
+        self::assertSame('MAXG-01', $entry['slice']);
+        self::assertSame('jsonl_dir', $entry['source_type']);
+        self::assertSame('ts', $entry['timestamp_field']);
+        self::assertStringEndsWith('storage/atlas/aobg/latency-ledger', str_replace('\\', '/', (string) $entry['path']));
     }
 
     public function test_empty_latency_ledger_is_insufficient_signal_and_does_not_fake_p95(): void
