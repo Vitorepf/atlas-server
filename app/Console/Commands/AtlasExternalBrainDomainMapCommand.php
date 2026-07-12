@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBreakthroughPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityMapDriftDetector;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityDriftWorkProposer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainEvidenceFreshnessBackfillPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainMaturityGapIndex;
 use Illuminate\Console\Command;
@@ -49,6 +50,7 @@ final class AtlasExternalBrainDomainMapCommand extends Command
         $driftDetector = new AtlasExternalBrainCapabilityMapDriftDetector;
         $backfillPlanner = new AtlasExternalBrainEvidenceFreshnessBackfillPlanner;
         $breakthroughPlanner = new AtlasExternalBrainBreakthroughPlanner;
+        $driftWorkProposer = new AtlasExternalBrainCapabilityDriftWorkProposer;
 
         $maturityGaps = $maturityGapIndex->compute(
             is_array($facts['rubric'] ?? null) ? $facts['rubric'] : [],
@@ -72,6 +74,16 @@ final class AtlasExternalBrainDomainMapCommand extends Command
             'escalation_state' => $facts['escalation_state'] ?? [],
             'candidate_strategy' => is_string($facts['candidate_strategy'] ?? null) ? $facts['candidate_strategy'] : '',
             'backlog_freshness_facts' => is_array($facts['backlog_freshness_facts'] ?? null) ? $facts['backlog_freshness_facts'] : [],
+        ]);
+
+        $driftWork = $driftWorkProposer->propose([
+            'findings' => $capabilityDrift['findings'] ?? [],
+            'frozen_facts' => $facts['frozen_facts'] ?? [],
+            'current_facts' => $facts['current_facts'] ?? [],
+            'target_paths' => $facts['target_paths'] ?? [],
+            'existing_proposals' => $facts['existing_proposals'] ?? [],
+            'active_claims' => $facts['active_claims'] ?? [],
+            'active_reservations' => $facts['active_reservations'] ?? [],
         ]);
 
         // Priority target: missing evidence and high-impact capability drift always come before
@@ -102,6 +114,7 @@ final class AtlasExternalBrainDomainMapCommand extends Command
             'reasons' => $reasons === [] ? ['no_gap_or_drift_signal'] : $reasons,
             'maturity_gaps' => $maturityGaps,
             'capability_drift' => $capabilityDrift,
+            'drift_work' => $driftWork,
             'evidence_backfill' => $evidenceBackfill,
             'breakthrough_plan' => $breakthroughPlan,
         ];
