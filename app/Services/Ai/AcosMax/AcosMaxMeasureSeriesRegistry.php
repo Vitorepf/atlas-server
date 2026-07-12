@@ -10,6 +10,8 @@ use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
+use App\Services\Ai\Cognition\ImmuneCalibrationService;
+use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
@@ -130,6 +132,24 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => (int) AtlasMemoryTemporalQualityService::freezePayload()['ttl_days'],
                 'ttl_source' => 'freeze:atlas.memory.temporal_truth.v2',
+            ],
+            [
+                'slice' => 'MAXI-02',
+                'series' => 'atlas.capture.cognitive_immune_audit.v2',
+                'table' => 'captures',
+                'source_type' => 'table',
+                'timestamp_field' => 'created_at',
+                'ttl_days' => ImmuneCalibrationService::TTL_DAYS,
+                'ttl_source' => 'maxi-02-shadow-audit-v2',
+            ],
+            [
+                'slice' => 'MAXI-03',
+                'series' => ImmuneCalibrationService::MEASURE_ID,
+                'table' => ImmuneVerdictLedger::TABLE,
+                'source_type' => 'table',
+                'timestamp_field' => 'decided_at',
+                'ttl_days' => ImmuneCalibrationService::TTL_DAYS,
+                'ttl_source' => 'freeze:atlas.immune.calibration.v1',
             ],
             [
                 'slice' => 'ELEV-20s',
