@@ -79,6 +79,7 @@ final class ForgeObraRuntime
                 'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
                 'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
                 'market_decision_hash' => $commissioning->marketDecisionHash,
+                'work_packets' => $commissioning->workPackets,
                 'runtime_mode' => 'forge',
                 'forge_frozen_context' => true,
                 'frozen_context_hash' => hash('sha256', json_encode([
@@ -375,6 +376,7 @@ final class ForgeObraRuntime
         $query = AiForgeWorkPacketExecutionCycle::query()
             ->where('intake_id', $obra->value)
             ->where('status', ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING)
+            ->where('execution_mode', ForgeWorkPacketExecutionCycleCanon::MODE_REAL)
             ->orderByDesc('started_at');
         if ($cycleId !== null && trim($cycleId) !== '') {
             $query->where(function ($builder) use ($cycleId): void {

@@ -17,7 +17,8 @@ final readonly class ForgeCommissioning
         public string $prompt, public string $workspace, public string $authorityHash,
         public string $productIntentHash, public string $specHash, public string $worldModelSnapshotHash,
         public string $releasePolicy, public string $interruptionPolicy, public string $riskClass,
-        public string $topology, public ?string $marketDecisionHash, public string $commissioningHash,
+        public string $topology, public ?string $marketDecisionHash, public array $workPackets,
+        public string $commissioningHash,
     ) {}
 
     /** @param array<string,mixed> $data */
@@ -57,12 +58,19 @@ final readonly class ForgeCommissioning
         if ($marketDecisionHash !== null) {
             $canonical['market_decision_hash'] = $marketDecisionHash;
         }
+        $workPackets = array_values(array_filter(
+            (array) ($data['work_packets'] ?? []),
+            static fn (mixed $packet): bool => is_array($packet),
+        ));
+        if ($workPackets !== []) {
+            $canonical['work_packets'] = $workPackets;
+        }
 
         return new self(
             $canonical['prompt'], $canonical['workspace'], $canonical['authority_hash'], $canonical['product_intent_hash'],
             $canonical['spec_hash'], $canonical['world_model_snapshot_hash'], $canonical['release_policy'],
             $canonical['interruption_policy'], $canonical['risk_class'], $canonical['topology'],
-            $marketDecisionHash, CanonicalKernelPayload::hash($canonical),
+            $marketDecisionHash, $workPackets, CanonicalKernelPayload::hash($canonical),
         );
     }
 
@@ -73,6 +81,8 @@ final readonly class ForgeCommissioning
             'product_intent_hash' => $this->productIntentHash, 'spec_hash' => $this->specHash,
             'world_model_snapshot_hash' => $this->worldModelSnapshotHash, 'release_policy' => $this->releasePolicy,
             'interruption_policy' => $this->interruptionPolicy, 'risk_class' => $this->riskClass, 'topology' => $this->topology,
-            'commissioning_hash' => $this->commissioningHash] + ($this->marketDecisionHash === null ? [] : ['market_decision_hash' => $this->marketDecisionHash]);
+            'commissioning_hash' => $this->commissioningHash]
+            + ($this->marketDecisionHash === null ? [] : ['market_decision_hash' => $this->marketDecisionHash])
+            + ($this->workPackets === [] ? [] : ['work_packets' => $this->workPackets]);
     }
 }

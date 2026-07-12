@@ -18,6 +18,7 @@ use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionPort;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Concerns\CreatesForgeLongHorizonStateTable;
 use Tests\TestCase;
 
@@ -81,6 +82,94 @@ final class ForgeObraRuntimeTest extends TestCase
         $this->assertDatabaseCount('ai_forge_work_packet_execution_cycles', 1);
         $packet = AiForgeWorkPacket::query()->where('packet_id', $tick->packetId)->firstOrFail();
         $this->assertSame('safe_simulation', AiForgeWorkPacketExecutionCycle::query()->where('work_packet_id', $packet->id)->firstOrFail()->execution_mode);
+    }
+
+    #[DataProvider('packetScaleFixture')]
+    public function test_packet_scale_fixture_materializes_one_cycle_per_packet_without_duplicate_effect(int $packetCount): void
+    {
+        $parts = [];
+        $workPackets = [];
+        for ($position = 1; $position <= $packetCount; $position++) {
+            $parts[] = 'Implementar o packet Forge '.$position.' com verificacao independente';
+            $workPackets[] = [
+                'id' => sprintf('scale-wp-%03d', $position),
+                'title' => 'Scale packet '.$position,
+                'objective' => 'Implementar o packet Forge '.$position,
+                'scope' => 'fixture/packet-'.$position,
+            ];
+        }
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => implode('; ', $parts), 'workspace' => base_path(),
+            'authority_hash' => str_repeat(dechex($packetCount), 64),
+            'product_intent_hash' => str_repeat('b', 64), 'spec_hash' => str_repeat('c', 64),
+            'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+            'work_packets' => $workPackets,
+        ]);
+        $this->app->instance(ForgeWorkPacketExecutionPort::class, new class($this->fixtureReleasedOutcome()) implements ForgeWorkPacketExecutionPort
+        {
+            public function __construct(private readonly EngineeringOutcome $outcome) {}
+
+            public function execute(ExecutionOrder $order): EngineeringOutcome
+            {
+                return $this->outcome;
+            }
+        });
+        $runtime = app(ForgeObraRuntime::class);
+        $snapshot = $runtime->commission($commissioning);
+
+        self::assertSame($packetCount, AiForgeWorkPacket::query()->where('intake_id', $snapshot->intakeId)->count());
+        $cycleIds = [];
+        $packetIds = [];
+        for ($attempt = 0; $attempt < $packetCount; $attempt++) {
+            $tick = $runtime->tick($snapshot->obra, ForgeTickBudget::fromArray([
+                'max_packets' => 1, 'lease_seconds' => 900, 'allow_provider' => true,
+            ]));
+            self::assertSame('executed', $tick->status, (string) $tick->reason);
+            $cycleIds[] = (string) $tick->cycleId;
+            $packetIds[] = (string) $tick->packetId;
+        }
+
+        self::assertCount($packetCount, array_unique($cycleIds));
+        self::assertCount($packetCount, array_unique($packetIds));
+        self::assertSame($packetCount, AiForgeWorkPacketExecutionCycle::query()
+            ->where('intake_id', $snapshot->intakeId)->count());
+    }
+
+    /** @return array<string,array{int}> */
+    public static function packetScaleFixture(): array
+    {
+        return ['one_packet' => [1], 'three_packets' => [3], 'ten_packets' => [10]];
+    }
+
+    private function fixtureReleasedOutcome(): EngineeringOutcome
+    {
+        $roles = [];
+        foreach (\App\Services\Ai\EngineeringKernel\EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
+            $roles[$role] = [
+                'status' => 'pass', 'evidence_hash' => hash('sha256', $role),
+                'signature' => hash('sha256', 'sign-'.$role), 'receipt_ref' => 'role-event-'.$role,
+                'receipt_event_hash' => hash('sha256', 'event-'.$role),
+            ];
+        }
+        $hashes = [];
+        foreach (['order', 'intent', 'spec', 'world', 'baseline', 'diff', 'evidence', 'release'] as $key) {
+            $hashes[$key] = hash('sha256', 'fixture-'.$key);
+        }
+
+        return EngineeringOutcome::fromArray([
+            'schema_version' => 'atlas.engineering_outcome.v2', 'run_id' => 'forge-scale-fixture',
+            'delivery_id' => 'forge-scale-fixture', 'status' => 'released', 'correlated_hashes' => $hashes,
+            'role_dispositions' => $roles,
+            'evidence_bundle' => ['hash' => $hashes['evidence'], 'status' => 'accepted'],
+            'provider_receipt' => ['status' => 'fixture'], 'sandbox_receipt' => ['status' => 'fixture'],
+            'release_receipt' => ['status' => 'fixture', 'hash' => $hashes['release']],
+            'canary_rollback_receipt' => ['status' => 'fixture'], 'operator_effort' => ['active_seconds' => 0],
+            'cost' => ['amount' => 0, 'currency' => 'USD'], 'tokens' => ['input' => 0, 'output' => 0],
+            'elapsed_ms' => 1, 'uncertainties' => [],
+            'observation_schedule' => array_fill_keys(EngineeringOutcome::WINDOWS, 'pending'), 'claim_eligible' => false,
+        ]);
     }
 
     public function test_commission_fails_closed_when_workspace_execution_gate_denies_mutation(): void
