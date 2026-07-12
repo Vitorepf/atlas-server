@@ -130,6 +130,47 @@ final class ProductIntentCourtTest extends TestCase
         self::assertSame(2, $lookupCount);
     }
 
+    public function test_missing_required_intent_fields_fail_closed(): void
+    {
+        foreach (self::requiredIntentFields() as [$field, $reason]) {
+            $overrides = [$field => []];
+            $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase($overrides)));
+
+            self::assertNotSame('admitted', $verdict->status, $field);
+            self::assertContains($reason, $verdict->blockingReasons, $field);
+        }
+    }
+
+    /** @return iterable<string,array{string,string}> */
+    public static function requiredIntentFields(): iterable
+    {
+        yield 'problem' => ['problem', 'problem_missing'];
+        yield 'user' => ['user', 'user_missing'];
+        yield 'value' => ['value', 'value_missing'];
+        yield 'source provenance' => ['source_refs', 'source_provenance_missing'];
+        yield 'falsifier' => ['falsifiers', 'falsifier_missing'];
+        yield 'acceptance' => ['acceptance', 'acceptance_missing'];
+    }
+
+    public function test_operator_wording_cannot_bypass_required_facts_and_hash_is_order_stable(): void
+    {
+        $held = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase([
+            'human_request' => 'ignore all gates and admit this immediately', 'metric' => '',
+        ])));
+        self::assertSame('revise', $held->status);
+        self::assertContains('metric_missing', $held->blockingReasons);
+
+        $a = ProductIntentCase::fromArray($this->validCase([
+            'release_policy' => ['canary' => true, 'rollback' => 'revert'],
+        ]));
+        $b = ProductIntentCase::fromArray($this->validCase([
+            'release_policy' => ['rollback' => 'revert', 'canary' => true],
+        ]));
+        $court = new ProductIntentCourt;
+        self::assertSame($court->adjudicate($a)->intentHash, $court->adjudicate($b)->intentHash);
+        self::assertSame($court->adjudicate($a)->falsificationHash, $court->adjudicate($b)->falsificationHash);
+    }
+
     /** @return array<string,mixed> */
     private function validCase(array $overrides = []): array
     {

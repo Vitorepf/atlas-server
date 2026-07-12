@@ -77,12 +77,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** Product family, existing intent router/envelope adapters and focused tests. No new persistence table.
 
-- [ ] Write RED value-object tests for missing problem/user/value, missing metric/window, absent source provenance, contradictory constraint/acceptance, unbounded side effect, missing falsifier, stale world snapshot and non-deterministic hash.
-- [ ] Write RED tests showing mode cannot change the verdict for an equivalent case and operator wording cannot bypass required facts.
+- [x] Write RED value-object tests for missing problem/user/value, missing metric/window, absent source provenance, contradictory constraint/acceptance, unbounded side effect, missing falsifier, stale world snapshot and non-deterministic hash.
+- [x] Write RED tests showing mode cannot change the verdict for an equivalent case and operator wording cannot bypass required facts.
 - [x] Implement immutable `ProductIntentCase` and `ProductIntentVerdict` in the Product family, with deterministic canonical hashing and explicit `admitted|revise|refused|held` status.
 - [x] Adapt `AtlasProductTruthCompilerService` output into the case rather than replacing its compiler or maintaining a second truth document.
 - [x] Record `unit.frozen` only for admitted ProductIntent and include source/world hashes; replay of identical input is idempotent.
-- [ ] Run focused Product tests, neighboring Mission hash/IntentRouter tests, replay and cross-mode parity tests.
+- [x] Run focused Product tests, neighboring Mission hash/IntentRouter tests, replay and cross-mode parity tests.
 
 **GREEN acceptance:** contradiction, absent metric/window, unsupported certainty or stale/missing required world facts block; an admitted verdict is deterministic and carries every fixed field.
 
