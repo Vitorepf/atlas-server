@@ -42,6 +42,14 @@ return [
         'autonomous_land_verification_required_tier' => env('ATLAS_MULTV_AUTONOMOUS_LAND_VERIFICATION_REQUIRED_TIER', 'T1'),
     ],
 
+    // ESP-06 — OutcomeEnvelope adapters (Dev procedural, AEMOR, Compounding).
+    // Default-OFF: native organ payloads stay byte-identical; when ON, each organ
+    // may add an additive `outcome_envelope` projection via OutcomeEnvelopeBridge.
+    // Anti-unification fence: adapters map fields; organs are never fused/renamed.
+    'esp_06' => [
+        'outcome_envelope_adapters_enabled' => (bool) env('ATLAS_ESP_06_OUTCOME_ENVELOPE_ADAPTERS_ENABLED', false),
+    ],
+
     // Provider routing defaults (Checkpoint-B prep). The EXECUTION runtime is HERMES-NATIVE — a runtime sentinel,
     // NEVER a pinned model name (MiniMax is merely the model Hermes happens to use today, swappable). The
     // BRAIN/frontier-design default is Codex (the frontier connectable via a subscription account). Both are
@@ -2637,6 +2645,12 @@ return [
         // completion criterion, and kill-gate; each task still passes architect + seed gates individually.
         // Default OFF ⇒ zero arcs and byte-identical produce().
         'composed_obra_arc_enabled' => (bool) env('ATLAS_LOOP_COMPOSED_OBRA_ARC_ENABLED', false),
+
+        // MULTN17-06 — evidence-derived persistent vision theses. When armed under leverage-first
+        // origination, ≤3 active theses derived from series/leads/calibration reorder candidates
+        // as WEIGHT only (never veto/fabrication). Death criterion + TTL archive stale theses.
+        // Default OFF ⇒ byte-identical produce().
+        'vision_theses_enabled' => (bool) env('ATLAS_LOOP_VISION_THESES_ENABLED', false),
 
         // CONTRACT-GAP ORIGINATION: when ON, the automated origination writer prompt
         // (AtlasLoopComprehensionOriginator::buildPrompt) surfaces interfaces declared in scope with ZERO

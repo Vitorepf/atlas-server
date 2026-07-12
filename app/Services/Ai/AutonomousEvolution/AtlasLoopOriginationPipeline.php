@@ -6,6 +6,9 @@ namespace App\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
+use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
+use App\Services\Ai\AcosMax\EvidenceVisionThesisLifecycle;
+use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;
@@ -222,6 +225,15 @@ final class AtlasLoopOriginationPipeline
         );
         if ($yieldPick !== null) {
             $valid = [$yieldPick];
+        }
+
+        // MULTN17-06 — active vision theses reorder candidates as WEIGHT, never veto.
+        if ((bool) config('atlas.loop.vision_theses_enabled', false)) {
+            $valid = EvidenceVisionThesisComposer::thesisAwareReorder(
+                $valid,
+                $this->activeVisionTheses($repoRoot, $ranked),
+                true,
+            );
         }
 
         // ORIGINATION REFUSAL MEMORY (S215 — Discovery→Brain coupling): demote targets the brain has
@@ -569,11 +581,138 @@ final class AtlasLoopOriginationPipeline
         };
     }
 
-    /** @return array<string,array{ewma:float,samples:int}> */
-    private function provenYieldByPath(): array
+    /**
+     * MULTN17-06 — derive and maintain ≤3 active vision theses from local evidence.
+     *
+     * @param  list<array<string,mixed>>  $rankedCandidates
+     * @return list<array<string,mixed>>
+     */
+    private function activeVisionTheses(string $repoRoot, array $rankedCandidates = []): array
+    {
+        $leads = [];
+        foreach ($rankedCandidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $evidence = (array) ($candidate['evidence'] ?? []);
+            if ($evidence === []) {
+                continue;
+            }
+            $leads[] = [
+                'target_path' => (string) ($candidate['target_path'] ?? ''),
+                'evidence' => $evidence,
+            ];
+        }
+
+        $calibrationRows = [];
+        try {
+            foreach (app(AtlasBrainPatternLearningLedger::class)->entries() as $row) {
+                $band = PredictedImpactBand::classify([
+                    'rung' => (string) ($row['rung'] ?? 'task'),
+                    'rank' => (int) ($row['rank'] ?? 99),
+                    'path_yield' => (float) ($row['path_yield'] ?? 0.0),
+                ]);
+                $calibrationRows[] = [
+                    'band' => (string) ($band['band'] ?? 'low'),
+                    'realized' => ($row['proven_real'] ?? null) === true,
+                    'status' => ($row['proven_real'] ?? null) === null ? 'unresolved' : 'resolved',
+                ];
+            }
+        } catch (Throwable) {
+            $calibrationRows = [];
+        }
+
+        $composed = EvidenceVisionThesisComposer::compose([
+            'enabled' => true,
+            'series_windows' => $this->visionSeriesWindows(),
+            'leads' => $leads,
+            'calibration' => PredictedImpactBand::calibration($calibrationRows),
+            'outcomes' => $this->visionOutcomeRows(),
+        ]);
+        if (($composed['composed'] ?? false) === true) {
+            EvidenceVisionThesisLifecycle::ingestComposed($composed);
+        }
+
+        EvidenceVisionThesisLifecycle::evaluateAndArchive(
+            $this->visionSeriesWindows(),
+            $this->visionOutcomeRows(),
+            PredictedImpactBand::calibration($calibrationRows),
+            $leads,
+        );
+
+        return EvidenceVisionThesisLifecycle::activeTheses();
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function visionSeriesWindows(): array
     {
         try {
-            $tail = [];
+            $byPath = (array) data_get(
+                app(AtlasBrainPathYieldEwma::class)->compute(
+                    $this->patternLearningTail(),
+                    app(AtlasBrainHintToPathTranslator::class),
+                ),
+                'by_path',
+                [],
+            );
+            $windows = [];
+            $index = 0;
+            foreach ($byPath as $path => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $windows[] = [
+                    'series' => 'atlas.brain.path_yield_ewma.v1',
+                    'stage' => (string) $path,
+                    'yield' => (float) ($row['ewma'] ?? 0.0),
+                    'window' => $index++,
+                ];
+            }
+
+            return $windows;
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function visionOutcomeRows(): array
+    {
+        $rows = [];
+        try {
+            foreach (app(AtlasBrainPatternLearningLedger::class)->entries() as $row) {
+                $path = trim((string) ($row['action_hint'] ?? ''));
+                if ($path === '') {
+                    continue;
+                }
+                $rows[] = [
+                    'path' => $path,
+                    'proven_real' => ($row['proven_real'] ?? null) === true ? true : false,
+                    'outcome_id' => hash('sha256', json_encode([
+                        $path,
+                        $row['result_kind'] ?? '',
+                        $row['recorded_at'] ?? '',
+                    ], JSON_UNESCAPED_SLASHES)),
+                ];
+            }
+        } catch (Throwable) {
+            return [];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function patternLearningTail(): array
+    {
+        $tail = [];
+        try {
             foreach (app(AtlasBrainPatternLearningLedger::class)->entries() as $row) {
                 $tail[] = [
                     'action_hint' => (string) ($row['action_hint'] ?? ''),
@@ -593,9 +732,19 @@ final class AtlasLoopOriginationPipeline
                     'proven_real' => ($row['proven_real'] ?? null) === true,
                 ];
             }
+        } catch (Throwable) {
+            return [];
+        }
 
+        return $tail;
+    }
+
+    /** @return array<string,array{ewma:float,samples:int}> */
+    private function provenYieldByPath(): array
+    {
+        try {
             return (array) data_get(
-                app(AtlasBrainPathYieldEwma::class)->compute($tail, app(AtlasBrainHintToPathTranslator::class)),
+                app(AtlasBrainPathYieldEwma::class)->compute($this->patternLearningTail(), app(AtlasBrainHintToPathTranslator::class)),
                 'by_path',
                 [],
             );
