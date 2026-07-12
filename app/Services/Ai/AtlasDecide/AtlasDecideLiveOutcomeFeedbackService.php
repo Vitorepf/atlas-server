@@ -110,7 +110,13 @@ final class AtlasDecideLiveOutcomeFeedbackService
      *     tokens_used?:int,
      *     input_tokens?:int,
      *     output_tokens?:int,
-     *     actor?:string
+     *     actor?:string,
+     *     routing_basis?:string,
+     *     decision_id?:string,
+     *     fallback_provider?:string,
+     *     fallback_model?:string,
+     *     would_have_been_greedy_provider?:string,
+     *     would_have_been_greedy_model?:string
      * }  $input
      * @return array<string,mixed>
      */
@@ -154,6 +160,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $toolProfile = $this->labelOrNull($input['tool_profile'] ?? null);
         $repairCount = $this->nonNegativeIntOrNull($input['repair_count'] ?? null);
         $contextTokens = $this->positiveIntOrNull($input['context_tokens'] ?? null);
+        $routingBasis = $this->labelOrNull($input['routing_basis'] ?? null);
+        $decisionId = $this->labelOrNull($input['decision_id'] ?? null);
+        $fallbackProvider = $this->labelOrNull($input['fallback_provider'] ?? null);
+        $fallbackModel = $this->labelOrNull($input['fallback_model'] ?? null);
+        $wouldHaveBeenGreedyProvider = $this->labelOrNull($input['would_have_been_greedy_provider'] ?? null);
+        $wouldHaveBeenGreedyModel = $this->labelOrNull($input['would_have_been_greedy_model'] ?? null);
         // proven_real (Goal 2): this success is backed by a REAL gate verdict (passed the
         // OutcomeProofGate / sovereign floor), not a fake-green. Absent ⇒ false (an unmarked
         // outcome is NOT proven). This is the ONLY signal the Learning Loop's activation regime
@@ -184,6 +196,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'tool_profile' => $toolProfile,
             'repair_count' => $repairCount,
             'context_tokens' => $contextTokens,
+            'routing_basis' => $routingBasis,
+            'decision_id' => $decisionId,
+            'fallback_provider' => $fallbackProvider,
+            'fallback_model' => $fallbackModel,
+            'would_have_been_greedy_provider' => $wouldHaveBeenGreedyProvider,
+            'would_have_been_greedy_model' => $wouldHaveBeenGreedyModel,
             'actor' => $actor,
         ];
         $entry['entry_hash'] = 'sha256:'.hash('sha256', json_encode([
@@ -203,6 +221,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'tool_profile' => $toolProfile,
             'repair_count' => $repairCount,
             'context_tokens' => $contextTokens,
+            'routing_basis' => $routingBasis,
+            'decision_id' => $decisionId,
+            'fallback_provider' => $fallbackProvider,
+            'fallback_model' => $fallbackModel,
+            'would_have_been_greedy_provider' => $wouldHaveBeenGreedyProvider,
+            'would_have_been_greedy_model' => $wouldHaveBeenGreedyModel,
             'actor' => $actor,
         ], JSON_THROW_ON_ERROR));
 

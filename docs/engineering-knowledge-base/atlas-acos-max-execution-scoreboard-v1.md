@@ -45,7 +45,7 @@
 - [ ] MAXI-03 — pending
 - [x] MAXJ-01 — landed · freeze `atlas.ai.lesson_quality.v2` content_hash=`411b23244dd0603539f5914cfe3e8101e928bca1ad2bcc7580e111bc971fb26b` · formula_version=`atlas_ai_lesson_quality_v2` · denominator_min=1 · cmd `atlas:ai:lesson-quality --json` · live status=`insufficient_signal`, candidates=23, measured=0/23, groups=1 · registry=registered(ELEV-20s) · v1 RecallUseLift aggregate unchanged/dual-read · tests: `php artisan test tests/Unit/Ai/Compounding/AtlasLessonQualityServiceTest.php`
 - [ ] MAXJ-05 — pending
-- [ ] MAXK-01 — pending
+- [x] MAXK-01 — landed · freeze `atlas.decide.route_regret.v2` content_hash=`864072845d2c5b3b6d7a4050cac0fed51885530004ed717c2c76f84ddc0d5ffc` · formula_version=`route_regret_v2.gross_scope` · denominator_min=5/min_evidence=3 · cmd `atlas:atlas-decide:live-feedback --regret --json` · live status=`insufficient_signal` (honesto até ASI-06 encher escopo grosso) · contrafactual de exploração usa `would_have_been_greedy_provider`; registry=registered(ELEV-20s) · tests: `php artisan test tests/Feature/Ai/AtlasDecide/AtlasDecideLiveFeedbackRegretCommandTest.php`
 - [ ] MAXK-04 — pending
 - [ ] MAXL-06 — pending
 - [ ] MULTK-01 — pending

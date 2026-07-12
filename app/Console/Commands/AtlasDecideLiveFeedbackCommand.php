@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use Illuminate\Console\Command;
 
 /**
@@ -19,6 +20,7 @@ use Illuminate\Console\Command;
  *   signal       --task-category --role --provider [--framework] [--model]
  *   sweep        [--actor=autonomous_feedback_loop]  (calls ADML.autoDeactivateOnDegradation)
  *   list-outcomes
+ *   --regret      (MAXK-01 route regret v2 peek report)
  */
 class AtlasDecideLiveFeedbackCommand extends Command
 {
@@ -36,15 +38,26 @@ class AtlasDecideLiveFeedbackCommand extends Command
         {--tokens-used= : optional total token count}
         {--input-tokens= : optional input token count}
         {--output-tokens= : optional output token count}
+        {--routing-basis= : optional route basis (score|cost_outcome|exploration)}
+        {--decision-id= : optional Decision Receipt id associated with the route}
+        {--fallback-provider= : optional counterfactual fallback provider}
+        {--fallback-model= : optional counterfactual fallback model}
+        {--would-have-been-greedy-provider= : optional greedy provider displaced by exploration}
+        {--would-have-been-greedy-model= : optional greedy model displaced by exploration}
         {--actor=autonomous_feedback_loop}
+        {--regret : Emit the MAXK-01 route regret v2 report without recording usage}
         {--json : Emit JSON envelope}';
 
     protected $description = 'Atlas Decide Live Outcome Feedback — record provider call outcomes, query stats/signals, sweep degraded routes.';
 
-    public function handle(AtlasDecideLiveOutcomeFeedbackService $svc, AtlasDecideMetaLearningService $adml): int
+    public function handle(AtlasDecideLiveOutcomeFeedbackService $svc, AtlasDecideMetaLearningService $adml, AtlasDecideRouteRegretService $regret): int
     {
         $action = (string) $this->option('action');
         $json = (bool) $this->option('json');
+
+        if ((bool) $this->option('regret')) {
+            return $this->emit($regret->report(), $json);
+        }
 
         switch ($action) {
             case 'record':
@@ -62,6 +75,12 @@ class AtlasDecideLiveFeedbackCommand extends Command
                         'tokens_used' => $this->option('tokens-used') !== null ? (int) $this->option('tokens-used') : null,
                         'input_tokens' => $this->option('input-tokens') !== null ? (int) $this->option('input-tokens') : null,
                         'output_tokens' => $this->option('output-tokens') !== null ? (int) $this->option('output-tokens') : null,
+                        'routing_basis' => $this->option('routing-basis') ?: null,
+                        'decision_id' => $this->option('decision-id') ?: null,
+                        'fallback_provider' => $this->option('fallback-provider') ?: null,
+                        'fallback_model' => $this->option('fallback-model') ?: null,
+                        'would_have_been_greedy_provider' => $this->option('would-have-been-greedy-provider') ?: null,
+                        'would_have_been_greedy_model' => $this->option('would-have-been-greedy-model') ?: null,
                         'actor' => (string) $this->option('actor'),
                     ]);
 

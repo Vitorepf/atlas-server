@@ -7,6 +7,7 @@ namespace App\Services\Ai\AcosMax;
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
+use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
@@ -163,6 +164,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => (int) AtlasAcosFreezeCommand::lessonQualityFreezePayload()['ttl_days'],
                 'ttl_source' => 'freeze:atlas.ai.lesson_quality.v2',
+            ],
+            [
+                'slice' => 'MAXK-01',
+                'series' => AtlasDecideRouteRegretService::MEASURE_ID,
+                'path' => 'atlas:atlas-decide:live-feedback --regret --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => AtlasDecideRouteRegretService::TTL_DAYS,
+                'ttl_source' => 'freeze:atlas.decide.route_regret.v2',
             ],
             [
                 'slice' => 'MULTK-01',
