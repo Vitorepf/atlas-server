@@ -64,9 +64,9 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         return new AtlasTaskMergeActuator(null, $this->repo, $ledger, $resolver);
     }
 
-    // ── (a) dry-run resolves sha + file plan, git state untouched ────────────
+    // ── (a) V1 translator cannot act without canonical release authority ─────
 
-    public function test_dry_run_resolves_sha_and_file_plan_without_touching_git_state(): void
+    public function test_v1_dry_run_translates_but_cannot_act_without_canonical_authority(): void
     {
         $sha = $this->landScopedCommit('task-a', ['app/A/Alpha.php' => "<?php // A\n"]);
         $headBefore = trim($this->git(['rev-parse', 'HEAD'])['out']);
@@ -74,9 +74,8 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         $r = $this->actuator(['task-a' => ['app/A/Alpha.php']])->revert('task-a');
 
         $this->assertTrue($r['dry_run']);
-        $this->assertTrue($r['would_revert']);
-        $this->assertSame($sha, $r['sha']);
-        $this->assertSame(['app/A/Alpha.php'], $r['files']);
+        $this->assertTrue($r['zero_effect']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_NOT_PERSISTED, $r['reason']);
 
         $headAfter = trim($this->git(['rev-parse', 'HEAD'])['out']);
         $this->assertSame($headBefore, $headAfter, 'dry-run must never mutate git state');
@@ -85,23 +84,21 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         $this->assertNotEmpty($ledgerRows, 'a receipt must be appended even for a dry-run plan');
     }
 
-    // ── (b) live revert produces a revert commit + appends a receipt ─────────
+    // ── (b) V1 translator cannot mutate without canonical release authority ──
 
-    public function test_live_revert_produces_a_revert_commit_and_appends_a_receipt(): void
+    public function test_v1_live_revert_is_zero_effect_without_canonical_authority(): void
     {
         $sha = $this->landScopedCommit('task-b', ['app/B/Beta.php' => "<?php // B\n"]);
 
         $r = $this->actuator(['task-b' => ['app/B/Beta.php']])->revert('task-b', dryRun: false);
 
-        $this->assertTrue($r['reverted']);
-        $this->assertSame($sha, $r['sha']);
-        $this->assertNotSame($sha, $r['revert_sha']);
-
-        // The file no longer exists post-revert.
-        $this->assertFileDoesNotExist($this->repo.'/app/B/Beta.php');
+        $this->assertTrue($r['zero_effect']);
+        $this->assertFalse($r['reverted']);
+        $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_NOT_PERSISTED, $r['reason']);
+        $this->assertFileExists($this->repo.'/app/B/Beta.php');
 
         $log = $this->git(['log', '--oneline'])['out'];
-        $this->assertStringContainsString('Revert', $log);
+        $this->assertStringNotContainsString('Revert', $log);
 
         $ledgerRows = (new AtlasMergeGovernorReleaseDecisionLedger($this->ledgerPath))->all();
         $this->assertNotEmpty($ledgerRows);
@@ -253,7 +250,7 @@ final class AtlasTaskMergeActuatorTest extends TestCase
         $this->assertSame($sha, trim($this->git(['rev-parse', 'HEAD'])['out']));
     }
 
-    public function test_post_effect_persistence_failure_returns_release_uncertain_and_never_resolved(): void
+    public function test_legacy_action_cannot_reach_post_effect_without_canonical_authority(): void
     {
         $this->landScopedCommit('task-uncertain', ['app/Uncertain/File.php' => "<?php // uncertain\n"]);
         $actuator = $this->actuator(['task-uncertain' => ['app/Uncertain/File.php']]);
@@ -268,11 +265,10 @@ final class AtlasTaskMergeActuatorTest extends TestCase
 
             $r = $actuator->act($action);
 
-            $this->assertTrue($r['reverted']);
-            $this->assertTrue($r['release_uncertain']);
-            $this->assertFalse($r['resolved']);
-            $this->assertSame(AtlasTaskMergeActuator::REASON_POST_EFFECT_PERSISTENCE_FAILED, $r['reason']);
-            $this->assertFileDoesNotExist($this->repo.'/app/Uncertain/File.php');
+            $this->assertTrue($r['zero_effect']);
+            $this->assertFalse($r['reverted']);
+            $this->assertSame(AtlasTaskMergeActuator::REASON_AUTHORITY_NOT_PERSISTED, $r['reason']);
+            $this->assertFileExists($this->repo.'/app/Uncertain/File.php');
         } finally {
             @unlink($blockedParent);
         }
