@@ -236,7 +236,7 @@ Outcome dimensions include defects, incidents, rollback, rework, vulnerabilities
 **Allowed files:** readiness manifests, canonical docs and tests only.
 
 - [x] Write RED readiness-state tests that fail when implementation evidence skips rollback, N−1, coverage, outcome or time gates, or performs a cutover action.
-- [ ] Require complete gate composition, anti-false-green mutation, 100% mutative coverage, pre-actuation guards, successful canary/revert drills, N−1 compatibility and active outcome writer for readiness.
+- [x] Require complete gate composition, anti-false-green mutation, 100% mutative coverage, pre-actuation guards, successful canary/revert drills, N−1 compatibility and active outcome writer for readiness. Evidence: `QualityFoundryReadinessStateMachine` requires all nine conjunctive cutover gates and `QualityFoundryReadinessStateMachineTest` proves missing temporal, N−1, comparative and cutover evidence remains blocked; `CanonicalCommitActuationTest` covers canary/revert/pre-actuation failure paths.
 - [x] Emit separate states for implementation, cutover readiness and each real observation window.
 - [x] Prove state tests cannot jump to `quality_foundry_ready`, `multiplier_proven`, `world_leading` or `world_10x_quality_proven`.
 - [ ] Produce live manifests for Kernel/Dev/Forge/Autônomos with real receipt and test refs.
