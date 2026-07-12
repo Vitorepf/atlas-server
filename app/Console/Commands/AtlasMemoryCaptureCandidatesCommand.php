@@ -18,6 +18,7 @@ class AtlasMemoryCaptureCandidatesCommand extends Command
         {--scope-id= : Atlas memory scope id}
         {--path=* : Existing repo-relative paths cited by the candidate}
         {--domain= : Canonical domain tag}
+        {--segment-source=excerpt : Injection-boundary source for the candidate body}
         {--confidence=0.75 : Candidate confidence}
         {--priority=70 : Candidate priority}
         {--apply : Run automatic gate and admit passing candidates now}
@@ -43,6 +44,7 @@ class AtlasMemoryCaptureCandidatesCommand extends Command
             'scope_id' => $this->stringOption('scope-id'),
             'paths' => array_values(array_filter((array) $this->option('path'), 'is_string')),
             'domain' => $this->stringOption('domain'),
+            'segment_source' => $this->stringOption('segment-source'),
             'confidence' => (float) $this->option('confidence'),
             'priority' => (int) $this->option('priority'),
         ], (bool) $this->option('apply'));
@@ -84,6 +86,7 @@ class AtlasMemoryCaptureCandidatesCommand extends Command
             'title' => (string) $candidate->title,
             'missing_checks' => $candidate->missing_checks ?? [],
             'memory_entry_id' => $candidate->memory_entry_id,
+            'injection_boundary' => (array) data_get($candidate->candidate_payload, 'injection_boundary', []),
         ];
     }
 

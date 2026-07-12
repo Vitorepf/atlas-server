@@ -6,6 +6,7 @@ namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\AtlasOpenBrainContextInjectionBoundaryClassifier;
 use App\Services\Ai\AtlasMemoryRegistryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Arr;
@@ -14,7 +15,10 @@ use Illuminate\Support\Str;
 
 final class AtlasMemoryCandidateGateService
 {
-    public function __construct(private readonly AtlasMemoryRegistryService $registry) {}
+    public function __construct(
+        private readonly AtlasMemoryRegistryService $registry,
+        private readonly AtlasOpenBrainContextInjectionBoundaryClassifier $injectionBoundaryClassifier,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $payload
@@ -87,6 +91,7 @@ final class AtlasMemoryCandidateGateService
                 'paths' => array_values((array) ($payload['paths'] ?? [])),
                 'domains' => array_values(array_filter([(string) ($payload['domain'] ?? '')])),
                 'immune_signals' => is_array($payload['immune_signals'] ?? null) ? $payload['immune_signals'] : [],
+                'injection_boundary' => is_array($payload['injection_boundary'] ?? null) ? $payload['injection_boundary'] : [],
                 'candidate' => [
                     'id' => (string) $candidate->id,
                     'source' => (string) ($payload['source_path'] ?? $payload['source_id'] ?? ''),
@@ -130,6 +135,15 @@ final class AtlasMemoryCandidateGateService
         $scopeType = $this->enumOrDefault($payload['scope_type'] ?? null, AtlasMemoryEntry::SCOPES, 'global');
         $scopeId = $scopeType === 'global' ? null : $this->stringOrNull($payload['scope_id'] ?? null);
         $privacyClass = $this->enumOrDefault($payload['privacy_class'] ?? null, AtlasMemoryEntry::PRIVACY_CLASSES, 'normal');
+        $segmentSource = $this->enumOrDefault(
+            $payload['segment_source'] ?? null,
+            ['current_turn', 'task_contract', 'memory', 'excerpt', 'quoted_memory', 'example', 'summary', 'unknown'],
+            'excerpt',
+        );
+        $injectionBoundary = $this->injectionBoundaryClassifier->classify([
+            'text' => $body,
+            'source' => $segmentSource,
+        ]);
 
         return [
             'source_type' => $sourcePath !== null ? 'docs' : 'manual',
@@ -148,6 +162,16 @@ final class AtlasMemoryCandidateGateService
             'confidence' => $payload['confidence'] ?? 0.75,
             'privacy_class' => $privacyClass,
             'external_ai_allowed' => array_key_exists('external_ai_allowed', $payload) ? (bool) $payload['external_ai_allowed'] : true,
+            'segment_source' => $segmentSource,
+            'injection_boundary' => [
+                'schema' => AtlasOpenBrainContextInjectionBoundaryClassifier::SCHEMA,
+                'text_hash' => hash('sha256', $body),
+                'source' => $segmentSource,
+                'classification' => (string) $injectionBoundary['classification'],
+                'allow_as_worker_directive' => (bool) $injectionBoundary['allow_as_worker_directive'],
+                'reason' => (string) $injectionBoundary['reason'],
+                'confidence' => (float) $injectionBoundary['confidence'],
+            ],
             'immune_signals' => is_array($payload['immune_signals'] ?? null) ? $payload['immune_signals'] : [],
             'rationale_hash' => hash('sha256', mb_strtolower(trim($body))),
         ];
@@ -199,6 +223,7 @@ final class AtlasMemoryCandidateGateService
             'missing_checks' => array_values(array_unique($missing)),
             'checked_at' => now()->toJSON(),
             'provider_safe' => data_get($admission, 'verdict.gate_statuses.G3') === 'pass',
+            'injection_boundary' => is_array($payload['injection_boundary'] ?? null) ? $payload['injection_boundary'] : [],
             'admission' => $admission,
             'rationale_hash' => (string) ($payload['rationale_hash'] ?? ''),
         ];

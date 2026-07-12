@@ -194,4 +194,11 @@ final class AtlasOpenBrainContextInjectionBoundaryClassifierTest extends TestCas
 
         $this->assertSame(json_encode($a, JSON_UNESCAPED_SLASHES), json_encode($b, JSON_UNESCAPED_SLASHES));
     }
+
+    public function test_classifier_is_wired_no_unwired_until_marker_left(): void
+    {
+        $source = (string) file_get_contents(base_path('app/Services/Ai/AtlasOpenBrainContextInjectionBoundaryClassifier.php'));
+
+        $this->assertStringNotContainsString('@unwired-until', $source);
+    }
 }

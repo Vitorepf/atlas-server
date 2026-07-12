@@ -90,6 +90,7 @@ class AtlasOpenBrainSessionCaptureService
         private readonly AtlasOpenBrainWriteBackService $writeBack,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
         private readonly AtlasSurpriseGateService $surpriseGate,
+        private readonly AtlasOpenBrainContextInjectionBoundaryClassifier $injectionBoundaryClassifier,
     ) {}
 
     /**
@@ -249,6 +250,7 @@ class AtlasOpenBrainSessionCaptureService
                 'obra_state' => $obraState,
                 // WO-17-T2 — delta de surpresa: structured G0 candidates (what the pack lacked).
                 'surprise_delta' => array_values((array) ($distilled['surprises'] ?? [])),
+                'injection_boundary' => $this->injectionBoundarySummary((array) ($distilled['injection_boundary'] ?? [])),
                 // T4-S2 — surprise gate audit: how many predicted candidates were
                 // suppressed. The -≥40% is MEASURED here over real sessions, never tuned.
                 'surprise_gate' => [
@@ -366,7 +368,7 @@ class AtlasOpenBrainSessionCaptureService
      *
      * @param  list<array<string,mixed>>  $lines
      * @param  array<string,mixed>  $opts
-     * @return array{files:list<string>, result:array{status?:string,ok?:bool,delivered?:bool}|null, learnings:list<array{summary:string,evidence_refs:list<string>,claim:string,why:string,files:list<string>}>, request:string, derived_session_id:?string}
+     * @return array{files:list<string>, result:array{status?:string,ok?:bool,delivered?:bool}|null, learnings:list<array{summary:string,evidence_refs:list<string>,claim:string,why:string,files:list<string>}>, surprises:list<string>, prediction:string, injection_boundary:list<array<string,mixed>>, request:string, derived_session_id:?string}
      */
     private function distil(array $lines, array $opts): array
     {
@@ -381,6 +383,7 @@ class AtlasOpenBrainSessionCaptureService
         $firstUserPrompt = null;
         $derivedSessionId = null;
         $prediction = ''; // T4-S2 — the pre-session bet accreted from AOBG-marked text.
+        $injectionBoundary = [];
 
         foreach ($lines as $line) {
             if (! is_array($line)) {
@@ -408,7 +411,11 @@ class AtlasOpenBrainSessionCaptureService
             }
 
             // Explicit, file-cited learnings + a result marker, mined from text content.
-            foreach ($this->textsFromLine($line) as $text) {
+            foreach ($this->textSegmentsFromLine($line) as $segment) {
+                $text = (string) $segment['text'];
+                if (count($injectionBoundary) < 64) {
+                    $injectionBoundary[] = $this->classifyInjectionBoundarySegment($text, (string) $segment['source']);
+                }
                 $learning = $this->explicitLearning($text, $maxLearningChars);
                 if ($learning !== null && count($learnings) < 64) {
                     $learnings[] = $learning;
@@ -442,8 +449,55 @@ class AtlasOpenBrainSessionCaptureService
             'learnings' => $learnings,
             'surprises' => $surprises,
             'prediction' => trim($prediction),
+            'injection_boundary' => $injectionBoundary,
             'request' => $request,
             'derived_session_id' => $derivedSessionId,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $segments
+     * @return array<string,mixed>
+     */
+    private function injectionBoundarySummary(array $segments): array
+    {
+        $byClassification = [];
+        $nonDirective = 0;
+        foreach ($segments as $segment) {
+            $classification = (string) ($segment['classification'] ?? 'unknown');
+            $byClassification[$classification] = ($byClassification[$classification] ?? 0) + 1;
+            if (($segment['allow_as_worker_directive'] ?? true) !== true) {
+                $nonDirective++;
+            }
+        }
+        ksort($byClassification);
+
+        return [
+            'schema' => AtlasOpenBrainContextInjectionBoundaryClassifier::SCHEMA,
+            'segments_classified' => count($segments),
+            'non_directive_segments' => $nonDirective,
+            'by_classification' => $byClassification,
+            'segments' => $segments,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function classifyInjectionBoundarySegment(string $text, string $source): array
+    {
+        $verdict = $this->injectionBoundaryClassifier->classify([
+            'text' => $text,
+            'source' => $source,
+        ]);
+
+        return [
+            'text_hash' => hash('sha256', $text),
+            'source' => $source,
+            'classification' => (string) $verdict['classification'],
+            'allow_as_worker_directive' => (bool) $verdict['allow_as_worker_directive'],
+            'reason' => (string) $verdict['reason'],
+            'confidence' => (float) $verdict['confidence'],
         ];
     }
 
@@ -550,6 +604,10 @@ class AtlasOpenBrainSessionCaptureService
                 $texts[] = $s;
             }
         }
+        $messageContent = $this->string(data_get($line, 'message.content'));
+        if ($messageContent !== null) {
+            $texts[] = $messageContent;
+        }
 
         foreach ($this->messageContent($line) as $block) {
             if (is_string($block)) {
@@ -563,6 +621,46 @@ class AtlasOpenBrainSessionCaptureService
         }
 
         return $texts;
+    }
+
+    /**
+     * @param  array<string,mixed>  $line
+     * @return list<array{text:string,source:string}>
+     */
+    private function textSegmentsFromLine(array $line): array
+    {
+        $segments = [];
+        foreach ($this->textsFromLine($line) as $text) {
+            $segments[] = [
+                'text' => $text,
+                'source' => $this->injectionBoundarySource($line, $text),
+            ];
+        }
+
+        return $segments;
+    }
+
+    /**
+     * @param  array<string,mixed>  $line
+     */
+    private function injectionBoundarySource(array $line, string $text): string
+    {
+        $explicit = $this->string($line['context_source'] ?? ($line['segment_source'] ?? null));
+        if ($explicit !== null && in_array($explicit, ['current_turn', 'task_contract', 'memory', 'excerpt', 'quoted_memory', 'example', 'summary', 'unknown'], true)) {
+            return $explicit;
+        }
+
+        if ($this->looksLikePrediction($text)) {
+            return 'excerpt';
+        }
+
+        $role = (string) ($line['role'] ?? ($line['type'] ?? ''));
+        $messageRole = (string) data_get($line, 'message.role', '');
+        if ($role === 'user' || $messageRole === 'user') {
+            return 'current_turn';
+        }
+
+        return 'summary';
     }
 
     /**
