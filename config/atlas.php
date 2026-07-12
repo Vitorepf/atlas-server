@@ -23,6 +23,25 @@ return [
         'give_back_reclaim_cooldown_seconds' => (int) env('ATLAS_TASK_SERVING_GIVE_BACK_RECLAIM_COOLDOWN_SECONDS', 600),
     ],
 
+    // MULTV-10 — enforce SEAM for verified autonomous landings. Default-OFF; this
+    // slice NEVER flips. The ONLY flip belongs to ASI-10 via ELEV-26s (1 flip per
+    // family per window; ROL-01 rollback trigger pre-declared before the flip).
+    // The operator port (`atlas:land`, commitAuthority=operator) is EXEMPT.
+    //   ATLAS_MULTV_AUTONOMOUS_LAND_VERIFICATION_ENABLED
+    //     OFF (default) — legacy behavior, byte-identical.
+    //     ON (ASI-10 flip only)   — autonomous land without a sealed MULTV-01
+    //       verification receipt is refused with `verification_receipt_missing`;
+    //       an unsealed/tampered receipt is refused with `verification_receipt_seal_invalid`;
+    //       a receipt whose declared tier is below the derived risk tier is refused
+    //       with `verification_receipt_tier_below_risk`.
+    //   ATLAS_MULTV_AUTONOMOUS_LAND_VERIFICATION_REQUIRED_TIER — T1|T2|T3 (default T1).
+    //     Interim override until MULTV-02 lands the risk-tiered cascade that derives
+    //     the required tier from the change context. Keep T1 while the cascade ships.
+    'multv' => [
+        'autonomous_land_verification_enabled' => (bool) env('ATLAS_MULTV_AUTONOMOUS_LAND_VERIFICATION_ENABLED', false),
+        'autonomous_land_verification_required_tier' => env('ATLAS_MULTV_AUTONOMOUS_LAND_VERIFICATION_REQUIRED_TIER', 'T1'),
+    ],
+
     // Provider routing defaults (Checkpoint-B prep). The EXECUTION runtime is HERMES-NATIVE — a runtime sentinel,
     // NEVER a pinned model name (MiniMax is merely the model Hermes happens to use today, swappable). The
     // BRAIN/frontier-design default is Codex (the frontier connectable via a subscription account). Both are
@@ -1069,6 +1088,15 @@ return [
             'signature_ledger_path' => env(
                 'ATLAS_AUTONOMY_LADDER_SIGNATURE_LEDGER_PATH',
                 storage_path('atlas-local/autonomy-ladder/signature-ledger.ndjson'),
+            ),
+
+            // MAXK-06 — sealed JSONL ledger the metrics authority reads from
+            // to break the "caller supplies the numbers that decide the
+            // promotion" forgery. Only the ASI-05 telemetry sealer writes;
+            // the promotion gate only reads and refuses non-verified entries.
+            'metrics_authority_ledger_path' => env(
+                'ATLAS_AUTONOMY_LADDER_METRICS_AUTHORITY_LEDGER_PATH',
+                storage_path('atlas-local/autonomy-ladder/metrics-authority.ndjson'),
             ),
         ],
 

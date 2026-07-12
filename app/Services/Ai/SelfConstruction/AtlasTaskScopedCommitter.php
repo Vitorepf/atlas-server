@@ -57,6 +57,7 @@ final class AtlasTaskScopedCommitter
         private readonly ?AtlasLoopMergeActuator $mergeActuator = null,
         private readonly ?AtlasCognitionRemintTouchedQueue $remintTouchedQueue = null,
         private readonly ?AtlasAobgBlackboardService $blackboard = null,
+        private readonly ?AtlasAutonomousLandVerificationGate $verificationSeamGate = null,
     ) {}
 
     /**
@@ -112,6 +113,21 @@ final class AtlasTaskScopedCommitter
             return $this->result(false, 'constitution_gate_blocked_self_edit_no_token', taskPacketId: $taskPacketId, extra: [
                 'self_edit_paths' => $selfEditPaths,
             ]);
+        }
+
+        // MULTV-10 — enforce SEAM for verified autonomous landings. Default-OFF; the
+        // ONLY flip belongs to ASI-10 via ELEV-26s (1 flip per family per window).
+        // This slice NEVER flips: it only builds the check the flip lights up. The
+        // operator port (atlas:land, commitAuthority=operator) is EXEMPT so hand-
+        // driven landings continue to work with the flag ON.
+        $verificationSeamGate = $this->verificationSeamGate ?? app(AtlasAutonomousLandVerificationGate::class);
+        $seamVerdict = $verificationSeamGate->evaluate($commitAuthority, $verification);
+        if (($seamVerdict['allowed'] ?? false) !== true) {
+            return $this->result(false, (string) ($seamVerdict['reason'] ?? AtlasAutonomousLandVerificationGate::REASON_MISSING), taskPacketId: $taskPacketId, extra: array_filter([
+                'verification_seam' => $seamVerdict,
+                'required_tier' => $seamVerdict['required_tier'] ?? null,
+                'receipt_tier' => $seamVerdict['receipt_tier'] ?? null,
+            ], static fn (mixed $v): bool => $v !== null));
         }
 
         $certify = null;
