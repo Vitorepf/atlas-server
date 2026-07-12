@@ -495,6 +495,28 @@ final class AtlasAgenticWorkcellRuntimeService
         if ($order->evidencePolicy === [] || $order->evidencePolicy['acceptance_event_id'] === '') {
             $blockers[] = 'evidence_policy_required';
         }
+        $identities = [];
+        foreach ($order->roleRoster as $entry) {
+            foreach (['builder_id', 'verifier_id', 'final_certifier_id'] as $identityKey) {
+                $identity = trim((string) ($entry[$identityKey] ?? ''));
+                if ($identity !== '') $identities[$identityKey][] = $identity;
+            }
+        }
+        $identityValues = [];
+        foreach ($identities as $values) {
+            $identityValues = [...$identityValues, ...$values];
+        }
+        if ($identityValues !== [] && count(array_unique($identityValues)) !== count($identityValues)) {
+            $blockers[] = 'role_witness_identity_overlap';
+        }
+        $suppliedSandboxes = is_array($input['candidate_sandboxes'] ?? null) ? $input['candidate_sandboxes'] : [];
+        $sandboxRefs = array_values(array_filter(array_map(static fn (mixed $sandbox): string => is_array($sandbox) ? trim((string) ($sandbox['sandbox_ref'] ?? '')) : '', $suppliedSandboxes)));
+        if ($sandboxRefs !== [] && count(array_unique($sandboxRefs)) !== count($sandboxRefs)) {
+            $blockers[] = 'candidate_sandbox_shared';
+        }
+        if (array_key_exists('mode', $input) && (string) $input['mode'] !== $order->mode) {
+            $blockers[] = 'mode_quality_bar_mismatch';
+        }
         if ($evidenceRefs === [] && $order->riskClass !== 'R0') {
             $blockers[] = 'initial_evidence_refs_required';
         }

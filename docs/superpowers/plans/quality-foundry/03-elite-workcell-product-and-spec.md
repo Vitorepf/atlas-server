@@ -153,7 +153,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** AgenticWorkcell/EngineeringCompany families, Workcell models and focused tests.
 
-- [ ] Write RED tests for a missing role, overlapping builder/verifier/final-certifier, ownership overlap, shared sandbox between candidates, unsupported topology, and mode-specific bar reduction.
+- [x] Write RED tests for a missing role, overlapping builder/verifier/final-certifier, ownership overlap, shared sandbox between candidates, unsupported topology, and mode-specific bar reduction.
 - [x] Define mapping from `single|candidate_set|workcell|DAG|portfolio` to execution ordering and witness depth only; membership remains the exact 22-role roster.
 - [x] Make workcell admission require frozen ProductIntent/spec/world hashes, authority, allowed scope, risk/depth and evidence policy from `ExecutionOrder`.
 - [x] Allocate isolated candidate sandboxes and explicit ownership; integration lane is serial and protected by reservation/fencing.

@@ -240,6 +240,23 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         self::assertSame('execution_order_rejected', $mutated['workcell_admission']['reason']);
     }
 
+    public function test_role_identity_overlap_shared_sandbox_and_mode_bar_mismatch_block_admission(): void
+    {
+        $order = $this->executionOrder();
+        $order['role_roster']['backend']['builder_id'] = 'same-agent';
+        $order['role_roster']['qa_testing']['verifier_id'] = 'same-agent';
+        $order['role_roster']['final_certification']['final_certifier_id'] = 'same-agent';
+        $workcell = app(AtlasAgenticWorkcellRuntimeService::class)->design([
+            'objective' => 'Executar trabalho.', 'domain' => 'programming', 'topology' => 'tournament', 'mode' => 'dev',
+            'candidate_sandboxes' => [['sandbox_ref' => 'shared'], ['sandbox_ref' => 'shared']],
+            'evidence_refs' => ['fixture:order-evidence'], 'execution_order' => $order,
+        ]);
+        self::assertSame('blocked', $workcell['status']);
+        self::assertContains('role_witness_identity_overlap', $workcell['workcell_admission']['blockers']);
+        self::assertContains('candidate_sandbox_shared', $workcell['workcell_admission']['blockers']);
+        self::assertContains('mode_quality_bar_mismatch', $workcell['workcell_admission']['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function executionOrder(string $workTopology = 'candidate_set'): array
     {
