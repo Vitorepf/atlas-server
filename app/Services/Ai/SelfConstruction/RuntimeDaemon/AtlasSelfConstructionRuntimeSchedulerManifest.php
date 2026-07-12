@@ -37,29 +37,29 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
     ];
 
     public const DEFAULT_QUEUE_THRESHOLDS = [
-        'min_claimable'      => 5,
-        'min_servable_now'   => 3,
-        'max_queued'         => 500,
-        'max_claimed'        => 20,
+        'min_claimable' => 5,
+        'min_servable_now' => 3,
+        'max_queued' => 500,
+        'max_claimed' => 20,
         'replenish_before_dry' => true,
-        'drain_before_stop'  => false,
+        'drain_before_stop' => false,
     ];
 
     /**
-     * @param  array<string,mixed>  $options {php_bin?, cadence_seconds?, heartbeat_max_age_seconds?, max_runtime_seconds?, facts_path?, enabled_lanes?, disabled_lanes?, queue_thresholds?, safety_gates?, proof_requirements?, heartbeat_contract?, recovery_policy?}
+     * @param  array<string,mixed>  $options  {php_bin?, cadence_seconds?, heartbeat_max_age_seconds?, max_runtime_seconds?, facts_path?, enabled_lanes?, disabled_lanes?, queue_thresholds?, safety_gates?, proof_requirements?, heartbeat_contract?, recovery_policy?}
      * @return array<string,mixed>
      */
     public function manifest(array $options = []): array
     {
-        $phpBin          = (string) ($options['php_bin'] ?? self::DEFAULT_PHP_BIN);
-        $cadence         = max(1, (int) ($options['cadence_seconds'] ?? self::DEFAULT_CADENCE_SECONDS));
+        $phpBin = (string) ($options['php_bin'] ?? self::DEFAULT_PHP_BIN);
+        $cadence = max(1, (int) ($options['cadence_seconds'] ?? self::DEFAULT_CADENCE_SECONDS));
         $heartbeatMaxAge = max(1, (int) ($options['heartbeat_max_age_seconds'] ?? self::DEFAULT_HEARTBEAT_MAX_AGE_SECONDS));
-        $maxRuntime      = max(1, (int) ($options['max_runtime_seconds'] ?? self::DEFAULT_MAX_RUNTIME_SECONDS));
-        $factsPath       = (string) ($options['facts_path'] ?? '');
+        $maxRuntime = max(1, (int) ($options['max_runtime_seconds'] ?? self::DEFAULT_MAX_RUNTIME_SECONDS));
+        $factsPath = (string) ($options['facts_path'] ?? '');
 
-        $enabledLanes  = array_values((array) ($options['enabled_lanes']  ?? self::DEFAULT_ENABLED_LANES));
+        $enabledLanes = array_values((array) ($options['enabled_lanes'] ?? self::DEFAULT_ENABLED_LANES));
         $disabledLanes = array_values((array) ($options['disabled_lanes'] ?? []));
-        $enabledLanes  = array_values(array_diff($enabledLanes, $disabledLanes));
+        $enabledLanes = array_values(array_diff($enabledLanes, $disabledLanes));
 
         $queueThresholds = array_replace(
             self::DEFAULT_QUEUE_THRESHOLDS,
@@ -174,21 +174,21 @@ final class AtlasSelfConstructionRuntimeSchedulerManifest
                 'aws',
                 'sudo',
             ],
-            'self_install'       => false,
+            'self_install' => false,
             'expected_consumer' => 'atlas_existing_scheduler_or_launchd_bridge',
-            'enabled_lanes'     => $enabledLanes,
-            'disabled_lanes'    => $disabledLanes,
-            'queue_thresholds'  => $queueThresholds,
-            'cadence'            => $cadence,
-            'safety_gates'       => $safetyGates,
+            'enabled_lanes' => $enabledLanes,
+            'disabled_lanes' => $disabledLanes,
+            'queue_thresholds' => $queueThresholds,
+            'cadence' => $cadence,
+            'safety_gates' => $safetyGates,
             'proof_requirements' => $proofRequirements,
             'heartbeat_contract' => $heartbeatContract,
-            'recovery_policy'    => $recoveryPolicy,
+            'recovery_policy' => $recoveryPolicy,
             // Unattended 24/7 operation is opt-in only — a scheduler bridge must explicitly arm
             // this manifest; it is never self-installing or self-enabling.
             'disabled_by_default' => true,
-            'ready'              => $notReadyReasons === [],
-            'not_ready_reasons'  => $notReadyReasons,
+            'ready' => $notReadyReasons === [],
+            'not_ready_reasons' => $notReadyReasons,
         ];
 
         // Stable hash over the full manifest so consumers can detect drift.

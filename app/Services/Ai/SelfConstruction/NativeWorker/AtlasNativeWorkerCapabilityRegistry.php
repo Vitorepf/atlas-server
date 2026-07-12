@@ -140,35 +140,37 @@ final class AtlasNativeWorkerCapabilityRegistry
      *                        fit_score, proof_maturity, owner_coverage and stale_drift — never used
      *                        to reorder candidates, only to explain the routing decision.
      * @return array{candidates:list<array{capability_id:string,autonomy_level:string,fit_score:int,proof_maturity:string,risk_tier:string,owner_coverage:bool,stale_drift:bool,route_reason:string}>, unsupported_gap:list<string>}
-     *   candidates: matched capabilities ordered autonomous-before-supervised then by canonical registry order.
-     *   unsupported_gap: required_capabilities absent from the registry or above the risk ceiling.
+     *                                                                                                                                                                                                                               candidates: matched capabilities ordered autonomous-before-supervised then by canonical registry order.
+     *                                                                                                                                                                                                                               unsupported_gap: required_capabilities absent from the registry or above the risk ceiling.
      */
     public function route(array $taskNeeds): array
     {
-        $required    = array_values(array_map('strval', (array) ($taskNeeds['required_capabilities'] ?? [])));
-        $ceiling     = (string) ($taskNeeds['risk_ceiling'] ?? self::AUTONOMY_NATIVE_SUPERVISED);
+        $required = array_values(array_map('strval', (array) ($taskNeeds['required_capabilities'] ?? [])));
+        $ceiling = (string) ($taskNeeds['risk_ceiling'] ?? self::AUTONOMY_NATIVE_SUPERVISED);
         $ceilingRank = $this->autonomyRank($ceiling);
         $maturityMap = is_array($taskNeeds['capability_maturity'] ?? null) ? $taskNeeds['capability_maturity'] : [];
 
         $canonicalOrder = [];
-        $byId           = [];
+        $byId = [];
         foreach ($this->capabilities() as $idx => $cap) {
-            $byId[$cap['capability_id']]            = $cap;
-            $canonicalOrder[$cap['capability_id']]  = $idx;
+            $byId[$cap['capability_id']] = $cap;
+            $canonicalOrder[$cap['capability_id']] = $idx;
         }
 
-        $candidates     = [];
+        $candidates = [];
         $unsupportedGap = [];
 
         foreach ($required as $reqId) {
             if (! isset($byId[$reqId])) {
                 $unsupportedGap[] = $reqId;
+
                 continue;
             }
-            $cap  = $byId[$reqId];
+            $cap = $byId[$reqId];
             $rank = $this->autonomyRank($cap['autonomy_level']);
             if ($rank > $ceilingRank) {
                 $unsupportedGap[] = $reqId;
+
                 continue;
             }
 
@@ -200,26 +202,26 @@ final class AtlasNativeWorkerCapabilityRegistry
             $routeReason = count($reasonParts) === 1 ? 'strong_fit' : implode(',', $reasonParts);
 
             $candidates[] = [
-                'capability_id'  => $cap['capability_id'],
+                'capability_id' => $cap['capability_id'],
                 'autonomy_level' => $cap['autonomy_level'],
-                'fit_score'      => $fitSignals,
+                'fit_score' => $fitSignals,
                 'proof_maturity' => $proofMaturity,
-                'risk_tier'      => $cap['autonomy_level'] === self::AUTONOMY_NATIVE_AUTONOMOUS ? 'low' : 'medium',
+                'risk_tier' => $cap['autonomy_level'] === self::AUTONOMY_NATIVE_AUTONOMOUS ? 'low' : 'medium',
                 'owner_coverage' => $ownerCoverage,
-                'stale_drift'    => $staleDrift,
-                'route_reason'   => $routeReason,
-                '_rank'          => $rank,
-                '_order'         => $canonicalOrder[$reqId],
+                'stale_drift' => $staleDrift,
+                'route_reason' => $routeReason,
+                '_rank' => $rank,
+                '_order' => $canonicalOrder[$reqId],
             ];
         }
 
-        usort($candidates, static fn (array $a, array $b): int =>
-            $a['_rank'] !== $b['_rank'] ? $a['_rank'] <=> $b['_rank'] : $a['_order'] <=> $b['_order']
+        usort($candidates, static fn (array $a, array $b): int => $a['_rank'] !== $b['_rank'] ? $a['_rank'] <=> $b['_rank'] : $a['_order'] <=> $b['_order']
         );
 
         return [
-            'candidates'      => array_values(array_map(static function (array $c): array {
+            'candidates' => array_values(array_map(static function (array $c): array {
                 unset($c['_rank'], $c['_order']);
+
                 return $c;
             }, $candidates)),
             'unsupported_gap' => array_values(array_unique($unsupportedGap)),
@@ -279,13 +281,13 @@ final class AtlasNativeWorkerCapabilityRegistry
         return match ($level) {
             self::AUTONOMY_NATIVE_AUTONOMOUS => 0,
             self::AUTONOMY_NATIVE_SUPERVISED => 1,
-            self::AUTONOMY_BOOTSTRAP_ONLY    => 2,
-            default                          => 99,
+            self::AUTONOMY_BOOTSTRAP_ONLY => 2,
+            default => 99,
         };
     }
 
     /**
-     * @return list<string>  every capability_id (final + bootstrap) — guaranteed unique.
+     * @return list<string> every capability_id (final + bootstrap) — guaranteed unique.
      */
     public function allIds(): array
     {

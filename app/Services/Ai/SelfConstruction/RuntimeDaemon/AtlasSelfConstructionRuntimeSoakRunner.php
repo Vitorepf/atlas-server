@@ -28,10 +28,13 @@ final class AtlasSelfConstructionRuntimeSoakRunner
     public const SCHEMA = 'atlas.self_construction.runtime_soak_runner.v1';
 
     public const STATUS_GREEN = 'green';
+
     public const STATUS_PARTIAL = 'partial';
 
     private const MIN_GREEN_TICKS = 10;
+
     private const MIN_RECOVERED_CYCLES = 1;
+
     private const MIN_HELD_CYCLES = 1;
 
     public const RECOVERY_KINDS = [
@@ -230,19 +233,19 @@ final class AtlasSelfConstructionRuntimeSoakRunner
         $reasons = [];
 
         if ($greenTicks < $minGreen) {
-            $reasons[] = 'insufficient_green_ticks:' . $greenTicks . '<' . $minGreen;
+            $reasons[] = 'insufficient_green_ticks:'.$greenTicks.'<'.$minGreen;
         }
 
         if ($recoveredCycles < $minRecovered) {
-            $reasons[] = 'insufficient_recovered_cycles:' . $recoveredCycles . '<' . $minRecovered;
+            $reasons[] = 'insufficient_recovered_cycles:'.$recoveredCycles.'<'.$minRecovered;
         }
 
         if ($heldCycles < $minHeld) {
-            $reasons[] = 'insufficient_held_cycles:' . $heldCycles . '<' . $minHeld;
+            $reasons[] = 'insufficient_held_cycles:'.$heldCycles.'<'.$minHeld;
         }
 
         if ($forbiddenHits > 0) {
-            $reasons[] = 'forbidden_dependency_hits:' . $forbiddenHits;
+            $reasons[] = 'forbidden_dependency_hits:'.$forbiddenHits;
         }
 
         if (count($reasons) > 0) {

@@ -48,7 +48,7 @@ final class AtlasSelfConstructionRuntimeDaemonState
 
     /**
      * @param  array<string,mixed>  $state
-     * @param  array<string,mixed>  $event {type, reason?, receipt_hash?, now_at?, ...}
+     * @param  array<string,mixed>  $event  {type, reason?, receipt_hash?, now_at?, ...}
      * @return array<string,mixed>
      */
     public function reduce(array $state, array $event): array

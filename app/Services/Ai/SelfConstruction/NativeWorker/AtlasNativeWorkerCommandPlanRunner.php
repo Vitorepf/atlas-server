@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\NativeWorker;
 
-use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -41,9 +40,8 @@ final class AtlasNativeWorkerCommandPlanRunner
     public const FORBIDDEN_LABELS = ['network', 'external_provider', 'shell_escape', 'unrestricted'];
 
     /**
-     * @param  array<string,mixed>  $envelope        AtlasNativeWorkerExecutionEnvelopeBuilder envelope
-     * @param  list<array<string,mixed>>  $commandPlan list of {name, argv, cwd?, env?, labels?, timeout_seconds?}
-     * @param  bool  $dryRun
+     * @param  array<string,mixed>  $envelope  AtlasNativeWorkerExecutionEnvelopeBuilder envelope
+     * @param  list<array<string,mixed>>  $commandPlan  list of {name, argv, cwd?, env?, labels?, timeout_seconds?}
      * @return array{schema:string, dry_run:bool, results:list<array<string,mixed>>}
      */
     public function execute(array $envelope, array $commandPlan, bool $dryRun = false): array
@@ -158,34 +156,41 @@ final class AtlasNativeWorkerCommandPlanRunner
 
             if (! array_key_exists('timeout_seconds', $cmd) || $cmd['timeout_seconds'] === null || (int) $cmd['timeout_seconds'] <= 0) {
                 $rejections[] = ['name' => $name, 'reason' => 'missing_timeout'];
+
                 continue;
             }
             if ($this->isGitMutation($argv)) {
                 $rejections[] = ['name' => $name, 'reason' => 'git_mutation_command'];
+
                 continue;
             }
             if ($this->isProviderBinary($argv)) {
                 $rejections[] = ['name' => $name, 'reason' => 'provider_command_detected'];
+
                 continue;
             }
             if ($allowedScopeRoots !== null) {
                 $cwd = trim((string) ($cmd['cwd'] ?? ''));
                 if ($cwd !== '' && ! $this->withinScopeRoots($cwd, $allowedScopeRoots)) {
                     $rejections[] = ['name' => $name, 'reason' => 'scope_outside_allowed_roots'];
+
                     continue;
                 }
             }
             if ($maxTimeoutSeconds !== null && (int) $cmd['timeout_seconds'] > $maxTimeoutSeconds) {
                 $rejections[] = ['name' => $name, 'reason' => 'timeout_exceeds_ceiling'];
+
                 continue;
             }
             $family = trim((string) ($cmd['family'] ?? ''));
             if ($allowedFamilies !== null && $family !== '' && ! in_array($family, $allowedFamilies, true)) {
                 $rejections[] = ['name' => $name, 'reason' => 'command_family_not_allowed'];
+
                 continue;
             }
             if ($acceptanceCommands !== null && ! in_array($name, $acceptanceCommands, true)) {
                 $rejections[] = ['name' => $name, 'reason' => 'not_acceptance_command'];
+
                 continue;
             }
             $accepted[] = [
