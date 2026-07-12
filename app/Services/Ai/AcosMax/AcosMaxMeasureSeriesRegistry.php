@@ -341,6 +341,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_days' => 180,
                 'ttl_source' => 'maxm-01-frozen-corpus-baseline',
             ],
+            [
+                'slice' => 'MAXI-04',
+                'series' => \App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+                'path' => storage_path('app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl'),
+                'source_type' => 'jsonl',
+                'timestamp_field' => 'recorded_at',
+                'ttl_days' => \App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
+                'ttl_source' => 'freeze:atlas.immune.classifier_hybrid.v1',
+            ],
         ];
     }
 

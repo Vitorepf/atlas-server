@@ -4299,6 +4299,15 @@ return [
         'placement_cache_ttl_seconds' => (int) env('ATLAS_AAEOS_PLACEMENT_CACHE_TTL_SECONDS', 300),
         'telemetry_enabled' => (bool) env('ATLAS_AAEOS_TELEMETRY_ENABLED', true),
         'mission_foundation_optional_at_phase_1' => (bool) env('ATLAS_AAEOS_MISSION_OPTIONAL_PHASE_1', true),
+
+        // MAXI-04 — semantic arm of the immune input classifier. Default OFF: with
+        // the flag off, AtlasImmuneHybridInputClassifier::classifyHybrid() returns
+        // the base classifier output verbatim plus an inert `hybrid_arm` block —
+        // byte-identical to callers that read the base fields (proved by
+        // AtlasImmuneHybridInputClassifierTest::switch_off_is_byte_identical).
+        'immune_classifier' => [
+            'semantic_arm_enabled' => (bool) env('ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED', false),
+        ],
     ],
 
     /*

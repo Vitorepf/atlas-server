@@ -230,6 +230,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'append_forever',
                 'rationale' => 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence',
             ],
+            'atlas.immune.classifier_hybrid.v1' => [
+                'max_size_mb' => 16,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
+            ],
         ];
     }
 
