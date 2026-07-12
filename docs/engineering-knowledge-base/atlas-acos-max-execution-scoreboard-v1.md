@@ -1,19 +1,19 @@
 # ACOS Max — Scoreboard de Execução v1 (estado durável; a memória entre sessões e entre IAs)
 
-> **Como usar:** este arquivo é ESTADO, não spec. Cada slice muda de estado NO MESMO commit que o implementa. Estados válidos: `pending` · `in_progress` · `landed(<sha>)` · `suspended(ELEV-28)` · `refutado(<motivo>)` · `blocked_by:<dep>` · `pending_window:<janela>`. Uma IA nova retoma lendo APENAS: plano (`atlas-acos-max-frontier-plan-v1.md`) + playbook (`atlas-acos-max-implementation-playbook-v1.md`) + este scoreboard. Marque `[x]` só em estado terminal (`landed`/`suspended`/`refutado`). Slices de 2 partes (freeze/série etc.) só fecham com as duas. NUNCA reordenar lotes nem editar aceites aqui.
+> **Como usar:** este arquivo é ESTADO, não spec. Cada slice muda de estado NO MESMO commit que o implementa. Estados válidos: `pending` · `in_progress` · `landed(<sha>)` · `suspended(ELEV-28)` · `refutado(<motivo>)` · `blocked_by:<dep>` · `pending_window:<janela>`. Anotação opcional de paralelismo (TETO-06): `claimed_by:<engine>` por item (claim = FAMÍLIA×lote via `AcosMaxParallelExecutionProtocol`; hot-files = ELEV-22). Uma IA nova retoma lendo APENAS: plano (`atlas-acos-max-frontier-plan-v1.md`) + playbook (`atlas-acos-max-implementation-playbook-v1.md`) + este scoreboard. Marque `[x]` só em estado terminal (`landed`/`suspended`/`refutado`). Slices de 2 partes (freeze/série etc.) só fecham com as duas. NUNCA reordenar lotes nem editar aceites aqui.
 >
 > **100% =** 255/255 em estado terminal + gates L0–L12 verdes + MARCO ESP-V1 + critérios finais NO MESMO CORTE (a lista completa está no LOTE 12 abaixo e no cabeçalho do playbook: §vii itens 1-10 + §viii itens 11-17 + pétreos §xiii + §xv itens 18-21 do plano + M>1 e R>0).
 
 ## LOTE 0 — Higiene imediata (M0) — GATE: hooks 1×/evento · baseline latência carimbada · receipts vivos · refs impressos · ESP-00 publicado
 - [x] ESP-00 — landed(bb15641a19) · Evidence Ledger `EVIDENCE_PACKED` event_id=`01KXA1JWR53YAYT915GTGS0RXB` · content_hash=`e71448b0b81b65da3e16aa86927f9c0c632234efb7cae13b2fad789c3efd4b87` · unexplained=0 · JSONL runtime=`storage/app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl`
-- [ ] TETO-06 — blocked_by:ELEV-22 (deps: claims/blackboard; desbloqueia ao landar ELEV-22)
+- [x] TETO-06 — landed(a5d17690568f) · protocolo multi-engine: claim por FAMÍLIA×lote; scoreboard `claimed_by:<engine>`; hot-files ELEV-22 serializados; caso negativo = pula com registro
 - [x] TETO-09 — landed(8e8b54d42c) · Evidence Ledger event_id=`01KXA1SZ0TYE2VZ9HAG46YDY0D` · content_hash=`b6f672b050b12282540eeb797bedfec7ca70b7546fa7efa306c7c5da757c509d` · opção b endurecimento áreas 2/11/14 · gatilhos MULTX-02/incidente
 - [x] MAXG-01 (mínimo) — landed(f1f75d5dda) · freeze `aobg.latency_ledger.v1` content_hash=`9f1338cdd9d78e3a1b8e360455a8684fbdf22e8b0364877fb2704b2c5fe23fd3` · JSONL `storage/app/atlas/evidence/acos-measure-freeze.jsonl` · ledger `storage/atlas/aobg/latency-ledger/` · cmd `atlas:context:latency` · WDG `wdg-01.aobg_latency` · aceite pleno p95-de-1d = pending_window
 - [x] MAXE-02 — landed · removed absolute duplicate AOBG hooks in .claude/settings.json (1×/event)
 - [x] MAXE-03 — landed · atlas-ctx.sh activate TTL 6h + hard timeout/perl-alarm on pack
 - [x] MAXF-01 — landed · compactForScope failed_open + repair migration receipts; live Schema@5433 pending_window (pgsql hang)
 - [x] MAXE-01 — landed(8b30866a95bd) · renderMarkdown prints ref=<canonical> per item + citation footer; deliveredFromPack == rendered refs; ARFL share>0 = pending_window
-- [x] ELEV-22 — landed · hot-list acos-max-elev-22.v1 + PreToolUse advisory claim check + release on scoped commit; fail-open; TTL 900s
+- [x] ELEV-22 — landed(fda87090b3) · hot-list acos-max-elev-22.v1 + PreToolUse advisory claim check + release on scoped commit; fail-open; TTL 900s
 
 ## LOTE 1 — Freios (F0) — GATE F0: porta única observe · ledgers imunes · event_hash+cadeia+âncora · captura operador viva · restore drill · attempts terminais
 - [ ] ASI-05 — pending
