@@ -182,8 +182,8 @@ Every event has schema, run/delivery IDs, correlated hashes, timestamp and prove
 - [x] Write RED schema tests for missing IDs/hash/provenance, out-of-order release/canary/outcome, duplicate idempotency key with divergent content, and a projection that assumes pass when an event is absent.
 - [x] Implement event validation and deterministic replay through the existing ledger.
 - [x] Make legacy rows with no provenance/evidence `legacy_unproven`; make absent current observations `unknown`.
-- [ ] Rebuild role, acceptance, release, outcome and claim-eligibility projections from events and compare hashes to live projections.
-- [ ] Run ledger replay/hash-chain, outcome default, temporal and projection reconciliation suites.
+- [x] Rebuild role, acceptance, release, outcome and claim-eligibility projections from events and compare hashes to live projections.
+- [x] Run ledger replay/hash-chain, outcome default, temporal and projection reconciliation suites.
 
 **GREEN acceptance:** replay is deterministic; missing/out-of-order events block; legacy data never becomes a modern pass or claim; projections can be rebuilt without a duplicate ledger.
 
