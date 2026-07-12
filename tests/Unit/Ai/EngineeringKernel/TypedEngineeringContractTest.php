@@ -41,6 +41,55 @@ final class TypedEngineeringContractTest extends TestCase
         $this->assertSame('documentation_dx', EngineeringRoleRoster::runtimeRole('technical_docs_dx'));
     }
 
+    public function test_canonical_roster_membership_is_identical_across_modes_risks_and_topologies(): void
+    {
+        $expected = EngineeringRoleRoster::CANONICAL_ROLES;
+        foreach (EngineeringRoleRoster::MODES as $mode) {
+            foreach (array_keys(EngineeringRoleRoster::DEPTH_PROFILES) as $risk) {
+                foreach (EngineeringRoleRoster::TOPOLOGIES as $topology) {
+                    $roster = EngineeringRoleRoster::canonicalQualityRoster($mode, $risk, $topology);
+                    $this->assertSame($expected, array_column($roster, 'role'));
+                    $this->assertSame(
+                        [EngineeringRoleRoster::DEPTH_PROFILES[$risk]],
+                        array_values(array_unique(array_column($roster, 'selected_depth'))),
+                    );
+                    $this->assertSame([$mode], array_values(array_unique(array_column($roster, 'mode'))));
+                    $this->assertSame([$topology], array_values(array_unique(array_column($roster, 'topology'))));
+                }
+            }
+        }
+    }
+
+    public function test_unknown_mode_topology_or_risk_cannot_change_the_roster(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        EngineeringRoleRoster::canonicalQualityRoster('chat', 'R3', 'single');
+    }
+
+    public function test_canonical_roster_mutations_and_unknown_depth_fail_closed(): void
+    {
+        $entries = EngineeringRoleRoster::canonicalQualityRoster('dev', 'R3', 'single');
+        $roster = [];
+        foreach ($entries as $entry) {
+            $roster[$entry['role']] = $entry;
+        }
+        $this->assertSame($roster, EngineeringRoleRoster::validateCanonicalRoster($roster));
+
+        $missing = $roster;
+        unset($missing['backend']);
+        try {
+            EngineeringRoleRoster::validateCanonicalRoster($missing);
+            $this->fail('missing role must block');
+        } catch (InvalidArgumentException $exception) {
+            $this->assertStringContainsString('canonical_role_roster', $exception->getMessage());
+        }
+
+        $renamed = $roster;
+        $renamed['backend']['role'] = 'invented_role';
+        $this->expectException(InvalidArgumentException::class);
+        EngineeringRoleRoster::validateCanonicalRoster($renamed);
+    }
+
     public function test_execution_order_is_complete_canonical_and_deterministic(): void
     {
         $order = ExecutionOrder::fromArray($this->validOrder());

@@ -11,6 +11,20 @@ final class EngineeringRoleRoster
 {
     public const OFFICIAL_ROLES = AtlasRealEngineeringCompanyRuntimeService::QUALITY_ROLES;
 
+    /** The fixed Quality Foundry depth policy; risk changes depth, never membership. */
+    public const DEPTH_PROFILES = [
+        'R0' => 'minimal_evidence',
+        'R1' => 'light_independent_review_local_tests',
+        'R2' => 'standard_review_contracts_integration',
+        'R3' => 'multiple_verifiers_regression_compatibility_controlled_release',
+        'R4' => 'security_mutation_property_chaos_rollback',
+        'R5' => 'competing_candidates_different_family_verifiers_disaster_drills',
+    ];
+
+    public const MODES = ['dev', 'forge', 'autonomos'];
+
+    public const TOPOLOGIES = ['single', 'candidate_set', 'workcell', 'DAG', 'portfolio'];
+
     /** The exact public vocabulary frozen by the Quality Foundry master plan. */
     public const CANONICAL_ROLES = [
         'product_strategy', 'product_management', 'domain_research', 'ux_research',
@@ -53,6 +67,58 @@ final class EngineeringRoleRoster
     public static function canonicalRoster(): array
     {
         return array_map(static fn (string $role): string => self::canonicalRole($role), self::OFFICIAL_ROLES);
+    }
+
+    public static function depthProfile(string $riskClass): string
+    {
+        $risk = strtoupper(trim($riskClass));
+        if (! isset(self::DEPTH_PROFILES[$risk])) {
+            throw new InvalidArgumentException('unknown_quality_foundry_risk_depth:'.$riskClass);
+        }
+
+        return self::DEPTH_PROFILES[$risk];
+    }
+
+    /**
+     * Return the same ordered canonical membership for every mode/topology.
+     * Context is carried separately from selected depth so it cannot alter membership.
+     *
+     * @return list<array{role:string,selected_depth:string,mode:string,topology:string}>
+     */
+    public static function canonicalQualityRoster(string $mode, string $riskClass, string $topology): array
+    {
+        if (! in_array($mode, self::MODES, true)) {
+            throw new InvalidArgumentException('unknown_quality_foundry_mode:'.$mode);
+        }
+        if (! in_array($topology, self::TOPOLOGIES, true)) {
+            throw new InvalidArgumentException('unknown_quality_foundry_topology:'.$topology);
+        }
+
+        $depth = self::depthProfile($riskClass);
+
+        return array_map(static fn (string $role): array => [
+            'role' => $role,
+            'selected_depth' => $depth,
+            'mode' => $mode,
+            'topology' => $topology,
+        ], self::CANONICAL_ROLES);
+    }
+
+    /** @param array<string,mixed> $roster @return array<string,mixed> */
+    public static function validateCanonicalRoster(array $roster): array
+    {
+        if (array_keys($roster) !== self::CANONICAL_ROLES) {
+            throw new InvalidArgumentException('canonical_role_roster_must_match_quality_foundry_order');
+        }
+
+        foreach ($roster as $role => $entry) {
+            if (! is_array($entry) || ($entry['role'] ?? null) !== $role
+                || ! in_array($entry['selected_depth'] ?? null, self::DEPTH_PROFILES, true)) {
+                throw new InvalidArgumentException('canonical_role_roster_entry_invalid:'.$role);
+            }
+        }
+
+        return $roster;
     }
 
     /**

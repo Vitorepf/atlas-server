@@ -90,11 +90,11 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** EngineeringCompany and AgenticWorkcell families, `AiEngineeringCompanyRoleRun`, focused tests. No new roster table.
 
-- [ ] Write RED tests asserting exact ordered membership of all 22 keys for Dev, Forge and Autônomos across R0–R5 and every topology.
-- [ ] Write RED mutation tests that delete/rename a role, auto-pass a role, or let `single|candidate_set|workcell|DAG|portfolio` change membership.
-- [ ] Run Engineering Company and Workcell roster suites; expected RED is missing membership or mode/topology-specific drift.
-- [ ] Extend the existing registry to be the sole source of the 22 role definitions.
-- [ ] Implement deterministic depth profiles: R0 applicability/minimal evidence; R1 light independent review/local tests; R2 standard review/contracts/integration; R3 multiple verifiers/regression/compatibility/controlled release; R4 security/mutation/property/chaos/rollback; R5 competing candidates, different-family verifiers and disaster drills.
+- [x] Write RED tests asserting exact ordered membership of all 22 keys for Dev, Forge and Autônomos across R0–R5 and every topology.
+- [x] Write RED mutation tests that delete/rename a role, auto-pass a role, or let `single|candidate_set|workcell|DAG|portfolio` change membership.
+- [x] Run Engineering Company and Workcell roster suites; expected RED is missing membership or mode/topology-specific drift.
+- [x] Extend the existing registry to be the sole source of the 22 role definitions.
+- [x] Implement deterministic depth profiles: R0 applicability/minimal evidence; R1 light independent review/local tests; R2 standard review/contracts/integration; R3 multiple verifiers/regression/compatibility/controlled release; R4 security/mutation/property/chaos/rollback; R5 competing candidates, different-family verifiers and disaster drills.
 - [ ] Persist selected depth separately from mode, complexity, duration and topology.
 - [ ] Run focused suites plus neighboring Workcell/Engineering Company tests, architecture guard, Pint and PHPStan.
 

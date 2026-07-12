@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\EngineeringCompany;
 
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Models\AiEngineeringCompanyBenchmark;
 use App\Models\AiEngineeringCompanyCertification;
 use App\Models\AiEngineeringCompanyCycle;
@@ -136,17 +137,9 @@ class AtlasRealEngineeringCompanyRuntimeService
 
     private function qualityRoleDepth(string $role, string $riskClass): string
     {
-        $risk = (int) ltrim(strtoupper(trim($riskClass)), 'R');
+        unset($role);
 
-        return match (true) {
-            $risk <= 1 => 'minimal_evidence',
-            $risk <= 3 => 'light_independent_review',
-            $risk <= 5 => 'standard_contract_integration',
-            $risk <= 7 => 'multi_verifier_regression_compatibility',
-            $risk <= 9 && in_array($role, ['appsec_privacy', 'performance_resilience', 'devops_sre', 'evidence_audit'], true) => 'security_mutation_property_chaos_rollback',
-            $risk <= 9 => 'deep_independent_regression',
-            default => 'competing_candidates_different_family_disaster_drill',
-        };
+        return EngineeringRoleRoster::depthProfile($riskClass);
     }
 
     public function createEngagement(string $goalText): AiEngineeringCompanyEngagement
