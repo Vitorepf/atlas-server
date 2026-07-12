@@ -47,7 +47,8 @@ final class AtlasExternalBrainProposalSelectionLoop
     {
         $arenaResult = $this->arena->compete([
             'proposals' => $candidates,
-            'require_competition' => (bool) ($composeOptions['require_competition'] ?? false),
+            'require_competition' => (bool) ($composeOptions['require_competition'] ?? ($this->isAutonomosMode($composeOptions))),
+            'require_quality_contract' => (bool) ($composeOptions['require_quality_contract'] ?? ($this->isAutonomosMode($composeOptions))),
         ]);
 
         $batch = null;
@@ -95,6 +96,7 @@ final class AtlasExternalBrainProposalSelectionLoop
                 AtlasExternalBrainProposalArena::DISQUALIFY_UNIMPLEMENTABLE  => 'raise_implementability_floor',
                 AtlasExternalBrainProposalArena::DISQUALIFY_NO_EVIDENCE_PATH => 'require_runnable_evidence_path',
                 AtlasExternalBrainProposalArena::DISQUALIFY_EVIDENCE_QUORUM  => 'ensure_independent_evidence_quorum',
+                AtlasExternalBrainProposalArena::DISQUALIFY_QUALITY_CONTRACT => 'supply_finding_baseline_delta_rollback_and_test',
                 AtlasExternalBrainProposalArena::DISQUALIFY_TEMPLATE_FARM    => 'avoid_template_farm_patterns',
                 AtlasExternalBrainProposalArena::DISQUALIFY_COMPETITION_QUORUM => 'generate_independent_competing_proposals',
                 default                                                     => null,
@@ -116,5 +118,10 @@ final class AtlasExternalBrainProposalSelectionLoop
             'arena_hash' => $arenaResult['arena_hash'],
             'batch' => $batch,
         ];
+    }
+
+    private function isAutonomosMode(array $composeOptions): bool
+    {
+        return strtolower(trim((string) ($composeOptions['autonomy_mode'] ?? ''))) === 'autonomos';
     }
 }

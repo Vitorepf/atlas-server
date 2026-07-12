@@ -84,6 +84,17 @@ final class AtlasExternalBrainProposalArenaTest extends TestCase
         $this->assertSame('high', $result['winner']['proposal_id']);
     }
 
+    public function test_required_quality_contract_rejects_proposal_without_finding_baseline_delta_rollback_and_test(): void
+    {
+        $result = $this->arena->compete([
+            'proposals' => [$this->proposal('missing-contract')],
+            'require_quality_contract' => true,
+        ]);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $this->assertSame(AtlasExternalBrainProposalArena::DISQUALIFY_QUALITY_CONTRACT, $result['rejected'][0]['reason']);
+    }
+
     public function test_highest_leverage_wins_over_lower_leverage(): void
     {
         $result = $this->arena->compete(['proposals' => [

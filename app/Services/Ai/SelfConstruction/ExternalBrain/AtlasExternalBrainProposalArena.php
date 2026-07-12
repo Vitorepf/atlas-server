@@ -49,6 +49,8 @@ final class AtlasExternalBrainProposalArena
     public const DISQUALIFY_TEMPLATE_FARM      = 'template_farm';
     public const DISQUALIFY_COMPETITION_QUORUM = 'competition_quorum';
 
+    public const DISQUALIFY_QUALITY_CONTRACT = 'quality_contract';
+
     private const IMPLEMENTABILITY_FLOOR    = 0.30;
     private const TEMPLATE_FARM_SIMILARITY  = 0.70;
     private const TEMPLATE_FARM_REPEAT      = 3;
@@ -100,13 +102,15 @@ final class AtlasExternalBrainProposalArena
             ];
         }
 
+        $qualityContractRequired = (bool) ($input['require_quality_contract'] ?? false);
+
         $scored   = [];
         $rejected = [];
 
         foreach ($proposals as $proposal) {
             $id = (string) ($proposal['proposal_id'] ?? '');
 
-            $disqualifyReason = $this->disqualifyReason($proposal);
+            $disqualifyReason = $this->disqualifyReason($proposal, $qualityContractRequired);
             if ($disqualifyReason !== null) {
                 $rejected[] = ['proposal_id' => $id, 'reason' => $disqualifyReason];
 
@@ -153,7 +157,7 @@ final class AtlasExternalBrainProposalArena
         ];
     }
 
-    private function disqualifyReason(array $proposal): ?string
+    private function disqualifyReason(array $proposal, bool $qualityContractRequired = false): ?string
     {
         if ((bool) ($proposal['is_proxy'] ?? false)) {
             return self::DISQUALIFY_PROXY;
@@ -170,12 +174,41 @@ final class AtlasExternalBrainProposalArena
         if (! $this->hasEvidenceQuorum($proposal)) {
             return self::DISQUALIFY_EVIDENCE_QUORUM;
         }
+        if ($qualityContractRequired && ! $this->hasQualityContract($proposal)) {
+            return self::DISQUALIFY_QUALITY_CONTRACT;
+        }
         if ((float) ($proposal['template_similarity'] ?? 0.0) >= self::TEMPLATE_FARM_SIMILARITY
             && (int) ($proposal['repeated_pattern_count'] ?? 0) >= self::TEMPLATE_FARM_REPEAT) {
             return self::DISQUALIFY_TEMPLATE_FARM;
         }
 
         return null;
+    }
+
+    /**
+     * Autônomos proposals must carry a falsifiable change contract before
+     * entering Task Fabric. Aliases preserve compatibility with the existing
+     * proposal producers while requiring all five independent dimensions.
+     */
+    private function hasQualityContract(array $proposal): bool
+    {
+        return $this->hasAnyValue($proposal, ['finding', 'finding_ref', 'finding_id', 'problem', 'capability_gap'])
+            && $this->hasAnyValue($proposal, ['baseline', 'baseline_ref', 'baseline_artifact', 'baseline_hash'])
+            && $this->hasAnyValue($proposal, ['expected_delta', 'delta', 'capability_delta'])
+            && $this->hasAnyValue($proposal, ['rollback', 'rollback_plan', 'rollback_evidence', 'rollback_conditions'])
+            && $this->hasAnyValue($proposal, ['test', 'test_path', 'test_target', 'required_tests', 'tests', 'acceptance_criteria']);
+    }
+
+    private function hasAnyValue(array $proposal, array $keys): bool
+    {
+        foreach ($keys as $key) {
+            $value = $proposal[$key] ?? null;
+            if ((is_array($value) && $value !== []) || (is_string($value) && trim($value) !== '') || (is_numeric($value) && $value !== 0)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

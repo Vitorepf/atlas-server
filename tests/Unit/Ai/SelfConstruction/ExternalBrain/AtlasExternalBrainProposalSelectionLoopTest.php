@@ -91,6 +91,23 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
         $this->assertContains('generate_independent_competing_proposals', $result['next_batch_avoid_patterns']);
     }
 
+    public function test_autonomos_mode_requires_competing_quality_complete_proposals(): void
+    {
+        $loop = new AtlasExternalBrainProposalSelectionLoop();
+
+        $result = $loop->select([
+            $this->candidate('a', 0.9),
+            $this->candidate('b', 0.8),
+        ], ['autonomy_mode' => 'autonomos']);
+
+        $this->assertSame(AtlasExternalBrainProposalArena::VERDICT_ALL_REJECTED, $result['verdict']);
+        $this->assertNull($result['winner']);
+        $this->assertSame(
+            [AtlasExternalBrainProposalArena::DISQUALIFY_QUALITY_CONTRACT],
+            array_values(array_unique(array_column($result['rejected'], 'reason'))),
+        );
+    }
+
     public function test_rejected_reasons_are_preserved_verbatim_in_rejected_dossier(): void
     {
         $loop = new AtlasExternalBrainProposalSelectionLoop();
