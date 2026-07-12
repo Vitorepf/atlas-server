@@ -56,4 +56,18 @@ final class ForgeObraRuntimeTest extends TestCase
         $packet = AiForgeWorkPacket::query()->where('packet_id', $tick->packetId)->firstOrFail();
         $this->assertSame('safe_simulation', AiForgeWorkPacketExecutionCycle::query()->where('work_packet_id', $packet->id)->firstOrFail()->execution_mode);
     }
+
+    public function test_commissioning_binds_capability_market_decision_hash(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra com rota de capacidade comprovada', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'market_decision_hash' => str_repeat('e', 64), 'release_policy' => 'canonical_commit_with_canary',
+            'interruption_policy' => 'pause_drain_resume', 'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        self::assertSame(str_repeat('e', 64), $commissioning->marketDecisionHash);
+        self::assertSame($commissioning->marketDecisionHash, ForgeCommissioning::fromArray($commissioning->toArray())->marketDecisionHash);
+    }
 }

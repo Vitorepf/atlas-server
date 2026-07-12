@@ -34,6 +34,7 @@ final class ForgeObraRuntime
                 ],
                 'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
                 'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
+                'market_decision_hash' => $commissioning->marketDecisionHash,
                 'release_policy' => $commissioning->releasePolicy, 'interruption_policy' => $commissioning->interruptionPolicy,
             ]);
             $state = $this->states->initializeForIntake($intake);
