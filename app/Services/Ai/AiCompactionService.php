@@ -457,6 +457,7 @@ class AiCompactionService
 
         $segments = $this->conversationSummarySegments($messages, $state);
         $duplicateStats = $this->lexicalDuplicateStats($segments);
+        $this->recordSemanticDedupShadow($segments);
         $selection = ($this->segmentRanker ?? new SegmentImportanceRanker)->select($segments, $segmentBudget);
         $keptIds = array_flip((array) ($selection['kept_ids'] ?? []));
         $kept = [];
@@ -623,6 +624,84 @@ class AiCompactionService
         }
 
         return 'lex:'.hash('sha256', $normalized);
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $segments
+     */
+    private function recordSemanticDedupShadow(array $segments): void
+    {
+        if (! (bool) config('atlas.compaction.semantic_dedup_shadow_enabled', false)) {
+            return;
+        }
+
+        $turns = array_values(array_filter(
+            $segments,
+            static fn (array $segment): bool => (string) ($segment['kind'] ?? '') === 'conversation_turn',
+        ));
+        if (count($turns) < 2) {
+            return;
+        }
+
+        $threshold = max(0.0, min(1.0, (float) config('atlas.compaction.semantic_dedup_shadow_threshold', 0.5)));
+        $path = (string) config('atlas.compaction.semantic_dedup_shadow_path', storage_path('app/atlas/compaction/semantic-dedup-shadow.jsonl'));
+        foreach ($turns as $i => $left) {
+            for ($j = $i + 1; $j < count($turns); $j++) {
+                $right = $turns[$j];
+                if (($left['dup_group'] ?? null) !== null && ($left['dup_group'] ?? null) === ($right['dup_group'] ?? null)) {
+                    continue;
+                }
+
+                $similarity = $this->bigramSimilarity((string) ($left['text'] ?? ''), (string) ($right['text'] ?? ''));
+                if ($similarity < $threshold) {
+                    continue;
+                }
+
+                AppendOnlyJsonlStore::append($path, [
+                    'schema_version' => 'atlas.compaction.semantic_dedup_shadow.v1',
+                    'mode' => 'shadow_only',
+                    'selection_changed' => false,
+                    'left_id' => (string) ($left['id'] ?? ''),
+                    'right_id' => (string) ($right['id'] ?? ''),
+                    'similarity' => round($similarity, 4),
+                    'threshold' => $threshold,
+                    'recorded_at' => now()->toIso8601String(),
+                ]);
+            }
+        }
+    }
+
+    private function bigramSimilarity(string $a, string $b): float
+    {
+        $left = $this->bigrams($a);
+        $right = $this->bigrams($b);
+        if ($left === [] || $right === []) {
+            return 0.0;
+        }
+
+        $intersection = count(array_intersect_key($left, $right));
+        $union = count($left + $right);
+
+        return $union > 0 ? $intersection / $union : 0.0;
+    }
+
+    /**
+     * @return array<string,true>
+     */
+    private function bigrams(string $text): array
+    {
+        $normalized = mb_strtolower(trim((string) preg_replace('/[^\pL\pN]+/u', ' ', $text)));
+        $normalized = trim((string) preg_replace('/\s+/', ' ', $normalized));
+        $chars = preg_split('//u', $normalized, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $out = [];
+        for ($i = 0; $i < count($chars) - 1; $i++) {
+            $pair = $chars[$i].$chars[$i + 1];
+            if (trim($pair) !== '') {
+                $out[$pair] = true;
+            }
+        }
+
+        return $out;
     }
 
     /**

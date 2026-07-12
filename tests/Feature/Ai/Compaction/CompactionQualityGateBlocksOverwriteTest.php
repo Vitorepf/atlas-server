@@ -109,6 +109,53 @@ final class CompactionQualityGateBlocksOverwriteTest extends TestCase
         $this->assertGreaterThan(0, data_get($compaction->metadata, 'lexical_duplicate_token_estimate'));
     }
 
+    public function test_semantic_dedup_shadow_is_default_off_and_writes_separate_shadow_when_enabled(): void
+    {
+        $shadowPath = storage_path('app/testing/maxf05-semantic-shadow.jsonl');
+        @unlink($shadowPath);
+        config()->set('atlas.compaction.semantic_dedup_shadow_path', $shadowPath);
+
+        [$offThread, $offSession] = $this->threadFixture(
+            previousSummary: 'shadow off summary',
+            objective: 'Semantic dedup shadow off must be byte quiet.',
+        );
+        app(AiCompactionService::class)->compact($offThread, $offSession, 'manual');
+        $this->assertFileDoesNotExist($shadowPath);
+
+        config()->set('atlas.compaction.semantic_dedup_shadow_enabled', true);
+        [$onThread, $onSession] = $this->threadFixture(
+            previousSummary: 'shadow on summary',
+            objective: 'Semantic dedup shadow observes only.',
+        );
+        AiMessage::query()->where('thread_id', $onThread->id)->delete();
+        foreach ([
+            'Please preserve the deployment rollback plan before compacting this work.',
+            'Preserve the deployment rollback plan before this work is compacted, please.',
+        ] as $position => $content) {
+            AiMessage::query()->create([
+                'thread_id' => $onThread->id,
+                'position' => $position + 1,
+                'role' => $position === 0 ? 'user' : 'assistant',
+                'status' => 'final',
+                'content' => $content,
+                'token_estimate' => 100,
+                'metadata' => [],
+            ]);
+        }
+
+        app(AiCompactionService::class)->compact($onThread, $onSession, 'manual');
+
+        $this->assertFileExists($shadowPath);
+        $rows = array_values(array_filter(array_map(
+            static fn (string $line): array => json_decode($line, true, flags: JSON_THROW_ON_ERROR),
+            preg_split('/\R/', trim((string) file_get_contents($shadowPath))) ?: [],
+        )));
+        $this->assertSame('atlas.compaction.semantic_dedup_shadow.v1', $rows[0]['schema_version']);
+        $this->assertSame('shadow_only', $rows[0]['mode']);
+        $this->assertGreaterThanOrEqual(0.5, $rows[0]['similarity']);
+        $this->assertFalse((bool) $rows[0]['selection_changed']);
+    }
+
     /**
      * @return array{0:AiThread,1:AiSession}
      */
