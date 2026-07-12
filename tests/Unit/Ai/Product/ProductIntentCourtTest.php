@@ -6,6 +6,8 @@ namespace Tests\Unit\Ai\Product;
 
 use App\Services\Ai\Product\ProductIntentCase;
 use App\Services\Ai\Product\ProductIntentCourt;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Models\AtlasLedgerEvent;
 use Tests\TestCase;
 
 final class ProductIntentCourtTest extends TestCase
@@ -27,6 +29,7 @@ final class ProductIntentCourtTest extends TestCase
         self::assertNotEmpty($first->observationWindow);
         self::assertNotEmpty($first->falsifiers);
         self::assertNotEmpty($first->sourceRefs);
+        self::assertNotEmpty($first->falsificationHash);
     }
 
     public function test_missing_metric_or_window_requires_revision(): void
@@ -83,6 +86,48 @@ final class ProductIntentCourtTest extends TestCase
         self::assertSame('revise', $verdict->status);
         self::assertContains('contradictory_constraints', $verdict->blockingReasons);
         self::assertContains('acceptance_missing', $verdict->blockingReasons);
+    }
+
+    public function test_deterministic_falsification_catches_vanity_metric_and_impossible_window(): void
+    {
+        $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase([
+            'metric' => 'pageviews >= 1000', 'observation_window' => '0d',
+        ])));
+
+        self::assertSame('revise', $verdict->status);
+        self::assertContains('metric_vanity_or_proxy', $verdict->blockingReasons);
+        self::assertContains('observation_window_impossible', $verdict->blockingReasons);
+    }
+
+    public function test_risky_privacy_request_cannot_admit_without_security_or_privacy_evidence(): void
+    {
+        $verdict = (new ProductIntentCourt)->adjudicate(ProductIntentCase::fromArray($this->validCase([
+            'human_request' => 'Reduzir exposição de dados pessoais no checkout',
+            'constraints' => ['no_external_write'],
+            'acceptance' => ['payment success path is covered'],
+        ])));
+
+        self::assertSame('revise', $verdict->status);
+        self::assertContains('privacy_security_omission', $verdict->blockingReasons);
+    }
+
+    public function test_admitted_unit_frozen_event_is_idempotent_on_replay(): void
+    {
+        $ledger = $this->createMock(AtlasEvidenceLedger::class);
+        $lookupCount = 0;
+        $ledger->expects(self::exactly(2))->method('eventById')->willReturnCallback(function () use (&$lookupCount) {
+            $lookupCount++;
+
+            return $lookupCount === 1 ? null : new AtlasLedgerEvent;
+        });
+        $ledger->expects(self::once())->method('record');
+
+        $court = new ProductIntentCourt(ledger: $ledger);
+        $case = ProductIntentCase::fromArray($this->validCase());
+        $court->adjudicate($case);
+        $court->adjudicate($case);
+
+        self::assertSame(2, $lookupCount);
     }
 
     /** @return array<string,mixed> */

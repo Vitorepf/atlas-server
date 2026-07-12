@@ -13,6 +13,7 @@ final class ProductIntentCourt
     public function __construct(
         private readonly ?AtlasProductTruthCompilerService $compiler = null,
         private readonly ?AtlasEvidenceLedger $ledger = null,
+        private readonly ?ProductIntentFalsificationProbe $probe = null,
     ) {}
 
     public function adjudicate(ProductIntentCase $case): ProductIntentVerdict
@@ -22,6 +23,7 @@ final class ProductIntentCourt
             'human_request' => $d['human_request'],
             'route' => $d['mode'],
         ]);
+        $probe = $this->probe ?? new ProductIntentFalsificationProbe;
         $blocking = [];
         foreach (['problem', 'user', 'value'] as $key) {
             if (($d[$key] ?? null) === null) $blocking[] = $key.'_missing';
@@ -46,6 +48,10 @@ final class ProductIntentCourt
             }
         }
 
+        $probeObjections = $probe->objections($case);
+        $blocking = array_merge($blocking, $probeObjections);
+        $blocking = array_values(array_unique($blocking));
+
         $status = 'admitted';
         if (in_array('unbounded_side_effect', $blocking, true)) {
             $status = 'refused';
@@ -68,6 +74,7 @@ final class ProductIntentCourt
             $d['non_goals'], $d['hypotheses'], $d['uncertainties'], $d['alternatives'], $d['falsifiers'],
             $d['side_effects'], $d['acceptance'], $d['release_policy'], $d['outcome_policy'], $d['world_snapshot_hash'],
             array_values(array_unique($blocking)), $intentHash, $truth,
+            MissionCanonicalHash::sha256(['case' => $case->toArray(), 'objections' => $probeObjections]),
         );
         if ($status === 'admitted') {
             $this->recordFrozenUnit($verdict);

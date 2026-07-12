@@ -106,7 +106,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [ ] Add deterministic probes for required fields/contradictions and independent provider-assisted probes for domain/UX/product uncertainty.
 - [ ] Ensure provider probes can only add `revise|refused|held` evidence; they never grant admission.
 - [ ] Route genuine operator-owned ambiguity to one bounded clarification contract. Runtime specialist review is never required.
-- [ ] Hash each probe input/output and bind accepted resolutions to a new ProductIntent version; silent drift is impossible.
+- [x] Hash each probe input/output and bind accepted resolutions to a new ProductIntent version; silent drift is impossible.
 - [ ] Run golden corpus, adversarial mutation, provider-unavailable and replay tests.
 
 **GREEN acceptance:** every seeded contradiction or gaming case is caught; provider outage preserves deterministic blocking rules; a changed answer creates a new intent version/hash.
