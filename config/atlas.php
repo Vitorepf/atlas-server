@@ -482,6 +482,21 @@ return [
         'enforcement_mode' => (string) env('ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE', 'observe'),
     ],
 
+    // MAXF-09 — L2 hierarchical summaries are local-only, asynchronous, verified
+    // against L1 receipts, and never canonical. Both generation and consumption
+    // start OFF; enabling consumption only changes read surfaces that explicitly
+    // call the L2 reader.
+    'compaction' => [
+        'l2_hierarchical_summary_generation_enabled' => (bool) env('ATLAS_COMPACTION_L2_HIERARCHICAL_SUMMARY_GENERATION_ENABLED', false),
+        'l2_hierarchical_summary_consumption_enabled' => (bool) env('ATLAS_COMPACTION_L2_HIERARCHICAL_SUMMARY_CONSUMPTION_ENABLED', false),
+        'l2_hierarchical_summary_queue_connection' => (string) env('ATLAS_COMPACTION_L2_HIERARCHICAL_SUMMARY_QUEUE_CONNECTION', 'database-long'),
+        'l2_hierarchical_summary_queue' => (string) env('ATLAS_COMPACTION_L2_HIERARCHICAL_SUMMARY_QUEUE', 'compaction-l2'),
+        'l2_hierarchical_summary_evidence_path' => (string) env(
+            'ATLAS_COMPACTION_L2_HIERARCHICAL_SUMMARY_EVIDENCE_PATH',
+            storage_path('app/atlas/evidence/l2-hierarchical-summaries.jsonl'),
+        ),
+    ],
+
     'memory' => [
         // ACOS FEE-04: land default-OFF; flip only after watchdog soak + rollback trigger.
         'feedback_ranking_enabled' => (bool) env('ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED', false),
@@ -4672,6 +4687,12 @@ return [
         // L3-6: rerank semântico da seção de memória do context pack via o engine local
         // real (embeddings sobre os itens recuperados). Default OFF; fail-open sem venv.
         'semantic_retrieval' => (bool) env('ATLAS_AOBG_SEMANTIC_RETRIEVAL', false),
+        // MAXA-09: late-interaction local rerank over the final context-pack memory
+        // candidate window. Default OFF until golden/live dual-read proves precision@5
+        // lift and p95 latency within the declared window.
+        'late_interaction_rerank' => (bool) env('ATLAS_AOBG_LATE_INTERACTION_RERANK', false),
+        'late_interaction_candidate_window' => max(1, (int) env('ATLAS_AOBG_LATE_INTERACTION_CANDIDATE_WINDOW', 20)),
+        'late_interaction_top_k' => max(1, (int) env('ATLAS_AOBG_LATE_INTERACTION_TOP_K', 5)),
         // MAXC-01: facet decomposition determinística no packFor (TaskFacetExtractor
         // routes typed sub-queries per source; passes extra são peek `record_usage=false`).
         // Default-OFF: pacote é byte-idêntico enquanto flag desligada; ligar só depois de

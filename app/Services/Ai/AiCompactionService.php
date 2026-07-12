@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Jobs\GenerateVerifiedL2HierarchicalSummaryJob;
 use App\Models\AiCompaction;
 use App\Models\AiMessage;
 use App\Models\AiQualityAction;
@@ -192,8 +193,18 @@ class AiCompactionService
             $threadUpdate['summary'] = $summary;
         }
         $thread->update($threadUpdate);
+        $this->dispatchVerifiedL2HierarchicalSummary($compaction);
 
         return $compaction->refresh();
+    }
+
+    private function dispatchVerifiedL2HierarchicalSummary(AiCompaction $compaction): void
+    {
+        if (! (bool) config('atlas.compaction.l2_hierarchical_summary_generation_enabled', false)) {
+            return;
+        }
+
+        GenerateVerifiedL2HierarchicalSummaryJob::dispatch((string) $compaction->id)->afterCommit();
     }
 
     /**
