@@ -3257,6 +3257,42 @@ class AtlasOpenBrainContextPackService
             }
         }
 
+        // MAXC-05 — sufficiency block: named gaps + expand:* handles so the
+        // external agent has ACTION for "brain didn't find X" instead of silence.
+        // Only rendered when the pack actually carries a sufficiency block AND
+        // it flags `not_enough_context=true` — otherwise the pack stays quiet
+        // (progressive disclosure invariant of the hook: no chatter when covered).
+        $sufficiency = (array) ($pack['sufficiency'] ?? []);
+        if (($sufficiency['present'] ?? false) === true
+            && ($sufficiency['not_enough_context'] ?? false) === true) {
+            $missing = array_values(array_filter(
+                (array) ($sufficiency['missing_essential'] ?? []),
+                static fn ($m): bool => is_array($m) && ($m['value'] ?? '') !== '',
+            ));
+            $handles = array_values(array_filter(
+                (array) ($sufficiency['handles'] ?? []),
+                static fn ($h): bool => is_string($h) && $h !== '',
+            ));
+
+            if ($missing !== [] || $handles !== []) {
+                $lines[] = '';
+                $lines[] = '## Suficiência';
+                $lines[] = '- not_enough_context=true — o cérebro entregou pack mas SEM cobertura para 1+ faceta essencial da tarefa (progressive disclosure).';
+                foreach (array_slice($missing, 0, 8) as $item) {
+                    $lines[] = sprintf(
+                        '- falta: %s=%s → use handle `%s`',
+                        (string) ($item['type'] ?? '?'),
+                        (string) ($item['value'] ?? '?'),
+                        (string) ($item['handle'] ?? ('expand:'.($item['type'] ?? '?').':'.($item['value'] ?? '?'))),
+                    );
+                }
+                if ($handles !== []) {
+                    $lines[] = '- expand_handles: '.implode(', ', array_slice($handles, 0, 12));
+                }
+                $lines[] = '- workflow: chame de novo o context pack passando os handles listados (progressive disclosure), NUNCA invente conteúdo.';
+            }
+        }
+
         return implode("\n", $lines);
     }
 
