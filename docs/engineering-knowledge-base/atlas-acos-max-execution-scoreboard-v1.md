@@ -248,41 +248,41 @@
 - [ ] TETO-10 — pending (digest como produto de revisão)
 
 ## LOTE 10 — Fronteira condicional (M6) — GATE M6: todo condicional com A/B REGISTRADO (live OU suspenso/refutado — ambos são sucesso) · REC-04 em shadow com hipóteses de funil
-- [ ] RAGX-07 — pending
-- [ ] RAGX-06 — pending
-- [ ] RAGX-03 — pending
-- [ ] RAGX-11 — pending
-- [ ] RAGX-05 — pending
-- [ ] RAGX-02 — pending
-- [ ] RAGX-10 — pending
-- [ ] RAGX-09 — pending
-- [ ] RAGX-04 — pending (candidato-a-corte declarado)
+- [ ] RAGX-07 — blocked_by:MAXA-05,RAGX-01 · precisa de `asef_chunks` persistido (MAXA-05 blocked_by:MEM-05 v1) e do encaixe RAGX-01 (blocked_by:MAXA-04,MAXA-05); A/B só REGISTRADO quando a espinha do capítulo estiver viva
+- [ ] RAGX-06 — blocked_by:RAGX-01,MAXA-05 · mesma cadeia: sub-query fusion depende do índice chunk-level já operacional
+- [ ] RAGX-03 — blocked_by:RAGX-01,MAXA-05 · reranker precisa de candidatos-chunk gerados pelo índice condicional acima
+- [ ] RAGX-11 — blocked_by:RAGX-01,MAXA-05 · adaptive-k precisa da distribuição de scores real do índice chunk-level
+- [ ] RAGX-05 — blocked_by:RAGX-01 · sparse fallback precisa de baseline dense já medido no A/B (RAGX-01 congelado)
+- [ ] RAGX-02 — blocked_by:RAGX-01 · query-time facets encaixam depois do índice chunk-level entrar em fluxo
+- [ ] RAGX-10 — blocked_by:MAXA-06(fase 2),MAXD-05,MAXF-09 · RAPTOR-lite (cluster + sumário) exige as três pré-condições declaradas no §2094-2098
+- [ ] RAGX-09 — blocked_by:RAGX-01 · HyDE motor-opcional só liga após MAXC-01/07 fecharem gap medido; candidato-a-corte no próprio slice
+- [ ] RAGX-04 — pending_window(maxc0107_gap_measurement) (candidato-a-corte declarado no §2040-2043 — só liga se MAXC-01/07 deixarem gap mensurável)
 - [ ] MAXA-09 — pending
-- [ ] MAXC-07 — pending (condicional)
-- [ ] MAXD-05 — pending (gated MAXA-06)
+- [ ] MAXC-07 — pending (condicional; decomposição LLM-local só se MAXC-01 medir gap real)
+- [ ] MAXD-05 — blocked_by:MAXA-06(fase 2) · Louvain sobre chunks precisa da fase 2 backfill
 - [ ] MAXF-09 — pending
-- [ ] MAXF-11 — pending (SÓ pós-enforce CPT-09)
-- [ ] MULTJ-04 — pending
-- [ ] MULTJ-05 — pending
-- [ ] MULTJ-06 — pending
-- [ ] MULTJ-07 — pending
-- [ ] MULTJ-08 — pending
-- [ ] MULTJ-09 — suspended(ELEV-28) por construção — destrava com ≥5 skills vivas
-- [ ] MULTV-04 — pending
-- [ ] MULTV-06 — pending
-- [ ] MULTV-08 — pending
+- [ ] MAXF-11 — blocked_by:CPT-09(enforce) · fórmula MEDIDA só pós-enforce (dep declarada no §962)
+- [ ] MULTJ-04 — pending_window(procedural_case_count_soak) · promotor exige lições `procedural` com case_count≥floor e pós-condição mecanizável; ASI-14 vivo mas fluxo de casos ainda precisa acumular
+- [ ] MULTJ-05 — blocked_by:MULTJ-03,MAXJ-01,sandbox_floor · replay curricular exige runner sandbox floor pétreo e amostra congelada; sandbox floor não é dep deste programa
+- [ ] MULTJ-06 — blocked_by:MAXJ-02 · assinaturas distintas precisam de MAXJ-02 aterrissado como entrada
+- [ ] MULTJ-07 — blocked_by:MAXH-07 · hook de recall-hit em cima do MAXH-08 exige o promotor de síntese vivo primeiro (colisão declarada §2334)
+- [ ] MULTJ-08 — pending_window(nivel3_provado) · nível-3 (composto sobre composto) exige ondas M6-b provadas
+- [ ] MULTJ-09 — suspended(ELEV-28) por construção — destrava com ≥5 skills vivas (MULTJ-04)
+- [ ] MULTV-04 — blocked_by:MULTV-01,MULTV-02,MULTV-07,ASI-11,SUB-01 · replay determinístico do land depende da espinha receipt/quarentena/reversal (MULTV-01 ainda pending em L9)
+- [ ] MULTV-06 — blocked_by:MULTV-01 · o certificador de mutation depende do medidor-receipt congelado
+- [ ] MULTV-08 — blocked_by:MULTV-01,MULTV-02,ASI-09 · spec-to-test binding precisa da cascata risk-tiered viva
 - [ ] MULTK-06 — pending
 - [x] MULTK-08 — landed · `DecisionReceiptFailurePatternMiner` pure mineração report-only (§2407-2411) sobre Decision Receipts v2 (MAXK-04) × outcomes reais (OUTC-01) juntos por `decision_id`; agrupa por escopo grosso `{task_category × basis × provider}` — evita minerar sobre `flow_id` free-text (lição MAXK-01, anti-multiple-comparisons). Publica `patterns[].{n, failures, failure_rate}` só quando `n ≥ N_MIN_PINNED=10` E `failure_rate > FAILURE_RATE_CEILING_PINNED=0.25` — floors PINADOS na fonte (ELEV-03), caller passando threshold abaixo do pin é ELEVADO para o pin (nunca abaixo). v1 receipts sem `basis` ⇒ `dropped_v1_no_basis` (§2409 anti-mining-v1); outcomes com `verified_basis ∈ {absent, claimed}` ⇒ `unverified_outcomes`, NUNCA contribuem failure (§ESP-05 wiring). `source.promotes_selection=false + source.blocker=false + source.emits_bias_carimbado=true` cravado — consumo em seleção só via ELEV-26 pós-2-janelas (nunca blocker duro — floors da 18 mantêm autoridade). Empty ⇒ `insufficient_signal`. SCHEMA `atlas.decide.receipt_failure_patterns.v1`; tests: `php artisan test tests/Unit/Ai/AcosMax/Multk08DecisionReceiptFailurePatternMinerTest.php`
 - [ ] MULTN15-08 — pending
-- [ ] MULTN17-05 — pending
-- [ ] MULTN17-06 — pending
-- [ ] MULTH-08 — pending
-- [ ] MULTX-07 — pending
-- [ ] MULTX-08 — pending
-- [ ] REC-04 (shadow) — pending
-- [ ] REC-06 — pending
-- [ ] TETO-04 — pending (2º domínio; gated MARCO ESP-V1)
-- [ ] TETO-07 — pending (model-refresh drill)
+- [ ] MULTN17-05 — blocked_by:MULTN17-01,MULTN17-02 · yield/escada precisa da obra composta viva
+- [ ] MULTN17-06 — blocked_by:MULTN17-01,MULTN17-04 · consumidor da régua congelada; MULTN17-04 congela ANTES de qualquer consumidor
+- [ ] MULTH-08 — blocked_by:MULTH-01..07 · sismógrafo consolida a área — só faz sentido com decantação/pressão vivas
+- [ ] MULTX-07 — blocked_by:MULTX-01,MULTJ-05,ELEV-02 · A/B do M com braço pack-suprimido depende do runner MULTJ-05 aterrissado
+- [ ] MULTX-08 — blocked_by:MULTX-02 · breaker por família precisa do funil por família com denominador
+- [ ] REC-04 (shadow) — pending_window(m_over_1_measured) · shadow-only exige M>1 medido (REC-05 vivo, mas série ainda insufficient) e ≥3 hipóteses REC-01 elegíveis; flip shadow→atuar é gatilho EXCLUSIVO do operador (§1417)
+- [ ] REC-06 — blocked_by:REC-02,REC-03,REC-05 · freios do meta-loop consomem VOI/valor/M — todos aterrissados como MEDIDOR, mas sem série real ainda para armar o breaker
+- [ ] TETO-04 — blocked_by:MARCO_ESP-V1 · 2º domínio depende do primeiro selar (Marco Zero v2 pos-ADV-01)
+- [ ] TETO-07 — blocked_by:TETO-04 · model-refresh drill exige que ≥1 domínio esteja em produção fora de engenharia
 
 ## LOTE 11 — Substrato 10-100× (F3) — GATE F3: pack ≤2s / recall ≤1s / hooks ≤5s sustentados 14d · bancada 12 clientes provada
 - [ ] ASI-16 — pending
