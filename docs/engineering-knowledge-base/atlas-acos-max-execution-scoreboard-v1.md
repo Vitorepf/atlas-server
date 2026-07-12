@@ -193,7 +193,7 @@
 - [x] MULTH-01 — landed · `StructuredFactSchemaMap` defines typed structured-fact schemas for `decision`, `harness_learning`, and `gotcha`, validates required fields, leaves unknown types `unschematized`, and is explicitly fail-open (`required_on_write=false`, no LLM hot path); tests: `php artisan test tests/Unit/Ai/AcosMax/Multh01StructuredFactsTest.php`
 - [x] MULTH-02 — landed · `ProvenanceWeightCalculator` computes a bounded provenance multiplier from refs verified by a supplied evidence set, keeps dead refs at zero weight, reports dead refs, and declares no hot-path ledger lookup; tests: `php artisan test tests/Unit/Ai/AcosMax/Multh02ProvenanceWeightTest.php`
 - [ ] MULTH-07 — pending
-- [ ] MULTH-03 — pending
+- [x] MULTH-03 — landed · `BeliefCascadeReverificationPlanner` walks lineage descendants from a superseded origin, marks them `needs_reverification` with `cascade_origin`, respects a depth cap, terminates cycles, and declares no descendant deletion / no sync write-path cascade; tests: `php artisan test tests/Unit/Ai/AcosMax/Multh03BeliefCascadePlannerTest.php`
 - [ ] MULTV-01 — pending
 - [ ] MULTV-07 — pending
 - [ ] MULTV-05 — pending
