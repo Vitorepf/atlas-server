@@ -1285,6 +1285,7 @@ final class PipelineRunExecutor implements RunExecutor
         // OUTC-01(a): engineering outcome spine — AEMOR episode+outcome anchored on REAL gate
         // results (author≠judge). Gated by atlas.aemor; fail-open; skipped in unit tests unless
         // an explicit recorder instance is bound (same guard as ADML write side above).
+        $aemorRunOutcomeId = null;
         if ($admlRecordable && (! app()->runningUnitTests() || app()->bound(AtlasEngineeringOutcomeRecorder::class))) {
             try {
                 $passed = $receipt->completion->status === CompletionSummary::STATUS_PASSED;
@@ -1293,7 +1294,7 @@ final class PipelineRunExecutor implements RunExecutor
                     'scope_guard:'.$scopeReceipt->taskContractHash,
                     count($verificationResult->tests) > 0 ? 'tests_run:'.count($verificationResult->tests) : null,
                 ]));
-                app(AtlasEngineeringOutcomeRecorder::class)->record([
+                $aemorResult = app(AtlasEngineeringOutcomeRecorder::class)->record([
                     'executor' => 'dev',
                     'objective' => $envelope->normalizedIntent !== '' ? $envelope->normalizedIntent : 'Atlas Dev pipeline run',
                     'workspace' => $envelope->workspace,
@@ -1301,6 +1302,9 @@ final class PipelineRunExecutor implements RunExecutor
                     'scope_type' => 'engineering_run',
                     'scope_id' => $runId,
                     'run_id' => $runId,
+                    'task_id' => $runId,
+                    'decision_id' => 'verification_receipt:'.$runId,
+                    'decision_receipt_id' => 'verification_receipt:'.$runId,
                     'provider' => $callResult->actualProvider,
                     'status' => $passed ? 'succeeded' : ($receipt->completion->status === CompletionSummary::STATUS_NEEDS_REVIEW ? 'blocked' : 'failed'),
                     'summary' => 'Dev pipeline finished with '.$receipt->completion->status.' (verification='.$verificationResult->aggregateStatus.').',
@@ -1309,10 +1313,18 @@ final class PipelineRunExecutor implements RunExecutor
                         'tests_passed' => $passed,
                         'attribution_reviewed' => true,
                         'verification_status' => $verificationResult->aggregateStatus,
+                        'server_verified' => $passed,
                     ],
                     'verified' => $passed,
                     'provider_calls_made' => $providerCalls > 0,
+                    'learning_claim' => $passed
+                        ? 'Dev pipeline landings that pass verification keep decision and retrieval receipts joinable for flywheel measurement.'
+                        : '',
                 ]);
+                $aemorRunOutcomeId = trim((string) data_get($aemorResult, 'spine.ai_run_outcome.id', ''));
+                if ($aemorRunOutcomeId === '') {
+                    $aemorRunOutcomeId = null;
+                }
             } catch (\Throwable) {
                 // fail-open: outcome spine must never break the run
             }
@@ -1414,6 +1426,9 @@ final class PipelineRunExecutor implements RunExecutor
                         'flow_id' => 'atlas.dev',
                         'record' => true,
                     ];
+                    if ($aemorRunOutcomeId !== null) {
+                        $feedbackInput['run_outcome_id'] = $aemorRunOutcomeId;
+                    }
                     if ($utilityMeasurement !== null) {
                         $feedbackInput['post_execution_utility'] = $utilityMeasurement['post_execution_utility'];
                         $feedbackInput['post_execution_utility_formula_version'] = $utilityMeasurement['formula_version'];

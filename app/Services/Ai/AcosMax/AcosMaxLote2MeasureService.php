@@ -154,6 +154,7 @@ final class AcosMaxLote2MeasureService
 
         $loopsComplete = count($loops);
         $marcoSatisfied = $loopsComplete >= 1;
+        $blockedByTop = $this->blockedByTopN($partial, 10);
 
         return [
             'schema_version' => 'atlas.acos.lote2.measure_report.v1',
@@ -168,6 +169,7 @@ final class AcosMaxLote2MeasureService
             'loops_complete' => $loopsComplete,
             'loops' => $loops,
             'loops_partial' => $partial,
+            'blocked_by_top' => $blockedByTop,
             'n_total' => $loopsComplete + count($partial),
             'fixture_rejected' => $fixtureRejected,
             'time_per_loop' => [
@@ -191,6 +193,31 @@ final class AcosMaxLote2MeasureService
                 'completion_claim_allowed_without_proven_real' => false,
             ],
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $partial
+     * @return list<array{reason:string,count:int}>
+     */
+    private function blockedByTopN(array $partial, int $limit): array
+    {
+        $counts = [];
+        foreach ($partial as $row) {
+            foreach ((array) ($row['blocked_by'] ?? []) as $reason) {
+                $key = trim((string) $reason);
+                if ($key === '') {
+                    continue;
+                }
+                $counts[$key] = ($counts[$key] ?? 0) + 1;
+            }
+        }
+        arsort($counts);
+        $top = [];
+        foreach (array_slice($counts, 0, max(1, $limit), true) as $reason => $count) {
+            $top[] = ['reason' => (string) $reason, 'count' => (int) $count];
+        }
+
+        return $top;
     }
 
     /** @return array<string,mixed> */

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aemor;
 
+use App\Models\AiRunOutcome;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator;
+use App\Services\Ai\Compounding\AtlasLearningDistiller;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
@@ -127,6 +129,8 @@ class AtlasEngineeringOutcomeRecorder
             ]);
             $judgment = $this->judgment->judge((string) $episode['episode_id']);
 
+            $spine = $this->fanOutSpineWriters($input, $status, $evidenceRefs, (string) ($episode['episode_id'] ?? ''));
+
             $learning = ['status' => 'skipped', 'reason' => 'no_learning_claim'];
             $claim = trim((string) ($input['learning_claim'] ?? ''));
             $allowDistill = AtlasIntelligenceRolloutMode::shouldExecuteLive($rolloutMode);
@@ -140,6 +144,15 @@ class AtlasEngineeringOutcomeRecorder
             } elseif ($claim !== '' && ! $allowDistill) {
                 $learning = ['status' => 'shadow_skipped', 'reason' => 'rollout_shadow_no_distill'];
             }
+
+            $flywheelLearning = $this->distillFlywheelLearningCandidate(
+                $spine,
+                $input,
+                $allowDistill,
+                $claim,
+                $evidenceRefs,
+                $status,
+            );
 
             return [
                 'schema_version' => self::SCHEMA_VERSION,
@@ -167,12 +180,13 @@ class AtlasEngineeringOutcomeRecorder
                     'candidate_id' => $learning['memory_candidate_id'] ?? null,
                     'memory_delta_id' => $learning['memory_delta_id'] ?? null,
                 ],
+                'flywheel_learning' => $flywheelLearning,
                 'promotion_policy' => [
                     'auto_promote' => false,
                     'operator_review_required' => true,
                     'note' => 'AEMOR deltas stay pending; compounding auto-promote is a separate governed path',
                 ],
-                'spine' => $this->fanOutSpineWriters($input, $status, $evidenceRefs, (string) ($episode['episode_id'] ?? '')),
+                'spine' => $spine,
             ];
         } catch (Throwable $exception) {
             return [
@@ -266,6 +280,21 @@ class AtlasEngineeringOutcomeRecorder
         try {
             if (DatabaseTableAvailability::has('ai_run_outcomes')) {
                 $evaluator = app(AtlasCompoundingOutcomeEvaluator::class);
+                $provenReal = (bool) $contractV2['verified'] && $outcomeStatus === 'passed';
+                $decisionId = $this->firstNonEmptyString([
+                    $input['decision_id'] ?? null,
+                    $input['decision_receipt_id'] ?? null,
+                    $input['receipt_id'] ?? null,
+                    $contractV2['certified_receipt_id'] ?? null,
+                ]);
+                $taskId = $this->firstNonEmptyString([
+                    $input['task_id'] ?? null,
+                    $input['scope_id'] ?? null,
+                    $runId,
+                ]);
+
+                // MULTX-01 assembler reads proven_real / decision_id / task_id at
+                // the TOP of ai_run_outcomes.payload (evaluate stores $input as payload).
                 $outcome = $evaluator->evaluate([
                     'run_id' => $runId,
                     'flow_id' => $flowId,
@@ -274,18 +303,30 @@ class AtlasEngineeringOutcomeRecorder
                     'execution_quality' => data_get($input, 'metrics.tests_passed') === true ? 90 : 40,
                     'evidence_quality' => $evidenceRefs === [] ? 35 : 90,
                     'verified' => (bool) $contractV2['verified'],
+                    'proven_real' => $provenReal,
+                    'decision_id' => $decisionId !== '' ? $decisionId : null,
+                    'decision_receipt_id' => $decisionId !== '' ? $decisionId : null,
+                    'task_id' => $taskId !== '' ? $taskId : null,
+                    'certified_receipt_id' => $contractV2['certified_receipt_id'] ?? null,
+                    'verified_basis' => $contractV2['verified_basis'] ?? null,
                     'actor_tag' => isset($input['actor_tag']) ? (string) $input['actor_tag'] : null,
                     'lote' => $input['lote'] ?? null,
                     'slice_id' => isset($input['slice_id']) ? (string) $input['slice_id'] : null,
                     'slice_state' => isset($input['slice_state']) ? (string) $input['slice_state'] : null,
                     'payload' => [
                         'outcome_contract_v2' => $contractV2,
+                        'proven_real' => $provenReal,
+                        'decision_id' => $decisionId !== '' ? $decisionId : null,
+                        'decision_receipt_id' => $decisionId !== '' ? $decisionId : null,
+                        'task_id' => $taskId !== '' ? $taskId : null,
                     ],
                 ]);
                 $result['ai_run_outcome'] = [
                     'recorded' => true,
                     'id' => $outcome->id,
                     'outcome_hash' => $outcome->outcome_hash,
+                    'proven_real' => $provenReal,
+                    'decision_id' => $decisionId !== '' ? $decisionId : null,
                 ];
             }
         } catch (Throwable) {
@@ -411,5 +452,84 @@ class AtlasEngineeringOutcomeRecorder
         $provider = strtolower(trim((string) ($input['provider'] ?? '')));
 
         return $provider !== '' ? $provider : 'absent';
+    }
+
+    /**
+     * MULTX-01 flywheel lesson: ai_learning_candidates linked to the spine
+     * ai_run_outcomes row (AEMOR candidates alone do not join the assembler).
+     *
+     * @param  array<string,mixed>  $spine
+     * @param  array<string,mixed>  $input
+     * @param  list<string>  $evidenceRefs
+     * @return array<string,mixed>
+     */
+    private function distillFlywheelLearningCandidate(
+        array $spine,
+        array $input,
+        bool $allowDistill,
+        string $claim,
+        array $evidenceRefs,
+        string $status,
+    ): array {
+        if (! $allowDistill) {
+            return ['status' => 'shadow_skipped', 'reason' => 'rollout_shadow_no_distill'];
+        }
+
+        $outcomeId = trim((string) data_get($spine, 'ai_run_outcome.id', ''));
+        if ($outcomeId === '' || ! DatabaseTableAvailability::has('ai_learning_candidates')) {
+            return ['status' => 'skipped', 'reason' => 'ai_run_outcome_missing'];
+        }
+
+        $provenReal = data_get($spine, 'ai_run_outcome.proven_real') === true
+            || (data_get($spine, 'outcome_contract_v2.verified') === true && $status === 'succeeded');
+        $effectiveClaim = $claim;
+        if ($effectiveClaim === '' && $provenReal) {
+            $effectiveClaim = trim((string) ($input['summary'] ?? $input['objective'] ?? ''));
+        }
+        if ($effectiveClaim === '') {
+            return ['status' => 'skipped', 'reason' => 'no_learning_claim'];
+        }
+
+        try {
+            $outcome = AiRunOutcome::query()->find($outcomeId);
+            if (! $outcome instanceof AiRunOutcome) {
+                return ['status' => 'skipped', 'reason' => 'ai_run_outcome_missing'];
+            }
+
+            $candidate = app(AtlasLearningDistiller::class)->distill($outcome, [
+                'claim' => $effectiveClaim,
+                'evidence_refs' => $evidenceRefs,
+                'confidence' => data_get($input, 'metrics.tests_passed') === true ? 85 : 60,
+                'memory_type' => 'procedural',
+                'scope' => 'engineering',
+            ]);
+
+            return [
+                'status' => 'candidate',
+                'candidate_id' => $candidate->id,
+                'run_outcome_id' => $outcome->id,
+                'promotion_allowed' => (bool) $candidate->promotion_allowed,
+            ];
+        } catch (Throwable) {
+            return ['status' => 'degraded', 'reason' => 'flywheel_distill_exception'];
+        }
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     */
+    private function firstNonEmptyString(array $values): string
+    {
+        foreach ($values as $value) {
+            if (! is_scalar($value)) {
+                continue;
+            }
+            $trimmed = trim((string) $value);
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        return '';
     }
 }

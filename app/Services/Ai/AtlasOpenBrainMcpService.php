@@ -329,6 +329,8 @@ class AtlasOpenBrainMcpService
                         'noise_context_refs' => ['type' => 'array', 'description' => 'Refs provider-safe julgadas ruidosas ou desnecessarias.'],
                         'missed_required_sources' => ['type' => 'array', 'description' => 'Tipos de fonte ausentes, como migration, test, route, doc ou graph.'],
                         'post_execution_utility' => ['type' => 'integer', 'description' => 'Nota 0-100 de utilidade do contexto apos execucao.'],
+                        'run_outcome_id' => ['type' => 'string', 'description' => 'Id de ai_run_outcomes para join MULTX-01 (delivered context).'],
+                        'memory_candidate_id' => ['type' => 'string', 'description' => 'Id de ai_learning_candidates para subsequent measured recall.'],
                         'max_refs' => ['type' => 'integer', 'description' => 'Max refs para avaliacao auxiliar. Default 8.'],
                         'record' => ['type' => 'boolean', 'description' => 'Quando true, persiste evento em ai_rag_feedback_events se a tabela existir.'],
                     ],
@@ -1899,6 +1901,9 @@ class AtlasOpenBrainMcpService
         }
         if (($runOutcomeId = $this->string($arguments['run_outcome_id'] ?? null)) !== null) {
             $input['run_outcome_id'] = $runOutcomeId;
+        }
+        if (($memoryCandidateId = $this->string($arguments['memory_candidate_id'] ?? null)) !== null) {
+            $input['memory_candidate_id'] = $memoryCandidateId;
         }
 
         return [

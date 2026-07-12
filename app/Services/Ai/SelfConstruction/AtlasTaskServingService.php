@@ -1617,6 +1617,13 @@ final class AtlasTaskServingService
                 'scope_type' => 'task',
                 'scope_id' => $taskPacketId,
                 'run_id' => $taskPacketId,
+                'task_id' => $taskPacketId,
+                'decision_id' => $serverVerified
+                    ? (string) ($commit['commit_sha'] ?? ('task:'.$taskPacketId))
+                    : null,
+                'decision_receipt_id' => $serverVerified
+                    ? (string) ($commit['commit_sha'] ?? ('task:'.$taskPacketId))
+                    : null,
                 'status' => $serverVerified ? 'succeeded' : 'blocked',
                 'summary' => $serverVerified
                     ? 'Autônomos task landed with server-side verified scoped commit.'
@@ -1628,6 +1635,9 @@ final class AtlasTaskServingService
                     'server_verified' => $serverVerified,
                 ],
                 'verified' => $serverVerified,
+                'learning_claim' => $serverVerified
+                    ? 'Server-verified scoped Autônomos landings compound when decision receipt and evidence refs stay attached.'
+                    : '',
             ]);
         } catch (Throwable) {
             return null;

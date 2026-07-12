@@ -368,6 +368,7 @@ final class AtlasRetrievalFeedbackLoopService
             'failure_reason' => $feedbackEvent['failure_reason'],
             'next_retrieval_hint' => $this->nextRetrievalHint($missed, $noise, $roi, $nextContextPolicy),
             'run_outcome_id' => is_scalar($input['run_outcome_id'] ?? null) ? (string) $input['run_outcome_id'] : null,
+            'memory_candidate_id' => is_scalar($input['memory_candidate_id'] ?? null) ? (string) $input['memory_candidate_id'] : null,
             'payload' => [
                 'schema_version' => self::SCHEMA_VERSION,
                 'freshness_quality_gate_hash' => $feedbackEvent['freshness_quality_gate_hash'],
