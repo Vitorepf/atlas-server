@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\RuntimeBoundary\SemanticCrossEncoderRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use Illuminate\Support\Str;
@@ -47,7 +48,7 @@ final class SemanticContextRetrievalService
      * @param  positive-int  $limit
      * @return array{
      *   schema:string,
-     *   mode:'semantic'|'lexical'|'late_interaction',
+     *   mode:'semantic'|'lexical'|'cross_encoder'|'late_interaction',
      *   query_hash:string,
      *   ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>,
      *   candidate_count:int
@@ -84,6 +85,8 @@ final class SemanticContextRetrievalService
                 $ranked = $lexical;
             }
         }
+
+        [$ranked, $mode, $limit] = $this->crossEncoderStage($query, $normalized, $ranked, $mode, $limit);
 
         return $this->lateInteractionResult($query, $normalized, $ranked, $mode, $limit);
     }
@@ -138,6 +141,11 @@ final class SemanticContextRetrievalService
     private function lateInteractionEnabled(): bool
     {
         return (bool) config('atlas.aobg.late_interaction_rerank', false);
+    }
+
+    private function crossEncoderEnabled(): bool
+    {
+        return (bool) config('atlas.aobg.cross_encoder_rerank', false);
     }
 
     /**
@@ -229,7 +237,7 @@ final class SemanticContextRetrievalService
     /**
      * @param  array<int,array{id:string,text:string}>  $normalized
      * @param  array<int,array{id:string,score:float,score_origin:string}>  $ranked
-     * @return array{schema:string, mode:'semantic'|'lexical'|'late_interaction', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
+     * @return array{schema:string, mode:'semantic'|'lexical'|'cross_encoder'|'late_interaction', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
      */
     private function lateInteractionResult(string $query, array $normalized, array $ranked, string $mode, int $limit): array
     {
@@ -276,6 +284,55 @@ final class SemanticContextRetrievalService
     }
 
     /**
+     * @param  array<int,array{id:string,text:string}>  $normalized
+     * @param  array<int,array{id:string,score:float,score_origin:string}>  $ranked
+     * @return array{0:array<int,array{id:string,score:float,score_origin:string}>,1:string,2:int}
+     */
+    private function crossEncoderStage(string $query, array $normalized, array $ranked, string $mode, int $limit): array
+    {
+        if (! $this->crossEncoderEnabled()
+            || ! $this->semanticRuntime instanceof SemanticCrossEncoderRuntime
+            || ! $this->semanticRuntime->available()) {
+            return [$ranked, $mode, $limit];
+        }
+
+        $byId = [];
+        foreach ($normalized as $item) {
+            $byId[$item['id']] = $item;
+        }
+
+        $windowSize = max(1, (int) config('atlas.aobg.cross_encoder_candidate_window', 30));
+        $topK = max(1, min(
+            max(1, (int) config('atlas.aobg.cross_encoder_top_k', 3)),
+            max(1, $limit),
+        ));
+        $window = [];
+        foreach (array_slice($ranked, 0, $windowSize) as $row) {
+            $id = (string) ($row['id'] ?? '');
+            if ($id !== '' && isset($byId[$id])) {
+                $window[] = $byId[$id];
+            }
+        }
+
+        if ($window === []) {
+            return [$ranked, $mode, $limit];
+        }
+
+        try {
+            $cross = $this->semanticRuntime->crossEncoderRerank($window, $query, $topK);
+        } catch (Throwable) {
+            return [$ranked, $mode, $limit];
+        }
+
+        $reranked = $this->crossEncoderRanking($cross, $window);
+        if ($reranked === []) {
+            return [$ranked, $mode, $limit];
+        }
+
+        return [$reranked, 'cross_encoder', $topK];
+    }
+
+    /**
      * @param  array<string,mixed>  $result
      * @param  array<int,array{id:string,text:string}>  $window
      * @return array<int,array{id:string,score:float,score_origin:string}>
@@ -308,6 +365,47 @@ final class SemanticContextRetrievalService
                 'id' => $id,
                 'score' => round(max(0.0, min(1.0, (float) $match['score'])), 4),
                 'score_origin' => 'local_late_interaction',
+            ];
+        }
+
+        usort($ranked, static fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['id'], $b['id']));
+
+        return $ranked;
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @param  array<int,array{id:string,text:string}>  $window
+     * @return array<int,array{id:string,score:float,score_origin:string}>
+     */
+    private function crossEncoderRanking(array $result, array $window): array
+    {
+        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
+        if (($boundary['real_embeddings'] ?? false) !== true
+            || ($boundary['fabricated_vectors'] ?? true) !== false
+            || ($boundary['embeddings_engine_in_python'] ?? false) !== true
+            || ($boundary['cross_encoder'] ?? false) !== true) {
+            return [];
+        }
+
+        $known = [];
+        foreach ($window as $item) {
+            $known[$item['id']] = true;
+        }
+
+        $ranked = [];
+        foreach ((array) ($result['matches'] ?? []) as $match) {
+            if (! is_array($match)) {
+                continue;
+            }
+            $id = (string) ($match['id'] ?? '');
+            if ($id === '' || ! isset($known[$id]) || ! is_numeric($match['score'] ?? null)) {
+                continue;
+            }
+            $ranked[] = [
+                'id' => $id,
+                'score' => round(max(0.0, min(1.0, (float) $match['score'])), 4),
+                'score_origin' => 'local_cross_encoder',
             ];
         }
 
@@ -371,7 +469,7 @@ final class SemanticContextRetrievalService
 
     /**
      * @param  array<int,array{id:string,score:float,score_origin:string}>  $ranked
-     * @return array{schema:string, mode:'semantic'|'lexical'|'late_interaction', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
+     * @return array{schema:string, mode:'semantic'|'lexical'|'cross_encoder'|'late_interaction', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
      */
     private function result(string $mode, string $query, array $ranked, int $limit): array
     {
@@ -385,7 +483,7 @@ final class SemanticContextRetrievalService
 
         return [
             'schema' => self::SCHEMA,
-            'mode' => in_array($mode, ['semantic', 'late_interaction'], true) ? $mode : 'lexical',
+            'mode' => in_array($mode, ['semantic', 'cross_encoder', 'late_interaction'], true) ? $mode : 'lexical',
             'query_hash' => hash('sha256', $query),
             'ranked' => $withRank,
             'candidate_count' => count($ranked),

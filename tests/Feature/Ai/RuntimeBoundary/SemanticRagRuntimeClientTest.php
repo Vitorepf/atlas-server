@@ -104,6 +104,39 @@ final class SemanticRagRuntimeClientTest extends TestCase
         self::assertSame("daemon\n", (string) file_get_contents($callsPath));
     }
 
+    public function test_cross_encoder_rerank_sends_governed_runtime_operation(): void
+    {
+        [$runtimeRoot, $callsPath, $socketPath, $daemonManifestPath] = $this->fakeRuntimeRoot();
+
+        config()->set('atlas.semantic_memory.embedding_daemon_enabled', true);
+        config()->set('atlas.semantic_memory.embedding_daemon_auto_start', true);
+        config()->set('atlas.semantic_memory.embedding_daemon_socket_path', $socketPath);
+        config()->set('atlas.semantic_memory.embedding_daemon_manifest_path', $daemonManifestPath);
+        config()->set('atlas.aobg.cross_encoder_timeout_seconds', 3);
+
+        $client = new SemanticRagRuntimeClient(new PythonManifestRuntimeClient(
+            $runtimeRoot,
+            'atlas-semantic-rag-test',
+            'missing fake runtime',
+            'semantic_rag_fake',
+            5,
+        ));
+
+        $result = $client->crossEncoderRerank(
+            [
+                ['id' => 'a', 'text' => 'alpha'],
+                ['id' => 'b', 'text' => 'beta'],
+            ],
+            'query',
+            k: 1,
+        );
+
+        self::assertSame('rerank', $result['operation']);
+        self::assertSame('b', $result['matches'][0]['id']);
+        self::assertTrue($result['boundary']['cross_encoder']);
+        self::assertSame("daemon\n", (string) file_get_contents($callsPath));
+    }
+
     public function test_php_invokes_real_python_embeddings_end_to_end(): void
     {
         $client = new SemanticRagRuntimeClient;
@@ -190,6 +223,14 @@ function fake_result(array $manifest, string $model, array $vector): array
             ['id' => 'a', 'score' => 0.12, 'via' => 'late_interaction'],
         ];
         $result['boundary']['late_interaction'] = true;
+    }
+
+    if ($operation === 'rerank') {
+        $result['matches'] = [
+            ['id' => 'b', 'score' => 0.91, 'via' => 'cross_encoder'],
+            ['id' => 'a', 'score' => 0.12, 'via' => 'cross_encoder'],
+        ];
+        $result['boundary']['cross_encoder'] = true;
     }
 
     return $result;

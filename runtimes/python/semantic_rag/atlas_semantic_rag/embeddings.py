@@ -13,8 +13,9 @@ Providers, in sovereignty order (local first):
   2. OpenAIEmbedder     — OpenAI `text-embedding-3-small` (1536-d), real model
      over the API. Used when a key is present and the local model is absent.
 
-MAXA-09 additionally exposes a local FastEmbed late-interaction reranker
-(ColBERT-family token embeddings) for already-shortlisted top-K windows.
+MAXB-06 additionally exposes a local FastEmbed cross-encoder reranker for
+already-shortlisted top-K windows. MAXA-09 exposes a local late-interaction
+reranker (ColBERT-family token embeddings).
 
 Both return L2-normalised float32 vectors so cosine == dot product downstream.
 """
@@ -53,6 +54,14 @@ class LateInteractionRerankResult:
     dim: int
 
 
+@dataclass(frozen=True)
+class CrossEncoderRerankResult:
+    matches: list[dict[str, float | str]]
+    model: str
+    provider: str
+    dim: int
+
+
 class Embedder(Protocol):
     name: str
     model: str
@@ -64,6 +73,8 @@ class Embedder(Protocol):
 _EMBEDDER_CACHE: dict[tuple[str, str | None], Embedder] = {}
 
 _LATE_INTERACTION_CACHE: dict[str, "FastEmbedLateInteractionReranker"] = {}
+
+_CROSS_ENCODER_CACHE: dict[str, "FastEmbedCrossEncoderReranker"] = {}
 
 
 def _l2_normalise(matrix: np.ndarray) -> np.ndarray:
@@ -160,6 +171,61 @@ class FastEmbedLateInteractionReranker:
         )
 
 
+class FastEmbedCrossEncoderReranker:
+    """Local, offline pairwise reranker via FastEmbed TextCrossEncoder."""
+
+    name = "fastembed_cross_encoder"
+
+    def __init__(self, model: str | None = None) -> None:
+        try:
+            from fastembed.rerank.cross_encoder import TextCrossEncoder  # type: ignore
+        except Exception as exc:  # pragma: no cover - import guard
+            raise NoEmbeddingProviderError(f"fastembed cross-encoder unavailable: {exc}") from exc
+
+        self.model = model or os.environ.get(
+            "ATLAS_SEMANTIC_RAG_CROSS_ENCODER_MODEL",
+            "jinaai/jina-reranker-v2-base-multilingual",
+        )
+        self._engine = TextCrossEncoder(model_name=self.model)
+        # Cross-encoder scores are scalar query/document relevance values.
+        self.dim = 1
+
+    def rerank(self, query: str, documents: Sequence[dict[str, str]], k: int = 3) -> CrossEncoderRerankResult:
+        texts = [str(doc.get("text", "")) for doc in documents]
+        scores = list(self._engine.rerank(query, texts))
+
+        raw: list[tuple[str, float]] = []
+        for doc, score in zip(documents, scores, strict=False):
+            doc_id = str(doc.get("id", ""))
+            if doc_id:
+                raw.append((doc_id, float(score)))
+
+        raw.sort(key=lambda row: (-row[1], row[0]))
+        selected = raw[: max(1, int(k))]
+        values = [score for _, score in selected]
+        min_score = min(values) if values else 0.0
+        max_score = max(values) if values else 0.0
+
+        matches: list[dict[str, float | str]] = []
+        for doc_id, score in selected:
+            if max_score > min_score:
+                normalized = (score - min_score) / (max_score - min_score)
+            else:
+                normalized = 1.0 if values else 0.0
+            matches.append({
+                "id": doc_id,
+                "score": float(round(max(0.0, min(1.0, normalized)), 6)),
+                "via": "cross_encoder",
+            })
+
+        return CrossEncoderRerankResult(
+            matches=matches,
+            model=self.model,
+            provider=self.name,
+            dim=self.dim,
+        )
+
+
 class OpenAIEmbedder:
     """Real embeddings via OpenAI text-embedding-3-small (API, not local)."""
 
@@ -237,4 +303,24 @@ def late_interaction_rerank(
     k: int = 5,
 ) -> LateInteractionRerankResult:
     reranker = resolve_late_interaction_reranker()
+    return reranker.rerank(query, documents, k)
+
+
+def resolve_cross_encoder_reranker(model: str | None = None) -> FastEmbedCrossEncoderReranker:
+    model_key = model or os.environ.get(
+        "ATLAS_SEMANTIC_RAG_CROSS_ENCODER_MODEL",
+        "jinaai/jina-reranker-v2-base-multilingual",
+    )
+    if model_key not in _CROSS_ENCODER_CACHE:
+        _CROSS_ENCODER_CACHE[model_key] = FastEmbedCrossEncoderReranker(model_key)
+
+    return _CROSS_ENCODER_CACHE[model_key]
+
+
+def cross_encoder_rerank(
+    query: str,
+    documents: Sequence[dict[str, str]],
+    k: int = 3,
+) -> CrossEncoderRerankResult:
+    reranker = resolve_cross_encoder_reranker()
     return reranker.rerank(query, documents, k)

@@ -28,6 +28,7 @@ def test_invalid_operation_rejected():
 def test_valid_manifests_pass():
     validate_manifest({"operation": "embed", "texts": ["a", "b"]})
     validate_manifest({"operation": "retrieve", "documents": [{"id": "1", "text": "a"}], "query": "q"})
+    validate_manifest({"operation": "rerank", "documents": [{"id": "1", "text": "a"}], "query": "q", "k": 1})
     validate_manifest({"operation": "late_interaction_rerank", "documents": [{"id": "1", "text": "a"}], "query": "q", "k": 1})
     validate_manifest({"operation": "graph", "documents": [{"id": "1", "text": "a"}]})
 
@@ -40,6 +41,8 @@ def test_embed_requires_texts_list():
 def test_retrieve_requires_query_string():
     with pytest.raises(ManifestError):
         validate_manifest({"operation": "retrieve", "documents": [{"id": "1", "text": "a"}]})
+    with pytest.raises(ManifestError):
+        validate_manifest({"operation": "rerank", "documents": [{"id": "1", "text": "a"}]})
 
 
 def test_probe_provider_reports_availability_honestly():

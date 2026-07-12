@@ -3449,7 +3449,7 @@ class AtlasOpenBrainContextPackService
         }
 
         $mode = (string) ($ranked['mode'] ?? 'lexical');
-        if (! in_array($mode, ['semantic', 'late_interaction'], true) || ($ranked['ranked'] ?? []) === []) {
+        if (! in_array($mode, ['semantic', 'cross_encoder', 'late_interaction'], true) || ($ranked['ranked'] ?? []) === []) {
             return [$candidates, 'lexical'];
         }
 

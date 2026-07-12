@@ -7,6 +7,7 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionMod
 use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternRegistry;
 use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternSourceIntake;
 use App\Services\Ai\AutonomousEvolution\Twin\AtlasLoopSimulableTwinOrchestrator;
+use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
 
 return [
     'version' => env('ATLAS_VERSION'),
@@ -4670,6 +4671,14 @@ return [
         // Kill-switch for the Python ranking call (fallback stays HONEST:
         // 'unranked_disabled', insertion order, never fabricated scores).
         'query_rank_enabled' => (bool) env('ATLAS_AURG_QUERY_RANK_ENABLED', true),
+        // MAXD-04: shadow-only Personalized PageRank dual-read against BFS.
+        // Default-OFF: records a JSONL ledger, never reorders live answers.
+        'query_ppr_shadow_enabled' => (bool) env('ATLAS_AURG_QUERY_PPR_SHADOW_ENABLED', false),
+        'query_ppr_shadow_latency_budget_ms' => (int) env('ATLAS_AURG_QUERY_PPR_SHADOW_LATENCY_BUDGET_MS', 2000),
+        'query_ppr_shadow_ledger_path' => (string) env(
+            'ATLAS_AURG_QUERY_PPR_SHADOW_LEDGER_PATH',
+            storage_path(AtlasAurgPprShadowDualReadLedger::RELATIVE_PATH),
+        ),
         // --- F4 compounding + temporal + status ---
         // Ingest-on-write: every AtlasMemoryRegistryService write best-effort
         // upserts its brain node + row-scoped linkers (fail-open, never blocks
@@ -4708,6 +4717,12 @@ return [
         'late_interaction_rerank' => (bool) env('ATLAS_AOBG_LATE_INTERACTION_RERANK', false),
         'late_interaction_candidate_window' => max(1, (int) env('ATLAS_AOBG_LATE_INTERACTION_CANDIDATE_WINDOW', 20)),
         'late_interaction_top_k' => max(1, (int) env('ATLAS_AOBG_LATE_INTERACTION_TOP_K', 5)),
+        // MAXB-06: local cross-encoder rerank stage over the existing L3-6 seam.
+        // Default OFF until golden v2 proves precision@3 lift and latency window.
+        'cross_encoder_rerank' => (bool) env('ATLAS_AOBG_CROSS_ENCODER_RERANK', false),
+        'cross_encoder_candidate_window' => max(1, (int) env('ATLAS_AOBG_CROSS_ENCODER_CANDIDATE_WINDOW', 30)),
+        'cross_encoder_top_k' => max(1, (int) env('ATLAS_AOBG_CROSS_ENCODER_TOP_K', 3)),
+        'cross_encoder_timeout_seconds' => max(1, (int) env('ATLAS_AOBG_CROSS_ENCODER_TIMEOUT_SECONDS', 3)),
         // MAXC-01: facet decomposition determinística no packFor (TaskFacetExtractor
         // routes typed sub-queries per source; passes extra são peek `record_usage=false`).
         // Default-OFF: pacote é byte-idêntico enquanto flag desligada; ligar só depois de

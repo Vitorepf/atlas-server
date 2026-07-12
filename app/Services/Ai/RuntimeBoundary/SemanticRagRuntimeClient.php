@@ -18,7 +18,7 @@ namespace App\Services\Ai\RuntimeBoundary;
  * raises explicitly (run scripts/setup-semantic-rag-runtime.sh). That is the
  * canon: a real Python engine or an honest failure, never a hash/token stand-in.
  */
-final class SemanticRagRuntimeClient implements SemanticLateInteractionRuntime, SemanticRetrievalRuntime
+final class SemanticRagRuntimeClient implements SemanticCrossEncoderRuntime, SemanticLateInteractionRuntime, SemanticRetrievalRuntime
 {
     private const RUNTIME_ROOT = 'runtimes/python/semantic_rag';
 
@@ -99,6 +99,23 @@ final class SemanticRagRuntimeClient implements SemanticLateInteractionRuntime, 
             'documents' => array_values($documents),
             'query' => $query,
             'k' => $k,
+        ]);
+    }
+
+    /**
+     * Cross-encoder rerank over an already-shortlisted candidate window.
+     *
+     * @param  array<int,array{id?:string,text:string,metadata?:array<string,mixed>}>  $documents
+     * @return array<string,mixed>
+     */
+    public function crossEncoderRerank(array $documents, string $query, int $k = 3): array
+    {
+        return $this->run([
+            'operation' => 'rerank',
+            'documents' => array_values($documents),
+            'query' => $query,
+            'k' => $k,
+            'timeout_seconds' => (int) config('atlas.aobg.cross_encoder_timeout_seconds', 3),
         ]);
     }
 

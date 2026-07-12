@@ -8,11 +8,14 @@ from __future__ import annotations
 
 from .contract import RECEIPT_SCHEMA, REQUEST_SCHEMA, probe_provider, run_manifest
 from .embeddings import (
+    CrossEncoderRerankResult,
     Embedder,
     LateInteractionRerankResult,
     NoEmbeddingProviderError,
+    cross_encoder_rerank,
     embed_texts,
     late_interaction_rerank,
+    resolve_cross_encoder_reranker,
     resolve_embedder,
     resolve_late_interaction_reranker,
 )
@@ -29,11 +32,14 @@ __all__ = [
     "VectorStore",
     "Document",
     "ScoredDocument",
+    "cross_encoder_rerank",
     "embed_texts",
     "late_interaction_rerank",
+    "resolve_cross_encoder_reranker",
     "resolve_embedder",
     "resolve_late_interaction_reranker",
     "Embedder",
+    "CrossEncoderRerankResult",
     "LateInteractionRerankResult",
     "NoEmbeddingProviderError",
 ]

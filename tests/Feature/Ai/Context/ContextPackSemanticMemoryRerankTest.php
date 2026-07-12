@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
+use App\Services\Ai\RuntimeBoundary\SemanticCrossEncoderRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use Mockery;
@@ -127,6 +128,34 @@ final class ContextPackSemanticMemoryRerankTest extends TestCase
         $this->assertSame('late_interaction', data_get($pack, 'provenance.memory.retrieval_mode'));
     }
 
+    public function test_cross_encoder_stage_reranks_top_window_to_precision3(): void
+    {
+        config([
+            'atlas.aobg.semantic_retrieval' => false,
+            'atlas.aobg.cross_encoder_rerank' => true,
+            'atlas.aobg.cross_encoder_candidate_window' => 30,
+            'atlas.aobg.cross_encoder_top_k' => 3,
+            'atlas.aobg.late_interaction_rerank' => false,
+        ]);
+        $this->bindMemory();
+        // mem_0=crop, mem_1=auth, mem_2=cache. Cross-encoder should produce top-3.
+        $this->app->instance(
+            SemanticRetrievalRuntime::class,
+            new RerankSpyRuntime(
+                available: true,
+                crossEncoderScores: ['mem_2' => 0.99, 'mem_1' => 0.90, 'mem_0' => 0.10],
+            ),
+        );
+
+        $pack = app(AtlasOpenBrainContextPackService::class)->packFor('stale lookup cache credentials', [
+            'workspace' => 'atlas-server',
+        ]);
+
+        $titles = array_column((array) data_get($pack, 'memory'), 'title');
+        $this->assertSame(['cache note', 'auth note', 'crop note'], $titles);
+        $this->assertSame('cross_encoder', data_get($pack, 'provenance.memory.retrieval_mode'));
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
@@ -138,16 +167,18 @@ final class ContextPackSemanticMemoryRerankTest extends TestCase
  * In-process boundary fake emitting a real-embeddings receipt with controllable
  * per-id scores. Distinct name to avoid clashing with the sibling test's spy.
  */
-final class RerankSpyRuntime implements SemanticLateInteractionRuntime, SemanticRetrievalRuntime
+final class RerankSpyRuntime implements SemanticCrossEncoderRuntime, SemanticLateInteractionRuntime, SemanticRetrievalRuntime
 {
     /**
      * @param  array<string,float>  $realScores
      * @param  array<string,float>  $lateInteractionScores
+     * @param  array<string,float>  $crossEncoderScores
      */
     public function __construct(
         private readonly bool $available,
         private readonly array $realScores = [],
         private readonly array $lateInteractionScores = [],
+        private readonly array $crossEncoderScores = [],
     ) {}
 
     public function available(): bool
@@ -201,6 +232,29 @@ final class RerankSpyRuntime implements SemanticLateInteractionRuntime, Semantic
                 'fabricated_vectors' => false,
                 'embeddings_engine_in_python' => true,
                 'late_interaction' => true,
+            ],
+        ];
+    }
+
+    public function crossEncoderRerank(array $documents, string $query, int $k = 3): array
+    {
+        if (! $this->available) {
+            throw new RuntimeException('crossEncoderRerank() called on an unavailable runtime — contract violation.');
+        }
+
+        $matches = [];
+        foreach ($documents as $doc) {
+            $id = (string) ($doc['id'] ?? '');
+            $matches[] = ['id' => $id, 'score' => $this->crossEncoderScores[$id] ?? 0.0, 'via' => 'cross_encoder'];
+        }
+
+        return [
+            'matches' => $matches,
+            'boundary' => [
+                'real_embeddings' => true,
+                'fabricated_vectors' => false,
+                'embeddings_engine_in_python' => true,
+                'cross_encoder' => true,
             ],
         ];
     }

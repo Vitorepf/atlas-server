@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\RuntimeBoundary\SemanticCrossEncoderRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
@@ -148,6 +149,60 @@ final class SemanticContextRetrievalServiceTest extends TestCase
         $this->assertSame(1, $spy->lateInteractionCalls);
     }
 
+    public function test_cross_encoder_stage_is_default_off_and_keeps_existing_order_byte_identical(): void
+    {
+        config([
+            'atlas.aobg.semantic_retrieval' => false,
+            'atlas.aobg.cross_encoder_rerank' => false,
+            'atlas.aobg.late_interaction_rerank' => false,
+        ]);
+        $spy = new SpyRuntime(available: true, crossEncoderScores: ['cache' => 0.99, 'auth' => 0.80]);
+        $service = new SemanticContextRetrievalService($spy);
+
+        $baseline = $service->rank('login credential check', self::ITEMS, 3);
+        $withDisabledStage = $service->rank('login credential check', self::ITEMS, 3);
+
+        $this->assertSame($baseline, $withDisabledStage);
+        $this->assertSame('lexical', $withDisabledStage['mode']);
+        $this->assertSame(0, $spy->crossEncoderCalls, 'default-OFF cross-encoder must not call the runtime');
+    }
+
+    public function test_cross_encoder_stage_reranks_top_window_to_precision3(): void
+    {
+        config([
+            'atlas.aobg.semantic_retrieval' => false,
+            'atlas.aobg.cross_encoder_rerank' => true,
+            'atlas.aobg.cross_encoder_candidate_window' => 30,
+            'atlas.aobg.cross_encoder_top_k' => 3,
+            'atlas.aobg.late_interaction_rerank' => false,
+        ]);
+        $items = [];
+        foreach (range(1, 35) as $n) {
+            $items[] = ['id' => sprintf('item%02d', $n), 'text' => 'candidate '.$n];
+        }
+        $spy = new SpyRuntime(
+            available: true,
+            crossEncoderScores: [
+                'item30' => 0.99,
+                'item05' => 0.91,
+                'item04' => 0.82,
+                // Outside the top-30 lexical window; must never be sent to the stage.
+                'item31' => 1.0,
+            ],
+        );
+        $service = new SemanticContextRetrievalService($spy);
+
+        $result = $service->rank('cross encoder query', $items, 35);
+
+        $this->assertSame('cross_encoder', $result['mode']);
+        $this->assertSame(1, $spy->crossEncoderCalls);
+        $this->assertSame(30, $spy->lastCrossEncoderDocumentCount);
+        $this->assertSame(3, $spy->lastCrossEncoderK);
+        $this->assertSame(['item30', 'item05', 'item04'], array_column($result['ranked'], 'id'));
+        $this->assertSame('local_cross_encoder', $result['ranked'][0]['score_origin']);
+        $this->assertNotContains('item31', array_column($result['ranked'], 'id'));
+    }
+
     public function test_live_semantic_retrieval_beats_or_matches_lexical_on_a_non_lexical_query(): void
     {
         config(['atlas.aobg.semantic_retrieval' => true]);
@@ -184,26 +239,35 @@ final class SemanticContextRetrievalServiceTest extends TestCase
  * In-process boundary fake. With realScores set it emits a real-embeddings receipt;
  * with fabricated=true it emits a receipt that fails the anti-fake check.
  */
-final class SpyRuntime implements SemanticLateInteractionRuntime, SemanticRetrievalRuntime
+final class SpyRuntime implements SemanticCrossEncoderRuntime, SemanticLateInteractionRuntime, SemanticRetrievalRuntime
 {
     public int $retrieveCalls = 0;
 
     public int $lateInteractionCalls = 0;
 
+    public int $crossEncoderCalls = 0;
+
     public int $lastLateInteractionDocumentCount = 0;
 
     public int $lastLateInteractionK = 0;
 
+    public int $lastCrossEncoderDocumentCount = 0;
+
+    public int $lastCrossEncoderK = 0;
+
     /**
      * @param  array<string,float>  $realScores
      * @param  array<string,float>  $lateInteractionScores
+     * @param  array<string,float>  $crossEncoderScores
      */
     public function __construct(
         private readonly bool $available,
         private readonly array $realScores = [],
         private readonly array $lateInteractionScores = [],
+        private readonly array $crossEncoderScores = [],
         private readonly bool $throwOnRetrieve = false,
         private readonly bool $throwOnLateInteraction = false,
+        private readonly bool $throwOnCrossEncoder = false,
         private readonly bool $fabricated = false,
     ) {}
 
@@ -263,6 +327,33 @@ final class SpyRuntime implements SemanticLateInteractionRuntime, SemanticRetrie
                 'fabricated_vectors' => $this->fabricated,
                 'embeddings_engine_in_python' => ! $this->fabricated,
                 'late_interaction' => ! $this->fabricated,
+            ],
+        ];
+    }
+
+    public function crossEncoderRerank(array $documents, string $query, int $k = 3): array
+    {
+        $this->crossEncoderCalls++;
+        $this->lastCrossEncoderDocumentCount = count($documents);
+        $this->lastCrossEncoderK = $k;
+
+        if ($this->throwOnCrossEncoder) {
+            throw new RuntimeException('simulated cross-encoder engine failure');
+        }
+
+        $matches = [];
+        foreach ($documents as $doc) {
+            $id = (string) ($doc['id'] ?? '');
+            $matches[] = ['id' => $id, 'score' => $this->crossEncoderScores[$id] ?? 0.0, 'via' => 'cross_encoder'];
+        }
+
+        return [
+            'matches' => $matches,
+            'boundary' => [
+                'real_embeddings' => ! $this->fabricated,
+                'fabricated_vectors' => $this->fabricated,
+                'embeddings_engine_in_python' => ! $this->fabricated,
+                'cross_encoder' => ! $this->fabricated,
             ],
         ];
     }

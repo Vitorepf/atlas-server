@@ -11,6 +11,7 @@ Operations:
   - embed:    {texts:[...]}                       -> real embedding vectors (for pgvector)
   - retrieve: {documents:[{id,text,metadata}], query, k?, graph_expand?, graph_threshold?}
   - graph:    {documents:[...], graph_threshold?} -> the embedding-similarity graph
+  - rerank:   {documents:[{id,text}], query, k?} -> local cross-encoder rerank
   - late_interaction_rerank: {documents:[{id,text}], query, k?} -> ColBERT-family rerank
 
 No secret/provider/model override is accepted from the manifest (FORBIDDEN_KEYS);
@@ -21,13 +22,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from .embeddings import NoEmbeddingProviderError, embed_texts, late_interaction_rerank, resolve_embedder
+from .embeddings import (
+    NoEmbeddingProviderError,
+    cross_encoder_rerank,
+    embed_texts,
+    late_interaction_rerank,
+    resolve_embedder,
+)
 from .rag import SemanticRag
 
 REQUEST_SCHEMA = "atlas.semantic_rag.python_runtime.request.v1"
 RECEIPT_SCHEMA = "atlas.semantic_rag.python_runtime.receipt.v1"
 
-VALID_OPERATIONS = {"embed", "retrieve", "graph", "late_interaction_rerank"}
+VALID_OPERATIONS = {"embed", "retrieve", "graph", "rerank", "late_interaction_rerank"}
 
 # The manifest must NOT carry secrets or runtime overrides — the kernel governs
 # those; the runtime resolves its own real provider from the environment.
@@ -49,13 +56,20 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise ManifestError(f"operation must be one of {sorted(VALID_OPERATIONS)}, got {operation!r}")
     if operation == "embed" and not isinstance(manifest.get("texts"), list):
         raise ManifestError("embed requires texts: [string, ...]")
-    if operation in {"retrieve", "graph", "late_interaction_rerank"} and not isinstance(manifest.get("documents"), list):
+    if operation in {"retrieve", "graph", "rerank", "late_interaction_rerank"} and not isinstance(manifest.get("documents"), list):
         raise ManifestError(f"{operation} requires documents: [{{id,text}}, ...]")
-    if operation in {"retrieve", "late_interaction_rerank"} and not isinstance(manifest.get("query"), str):
+    if operation in {"retrieve", "rerank", "late_interaction_rerank"} and not isinstance(manifest.get("query"), str):
         raise ManifestError(f"{operation} requires query: string")
 
 
-def _boundary(provider: str, model: str, dim: int, *, late_interaction: bool = False) -> dict[str, Any]:
+def _boundary(
+    provider: str,
+    model: str,
+    dim: int,
+    *,
+    cross_encoder: bool = False,
+    late_interaction: bool = False,
+) -> dict[str, Any]:
     # The self-declared boundary proof the kernel verifies: this IS a real
     # in-Python embeddings engine, not the PHP hash/token fallback.
     receipt = {
@@ -67,6 +81,8 @@ def _boundary(provider: str, model: str, dim: int, *, late_interaction: bool = F
         "model": model,
         "dim": int(dim),
     }
+    if cross_encoder:
+        receipt["cross_encoder"] = True
     if late_interaction:
         receipt["late_interaction"] = True
 
@@ -86,6 +102,26 @@ def run_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
             "count": int(result.vectors.shape[0]),
             "vectors": result.vectors.tolist(),
             "boundary": _boundary(result.provider, result.model, result.dim),
+        }
+
+    if operation == "rerank":
+        documents = [
+            {"id": str(doc.get("id", idx)), "text": str(doc.get("text", ""))}
+            for idx, doc in enumerate(manifest["documents"])
+            if isinstance(doc, dict)
+        ]
+        result = cross_encoder_rerank(
+            str(manifest["query"]),
+            documents,
+            k=int(manifest.get("k", 3)),
+        )
+        return {
+            "schema_version": RECEIPT_SCHEMA,
+            "operation": "rerank",
+            "candidate_count": len(documents),
+            "query": str(manifest["query"]),
+            "matches": result.matches,
+            "boundary": _boundary(result.provider, result.model, result.dim, cross_encoder=True),
         }
 
     if operation == "late_interaction_rerank":
