@@ -95,6 +95,12 @@ class AtlasRealityGraphIngestionService
 
     public const CONFIDENCE_DERIVED = 0.7;
 
+    /**
+     * MAXD-03 co-citation rung: an inference from a shared mission witness, not
+     * a direct linker match — kept below EXACT/DERIVED on purpose.
+     */
+    public const CONFIDENCE_CO_CITED = 0.5;
+
     /** Per-node cap on linker-discovered candidate paths kept in meta. */
     private const MAX_META_PATHS = 10;
 
@@ -103,6 +109,9 @@ class AtlasRealityGraphIngestionService
 
     /** Per-memory/evidence cap on emitted linker edges (bound, deterministic order). */
     private const MAX_LINKS_PER_NODE = 10;
+
+    /** MAXD-03: cap on emitted co-cited edges per memory node (transitive-blow-up guard). */
+    private const MAX_CO_CITED_PER_MEMORY = 5;
 
     public function __construct(
         private readonly CrossDomainTaxonomyMap $taxonomy,
@@ -171,6 +180,10 @@ class AtlasRealityGraphIngestionService
             'doc_code_index' => $this->linkDocsToCodeIndex(),
             'doc_authority' => $this->linkDocsToAuthorityGraph(),
             'doc_memory' => $this->linkDocsToMemory(),
+            // MAXD-03 co-citation: emit memory→module edges when a mission
+            // witnessed both. Runs AFTER the direct linkers so the transitive
+            // sees the current state of mission→memory / mission→module edges.
+            'co_cited' => $this->linkCoCitations(),
         ];
 
         $stats['totals'] = [
@@ -1675,6 +1688,112 @@ class AtlasRealityGraphIngestionService
                     );
                     $emitted++;
                     break;
+                }
+            }
+        }
+
+        return $this->upsertEdges($edges);
+    }
+
+    /**
+     * MAXD-03 — Co-citation memory↔code via missions.
+     *
+     * For every mission that references BOTH a memory_entry AND a code module,
+     * emit a memory→module `co_cited` edge (source=linker_co_cited, confidence
+     * 0.5, meta={witness_mission_id}). Deterministic, cite-or-omit, bounded by
+     * MAX_CO_CITED_PER_MEMORY per memory node (transitive-blow-up guard: a
+     * mission that touched 30 paths and cited 5 memories would otherwise emit
+     * a 150-edge cartesian product).
+     *
+     * Uses AtlasAurgEdge as the ground truth so it reflects EVERY producer of
+     * mission→memory / mission→module edges — including cite-or-omit ones the
+     * current run wrote seconds ago.
+     */
+    private function linkCoCitations(): int
+    {
+        if (! $this->tableExists('atlas_aurg_edges') || ! $this->tableExists('atlas_aurg_nodes')) {
+            return 0;
+        }
+
+        // 1) Collect mission node ids.
+        $missions = $this->brainNodes('mission', AtlasRealityGraphSnapshotBuilderService::NODE_MISSION);
+        if ($missions === []) {
+            return 0;
+        }
+        $missionNodeIds = array_column($missions, 'id');
+
+        // 2) Deterministic index: mission -> memory endpoints and mission -> module endpoints,
+        //    drawn from AURG edges. references+proves are both meaningful witnesses.
+        $memoryByMission = [];
+        $moduleByMission = [];
+
+        $rows = DB::table('atlas_aurg_edges as edge')
+            ->join('atlas_aurg_nodes as from_node', 'from_node.id', '=', 'edge.from_node_id')
+            ->join('atlas_aurg_nodes as to_node', 'to_node.id', '=', 'edge.to_node_id')
+            ->whereIn('from_node.id', $missionNodeIds)
+            ->whereIn('to_node.source_kind', ['memory', 'code'])
+            ->whereIn('edge.kind', [
+                AtlasRealityGraphSnapshotBuilderService::EDGE_REFERENCES,
+                AtlasRealityGraphSnapshotBuilderService::EDGE_PROVES,
+            ])
+            ->orderBy('edge.from_node_id')
+            ->orderBy('edge.to_node_id')
+            ->get([
+                'from_node.id as mission_id',
+                'to_node.id as endpoint_id',
+                'to_node.source_kind as endpoint_source_kind',
+                'to_node.kind as endpoint_kind',
+            ]);
+
+        foreach ($rows as $row) {
+            $missionId = (string) $row->mission_id;
+            $endpointId = (string) $row->endpoint_id;
+            $kind = (string) $row->endpoint_kind;
+            if ($row->endpoint_source_kind === 'memory'
+                && $kind === AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY) {
+                $memoryByMission[$missionId][$endpointId] = true;
+            } elseif ($row->endpoint_source_kind === 'code'
+                && $kind === AtlasRealityGraphSnapshotBuilderService::NODE_MODULE) {
+                $moduleByMission[$missionId][$endpointId] = true;
+            }
+        }
+
+        // 3) Emit deterministic edges (memory→module) capped per memory.
+        $emittedPerMemory = [];
+        $seenPair = [];
+        $edges = [];
+        ksort($memoryByMission);
+        foreach ($memoryByMission as $missionId => $memoryIds) {
+            $moduleIds = $moduleByMission[$missionId] ?? [];
+            if ($moduleIds === []) {
+                continue;
+            }
+            $memoryIdsList = array_keys($memoryIds);
+            $moduleIdsList = array_keys($moduleIds);
+            sort($memoryIdsList);
+            sort($moduleIdsList);
+            foreach ($memoryIdsList as $memoryId) {
+                if (($emittedPerMemory[$memoryId] ?? 0) >= self::MAX_CO_CITED_PER_MEMORY) {
+                    continue;
+                }
+                foreach ($moduleIdsList as $moduleId) {
+                    if (($emittedPerMemory[$memoryId] ?? 0) >= self::MAX_CO_CITED_PER_MEMORY) {
+                        break;
+                    }
+                    $pairKey = $memoryId.'->'.$moduleId;
+                    if (isset($seenPair[$pairKey])) {
+                        continue;
+                    }
+                    $seenPair[$pairKey] = true;
+                    $emittedPerMemory[$memoryId] = ($emittedPerMemory[$memoryId] ?? 0) + 1;
+                    $edges[] = $this->edge(
+                        from: $memoryId,
+                        to: $moduleId,
+                        kind: AtlasRealityGraphSnapshotBuilderService::EDGE_CO_CITED,
+                        source: 'linker_co_cited',
+                        confidence: self::CONFIDENCE_CO_CITED,
+                        meta: ['witness_mission_id' => $missionId],
+                    );
                 }
             }
         }

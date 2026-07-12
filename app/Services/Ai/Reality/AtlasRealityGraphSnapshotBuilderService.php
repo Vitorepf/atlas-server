@@ -99,6 +99,11 @@ class AtlasRealityGraphSnapshotBuilderService
 
     public const EDGE_PROVES = 'proves';
 
+    // MAXD-03 co-citation rung: an edge produced deterministically from a
+    // mission that references both endpoints. Confidence 0.5 (weaker than
+    // the exact/derived ladder above), witness_mission_id in meta.
+    public const EDGE_CO_CITED = 'co_cited';
+
     public const ALLOWED_EDGE_KINDS = [
         self::EDGE_BELONGS_TO,
         self::EDGE_DEPENDS_ON,
@@ -106,6 +111,7 @@ class AtlasRealityGraphSnapshotBuilderService
         self::EDGE_REFERENCES,
         self::EDGE_SUPERSEDES,
         self::EDGE_PROVES,
+        self::EDGE_CO_CITED,
     ];
 
     /**

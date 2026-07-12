@@ -46,6 +46,10 @@ class AtlasRealityGraphStatusService
     private const RAG10_EXCLUDED_LINKER_SOURCES = [
         'linker_doc_code_index',
         'linker_doc_authority',
+        // MAXD-03: co-citation is a densifier for retrieval, not a claim of
+        // direct cross-layer linkage — must never inflate the RAG-10 gate or
+        // the memory cross-layer coverage ratio.
+        'linker_co_cited',
     ];
 
     public function __construct(

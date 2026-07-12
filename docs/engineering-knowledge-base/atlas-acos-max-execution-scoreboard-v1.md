@@ -141,7 +141,7 @@
 - [ ] MAXC-03 — pending
 - [ ] MAXC-04 — pending
 - [ ] MAXC-05 — pending
-- [ ] MAXD-03 — pending
+- [x] MAXD-03 — landed · `AtlasRealityGraphIngestionService::linkCoCitations()` roda pós-linkers e emite memory→module `co_cited` (kind novo em `AtlasRealityGraphSnapshotBuilderService::EDGE_CO_CITED`, source `linker_co_cited`, confidence pinada `CONFIDENCE_CO_CITED=0.5`, meta `{witness_mission_id}`) para cada missão que tem ao mesmo tempo aresta →memory_entry E →module (via `references`/`proves`); cap `MAX_CO_CITED_PER_MEMORY=5` guarda contra transitive-blow-up (missão-gorda com 30 arquivos × 5 memórias); `linker_co_cited` incluído em `AtlasRealityGraphStatusService::RAG10_EXCLUDED_LINKER_SOURCES` — nunca infla `memory_cross_layer_coverage_ratio` nem gate RAG-10; tests: `php artisan test tests/Feature/Ai/AcosMax/Maxd03CoCitationLinkerTest.php tests/Feature/Reality/AtlasAurgIngestionTest.php tests/Feature/Reality/AtlasAurgMissionOutcomeTest.php tests/Feature/Ai/Cognition/AurgCoverageGateTest.php`
 - [ ] MAXD-04 — pending
 - [ ] MAXD-07 — pending
 - [x] MAXE-08 — landed · `compactMemoryItemForPack` agora degrada em degraus: body-inteiro → summary-inteiro (`body_omitted=true`, título+summary intactos) → truncação com marker só como último recurso; teste unitário `tests/Unit/Ai/AcosMax/Maxe08SummaryFirstPackingTest.php` cobre os 3 caminhos incluindo caso negativo (summary alone overflow ⇒ marker); regressão `tests/Feature/Ai/Context/ContextPackMemoryMultiItemTest.php` verde
