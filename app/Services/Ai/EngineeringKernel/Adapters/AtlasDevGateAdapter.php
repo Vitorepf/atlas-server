@@ -12,6 +12,7 @@ use App\Services\Ai\EngineeringKernel\NonFunctional\MigrationSafetyProbe;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\EngineeringKernel\VerificationCourtAcceptanceGate;
 use App\Services\Ai\Programming\AtlasDev\Mutation\MutationScoreVerdict;
 
 /**
@@ -42,7 +43,9 @@ final class AtlasDevGateAdapter implements AcceptanceGate
     /** Pass-through so the adapter itself can be bound as the AcceptanceGate for a surface. */
     public function certify(AcceptanceBundle $bundle, TrustLevel $trust): CertVerdict
     {
-        return $this->floor->certify($bundle, $trust);
+        return array_key_exists('verification_court', $bundle->nonFunctional)
+            ? (new VerificationCourtAcceptanceGate($this->floor))->certify($bundle, $trust)
+            : $this->floor->certify($bundle, $trust);
     }
 
     /**

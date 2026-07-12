@@ -9,6 +9,7 @@ use App\Services\Ai\EngineeringKernel\AcceptanceGate;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\EngineeringKernel\VerificationCourtAcceptanceGate;
 
 /**
  * Engineering Kernel adapter: promotes a per-delivery evidence bundle into an
@@ -29,7 +30,9 @@ class AtlasAutonomosGateAdapter implements AcceptanceGate
 
     public function certify(AcceptanceBundle $bundle, TrustLevel $trust): CertVerdict
     {
-        return $this->floor->certify($bundle, $trust);
+        return array_key_exists('verification_court', $bundle->nonFunctional)
+            ? (new VerificationCourtAcceptanceGate($this->floor))->certify($bundle, $trust)
+            : $this->floor->certify($bundle, $trust);
     }
 
     /**

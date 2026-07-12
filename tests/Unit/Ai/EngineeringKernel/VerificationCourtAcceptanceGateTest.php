@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\EngineeringKernel;
 
 use App\Services\Ai\EngineeringKernel\CertVerdict;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasObraGateAdapter;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
 use App\Services\Ai\EngineeringKernel\VerificationCourtAcceptanceGate;
 use PHPUnit\Framework\TestCase;
@@ -55,6 +59,23 @@ final class VerificationCourtAcceptanceGateTest extends TestCase
         self::assertSame(CertVerdict::REFUSE, $verdict->status);
         self::assertContains('false_green_replay', $verdict->blockers);
         self::assertStringContainsString('replay_red:cmd-1', $verdict->invariants['false_green_replay']['detail']);
+    }
+
+    public function test_all_surface_adapters_route_court_facts_through_the_same_gate(): void
+    {
+        $bundle = $this->bundle();
+        $adapters = [
+            [new AtlasDevGateAdapter, TrustLevel::Dev],
+            [new AtlasForgeGateAdapter, TrustLevel::Forge],
+            [new AtlasAutonomosGateAdapter, TrustLevel::Autonomos],
+            [new AtlasObraGateAdapter, TrustLevel::Autonomos],
+        ];
+
+        foreach ($adapters as [$adapter, $trust]) {
+            $verdict = $adapter->certify($bundle, $trust);
+            self::assertSame(CertVerdict::PROMOTE, $verdict->status, $adapter::class.': '.implode(',', $verdict->blockers));
+            self::assertArrayHasKey('verification_roles', $verdict->invariants);
+        }
     }
 
     /** @param array<string,mixed>|null $facts */
