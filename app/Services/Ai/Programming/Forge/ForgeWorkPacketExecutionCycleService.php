@@ -143,9 +143,10 @@ class ForgeWorkPacketExecutionCycleService
         }
         $completedPacketIds = array_merge(
             $completedPacketIds,
-            $intake->workPackets()
-                ->where('status', ForgeIntakeCanon::PACKET_STATUS_DONE)
-                ->pluck('packet_id')
+            AiForgeWorkPacketExecutionCycle::query()
+                ->whereIn('work_packet_id', $intake->workPackets()->pluck('id'))
+                ->where('outcome_status', ForgeWorkPacketExecutionCycleCanon::OUTCOME_SUCCESS)
+                ->pluck('work_packet_canonical_id')
                 ->map(static fn ($id): string => (string) $id)
                 ->all(),
         );

@@ -105,7 +105,17 @@ class ForgeWorkPacketExecutionCycleServiceTest extends TestCase
         $this->assertNotNull($selected);
         $this->assertSame((string) $dependency->packet_id, (string) $selected->packet_id);
 
-        $dependency->update(['status' => ForgeIntakeCanon::PACKET_STATUS_DONE]);
+        $built = $this->cycles->planExecution($dependency, [
+            'execution_mode' => ForgeWorkPacketExecutionCycleCanon::MODE_REAL,
+            'scope_path' => 'app/Dependency.php',
+            'lease_owner' => 'forge-test',
+            'lease_token' => 'forge-test-token',
+            'idempotency_key' => 'forge-dependency-success',
+        ]);
+        $cycle = $this->cycles->startCycle($intake, $dependency, $built);
+        $this->cycles->complete($cycle, [
+            ['kind' => 'productive_receipt', 'ref' => 'receipt:dependency'],
+        ], $this->passingGate());
         $intake->refresh();
         $selectedAfterCompletion = $this->cycles->selectPacket($intake);
 
