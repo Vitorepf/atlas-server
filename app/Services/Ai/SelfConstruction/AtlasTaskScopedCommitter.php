@@ -241,6 +241,25 @@ final class AtlasTaskScopedCommitter
                 committed: true,
             );
 
+            // ASI-08 — one pattern-learning row per real landing, server-side.
+            // Fail-open: ledger write never blocks the receipt.
+            $patternLedgerRow = null;
+            try {
+                $patternLedgerRow = (new \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger)
+                    ->append([
+                        'scope' => $commitAuthority === 'operator' ? 'operator_land' : 'autonomos_land',
+                        'task_id' => $taskPacketId,
+                        'action_hint' => 'compound',
+                        'result_kind' => \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger::RESULT_ACCEPTED,
+                        'evidence_refs' => array_map(
+                            static fn (string $file): string => 'file:'.$file,
+                            $files,
+                        ),
+                    ]);
+            } catch (\Throwable) {
+                $patternLedgerRow = null;
+            }
+
             return $this->result(true, 'committed', taskPacketId: $taskPacketId, extra: array_filter([
                 'commit_sha' => $sha,
                 'files_committed' => $files,
@@ -250,6 +269,7 @@ final class AtlasTaskScopedCommitter
                 'blackboard_claim_release' => $blackboardClaimRelease,
                 'remint_touched_queue' => $remintTouchedQueue,
                 'live_outcome_feedback' => $liveOutcomeFeedback,
+                'pattern_learning_ledger' => $patternLedgerRow,
             ], static fn (mixed $v): bool => $v !== null));
         };
 

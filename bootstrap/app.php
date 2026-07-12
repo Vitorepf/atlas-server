@@ -102,6 +102,7 @@ use App\Console\Commands\AtlasContextLatencyCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
 use App\Console\Commands\AtlasAutonomosAutoApplyPreflightCommand;
 use App\Console\Commands\AtlasAutonomosPreflightCommand;
+use App\Console\Commands\AtlasBrainPathYieldCommand;
 use App\Console\Commands\AtlasContextSufficiencyCalibrationCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
@@ -414,6 +415,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasContextSufficiencyCalibrationCommand::class,
         AtlasAutonomosPreflightCommand::class,
         AtlasAutonomosAutoApplyPreflightCommand::class,
+        AtlasBrainPathYieldCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasContextPolicyTrendCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
