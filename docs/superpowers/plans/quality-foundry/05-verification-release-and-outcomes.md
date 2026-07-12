@@ -239,7 +239,7 @@ Outcome dimensions include defects, incidents, rollback, rework, vulnerabilities
 - [x] Require complete gate composition, anti-false-green mutation, 100% mutative coverage, pre-actuation guards, successful canary/revert drills, N−1 compatibility and active outcome writer for readiness. Evidence: `QualityFoundryReadinessStateMachine` requires all nine conjunctive cutover gates and `QualityFoundryReadinessStateMachineTest` proves missing temporal, N−1, comparative and cutover evidence remains blocked; `CanonicalCommitActuationTest` covers canary/revert/pre-actuation failure paths.
 - [x] Emit separate states for implementation, cutover readiness and each real observation window.
 - [x] Prove state tests cannot jump to `quality_foundry_ready`, `multiplier_proven`, `world_leading` or `world_10x_quality_proven`.
-- [ ] Produce live manifests for Kernel/Dev/Forge/Autônomos with real receipt and test refs.
+- [x] Produce live manifests for Kernel/Dev/Forge/Autônomos with real receipt and test refs. Evidence: `atlas:engineering:quality-foundry-manifests --json` executes the mode-scoped suites in hermetic SQLite subprocesses, records exit/output/duration receipts plus SHA-256 test refs, and remains blocked until rollback, coverage, outcome-writer, idempotency and parity evidence exist; no cutover is authorized.
 
 **GREEN acceptance:** the manifest states exactly what is proven and lists unelapsed windows/blockers; no cutover action is performed.
 

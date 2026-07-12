@@ -242,6 +242,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'append_forever',
                 'rationale' => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
             ],
+            'atlas.kb_embedding_coverage.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 60,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs',
+            ],
         ];
     }
 

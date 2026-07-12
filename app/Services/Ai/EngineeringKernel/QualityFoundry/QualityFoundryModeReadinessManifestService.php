@@ -36,6 +36,13 @@ final class QualityFoundryModeReadinessManifestService
                 'status' => $modeBlockers === [] ? 'ready' : 'blocked',
                 'source' => $receipt['source'] ?? null,
                 'receipt_hashes' => array_values(array_map('strval', (array) ($receipt['receipt_hashes'] ?? []))),
+                'test_refs' => $this->testRefs($receipt),
+                'execution' => [
+                    'command' => array_values(array_map('strval', (array) ($receipt['command'] ?? []))),
+                    'exit_code' => isset($receipt['exit_code']) ? (int) $receipt['exit_code'] : null,
+                    'output_hash' => isset($receipt['output_hash']) ? (string) $receipt['output_hash'] : null,
+                    'duration_ms' => isset($receipt['duration_ms']) ? (int) $receipt['duration_ms'] : null,
+                ],
                 'blockers' => $modeBlockers,
                 'claim_eligible' => false,
             ];
@@ -98,6 +105,22 @@ final class QualityFoundryModeReadinessManifestService
         if (! is_array($receipt['receipt_hashes'] ?? null) || $receipt['receipt_hashes'] === []) {
             $blockers[] = 'live_receipts_missing';
         }
+        $testRefs = $this->testRefs($receipt);
+        if ($testRefs === []) {
+            $blockers[] = 'test_refs_missing';
+        }
+        foreach ($testRefs as $testRef) {
+            $path = (string) ($testRef['path'] ?? '');
+            $expectedHash = (string) ($testRef['sha256'] ?? '');
+            $absolute = $path !== '' ? base_path($path) : '';
+            if ($path === '' || ! is_file($absolute)) {
+                $blockers[] = 'test_ref_missing';
+                continue;
+            }
+            if ($expectedHash === '' || ! hash_equals($expectedHash, (string) hash_file('sha256', $absolute))) {
+                $blockers[] = 'test_ref_hash_mismatch';
+            }
+        }
         foreach ([
             'kernel_routed' => 'kernel_route_missing',
             'rollback_exercised' => 'rollback_not_exercised',
@@ -112,5 +135,16 @@ final class QualityFoundryModeReadinessManifestService
         }
 
         return $blockers;
+    }
+
+    /** @return list<array{path:string,sha256:string}> */
+    private function testRefs(array $receipt): array
+    {
+        return array_values(array_filter(array_map(
+            static fn (mixed $ref): ?array => is_array($ref) && isset($ref['path'], $ref['sha256'])
+                ? ['path' => (string) $ref['path'], 'sha256' => (string) $ref['sha256']]
+                : null,
+            (array) ($receipt['test_refs'] ?? []),
+        )));
     }
 }

@@ -56,6 +56,10 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         $receipt = static fn (string $mode): array => [
             'source' => 'live_receipt',
             'receipt_hashes' => [hash('sha256', 'receipt:'.$mode)],
+            'test_refs' => [[
+                'path' => 'tests/Unit/Ai/EngineeringKernel/QualityFoundryModeReadinessManifestServiceTest.php',
+                'sha256' => (string) hash_file('sha256', base_path('tests/Unit/Ai/EngineeringKernel/QualityFoundryModeReadinessManifestServiceTest.php')),
+            ]],
             'kernel_routed' => true,
             'coverage_percent' => 100,
             'rollback_exercised' => true,

@@ -359,6 +359,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_days' => 365,
                 'ttl_source' => 'freeze:atlas.n_capture_drill.v1',
             ],
+            [
+                'slice' => 'MAXA-06',
+                'series' => \App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID,
+                'path' => 'AtlasKnowledgeItemEmbeddingCoverageService::report',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 60,
+                'ttl_source' => 'freeze:atlas.kb_embedding_coverage.v1',
+            ],
         ];
     }
 

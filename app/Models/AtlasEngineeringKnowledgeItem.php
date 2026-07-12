@@ -39,6 +39,9 @@ class AtlasEngineeringKnowledgeItem extends Model
         'indexed_at',
         'last_verified_at',
         'archived_at',
+        'embedding_model',
+        'embedded_content_hash',
+        'embedded_at',
     ];
 
     protected function casts(): array
@@ -54,6 +57,7 @@ class AtlasEngineeringKnowledgeItem extends Model
             'indexed_at' => 'immutable_datetime',
             'last_verified_at' => 'immutable_datetime',
             'archived_at' => 'immutable_datetime',
+            'embedded_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];
