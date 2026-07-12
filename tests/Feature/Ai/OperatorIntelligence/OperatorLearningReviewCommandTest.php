@@ -144,6 +144,83 @@ final class OperatorLearningReviewCommandTest extends TestCase
         $this->assertSame('privacy_class_not_allowed', data_get($context, 'omitted.0.reason'));
     }
 
+    public function test_operator_profile_audit_lists_all_items_with_provider_blocking_denominator(): void
+    {
+        OperatorProfileItem::query()->create([
+            'operator_id' => 'vitor',
+            'taxonomy_item_id' => 'COL-156',
+            'profile_key' => 'communication.status_detail',
+            'value' => ['effect' => 'response_style'],
+            'summary' => 'Prefers terse status updates.',
+            'privacy_class' => 'normal',
+            'confidence' => 0.9,
+            'automation_level' => 'observe',
+            'status' => 'active',
+        ]);
+        OperatorProfileItem::query()->create([
+            'operator_id' => 'vitor',
+            'taxonomy_item_id' => 'OP-140',
+            'profile_key' => 'security.private_boundary',
+            'value' => ['effect' => 'do_not_do'],
+            'summary' => 'Private operator-only preference.',
+            'privacy_class' => 'sensitive',
+            'confidence' => 0.8,
+            'automation_level' => 'observe',
+            'status' => 'paused',
+        ]);
+
+        $exit = Artisan::call('atlas:operator-profile', [
+            'action' => 'audit',
+            '--operator' => 'vitor',
+            '--json' => true,
+        ]);
+        $audit = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('atlas.operator_profile.audit.v1', $audit['schema_version']);
+        $this->assertSame(2, $audit['total_items']);
+        $this->assertSame(OperatorProfileItem::query()->where('operator_id', 'vitor')->count(), $audit['denominator']['operator_profile_items_total']);
+        $this->assertTrue(collect($audit['items'])->firstWhere('profile_key', 'security.private_boundary')['provider_blocked']);
+    }
+
+    public function test_operator_profile_correct_reject_pauses_item_and_removes_it_from_context(): void
+    {
+        $item = OperatorProfileItem::query()->create([
+            'operator_id' => 'vitor',
+            'taxonomy_item_id' => 'COL-156',
+            'profile_key' => 'communication.rejectable',
+            'value' => ['effect' => 'response_style'],
+            'summary' => 'Rejectable preference.',
+            'privacy_class' => 'normal',
+            'confidence' => 0.9,
+            'automation_level' => 'observe',
+            'status' => 'active',
+        ]);
+
+        $exit = Artisan::call('atlas:operator-profile', [
+            'action' => 'correct',
+            '--operator' => 'vitor',
+            '--item' => $item->id,
+            '--verdict' => 'reject',
+            '--json' => true,
+        ]);
+        $correction = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('operator_correction', data_get($correction, 'feedback.action'));
+        $this->assertSame(OperatorProfileItem::STATUS_PAUSED, $item->refresh()->status);
+        $this->assertSame(1, OperatorProfileFeedbackEvent::query()->where('feedback_action', 'operator_correction')->count());
+
+        Artisan::call('atlas:operator-profile', [
+            'action' => 'context',
+            '--operator' => 'vitor',
+            '--json' => true,
+        ]);
+        $context = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame([], $context['items']);
+    }
+
     public function test_review_queue_lists_pending_candidates_without_promoting(): void
     {
         Artisan::call('atlas:operator-learning', [
