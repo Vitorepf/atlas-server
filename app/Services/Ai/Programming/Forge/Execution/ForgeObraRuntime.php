@@ -226,6 +226,123 @@ final class ForgeObraRuntime
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')), (string) $packet->packet_id, (string) $cycle->uuid);
     }
 
+    /** Start the provider-side lifecycle for a persisted real cycle exactly once. */
+    public function providerStart(ForgeObraId $obra, ?string $cycleId = null): array
+    {
+        $cycle = $this->providerCycle($obra, $cycleId);
+        if (! $cycle instanceof AiForgeWorkPacketExecutionCycle) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'no_cycle'];
+        }
+        $plan = (array) ($cycle->execution_plan ?? []);
+        $reservation = (array) ($plan['scope_reservation'] ?? []);
+        $fence = (int) ($reservation['fencing_token'] ?? 0);
+        $current = (array) ($plan['provider_lifecycle'] ?? []);
+        if (($current['status'] ?? null) === 'started') {
+            if ($fence !== (int) ($current['fencing_token'] ?? -1)) {
+                return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
+            }
+
+            return $current + ['schema' => 'atlas.forge.provider_lifecycle.v1', 'replayed' => true];
+        }
+        if ($cycle->execution_mode !== ForgeWorkPacketExecutionCycleCanon::MODE_REAL) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'provider_lifecycle_requires_real_cycle'];
+        }
+        if ($cycle->status !== ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING || $fence < 1) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_start_authority_missing'];
+        }
+
+        $lifecycle = [
+            'schema' => 'atlas.forge.provider_lifecycle.v1',
+            'status' => 'started',
+            'provider_execution_id' => 'forge-provider:'.$cycle->uuid,
+            'provider' => 'atlas_kernel',
+            'model' => 'shared_quality_foundry',
+            'cycle_id' => (string) $cycle->uuid,
+            'fencing_token' => $fence,
+            'started_at' => now()->toIso8601String(),
+            'last_heartbeat_at' => now()->toIso8601String(),
+            'replayed' => false,
+        ];
+        $this->cycles->recordProviderLifecycle($cycle, $lifecycle);
+
+        return $lifecycle;
+    }
+
+    /** Poll the durable provider lifecycle without re-executing the Kernel. */
+    public function providerPoll(ForgeObraId $obra, ?string $cycleId, int $fencingToken): array
+    {
+        $cycle = $this->providerCycle($obra, $cycleId);
+        if (! $cycle instanceof AiForgeWorkPacketExecutionCycle) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'no_cycle'];
+        }
+        $lifecycle = (array) data_get($cycle->execution_plan, 'provider_lifecycle', []);
+        if ($lifecycle === []) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'provider_not_started'];
+        }
+        if ($fencingToken !== (int) ($lifecycle['fencing_token'] ?? -1)) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
+        }
+        if ($cycle->status !== ForgeWorkPacketExecutionCycleCanon::STATUS_RUNNING) {
+            $lifecycle['status'] = $cycle->outcome_status ?: $cycle->status;
+        } elseif (($lifecycle['status'] ?? null) === 'started') {
+            $lifecycle['status'] = 'running';
+        }
+
+        return $lifecycle + ['polled_at' => now()->toIso8601String()];
+    }
+
+    /** Record a fenced provider heartbeat; it never starts or re-runs provider work. */
+    public function providerHeartbeat(ForgeObraId $obra, ?string $cycleId, int $fencingToken): array
+    {
+        $cycle = $this->providerCycle($obra, $cycleId);
+        $lifecycle = $cycle instanceof AiForgeWorkPacketExecutionCycle
+            ? (array) data_get($cycle->execution_plan, 'provider_lifecycle', [])
+            : [];
+        if ($lifecycle === [] || $fencingToken !== (int) ($lifecycle['fencing_token'] ?? -1)) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
+        }
+        $lifecycle['last_heartbeat_at'] = now()->toIso8601String();
+        $updated = $this->cycles->recordProviderLifecycle($cycle, $lifecycle);
+
+        return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'ok', 'cycle_id' => (string) $updated->uuid, 'fencing_token' => $fencingToken, 'last_heartbeat_at' => $lifecycle['last_heartbeat_at']];
+    }
+
+    /** Cancel a provider lifecycle once and persist the cancellation through the cycle owner. */
+    public function providerCancel(ForgeObraId $obra, ?string $cycleId, int $fencingToken, string $reason): array
+    {
+        $cycle = $this->providerCycle($obra, $cycleId);
+        if (! $cycle instanceof AiForgeWorkPacketExecutionCycle) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'no_cycle'];
+        }
+        $lifecycle = (array) data_get($cycle->execution_plan, 'provider_lifecycle', []);
+        if ($fencingToken !== (int) ($lifecycle['fencing_token'] ?? -1)) {
+            return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
+        }
+        if (($lifecycle['status'] ?? null) === 'cancelled') {
+            $lifecycle['replayed'] = true;
+
+            return $lifecycle;
+        }
+        $lifecycle['status'] = 'cancelled';
+        $lifecycle['reason'] = trim($reason) !== '' ? trim($reason) : 'provider_cancelled';
+        $lifecycle['cancelled_at'] = now()->toIso8601String();
+        $this->cycles->recordProviderLifecycle($cycle, $lifecycle);
+
+        return $lifecycle + ['replayed' => false];
+    }
+
+    private function providerCycle(ForgeObraId $obra, ?string $cycleId): ?AiForgeWorkPacketExecutionCycle
+    {
+        $query = AiForgeWorkPacketExecutionCycle::query()->where('intake_id', $obra->value)->orderByDesc('started_at');
+        if ($cycleId !== null && trim($cycleId) !== '') {
+            $query->where(function ($builder) use ($cycleId): void {
+                $builder->where('uuid', $cycleId)->orWhere('id', $cycleId);
+            });
+        }
+
+        return $query->first();
+    }
+
     /**
      * Renew the live scope lease for the currently running packet.
      *

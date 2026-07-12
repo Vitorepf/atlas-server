@@ -482,6 +482,24 @@ class ForgeWorkPacketExecutionCycleService
         }, 3);
     }
 
+    /** Persist one provider lifecycle transition without creating a second ledger. */
+    public function recordProviderLifecycle(AiForgeWorkPacketExecutionCycle $cycle, array $lifecycle): AiForgeWorkPacketExecutionCycle
+    {
+        return DB::transaction(function () use ($cycle, $lifecycle): AiForgeWorkPacketExecutionCycle {
+            $current = AiForgeWorkPacketExecutionCycle::query()->lockForUpdate()->find($cycle->getKey());
+            if (! $current instanceof AiForgeWorkPacketExecutionCycle) {
+                throw new ForgeWorkPacketExecutionCycleException('provider_lifecycle_cycle_not_found');
+            }
+            $plan = (array) ($current->execution_plan ?? []);
+            $plan['provider_lifecycle'] = $lifecycle;
+            $current->execution_plan = $plan;
+            $current->cycle_hash = $this->computeCycleHash($this->cyclePayload($current));
+            $current->save();
+
+            return $current->refresh();
+        }, 3);
+    }
+
     /** @return array<string,string> */
     private function cycleReplayContract(
         AiForgeIntake $intake,

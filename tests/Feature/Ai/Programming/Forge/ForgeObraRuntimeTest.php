@@ -271,4 +271,50 @@ final class ForgeObraRuntimeTest extends TestCase
         self::assertFalse($heartbeat['renewed']);
         self::assertSame('no_running_cycle', $heartbeat['reason']);
     }
+
+    public function test_provider_lifecycle_persists_start_poll_heartbeat_and_fenced_cancel(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Implementar refactor multi-modulo do provider router e adicionar testes de regressao para o lifecycle Forge', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+        $runtime = app(ForgeObraRuntime::class);
+        $snapshot = $runtime->commission($commissioning);
+        $tick = $runtime->tick($snapshot->obra, ForgeTickBudget::fromArray([
+            'max_packets' => 1, 'lease_seconds' => 900, 'allow_provider' => false,
+        ]));
+
+        $cycle = AiForgeWorkPacketExecutionCycle::query()
+            ->where(function ($query) use ($tick): void {
+                $query->where('uuid', $tick->cycleId)->orWhere('id', $tick->cycleId);
+            })
+            ->firstOrFail();
+        $plan = (array) $cycle->execution_plan;
+        $plan['scope_reservation'] = [
+            'id' => 'reservation-provider-test', 'lease_owner' => 'forge-obra-runtime',
+            'lease_token' => 'provider-test-token', 'fencing_token' => 7,
+        ];
+        $cycle->forceFill(['execution_mode' => 'real', 'execution_plan' => $plan])->save();
+
+        $started = $runtime->providerStart($snapshot->obra, (string) $cycle->uuid);
+        self::assertSame('started', $started['status']);
+        self::assertNotEmpty($started['provider_execution_id']);
+
+        $polled = $runtime->providerPoll($snapshot->obra, (string) $cycle->uuid, $started['fencing_token']);
+        self::assertSame('running', $polled['status']);
+
+        $heartbeat = $runtime->providerHeartbeat($snapshot->obra, (string) $cycle->uuid, $started['fencing_token']);
+        self::assertSame('ok', $heartbeat['status']);
+
+        $cancelled = $runtime->providerCancel($snapshot->obra, (string) $cycle->uuid, $started['fencing_token'], 'test_cancel');
+        self::assertSame('cancelled', $cancelled['status']);
+        self::assertSame('test_cancel', $cancelled['reason']);
+
+        $replay = $runtime->providerCancel($snapshot->obra, (string) $cycle->uuid, $started['fencing_token'], 'test_cancel');
+        self::assertSame('cancelled', $replay['status']);
+        self::assertTrue($replay['replayed']);
+    }
 }
