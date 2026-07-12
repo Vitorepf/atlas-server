@@ -27,7 +27,7 @@
 - [x] MAXL-01 — landed · additive ledger repair migration restores `event_hash`/`scope_type`/`scope_id`, backfills stored rows, and guards scoped lookups
 - [x] MAXL-02 (+ELEV-11) — landed · Evidence Ledger `prev_event_hash` scoped hash-chain (`scope_type:scope_id`, fallback `correlation_id`); legacy rows labelled `chain_basis=legacy_unchained`; verifier detects gap/tamper; daily chain-head anchor writes git-tracked JSONL with declared threat model
 - [ ] MAXN-01 — pending
-- [ ] ELEV-17 — pending
+- [x] ELEV-17 — landed · `atlas:substrate:restore-drill --json` restores SUB-01 snapshots only into disposable target (guard refuses canonical @5433); fixture acceptance `restored_ok`; corrupted snapshot returns `restore_failed` with named diff; WDG `wdg-01.substrate_restore_drill` alerts when last success >45d; live local snapshot restore pending_window(real SUB-01 manifest points to missing `memory-substrate.sql`)
 - [ ] TETO-05 — pending (obra-retro; cadência a cada fecho de lote daqui em diante)
 
 ## LOTE 2 — Réguas v2 congeladas (M1) — GATE M1: todo freeze com hash+judge≠author · golden v2 targets_available==cases · registry de séries populado

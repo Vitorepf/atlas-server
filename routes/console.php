@@ -87,6 +87,16 @@ Schedule::command('atlas:memory:substrate-snapshot --json')
     ->when(static fn (): bool => (bool) config('atlas.cognition.substrate_snapshot.enabled', true)
         && (bool) config('atlas.cognition.substrate_snapshot.schedule_enabled', true));
 
+// ELEV-17 · recurring restore drill. Reads the latest SUB-01 snapshot and restores only
+// into the configured disposable target; the service guard refuses canonical @5433.
+Schedule::command('atlas:substrate:restore-drill --json')
+    ->monthlyOn(
+        max(1, min(28, (int) config('atlas.cognition.substrate_restore_drill.schedule_day', 1))),
+        (string) config('atlas.cognition.substrate_restore_drill.schedule_time', '05:10'),
+    )
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.cognition.substrate_restore_drill.schedule_enabled', true));
+
 // Hermes Capability Registry drift capture: probe the local Hermes daily and persist the manifest +
 // quarantined CapabilityCandidates (read-only; never enables a capability). Gated off by default so it
 // runs only when the operator opts in — this is the "Atlas auto-detects Hermes changes" heartbeat.

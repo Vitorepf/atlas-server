@@ -1,0 +1,81 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\Cognition\Watchdog\Checks;
+
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use Carbon\CarbonImmutable;
+
+final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
+{
+    public function id(): string
+    {
+        return 'wdg-01.substrate_restore_drill';
+    }
+
+    public function run(): AtlasWatchdogCheckResult
+    {
+        $receiptPath = (string) config(
+            'atlas.cognition.substrate_restore_drill.receipt_path',
+            storage_path('app/atlas/evidence/substrate-restore-drills.jsonl'),
+        );
+        $maxAgeDays = max(1, (int) config('atlas.cognition.substrate_restore_drill.max_success_age_days', 45));
+        $latest = $this->latestSuccessfulReceipt($receiptPath);
+
+        if ($latest === null) {
+            return AtlasWatchdogCheckResult::alert([
+                'schema_version' => 'atlas.memory.substrate_restore_drill.watchdog.v1',
+                'receipt_path' => $receiptPath,
+                'max_success_age_days' => $maxAgeDays,
+                'reason' => 'no_successful_drill',
+            ], [
+                'code' => 'substrate_restore_drill_missing',
+                'message' => 'No successful SUB-01 restore drill receipt found.',
+            ]);
+        }
+
+        $checkedAt = CarbonImmutable::parse((string) ($latest['checked_at'] ?? 'now'), 'UTC');
+        $ageDays = (int) $checkedAt->diffInDays(CarbonImmutable::now('UTC'));
+        $evidence = [
+            'schema_version' => 'atlas.memory.substrate_restore_drill.watchdog.v1',
+            'receipt_path' => $receiptPath,
+            'max_success_age_days' => $maxAgeDays,
+            'last_successful_drill_at' => $checkedAt->toISOString(),
+            'age_days' => $ageDays,
+            'snapshot_path' => $latest['snapshot_path'] ?? null,
+        ];
+
+        if ($ageDays > $maxAgeDays) {
+            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => 'successful_drill_stale'], [
+                'code' => 'substrate_restore_drill_stale',
+                'message' => 'Last successful SUB-01 restore drill is older than the allowed window.',
+            ]);
+        }
+
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'successful_drill_fresh']);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function latestSuccessfulReceipt(string $receiptPath): ?array
+    {
+        $rows = (new JsonlReceiptStore($receiptPath))->read();
+        $successes = array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => ($row['status'] ?? null) === 'restored_ok'
+                && (bool) ($row['restored_ok'] ?? false)
+                && is_string($row['checked_at'] ?? null),
+        ));
+
+        usort(
+            $successes,
+            static fn (array $a, array $b): int => strcmp((string) ($b['checked_at'] ?? ''), (string) ($a['checked_at'] ?? '')),
+        );
+
+        return $successes[0] ?? null;
+    }
+}

@@ -128,8 +128,10 @@ use App\Services\Ai\Hermes\Kanban\HermesKanbanCli;
 use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateDumpRunner;
+use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreDrillRunner;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreProofRunner;
 use App\Services\Ai\Memory\Substrate\PgDumpAtlasMemorySubstrateDumpRunner;
+use App\Services\Ai\Memory\Substrate\PgsqlAtlasMemorySubstrateRestoreDrillRunner;
 use App\Services\Ai\Memory\Substrate\PgsqlAtlasMemorySubstrateRestoreProofRunner;
 use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Obra\DeterministicObraDecomposer;
@@ -248,6 +250,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(AtlasMemorySubstrateDumpRunner::class, PgDumpAtlasMemorySubstrateDumpRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
+        $this->app->bind(AtlasMemorySubstrateRestoreDrillRunner::class, PgsqlAtlasMemorySubstrateRestoreDrillRunner::class);
 
         $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
         $this->app->singleton(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
@@ -1558,6 +1561,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardReceiptsDiagnosisWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\EnforceReadinessWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck::class,
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }

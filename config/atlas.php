@@ -2108,6 +2108,31 @@ return [
             ],
         ],
 
+        // ELEV-17 · recurring restore drill. The target is a disposable DB only:
+        // the guard refuses the canonical local Postgres port used by live Atlas.
+        'substrate_restore_drill' => [
+            'schedule_enabled' => (bool) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_SCHEDULE_ENABLED', true),
+            'schedule_day' => max(1, min(28, (int) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_SCHEDULE_DAY', 1))),
+            'schedule_time' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_SCHEDULE_TIME', '05:10'),
+            'receipt_path' => (string) env(
+                'ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_RECEIPT_PATH',
+                storage_path('app/atlas/evidence/substrate-restore-drills.jsonl'),
+            ),
+            'max_success_age_days' => max(1, (int) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_MAX_SUCCESS_AGE_DAYS', 45)),
+            'canonical' => [
+                'host' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_CANONICAL_HOST', env('DB_HOST', '127.0.0.1')),
+                'port' => (int) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_CANONICAL_PORT', 5433),
+                'database' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_CANONICAL_DATABASE', env('DB_DATABASE', 'atlas')),
+            ],
+            'target' => [
+                'host' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_TARGET_HOST', env('DB_HOST', '127.0.0.1')),
+                'port' => (int) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_TARGET_PORT', 55433),
+                'database' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_TARGET_DATABASE', 'atlas_restore_drill'),
+                'username' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_TARGET_USERNAME', env('DB_USERNAME', 'atlas')),
+                'password' => (string) env('ATLAS_COGNITION_SUBSTRATE_RESTORE_DRILL_TARGET_PASSWORD', env('DB_PASSWORD', '')),
+            ],
+        ],
+
         'acos_long_horizon_gate' => [
             'enabled' => (bool) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_ENABLED', true),
             'schedule_enabled' => (bool) env('ATLAS_COGNITION_ACOS_LONG_HORIZON_GATE_SCHEDULE_ENABLED', true),
