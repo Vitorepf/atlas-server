@@ -76,6 +76,17 @@ final class AtlasForgeGateAdapterTest extends TestCase
                 'selected_tests' => ['AtlasAemorCertificationTestExecutionTest'],
                 'artifacts' => [],
             ],
+            'mutation_report' => [
+                'kill_ratio' => 1.0,
+                'mutants_generated' => 2,
+                'decision_surface_added' => true,
+            ],
+            'security_scan' => [
+                'ran' => true,
+                'secret_free' => true,
+                'critical_sast' => 0,
+                'critical_cve' => 0,
+            ],
             'context_sufficiency' => 90,
             'judges' => [
                 ['name' => 'judge-1', 'provider_family' => 'anthropic', 'approved' => true],
