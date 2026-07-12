@@ -232,7 +232,7 @@ Every event has schema, run/delivery IDs, correlated hashes, timestamp and prove
 - [x] Build an equivalent Dev/Forge/Autônomos fixture at each risk level and assert the same roster, applicability, evidence floor and verdict; only operator/duration/topology metadata may differ.
 - [x] Mutate each role to absent/pass-without-evidence/forged-N/A/self-certified and prove acceptance blocks.
 - [x] Mutate evidence hashes, world/spec snapshot, ledger order and outcome status and prove acceptance or claim eligibility blocks.
-- [ ] Produce a Constitution readiness manifest with live test/evidence refs and zero unresolved mutation survivors.
+- [x] Produce a Constitution readiness manifest with live test/evidence refs and zero unresolved mutation survivors. Evidence: `QualityFoundryConstitutionReadinessManifest` remains `implemented_not_cutover_ready`, requires parity/mutation/live refs, blocks survivors and reserves comparative authority for Rivals.
 - [ ] Run focused and neighboring suites, full architecture validation, docs health and `git diff --check`.
 
 **GREEN acceptance:** parity is proven, every adversarial mutation is killed, no average masks red, and the highest honest state is `implemented_not_cutover_ready` or the already-proven factory state. `art_grade_delivery` may be issued only per eligible delivery; comparative states remain Rivals-only.
