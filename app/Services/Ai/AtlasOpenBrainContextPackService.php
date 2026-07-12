@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiRagFeedbackEvent;
+use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasContextFeedbackSignalPolicy;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
@@ -348,6 +349,10 @@ class AtlasOpenBrainContextPackService
         // WO-17-T2 — the deterministic brief ("lembra por quê e avisa antes"): present
         // only when a brief exists; STALE the moment HEAD moves past it (never silent).
         $pack['brief'] = $this->briefSection();
+        $compacted = $this->compactedSection();
+        if ($compacted !== null) {
+            $pack['compacted'] = $compacted;
+        }
 
         $pack['context_pack_hash'] = $this->contextPackHash($pack);
         $pack['context_feedback_request'] = $this->contextFeedbackRequest($pack, $opts);
@@ -432,6 +437,43 @@ class AtlasOpenBrainContextPackService
         } catch (Throwable) {
             // MAXE-06 is an optimization: context delivery must fail open.
         }
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    private function compactedSection(): ?array
+    {
+        if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
+            return null;
+        }
+
+        try {
+            $receipt = AtlasLongHorizonCompactionReceipt::query()->latest('created_at')->first();
+        } catch (Throwable) {
+            return null;
+        }
+        if (! $receipt instanceof AtlasLongHorizonCompactionReceipt) {
+            return null;
+        }
+
+        $recoveryQueries = $this->stringList($receipt->recovery_queries);
+
+        return [
+            'schema_version' => 'atlas.aobg.compaction_context.v1',
+            'present' => true,
+            'scope_type' => (string) $receipt->scope_type,
+            'scope_id' => (string) $receipt->scope_id,
+            'receipt_hash' => (string) $receipt->receipt_hash,
+            'must_keep_coverage' => is_numeric($receipt->must_keep_coverage) ? (float) $receipt->must_keep_coverage : null,
+            'context_retention_score' => is_numeric($receipt->context_retention_score) ? (float) $receipt->context_retention_score : null,
+            'loss_risk' => (string) $receipt->loss_risk,
+            'unresolved_loss_count' => count((array) $receipt->unresolved_loss),
+            'recovery_queries' => array_slice($recoveryQueries, 0, 8),
+            'workflow' => $recoveryQueries === []
+                ? 'no_recovery_query_available'
+                : 'run_recovery_queries_before_claiming_compacted_context_absent',
+        ];
     }
 
     /** @param array<string,mixed> $pack */
@@ -3249,6 +3291,25 @@ class AtlasOpenBrainContextPackService
                 (int) ($feedback['delivered_ref_count'] ?? 0),
             );
             $lines[] = '- in the report, cite every used context item with its exact rendered ref= value';
+            $lines[] = '';
+        }
+
+        $compacted = (array) ($pack['compacted'] ?? []);
+        if (($compacted['present'] ?? false) === true) {
+            $lines[] = '## Compactação';
+            $lines[] = sprintf(
+                '- scope=%s:%s receipt_hash=%s coverage=%s loss_risk=%s unresolved_loss=%d',
+                (string) ($compacted['scope_type'] ?? 'unknown'),
+                (string) ($compacted['scope_id'] ?? ''),
+                substr((string) ($compacted['receipt_hash'] ?? ''), 0, 16),
+                is_numeric($compacted['must_keep_coverage'] ?? null) ? (string) $compacted['must_keep_coverage'] : 'n/a',
+                (string) ($compacted['loss_risk'] ?? 'unknown'),
+                (int) ($compacted['unresolved_loss_count'] ?? 0),
+            );
+            foreach (array_slice($this->stringList($compacted['recovery_queries'] ?? []), 0, 8) as $query) {
+                $lines[] = '- recovery_query: `'.$query.'`';
+            }
+            $lines[] = '- workflow: '.(string) ($compacted['workflow'] ?? 'review_compaction_receipt');
             $lines[] = '';
         }
 

@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AtlasAurgEdge;
 use App\Models\AtlasAurgNode;
+use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
@@ -19,6 +20,7 @@ use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
+use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +28,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
+use Tests\Concerns\CreatesLongHorizonPersistenceTables;
 use Tests\TestCase;
 
 /**
@@ -49,6 +52,7 @@ use Tests\TestCase;
 final class AtlasOpenBrainContextPackServiceTest extends TestCase
 {
     use CreatesAtlasMemoryEntryTable;
+    use CreatesLongHorizonPersistenceTables;
 
     /** @var array<int,string> */
     private array $tempDirs = [];
@@ -81,12 +85,49 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         Schema::dropIfExists('atlas_aurg_edges');
         Schema::dropIfExists('atlas_aurg_nodes');
         Schema::dropIfExists('atlas_engineering_code_symbols');
+        $this->dropLongHorizonPersistenceTables();
         $this->dropAtlasMemoryEntryTable();
         foreach ($this->tempDirs as $dir) {
             (new Process(['rm', '-rf', $dir]))->run();
         }
         @unlink(AtlasCognitiveWorkingSetMemoryService::sharedPath());
         parent::tearDown();
+    }
+
+    public function test_compaction_aware_pack_exposes_latest_receipt_recovery_queries(): void
+    {
+        $this->createLongHorizonPersistenceTables();
+        AtlasLongHorizonCompactionReceipt::query()->create([
+            'uuid' => 'maxf08-receipt',
+            'scope_type' => AtlasLongHorizonCanon::SCOPE_TYPE_DEV_SESSION,
+            'scope_id' => 'dev-session-maxf08',
+            'source_context_refs' => ['ai_thread:thread-maxf08'],
+            'retained_items' => [],
+            'discarded_items' => [],
+            'must_keep_items' => [],
+            'must_keep_coverage' => 0.5,
+            'unresolved_loss' => [['kind' => 'decision', 'id' => 'lost-decision']],
+            'loss_risk' => AtlasLongHorizonCanon::LOSS_RISK_MEDIUM,
+            'recovery_queries' => ['rehydrate decision:lost-decision from canonical sources'],
+            'evidence_refs' => ['ai_compaction:compaction-maxf08'],
+            'summary_hash' => hash('sha256', 'summary'),
+            'context_retention_score' => 0.75,
+            'quality_score' => 0.5,
+            'detected_contradictions' => [],
+            'stale_risks' => [],
+            'receipt_hash' => 'receipt-hash-maxf08',
+        ]);
+
+        $pack = $this->service()->packFor('compacted thread follow up', [
+            'code_budget' => 0,
+            'memory_budget' => 0,
+        ]);
+
+        $this->assertTrue((bool) data_get($pack, 'compacted.present'));
+        $this->assertSame('receipt-hash-maxf08', data_get($pack, 'compacted.receipt_hash'));
+        $this->assertSame(['rehydrate decision:lost-decision from canonical sources'], data_get($pack, 'compacted.recovery_queries'));
+        $this->assertStringContainsString('## Compactação', $pack['markdown']);
+        $this->assertStringContainsString('rehydrate decision:lost-decision from canonical sources', $pack['markdown']);
     }
 
     public function test_t4s5_pack_marks_an_open_tension_between_two_recalled_memories(): void
