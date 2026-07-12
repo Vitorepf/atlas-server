@@ -133,7 +133,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 - [x] Add RED replay tests: the same order/idempotency key returns the same receipt chain; a changed hash is refused.
 - [x] Implement immutable typed value objects and deterministic serialization; keep legacy readers only behind the v1 translator.
 - [x] Implement a read-only vertical through Kernel → evidence → outcome with zero provider, filesystem or release mutation.
-- [ ] Run focused Kernel unit tests, `AcceptanceGateContractTest`, coverage tests, architecture validation, Pint and PHPStan.
+- [x] Run focused Kernel unit tests, `AcceptanceGateContractTest`, coverage tests, architecture validation, Pint and PHPStan.
 
 **GREEN acceptance:** a read-only order produces `completed_read_only` only with correlated order/evidence/outcome hashes and 22 dispositions; missing or stale data holds or blocks; replay is deterministic.
 
@@ -159,7 +159,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 - [x] Require independent acceptance before the Governor issues `AuthorizedMergeAction`; revalidate nonce, scope, base/tree, lease and fencing at act time.
 - [x] Implement `prepare → authorize → act → canary → settle`; uncertainty after an effect becomes `release_uncertain` and triggers reconciliation/quarantine.
 - [x] Correlate provider, workspace, acceptance, release/canary/revert and outcome receipts in `atlas_ledger_events` and coverage v2.
-- [ ] Run fixture E2E, replay/reconciliation, neighboring gate/actuator/outcome suites, architecture bypass guard, Pint and PHPStan.
+- [x] Run fixture E2E, replay/reconciliation, neighboring gate/actuator/outcome suites, architecture bypass guard, Pint and PHPStan.
 
 **GREEN acceptance:** the fixture write run lands only after all receipts; canary happens before terminal success; injected failure causes zero unauthorized effect or a truthful revert/uncertain state; coverage contains every correlation hash.
 
