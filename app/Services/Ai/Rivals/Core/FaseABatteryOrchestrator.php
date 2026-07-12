@@ -17,6 +17,26 @@ class FaseABatteryOrchestrator
     ) {}
 
     /**
+     * Fast proof profile: all suites, 1 case × 1 rep (not claim-ready sample).
+     * Used to prove 10-bench → enterprise report as quickly as possible.
+     */
+    public function applyFastProfile(): void
+    {
+        $packs = (array) config('atlas_rivals.fase_a.case_packs', []);
+        $fast = [];
+        foreach ($packs as $suiteId => $cases) {
+            $list = array_values(array_unique(array_map('strval', (array) $cases)));
+            $fast[$suiteId] = $list === [] ? [] : [array_values($list)[0]];
+        }
+        config([
+            'atlas_rivals.fase_a.case_packs' => $fast,
+            'atlas_rivals.fase_a.default_repetitions' => 1,
+            'atlas_rivals.fase_a.min_distinct_cases' => 1,
+            'atlas_rivals.fase_a.fast_profile' => true,
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function dryRun(string $mode = 'bare'): array
@@ -65,9 +85,11 @@ class FaseABatteryOrchestrator
             'mode' => $mode,
             'primary_model' => $primary,
             'provider_binding' => 'hermes+verboo',
+            'fast_profile' => (bool) config('atlas_rivals.fase_a.fast_profile', false),
             'execute_allowed_here' => false,
             'hint' => 'dry-run only — use --mode=prepare on Mac (no native spend); --mode=execute is Mac-only',
             'suite_count' => count($plans),
+            'units_total_expected' => array_sum(array_column($plans, 'units_expected')),
             'plans' => $plans,
         ];
     }
