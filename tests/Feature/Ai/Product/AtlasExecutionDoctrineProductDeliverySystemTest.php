@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai\Product;
 
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Services\Ai\Product\AtlasAutonomousProductDeliveryRuntimeService;
 use App\Services\Ai\Product\AtlasProductDeliveryCertificationService;
 use App\Services\Ai\Product\AtlasProductDeliveryControlPlaneService;
@@ -27,6 +28,7 @@ use App\Services\Ai\Product\AtlasProductTwinSimulationService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAemorTables;
 use Tests\TestCase;
 
@@ -50,6 +52,7 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
 
     protected function tearDown(): void
     {
+        Schema::dropIfExists('atlas_aaeos_test_run_receipts');
         $this->dropAemorTables();
 
         parent::tearDown();
@@ -475,7 +478,15 @@ class AtlasExecutionDoctrineProductDeliverySystemTest extends TestCase
     public function test_product_delivery_outcome_memory_bridges_to_aemor_learning_candidate(): void
     {
         $this->createAemorTables();
+        $receiptMigration = require database_path('migrations/2026_06_02_090000_create_atlas_aaeos_test_run_receipts_table.php');
+        $receiptMigration->up();
+        $receipt = AtlasAaeosTestRunReceipt::query()->create([
+            'capability_id' => 'product-delivery-test', 'test_ref' => 'product-delivery-green',
+            'filter' => 'product-delivery-green', 'passed' => true, 'tests_run' => 1, 'exit_code' => 0,
+            'metadata' => ['attribution_reviewed' => true], 'ran_at' => now(),
+        ]);
         $evidence = [
+            'evidence_refs' => ['test_run_receipt:'.$receipt->id],
             'tests' => ['focused_tests passed', 'contract tests passed', 'security regression tests passed'],
             'security' => ['abuse cases reviewed'],
             'acceptance_mapping' => ['tests mapped to acceptance'],

@@ -45,6 +45,7 @@ class AtlasProductDeliveryOutcomeMemoryService
             'fake_green' => $proofVerdict['fake_green'],
             'proof_reason' => $proofVerdict['reason'],
             'evidence_kinds' => $this->evidenceKinds($evidence),
+            'evidence_refs' => $this->evidenceRefs($evidence),
             'required_repairs' => AiStringListNormalizer::trimmedScalarValues($proof['required_repairs'] ?? []),
             'learning_candidates' => $this->learningCandidates($delivery, $proof, $status, $evidence, $proofVerdict['fake_green']),
             'delivery_summary' => [
@@ -257,7 +258,16 @@ class AtlasProductDeliveryOutcomeMemoryService
      */
     private function evidenceKinds(array $evidence): array
     {
-        return array_values(array_filter(array_keys($evidence), static fn (string $key): bool => $key !== ''));
+        return array_values(array_filter(array_keys($evidence), static fn (string $key): bool => $key !== '' && $key !== 'evidence_refs'));
+    }
+
+    /** @param array<string,mixed> $evidence @return list<string> */
+    private function evidenceRefs(array $evidence): array
+    {
+        return array_values(array_unique(array_filter(
+            (array) ($evidence['evidence_refs'] ?? []),
+            static fn ($ref): bool => is_string($ref) && trim($ref) !== '',
+        )));
     }
 
     /**
@@ -321,7 +331,7 @@ class AtlasProductDeliveryOutcomeMemoryService
             ! empty($outcomeMemory['outcome_memory_hash']) ? 'outcome_memory_hash:'.$outcomeMemory['outcome_memory_hash'] : null,
             ! empty($outcomeMemory['delivery_hash']) ? 'delivery_hash:'.$outcomeMemory['delivery_hash'] : null,
             ! empty($outcomeMemory['proof_hash']) ? 'proof_hash:'.$outcomeMemory['proof_hash'] : null,
-        ], array_map(
+        ], array_values((array) ($outcomeMemory['evidence_refs'] ?? [])), array_map(
             static fn (string $kind): string => 'evidence_kind:'.$kind,
             AiStringListNormalizer::trimmedScalarValues($outcomeMemory['evidence_kinds'] ?? []),
         )))));
