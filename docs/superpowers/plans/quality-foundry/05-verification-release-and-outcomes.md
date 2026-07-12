@@ -134,8 +134,8 @@ Applicable evidence types are: unit, integration, contract, E2E, property, mutat
 **Allowed files:** EngineeringKernel authorized effect/adapters, SelfConstruction MergeGovernor/Governance and focused tests.
 
 - [ ] Write RED tests for ledger down, stale/revoked/expired authority, nonce replay, changed candidate/base/tree/files, missing verification/rollback hash, wrong lease/fencing token, over-broad credential and direct actuator call.
-- [ ] Make `prepare` recompute authority/scope/candidate/evidence/rollback, persist decision and replay it before authorization.
-- [ ] Make `authorize` issue an immutable one-effect capability bound to action, candidate, base/tree, files, lease/fence, receipt and expiry.
+- [x] Make `prepare` recompute authority/scope/candidate/evidence/rollback, persist decision and replay it before authorization. Evidence: `CanonicalCommitActuationTest` and `PreLandSeamTest`.
+- [x] Make `authorize` issue an immutable one-effect capability bound to action, candidate, base/tree, files, lease/fence, receipt and expiry. Evidence: `CanonicalCommitActuationTest` binding-mutation, nonce, lease and persisted-authority cases.
 - [ ] Make `act` revalidate every binding and execute exactly one idempotent effect with ephemeral scoped credentials.
 - [ ] Add static guards for Git/fs/release/deploy entrypoints outside the allowlist and runtime proof for all mutative surfaces.
 - [ ] Run PreLandSeam, MergeActuator, governance fail-closed, architecture bypass and credential-scope tests.
