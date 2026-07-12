@@ -78,7 +78,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 - [x] Enumerate every Dev/Forge/Autônomos mutative surface and write RED architecture tests for direct provider, filesystem, Git, verification, release/deploy or outcome success outside shared ports.
 - [x] Build one equivalent fixture per R0/R3/R5 and assert identical ProductIntent/spec/world/market/order hashes, 22-role roster/depth, evidence floor, Governor path and outcome semantics.
 - [x] Record operator presence, duration and topology as explicit fields rather than implicit mode quality policy.
-- [ ] Close confirmed bypasses by delegating to the existing shared owners; do not create an interim mode kernel.
+- [x] Close confirmed bypasses by delegating to the existing shared owners; do not create an interim mode kernel. Evidence: Forge and Autônomos null-Kernel fallbacks now fail closed; Dev remains delegated to `EliteExecutorKernelDevAdapter`; no interim mode kernel was introduced and the architecture bypass regression suite passes.
 - [x] Run coverage/architecture and all current mode adapter contract tests. Evidence: the complete current mode/Kernel adapter command was executed; Kernel/contract slices and corrected provider-manager/AWIS/retrieval fixtures pass, while AtlasDev executor/critic fixtures still have 7 `needs_review` behavioral divergences, and architecture validation remains blocked by the missing `atlas_engineering_runs` projection table.
 
 **GREEN acceptance:** coverage is 100% for known mutative surfaces; equivalent orders differ only in explicit mode/operator/duration/topology fields; no quality bypass survives.
