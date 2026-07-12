@@ -258,6 +258,10 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
         $this->app->singleton(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
+        $this->app->singleton(
+            \App\Services\Ai\Context\AtlasDeliveredPackLedger::class,
+            static fn () => \App\Services\Ai\Context\AtlasDeliveredPackLedger::fromConfig(),
+        );
         $this->app->scoped(\App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService::class);
 
         $this->app->afterResolving(function (mixed $resolved): void {
@@ -1578,6 +1582,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck::class,
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }

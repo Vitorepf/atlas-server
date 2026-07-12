@@ -125,6 +125,44 @@ final class AtlasDeliveredPackLedger
     }
 
     /**
+     * MAXG-06 — read entries whose `ts` is at or after $cutoff (Iso8601 string), most recent first.
+     *
+     * Provider-safe: the ledger schema itself carries only refs, budgets, policy snapshot and
+     * timestamps; this helper exposes those rows to the daily canary check without adding any
+     * new field. Fail-open: on read errors an empty list is returned.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function entriesSince(string $cutoffIso, int $limit = 25): array
+    {
+        try {
+            $rows = (new JsonlReceiptStore($this->path))->replay();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $limit = max(1, $limit);
+        $kept = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $ts = trim((string) ($row['ts'] ?? ''));
+            if ($ts === '' || $cutoffIso === '') {
+                continue;
+            }
+            if (strcmp($ts, $cutoffIso) < 0) {
+                continue;
+            }
+            $kept[] = $row;
+        }
+
+        usort($kept, static fn (array $a, array $b): int => strcmp((string) ($b['ts'] ?? ''), (string) ($a['ts'] ?? '')));
+
+        return array_slice($kept, 0, $limit);
+    }
+
+    /**
      * MAXG-07 — map context_pack_hash → delivered_chars for the join with ARFL measured events.
      *
      * Provider-safe: only the CHAR COUNT of the assembled markdown is returned; the raw pack
