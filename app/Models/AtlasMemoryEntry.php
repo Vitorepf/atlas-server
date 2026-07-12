@@ -33,6 +33,11 @@ class AtlasMemoryEntry extends Model
         // via atlas:compounding:review-lessons; sem esta entrada o registry
         // coagiria para technical_context e recall --type não filtraria.
         'refutation_memory',
+        // ASI-14 — procedural memory as a first-class type. Playbooks land
+        // through the ASI-02 admission chokepoint so G0–G8 evaluate them like
+        // any other memory. Cross-executor consumers (Dev/Forge/Autonomos)
+        // read this type by task_category as CONTEXT — never authority.
+        'procedural',
     ];
 
     public const SCOPES = [
