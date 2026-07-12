@@ -49,6 +49,15 @@ final readonly class RoleDisposition
         );
     }
 
+    public static function finalCertified(CandidateQualityCase $case, string $signerContext, string $signature): self
+    {
+        return new self(
+            'final_certification', 'pass', 'all_21_mutative_role_receipts_verified',
+            $case->order->canonicalHash(), $case->order->specHash, $case->candidate->candidateHash,
+            $case->candidate->diffHash, $case->candidate->treeHash, $signerContext, $signature,
+        );
+    }
+
     public static function qaCandidateVerified(CandidateQualityCase $case, string $signerContext, string $signature): self
     {
         return new self(

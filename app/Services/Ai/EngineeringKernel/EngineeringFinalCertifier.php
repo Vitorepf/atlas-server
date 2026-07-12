@@ -49,18 +49,22 @@ final class EngineeringFinalCertifier
                 $persistedValid = false;
             }
         }
+        $allPriorApproved = $persistedValid && ! $candidates->contains(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'disposition.status') === 'block');
         $payload = [
             'purpose' => 'mutative_final_certification',
-            'role' => 'final_certification', 'status' => 'block', 'reason' => 'prior_21_not_all_pass_or_na',
+            'role' => 'final_certification', 'status' => $allPriorApproved ? 'pass' : 'block',
+            'reason' => $allPriorApproved ? 'all_21_mutative_role_receipts_verified' : 'prior_21_not_all_pass_or_na',
             'order_hash' => $case->order->canonicalHash(), 'spec_hash' => $case->order->specHash,
             'candidate_hash' => $case->candidate->candidateHash, 'diff_hash' => $case->candidate->diffHash,
             'tree_hash' => $case->candidate->treeHash, 'case_hash' => $case->caseHash,
             'prior_21_persisted_valid' => $persistedValid, 'signer_context' => self::MUTATIVE_DOMAIN,
         ];
 
-        return RoleDisposition::finalPriorReceiptsBlocked(
-            $case, self::MUTATIVE_DOMAIN, $this->signatureForDomain($payload, self::MUTATIVE_DOMAIN),
-        );
+        $signature = $this->signatureForDomain($payload, self::MUTATIVE_DOMAIN);
+
+        return $allPriorApproved
+            ? RoleDisposition::finalCertified($case, self::MUTATIVE_DOMAIN, $signature)
+            : RoleDisposition::finalPriorReceiptsBlocked($case, self::MUTATIVE_DOMAIN, $signature);
     }
 
     /** @param array<string,mixed> $disposition */

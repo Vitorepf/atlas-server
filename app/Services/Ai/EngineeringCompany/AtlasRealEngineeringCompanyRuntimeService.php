@@ -349,7 +349,9 @@ class AtlasRealEngineeringCompanyRuntimeService
         $final = app(EngineeringFinalCertifier::class)->certifyCandidate($case);
         $this->persistMutativeDisposition($engagement, $cycle, $case, $final, EngineeringFinalCertifier::MUTATIVE_DOMAIN, 'v1');
         $dispositions['final_certification'] = $final;
-        $verdict = new QualityCourtVerdict($case->caseHash, $case->candidate->candidateHash, $dispositions, false);
+        $authorityEligible = ! array_any($dispositions, static fn (RoleDisposition $disposition): bool => $disposition->status === 'block')
+            && ($dispositions['final_certification']->status ?? null) === 'pass';
+        $verdict = new QualityCourtVerdict($case->caseHash, $case->candidate->candidateHash, $dispositions, $authorityEligible);
         $persisted = AiEngineeringCompanyRoleRun::query()
             ->where('engagement_record_id', $engagement->getKey())
             ->whereIn('role_id', self::QUALITY_ROLES)
