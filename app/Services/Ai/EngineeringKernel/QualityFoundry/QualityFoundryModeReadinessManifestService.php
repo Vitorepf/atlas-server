@@ -37,6 +37,7 @@ final class QualityFoundryModeReadinessManifestService
                 'source' => $receipt['source'] ?? null,
                 'receipt_hashes' => array_values(array_map('strval', (array) ($receipt['receipt_hashes'] ?? []))),
                 'test_refs' => $this->testRefs($receipt),
+                'quality_loss_input' => is_array($receipt['quality_loss_input'] ?? null) ? $receipt['quality_loss_input'] : null,
                 'execution' => [
                     'command' => array_values(array_map('strval', (array) ($receipt['command'] ?? []))),
                     'exit_code' => isset($receipt['exit_code']) ? (int) $receipt['exit_code'] : null,
@@ -48,6 +49,17 @@ final class QualityFoundryModeReadinessManifestService
                 'blockers' => $modeBlockers,
                 'claim_eligible' => false,
             ];
+        }
+
+        $qualityLossFingerprints = [];
+        foreach ($manifests as $manifest) {
+            $qualityLoss = $manifest['quality_loss_input'];
+            if (is_array($qualityLoss)) {
+                $qualityLossFingerprints[] = CanonicalKernelPayload::hash($qualityLoss);
+            }
+        }
+        if (count(array_unique($qualityLossFingerprints)) > 1) {
+            $blockers[] = 'quality_loss_inputs_not_comparable';
         }
 
         $idempotency = is_array($input['idempotency'] ?? null) ? $input['idempotency'] : [];
@@ -139,6 +151,23 @@ final class QualityFoundryModeReadinessManifestService
         }
         if ((int) ($receipt['coverage_percent'] ?? 0) !== 100) {
             $blockers[] = 'coverage_not_complete';
+        }
+
+        $qualityLoss = is_array($receipt['quality_loss_input'] ?? null) ? $receipt['quality_loss_input'] : [];
+        $dimensions = array_values(array_unique(array_map('strval', (array) ($qualityLoss['dimensions'] ?? []))));
+        sort($dimensions, SORT_STRING);
+        $criticalDimensions = array_values(array_unique(array_map('strval', (array) ($qualityLoss['critical_dimensions'] ?? []))));
+        sort($criticalDimensions, SORT_STRING);
+        $secondaryMetrics = array_values(array_unique(array_map('strval', (array) ($qualityLoss['secondary_metrics'] ?? []))));
+        sort($secondaryMetrics, SORT_STRING);
+        if (($qualityLoss['schema'] ?? null) !== 'atlas.quality_foundry.quality_loss_input.v1'
+            || ! is_string($qualityLoss['kernel_bar_hash'] ?? null)
+            || trim($qualityLoss['kernel_bar_hash']) === ''
+            || $dimensions !== ['correctness', 'reliability', 'safety', 'scope']
+            || $criticalDimensions !== ['correctness', 'safety']
+            || ($qualityLoss['quality_loss_definition'] ?? null) !== 'frozen_weighted_quality_loss_v1'
+            || $secondaryMetrics !== ['cost', 'operator_effort', 'time']) {
+            $blockers[] = 'quality_loss_input_missing';
         }
 
         $evidence = is_array($receipt['evidence'] ?? null) ? $receipt['evidence'] : [];

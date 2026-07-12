@@ -79,6 +79,26 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertSame('initiated', $autonomos['evidence']['soak_start_receipts']['7d']['status']);
     }
 
+    public function test_all_live_modes_emit_the_same_quality_loss_input_contract(): void
+    {
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static fn (array $command, string $cwd): array => [
+                'exit_code' => 0,
+                'output' => implode(' ', $command).' @ '.$cwd,
+            ],
+        );
+
+        $modes = $service->build()['manifests'];
+        $inputs = array_values(array_map(static fn (array $manifest): array => $manifest['quality_loss_input'], $modes));
+
+        self::assertCount(1, array_unique(array_map(
+            static fn (array $input): string => hash('sha256', json_encode($input, JSON_THROW_ON_ERROR)),
+            $inputs,
+        )));
+        self::assertSame(['cost', 'time', 'operator_effort'], $inputs[0]['secondary_metrics']);
+    }
+
     public function test_successful_forge_fixture_records_scale_unique_effect_and_soak_start(): void
     {
         $service = new QualityFoundryLiveManifestService(

@@ -132,6 +132,23 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertContains('autonomos:soak_start_receipts_missing', $manifest['blockers']);
     }
 
+    public function test_all_modes_require_the_same_quality_loss_input_contract(): void
+    {
+        $input = $this->input();
+        $input['modes']['forge']['quality_loss_input']['kernel_bar_hash'] = hash('sha256', 'different-bar');
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertSame('blocked', $manifest['status']);
+        self::assertContains('quality_loss_inputs_not_comparable', $manifest['blockers']);
+
+        $input = $this->input();
+        unset($input['modes']['autonomos']['quality_loss_input']);
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertContains('autonomos:quality_loss_input_missing', $manifest['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
@@ -147,6 +164,14 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
             'coverage_percent' => 100,
             'rollback_exercised' => true,
             'outcome_writer_active' => true,
+            'quality_loss_input' => [
+                'schema' => 'atlas.quality_foundry.quality_loss_input.v1',
+                'kernel_bar_hash' => hash('sha256', 'atlas-quality-foundry-shared-kernel-bar-v1'),
+                'dimensions' => ['correctness', 'safety', 'scope', 'reliability'],
+                'critical_dimensions' => ['correctness', 'safety'],
+                'quality_loss_definition' => 'frozen_weighted_quality_loss_v1',
+                'secondary_metrics' => ['cost', 'time', 'operator_effort'],
+            ],
             'evidence' => [
                 'canary_exercised' => true,
                 'crash_boundaries_exercised' => true,

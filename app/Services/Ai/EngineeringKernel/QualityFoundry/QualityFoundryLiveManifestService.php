@@ -197,6 +197,7 @@ final class QualityFoundryLiveManifestService
         return [
             'source' => 'live_receipt',
             'mode' => $mode,
+            'quality_loss_input' => $this->qualityLossInput(),
             'receipt_hashes' => [hash('sha256', json_encode($receipt, JSON_UNESCAPED_SLASHES) ?: '')],
             'test_refs' => $testRefs,
             'kernel_routed' => $exitCode === 0,
@@ -249,6 +250,19 @@ final class QualityFoundryLiveManifestService
             'exit_code' => $exitCode,
             'output_hash' => $receipt['output_hash'],
             'duration_ms' => $receipt['duration_ms'],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function qualityLossInput(): array
+    {
+        return [
+            'schema' => 'atlas.quality_foundry.quality_loss_input.v1',
+            'kernel_bar_hash' => hash('sha256', 'atlas-quality-foundry-shared-kernel-bar-v1'),
+            'dimensions' => ['correctness', 'safety', 'scope', 'reliability'],
+            'critical_dimensions' => ['correctness', 'safety'],
+            'quality_loss_definition' => 'frozen_weighted_quality_loss_v1',
+            'secondary_metrics' => ['cost', 'time', 'operator_effort'],
         ];
     }
 
