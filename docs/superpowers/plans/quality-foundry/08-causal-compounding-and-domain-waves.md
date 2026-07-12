@@ -150,11 +150,11 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** ExternalBrain, TaskFabric, TaskQuality and StrategyCouncil families/tests.
 
-- [ ] Write RED batches of paraphrased duplicate tasks, one-line spec/data farms, disconnected allowed-files, unverified macro claims, no baseline/delta/rollback and collision with active work.
+- [x] Write RED batches of paraphrased duplicate tasks, one-line spec/data farms, disconnected allowed-files, unverified macro claims, no baseline/delta/rollback and collision with active work. Evidence: `AtlasTaskAuthoringGovernanceChainTest` covers malformed quality packets, duplicate targets and dry rotation; existing TemplateFarm fixtures cover paraphrase/mechanism clones.
 - [x] Require 2–3 proposals when the risk/topology warrants competition; each carries finding, baseline, expected structural delta, allowed files, RED behavior, GREEN acceptance, rollback and outcome metric.
 - [x] Score novelty against current/live/history tasks and capability delta, not lexical difference alone.
 - [x] Require proposal competition to choose independent approaches; no-frontier-improvement ends a line and reopens the mission.
-- [ ] Pass winners through existing Task Fabric collision/dependency/quality gates; `dry`/`disabled` rotates to another leverage vein unless a true hard stop exists.
+- [x] Pass winners through existing Task Fabric collision/dependency/quality gates; `dry`/`disabled` rotates to another leverage vein unless a true hard stop exists. Evidence: `AtlasTaskFabricProposalAdmissionGate` composes the existing template, quality, collision and dependency owners as a read-only admission bridge and reports rotation/hard-stop state.
 - [x] Run template similarity, novelty, macro-value, collision, proposal arena and dry-rotation tests.
 
 **GREEN acceptance:** duplicate/template-farm batches are rejected; accepted tasks are implementation-ready, collision-safe and traceable to structural/outcome evidence.

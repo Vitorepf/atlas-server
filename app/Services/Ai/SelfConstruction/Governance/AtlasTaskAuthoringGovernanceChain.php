@@ -47,6 +47,7 @@ final class AtlasTaskAuthoringGovernanceChain
         private readonly ?AtlasStrategyCouncilDecisionLedger $ledger = null,
         ?callable $clock = null,
         private readonly ?string $modeOverride = null,
+        private readonly ?AtlasTaskFabricProposalAdmissionGate $taskFabricAdmission = null,
     ) {
         $this->clock = $clock ?? static fn (): string => gmdate('Y-m-d\TH:i:s\Z');
     }
@@ -105,7 +106,34 @@ final class AtlasTaskAuthoringGovernanceChain
             // AC: observe mode reports findings but does not block.
             $findings = $this->findUnderspecifiedCandidates($candidates);
 
-            return $this->envelope($mode, $ranked, $top, $contract, $recorded, '', $arena, $findings);
+            $envelope = $this->envelope($mode, $ranked, $top, $contract, $recorded, '', $arena, $findings);
+            $selectedVein = '';
+            if ($top !== null) {
+                $selectedId = (string) ($top['candidate_id'] ?? '');
+                foreach ($candidates as $candidate) {
+                    if ((string) ($candidate['candidate_id'] ?? '') === $selectedId) {
+                        $selectedVein = (string) ($candidate['leverage_vein'] ?? '');
+                        break;
+                    }
+                }
+            }
+            if ($selectedVein === '' && isset($candidates[0])) {
+                $selectedVein = (string) ($candidates[0]['leverage_vein'] ?? '');
+            }
+            $admission = ($this->taskFabricAdmission ?? new AtlasTaskFabricProposalAdmissionGate())->evaluate($candidates, [
+                'autonomy_mode' => (string) ($candidates[0]['autonomy_mode'] ?? ''),
+                'blocked_leverage_veins' => $selectedVein !== '' ? [$selectedVein] : [],
+                'colliding_targets' => (array) ($candidates[0]['colliding_targets'] ?? []),
+                'queue_facts' => (array) ($candidates[0]['queue_facts'] ?? []),
+                'dependency_specs' => (array) ($candidates[0]['dependency_specs'] ?? []),
+            ]);
+            $envelope['task_fabric_admission'] = $admission;
+            if ($mode === self::MODE_ENFORCE && ($admission['hard_stop'] ?? false) === true) {
+                $envelope['top'] = null;
+                $envelope['task_fabric_blocked'] = true;
+            }
+
+            return $envelope;
         } catch (Throwable $e) {
             return $this->envelope($mode, [], null, [], 'failed_open', $e->getMessage(), $this->emptyArena($candidates, 'failed_open'));
         }

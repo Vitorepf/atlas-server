@@ -169,6 +169,42 @@ final class AtlasTaskAuthoringGovernanceChainTest extends TestCase
         $this->assertNotEmpty($selected[0]['reason_vectors']);
     }
 
+    public function test_winner_passes_existing_task_fabric_gates_and_dry_can_rotate(): void
+    {
+        $candidate = [
+            'candidate_id' => 'proposal-a', 'leverage_vein' => 'routing', 'autonomy_mode' => 'dry', 'colliding_targets' => ['app/Services/Ai/Router.php'],
+            'objective' => 'Improve routing decision quality with verified outcome evidence',
+            'allowed_files' => ['app/Services/Ai/Router.php', 'tests/Feature/RouterTest.php'],
+            'scope_in' => ['app/Services/Ai/Router.php', 'tests/Feature/RouterTest.php'],
+            'acceptance_criteria' => ['php artisan test tests/Feature/RouterTest.php passes'],
+            'required_evidence' => ['tests_or_gates_result'], 'expected_delta' => 'routing quality improves',
+            'anti_proxy' => 'live route recommendation changes and is replay-verified',
+            'final_runtime_owner' => 'atlas_native', 'steady_state_runtime_owner' => 'atlas_server',
+            'requires_operator' => false, 'requires_human' => false, 'requires_external_provider' => false,
+        ];
+        $alternate = $candidate;
+        $alternate['candidate_id'] = 'proposal-b';
+        $alternate['leverage_vein'] = 'evidence';
+        $envelope = (new AtlasTaskAuthoringGovernanceChain(modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_ENFORCE))->govern([$candidate, $alternate]);
+
+        $this->assertArrayHasKey('task_fabric_admission', $envelope);
+        $admission = $envelope['task_fabric_admission'];
+        $this->assertContains('target_collision', $admission['blockers']);
+        $this->assertSame(['proposal-b'], $admission['rotation_candidate_ids']);
+        $this->assertFalse($admission['hard_stop']);
+    }
+
+    public function test_task_fabric_quality_and_dependency_blockers_are_reported_in_enforce_mode(): void
+    {
+        $candidate = ['candidate_id' => 'broken', 'objective' => 'broken proposal', 'allowed_files' => ['app/Broken.php'], 'acceptance_criteria' => ['php artisan test'], 'required_evidence' => ['tests_or_gates_result'], 'expected_delta' => 'delta', 'anti_proxy' => 'proof', 'final_runtime_owner' => 'atlas_native', 'steady_state_runtime_owner' => 'atlas_server', 'requires_operator' => false, 'requires_human' => false, 'requires_external_provider' => false];
+        $envelope = (new AtlasTaskAuthoringGovernanceChain(modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_ENFORCE))->govern([$candidate]);
+
+        $this->assertTrue($envelope['task_fabric_admission']['hard_stop']);
+        $this->assertContains('quality_gate', $envelope['task_fabric_admission']['blockers']);
+        $this->assertTrue($envelope['task_fabric_blocked']);
+        $this->assertNull($envelope['top']);
+    }
+
     public function test_multiple_accepted_candidates_fills_rejected_ids_deterministically(): void
     {
         $candidates = [
