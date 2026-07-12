@@ -153,8 +153,8 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 
 **Allowed files:** EngineeringKernel family, existing provider/sandbox/release adapters, existing outcome writer, fixture repositories and Kernel E2E tests. Production provider calls are never required for the default suite; a governed explicit smoke profile may exercise one.
 
-- [ ] Write RED vertical slices for provider refusal/timeout, sandbox escape, no-op delta, failed test/repair replay, verifier disagreement, ledger down before act, canary failure, revert failure, and crash between act and settle.
-- [ ] Run each slice separately and record the exact missing receipt or false terminal state.
+- [x] Write RED vertical slices for provider refusal/timeout, sandbox escape, no-op delta, failed test/repair replay, verifier disagreement, ledger down before act, canary failure, revert failure, and crash between act and settle.
+- [x] Run each slice separately and record the exact missing receipt or false terminal state.
 - [x] Connect `AiProviderManager` through `ProviderPort`; execute in an isolated sandbox; collect commands, assertions, hashes, repair and regression evidence.
 - [x] Require independent acceptance before the Governor issues `AuthorizedMergeAction`; revalidate nonce, scope, base/tree, lease and fencing at act time.
 - [x] Implement `prepare → authorize → act → canary → settle`; uncertainty after an effect becomes `release_uncertain` and triggers reconciliation/quarantine.
