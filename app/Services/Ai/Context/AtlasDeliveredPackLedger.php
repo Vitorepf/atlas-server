@@ -50,6 +50,7 @@ final class AtlasDeliveredPackLedger
                 'schema' => self::SCHEMA,
                 'context_pack_hash' => $hash,
                 'delivered_refs' => AtlasCanonicalContextRef::deliveredFromPack($pack),
+                'delivered_chars' => is_string($pack['markdown'] ?? null) ? mb_strlen((string) $pack['markdown']) : null,
                 'budgets' => (array) ($pack['budget'] ?? []),
                 'policy_snapshot' => (array) ($pack['context_delivery_policy'] ?? []),
                 'timings_ms' => $this->normalizeTimings((array) ($pack['timings_ms'] ?? [])),
@@ -121,6 +122,36 @@ final class AtlasDeliveredPackLedger
     public function path(): string
     {
         return $this->path;
+    }
+
+    /**
+     * MAXG-07 — map context_pack_hash → delivered_chars for the join with ARFL measured events.
+     *
+     * Provider-safe: only the CHAR COUNT of the assembled markdown is returned; the raw pack
+     * text is never emitted. Older rows without `delivered_chars` yield null (honest gap —
+     * cost_per_useful_token consumers must fall back to `basis=unavailable`).
+     *
+     * @param  array<int,string>  $contextPackHashes
+     * @return array<string,int|null>
+     */
+    public function deliveredCharsFor(array $contextPackHashes): array
+    {
+        $wanted = AtlasCanonicalContextRef::uniqueStrings($contextPackHashes);
+        if ($wanted === []) {
+            return [];
+        }
+        $wantedSet = array_fill_keys($wanted, true);
+        $result = [];
+        foreach ($this->pruneRows((new JsonlReceiptStore($this->path))->replay()) as $row) {
+            $hash = (string) ($row['context_pack_hash'] ?? '');
+            if ($hash === '' || ! isset($wantedSet[$hash])) {
+                continue;
+            }
+            $chars = $row['delivered_chars'] ?? null;
+            $result[$hash] = is_int($chars) ? $chars : (is_numeric($chars) ? (int) $chars : null);
+        }
+
+        return $result;
     }
 
     /**

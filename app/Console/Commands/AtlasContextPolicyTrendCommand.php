@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\AiRagFeedbackEvent;
 use App\Services\Ai\Context\AtlasContextFeedbackSignalPolicy;
+use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -23,6 +24,8 @@ final class AtlasContextPolicyTrendCommand extends Command
 
     public function handle(AtlasContextFeedbackSignalPolicy $signalPolicy): int
     {
+        $ledger = AtlasDeliveredPackLedger::fromConfig();
+
         $window = in_array((string) $this->option('window'), ['day', 'week'], true)
             ? (string) $this->option('window')
             : 'week';
@@ -38,7 +41,7 @@ final class AtlasContextPolicyTrendCommand extends Command
         $previousValid = null;
         foreach ($this->windowRanges($window, $windowCount) as $range) {
             $events = $this->eventsForRange($range['start'], $range['end'], $flowId);
-            $row = $this->windowReport($events, $range, $minTotal, $signalPolicy, $previousValid);
+            $row = $this->windowReport($events, $range, $minTotal, $signalPolicy, $previousValid, $ledger);
             if (($row['status'] ?? null) === 'valid') {
                 $previousValid = $row;
             }
@@ -126,7 +129,7 @@ final class AtlasContextPolicyTrendCommand extends Command
      * @param  array<string,mixed>|null  $previousValid
      * @return array<string,mixed>
      */
-    private function windowReport(Collection $events, array $range, int $minTotal, AtlasContextFeedbackSignalPolicy $signalPolicy, ?array $previousValid): array
+    private function windowReport(Collection $events, array $range, int $minTotal, AtlasContextFeedbackSignalPolicy $signalPolicy, ?array $previousValid, AtlasDeliveredPackLedger $ledger): array
     {
         $total = $events->count();
         $eligible = $events
@@ -194,7 +197,102 @@ final class AtlasContextPolicyTrendCommand extends Command
                     ? round($avgUtility - (float) ($previousValid['avg_utility'] ?? 0.0), 2)
                     : null,
             ],
+            'cost_per_useful_token' => $this->costPerUsefulToken($eligible, $ledger),
         ];
+    }
+
+    /**
+     * MAXG-07 — join COM-01 delivered-pack ledger (chars→tokens via chars_div_4) with the
+     * SAME measured events already used in this window. Denominador = measured (inferred/low
+     * are filtered by isMeasuredAggregateEligible before this method). Additive field with
+     * its OWN formula_version — janelas existentes intocadas.
+     *
+     * @param  Collection<int,AiRagFeedbackEvent>  $eligible
+     * @return array<string,mixed>
+     */
+    private function costPerUsefulToken(Collection $eligible, AtlasDeliveredPackLedger $ledger): array
+    {
+        $formulaVersion = 'atlas.context.cost_per_useful_token.v1';
+        $estimateBasis = 'chars_div_4';
+
+        $pairs = $eligible->map(function (AiRagFeedbackEvent $event): array {
+            $hash = $this->contextPackHashFor($event);
+            $useRatio = data_get($event->payload, 'payload.context_ref_attribution.use_ratio',
+                data_get($event->payload, 'payload.context_roi.use_ratio'));
+            if (! is_numeric($useRatio)) {
+                $useRatio = (int) $event->included_sources > 0
+                    ? (int) $event->used_sources / max(1, (int) $event->included_sources)
+                    : 0.0;
+            }
+
+            return ['hash' => $hash, 'use_ratio' => (float) $useRatio];
+        })->all();
+
+        $hashes = array_values(array_unique(array_filter(array_map(
+            static fn (array $pair): ?string => $pair['hash'],
+            $pairs,
+        ), static fn (?string $h): bool => $h !== null && $h !== '')));
+
+        $charsByHash = $hashes === [] ? [] : $ledger->deliveredCharsFor($hashes);
+        $totalTokens = 0;
+        $usefulTokens = 0.0;
+        $joined = 0;
+        $unavailable = 0;
+        foreach ($pairs as $pair) {
+            $hash = $pair['hash'];
+            if ($hash === null || $hash === '') {
+                $unavailable++;
+                continue;
+            }
+            $chars = $charsByHash[$hash] ?? null;
+            if (! is_int($chars) || $chars <= 0) {
+                $unavailable++;
+                continue;
+            }
+            $tokens = (int) floor($chars / 4);
+            $totalTokens += $tokens;
+            $usefulTokens += $tokens * max(0.0, min(1.0, (float) $pair['use_ratio']));
+            $joined++;
+        }
+
+        if ($joined === 0 || $usefulTokens <= 0.0) {
+            return [
+                'formula_version' => $formulaVersion,
+                'estimate_basis' => $estimateBasis,
+                'status' => 'insufficient_signal',
+                'joined_measured_events' => $joined,
+                'unavailable_pack_events' => $unavailable,
+                'delivered_tokens' => $totalTokens,
+                'useful_tokens' => round($usefulTokens, 2),
+                'ratio' => null,
+            ];
+        }
+
+        return [
+            'formula_version' => $formulaVersion,
+            'estimate_basis' => $estimateBasis,
+            'status' => 'measured',
+            'joined_measured_events' => $joined,
+            'unavailable_pack_events' => $unavailable,
+            'delivered_tokens' => $totalTokens,
+            'useful_tokens' => round($usefulTokens, 2),
+            'ratio' => round($totalTokens / $usefulTokens, 4),
+        ];
+    }
+
+    private function contextPackHashFor(AiRagFeedbackEvent $event): ?string
+    {
+        foreach ([
+            data_get($event->payload, 'context_pack_hash'),
+            data_get($event->payload, 'payload.context_pack_hash'),
+            data_get($event->payload, 'payload.context_ref_attribution.context_pack_hash'),
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
     }
 
     /**
