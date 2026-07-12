@@ -246,10 +246,10 @@ Initial frontiers:
 - Forge: at least 30 Obras.
 - Autônomos: 150 real days and sufficient exposure.
 
-- [ ] Build campaign manifests spanning stack/risk/duration and private rotating units for each mode.
-- [ ] Prove readiness blocks on insufficient power/exposure, missing 30d outcome, contamination, incomplete ITT, absent critical dimension or fewer than three campaigns.
-- [ ] Run a hermetic dry trial end-to-end through issue/reject/revoke using synthetic fixtures; assert no production claim event.
-- [ ] Produce a readiness report that separates implemented trial, active campaign, elapsed outcome and eligible claim.
+- [x] Build campaign manifests spanning stack/risk/duration and private rotating units for each mode.
+- [x] Prove readiness blocks on insufficient power/exposure, missing 30d outcome, contamination, incomplete ITT, absent critical dimension or fewer than three campaigns.
+- [x] Run a hermetic dry trial end-to-end through issue/reject/revoke using synthetic fixtures; assert no production claim event.
+- [x] Produce a readiness report that separates implemented trial, active campaign, elapsed outcome and eligible claim.
 
 **GREEN acceptance:** trial machinery is replayable and ready at the tested scope; real frontier claims remain pending until actual exposure/outcomes/campaigns exist.
 
