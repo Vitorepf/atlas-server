@@ -181,12 +181,12 @@ The matrix crosses efficient/intermediate/frontier models with bare/Atlas/compet
 
 **Allowed files:** cross-mode fixtures, Software Twin/Atlas Decide adapters and focused tests; no mode-specific market implementation.
 
-- [ ] Write RED parity/recovery tests that fail when equivalent modes freeze different facts, select different eligible routes or reconcile to different terminal decisions.
-- [ ] Run equivalent R0/R3/R5 requests through Dev, Forge and Autônomos and assert identical snapshot and market-decision hashes for identical as-of facts/authority.
-- [ ] Inject stale graph, graph conflict, outcome lag, provider outage, revoked authority, calibration loss and crash between decision/order persistence.
-- [ ] Assert every mode returns the same hold/retry/refusal semantics and no mode bypasses the frozen snapshot or selected route.
-- [ ] Reconcile an interrupted decision idempotently without duplicate provider invocation or event.
-- [ ] Run cross-mode parity, architecture bypass, ledger replay and neighboring Kernel tests.
+- [x] Write RED parity/recovery tests that fail when equivalent modes freeze different facts, select different eligible routes or reconcile to different terminal decisions.
+- [x] Run equivalent R0/R3/R5 requests through Dev, Forge and Autônomos and assert identical snapshot and market-decision hashes for identical as-of facts/authority.
+- [x] Inject stale graph, graph conflict, outcome lag, provider outage, revoked authority, calibration loss and crash between decision/order persistence.
+- [x] Assert every mode returns the same hold/retry/refusal semantics and no mode bypasses the frozen snapshot or selected route.
+- [x] Reconcile an interrupted decision idempotently without duplicate provider invocation or event.
+- [x] Run cross-mode parity, architecture bypass, ledger replay and neighboring Kernel tests.
 
 **GREEN acceptance:** equivalent facts lead to equivalent decisions across modes; failure/restart is deterministic; no cross-workspace leak or mode-specific quality bar exists.
 

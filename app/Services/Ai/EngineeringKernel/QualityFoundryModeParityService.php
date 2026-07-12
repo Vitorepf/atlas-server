@@ -27,6 +27,7 @@ final class QualityFoundryModeParityService
         $mismatches = [];
         $commonFields = [
             'product_intent_verdict_hash', 'spec_hash', 'world_model_snapshot_hash',
+            'market_decision_hash',
             'risk_class', 'required_depth', 'allowed_scope', 'forbidden_scope',
             'role_roster', 'evidence_policy',
         ];
@@ -34,6 +35,10 @@ final class QualityFoundryModeParityService
             $values = [];
             foreach (self::MODES as $mode) {
                 $values[$mode] = $this->value($modeReceipts[$mode] ?? [], $field);
+            }
+            if ($field === 'market_decision_hash' && in_array(null, $values, true)) {
+                $mismatches[$field] = array_map(static fn (mixed $value): mixed => $value ?? 'missing', $values);
+                continue;
             }
             if (count(array_unique(array_map($this->canonical(...), $values))) > 1) {
                 $mismatches[$field] = $values;
@@ -92,13 +97,67 @@ final class QualityFoundryModeParityService
         return $payload;
     }
 
+    /**
+     * Reconciles a crash between decision/order persistence and settlement.
+     * This is deliberately read-only: an existing provider invocation is never retried,
+     * and a missing terminal outcome remains held for the owning ledger to settle.
+     *
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public function reconcileInterruptedDecision(array $input): array
+    {
+        foreach (['workspace_id', 'idempotency_key'] as $field) {
+            if (trim((string) ($input[$field] ?? '')) === '') {
+                return ['schema' => self::SCHEMA, 'status' => 'held', 'blockers' => ['reconciliation_'.$field.'_required'], 'claim_eligible' => false];
+            }
+        }
+        foreach (['decision_hash', 'order_hash'] as $field) {
+            if (! is_string($input[$field] ?? null) || preg_match('/^[a-f0-9]{64}$/', $input[$field]) !== 1) {
+                return ['schema' => self::SCHEMA, 'status' => 'held', 'blockers' => ['reconciliation_'.$field.'_invalid'], 'claim_eligible' => false];
+            }
+        }
+
+        $terminal = $input['terminal_outcome'] ?? null;
+        $base = [
+            'schema' => self::SCHEMA, 'workspace_id' => (string) $input['workspace_id'],
+            'idempotency_key' => (string) $input['idempotency_key'],
+            'decision_hash' => $input['decision_hash'], 'order_hash' => $input['order_hash'],
+            'provider_invocations' => array_values((array) ($input['provider_invocations'] ?? [])),
+            'claim_eligible' => false,
+        ];
+        if (is_array($terminal) && $terminal !== []) {
+            $result = array_merge($base, [
+                'status' => 'replayed', 'terminal_outcome' => $terminal,
+                'events_added' => 0, 'provider_invocations_added' => 0,
+            ]);
+            $result['reconciliation_hash'] = CanonicalKernelPayload::hash($result);
+
+            return $result;
+        }
+
+        $result = array_merge($base, [
+            'status' => 'held', 'blockers' => ['terminal_outcome_required'],
+            'events_added' => 0, 'provider_invocations_added' => 0,
+        ]);
+        $result['reconciliation_hash'] = CanonicalKernelPayload::hash($result);
+
+        return $result;
+    }
+
     private function value(array $receipt, string $field): mixed
     {
         if (array_key_exists($field, $receipt)) {
             return $receipt[$field];
         }
         if (isset($receipt['workcell_admission']) && is_array($receipt['workcell_admission'])) {
-            return $receipt['workcell_admission'][$field] ?? null;
+            $value = $receipt['workcell_admission'][$field] ?? null;
+            if ($value !== null) {
+                return $value;
+            }
+        }
+        if (isset($receipt['execution_order']) && is_array($receipt['execution_order'])) {
+            return $receipt['execution_order'][$field] ?? null;
         }
 
         return null;
