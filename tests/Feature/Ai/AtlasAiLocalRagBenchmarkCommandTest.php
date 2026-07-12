@@ -850,7 +850,7 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertStringNotContainsString('abcdefghijklmno', $output);
     }
 
-    public function test_Rag05_memory_recall_golden_set_is_frozen_and_scores_recall_without_floor_discards(): void
+    public function test_rag05_memory_recall_golden_set_is_frozen_and_scores_recall_without_floor_discards(): void
     {
         $this->createLocalRagTables();
         $this->createMemoryTables();
@@ -902,6 +902,57 @@ final class AtlasAiLocalRagBenchmarkCommandTest extends TestCase
         $this->assertTrue(data_get($payload, 'memory_recall_corpus.self_retrieval_sanity'));
         $this->assertSame('memory_recall', data_get($payload, 'memory_recall_golden.cases.0.surface'));
         $this->assertArrayHasKey('source_ref_hash', data_get($payload, 'memory_recall_golden.cases.0.must_include.0'));
+        $this->assertStringNotContainsString((string) data_get($fixture, 'cases.0.query'), $output);
+        $this->assertStringNotContainsString('Bearer', $output);
+    }
+
+    public function test_max_g04_memory_recall_golden_v2_is_versioned_live_anchored_and_judged(): void
+    {
+        $this->createLocalRagTables();
+        $this->createMemoryTables();
+        config()->set('atlas.semantic_memory.embedding_provider', 'semantic_rag');
+
+        $fixturePath = base_path('tests/Fixtures/Context/memory_recall_golden/v2.json');
+        $this->assertFileExists($fixturePath);
+
+        $fixture = json_decode((string) file_get_contents($fixturePath), true, flags: JSON_THROW_ON_ERROR);
+
+        foreach ((array) $fixture['cases'] as $index => $case) {
+            $contentHash = (string) data_get($case, 'must_include.0.source_ref_hash');
+            app(AtlasMemoryRegistryService::class)->record([
+                'memory_type' => 'technical_context',
+                'scope_type' => 'global',
+                'title' => 'MAXG04 v2 live anchor '.($index + 1).' '.$case['case_id'],
+                'body' => 'Provider safe golden v2 live anchor for '.$case['case_id'].'. This entry answers: '.$case['query'],
+                'summary' => 'Golden v2 live anchor for '.$case['case_id'].'.',
+                'priority' => 100 - $index,
+                'importance' => 5,
+                'confidence' => 0.95,
+                'privacy_class' => 'normal',
+                'external_ai_allowed' => true,
+                'source_type' => 'manual_curation',
+                'source_id' => 'maxg04-golden-v2-'.($index + 1),
+                'content_hash' => $contentHash,
+                'metadata' => [
+                    'promotion_receipt' => ['schema_version' => 'atlas.memory.promotion_receipt.v1'],
+                ],
+            ]);
+        }
+
+        $exit = Artisan::call('atlas:ai:local-rag-benchmark', ['--json' => true]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('memory_recall_golden_2026_07_maxg04_live_v2', data_get($payload, 'memory_recall_golden_v2.frozen_set_id'));
+        $this->assertSame('atlas.memory_recall_golden_set.v1', data_get($payload, 'memory_recall_golden_versions.v2.schema_version'));
+        $this->assertGreaterThanOrEqual(25, data_get($payload, 'memory_recall_golden_v2.cases'));
+        $this->assertSame(data_get($payload, 'memory_recall_golden_v2.cases'), data_get($payload, 'memory_recall_golden_v2.targets_available'));
+        $this->assertTrue(data_get($payload, 'memory_recall_golden_v2.judged'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'memory_recall_golden_v2.frozen_set_hash'));
+        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', data_get($payload, 'memory_recall_golden_v2.judge_event_hash'));
+        $this->assertSame(data_get($payload, 'memory_recall_golden_v2.frozen_set_hash'), data_get($payload, 'memory_recall_golden_versions.v2.frozen_set_hash'));
+        $this->assertSame('memory_recall_golden_2026_07_rag05_seed', data_get($payload, 'memory_recall_golden.frozen_set_id'));
         $this->assertStringNotContainsString((string) data_get($fixture, 'cases.0.query'), $output);
         $this->assertStringNotContainsString('Bearer', $output);
     }

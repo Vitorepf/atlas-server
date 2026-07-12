@@ -48,7 +48,8 @@ class LocalRagBenchmarkService
         $readinessReady = $readiness['status'] !== 'blocked';
         $qualityCorpus = $this->qualityCorpusReport($cases, $readinessReady);
         $memoryRecallCorpus = $this->memoryRecallCorpusReport();
-        $memoryRecallGolden = $this->memoryRecallGoldenFixtureReport();
+        $memoryRecallGoldenVersions = $this->memoryRecallGoldenFixtureReports();
+        $memoryRecallGolden = $this->legacyMemoryRecallGoldenReport($memoryRecallGoldenVersions['v1']);
         // R8: the HONEST independent retrieval-precision number. Unlike the
         // memory-recall corpus above (whose query is the target's own
         // title+summary — a near-tautological known-item lexical test), this runs
@@ -92,6 +93,8 @@ class LocalRagBenchmarkService
             'quality_corpus' => $qualityCorpus,
             'memory_recall_corpus' => $memoryRecallCorpus,
             'memory_recall_golden' => $memoryRecallGolden,
+            'memory_recall_golden_versions' => $memoryRecallGoldenVersions,
+            'memory_recall_golden_v2' => $memoryRecallGoldenVersions['v2'] ?? null,
             'independent_precision_corpus' => $independentPrecisionCorpus,
             'retrieval_rivals_packet' => $retrievalRivalsPacket,
             'ledger_contract' => $ledgerContract,
@@ -331,6 +334,9 @@ class LocalRagBenchmarkService
                 'benchmark_id' => $benchmarkId,
                 'quality_corpus' => $report['quality_corpus'] ?? [],
                 'memory_recall_corpus' => $report['memory_recall_corpus'] ?? [],
+                'memory_recall_golden' => $report['memory_recall_golden'] ?? [],
+                'memory_recall_golden_versions' => $report['memory_recall_golden_versions'] ?? [],
+                'memory_recall_golden_v2' => $report['memory_recall_golden_v2'] ?? [],
                 'retrieval_rivals_packet' => $report['retrieval_rivals_packet'] ?? [],
                 'case_ids' => collect($report['cases'] ?? [])->pluck('id')->values()->all(),
                 'raw_query_persisted' => false,
@@ -378,6 +384,137 @@ class LocalRagBenchmarkService
             'missing_reason' => $persisted ? null : 'atlas_ledger_events_table_unavailable_or_write_failed',
             'events' => $events,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    public function withGoldenJudgeEvidence(array $report): array
+    {
+        $versions = (array) ($report['memory_recall_golden_versions'] ?? []);
+
+        foreach ($versions as $version => $golden) {
+            if (! is_array($golden)) {
+                continue;
+            }
+
+            $versions[$version] = $this->applyGoldenJudgeEvidence($golden);
+        }
+
+        $report['memory_recall_golden_versions'] = $versions;
+        if (isset($versions['v1'])) {
+            $report['memory_recall_golden'] = $this->legacyMemoryRecallGoldenReport($versions['v1']);
+        }
+        if (isset($versions['v2'])) {
+            $report['memory_recall_golden_v2'] = $versions['v2'];
+        }
+
+        return $report;
+    }
+
+    /**
+     * @param  array<string,mixed>  $golden
+     * @return array<string,mixed>
+     */
+    private function applyGoldenJudgeEvidence(array $golden): array
+    {
+        $hash = (string) ($golden['frozen_set_hash'] ?? '');
+        $version = (string) ($golden['version'] ?? '');
+        if ($hash === '' || $version === 'v1') {
+            return $golden;
+        }
+
+        $evidence = $this->goldenJudgeEvidence($hash);
+        $golden['judged'] = $evidence !== null;
+        $golden['judge_event_id'] = $evidence['event_id'] ?? null;
+        $golden['judge_event_hash'] = $evidence['event_hash'] ?? null;
+        $golden['judge_payload_hash'] = $evidence['payload_hash'] ?? null;
+        data_set($golden, 'checks.judge_event_recorded', $evidence !== null);
+        $golden['status'] = $this->memoryRecallGoldenStatus((array) ($golden['checks'] ?? []), true);
+
+        return $golden;
+    }
+
+    /**
+     * Keep the historical `memory_recall_golden` surface as the RAG-05 v1 payload.
+     *
+     * @param  array<string,mixed>  $report
+     * @return array<string,mixed>
+     */
+    private function legacyMemoryRecallGoldenReport(array $report): array
+    {
+        foreach ([
+            'version',
+            'r5',
+            'fd',
+            'targets_available',
+            'expected_source_available_declared',
+            'source_availability_ratio',
+            'judged',
+            'judge_event_id',
+            'judge_event_hash',
+            'judge_payload_hash',
+            'case_results',
+        ] as $key) {
+            unset($report[$key]);
+        }
+
+        return $report;
+    }
+
+    /**
+     * @return array<string,string>|null
+     */
+    private function goldenJudgeEvidence(string $frozenSetHash): ?array
+    {
+        if ($frozenSetHash === '' || ! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        $event = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::LocalRagQualityCorpusEvaluated->value)
+            ->latest('occurred_at')
+            ->limit(200)
+            ->get()
+            ->first(function (AtlasLedgerEvent $event) use ($frozenSetHash): bool {
+                $payload = is_array($event->payload) ? $event->payload : [];
+                $localRag = is_array(data_get($payload, 'local_rag')) ? (array) data_get($payload, 'local_rag') : $payload;
+
+                return collect([
+                    data_get($localRag, 'memory_recall_golden.frozen_set_hash'),
+                    data_get($localRag, 'memory_recall_golden_v2.frozen_set_hash'),
+                    ...collect((array) data_get($localRag, 'memory_recall_golden_versions', []))
+                        ->map(fn (mixed $golden): mixed => is_array($golden) ? ($golden['frozen_set_hash'] ?? null) : null)
+                        ->all(),
+                ])->contains($frozenSetHash);
+            });
+
+        if (! $event instanceof AtlasLedgerEvent) {
+            return null;
+        }
+
+        return [
+            'event_id' => (string) $event->event_id,
+            'event_hash' => (string) ($event->event_hash ?: $event->payload_hash),
+            'payload_hash' => (string) $event->payload_hash,
+        ];
+    }
+
+    /**
+     * @param  array<string,bool>  $checks
+     */
+    private function memoryRecallGoldenStatus(array $checks, bool $isV2OrLater): string
+    {
+        if (collect($checks)->every(fn (bool $passed): bool => $passed)) {
+            return 'passed';
+        }
+
+        if ($isV2OrLater && ($checks['source_availability_floor'] ?? true) === false) {
+            return 'pending_window:live_recall_corpus_insufficient';
+        }
+
+        return 'attention';
     }
 
     /**
@@ -820,27 +957,33 @@ class LocalRagBenchmarkService
     }
 
     /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function memoryRecallGoldenFixtureReports(): array
+    {
+        $fixtures = $this->loadMemoryRecallGoldenFixtures();
+        $reports = [];
+
+        foreach ($fixtures as $version => $fixture) {
+            $reports[$version] = $this->memoryRecallGoldenFixtureReport($fixture, $version);
+        }
+
+        if (! isset($reports['v1'])) {
+            $reports['v1'] = $this->missingMemoryRecallGoldenFixtureReport('v1', 'memory_recall_golden_2026_07_rag05_seed');
+        }
+
+        ksort($reports, SORT_NATURAL);
+
+        return $reports;
+    }
+
+    /**
+     * @param  array<string,mixed>  $fixture
      * @return array<string,mixed>
      */
-    private function memoryRecallGoldenFixtureReport(): array
+    private function memoryRecallGoldenFixtureReport(array $fixture, string $version): array
     {
-        $fixture = $this->loadMemoryRecallGoldenFixture();
-
-        if ($fixture === null) {
-            return [
-                'schema_version' => 'atlas.memory_recall_golden_set.v1',
-                'status' => 'attention',
-                'frozen_set_id' => 'memory_recall_golden_2026_07_rag05_seed',
-                'case_count' => 0,
-                'recall_at_3' => 0.0,
-                'recall_at_5' => 0.0,
-                'improper_floor_discards' => 0,
-                'raw_query_persisted' => false,
-                'raw_context_persisted' => false,
-                'missing_reason' => 'memory_recall_golden_fixture_missing_or_invalid',
-                'cases' => [],
-            ];
-        }
+        $frozenSetHash = hash('sha256', json_encode($fixture, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         $cases = collect((array) ($fixture['cases'] ?? []))
             ->filter(fn (mixed $case): bool => is_array($case))
@@ -852,10 +995,15 @@ class LocalRagBenchmarkService
         $improperFloorDiscards = (int) collect($cases)->sum('improper_floor_discard_count');
         $providerSafeViolations = (int) collect($cases)->sum('provider_safe_violation_count');
         $caseCount = count($cases);
+        $targetsAvailable = (int) collect($cases)->filter(fn (array $case): bool => (bool) ($case['expected_source_available'] ?? false))->count();
+        $declaredAvailable = (int) collect((array) ($fixture['cases'] ?? []))
+            ->filter(fn (mixed $case): bool => is_array($case) && (bool) ($case['expected_source_available'] ?? false))
+            ->count();
+        $sourceAvailabilityRatio = $caseCount > 0 ? $targetsAvailable / $caseCount : 0.0;
+        $isV2OrLater = $version !== 'v1';
+        $judgeEvidence = $this->goldenJudgeEvidence($frozenSetHash);
         $checks = [
             'minimum_case_count' => $caseCount >= 25,
-            'recall_at_3_threshold' => $recallAt3 >= 0.80,
-            'recall_at_5_threshold' => $recallAt5 >= 0.80,
             'zero_improper_floor_discards' => $improperFloorDiscards === 0,
             'provider_safe_reviewed' => (bool) ($fixture['provider_safe_reviewed'] ?? false),
             'author_judge_separated' => (bool) ($fixture['judge_differs_from_author'] ?? false),
@@ -863,10 +1011,19 @@ class LocalRagBenchmarkService
             'raw_query_not_persisted' => (bool) ($fixture['raw_query_persisted'] ?? true) === false,
             'raw_context_not_persisted' => (bool) ($fixture['raw_context_persisted'] ?? true) === false,
         ];
+        if ($isV2OrLater) {
+            $checks['expected_source_available_declared'] = $declaredAvailable === $caseCount && $caseCount > 0;
+            $checks['source_availability_floor'] = $sourceAvailabilityRatio >= 0.90;
+            $checks['judge_event_recorded'] = $judgeEvidence !== null;
+        } else {
+            $checks['recall_at_3_threshold'] = $recallAt3 >= 0.80;
+            $checks['recall_at_5_threshold'] = $recallAt5 >= 0.80;
+        }
 
         $payload = [
             'schema_version' => 'atlas.memory_recall_golden_set.v1',
-            'status' => collect($checks)->every(fn (bool $passed): bool => $passed) ? 'passed' : 'attention',
+            'version' => $version,
+            'status' => $this->memoryRecallGoldenStatus($checks, $isV2OrLater),
             'frozen_set_id' => (string) ($fixture['frozen_set_id'] ?? 'memory_recall_golden_2026_07_rag05_seed'),
             'provider_safe_reviewed' => (bool) ($fixture['provider_safe_reviewed'] ?? false),
             'author' => (string) ($fixture['author'] ?? 'unknown'),
@@ -877,38 +1034,84 @@ class LocalRagBenchmarkService
             'must_include_policy' => 'source_ref_hash',
             'recall_at_3' => round((float) $recallAt3, 4),
             'recall_at_5' => round((float) $recallAt5, 4),
+            'r5' => round((float) $recallAt5, 4),
             'improper_floor_discards' => $improperFloorDiscards,
+            'fd' => $improperFloorDiscards,
+            'targets_available' => $targetsAvailable,
+            'expected_source_available_declared' => $declaredAvailable,
+            'source_availability_ratio' => round($sourceAvailabilityRatio, 4),
+            'judged' => $judgeEvidence !== null,
+            'judge_event_id' => $judgeEvidence['event_id'] ?? null,
+            'judge_event_hash' => $judgeEvidence['event_hash'] ?? null,
+            'judge_payload_hash' => $judgeEvidence['payload_hash'] ?? null,
             'provider_safe_violation_count' => $providerSafeViolations,
             'raw_query_persisted' => false,
             'raw_context_persisted' => false,
             'checks' => $checks,
-            'cases' => $cases,
         ];
+        if ($isV2OrLater) {
+            $payload['cases'] = $caseCount;
+            $payload['case_results'] = $cases;
+        } else {
+            $payload['cases'] = $cases;
+        }
         $payload['frozen_set_hash_algorithm'] = 'sha256';
-        $payload['frozen_set_hash'] = hash('sha256', json_encode($fixture, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $payload['frozen_set_hash'] = $frozenSetHash;
+        $payload['case_count'] = $caseCount;
 
         return $payload;
     }
 
     /**
-     * @return array<string,mixed>|null
+     * @return array<string,mixed>
      */
-    private function loadMemoryRecallGoldenFixture(): ?array
+    private function missingMemoryRecallGoldenFixtureReport(string $version, string $frozenSetId): array
     {
-        $path = base_path('tests/Fixtures/Context/memory_recall_golden/v1.json');
-        if (! is_file($path)) {
-            return null;
+        return [
+            'schema_version' => 'atlas.memory_recall_golden_set.v1',
+            'version' => $version,
+            'status' => 'attention',
+            'frozen_set_id' => $frozenSetId,
+            'case_count' => 0,
+            'cases' => [],
+            'recall_at_3' => 0.0,
+            'recall_at_5' => 0.0,
+            'r5' => 0.0,
+            'improper_floor_discards' => 0,
+            'fd' => 0,
+            'targets_available' => 0,
+            'expected_source_available_declared' => 0,
+            'judged' => false,
+            'raw_query_persisted' => false,
+            'raw_context_persisted' => false,
+            'missing_reason' => 'memory_recall_golden_fixture_missing_or_invalid',
+        ];
+    }
+
+    /**
+     * @return array<string,array<string,mixed>>
+     */
+    private function loadMemoryRecallGoldenFixtures(): array
+    {
+        $dir = base_path('tests/Fixtures/Context/memory_recall_golden');
+        $paths = is_dir($dir) ? (glob($dir.'/v*.json') ?: []) : [];
+        $fixtures = [];
+
+        foreach ($paths as $path) {
+            $version = pathinfo($path, PATHINFO_FILENAME);
+
+            try {
+                $fixture = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if (is_array($fixture) && ($fixture['schema_version'] ?? null) === 'atlas.memory_recall_golden_set.v1') {
+                $fixtures[$version] = $fixture;
+            }
         }
 
-        try {
-            $fixture = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
-        } catch (\Throwable) {
-            return null;
-        }
-
-        return is_array($fixture) && ($fixture['schema_version'] ?? null) === 'atlas.memory_recall_golden_set.v1'
-            ? $fixture
-            : null;
+        return $fixtures;
     }
 
     /**

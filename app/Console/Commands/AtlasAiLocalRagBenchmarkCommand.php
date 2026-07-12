@@ -44,6 +44,7 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
 
         $payload = $benchmark->report();
         $payload['evidence_ledger'] = $benchmark->evidenceLedgerReport($payload);
+        $payload = $benchmark->withGoldenJudgeEvidence($payload);
         $payload['memory_quality_snapshot'] = $this->recordMemoryQualitySnapshot($quality, $payload);
         $payload['retrieval_benchmark_history'] = $this->retrievalBenchmarkHistory($quality);
         $payload['emitted_external_vector_rag_preflight_inbox_item'] = $this->emitExternalRetrievalPreflightInbox($payload, $inbox);
@@ -934,6 +935,34 @@ final class AtlasAiLocalRagBenchmarkCommand extends Command
                     'judge' => data_get($benchmarkPayload, 'memory_recall_golden.judge'),
                     'judge_differs_from_author' => data_get($benchmarkPayload, 'memory_recall_golden.judge_differs_from_author'),
                     'frozen_set_hash' => data_get($benchmarkPayload, 'memory_recall_golden.frozen_set_hash'),
+                ],
+                'memory_recall_golden_versions' => collect((array) data_get($benchmarkPayload, 'memory_recall_golden_versions', []))
+                    ->map(fn (mixed $golden): array => is_array($golden) ? [
+                        'schema_version' => data_get($golden, 'schema_version'),
+                        'version' => data_get($golden, 'version'),
+                        'frozen_set_id' => data_get($golden, 'frozen_set_id'),
+                        'status' => data_get($golden, 'status'),
+                        'case_count' => data_get($golden, 'case_count'),
+                        'recall_at_5' => data_get($golden, 'recall_at_5'),
+                        'recall_at_3' => data_get($golden, 'recall_at_3'),
+                        'improper_floor_discards' => data_get($golden, 'improper_floor_discards'),
+                        'targets_available' => data_get($golden, 'targets_available'),
+                        'judged' => data_get($golden, 'judged'),
+                        'judge_event_hash' => data_get($golden, 'judge_event_hash'),
+                        'frozen_set_hash' => data_get($golden, 'frozen_set_hash'),
+                    ] : [])
+                    ->all(),
+                'memory_recall_golden_v2' => [
+                    'schema_version' => data_get($benchmarkPayload, 'memory_recall_golden_v2.schema_version'),
+                    'frozen_set_id' => data_get($benchmarkPayload, 'memory_recall_golden_v2.frozen_set_id'),
+                    'status' => data_get($benchmarkPayload, 'memory_recall_golden_v2.status'),
+                    'case_count' => data_get($benchmarkPayload, 'memory_recall_golden_v2.case_count'),
+                    'targets_available' => data_get($benchmarkPayload, 'memory_recall_golden_v2.targets_available'),
+                    'recall_at_5' => data_get($benchmarkPayload, 'memory_recall_golden_v2.recall_at_5'),
+                    'improper_floor_discards' => data_get($benchmarkPayload, 'memory_recall_golden_v2.improper_floor_discards'),
+                    'judged' => data_get($benchmarkPayload, 'memory_recall_golden_v2.judged'),
+                    'judge_event_hash' => data_get($benchmarkPayload, 'memory_recall_golden_v2.judge_event_hash'),
+                    'frozen_set_hash' => data_get($benchmarkPayload, 'memory_recall_golden_v2.frozen_set_hash'),
                 ],
                 'retrieval_rivals_packet' => [
                     'schema_version' => data_get($benchmarkPayload, 'retrieval_rivals_packet.schema_version'),

@@ -1,0 +1,415 @@
+{
+  "schema_version": "atlas.memory_recall_golden_set.v1",
+  "version": "v2",
+  "frozen_set_id": "memory_recall_golden_2026_07_maxg04_live_v2",
+  "provider_safe_reviewed": true,
+  "author": "cursor-acos-max-maxg04",
+  "judge": "ledger_event_required",
+  "judge_differs_from_author": true,
+  "raw_query_persisted": false,
+  "raw_context_persisted": false,
+  "anchor_policy": "live_active_atlas_memory_entry_content_hash",
+  "availability_policy": "expected_source_available_declared_per_case_and_verified_at_runtime",
+  "cases": [
+    {
+      "case_id": "memory-golden-v2-001-domain-profiles-are-operating-systems",
+      "query": "Which active memory defines domain profiles as full operating systems rather than model presets?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "0e71ed4e9ce90968efb8db9dd0dd2b52b48cadccf4daf8180ff0b7fc8fc090c3"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "domain-profiles"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-002-terminal-verification-moat",
+      "query": "What memory says the terminal north star is verification instead of building a custom shell?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "cdab9eab622a907ec92b62ef300d187b67393470863f6e1fbbaa0fd348a0ca65"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "terminal-first"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-003-formula-version-reset",
+      "query": "Which memory states that a formula version change starts a new trend comparison?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "124e8afa39f31b40365b05ff3b495d19578b28d1361475bcb664ab86959ee893"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "formula-version"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-004-acos-cognitive-authority",
+      "query": "Where is ACOS described as the authority over memory, retrieval, graph, ranking, and self improvement?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "600537d6b50590db77764e0941cdf70887bdc43d3264504efb668aa5d01a642a"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "acos-authority"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-005-measured-feedback-only",
+      "query": "Which memory explains why context budget policy excludes weak inferred feedback from decisions?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "13730a521523ec330b733716aa913a702b724b55771c19863f53be7ec139fc89"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "measured-feedback"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-006-terminal-product-focus",
+      "query": "What entry captures the terminal-first strategy of using hosted harnesses while owning the CLI surface?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "337d783d005c20042b35f9d172b3b95b737d023878b6e894b7583217432aca32"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "terminal-strategy"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-007-must-include-ref-hashes",
+      "query": "Which memory records that required golden labels are source reference hashes?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "9c2d789dc85d2a9276b13cc87589e0dab8ebca43c5300fac70ebdaf853a76466"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "ref-hash"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-008-measured-share-denominator",
+      "query": "Where is the total event floor for measured share called mandatory?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "a59e1a180e9c51484cee7b8ec3371683ffdd0ea8c29f0e25858b31a4654c1d7b"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "denominator"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-009-hand-written-golden-queries",
+      "query": "Which memory requires golden recall prompts to be rewritten by hand instead of copied?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "a723a9588c9e12cf1a7cb459ff1e0ebe5ad4c95fa67a2df2a49d9e7456828ed0"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "independence"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-010-long-horizon-promotion-guard",
+      "query": "What memory names the guard that must run before promoting recovered long horizon content?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "b89b334da8ef086612b5ffc0fb935598db6aeea9c951893a83943070966d3c1b"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "promotion-guard"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-011-empty-windows-honest",
+      "query": "Which note says empty policy windows remain empty rather than being filled by interpolation?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "cf75353bed00735e22d05bfb87c505db5bfe51f067c486f17790e82aa3a1261d"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "empty-window"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-012-source-type-repromotion-bound",
+      "query": "Where is repromotion bounded by source type rather than exact reference by default?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "671a090ecf5b46177415cf5a88d63495bd85fc5b6a14c6697e0ac841f507338c"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "source-type"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-013-registry-canonical-over-projections",
+      "query": "Which memory says generated provider files are projections and the registry is canonical?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "b191d70c7261017094474aa325bb159b6f18e08da20ea371de6cf4427da90fc9"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "knowledge-governance"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-014-recall-floor-required-result",
+      "query": "What memory guards against a relevance floor dropping a required recall hit?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "125acbebf6ee4203eeb78655f9c5dc68fd0bce6b548bb2661e9007c56a6099ab"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "recall-floor"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-015-recall-at-three-metric",
+      "query": "Which context reports recall at three for the frozen memory golden set?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "48260cc2f32979167de20e39db62634336ea8d1a5dcf47e0d3f9164eb1d83308"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "recall-at-three"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-016-read-canonical-docs-first",
+      "query": "Where is the rule to read the knowledge governance document before trusting read models or chat?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "a811895e068edff0cd98d6912cb0053315ede2c105018f7bd1119a1a85f367a0"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "canonical-docs"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-017-missed-source-resolution",
+      "query": "What context says a missed source becomes resolved only when that source is later delivered?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "aa9eb5e1c137bb10d616eb240329d58da99c3f937531aca6310ccb2b75710596"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "missed-source"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-018-db-invariants",
+      "query": "Which memory places mechanical invariants in the database instead of relying only on ORM code?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "c6a008bb92a624ac527f9ffd28a52d3591651e5b97cca5e25554aea6c7369e5a"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "db-invariants"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-019-dead-loop-boundary",
+      "query": "Which decision says the old ACDE loop is dead and should not be targeted as the live engine?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "6ec0c20efe050cdf3d53dedfa743559280e1d48347ee89f94fdce905387a257c"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "autonomos"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-020-scoped-landing-commit",
+      "query": "What memory defines autonomous landings as scoped file adds and commits on the current branch?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "cc690f86aee12f2e9c61ad439e168e2cbe10d460940e7aaf385fa67b3065527f"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "scoped-commit"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-021-session-bootstrap",
+      "query": "Which memory requires session bootstrap with task context before programming?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "771bf4f15a606b9fbbee944d5dbf8cc983a510788a5c19e9ca8092a0875f8372"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "bootstrap"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-022-live-autonomos-flow",
+      "query": "Where is the live autonomous system described as brain commands creating work and task commands implementing it?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "5bb7ca60d38e2dd47fd32d117d61ae37c60ee4e76c4aae50c55140a3e7968e05"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "live-autonomos"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-023-legacy-live-keep-list",
+      "query": "Which memory warns that some legacy AtlasLoop classes remain live and must not be deleted by prefix?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "89e9552974e5df59633789aaed5a36fed39d5121533398fb0b0833af46a331e8"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "keep-list"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-024-knowledge-authority-hierarchy",
+      "query": "What memory captures the hierarchy where repo docs author knowledge and ledgers prove runtime events?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "40ee7f8161e490bbf56fe29c2d3d20237f9b8c2fc7a5e7b26aa3d3d34772a420"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "knowledge-authority"
+      ]
+    },
+    {
+      "case_id": "memory-golden-v2-025-autonomos-live-boundary",
+      "query": "Which active memory states that Autonomos is the live evolution system while the old loop is not the target?",
+      "must_include": [
+        {
+          "source_ref_type": "atlas_memory_entry",
+          "source_ref_hash": "31cd6d673f75d8b50d813506d4a9fec0cbfe105c53d6e6e736299b9b92e6c8a5"
+        }
+      ],
+      "expected_source_available": true,
+      "tags": [
+        "acos-max",
+        "maxg-04",
+        "autonomos-boundary"
+      ]
+    }
+  ]
+}
