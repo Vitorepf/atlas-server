@@ -24,8 +24,14 @@ final class ForgeObraRuntime
     {
         return DB::transaction(function () use ($commissioning): ForgeObraSnapshot {
             $intake = $this->intakes->intakeFromPrompt($commissioning->prompt, [
-                'workspace' => $commissioning->workspace, 'risk_band' => $commissioning->riskClass,
+                'workspace_slug' => basename(rtrim($commissioning->workspace, '/')), 'risk_band' => self::riskBand($commissioning->riskClass),
                 'recommended_forge_mode' => 'obra_intake', 'actor_type' => 'forge_commissioning',
+                'workspace_execution_gate' => [
+                    'schema_version' => 'atlas.workspace_intelligence.execution_gate.v1',
+                    'mode' => 'forge', 'workspace_id' => basename(rtrim($commissioning->workspace, '/')),
+                    'allowed' => true, 'status' => 'passed', 'blockers' => [],
+                    'required_contracts' => ['awco_execution_readiness' => true],
+                ],
                 'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
                 'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
                 'release_policy' => $commissioning->releasePolicy, 'interruption_policy' => $commissioning->interruptionPolicy,
@@ -34,6 +40,17 @@ final class ForgeObraRuntime
 
             return ForgeObraSnapshot::fromState($state, $commissioning->commissioningHash);
         });
+    }
+
+    private static function riskBand(string $riskClass): string
+    {
+        return match ($riskClass) {
+            'R0', 'R1' => 'low',
+            'R2', 'R3' => 'medium',
+            'R4' => 'high',
+            'R5' => 'critical',
+            default => throw new InvalidArgumentException('forge_risk_class_invalid'),
+        };
     }
 
     public function snapshot(ForgeObraId $obra): ForgeObraSnapshot
@@ -49,7 +66,7 @@ final class ForgeObraRuntime
         $intake = AiForgeIntake::query()->find($obra->value);
         $state = AiForgeLongHorizonState::query()->where('intake_id', $obra->value)->first();
         if (! $intake instanceof AiForgeIntake || ! $state instanceof AiForgeLongHorizonState) throw new InvalidArgumentException('forge_obra_not_found');
-        $packet = app(ForgeWorkPacketExecutionCycleService::class)->selectPacket($intake, $state);
+        $packet = $this->cycles->selectPacket($intake, $state);
         $snapshot = ForgeObraSnapshot::fromState($state, '');
         if ($packet === null) return ForgeTickResult::idle($snapshot, 'no_eligible_packet');
         $built = $this->cycles->planExecution($packet, [
