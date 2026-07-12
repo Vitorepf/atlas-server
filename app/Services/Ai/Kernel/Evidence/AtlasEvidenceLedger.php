@@ -194,7 +194,9 @@ class AtlasEvidenceLedger
 
     public function latestForScope(string $scopeType, string $scopeId, ?string $eventName = null): ?AtlasLedgerEvent
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')
+            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
+            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
             return null;
         }
 
@@ -209,7 +211,9 @@ class AtlasEvidenceLedger
 
     public function engineeringOutcomeEvent(string $deliveryId, string $orderHash, string $outcomeHash): ?AtlasLedgerEvent
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')
+            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
+            || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
             return null;
         }
 

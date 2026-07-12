@@ -24,7 +24,7 @@
 - [x] ASI-04 — landed · hook coalescing/cap/load-shed shell backpressure · bancada `scripts/verify-asi04-hooks.sh`: coalescing runs=1 coalesced=5; global_cap runs=1 cap_skips=2; forced_load PostToolUse runs=0 shed=1; UserPromptSubmit no-shed runs=1
 - [ ] ESP-01 — pending
 - [ ] MAXK-07 (+ELEV-09) — pending
-- [ ] MAXL-01 — pending
+- [x] MAXL-01 — landed · additive ledger repair migration restores `event_hash`/`scope_type`/`scope_id`, backfills stored rows, and guards scoped lookups
 - [ ] MAXL-02 (+ELEV-11) — pending
 - [ ] MAXN-01 — pending
 - [ ] ELEV-17 — pending
