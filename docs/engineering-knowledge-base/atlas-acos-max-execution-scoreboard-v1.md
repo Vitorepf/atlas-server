@@ -200,7 +200,7 @@
 - [x] MULTX-03 — landed · `AtlasEngineeringOutcomeRecorder` emits additive `atlas.engineering_outcome.v2` contract in the spine with unified executor task categories, provider presence, explicit `verified_source_present`, and fail-closed `verified=false`/`verified_basis=absent` when caller omits verification; compounding and live-outcome fan-out now consume the derived contract instead of defaulting passed outcomes to verified; tests: `php artisan test tests/Feature/Ai/Aemor/AtlasEngineeringOutcomeRecorderTest.php`
 - [x] MULTX-02 — landed · `atlas:flywheel:funnel --json` publishes the M leakage funnel by executor with five raw stages `{num,den,status}` (`outcomes_without_lesson`, `lessons_without_promotion`, `promoted_without_recall`, `recalls_without_citation`, `citations_without_better_outcome`); empty windows return `no_signal` and no scalar health score is emitted; series `atlas.m.funnel.v1` registered in ELEV-20s + ELEV-24 rotation policy; tests: `php artisan test tests/Feature/Ai/AcosMax/Multx02FunnelTest.php` (+ rotation guard green; dead-series guard has pre-existing unrelated gaps MAXH-10/MAXL-03/MAXL-04/MAXM-06/REC-03/REC-05)
 - [ ] MULTX-04 — pending
-- [ ] MULTX-06 (série) — pending
+- [x] MULTX-06 (série) — landed · `atlas:flywheel:learning-latency --json` now computes read-only p50/p95 delivery/citation latency from promoted lesson candidates to first delivered context and first measured citation using the MULTX-01 chain tables; `never_delivered`/`never_cited` stay in the denominator and n<8 remains `insufficient_signal`; tests: `php artisan test tests/Feature/Ai/AcosMax/Multx06LearningLatencyTest.php tests/Feature/Ai/AcosMax/Lote2FreezeReadersTest.php`
 - [ ] ESP-06 — pending
 - [ ] TETO-03 — pending (Trajectory Vault — liga assim que ESP-04 landar)
 
@@ -272,7 +272,7 @@
 - [ ] MULTV-06 — pending
 - [ ] MULTV-08 — pending
 - [ ] MULTK-06 — pending
-- [ ] MULTK-08 — pending
+- [x] MULTK-08 — landed · `DecisionReceiptFailurePatternMiner` pure mineração report-only (§2407-2411) sobre Decision Receipts v2 (MAXK-04) × outcomes reais (OUTC-01) juntos por `decision_id`; agrupa por escopo grosso `{task_category × basis × provider}` — evita minerar sobre `flow_id` free-text (lição MAXK-01, anti-multiple-comparisons). Publica `patterns[].{n, failures, failure_rate}` só quando `n ≥ N_MIN_PINNED=10` E `failure_rate > FAILURE_RATE_CEILING_PINNED=0.25` — floors PINADOS na fonte (ELEV-03), caller passando threshold abaixo do pin é ELEVADO para o pin (nunca abaixo). v1 receipts sem `basis` ⇒ `dropped_v1_no_basis` (§2409 anti-mining-v1); outcomes com `verified_basis ∈ {absent, claimed}` ⇒ `unverified_outcomes`, NUNCA contribuem failure (§ESP-05 wiring). `source.promotes_selection=false + source.blocker=false + source.emits_bias_carimbado=true` cravado — consumo em seleção só via ELEV-26 pós-2-janelas (nunca blocker duro — floors da 18 mantêm autoridade). Empty ⇒ `insufficient_signal`. SCHEMA `atlas.decide.receipt_failure_patterns.v1`; tests: `php artisan test tests/Unit/Ai/AcosMax/Multk08DecisionReceiptFailurePatternMinerTest.php`
 - [ ] MULTN15-08 — pending
 - [ ] MULTN17-05 — pending
 - [ ] MULTN17-06 — pending
