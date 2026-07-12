@@ -205,10 +205,10 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 **Allowed files:** existing readiness, temporal and outcome projections; architecture/docs tests; no v1 deletion in this packet.
 
 - [x] Write RED state-machine tests showing that green implementation cannot imply `cutover_ready`, elapsed windows, `quality_foundry_ready`, `multiplier_proven`, `world_leading`, or `world_10x_quality_proven`.
-- [ ] Require P0-13/P0-19 closed, vertical E2E, 100% coverage, four manifests, N−1 migration compatibility, exercised rollback and active outcome writers for `cutover_ready`.
+- [x] Require P0-13/P0-19 closed, vertical E2E, 100% coverage, four manifests, N−1 migration compatibility, exercised rollback and active outcome writers for `cutover_ready`. Evidence: `QualityFoundryReadinessStateMachine` has the conjunctive cutover gate list and its state tests prove any missing gate keeps `implemented_not_cutover_ready`.
 - [x] Emit observation schedules for 0h, 24h, 7d, 30d, 90d and 150d; do not synthesize elapsed observations.
 - [x] Add a reachability/usage gate for eventual v1 removal: zero observed use, rollback window closed, replay/export verified and N−1 no longer needed.
-- [ ] Run state/readiness/temporal tests and final repository gates. Record blockers verbatim.
+- [x] Run state/readiness/temporal tests and final repository gates. Record blockers verbatim. Evidence: state/readiness suites passed; final architecture validation remains blocked by missing `atlas_engineering_runs` projection table and docs-health remains blocked by the recorded repository violations/baseline debt; no cutover or temporal claim was emitted.
 
 **GREEN acceptance:** the highest state equals the evidence actually present. Before operator-authorized cutover and elapsed windows, the expected ceiling is `cutover_ready` or lower, with temporal and comparative states explicitly pending.
 
