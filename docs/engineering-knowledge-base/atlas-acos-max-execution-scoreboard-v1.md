@@ -164,7 +164,7 @@
 - [ ] MAXJ-06 — pending
 - [ ] MAXK-02 — pending
 - [ ] MAXK-03 — pending
-- [ ] MAXL-03 — pending
+- [x] MAXL-03 — landed · `EvidenceLedgerIntegrityWatchdogCheck` (id `wdg-01.evidence_ledger_integrity`) roda diário sobre `EvidenceLedgerHashChainIntegrityVerifier::verifyStoredChainsForDay()` (mesmo verificador do MAXL-02); tamper ⇒ alert `evidence_ledger_tampered`, gap ⇒ alert `evidence_ledger_gap`, chains intactas ⇒ `ok`; JSONL append-only `storage/atlas/evidence-ledger-integrity/integrity.jsonl` recebe linha diária `{date, chains, chain_details:[{chain_key, chain_length, status, gap_count, tampered_count, tampered_event_ids, legacy_unchained_count}], tampered_total, gap_total}` (zero payload cru — só ids/hashes/contagens); registrado no `AppServiceProvider::registerAcosWatchdogChecks()`; tests: `php artisan test tests/Feature/Ai/AcosMax/Maxl03EvidenceLedgerIntegrityWatchdogTest.php tests/Feature/Ai/Cognition/AtlasWatchdogFrameworkTest.php`
 - [ ] MAXL-04 — pending
 - [ ] MAXL-05 — pending
 - [ ] MAXL-07 — pending
