@@ -52,6 +52,17 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
         $results = [];
         $results['verification_roles'] = $this->roles($facts);
         $results['verification_hashes'] = $this->hashes($facts);
+        if (array_key_exists('evidence_applicability', $facts)) {
+            $applicability = (new QualityFoundryEvidenceApplicabilityMatrix)->evaluate(
+                is_array($facts['evidence_applicability']) ? $facts['evidence_applicability'] : [],
+            );
+            $results['evidence_applicability'] = [
+                'status' => $applicability['accepted'] === true ? 'pass' : 'fail',
+                'detail' => $applicability['accepted'] === true
+                    ? 'all_applicable_evidence_admitted'
+                    : implode(',', $applicability['blockers']),
+            ];
+        }
 
         $contract = $this->evidenceContract->verify(
             is_array($facts['allegation'] ?? null) ? $facts['allegation'] : [],
