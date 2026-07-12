@@ -26,6 +26,9 @@ final class FailureClass
 
     public const HOST_SUSPENDED = 'host_suspended';
 
+    /** Released work reverted before terminal acceptance — counts in ITT, never green. */
+    public const ROLLBACK = 'rollback';
+
     /** @return list<string> */
     public static function all(): array
     {
@@ -41,6 +44,7 @@ final class FailureClass
             self::PROVIDER_REFUSED,
             self::QUOTA_EXHAUSTED,
             self::HOST_SUSPENDED,
+            self::ROLLBACK,
         ];
     }
 }

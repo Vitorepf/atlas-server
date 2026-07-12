@@ -137,12 +137,14 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 
 **Allowed files:** Rivals core registries/runner/adapters/scripts and focused tests. Shared Atlas services are read-only evidence sources unless a narrow adapter contract is missing.
 
-- [ ] Write RED matrix tests for missing same-model bare control, changed model/provider version, unequal compute/tool/egress/time budgets, Atlas mutation executed twice, competitor outside native harness and failure omitted from ledger.
-- [ ] Build the six-arm plan where available and explicitly mark unavailable historical-human baseline without blocking the other arms.
-- [ ] Pin models/providers/harnesses/tools/resources and frozen unit snapshot per run; record operator interventions and all failures/timeouts/refusals/rollbacks.
-- [ ] Execute Atlas arms through the real shared Kernel and bare/competitor arms through isolated native adapters; do not let one arm see another's artifact/gold.
-- [ ] Import normalized results with source/native receipt hashes and retain raw immutable artifacts.
-- [ ] Run adapter contract, native import, ten-suite/external loop, failure-classification, ITT and replay tests.
+- [x] Write RED matrix tests for missing same-model bare control, changed model/provider version, unequal compute/tool/egress/time budgets, Atlas mutation executed twice, competitor outside native harness and failure omitted from ledger.
+- [x] Build the six-arm plan where available and explicitly mark unavailable historical-human baseline without blocking the other arms.
+- [x] Pin models/providers/harnesses/tools/resources and frozen unit snapshot per run; record operator interventions and all failures/timeouts/refusals/rollbacks.
+- [x] Execute Atlas arms through the real shared Kernel and bare/competitor arms through isolated native adapters; do not let one arm see another's artifact/gold.
+- [x] Import normalized results with source/native receipt hashes and retain raw immutable artifacts.
+- [ ] Run adapter contract, native import, ten-suite/external loop, failure-classification, ITT and replay tests. <!-- blocked: ExternalTenSuite/ExternalLoop pipeline tests currently RED on frozen_unit_manifest freeze-fixture gap owned by the concurrent NativeResultNormalizer/RunPaths WIP stream; adapter-contract + native-import + ITT + replay all green. -->
+
+**Owner note (this session):** the six-arm plan builder (`SixArmPlanBuilder`), comparable-arms guard (`ArmComparability`: same-model bare control, provider-version pin, equal per-arm budgets) and `FailureClass::ROLLBACK` landed with `ComparableArmsMatrixTest`. The final ten-suite/external-loop pipeline run remains blocked on concurrent WIP freeze fixtures — never overwrite another worker's files.
 
 **GREEN acceptance:** arms are comparable and isolated; every assigned unit appears in the denominator; raw/native/normalized artifacts correlate; no best-run filtering.
 
