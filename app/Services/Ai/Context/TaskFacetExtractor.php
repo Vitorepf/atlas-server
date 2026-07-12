@@ -94,12 +94,24 @@ final class TaskFacetExtractor
             }
         }
         //    3b) Bare ClassName::method or ClassName->method (single class name).
-        if (preg_match_all('/\\b([A-Z][A-Za-z0-9_]{2,})(?:(::|->)([a-zA-Z_][A-Za-z0-9_]*))?\\b/', $work, $m)) {
+        //    A bare PascalCase token cited by the operator is essential — but ONLY when
+        //    it looks like an identifier (embedded camel hump or trailing method), never a
+        //    sentence head like "Check" or "Find". Regex requires either a `::method`,
+        //    `->method` suffix OR a second uppercase inside the name (camel hump).
+        if (preg_match_all('/\\b([A-Z][a-z0-9_]+[A-Z][A-Za-z0-9_]*)(?:(::|->)([a-zA-Z_][A-Za-z0-9_]*))?\\b/', $work, $m)) {
             foreach ($m[1] as $i => $name) {
                 $sep = (string) ($m[2][$i] ?? '');
                 $method = (string) ($m[3][$i] ?? '');
                 $value = $method !== '' ? $name.$sep.$method : $name;
-                $push(self::FACET_SYMBOL, $value, $method !== '');
+                $push(self::FACET_SYMBOL, $value, true);
+            }
+        }
+        //    3c) Bare method-suffixed identifier without the camel hump (e.g. `Model::create`).
+        if (preg_match_all('/\\b([A-Z][A-Za-z0-9_]{2,})(::|->)([a-zA-Z_][A-Za-z0-9_]*)\\b/', $work, $m)) {
+            foreach ($m[1] as $i => $name) {
+                $sep = (string) ($m[2][$i] ?? '');
+                $method = (string) ($m[3][$i] ?? '');
+                $push(self::FACET_SYMBOL, $name.$sep.$method, true);
             }
         }
 
