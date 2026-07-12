@@ -2514,6 +2514,11 @@ return [
                     'latency' => max(0.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_WEIGHT_LATENCY', 0.0)),
                 ],
             ],
+            'cascade' => [
+                'enabled' => (bool) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_CASCADE_ENABLED', false),
+                'lower_bound_floor' => max(0.0, min(1.0, (float) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_CASCADE_LOWER_BOUND_FLOOR', 0.8))),
+                'daily_escalation_cap' => max(0, (int) env('ATLAS_PATAMAR4_ADML_COST_OUTCOME_CASCADE_DAILY_CAP', 1)),
+            ],
         ],
         'adml_provider_aliases' => [
             'anthropic_claude' => 'claude_cli',

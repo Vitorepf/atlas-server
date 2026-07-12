@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AtlasDecide;
 
+use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use Tests\TestCase;
 
 class AtlasDecideCostOutcomeRouterTest extends TestCase
@@ -333,7 +333,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
     public function test_multk01_interval_does_not_change_cost_outcome_selection(): void
     {
         config(['atlas.patamar4.adml_cost_outcome.enabled' => true]);
-        $feedback = new AtlasDecideLiveOutcomeFeedbackService();
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
         $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
         foreach (range(1, 3) as $i) {
             $feedback->record([
@@ -389,7 +389,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
                 'weights' => ['success' => 0.0, 'cost' => 1.0, 'latency' => 0.0],
             ],
         ]);
-        $feedback = new AtlasDecideLiveOutcomeFeedbackService();
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
         $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
         foreach (range(1, 3) as $i) {
             $feedback->record([
@@ -440,7 +440,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
                 'weights' => ['success' => 0.0, 'cost' => 0.0, 'latency' => 1.0],
             ],
         ]);
-        $feedback = new AtlasDecideLiveOutcomeFeedbackService();
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
         $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
         foreach (range(1, 3) as $i) {
             $feedback->record([
@@ -481,6 +481,95 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
         $this->assertSame('interactive', data_get($route, 'selected.multi_objective.risk_class'));
         $this->assertSame(1.0, data_get($route, 'selected.multi_objective.weights.latency'));
         $this->assertFalse(data_get($route, 'selected.multi_objective.caller_supplied_weights_allowed'));
+    }
+
+    public function test_multk02_cascade_config_is_default_off(): void
+    {
+        $cfg = $this->buildRouter()->costOutcomeConfig();
+
+        $this->assertFalse($cfg['cascade_enabled']);
+        $this->assertSame(0.8, $cfg['cascade_lower_bound_floor']);
+    }
+
+    public function test_multk02_cascade_selects_lower_bound_preserving_route_when_enabled_under_cap(): void
+    {
+        config([
+            'atlas.patamar4.adml_cost_outcome.enabled' => true,
+            'atlas.patamar4.adml_cost_outcome.cascade' => [
+                'enabled' => true,
+                'lower_bound_floor' => 0.8,
+                'daily_escalation_cap' => 1,
+            ],
+        ]);
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
+        $this->recordCertifiedLiveOutcomes($feedback, 'codex_cli', 'gpt-5.5', 3, 0.01);
+        $this->recordCertifiedLiveOutcomes($feedback, 'claude_cli', 'opus', 30, 0.20);
+
+        $route = $this->routerWithFeedback($feedback)->costOutcomeRoute('backend', 'builder', 'laravel', 'schema.v1', [
+            'privacy_class' => 'normal',
+            'daily_escalations_used' => 0,
+        ]);
+
+        $this->assertSame('ready', $route['status']);
+        $this->assertSame('claude_cli', data_get($route, 'selected.provider'));
+        $this->assertSame('cascade_escalation', $route['routing_basis']);
+        $this->assertSame('selected_by_lower_bound_floor', data_get($route, 'cascade.basis'));
+        $this->assertSame('codex_cli', data_get($route, 'cascade.greedy_provider'));
+        $this->assertSame('claude_cli', data_get($route, 'cascade.escalation_provider'));
+        $this->assertGreaterThanOrEqual(0.8, data_get($route, 'selected.uncertainty_interval.lower_bound'));
+    }
+
+    public function test_multk02_cascade_refuses_sensitive_privacy_classes(): void
+    {
+        config([
+            'atlas.patamar4.adml_cost_outcome.enabled' => true,
+            'atlas.patamar4.adml_cost_outcome.cascade' => [
+                'enabled' => true,
+                'lower_bound_floor' => 0.8,
+                'daily_escalation_cap' => 1,
+            ],
+        ]);
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
+        $this->recordCertifiedLiveOutcomes($feedback, 'codex_cli', 'gpt-5.5', 3, 0.01);
+        $this->recordCertifiedLiveOutcomes($feedback, 'claude_cli', 'opus', 30, 0.20);
+
+        $route = $this->routerWithFeedback($feedback)->costOutcomeRoute('backend', 'builder', 'laravel', 'schema.v1', [
+            'privacy_class' => 'secret',
+            'daily_escalations_used' => 0,
+        ]);
+
+        $this->assertSame('codex_cli', data_get($route, 'selected.provider'));
+        $this->assertSame('cost_outcome', $route['routing_basis']);
+        $this->assertSame('blocked_sensitive_privacy_class', data_get($route, 'cascade.basis'));
+        $this->assertNull(data_get($route, 'cascade.escalation_provider'));
+    }
+
+    public function test_multk02_cascade_daily_cap_blocks_escalation(): void
+    {
+        config([
+            'atlas.patamar4.adml_cost_outcome.enabled' => true,
+            'atlas.patamar4.adml_cost_outcome.cascade' => [
+                'enabled' => true,
+                'lower_bound_floor' => 0.8,
+                'daily_escalation_cap' => 1,
+            ],
+        ]);
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting(sys_get_temp_dir().'/atlas_live_outcomes_'.uniqid('', true).'.jsonl');
+        $this->recordCertifiedLiveOutcomes($feedback, 'codex_cli', 'gpt-5.5', 3, 0.01);
+        $this->recordCertifiedLiveOutcomes($feedback, 'claude_cli', 'opus', 30, 0.20);
+
+        $route = $this->routerWithFeedback($feedback)->costOutcomeRoute('backend', 'builder', 'laravel', 'schema.v1', [
+            'privacy_class' => 'normal',
+            'daily_escalations_used' => 1,
+        ]);
+
+        $this->assertSame('codex_cli', data_get($route, 'selected.provider'));
+        $this->assertSame('cost_outcome', $route['routing_basis']);
+        $this->assertSame('daily_escalation_cap_reached', data_get($route, 'cascade.basis'));
+        $this->assertNull(data_get($route, 'cascade.escalation_provider'));
     }
 
     public function test_unverified_live_successes_do_not_change_cost_outcome_candidate_score_or_cost(): void
@@ -526,7 +615,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
 
     public function test_multk01_series_is_registered_for_elev20s(): void
     {
-        $entry = collect((new AcosMaxMeasureSeriesRegistry())->entries())
+        $entry = collect((new AcosMaxMeasureSeriesRegistry)->entries())
             ->firstWhere('slice', 'MULTK-01');
 
         $this->assertSame(AtlasDecideCostOutcomeRouter::MULTK01_MEASURE_ID, $entry['series'] ?? null);
@@ -534,9 +623,19 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
         $this->assertSame('freeze:atlas.decide.cost_outcome_uncertainty.v1', $entry['ttl_source'] ?? null);
     }
 
+    public function test_multk02_series_is_registered_for_elev20s(): void
+    {
+        $entry = collect((new AcosMaxMeasureSeriesRegistry)->entries())
+            ->firstWhere('slice', 'MULTK-02');
+
+        $this->assertSame(AtlasDecideCostOutcomeRouter::MULTK02_MEASURE_ID, $entry['series'] ?? null);
+        $this->assertSame('computed_reader_field', $entry['source_type'] ?? null);
+        $this->assertSame('freeze:atlas.decide.cascade_cost_router.v1', $entry['ttl_source'] ?? null);
+    }
+
     public function test_esp05_zero_weight_outcome_series_is_registered_for_elev20s(): void
     {
-        $entry = collect((new AcosMaxMeasureSeriesRegistry())->entries())
+        $entry = collect((new AcosMaxMeasureSeriesRegistry)->entries())
             ->firstWhere('slice', 'ESP-05');
 
         $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::ZERO_WEIGHT_MEASURE_ID, $entry['series'] ?? null);
@@ -553,5 +652,29 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
             static fn ($p) => in_array($p, ['codex_cli', 'claude_cli', 'minimax'], true),
             static fn ($v) => is_numeric($v) ? (float) $v : null,
         );
+    }
+
+    private function recordCertifiedLiveOutcomes(
+        AtlasDecideLiveOutcomeFeedbackService $feedback,
+        string $provider,
+        string $model,
+        int $count,
+        float $costUsd,
+    ): void {
+        foreach (range(1, $count) as $i) {
+            $feedback->record([
+                'task_category' => 'backend',
+                'role' => 'builder',
+                'framework' => 'laravel',
+                'provider' => $provider,
+                'model' => $model,
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => $provider.'-receipt-'.$i,
+                'quality_score' => 0.91,
+                'cost_usd' => $costUsd,
+                'entry_hash' => $provider.'-'.$i,
+            ]);
+        }
     }
 }

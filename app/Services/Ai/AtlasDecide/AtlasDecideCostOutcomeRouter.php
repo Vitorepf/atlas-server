@@ -34,11 +34,18 @@ class AtlasDecideCostOutcomeRouter
 
     public const MULTK01_MEASURE_ID = 'atlas.decide.cost_outcome_uncertainty.v1';
 
+    public const MULTK02_MEASURE_ID = 'atlas.decide.cascade_cost_router.v1';
+
     public const MULTK01_INTERVAL_MIN_N = 3;
 
     private const MULTK01_Z_90 = 1.644854;
 
     private const MAXK03_FORMULA_VERSION = 'atlas.decide.multi_objective_route.v1';
+
+    private const MULTK02_FORMULA_VERSION = 'atlas.decide.cascade_cost_router.v1';
+
+    /** @var list<string> */
+    private const MULTK02_NO_CASCADE_PRIVACY_CLASSES = ['sensitive', 'secret', 'cyber'];
 
     /**
      * @param  Closure(mixed): ?string  $canonicalProviderKey
@@ -58,7 +65,7 @@ class AtlasDecideCostOutcomeRouter
     /**
      * @return array<string,mixed>
      */
-    public function costOutcomeRoute(string $taskCategory, string $role, ?string $framework, string $costOutcomeSchema): array
+    public function costOutcomeRoute(string $taskCategory, string $role, ?string $framework, string $costOutcomeSchema, array $context = []): array
     {
         $cfg = $this->costOutcomeConfig();
         $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
@@ -162,6 +169,18 @@ class AtlasDecideCostOutcomeRouter
         }
 
         $selected = $scorePreserving[0];
+        $routeExtras = [];
+        if ((bool) ($cfg['cascade_enabled'] ?? false)) {
+            $cascade = $this->cascadePlan($scorePreserving, $selected, $cfg, $context);
+            if (is_array($cascade['selected_candidate'] ?? null)) {
+                $selected = (array) $cascade['selected_candidate'];
+                $routeExtras['routing_basis'] = 'cascade_escalation';
+            } else {
+                $routeExtras['routing_basis'] = 'cost_outcome';
+            }
+            unset($cascade['selected_candidate']);
+            $routeExtras['cascade'] = $cascade;
+        }
         $fallbackPool = $scorePreserving;
         usort($fallbackPool, static function (array $a, array $b): int {
             $score = ((float) ($b['average_score'] ?? 0.0)) <=> ((float) ($a['average_score'] ?? 0.0));
@@ -188,7 +207,7 @@ class AtlasDecideCostOutcomeRouter
             'fallback' => $fallback,
             'estimated_savings_pct' => $estimatedSavingsPct,
             'candidates' => $candidates,
-        ]);
+        ], $routeExtras);
     }
 
     /**
@@ -202,11 +221,15 @@ class AtlasDecideCostOutcomeRouter
 
         $cfg = $this->floors()->atlasDecideCostOutcomeConfig($enabled);
         $multiObjective = (array) config('atlas.patamar4.adml_cost_outcome.multi_objective', []);
+        $cascade = (array) config('atlas.patamar4.adml_cost_outcome.cascade', []);
 
         return array_replace($cfg, [
             'multi_objective_enabled' => (bool) ($multiObjective['enabled'] ?? false),
             'multi_objective_risk_class' => (string) ($multiObjective['risk_class'] ?? 'default'),
             'multi_objective_weights' => $this->operatorAuthoredMultiObjectiveWeights((array) ($multiObjective['weights'] ?? [])),
+            'cascade_enabled' => (bool) ($cascade['enabled'] ?? false),
+            'cascade_lower_bound_floor' => max(0.0, min(1.0, (float) ($cascade['lower_bound_floor'] ?? 0.8))),
+            'cascade_daily_escalation_cap' => max(0, (int) ($cascade['daily_escalation_cap'] ?? 1)),
         ]);
     }
 
@@ -531,6 +554,101 @@ class AtlasDecideCostOutcomeRouter
 
             return $candidate;
         }, $candidates));
+    }
+
+    /**
+     * MULTK-02: default-OFF cascade advisory. It never calls a provider; it only
+     * selects a safer next route when the MULTK-01 lower bound clears the floor,
+     * the daily escalation cap has room, and the task is not privacy-sensitive.
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @param  array<string,mixed>  $greedy
+     * @param  array<string,mixed>  $cfg
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    private function cascadePlan(array $candidates, array $greedy, array $cfg, array $context): array
+    {
+        $privacyClass = strtolower(trim((string) ($context['privacy_class'] ?? 'normal')));
+        $dailyCap = max(0, (int) ($cfg['cascade_daily_escalation_cap'] ?? 0));
+        $dailyUsed = max(0, (int) ($context['daily_escalations_used'] ?? 0));
+        $floor = max(0.0, min(1.0, (float) ($cfg['cascade_lower_bound_floor'] ?? 0.8)));
+
+        $base = [
+            'schema_version' => self::MULTK02_FORMULA_VERSION,
+            'enabled' => true,
+            'lower_bound_floor' => $floor,
+            'daily_escalation_cap' => $dailyCap,
+            'daily_escalations_used' => $dailyUsed,
+            'privacy_class' => $privacyClass,
+            'greedy_provider' => $greedy['provider'] ?? null,
+            'greedy_model' => $greedy['model'] ?? null,
+            'external_provider_call' => false,
+            'provider_tokens_spent' => false,
+        ];
+
+        if (in_array($privacyClass, self::MULTK02_NO_CASCADE_PRIVACY_CLASSES, true)) {
+            return array_replace($base, [
+                'basis' => 'blocked_sensitive_privacy_class',
+                'escalation_provider' => null,
+                'escalation_model' => null,
+                'selected_candidate' => null,
+            ]);
+        }
+
+        if ($dailyUsed >= $dailyCap) {
+            return array_replace($base, [
+                'basis' => 'daily_escalation_cap_reached',
+                'escalation_provider' => null,
+                'escalation_model' => null,
+                'selected_candidate' => null,
+            ]);
+        }
+
+        $lowerBoundPreserving = array_values(array_filter(
+            $candidates,
+            static function (array $candidate) use ($floor): bool {
+                $interval = (array) ($candidate['uncertainty_interval'] ?? []);
+
+                return ($interval['status'] ?? null) === 'ok'
+                    && is_numeric($interval['lower_bound'] ?? null)
+                    && (float) $interval['lower_bound'] >= $floor;
+            }
+        ));
+
+        if ($lowerBoundPreserving === []) {
+            return array_replace($base, [
+                'basis' => 'no_candidate_preserves_lower_bound',
+                'escalation_provider' => null,
+                'escalation_model' => null,
+                'selected_candidate' => null,
+            ]);
+        }
+
+        usort($lowerBoundPreserving, static function (array $a, array $b): int {
+            $cost = ((float) ($a['average_cost_estimate'] ?? INF)) <=> ((float) ($b['average_cost_estimate'] ?? INF));
+            if ($cost !== 0) {
+                return $cost;
+            }
+            $lowerBound = ((float) data_get($b, 'uncertainty_interval.lower_bound', 0.0))
+                <=> ((float) data_get($a, 'uncertainty_interval.lower_bound', 0.0));
+            if ($lowerBound !== 0) {
+                return $lowerBound;
+            }
+
+            return ((int) ($b['certified_count'] ?? 0)) <=> ((int) ($a['certified_count'] ?? 0));
+        });
+
+        $pick = $lowerBoundPreserving[0];
+        $sameAsGreedy = (string) ($pick['provider'] ?? '') === (string) ($greedy['provider'] ?? '')
+            && (string) ($pick['model'] ?? '') === (string) ($greedy['model'] ?? '');
+
+        return array_replace($base, [
+            'basis' => $sameAsGreedy ? 'greedy_preserves_lower_bound' : 'selected_by_lower_bound_floor',
+            'escalation_provider' => $sameAsGreedy ? null : ($pick['provider'] ?? null),
+            'escalation_model' => $sameAsGreedy ? null : ($pick['model'] ?? null),
+            'selected_candidate' => $sameAsGreedy ? null : $pick,
+        ]);
     }
 
     /**

@@ -222,6 +222,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
             ],
             [
+                'slice' => 'MULTK-02',
+                'series' => AtlasDecideCostOutcomeRouter::MULTK02_MEASURE_ID,
+                'path' => 'AtlasDecideCostOutcomeRouter::costOutcomeRoute.cascade',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 30,
+                'ttl_source' => 'freeze:atlas.decide.cascade_cost_router.v1',
+            ],
+            [
                 'slice' => 'MULTK-03',
                 'series' => AtlasDecideReplayDivergenceService::MEASURE_ID,
                 'path' => 'atlas:decide:replay-divergence --json',

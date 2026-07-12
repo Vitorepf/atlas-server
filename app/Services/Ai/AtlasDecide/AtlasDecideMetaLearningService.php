@@ -885,7 +885,7 @@ class AtlasDecideMetaLearningService
             if (($costOutcome['status'] ?? null) === 'ready') {
                 $selected = (array) ($costOutcome['selected'] ?? []);
                 $fallback = (array) ($costOutcome['fallback'] ?? []);
-                $routingBasis = self::ROUTING_BASIS_COST_OUTCOME;
+                $routingBasis = (string) ($costOutcome['routing_basis'] ?? self::ROUTING_BASIS_COST_OUTCOME);
                 $recommendedProvider = (string) ($selected['provider'] ?? $recommendedProvider);
                 $recommendedModel = (string) ($selected['model'] ?? $recommendedModel);
                 $fallbackProvider = $fallback['provider'] ?? $fallbackProvider;

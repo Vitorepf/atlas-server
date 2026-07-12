@@ -423,7 +423,7 @@ final class AtlasDecideGatewayConsultationService
     private function routingBasis(?array $activeRoute, string $verdict): string
     {
         $basis = strtolower(trim((string) ($activeRoute['routing_basis'] ?? $activeRoute['basis'] ?? '')));
-        if (in_array($basis, ['score', 'cost_outcome', 'exploration'], true)) {
+        if (in_array($basis, ['score', 'cost_outcome', 'exploration', 'cascade_escalation'], true)) {
             return $basis;
         }
         if ($verdict === self::VERDICT_ABSTAINED_UNCERTAIN) {
