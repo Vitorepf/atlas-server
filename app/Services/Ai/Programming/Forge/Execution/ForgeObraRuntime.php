@@ -40,6 +40,28 @@ final class ForgeObraRuntime
         }
 
         return DB::transaction(function () use ($commissioning, $workspaceGate): ForgeObraSnapshot {
+            $existingIntake = AiForgeIntake::query()
+                ->where('rich_input_payload->commissioning_hash', $commissioning->commissioningHash)
+                ->lockForUpdate()
+                ->first();
+            if ($existingIntake instanceof AiForgeIntake) {
+                $existingState = AiForgeLongHorizonState::query()
+                    ->where('intake_id', $existingIntake->id)
+                    ->first();
+                if (! $existingState instanceof AiForgeLongHorizonState) {
+                    throw new InvalidArgumentException('forge_commissioning_state_missing');
+                }
+
+                return ForgeObraSnapshot::fromState(
+                    $existingState,
+                    $commissioning->commissioningHash,
+                    $commissioning->productIntentHash,
+                    $commissioning->specHash,
+                    $commissioning->worldModelSnapshotHash,
+                    $commissioning->marketDecisionHash,
+                );
+            }
+
             $intake = $this->intakes->intakeFromPrompt($commissioning->prompt, [
                 'workspace_slug' => basename(rtrim($commissioning->workspace, '/')), 'risk_band' => self::riskBand($commissioning->riskClass),
                 'recommended_forge_mode' => 'obra_intake', 'actor_type' => 'forge_commissioning',
@@ -51,6 +73,7 @@ final class ForgeObraRuntime
                     'schema_version' => 'atlas.quality_foundry.mode_binding.v1',
                     'workspace' => $commissioning->workspace,
                     'authority_hash' => $commissioning->authorityHash,
+                    'commissioning_hash' => $commissioning->commissioningHash,
                     'risk_class' => $commissioning->riskClass,
                     'product_intent_hash' => $commissioning->productIntentHash,
                     'spec_hash' => $commissioning->specHash,

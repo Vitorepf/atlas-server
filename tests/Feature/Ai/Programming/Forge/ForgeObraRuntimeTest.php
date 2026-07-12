@@ -110,6 +110,25 @@ final class ForgeObraRuntimeTest extends TestCase
         self::assertSame($commissioning->marketDecisionHash, ForgeCommissioning::fromArray($commissioning->toArray())->marketDecisionHash);
     }
 
+    public function test_duplicate_commissioning_returns_the_same_obra_without_creating_a_second_intake(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra idempotente de reprocessamento', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        $runtime = app(ForgeObraRuntime::class);
+        $first = $runtime->commission($commissioning);
+        $second = $runtime->commission($commissioning);
+
+        self::assertSame($first->obra->value, $second->obra->value);
+        self::assertDatabaseCount('ai_forge_intakes', 1);
+        self::assertDatabaseCount('ai_forge_long_horizon_states', 1);
+    }
+
     public function test_snapshot_replays_world_and_market_hashes_after_reload(): void
     {
         $commissioning = ForgeCommissioning::fromArray([
