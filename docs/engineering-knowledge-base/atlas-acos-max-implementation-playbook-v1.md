@@ -105,7 +105,7 @@ grep -n "<slice-id>" docs/engineering-knowledge-base/atlas-acos-max-frontier-pla
 
 | # | Regra | Fonte |
 |---|---|---|
-| A1 | Commits ESCOPADOS na main: `git add -- <só os arquivos do slice>`; NUNCA `git add -A`; NUNCA merge/branch de obra | memória pétrea + §ii.4 |
+| A1 | **Só branch local `main`:** `git branch --show-current` = `main` antes de todo commit; commits ESCOPADOS (`git add -- <só os arquivos do slice>`); NUNCA `git add -A`; NUNCA criar branch de obra; NUNCA merge/Pull-merge; se `MERGE_IN_PROGRESS` → `git merge --abort`; divergência `origin/main` ⇒ main local vence + pedir OK para `--force-with-lease` (nunca “resolver” com merge). Regra: `.cursor/rules/local-main-only.mdc` | memória pétrea + §ii.4 + operador 12/07 |
 | A2 | `git push` SÓ com OK explícito do operador | tabela de gatilhos §viii |
 | A3 | Família `atlas:loop:*` está MORTA — jamais operar/religar; os comandos vivos são `atlas:brain:*` / `atlas:task:*`; as 26 classes `AtlasLoop*` da keep-list não se deletam por prefixo (`rg --no-ignore -w <Classe>` antes de qualquer remoção) | CLAUDE.md pétreo |
 | A4 | Flips de master (`ATLAS_AUTONOMOS_MASTER_ENABLED`, `ATLAS_AUTONOMOUS_AUTO_APPLY`, cadência, escala ≥3 workers, REC-04 shadow→atuar) são EXCLUSIVOS do operador — a IA entrega o checklist verde e NUNCA vira a chave | tabela de gatilhos §viii + §xiv |

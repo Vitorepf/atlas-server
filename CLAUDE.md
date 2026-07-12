@@ -11,6 +11,9 @@ Regenerate with `atlas memory projection --target=claude --write` after Atlas me
 
 ## Manual Notes
 <!-- atlas:manual:start -->
+### 🛑 Branch local `main` ONLY (pétreo — todas as IAs)
+**Toda IA neste repo trabalha SEMPRE na branch local `main`.** Zero branch de obra, zero merge, zero pull que cria merge. Antes de commit: `git branch --show-current` = `main`. Commits escopados (`git add -- <arquivos>`). Se `MERGE_IN_PROGRESS` por pull acidental → `git merge --abort` e reportar. Se `main` local divergir de `origin/main` durante ACOS Max: **main local vence**; pedir OK do operador para `git push --force-with-lease origin main` — nunca “resolver” com merge/Pull. Regra Cursor: `.cursor/rules/local-main-only.mdc`.
+
 ### ⚰️ Loop MORTO / Autônomos VIVO — CORREÇÃO PÉTREA (ler ANTES de tocar evolução autônoma)
 **O "Loop" (AutonomousEvolution / ACDE) MORREU — foi o MVP fracassado do Autônomos. NÃO é o sistema vivo. NÃO mirar "ligar o master switch do loop" (`ATLAS_LOOP_MASTER_ENABLED`) como meta — isso é o cadáver.** (Uma IA ancorou meses de análise no loop-morto; não repita — ver memória `loop-morto-autonomos-vivo`.)
 

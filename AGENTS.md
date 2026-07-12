@@ -44,6 +44,9 @@ Regenerate with `atlas memory projection --target=agents --write` after Atlas me
 
 ## Manual Notes
 <!-- atlas:manual:start -->
+### 🛑 Branch local `main` ONLY (pétreo — todas as IAs)
+**Toda IA neste repo trabalha SEMPRE na branch local `main`.** Zero branch de obra, zero merge, zero pull que cria merge. Antes de commit: `git branch --show-current` = `main`. Commits escopados (`git add -- <arquivos>`). Se `MERGE_IN_PROGRESS` por pull acidental → `git merge --abort` e reportar. Se `main` local divergir de `origin/main` durante ACOS Max: **main local vence**; pedir OK do operador para `git push --force-with-lease origin main` — nunca “resolver” com merge/Pull. Regra Cursor: `.cursor/rules/local-main-only.mdc`.
+
 ### 🎯 FOCO (casca/terminal/UI/review) — leia o north-star ANTES de propor
 Antes de QUALQUER trabalho de casca, shell, UI, "app", superfície, IDE-integration, terminal ou review do Atlas, **leia `docs/engineering-knowledge-base/atlas-terminal-first-focus.md`** (doc de foco, priority 100). Resumo pétreo: Atlas **não constrói casca própria** (roda em host de terminal neutro — Maestri/iTerm — com poder cheio); o foco de produto é **VERIFICAÇÃO/review** (o gargalo de 2026), **não** gerar nem editar código inline; 3 camadas = L1 harness (alugar) / L2 superfície CLI (investir) / L3 seams brain-behind (o M). App Mac/Mobile depois = superfície IRMÃ do mesmo backend.
 
