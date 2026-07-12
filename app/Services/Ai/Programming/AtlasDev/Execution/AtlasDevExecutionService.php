@@ -35,11 +35,20 @@ final class AtlasDevExecutionService
             return DevRunResult::blocked($run, 'dev_plan_blocked', $plan->planHash, ['blockers' => $plan->result->blockers]);
         }
         if ($plan->requiresForgeHandoff()) {
-            return DevRunResult::handedOff($run, $plan->planHash, ['handoff' => [
+            $handoff = [
                 'kind' => $plan->result->routing->kind,
                 'reasons' => $plan->result->routing->reasons,
                 'blockers' => $plan->result->routing->blockers,
                 'suggested_flow' => $plan->result->routing->suggestedFlow(),
+            ];
+            $handoff['handoff_hash'] = \App\Services\Ai\EngineeringKernel\CanonicalKernelPayload::hash([
+                'run_hash' => $run->runHash,
+                'plan_hash' => $plan->planHash,
+                'handoff' => $handoff,
+            ]);
+
+            return DevRunResult::handedOff($run, $plan->planHash, ['handoff' => [
+                ...$handoff,
             ]]);
         }
 

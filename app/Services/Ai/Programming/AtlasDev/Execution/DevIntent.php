@@ -9,6 +9,12 @@ use InvalidArgumentException;
 
 final readonly class DevIntent
 {
+    /** @var list<string> */
+    public const DURATION_REGIMES = ['interactive', 'durable_task', 'obra', 'continuous'];
+
+    /** @var list<string> */
+    public const TOPOLOGIES = ['single', 'candidate_set', 'workcell', 'DAG', 'portfolio'];
+
     private function __construct(
         public string $rawGoal,
         public string $workspace,
@@ -42,6 +48,12 @@ final readonly class DevIntent
         }
         if (! in_array($data['risk_class'], ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true)) {
             throw new InvalidArgumentException('dev_intent_risk_class_invalid');
+        }
+        if (! in_array($data['duration_regime'], self::DURATION_REGIMES, true)) {
+            throw new InvalidArgumentException('dev_intent_duration_regime_invalid');
+        }
+        if (! in_array($data['topology'], self::TOPOLOGIES, true)) {
+            throw new InvalidArgumentException('dev_intent_topology_invalid');
         }
 
         $canonical = [

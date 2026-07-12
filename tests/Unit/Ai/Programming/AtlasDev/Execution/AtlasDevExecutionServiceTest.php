@@ -70,6 +70,22 @@ final class AtlasDevExecutionServiceTest extends TestCase
         self::assertSame($intent->marketDecisionHash, DevIntent::fromArray($intent->toArray())->marketDecisionHash);
     }
 
+    public function test_dev_intent_rejects_unknown_duration_regime_and_topology(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('dev_intent_duration_regime_invalid');
+
+        DevIntent::fromArray(array_replace($this->validIntent(), ['duration_regime' => 'instant_patch']));
+    }
+
+    public function test_dev_intent_rejects_unknown_topology(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('dev_intent_topology_invalid');
+
+        DevIntent::fromArray(array_replace($this->validIntent(), ['topology' => 'unbounded_fanout']));
+    }
+
     public function test_blocked_plan_never_enters_the_shared_kernel(): void
     {
         $calls = 0;
@@ -121,6 +137,7 @@ final class AtlasDevExecutionServiceTest extends TestCase
         self::assertSame($first->runHash, $second->runHash);
         self::assertSame($first->planHash, $second->planHash);
         self::assertSame($first->details, $second->details);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($first->details, 'handoff.handoff_hash'));
         self::assertSame(0, $calls);
     }
 
