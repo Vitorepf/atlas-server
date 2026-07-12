@@ -219,9 +219,9 @@
 - [x] MAXG-07 — landed · `atlas:context:policy-trend --json | .windows[].cost_per_useful_token` additive field with own `formula_version=atlas.context.cost_per_useful_token.v1` and `estimate_basis=chars_div_4`; joins delivered-pack-ledger (COM-01) with ARFL `measured=true` events via `context_pack_hash`; `AtlasDeliveredPackLedger::record()` additively persists `delivered_chars = mb_strlen($pack['markdown'])` (older rows without the field yield `basis=unavailable`, never fabricated); `AtlasDeliveredPackLedger::deliveredCharsFor()` maps hashes → int|null; command computes `delivered_tokens=floor(chars/4)`, `useful_tokens = tokens × use_ratio`, `ratio = delivered/useful`; caso negativo: pack ausente no ledger ⇒ `status=insufficient_signal`, `ratio=null`, `unavailable_pack_events>0`; caso negativo: `transcript_inferred` events filtered by `AtlasContextFeedbackSignalPolicy::isMeasuredAggregateEligible()` antes do join; existing series fields byte-identical (regression `Tests\Feature\Ai\Context\ContextPolicyTrendCommandTest` passes unchanged); tests: `php artisan test tests/Feature/Ai/Context/Maxg07CostPerUsefulTokenTest.php tests/Feature/Ai/Context/ContextPolicyTrendCommandTest.php` (4+2 pass); NB: pre-existing 5 failures on `AtlasOpenBrainContextPackServiceTest` exist on main pre-change (baseline unchanged)
 - [ ] MAXB-08 — pending
 - [ ] MAXH-07 — pending
-- [ ] MAXH-08 — pending
-- [ ] MAXH-09 — pending
-- [ ] MAXH-10 — pending
+- [x] MAXH-08 — landed(17706ad7d5) · `MemoryConfidenceDecayCalculator` pure function `decayed = base * f(days_since_verified_at, recall_hits, half_life)`; grava em campo SEPARADO (base intocada); `atlas:memory:decayed-confidence --json` reader; recall-hit reseta `verified_at`; canonical isento; nunca deleta; MED-01 dual-read com base preservada; tests: `php artisan test tests/Unit/Ai/AcosMax/Maxh08DecayedConfidenceTest.php`
+- [x] MAXH-09 — landed(45b3651c5a) · `atlas:memory:recall --as-of=<data>` e `--current-only` aplicando `HasTemporalTruth::current($at)`; `--as-of` peek-forced (`record_usage=false`); pack path também consome; sem flags = recall byte-idêntico; tests: `php artisan test tests/Feature/Ai/Memory/AtlasMemoryRecallAsOfTest.php`
+- [x] MAXH-10 — landed(1e5bdbe3e2) · `AtlasMemoryTemporalQualityService::checks()` + `atlas:memory:temporal-quality --check --json` emite ≥3 checks (`temporal_provenance_regression`, `superseded_over_superseder`, `consolidation_ledger_stale`, `high_risk_review_over_cap`); regressão forjada ⇒ exit≠0; watchdog plugin em `AtlasWatchdogCheckRegistry`; cadência plugada no schedule do digest; tests: `php artisan test tests/Feature/Ai/Memory/AtlasMemoryTemporalQualityCommandTest.php`
 - [ ] MAXI-09 — pending
 - [ ] MAXJ-07 — pending
 - [ ] MAXJ-08 — pending
@@ -230,8 +230,8 @@
 - [ ] MULTV-02 — pending
 - [ ] MULTV-03 — pending
 - [ ] MULTV-09 — pending
-- [ ] MULTK-05 — pending
-- [ ] MULTK-07 — pending
+- [x] MULTK-05 — landed(8f83665130) · `DecompositionShadowRecommender` pure recommender emite receipt `decision_kind=decomposition` `{direct|split_n|insufficient}` derivado da taxa proven_real por banda de tamanho (ASI-13 caller-supplied); **shadow-only** (`shadow=true` cravado no payload — never actuates); `n<MIN_N_PER_BAND=10` ⇒ `basis=insufficient_below_min_n`; `proven_rate ≥ 0.6` ⇒ direct; missing size_estimate ⇒ `basis=size_estimate_absent`; SCHEMA `atlas.decide.decomposition_shadow.v1`; tests: `php artisan test tests/Unit/Ai/AcosMax/Multk05DecompositionShadowRecommenderTest.php`
+- [x] MULTK-07 — landed(8a57f4d432) · `RequestedAutonomyDerivation` derives request from evidence {privacy_class, reversal_rate, n} — **monotonically DOWNWARD only** from `'autonomous'`; privacy ∈ {sensitive,secret,cyber} ⇒ `execute_with_approval`; n<10 ⇒ tighten (n=2 é noise); reversal_rate ≥ 0.30 ⇒ `draft`, ≥ 0.10 ⇒ `execute_with_approval`; caller ceiling respeitado (never loosens ABOVE); wired em `AtlasDecideGatewayConsultationService::deriveRequestedAutonomy()`; flag `atlas.atlas_decide.requested_autonomy_shrink_enabled` default-OFF (byte-idêntico ao envelope pré-slice); property-test 8-way DataProvider `derived ≤ 'autonomous'`; tests: `php artisan test tests/Unit/Ai/AcosMax/Multk07RequestedAutonomyShrinkTest.php`
 - [ ] MULTN15-05 — pending
 - [ ] MULTN17-02 — pending
 - [ ] MULTH-04 — pending
@@ -241,9 +241,9 @@
 - [ ] ESP-10 — pending
 - [ ] ESP-11 — pending
 - [ ] ESP-12 — pending
-- [ ] REC-01 — pending
-- [ ] REC-03 — pending
-- [ ] REC-05 — pending
+- [x] REC-01 — landed(e1de3cd4cf) · `HypothesisSchemaV1Validator` — canonical `hypothesis.v1` contract with 10 required fields (`proposed_change`, `causal_mechanism`, `frozen_metric_ref`, `expected_result`, `falsifier`, `treatment_control`, `budget`, `rollback_pre_declared`, `architectural_cost`, `alternatives_compared`); falsifier must carry structured `{metric, condition}` (prose refused); `alternatives_compared` must include the 3 pétreas (do-nothing/simplify/remove-layer) per ELEV-31; missing field ⇒ `invalid` with named `missing_field`; SCHEMA `atlas.recursion.hypothesis.v1`; tests: `php artisan test tests/Unit/Ai/AcosMax/Rec01HypothesisSchemaTest.php`
+- [x] REC-03 — landed(7ec74d19e4) · `RecursionValueMetricCalculator` pure `R = ΔM / (cost + complexity + risk)` (§3050 formula) with cost = `tokens/1000 + wallclock_seconds/60`, complexity = `organs_added − organs_removed`, risk = ASI-15 band → `{low:1,moderate:2,high:4,severe:8}`; ANY missing component ⇒ `status=unmeasurable` (never fabricates a number); publishes R alongside its 3 raw components with `basis` per input; SCHEMA `atlas.recursion.value_metric.v1`; tests: `php artisan test tests/Unit/Ai/AcosMax/Rec03RecursionValueMetricTest.php`
+- [x] REC-05 — landed(6e040294bf) · `OperatorMetricMSeriesService` pure MEDIDOR that emits `M_operator` BESIDE the neutral M (§3060-3064) — weights derived from `rule_ref` (REQUIRED per class; weight without rule mechanically refused) + `usage_frequency` (MAXN-02 / MULTN15 signal, REQUIRED non-negative); both `m_operator` and `m_neutral` published side-by-side with `divergence`; SCHEMA `atlas.recursion.m_operator.v1`; tests: `php artisan test tests/Unit/Ai/AcosMax/Rec05MOperatorSeriesTest.php`
 - [ ] REC-02 — pending
 - [ ] TETO-10 — pending (digest como produto de revisão)
 
