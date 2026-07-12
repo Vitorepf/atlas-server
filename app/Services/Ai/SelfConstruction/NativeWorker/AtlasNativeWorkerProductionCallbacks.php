@@ -34,7 +34,8 @@ final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerRec
         return [
             'claim_callback' => function () use ($clientId): ?array {
                 $next = $this->serving->next($clientId, ['runtime_owner' => 'atlas_native']);
-                if (($next['status'] ?? '') !== 'leased' && ($next['event'] ?? '') !== 'leased') {
+                if (! in_array((string) ($next['status'] ?? ''), ['leased', 'served'], true)
+                    && (string) ($next['event'] ?? '') !== 'leased') {
                     return null;
                 }
 
