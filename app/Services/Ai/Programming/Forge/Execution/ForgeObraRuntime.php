@@ -70,6 +70,7 @@ final class ForgeObraRuntime
                 );
             }
 
+
             $intake = $this->intakes->intakeFromPrompt($commissioning->prompt, [
                 'workspace_slug' => basename(rtrim($commissioning->workspace, '/')), 'risk_band' => self::riskBand($commissioning->riskClass),
                 'recommended_forge_mode' => 'obra_intake', 'actor_type' => 'forge_commissioning',
@@ -78,6 +79,15 @@ final class ForgeObraRuntime
                 'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
                 'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
                 'market_decision_hash' => $commissioning->marketDecisionHash,
+                'runtime_mode' => 'forge',
+                'forge_frozen_context' => true,
+                'frozen_context_hash' => hash('sha256', json_encode([
+                    'authority_hash' => $commissioning->authorityHash,
+                    'product_intent_hash' => $commissioning->productIntentHash,
+                    'spec_hash' => $commissioning->specHash,
+                    'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
+                    'market_decision_hash' => $commissioning->marketDecisionHash,
+                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
                 'rich_input_payload' => [
                     'schema_version' => 'atlas.quality_foundry.mode_binding.v1',
                     'workspace' => $commissioning->workspace,

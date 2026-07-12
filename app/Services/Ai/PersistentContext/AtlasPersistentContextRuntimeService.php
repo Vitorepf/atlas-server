@@ -55,6 +55,15 @@ class AtlasPersistentContextRuntimeService
         $scopeId = AiValueNormalizer::trimmedScalarStringOrNull($input['scope_id'] ?? null) ?? $this->workspaceScopeId($workspace);
         $evidenceRefs = array_values(array_filter((array) ($input['evidence_refs'] ?? data_get($payload, 'evidence_refs', [])), 'is_string'));
 
+        // Forge commissioning already carries frozen authority/product/spec/world hashes.
+        // Do not synchronously re-run the full documentation-reality/bootstrap graph on this
+        // hot path; that read model is expensive and belongs to the explicit context refresh.
+        // The frozen receipt remains provider-safe and content-addressed.
+        if (($input['runtime_mode'] ?? data_get($payload, 'runtime_mode')) === 'forge'
+            && ($input['forge_frozen_context'] ?? false) === true) {
+            return $this->buildFrozenForgeContext($prompt, $workspace, $surfaceId, $domain, $flowId, $provider, $scopeType, $scopeId, $evidenceRefs, $input);
+        }
+
         $bootstrap = $this->safeBootstrap($prompt, $workspace);
         $task = AiTaskRequest::fromInput($prompt, [
             'source_type' => $sourceType,
@@ -154,6 +163,45 @@ class AtlasPersistentContextRuntimeService
             $runtime['persistent_context_pack_id'] = $record->id;
             $runtime['persistent_context_pack_uuid'] = $record->uuid;
         }
+
+        return $runtime;
+    }
+
+    /** @param array<string,mixed> $input */
+    private function buildFrozenForgeContext(string $prompt, string $workspace, ?string $surfaceId, string $domain, ?string $flowId, ?string $provider, string $scopeType, string $scopeId, array $evidenceRefs, array $input): array
+    {
+        $frozenHash = (string) ($input['frozen_context_hash'] ?? '');
+        if (preg_match('/^[a-f0-9]{64}$/', $frozenHash) !== 1) {
+            $frozenHash = MissionCanonicalHash::sha256([
+                'authority_hash' => $input['authority_hash'] ?? null,
+                'product_intent_hash' => $input['product_intent_hash'] ?? null,
+                'spec_hash' => $input['spec_hash'] ?? null,
+                'world_model_snapshot_hash' => $input['world_model_snapshot_hash'] ?? null,
+                'market_decision_hash' => $input['market_decision_hash'] ?? null,
+            ]);
+        }
+        $mustKnow = [
+            ['id' => 'forge_frozen_context', 'kind' => 'authority', 'value' => $frozenHash],
+        ];
+        $runtime = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'status' => self::STATUS_READY,
+            'scope' => compact('scopeType', 'scopeId', 'workspace', 'surfaceId', 'domain', 'flowId', 'provider'),
+            'prompt_hash' => MissionCanonicalHash::sha256(['prompt' => $prompt]),
+            'context_pack_hash' => $frozenHash,
+            'must_know_ledger_hash' => MissionCanonicalHash::sha256($mustKnow),
+            'must_know_ledger' => ['items' => $mustKnow],
+            'context_pack' => ['schema_version' => 'atlas.forge.frozen_context.v1', 'status' => 'frozen', 'context_hash' => $frozenHash],
+            'retrieval_report' => ['status' => 'frozen_commissioning_context', 'provider_calls_made' => false],
+            'sufficiency' => ['status' => 'sufficient', 'blockers' => [], 'context_ref_count' => count($evidenceRefs), 'source_count' => 0, 'must_know_count' => 1],
+            'provider_handoff' => ['schema_version' => 'atlas.persistent_context.provider_handoff.v1', 'execution_allowed' => true, 'context_pack_hash' => $frozenHash],
+            'aemor_risk_prediction' => ['status' => 'deferred_to_forge_kernel'],
+            'intelligence_factory' => ['status' => 'deferred_to_forge_kernel'],
+            'evidence_refs' => $evidenceRefs,
+            'claim_policy' => ['benchmark_not_run' => true, 'rivals_compared' => false, 'provider_calls_made' => false, 'provider_is_context_consumer_only' => true],
+            'writes' => false,
+        ];
+        $runtime['persistent_context_hash'] = MissionCanonicalHash::sha256($runtime);
 
         return $runtime;
     }
