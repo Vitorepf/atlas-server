@@ -79,6 +79,16 @@ class AtlasSelfConstructionNativeActionExecutor
                     $kernel = $this->eliteKernel ?? app(EliteExecutorKernel::class);
                     $outcome = $kernel->execute(ExecutionOrder::fromArray($qualityFoundryBinding['execution_order']));
 
+                    $terminal = $this->reportTerminalKernelOutcome(
+                        $runtime,
+                        $clientId,
+                        $claim,
+                        $outcome->toArray(),
+                    );
+                    if ($terminal !== null) {
+                        return $terminal;
+                    }
+
                     return [
                         'status' => 'held',
                         'reason' => 'kernel_outcome_pending_release',
@@ -187,6 +197,54 @@ class AtlasSelfConstructionNativeActionExecutor
             'status' => 'held',
             'reason' => 'unsupported_native_action_kind:'.$kind,
             'retryable' => true,
+        ];
+    }
+
+    /**
+     * Close the task lease only after the shared Kernel has produced a
+     * terminal outcome. A pending canary remains open for polling; released
+     * and blocked outcomes are reported exactly once through the canonical
+     * serving contract instead of being misclassified as retryable holds.
+     *
+     * @param  array<string,mixed>  $claim
+     * @param  array<string,mixed>  $outcome
+     * @return array<string,mixed>|null
+     */
+    private function reportTerminalKernelOutcome(
+        AtlasNativeWorkerProductionRuntime $runtime,
+        string $clientId,
+        array $claim,
+        array $outcome,
+    ): ?array {
+        $status = (string) ($outcome['status'] ?? '');
+        if (! in_array($status, ['released', 'blocked', 'completed_read_only'], true)) {
+            return null;
+        }
+
+        $taskPacketId = (string) ($claim['task_packet_id'] ?? '');
+        $leaseId = (string) ($claim['lease_id'] ?? '');
+        $reportOutcome = in_array($status, ['released', 'completed_read_only'], true) ? 'success' : 'failed';
+        $report = $runtime->report($clientId, [
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'outcome' => $reportOutcome,
+            'commit' => false,
+            'evidence' => [
+                'engineering_outcome_hash' => (string) ($outcome['outcome_hash'] ?? ''),
+                'engineering_outcome_status' => $status,
+                'correlated_hashes' => (array) ($outcome['correlated_hashes'] ?? []),
+            ],
+            'error' => $status === 'blocked' ? (string) (($outcome['uncertainties'][0] ?? '') ?: 'kernel_outcome_blocked') : null,
+        ]);
+
+        return [
+            'status' => $reportOutcome === 'success' ? 'resolved' : 'failed',
+            'reason' => $status === 'blocked' ? 'kernel_outcome_blocked' : 'kernel_outcome_terminal',
+            'retryable' => false,
+            'kernel_routed' => true,
+            'kernel_outcome_status' => $status,
+            'engineering_outcome_hash' => (string) ($outcome['outcome_hash'] ?? ''),
+            'report' => $report,
         ];
     }
 }
