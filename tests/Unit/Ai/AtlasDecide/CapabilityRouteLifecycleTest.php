@@ -61,6 +61,56 @@ final class CapabilityRouteLifecycleTest extends TestCase
         self::assertContains('late_regression', $revoked['reasons']);
     }
 
+    public function test_preregistration_rejects_unequal_snapshots_resources_and_missing_bare_control(): void
+    {
+        $lifecycle = new CapabilityRouteLifecycle;
+
+        $unequalSnapshot = $this->assignment();
+        $unequalSnapshot['arm_specs'][1]['snapshot_hash'] = str_repeat('c', 64);
+        $this->expectExceptionMessage('capability_assignment_unequal_snapshots');
+        $lifecycle->preregister($unequalSnapshot);
+    }
+
+    public function test_preregistration_rejects_unequal_resources_provider_fork_and_missing_bare_control(): void
+    {
+        $lifecycle = new CapabilityRouteLifecycle;
+
+        $unequalResources = $this->assignment();
+        $unequalResources['arm_specs'][1]['resources'] = ['cpu' => 2];
+        try {
+            $lifecycle->preregister($unequalResources);
+            self::fail('Expected unequal resources to be rejected.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame('capability_assignment_unequal_resources', $exception->getMessage());
+        }
+
+        $missingBare = $this->assignment();
+        $missingBare['arm_specs'][1]['harness'] = 'atlas';
+        try {
+            $lifecycle->preregister($missingBare);
+            self::fail('Expected missing bare control to be rejected.');
+        } catch (\InvalidArgumentException $exception) {
+            self::assertSame('capability_assignment_bare_control_required', $exception->getMessage());
+        }
+    }
+
+    public function test_promotion_rejects_best_run_cherry_pick_and_provider_specific_fork(): void
+    {
+        $lifecycle = new CapabilityRouteLifecycle;
+        $assignment = $lifecycle->preregister($this->assignment());
+        $limited = $lifecycle->advance($assignment, 'limited_traffic', ['real_execution' => true]);
+        $causal = $lifecycle->advance($limited, 'causal_evaluation', ['outcome_observed' => true]);
+
+        $held = $lifecycle->advance($causal, 'promoted', [
+            'causal_evaluation' => true, 'real_outcome' => true, 'rollback' => 'route-v1',
+            'outcome_hash' => str_repeat('d', 64), 'best_run_only' => true,
+            'provider_specific_fork' => true,
+        ]);
+        self::assertSame('held', $held['status']);
+        self::assertContains('intent_to_treat_required', $held['blockers']);
+        self::assertContains('shared_provider_port_required', $held['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function assignment(): array
     {
@@ -70,6 +120,10 @@ final class CapabilityRouteLifecycleTest extends TestCase
             'arms' => ['route-a', 'control'], 'metric' => 'success_rate',
             'observation_window' => ['from' => '2026-07-12T00:00:00Z', 'until' => '2026-07-19T00:00:00Z'],
             'resources' => ['cpu' => 1], 'provider_version' => 'native-v1',
+            'arm_specs' => [
+                ['arm_id' => 'route-a', 'snapshot_hash' => str_repeat('a', 64), 'resources' => ['cpu' => 1], 'model_version' => 'model-v1', 'provider_version' => 'native-v1', 'harness' => 'atlas', 'adapter_port' => 'capability-port-v1'],
+                ['arm_id' => 'control', 'snapshot_hash' => str_repeat('a', 64), 'resources' => ['cpu' => 1], 'model_version' => 'model-v1', 'provider_version' => 'native-v1', 'harness' => 'bare', 'adapter_port' => 'capability-port-v1'],
+            ],
         ];
     }
 }

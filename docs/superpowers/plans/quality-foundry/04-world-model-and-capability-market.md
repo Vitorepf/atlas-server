@@ -156,12 +156,12 @@ The matrix crosses efficient/intermediate/frontier models with bare/Atlas/compet
 - efficient+Atlas versus frontier bare;
 - new-model absorption without a code fork.
 
-- [ ] Write RED tests for unequal snapshots/resources, missing preregistration, post-result arm mutation, best-run cherry-pick, provider-specific fork, absent bare control and route promotion before outcome.
-- [ ] Create experiment assignments before execution and bind order, snapshot, model/provider/harness versions, resources, metric and observation window.
-- [ ] Route new capabilities through `shadow → limited_traffic → causal_evaluation → promoted|revoked`; shadow is read-only and cannot mutate twice.
-- [ ] Keep intent-to-treat failures/timeouts/refusals/rollbacks in the denominator and forward evidence to Rivals without issuing a claim.
-- [ ] Revoke routing promotion after material late regression; preserve the original decision/assignment events.
-- [ ] Run paired fixture, assignment replay, provider-absorption, late-regression and no-claim tests.
+- [x] Write RED tests for unequal snapshots/resources, missing preregistration, post-result arm mutation, best-run cherry-pick, provider-specific fork, absent bare control and route promotion before outcome.
+- [x] Create experiment assignments before execution and bind order, snapshot, model/provider/harness versions, resources, metric and observation window.
+- [x] Route new capabilities through `shadow → limited_traffic → causal_evaluation → promoted|revoked`; shadow is read-only and cannot mutate twice.
+- [x] Keep intent-to-treat failures/timeouts/refusals/rollbacks in the denominator and forward evidence to Rivals without issuing a claim.
+- [x] Revoke routing promotion after material late regression; preserve the original decision/assignment events.
+- [x] Run paired fixture, assignment replay, provider-absorption, late-regression and no-claim tests.
 
 **GREEN acceptance:** every compared arm is frozen/equivalent, new providers plug in through existing ports, route promotion requires causal outcome evidence, and no Atlas Decide service emits a comparative claim.
 

@@ -39,6 +39,7 @@ final class CapabilityRouteLifecycle
         if (! is_array($assignment['arms'] ?? null) || count($assignment['arms']) < 2) {
             throw new InvalidArgumentException('capability_assignment_arms_required');
         }
+        $this->validateComparableArms($assignment);
         if (! is_array($assignment['observation_window'] ?? null)
             || trim((string) ($assignment['observation_window']['from'] ?? '')) === ''
             || trim((string) ($assignment['observation_window']['until'] ?? '')) === '') {
@@ -152,6 +153,8 @@ final class CapabilityRouteLifecycle
         if (($evidence['causal_evaluation'] ?? false) !== true) $blockers[] = 'causal_evaluation_required';
         if (($evidence['real_outcome'] ?? false) !== true) $blockers[] = 'real_outcome_required';
         if (($evidence['rollback'] ?? '') === '') $blockers[] = 'rollback_required';
+        if (($evidence['best_run_only'] ?? false) === true) $blockers[] = 'intent_to_treat_required';
+        if (($evidence['provider_specific_fork'] ?? false) === true) $blockers[] = 'shared_provider_port_required';
         $blockers = array_merge($blockers, $this->validHashOrBlocker($evidence['outcome_hash'] ?? null, 'outcome_hash_invalid'));
 
         return $blockers;
@@ -170,5 +173,60 @@ final class CapabilityRouteLifecycle
         }
 
         return $value;
+    }
+
+    /** @param array<string,mixed> $assignment */
+    private function validateComparableArms(array $assignment): void
+    {
+        $arms = array_values(array_unique(array_map('strval', $assignment['arms'])));
+        if (count($arms) !== count($assignment['arms'])) {
+            throw new InvalidArgumentException('capability_assignment_arms_must_be_distinct');
+        }
+
+        $specs = $assignment['arm_specs'] ?? null;
+        if (! is_array($specs) || count($specs) !== count($arms)) {
+            throw new InvalidArgumentException('capability_assignment_arm_specs_required');
+        }
+
+        $byArm = [];
+        foreach ($specs as $spec) {
+            if (! is_array($spec) || trim((string) ($spec['arm_id'] ?? '')) === '') {
+                throw new InvalidArgumentException('capability_assignment_arm_spec_invalid');
+            }
+            $armId = (string) $spec['arm_id'];
+            if (isset($byArm[$armId]) || ! in_array($armId, $arms, true)) {
+                throw new InvalidArgumentException('capability_assignment_arm_spec_mismatch');
+            }
+            $this->requireHash($spec['snapshot_hash'] ?? null, 'capability_assignment_arm_snapshot_invalid');
+            if (! is_array($spec['resources'] ?? null)) {
+                throw new InvalidArgumentException('capability_assignment_arm_resources_required');
+            }
+            foreach (['model_version', 'provider_version', 'harness', 'adapter_port'] as $field) {
+                if (trim((string) ($spec[$field] ?? '')) === '') {
+                    throw new InvalidArgumentException('capability_assignment_arm_'.$field.'_required');
+                }
+            }
+            $byArm[$armId] = $spec;
+        }
+
+        if (count($byArm) !== count($arms)) {
+            throw new InvalidArgumentException('capability_assignment_arm_spec_mismatch');
+        }
+        $first = reset($byArm);
+        foreach ($byArm as $spec) {
+            if ($spec['snapshot_hash'] !== $first['snapshot_hash']) {
+                throw new InvalidArgumentException('capability_assignment_unequal_snapshots');
+            }
+            if (CanonicalKernelPayload::normalize($spec['resources']) !== CanonicalKernelPayload::normalize($first['resources'])) {
+                throw new InvalidArgumentException('capability_assignment_unequal_resources');
+            }
+            if ($spec['adapter_port'] !== $first['adapter_port']) {
+                throw new InvalidArgumentException('capability_assignment_provider_specific_fork');
+            }
+        }
+
+        if (! in_array('bare', array_map(static fn (array $spec): string => (string) $spec['harness'], $byArm), true)) {
+            throw new InvalidArgumentException('capability_assignment_bare_control_required');
+        }
     }
 }
