@@ -212,6 +212,24 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'TETO-02 mission e2e',
             ],
+            'atlas.resource_budget.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ELEV-27 joint budget reader; watchdog snapshot cadence',
+            ],
+            'atlas.test_attestation.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ESP-03 per-landing attestation seal; per-commit cadence',
+            ],
+            'atlas.provider_leak_corpus.v1' => [
+                'max_size_mb' => 8,
+                'max_age_days' => 365,
+                'mode' => 'append_forever',
+                'rationale' => 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence',
+            ],
         ];
     }
 

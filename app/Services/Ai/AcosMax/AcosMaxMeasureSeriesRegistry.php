@@ -314,6 +314,33 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('TETO-02')['ttl_days'],
                 'ttl_source' => 'freeze:mission_e2e.v1',
             ],
+            [
+                'slice' => 'ELEV-27',
+                'series' => 'atlas.resource_budget.v1',
+                'path' => 'AtlasResourceBudgetService::report',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 30,
+                'ttl_source' => 'elev-27-resource-budget',
+            ],
+            [
+                'slice' => 'ESP-03',
+                'series' => 'atlas.test_attestation.v1',
+                'path' => 'AtlasTestAttestationService::attest',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'attested_at',
+                'ttl_days' => 30,
+                'ttl_source' => 'esp-03-test-attestation-seal',
+            ],
+            [
+                'slice' => 'MAXM-01',
+                'series' => 'atlas.provider_leak_corpus.v1',
+                'path' => storage_path('app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl'),
+                'source_type' => 'jsonl',
+                'timestamp_field' => 'recorded_at',
+                'ttl_days' => 180,
+                'ttl_source' => 'maxm-01-frozen-corpus-baseline',
+            ],
         ];
     }
 

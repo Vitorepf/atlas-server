@@ -102,17 +102,17 @@
 
 ## LOTE 5 — Corpus e cobertura (M3) — GATE M3: corpus qualificado ≥300 (taxa gated, nunca contagem-aceite) · provenance 100% · golden v2 medindo vivo
 - [ ] ELEV-21 — pending
-- [ ] MAXA-05 — pending (dep externa: MEM-05 v1)
+- [ ] MAXA-05 — blocked_by:MEM-05 v1 (dep externa: rehydration precedes chunk-level embedding)
 - [ ] MAXA-06 (fase 1) — pending
 - [ ] MAXD-01 — pending
 - [ ] MAXD-09 — pending
 - [ ] MAXD-06 — pending
 - [ ] MAXD-08 — pending
 - [x] MAXD-02 — landed · evidence linker now matches live ledger `receipt_id`/`trace_id`/`correlation_id` exactly to mission/obra brain-node `receipt`/`receipt_hash`/trace/correlation meta, emits `linker_evidence` `proves` edges with matched field+value, and omits unmatched events; live aceite `edges_by_source.linker_evidence ≥20` = pending_window(real ledger volume); tests: `php artisan test tests/Feature/Ai/Reality/AurgEvidenceLiveSourceTest.php`
-- [ ] MAXH-02 — pending
+- [ ] MAXH-02 — blocked_by:MAXH-05 (real acceptance = stale ranks below fresh; MAXH-05 landing gates the honest close of MAXH-02)
 - [ ] MAXI-04 — pending
-- [ ] MAXM-01 — pending
-- [ ] RAGX-01 — pending
+- [x] MAXM-01 — landed · frozen corpus `tests/Fixtures/ProviderLeakCorpus/v1.json` sha256=`bd0b580790ee6664b27e21a5752e77e818fa68440078801dccde538acc0e5444` (author `cursor-acos-max-maxm01` ≠ judge `codex-maxm01-judge`); 24 payloads across 4 attack classes {custom_token, internal_id, internal_prompt_fragment, injection_imperative} — all outside the 11 canonical `AtlasSecurity::redactString()` regexes; hard invariant proved: `secret` class + `external_ai_allowed=false` ⇒ `AtlasMemoryPrivacyService::providerDecision().allowed=false` for every payload (provider surfaces never render the marker); baseline pinned: `normal` class ⇒ 24/24 markers leak verbatim through `providerBody()` — this is exactly the surface MAXM-04 must collapse; receipt JSONL `storage/app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl` schema `atlas.acos_max.provider_leak_corpus.v1`; series `atlas.provider_leak_corpus.v1` registered (ELEV-20s) + rotation `append_forever` (ELEV-24); tests: `php artisan test tests/Feature/Ai/AcosMax/Maxm01ProviderLeakCorpusTest.php` (4 tests, 160 assertions green)
+- [ ] RAGX-01 — blocked_by:MAXA-04,MAXA-05 (needs jina-v3 8k ctx promoted AND `asef_chunks` persisted; both pending in Lote 5)
 - [ ] TETO-01 — pending (N-Capture Drill — 1ª execução)
 
 ## LOTE 6 — VERTICAL 1 (subset mínimo + MARCO; gate F1→F2)
