@@ -1,0 +1,29 @@
+---
+description: Todas as IAs trabalham SEMPRE na branch local main — zero branch/merge/pull-merge de obra
+alwaysApply: true
+---
+
+# Branch local `main` only (pétreo)
+
+## Regra
+
+Neste repo (`atlas-server`), **toda IA (Cursor, Claude Code, Codex, Composer, cloud agent, subagent) trabalha exclusivamente na branch local `main`.**
+
+## Obrigatório
+
+1. Antes de qualquer commit: `git branch --show-current` deve imprimir `main`. Se não for `main` → `git checkout main` (sem criar branch).
+2. Commits escopados na `main`: `git add -- <só arquivos do slice>` + `git commit`. **NUNCA** `git add -A`.
+3. **NUNCA** criar branch de feature/obra (`git checkout -b`, worktree de obra, cloud-agent branch).
+4. **NUNCA** merge de obra (`git merge`, Pull que cria merge commit, “Commit and Merge” da UI).
+5. **NUNCA** `git pull` / `git pull --rebase` sem o operador pedir. Se `main` local e `origin/main` divergirem durante a obra ACOS Max: **a main local é a fonte da verdade**; reportar e pedir OK explícito para `git push --force-with-lease origin main`. Não “resolver” com merge.
+6. Se a UI/git entrar em `MERGE_IN_PROGRESS` por pull acidental: `git merge --abort` imediatamente e reportar.
+7. Subagents herdam esta regra: commits deles também só na `main` local do worktree principal — não spawnar branch paralela.
+
+## Por quê
+
+Pull/merge de `origin/main` durante execução paralela de slices cria conflitos fantasma (mesmo slice re-commitado com SHA diferente) e coloca commits “fora” da linha da main — exatamente o que esta regra proíbe.
+
+## Exceções (só o operador humano)
+
+- Criar/usar branch para experimento isolado **fora** da obra ACOS Max, com pedido explícito.
+- `git push` / `--force-with-lease` — só com OK explícito do operador.

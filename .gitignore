@@ -21,7 +21,10 @@ runtimes/swift/**/Package.resolved
 .phpactor.json
 .phpunit.result.cache
 /.codex
-/.cursor/
+# Track Cursor alwaysApply rules; ignore the rest of .cursor/
+/.cursor/*
+!/.cursor/rules/
+!/.cursor/rules/**
 /.idea
 /.nova
 /.phpunit.cache
