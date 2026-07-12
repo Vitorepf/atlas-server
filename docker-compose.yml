@@ -46,7 +46,9 @@ services:
     ports:
       - "5433:5432"
     volumes:
+      - ./docker/postgres/16/acos-max-asi-03.conf:/etc/postgresql/acos-max-asi-03.conf:ro
       - pgdata:/var/lib/postgresql/data
+    command: ["postgres", "-c", "config_file=/etc/postgresql/acos-max-asi-03.conf"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
       interval: 10s

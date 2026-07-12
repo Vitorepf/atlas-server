@@ -20,7 +20,7 @@
 - [x] ASI-01 — landed · ConstitutionGate live caller via `AtlasTaskScopedCommitter` → `AtlasLoopMergeActuator::commitWithConstitutionToken`; presence sentinel + negative forbidden-self-target receipt green
 - [ ] ASI-02 (+ELEV-08) — pending
 - [ ] MAXI-01 — pending
-- [ ] ASI-03 — pending
+- [x] ASI-03 — landed · Postgres 16 @5433 memory tuning live SHOW passed (`shared_buffers=6GB`, `effective_cache_size=24GB`, `maintenance_work_mem=2GB`) · conf `docker/postgres/16/acos-max-asi-03.conf` · runbook `docs/engineering-knowledge-base/atlas-acos-max-asi-03-postgres-tuning-runbook.md` · Evidence Ledger `storage/app/atlas/evidence/acos-max-asi-03-postgres-tuning.jsonl` hash=`sha256:1c0bbcee6c6174659d77ffd25c759a67eab5c615a3289b36053012914ab325cf`
 - [x] ASI-04 — landed · hook coalescing/cap/load-shed shell backpressure · bancada `scripts/verify-asi04-hooks.sh`: coalescing runs=1 coalesced=5; global_cap runs=1 cap_skips=2; forced_load PostToolUse runs=0 shed=1; UserPromptSubmit no-shed runs=1
 - [ ] ESP-01 — pending
 - [ ] MAXK-07 (+ELEV-09) — pending
