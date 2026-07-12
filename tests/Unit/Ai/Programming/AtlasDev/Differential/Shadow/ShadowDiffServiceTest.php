@@ -6,10 +6,10 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Differential\Shadow;
 
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarnessResult;
-use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffResult;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffService;
 use Illuminate\Support\Facades\File;
-use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
+use Tests\TestCase;
 
 /**
  * E4 -- ShadowDiffService unit tests.
@@ -313,10 +313,9 @@ final class ShadowDiffServiceTest extends TestCase
 
     private function git(string $workspace, array $args): void
     {
-        $process = new \Symfony\Component\Process\Process(['git', ...$args], $workspace, null, null, 10.0);
+        $process = new Process(['git', ...$args], $workspace, null, null, 10.0);
         $process->run();
     }
-
 }
 
 /**

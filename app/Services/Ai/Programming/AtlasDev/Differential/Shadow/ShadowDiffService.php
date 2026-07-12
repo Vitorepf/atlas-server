@@ -53,7 +53,6 @@ final class ShadowDiffService
         private readonly ShadowDiffSymbolExtractor $extractor = new ShadowDiffSymbolExtractor,
         private readonly PureFunctionDetector $purityDetector = new PureFunctionDetector,
         private readonly ShadowDiffInputProvider $inputProvider = new ShadowDiffInputProvider,
-        private readonly ?string $phpBinary = null,
     ) {}
 
     /**
