@@ -13,6 +13,7 @@ use App\Services\Ai\AutonomousEngineering\AtlasAutonomousEngineeringService;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
 use App\Services\Ai\EngineeringCompany\EngineeringCompanyHash;
 use App\Services\Ai\EngineeringKernel\AcceptanceBundle;
+use App\Services\Ai\EngineeringKernel\AuthorizedMergeAction;
 use App\Services\Ai\EngineeringKernel\CandidateQualityCase;
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
@@ -22,6 +23,7 @@ use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\HermeticSandboxPort;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\EngineeringKernel\MergeActuator;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
 use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\EngineeringKernel\RoleDisposition;
@@ -54,6 +56,40 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
     private const ROLE_IDS = EngineeringRoleRoster::OFFICIAL_ROLES;
 
     private ?string $canonicalRunId = null;
+
+    public function test_kernel_does_not_act_without_governor_authority(): void
+    {
+        $actuator = $this->createMock(MergeActuator::class);
+        $actuator->expects($this->never())->method('act');
+
+        $result = $this->app->make(EliteExecutorKernel::class)
+            ->actAuthorizedMutativeCandidate(['admitted' => false], $actuator);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertFalse($result['acted']);
+        $this->assertFalse($result['release_uncertain']);
+        $this->assertSame('governor_authority_absent', $result['reason']);
+    }
+
+    public function test_kernel_quarantines_merge_actuator_exception_after_authorization(): void
+    {
+        $hash = static fn (string $value): string => hash('sha256', $value);
+        $action = new AuthorizedMergeAction(
+            action: 'commit', taskPacketId: 'task-actuator-exception', candidateHash: $hash('candidate'),
+            decisionHash: $hash('decision'), releaseLedgerPath: storage_path('atlas/test-release.jsonl'),
+        );
+        $actuator = $this->createMock(MergeActuator::class);
+        $actuator->expects($this->once())->method('act')->willThrowException(new \RuntimeException('actuator down'));
+
+        $result = $this->app->make(EliteExecutorKernel::class)
+            ->actAuthorizedMutativeCandidate(['authorized_merge_action' => $action->toArray()], $actuator);
+
+        $this->assertSame('release_uncertain', $result['status']);
+        $this->assertFalse($result['acted']);
+        $this->assertTrue($result['release_uncertain']);
+        $this->assertStringContainsString('merge_actuator_exception:', $result['reason']);
+        $this->assertSame('task-actuator-exception', $result['authorized_merge_action']['task_packet_id']);
+    }
 
     public function test_mutative_candidate_provider_refusal_has_zero_sandbox_authority(): void
     {

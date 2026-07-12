@@ -475,6 +475,47 @@ final class EliteExecutorKernel
         return ['verdict' => $verdict, 'governance' => $governance];
     }
 
+    /** @param array<string,mixed> $governance @return array<string,mixed> */
+    public function actAuthorizedMutativeCandidate(array $governance, MergeActuator $actuator): array
+    {
+        $rawAction = $governance['authorized_merge_action'] ?? null;
+        if (! is_array($rawAction)) {
+            return [
+                'status' => 'blocked',
+                'acted' => false,
+                'release_uncertain' => false,
+                'reason' => 'governor_authority_absent',
+            ];
+        }
+        try {
+            $action = AuthorizedMergeAction::fromArray($rawAction);
+        } catch (\Throwable $exception) {
+            return [
+                'status' => 'blocked',
+                'acted' => false,
+                'release_uncertain' => false,
+                'reason' => 'governor_authority_invalid:'.$exception::class,
+            ];
+        }
+        try {
+            $result = $actuator->act($action);
+        } catch (\Throwable $exception) {
+            return [
+                'status' => 'release_uncertain',
+                'acted' => false,
+                'release_uncertain' => true,
+                'reason' => 'merge_actuator_exception:'.$exception::class,
+                'authorized_merge_action' => $action->toArray(),
+            ];
+        }
+
+        return array_merge($result, [
+            'authorized_merge_action' => $action->toArray(),
+            'acted' => true,
+            'release_uncertain' => (bool) ($result['release_uncertain'] ?? false),
+        ]);
+    }
+
     public function devGate(): AtlasDevGateAdapter
     {
         return $this->devAdapter;
