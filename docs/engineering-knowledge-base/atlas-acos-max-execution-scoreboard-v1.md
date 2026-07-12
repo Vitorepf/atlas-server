@@ -41,7 +41,7 @@
 - [x] MAXB-02 — landed(e41f8e19c) · GÊMEO fechado pelo landing do MAXG-04 (mesmo sha); `memory_recall_golden_v2` cases=25 targets_available=25 r5=0.56 fd=6 judged=true; frozen_set_hash=`3525f39713ba1e5339233330a5b0b4a0e4f3314560cda424902919cd27455e77`
 - [x] MAXG-04 — landed(e41f8e19c) · golden v2 live-anchored por `content_hash` de entradas ativas reais; `v1.json` intocado; ledger judge_event_hash=`76a5026a1211aeafdd9e234471d4125060d2798bc65d422f407b6d835fd08c58`; live recall status=`attention` por fd=6 (medido, não mascarado); tests: `php artisan test tests/Feature/Ai/AtlasAiLocalRagBenchmarkCommandTest.php`
 - [ ] MAXH-01 — pending
-- [ ] MAXI-02 — pending
+- [x] MAXI-02 — landed · CaptureService keeps `atlas.capture.cognitive_immune_audit.v1` byte-stable and emits real evaluator shadow verdict under `immune_audit_v2` (`atlas.capture.cognitive_immune_audit.v2`); `AtlasMemoryCognitiveImmuneLearningKernelService::evaluatePromotion()` adapts legacy envelope from `CognitiveImmunePromotionGateEvaluator`; audit v2 hash changes with verdict; tests: `php artisan test tests/Feature/Ai/Cognition/ImmuneVerdictSingleAuthorityTest.php`
 - [ ] MAXI-03 — pending
 - [ ] MAXJ-01 — pending
 - [ ] MAXJ-05 — pending

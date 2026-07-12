@@ -5,11 +5,13 @@ namespace App\Services;
 use App\Jobs\ProcessAudioTranscription;
 use App\Models\Capture;
 use App\Models\TranscriptionJob;
+use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\AiMemoryDeltaProposer;
+use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\ActivationEngine;
 use App\Services\Semantic\CaptureSemanticClarifier;
 use App\Services\Semantic\CurationProposalService;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\Metadata;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +30,8 @@ class CaptureService
         private readonly CurationProposalService $curation,
         private readonly ActivationEngine $activations,
         private readonly AiMemoryDeltaProposer $memoryDeltas,
+        private readonly CognitiveImmunePromotionGateEvaluator $immuneGateEvaluator,
+        private readonly AtlasAaeosCognitiveImmuneInputClassifier $immuneInputClassifier,
     ) {}
 
     public function create(array $data, ?UploadedFile $file = null): array
@@ -197,6 +201,7 @@ class CaptureService
         $now = now()->toJSON();
         $contentIntelligence = $this->contentIntelligenceContract($metadata, $data, $storedFile, $domain, $contentHash, $now);
         $immuneAudit = $this->cognitiveImmuneAudit($contentIntelligence, $data, $domain, $contentHash);
+        $immuneAuditV2 = $this->cognitiveImmuneAuditV2($contentIntelligence, $metadata, $data, $domain, $contentHash);
 
         return [
             ...$metadata,
@@ -223,6 +228,7 @@ class CaptureService
                 'content_destination_enum' => $contentIntelligence['destination']['enum'],
                 'content_quality_score' => $contentIntelligence['quality']['score'],
                 'immune_audit' => $immuneAudit,
+                'immune_audit_v2' => $immuneAuditV2,
                 'lineage' => [
                     'origin' => 'capture_pipeline',
                     'captured_at' => is_scalar($data['captured_at'] ?? null) ? (string) $data['captured_at'] : null,
@@ -235,6 +241,94 @@ class CaptureService
                 ],
                 'updated_at' => $now,
                 'created_at' => $existing['created_at'] ?? $now,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $contentIntelligence
+     * @param  array<string,mixed>  $metadata
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function cognitiveImmuneAuditV2(array $contentIntelligence, array $metadata, array $data, string $domain, ?string $contentHash): array
+    {
+        $signals = $this->cognitiveImmuneAuditSignals($contentIntelligence, $metadata, $data, $domain, $contentHash);
+        $verdict = $this->immuneGateEvaluator->evaluate($signals);
+
+        $payload = [
+            'schema_version' => 'atlas.capture.cognitive_immune_audit.v2',
+            'status' => 'shadow_evaluated',
+            'evaluator_schema_version' => $verdict['schema_version'],
+            'gate_statuses' => $verdict['gate_statuses'],
+            'promotion_status' => $verdict['promotion_status'],
+            'blocking_gate_ids' => $verdict['blocking_gate_ids'],
+            'pending_gate_ids' => $verdict['pending_gate_ids'],
+            'reasons' => $verdict['reasons'],
+            'autonomous_promotion_allowed' => $verdict['autonomous_promotion_allowed'],
+            'signals' => $signals,
+        ];
+        $payload['audit_hash'] = hash('sha256', json_encode([
+            'schema_version' => $payload['schema_version'],
+            'content_hash' => $contentHash,
+            'verdict' => $verdict,
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string,mixed>  $contentIntelligence
+     * @param  array<string,mixed>  $metadata
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private function cognitiveImmuneAuditSignals(array $contentIntelligence, array $metadata, array $data, string $domain, ?string $contentHash): array
+    {
+        $text = is_scalar($data['content_text'] ?? null) ? trim((string) $data['content_text']) : '';
+        $classification = $this->immuneInputClassifier->classify($text, $metadata);
+        $privacyClass = $this->scalarString(data_get($metadata, 'privacy.sensitivity'))
+            ?? $this->scalarString($metadata['sensitivity'] ?? null)
+            ?? 'normal';
+        $externalAiAllowed = data_get($metadata, 'privacy.external_ai_allowed');
+        $externalAiAllowed = is_bool($externalAiAllowed) ? $externalAiAllowed : true;
+        $containsSecret = $this->metadataFlag($metadata, 'has_secret_marker')
+            || $this->metadataFlag($metadata, 'contains_secret')
+            || $privacyClass === 'secret';
+        $containsSensitiveUnnecessary = ! $containsSecret
+            && (in_array($privacyClass, ['private', 'sensitive'], true)
+                || $classification['input_class'] === 'private_sensitive');
+        $providerSafe = $externalAiAllowed
+            && ! $containsSecret
+            && ! $containsSensitiveUnnecessary;
+        if ($this->metadataExplicitlyFalse($metadata, 'provider_safe')) {
+            $providerSafe = false;
+        }
+
+        return [
+            'consent_granted' => ! $this->metadataExplicitlyFalse($metadata, 'consent_granted'),
+            'privacy_class' => $privacyClass,
+            'retention_ok' => true,
+            'atomic_claim_present' => $text !== '' && $contentHash !== null,
+            'claim_type' => $classification['input_class'],
+            'claim_source_present' => $contentHash !== null,
+            'future_utility' => (bool) $classification['memory_eligible'] || (float) data_get($contentIntelligence, 'quality.score', 0.0) >= 50.0,
+            'novelty' => $contentHash !== null,
+            'recurrence_count' => $this->intMetadata($metadata, 'recurrence_count'),
+            'provider_safe' => $providerSafe,
+            'contains_secret' => $containsSecret,
+            'contains_sensitive_unnecessary' => $containsSensitiveUnnecessary,
+            'contradicts_newer' => $this->metadataFlag($metadata, 'contradicts_newer')
+                || $this->metadataFlag($metadata, 'immune.contradicts_newer'),
+            'outcome_validated' => false,
+            'scope' => 'domain',
+            'promotion_mode_hint' => 'proposal',
+            'on_probation' => true,
+            'signal_sources' => [
+                'input_classifier_schema_version' => $classification['schema_version'],
+                'input_class' => $classification['input_class'],
+                'matched_signals' => $classification['matched_signals'],
+                'source_domain' => $domain,
             ],
         ];
     }
@@ -470,6 +564,32 @@ class CaptureService
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function metadataFlag(array $metadata, string $key): bool
+    {
+        return data_get($metadata, $key) === true;
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function metadataExplicitlyFalse(array $metadata, string $key): bool
+    {
+        return data_get($metadata, $key) === false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function intMetadata(array $metadata, string $key): int
+    {
+        $value = data_get($metadata, $key, 0);
+
+        return is_int($value) ? max(0, $value) : max(0, (int) $value);
     }
 
     /**

@@ -140,9 +140,9 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     ];
 
     /**
-     * Consolidated AAEOS kernel (lazily constructed; pure, zero ctor deps). Wired
-     * in behind a default-OFF config flag via the opt-in helper below — the live
-     * evaluatePromotion() path does NOT use it.
+     * Consolidated AAEOS kernel (lazily constructed; pure, zero ctor deps).
+     * evaluatePromotion() adapts its legacy envelope from this single G0-G8
+     * authority; evaluatePromotionGates() remains the explicit opt-in raw helper.
      */
     private ?CognitiveImmunePromotionGateEvaluator $promotionGateEvaluator;
 
@@ -195,7 +195,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * Run the G0..G8 promotion ladder for a candidate.
      *
      * @param  array<string,mixed>  $candidate  signals keyed by gate signal +
-     *                                           'input_class' and 'scope'.
+     *                                          'input_class' and 'scope'.
      * @return array{
      *     schema:string,
      *     input_class:string,
@@ -217,32 +217,13 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         $scope = $this->normalize((string) ($candidate['scope'] ?? 'session'));
 
         $reasons = [];
-        $gateResults = [];
-        $passedGates = [];
-        $failedGate = null;
-
-        foreach (self::GATES as $gate) {
-            // Once a gate fails, downstream gates are reported but cannot pass:
-            // the ladder is ordered and a broken rung stops the climb.
-            $signalTrue = (bool) ($candidate[$gate['signal']] ?? false);
-            $passed = $failedGate === null && $signalTrue;
-
-            $gateResults[] = [
-                'id' => $gate['id'],
-                'passed' => $passed,
-                'question' => $gate['question'],
-            ];
-
-            if ($passed) {
-                $passedGates[] = $gate['id'];
-
-                continue;
-            }
-
-            if ($failedGate === null) {
-                $failedGate = $gate['id'];
-                $reasons[] = sprintf('gate_failed:%s', $gate['id']);
-            }
+        $requestedMode = $this->normalize((string) ($candidate['promotion_mode'] ?? 'auto'));
+        $promotionMode = $this->resolvePromotionMode($requestedMode, $scope, $reasons);
+        $immuneSignals = $this->promotionImmuneSignals($candidate, $inputClass, $scope, $promotionMode);
+        $verdict = ($this->promotionGateEvaluator ??= new CognitiveImmunePromotionGateEvaluator)->evaluate($immuneSignals);
+        [$gateResults, $passedGates, $failedGate] = $this->legacyGateProjection($verdict['gate_statuses']);
+        if ($failedGate !== null) {
+            $reasons[] = sprintf('gate_failed:%s', $failedGate);
         }
 
         // Rule 1 + class law: a class that can never become knowledge cannot be
@@ -253,10 +234,6 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         }
 
         $allPassed = $failedGate === null;
-
-        // G7 promotion mode. Rule 7: critical/policy scope is NEVER auto.
-        $requestedMode = $this->normalize((string) ($candidate['promotion_mode'] ?? 'auto'));
-        $promotionMode = $this->resolvePromotionMode($requestedMode, $scope, $reasons);
 
         $promote = $allPassed && $promotionMode !== 'blocked';
 
@@ -276,11 +253,76 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             'gate_results' => $gateResults,
             'passed_gates' => $passedGates,
             'failed_gate' => $failedGate,
+            'gate_statuses' => $verdict['gate_statuses'],
+            'promotion_status' => $verdict['promotion_status'],
+            'blocking_gate_ids' => $verdict['blocking_gate_ids'],
+            'pending_gate_ids' => $verdict['pending_gate_ids'],
+            'immune_signals' => $immuneSignals,
             'promote' => $promote,
             'promotion_mode' => $promotionMode,
             'resulting_state' => $resultingState,
             'reasons' => array_values(array_unique($reasons)),
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    private function promotionImmuneSignals(array $candidate, string $inputClass, string $scope, string $promotionMode): array
+    {
+        $scopeResolved = (bool) ($candidate['scope_resolved'] ?? false);
+
+        return [
+            'consent_granted' => (bool) ($candidate['capture_consented'] ?? false),
+            'privacy_class' => (string) ($candidate['privacy_class'] ?? 'internal'),
+            'retention_ok' => (bool) ($candidate['capture_consented'] ?? false),
+            'atomic_claim_present' => (bool) ($candidate['atomic_claim'] ?? false),
+            'claim_type' => $inputClass,
+            'claim_source_present' => (bool) ($candidate['atomic_claim'] ?? false),
+            'future_utility' => (bool) ($candidate['future_signal'] ?? false),
+            'novelty' => (bool) ($candidate['novelty'] ?? false),
+            'recurrence_count' => (int) ($candidate['recurrence_count'] ?? 0),
+            'provider_safe' => (bool) ($candidate['provider_safe'] ?? false),
+            'contains_secret' => (bool) ($candidate['contains_secret'] ?? false),
+            'contains_sensitive_unnecessary' => (bool) ($candidate['contains_sensitive_unnecessary'] ?? false),
+            'contradicts_newer' => ! (bool) ($candidate['no_contradiction'] ?? false),
+            'outcome_validated' => (bool) ($candidate['outcome_validated'] ?? false),
+            'scope' => $scopeResolved ? $scope : '',
+            'promotion_mode_hint' => (bool) ($candidate['promotion_mode_set'] ?? false) ? $promotionMode : '',
+            'on_probation' => ! (bool) ($candidate['probation_entered'] ?? false),
+        ];
+    }
+
+    /**
+     * @param  array<string,string>  $gateStatuses
+     * @return array{0:list<array{id:string,passed:bool,question:string}>,1:list<string>,2:?string}
+     */
+    private function legacyGateProjection(array $gateStatuses): array
+    {
+        $gateResults = [];
+        $passedGates = [];
+        $failedGate = null;
+
+        foreach (self::GATES as $gate) {
+            $gateId = $gate['id'];
+            $passed = $failedGate === null && ($gateStatuses[$gateId] ?? 'pending') === 'pass';
+            $gateResults[] = [
+                'id' => $gateId,
+                'passed' => $passed,
+                'question' => $gate['question'],
+            ];
+
+            if ($passed) {
+                $passedGates[] = $gateId;
+
+                continue;
+            }
+
+            $failedGate ??= $gateId;
+        }
+
+        return [$gateResults, $passedGates, $failedGate];
     }
 
     /**
