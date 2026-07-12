@@ -15,6 +15,7 @@ use App\Services\Ai\AtlasMemoryQualityService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -868,7 +869,9 @@ final class AtlasAcosWatchdogHealthService
     /** @param list<array<string,mixed>> $rows @return array<string,int> */
     private function admlReadyRoutes(array $rows): array
     {
-        $minEvidence = (int) config('atlas.patamar4.adml_cost_outcome.min_evidence', 3);
+        $minEvidence = (int) app(GovernanceFloorRegistry::class)->atlasDecideCostOutcomeConfig(
+            (bool) config('atlas.patamar4.adml_cost_outcome.enabled', false),
+        )['min_evidence'];
         $routes = [];
         foreach ($rows as $row) {
             if (($row['proven_real'] ?? false) !== true) {

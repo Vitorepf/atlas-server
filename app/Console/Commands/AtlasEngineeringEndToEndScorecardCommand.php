@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
@@ -300,7 +301,9 @@ final class AtlasEngineeringEndToEndScorecardCommand extends Command
     /** @return array{name:string,pass:bool,evidence:array<string,mixed>,blockers:list<string>} */
     private function admlCostOutcome(AtlasDecideLiveOutcomeFeedbackService $liveOutcomes): array
     {
-        $minEvidence = (int) config('atlas.patamar4.adml_cost_outcome.min_evidence', 3);
+        $minEvidence = (int) app(GovernanceFloorRegistry::class)->atlasDecideCostOutcomeConfig(
+            (bool) config('atlas.patamar4.adml_cost_outcome.enabled', false),
+        )['min_evidence'];
         $routes = [];
         foreach ($this->rowsInWindow($liveOutcomes->listOutcomes(), self::LIVE_OUTCOME_WINDOW_DAYS) as $row) {
             if (($row['proven_real'] ?? false) !== true) {

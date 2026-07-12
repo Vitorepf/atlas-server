@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -31,10 +32,6 @@ class AtlasDecideCostOutcomeRouter
     // verbatim); the offline ledger feeds again only via the Rivals 2.0 ledger.
     public const STALE_AGE_DAYS = 14;
 
-    private const CONFIDENCE_HIGH_THRESHOLD = 6;
-
-    private const CONFIDENCE_MEDIUM_THRESHOLD = 3;
-
     /**
      * @param  Closure(mixed): ?string  $canonicalProviderKey
      * @param  Closure(?string, mixed): ?string  $canonicalModelForProvider
@@ -47,6 +44,7 @@ class AtlasDecideCostOutcomeRouter
         private readonly Closure $canonicalModelForProvider,
         private readonly Closure $isKnownProviderKey,
         private readonly Closure $numericCost,
+        private readonly ?GovernanceFloorRegistry $governanceFloors = null,
     ) {}
 
     /**
@@ -174,17 +172,11 @@ class AtlasDecideCostOutcomeRouter
      */
     public function costOutcomeConfig(): array
     {
-        $cfg = function_exists('config') ? (array) config('atlas.patamar4.adml_cost_outcome', []) : [];
+        $enabled = function_exists('config')
+            ? (bool) config('atlas.patamar4.adml_cost_outcome.enabled', false)
+            : false;
 
-        return [
-            'enabled' => (bool) ($cfg['enabled'] ?? false),
-            'min_evidence' => max(1, (int) ($cfg['min_evidence'] ?? 3)),
-            'min_certification_rate' => max(0.0, min(1.0, (float) ($cfg['min_certification_rate'] ?? 0.8))),
-            'min_score' => max(0.0, min(100.0, (float) ($cfg['min_score'] ?? 80.0))),
-            'max_score_drop' => max(0.0, (float) ($cfg['max_score_drop'] ?? 3.0)),
-            'require_measured_cost' => (bool) ($cfg['require_measured_cost'] ?? true),
-            'min_cost_samples' => max(1, (int) ($cfg['min_cost_samples'] ?? 1)),
-        ];
+        return $this->floors()->atlasDecideCostOutcomeConfig($enabled);
     }
 
     /**
@@ -402,10 +394,10 @@ class AtlasDecideCostOutcomeRouter
         if ($evidenceCount <= 0) {
             return AtlasDecideMetaLearningService::CONFIDENCE_INSUFFICIENT;
         }
-        if ($evidenceCount >= self::CONFIDENCE_HIGH_THRESHOLD) {
+        if ($evidenceCount >= $this->floors()->atlasDecideCostOutcomeConfidenceHighThreshold()) {
             return AtlasDecideMetaLearningService::CONFIDENCE_HIGH;
         }
-        if ($evidenceCount >= self::CONFIDENCE_MEDIUM_THRESHOLD) {
+        if ($evidenceCount >= $this->floors()->atlasDecideCostOutcomeConfidenceMediumThreshold()) {
             return AtlasDecideMetaLearningService::CONFIDENCE_MEDIUM;
         }
 
@@ -427,5 +419,10 @@ class AtlasDecideCostOutcomeRouter
         $diff = $now->getTimestamp() - $dt->getTimestamp();
 
         return (int) max(0, intdiv($diff, 86_400));
+    }
+
+    private function floors(): GovernanceFloorRegistry
+    {
+        return $this->governanceFloors ?? new GovernanceFloorRegistry;
     }
 }

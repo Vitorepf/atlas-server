@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use InvalidArgumentException;
 
@@ -27,17 +28,6 @@ final class StewardshipAutonomyEnvelope
     public const MERGE_TARGET_MAIN = 'main';
 
     private const RISK_ORDER = ['low' => 1, 'medium' => 2, 'high' => 3];
-
-    /** Safe-by-default prohibitions; an armed envelope always forbids these. */
-    public const DEFAULT_FORBIDDEN_ACTIONS = [
-        'merge_to_main',
-        'force_push',
-        'delete_branch_unmerged',
-        'rewrite_history',
-        'touch_secrets',
-        'forge_real_execution',
-        'provider_topology_authority_fabrication',
-    ];
 
     public const DEFAULT_QUALITY_CRITERIA = [
         'judge_must_pass',
@@ -134,7 +124,7 @@ final class StewardshipAutonomyEnvelope
                 array_map(static fn ($p): string => trim((string) $p), (array) ($input['allowed_providers'] ?? ['cursor_cli'])),
                 static fn (string $p): bool => $p !== '',
             )),
-            forbiddenActions: AreaFocusStringListNormalizer::uniqueMergedStringValues(self::DEFAULT_FORBIDDEN_ACTIONS, $requestedForbiddenActions),
+            forbiddenActions: AreaFocusStringListNormalizer::uniqueMergedStringValues(self::defaultForbiddenActions(), $requestedForbiddenActions),
             qualityCriteria: AreaFocusStringListNormalizer::uniqueMergedStringValues(self::DEFAULT_QUALITY_CRITERIA, $requestedQualityCriteria),
             maxCycles: max(1, min(500, (int) ($input['max_cycles'] ?? 12))),
             maxMerges: max(1, min(500, (int) ($input['max_merges'] ?? 10))),
@@ -157,6 +147,14 @@ final class StewardshipAutonomyEnvelope
         }
 
         return self::fromArray($raw);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function defaultForbiddenActions(): array
+    {
+        return (new GovernanceFloorRegistry)->stewardshipAutonomyEnvelopeDefaultForbiddenActions();
     }
 
     public function mergeTarget(): string

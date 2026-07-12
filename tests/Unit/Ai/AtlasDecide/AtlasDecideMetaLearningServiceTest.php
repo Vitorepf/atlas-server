@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AtlasDecide;
 
-use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use Tests\TestCase;
 
 /**
@@ -401,7 +402,7 @@ class AtlasDecideMetaLearningServiceTest extends TestCase
         $this->assertArrayHasKey('degradation_reasons', $row);
         $reasons = $row['degradation_reasons'];
         $this->assertSame(0.2, $reasons['success_rate']);
-        $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::BROKEN_THRESHOLD, $reasons['minimum_success_rate']);
+        $this->assertSame(app(GovernanceFloorRegistry::class)->atlasDecideLiveFeedbackBrokenThreshold(), $reasons['minimum_success_rate']);
         $this->assertSame(5, $reasons['sample_count']);
         $this->assertArrayHasKey('stale_data', $reasons);
         $this->assertSame(AtlasDecideMetaLearningService::ACTION_DEACTIVATE, $reasons['recommended_action']);

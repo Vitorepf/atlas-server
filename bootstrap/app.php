@@ -116,8 +116,8 @@ use App\Console\Commands\AtlasEngineeringDockerCleanupCommand;
 use App\Console\Commands\AtlasEngineeringEnforceReadinessCommand;
 use App\Console\Commands\AtlasEngineeringHarnessabilityCalibrateCommand;
 use App\Console\Commands\AtlasEngineeringKnowledgeCommand;
-use App\Console\Commands\AtlasEngineeringQualityScanCommand;
 use App\Console\Commands\AtlasEngineeringQualityFoundryReadinessCommand;
+use App\Console\Commands\AtlasEngineeringQualityScanCommand;
 use App\Console\Commands\AtlasEngineeringReplayCommand;
 use App\Console\Commands\AtlasEngineeringRunCommand;
 use App\Console\Commands\AtlasEngineeringSbomCommand;
@@ -127,6 +127,7 @@ use App\Console\Commands\AtlasEngineeringVisualDriverCommand;
 use App\Console\Commands\AtlasEngineeringVisualSmokeCommand;
 use App\Console\Commands\AtlasForgeMultiNodeL410ProofCommand;
 use App\Console\Commands\AtlasForgeRuntimeCertifyCommand;
+use App\Console\Commands\AtlasGovernanceAmendmentsCommand;
 use App\Console\Commands\AtlasInitiativesCommand;
 use App\Console\Commands\AtlasInsightCommand;
 use App\Console\Commands\AtlasInsightWatchCommand;
@@ -354,6 +355,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasEngineeringBenchmarkReportCommand::class,
         AtlasEngineeringBenchmarkSeedCommand::class,
         AtlasForgeRuntimeCertifyCommand::class,
+        AtlasGovernanceAmendmentsCommand::class,
         AtlasEngineeringApiContractCommand::class,
         AtlasEngineeringDockerCleanupCommand::class,
         AtlasEngineeringHarnessabilityCalibrateCommand::class,

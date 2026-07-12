@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use InvalidArgumentException;
 
 /**
@@ -30,7 +31,7 @@ use InvalidArgumentException;
  * Invariants:
  *   - append-only JSONL local-first;
  *   - never calls a provider;
- *   - degradation thresholds hardcoded (operator changes via PR);
+ *   - degradation thresholds come from the governance floor registry;
  *   - provider-safe (no benchmark/rivals/superiority claims emitted).
  */
 final class AtlasDecideLiveOutcomeFeedbackService
@@ -63,13 +64,9 @@ final class AtlasDecideLiveOutcomeFeedbackService
     /** Sliding window size (last N calls) used for the aggregated view. */
     public const WINDOW_SIZE = 20;
 
-    /** Below this success rate we mark `degrading`. */
-    public const DEGRADATION_THRESHOLD = 0.7;
-
-    /** Below this success rate we mark `broken`. */
-    public const BROKEN_THRESHOLD = 0.4;
-
     private ?string $logPathOverride = null;
+
+    public function __construct(private readonly ?GovernanceFloorRegistry $governanceFloors = null) {}
 
     public function setLogPathForTesting(?string $path): void
     {
@@ -128,7 +125,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
             throw new InvalidArgumentException('task_category, role and provider are required.');
         }
         if (! in_array($result, self::VALID_RESULTS, true)) {
-            throw new InvalidArgumentException("result must be one of: ".implode(',', self::VALID_RESULTS));
+            throw new InvalidArgumentException('result must be one of: '.implode(',', self::VALID_RESULTS));
         }
 
         $framework = $input['framework'] ?? null;
@@ -427,9 +424,9 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $rate = $success / $n;
 
         $signal = self::SIGNAL_HEALTHY;
-        if ($rate < self::BROKEN_THRESHOLD) {
+        if ($rate < $this->floors()->atlasDecideLiveFeedbackBrokenThreshold()) {
             $signal = self::SIGNAL_BROKEN;
-        } elseif ($rate < self::DEGRADATION_THRESHOLD) {
+        } elseif ($rate < $this->floors()->atlasDecideLiveFeedbackDegradationThreshold()) {
             $signal = self::SIGNAL_DEGRADING;
         }
 
@@ -532,8 +529,8 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'success_rate' => $successRate,
             'thresholds' => [
                 'min_calls_for_signal' => self::MIN_CALLS_FOR_SIGNAL,
-                'degradation_threshold' => self::DEGRADATION_THRESHOLD,
-                'broken_threshold' => self::BROKEN_THRESHOLD,
+                'degradation_threshold' => $this->floors()->atlasDecideLiveFeedbackDegradationThreshold(),
+                'broken_threshold' => $this->floors()->atlasDecideLiveFeedbackBrokenThreshold(),
                 'window_size' => self::WINDOW_SIZE,
             ],
         ];
@@ -549,5 +546,10 @@ final class AtlasDecideLiveOutcomeFeedbackService
         ], JSON_THROW_ON_ERROR));
 
         return $envelope;
+    }
+
+    private function floors(): GovernanceFloorRegistry
+    {
+        return $this->governanceFloors ?? new GovernanceFloorRegistry;
     }
 }

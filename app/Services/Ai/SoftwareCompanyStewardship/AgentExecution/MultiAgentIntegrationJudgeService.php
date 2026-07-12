@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use DateTimeImmutable;
@@ -62,19 +63,6 @@ final class MultiAgentIntegrationJudgeService
     public const REPAIR_PLAN_ONLY_DECISIONS = [self::DECISION_BLOCKED_SCOPE_VIOLATION, self::DECISION_BLOCKED_SECURITY];
 
     public const DEFAULT_AREA_ID = 'agentic_engineering_os';
-
-    /** @var list<string> */
-    private const DEFAULT_FORBIDDEN_ACTIONS = [
-        'merge',
-        'merge_to_base',
-        'deploy',
-        'push',
-        'force_push',
-        'rebase',
-        'secrets_access',
-        'main_mutation',
-        'provider_bypass',
-    ];
 
     /** @var list<string> */
     private const SECURITY_SAFETY_BLOCKER_KINDS = [
@@ -498,9 +486,10 @@ final class MultiAgentIntegrationJudgeService
     private function scoreForbiddenActions(array $lanePlan, array $laneResults): array
     {
         $forbidden = StewardshipStringListNormalizer::arrayTrimmedStrings($lanePlan['forbidden_actions'] ?? []);
+        $defaultForbidden = $this->floors()->multiAgentIntegrationJudgeDefaultForbiddenActions();
         $forbidden = $forbidden === []
-            ? self::DEFAULT_FORBIDDEN_ACTIONS
-            : StewardshipStringListNormalizer::uniqueMergedStrings($forbidden, self::DEFAULT_FORBIDDEN_ACTIONS);
+            ? $defaultForbidden
+            : StewardshipStringListNormalizer::uniqueMergedStrings($forbidden, $defaultForbidden);
 
         $violations = [];
         foreach ($laneResults as $result) {
@@ -520,6 +509,11 @@ final class MultiAgentIntegrationJudgeService
             'violations' => $violations,
             'reason' => $ok ? 'no_forbidden_actions' : 'forbidden_action_performed',
         ];
+    }
+
+    private function floors(): GovernanceFloorRegistry
+    {
+        return new GovernanceFloorRegistry;
     }
 
     /**
@@ -779,7 +773,6 @@ final class MultiAgentIntegrationJudgeService
     }
 
     /**
-     * @param  mixed  $raw
      * @return list<array<string,mixed>>
      */
     private function laneResults(mixed $raw): array
@@ -814,7 +807,6 @@ final class MultiAgentIntegrationJudgeService
     }
 
     /**
-     * @param  mixed  $raw
      * @return list<array<string,mixed>>
      */
     private function blockerList(mixed $raw): array

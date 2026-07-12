@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AtlasDecide;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -93,7 +94,7 @@ class AtlasDecideMetaLearningService
 
     private ?AtlasDecideProviderKeyResolver $providerKeyResolverInstance = null;
 
-    public function __construct() {}
+    public function __construct(private readonly ?GovernanceFloorRegistry $governanceFloors = null) {}
 
     /**
      * Opt-in seam wired by AppServiceProvider: when set, ADML can consult
@@ -798,7 +799,7 @@ class AtlasDecideMetaLearningService
         $top = $eligible[0];
         $runnerUp = $eligible[1] ?? null;
         $rate = (float) $top[$rateKey];
-        if ($rate < AtlasDecideLiveOutcomeFeedbackService::DEGRADATION_THRESHOLD) {
+        if ($rate < $this->floors()->atlasDecideLiveFeedbackDegradationThreshold()) {
             return null;
         }
 
@@ -1162,6 +1163,11 @@ class AtlasDecideMetaLearningService
     {
         return $this->providerKeyResolverInstance ??= app()->bound(AtlasDecideProviderKeyResolver::class)
             ? app(AtlasDecideProviderKeyResolver::class)
-            : new AtlasDecideProviderKeyResolver();
+            : new AtlasDecideProviderKeyResolver;
+    }
+
+    private function floors(): GovernanceFloorRegistry
+    {
+        return $this->governanceFloors ?? new GovernanceFloorRegistry;
     }
 }

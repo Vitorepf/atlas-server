@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
+
 /**
  * Runtime view of the Autonomy Ladder (L0 Assist .. L7 Self-Evolving) for the
  * Area Focus Loop. Materializes the canonical L0-L7 exit criteria, signature
@@ -23,55 +25,56 @@ final class AutonomyLadderRuntimeService
 {
     public const SCHEMA_VERSION = 'atlas.autonomy.ladder_runtime.v1';
 
-    private const TRUST_THRESHOLD = 0.95;
-
-    private const DEMOTE_CONSECUTIVE_BREACHES = 2;
+    public function __construct(private readonly ?GovernanceFloorRegistry $governanceFloors = null) {}
 
     /**
      * Canonical 8-rung ladder. `signature` is the tier required to promote INTO
      * the next rung; `trust_gate` marks a rung whose entry additionally requires
-     * trust_ledger_score >= 0.95 (the runbook's `L6 -> L7: ... + Trust>=0.95`).
+     * trust_ledger_score at the registry floor.
      *
      * @var list<array{level:string,name:string,signature:string,trust_gate:bool,exit:list<array{metric:string,comparator:string,value:float}>}>
      */
-    private const LADDER = [
-        ['level' => 'L0', 'name' => 'Assist', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'assist_sessions', 'comparator' => '>=', 'value' => 50],
-            ['metric' => 'acceptance_rate', 'comparator' => '>=', 'value' => 0.80],
-            ['metric' => 'severe_hallucination_count', 'comparator' => '<=', 'value' => 0],
-        ]],
-        ['level' => 'L1', 'name' => 'Slice Co-Pilot', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'consecutive_green_slices', 'comparator' => '>=', 'value' => 20],
-            ['metric' => 'scope_violation_count', 'comparator' => '<=', 'value' => 0],
-            ['metric' => 'repair_loop_count', 'comparator' => '<=', 'value' => 1],
-        ]],
-        ['level' => 'L2', 'name' => 'Multi-Slice Pair', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'green_pair_obras', 'comparator' => '>=', 'value' => 30],
-            ['metric' => 'regression_catch_rate', 'comparator' => '>=', 'value' => 0.90],
-        ]],
-        ['level' => 'L3', 'name' => 'Feature Owner', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'cert_green_features', 'comparator' => '>=', 'value' => 15],
-            ['metric' => 'blocker_in_review_per_feature', 'comparator' => '<=', 'value' => 1],
-        ]],
-        ['level' => 'L4', 'name' => 'Obra Owner', 'signature' => 'dual', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'consecutive_cert_green_obras', 'comparator' => '>=', 'value' => 5],
-            ['metric' => 'cert_phase_rollback_count', 'comparator' => '<=', 'value' => 0],
-            ['metric' => 'dual_signature_count', 'comparator' => '>=', 'value' => 5],
-        ]],
-        ['level' => 'L5', 'name' => 'Department Owner', 'signature' => 'dual', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'days_without_intervention', 'comparator' => '>=', 'value' => 90],
-            ['metric' => 'department_maturity_level', 'comparator' => '>=', 'value' => 4],
-        ]],
-        ['level' => 'L6', 'name' => 'Multi-Department Conductor', 'signature' => 'dual_plus_architect', 'trust_gate' => false, 'exit' => [
-            ['metric' => 'days_with_3plus_departments', 'comparator' => '>=', 'value' => 30],
-            ['metric' => 'cross_dept_blocker_resolution_p95_hours', 'comparator' => '<=', 'value' => 2],
-        ]],
-        ['level' => 'L7', 'name' => 'Self-Evolving', 'signature' => 'dual_plus_architect', 'trust_gate' => true, 'exit' => [
-            ['metric' => 'approved_self_construction_proposals', 'comparator' => '>=', 'value' => 10],
-            ['metric' => 'broken_invariant_count', 'comparator' => '<=', 'value' => 0],
-            ['metric' => 'trust_ledger_score', 'comparator' => '>=', 'value' => 0.95],
-        ]],
-    ];
+    private function ladder(): array
+    {
+        return [
+            ['level' => 'L0', 'name' => 'Assist', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'assist_sessions', 'comparator' => '>=', 'value' => 50],
+                ['metric' => 'acceptance_rate', 'comparator' => '>=', 'value' => 0.80],
+                ['metric' => 'severe_hallucination_count', 'comparator' => '<=', 'value' => 0],
+            ]],
+            ['level' => 'L1', 'name' => 'Slice Co-Pilot', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'consecutive_green_slices', 'comparator' => '>=', 'value' => 20],
+                ['metric' => 'scope_violation_count', 'comparator' => '<=', 'value' => 0],
+                ['metric' => 'repair_loop_count', 'comparator' => '<=', 'value' => 1],
+            ]],
+            ['level' => 'L2', 'name' => 'Multi-Slice Pair', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'green_pair_obras', 'comparator' => '>=', 'value' => 30],
+                ['metric' => 'regression_catch_rate', 'comparator' => '>=', 'value' => 0.90],
+            ]],
+            ['level' => 'L3', 'name' => 'Feature Owner', 'signature' => 'single', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'cert_green_features', 'comparator' => '>=', 'value' => 15],
+                ['metric' => 'blocker_in_review_per_feature', 'comparator' => '<=', 'value' => 1],
+            ]],
+            ['level' => 'L4', 'name' => 'Obra Owner', 'signature' => 'dual', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'consecutive_cert_green_obras', 'comparator' => '>=', 'value' => 5],
+                ['metric' => 'cert_phase_rollback_count', 'comparator' => '<=', 'value' => 0],
+                ['metric' => 'dual_signature_count', 'comparator' => '>=', 'value' => 5],
+            ]],
+            ['level' => 'L5', 'name' => 'Department Owner', 'signature' => 'dual', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'days_without_intervention', 'comparator' => '>=', 'value' => 90],
+                ['metric' => 'department_maturity_level', 'comparator' => '>=', 'value' => 4],
+            ]],
+            ['level' => 'L6', 'name' => 'Multi-Department Conductor', 'signature' => 'dual_plus_architect', 'trust_gate' => false, 'exit' => [
+                ['metric' => 'days_with_3plus_departments', 'comparator' => '>=', 'value' => 30],
+                ['metric' => 'cross_dept_blocker_resolution_p95_hours', 'comparator' => '<=', 'value' => 2],
+            ]],
+            ['level' => 'L7', 'name' => 'Self-Evolving', 'signature' => 'dual_plus_architect', 'trust_gate' => true, 'exit' => [
+                ['metric' => 'approved_self_construction_proposals', 'comparator' => '>=', 'value' => 10],
+                ['metric' => 'broken_invariant_count', 'comparator' => '<=', 'value' => 0],
+                ['metric' => 'trust_ledger_score', 'comparator' => '>=', 'value' => $this->floors()->autonomyLadderTrustThreshold()],
+            ]],
+        ];
+    }
 
     /**
      * Compute the ladder position for an area.
@@ -88,14 +91,15 @@ final class AutonomyLadderRuntimeService
      */
     public function evaluate(array $area, array $metrics, array $evidence): array
     {
-        $index = $this->resolveLevelIndex($area);
-        $rung = self::LADDER[$index];
-        $next = self::LADDER[$index + 1] ?? null;
+        $ladder = $this->ladder();
+        $index = $this->resolveLevelIndex($area, $ladder);
+        $rung = $ladder[$index];
+        $next = $ladder[$index + 1] ?? null;
 
         $evidenceRefs = AreaFocusStringListNormalizer::trimmedUniqueStrings($evidence);
 
         $blockers = $this->promotionBlockers($rung, $next, $area, $metrics, $evidenceRefs);
-        $demoteRequired = $this->demoteRequired($rung, $metrics);
+        $demoteRequired = $this->demoteRequired($rung, $metrics, $ladder);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -148,7 +152,7 @@ final class AutonomyLadderRuntimeService
             && ! $this->comparatorSatisfied(
                 '>=',
                 AreaFocusScalarNormalizer::payloadNumberOrDefault($metrics, 'trust_ledger_score', 0.0),
-                self::TRUST_THRESHOLD,
+                $this->floors()->autonomyLadderTrustThreshold(),
             )) {
             $blockers[] = 'trust_ledger_below_threshold';
         }
@@ -158,24 +162,24 @@ final class AutonomyLadderRuntimeService
 
     /**
      * Metric-driven demote: the current rung's exit criteria must be breached in
-     * each of the most-recent DEMOTE_CONSECUTIVE_BREACHES cycles. L0 (the floor)
-     * never demotes.
+     * each of the most-recent registry-required cycles. L0 (the floor) never demotes.
      *
      * @param  array{level:string,name:string,signature:string,trust_gate:bool,exit:list<array{metric:string,comparator:string,value:float}>}  $rung
      * @param  array<string,mixed>  $metrics
      */
-    private function demoteRequired(array $rung, array $metrics): bool
+    private function demoteRequired(array $rung, array $metrics, array $ladder): bool
     {
-        if ($rung['level'] === self::LADDER[0]['level']) {
+        if ($rung['level'] === $ladder[0]['level']) {
             return false;
         }
 
         $cycles = AreaFocusLoopPayloadNormalizer::listOfArrays($metrics['recent_cycles'] ?? []);
-        if (count($cycles) < self::DEMOTE_CONSECUTIVE_BREACHES) {
+        $requiredBreaches = $this->floors()->autonomyLadderDemoteConsecutiveBreaches();
+        if (count($cycles) < $requiredBreaches) {
             return false;
         }
 
-        $tail = array_slice($cycles, -self::DEMOTE_CONSECUTIVE_BREACHES);
+        $tail = array_slice($cycles, -$requiredBreaches);
         foreach ($tail as $cycle) {
             if (! $this->cycleBreaches($rung['exit'], $cycle)) {
                 return false;
@@ -188,18 +192,23 @@ final class AutonomyLadderRuntimeService
     /**
      * @param  array<string,mixed>  $area
      */
-    private function resolveLevelIndex(array $area): int
+    private function resolveLevelIndex(array $area, array $ladder): int
     {
-        $raw = $area['current_level'] ?? self::LADDER[0]['level'];
+        $raw = $area['current_level'] ?? $ladder[0]['level'];
         $needle = is_string($raw) ? strtoupper(trim($raw)) : '';
 
-        foreach (self::LADDER as $i => $rung) {
+        foreach ($ladder as $i => $rung) {
             if (strtoupper($rung['level']) === $needle) {
                 return $i;
             }
         }
 
         return 0;
+    }
+
+    private function floors(): GovernanceFloorRegistry
+    {
+        return $this->governanceFloors ?? new GovernanceFloorRegistry;
     }
 
     /**

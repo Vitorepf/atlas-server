@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Governance\GovernanceFloorRegistry;
+
 /**
  * S96 — L7PromotionExecutor (block: L7 Runtime Completion).
  *
  * Applies the L6 -> L7 autonomy promotion ONLY when the built promotion request
  * (atlas.autonomy.promotion_request.v1, produced by L7PromotionRequestBuilder) is
  * validated and carries operator_signature, architect_signature, Trust Ledger
- * score >= 0.95, invariant_breach_count = 0 and a rollback window.
+ * score at the registry trust floor, invariant_breach_count = 0 and a rollback window.
  *
  * Sovereign-guarded: the promotion EFFECT requires operator + architect signatures.
  * Missing any signature yields applied=false with blocker `needs_human_signature`
@@ -31,8 +33,6 @@ final class L7PromotionExecutor
     private const FROM_LEVEL = 'L6';
 
     private const TO_LEVEL = 'L7';
-
-    private const TRUST_THRESHOLD = 0.95;
 
     private const MAX_INVARIANT_BREACH = 0;
 
@@ -82,7 +82,7 @@ final class L7PromotionExecutor
             $blockers[] = 'needs_human_signature';
         }
 
-        if ($trustScore < self::TRUST_THRESHOLD) {
+        if ($trustScore < $this->floors()->autonomyLadderTrustThreshold()) {
             $blockers[] = 'trust_below_threshold';
         }
 
@@ -155,6 +155,11 @@ final class L7PromotionExecutor
         }
 
         return $receipt;
+    }
+
+    private function floors(): GovernanceFloorRegistry
+    {
+        return new GovernanceFloorRegistry;
     }
 
     /**
