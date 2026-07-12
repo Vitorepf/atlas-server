@@ -65,6 +65,24 @@ final class AtlasExternalBrainToTaskFabricBridge
             $reasons[] = 'missing_leverage_reason';
         }
 
+        // A proposal is not implementation-ready unless its structural claim is
+        // falsifiable and reversible. These fields are deliberately separate from
+        // acceptance_criteria so a green test cannot stand in for baseline, delta,
+        // rollback or downstream outcome evidence.
+        foreach ([
+            'finding',
+            'baseline',
+            'expected_structural_delta',
+            'red_behavior',
+            'green_acceptance',
+            'rollback',
+            'outcome_metric',
+        ] as $contractField) {
+            if (trim((string) ($proposal[$contractField] ?? '')) === '') {
+                $reasons[] = 'missing_proposal_contract:'.$contractField;
+            }
+        }
+
         if ($reasons !== []) {
             return [
                 'schema'            => self::SCHEMA,
@@ -83,6 +101,13 @@ final class AtlasExternalBrainToTaskFabricBridge
                 'acceptance_criteria' => $acceptanceCriteria,
                 'required_evidence'   => $requiredEvidence,
                 'leverage_reason'     => $leverageReason,
+                'finding'             => trim((string) $proposal['finding']),
+                'baseline'            => trim((string) $proposal['baseline']),
+                'expected_structural_delta' => trim((string) $proposal['expected_structural_delta']),
+                'red_behavior'        => trim((string) $proposal['red_behavior']),
+                'green_acceptance'    => trim((string) $proposal['green_acceptance']),
+                'rollback'            => trim((string) $proposal['rollback']),
+                'outcome_metric'      => trim((string) $proposal['outcome_metric']),
             ],
             'rejection_reasons' => [],
         ];

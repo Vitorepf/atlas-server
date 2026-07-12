@@ -22,6 +22,13 @@ final class AtlasExternalBrainToTaskFabricBridgeTest extends TestCase
             'allowed_files'       => ['app/Services/AtlasFooService.php', 'tests/Unit/AtlasFooServiceTest.php'],
             'acceptance_criteria' => ['php artisan test tests/Unit/AtlasFooServiceTest.php passes'],
             'required_evidence'   => ['tests_or_gates_result'],
+            'finding'             => 'Malformed input reaches downstream state without a typed rejection.',
+            'baseline'            => 'Current path accepts malformed input.',
+            'expected_structural_delta' => 'Reject malformed input at the service boundary.',
+            'red_behavior'        => 'A malformed input fixture fails before the change.',
+            'green_acceptance'     => 'The same fixture is rejected and the focused suite passes.',
+            'rollback'             => 'Revert the scoped service change and restore the prior contract.',
+            'outcome_metric'       => 'Malformed-input rejection rate remains 100 percent.',
         ], $overrides);
     }
 
@@ -152,6 +159,27 @@ final class AtlasExternalBrainToTaskFabricBridgeTest extends TestCase
 
         $this->assertFalse($result['accepted']);
         $this->assertContains('missing_leverage_reason', $result['rejection_reasons']);
+    }
+
+    public function test_missing_structural_quality_contract_is_rejected(): void
+    {
+        $proposal = $this->validProposal();
+        unset(
+            $proposal['finding'],
+            $proposal['baseline'],
+            $proposal['expected_structural_delta'],
+            $proposal['red_behavior'],
+            $proposal['green_acceptance'],
+            $proposal['rollback'],
+            $proposal['outcome_metric'],
+        );
+
+        $result = $this->bridge()->bridge($proposal);
+
+        $this->assertFalse($result['accepted']);
+        foreach (['finding', 'baseline', 'expected_structural_delta', 'red_behavior', 'green_acceptance', 'rollback', 'outcome_metric'] as $field) {
+            $this->assertContains('missing_proposal_contract:'.$field, $result['rejection_reasons']);
+        }
     }
 
     public function test_missing_objective_is_rejected(): void
