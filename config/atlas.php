@@ -225,6 +225,19 @@ return [
         'temporal_supersession_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_TEMPORAL_SUPERSESSION_ENABLED', false),
     ],
 
+    // MAXH-03 — Memory consolidation scanner (observe-mode producer for the 6 kernels).
+    // The scanner instantiates the classifier kernels DIRECTLY on the pair it evaluates
+    // (never flipping the global `memory_conflict.*` flags above), then appends an
+    // append-only JSONL proposal ledger. Observe writes 0 relation rows by contract.
+    // ATLAS_MEMORY_CONSOLIDATION_LEDGER_ROOT lets tests point the ledger at a tmp dir so
+    // phpunit never touches the live ASI-05 ledger.
+    'memory_consolidation' => [
+        'ledger_root' => env(
+            'ATLAS_MEMORY_CONSOLIDATION_LEDGER_ROOT',
+            storage_path('atlas-local/memory-consolidation'),
+        ),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Claim-coherence cognitive kernels
@@ -1066,6 +1079,18 @@ return [
         'capture_quality_gate' => [
             'mode' => env('ATLAS_CAPTURE_QUALITY_MODE', 'enforce'),
             'min_score' => (int) env('ATLAS_CAPTURE_QUALITY_MIN_SCORE', 20),
+        ],
+
+        // ASI-09 — Distiller author≠judge seam. When ON, the AtlasLearningDistiller
+        // asks the bound DistillerAuthorAdapter to AUTHOR the claim from
+        // outcome+signals; the JUDGES (capture_quality_gate + false_learning_gate +
+        // ASI-02 admission + confidence floor) remain 100% deterministic and untouched.
+        // Default OFF ⇒ byte-identical to the template author (degrade honesto).
+        // Sensitive/secret classes: the adapter itself is responsible for keeping the
+        // authoring LOCAL (Hermes/GLM) — the distiller never routes payload to a
+        // provider by itself.
+        'distiller' => [
+            'model_author_enabled' => (bool) env('ATLAS_DISTILLER_MODEL_AUTHOR_ENABLED', false),
         ],
 
         // AP-819 Obra A (F1) — auto-feed do cérebro de falhas. Harvester lê falhas

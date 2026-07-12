@@ -251,6 +251,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AtlasMemorySubstrateDumpRunner::class, PgDumpAtlasMemorySubstrateDumpRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreProofRunner::class, PgsqlAtlasMemorySubstrateRestoreProofRunner::class);
         $this->app->bind(AtlasMemorySubstrateRestoreDrillRunner::class, PgsqlAtlasMemorySubstrateRestoreDrillRunner::class);
+        $this->app->bind(
+            \App\Services\Ai\Memory\MemoryPairwiseCosineScorer::class,
+            \App\Services\Ai\Memory\VectorMemoryPairwiseCosineScorer::class,
+        );
 
         $this->app->singleton(\App\Services\Ai\Context\AtlasContextRuntime::class);
         $this->app->singleton(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);

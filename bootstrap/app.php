@@ -155,6 +155,7 @@ use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
 use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
+use App\Console\Commands\AtlasMemoryConsolidationScanCommand;
 use App\Console\Commands\AtlasMemoryTemporalQualityCommand;
 use App\Console\Commands\AtlasMineHeldEvidenceCommand;
 use App\Console\Commands\AtlasMissionE2eRateCommand;
@@ -345,6 +346,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasMemoryReviewQueueCommand::class,
         AtlasMemorySeedCoreCommand::class,
         AtlasMemoryTemporalQualityCommand::class,
+        AtlasMemoryConsolidationScanCommand::class,
         AtlasMissionE2eRateCommand::class,
         AtlasMineHeldEvidenceCommand::class,
         AtlasOpenBrainContextCommand::class,
