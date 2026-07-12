@@ -129,7 +129,10 @@ final class CapabilityMarketClearingService
         $ledger->record(LedgerEventType::DecisionIssued, [
             'event_name' => 'capability.market.cleared', 'request_hash' => $request->requestHash,
             'decision_hash' => $decision->decisionHash, 'selected_route' => $decision->selectedRoute,
-            'candidate_set' => $decision->candidateSet, 'rejected' => $decision->rejected, 'claim_eligible' => false,
+            'candidate_set' => $decision->candidateSet, 'rejected' => $decision->rejected,
+            'evidence_refs' => $decision->evidenceRefs, 'availability' => $decision->availability,
+            'estimated_time_ms' => $decision->estimatedTimeMs, 'estimated_cost' => $decision->estimatedCost,
+            'exploration_ref' => $decision->explorationRef, 'claim_eligible' => false,
         ], ['event_id' => $eventId, 'correlation_id' => $request->requestHash, 'scope_type' => 'capability_market',
             'scope_id' => $request->requestHash, 'emitter_stage' => 'atlas.decide.capability_market']);
     }
