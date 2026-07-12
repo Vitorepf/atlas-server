@@ -38,7 +38,7 @@ final class QualityFoundryLiveManifestService
         'autonomos' => [
             'tests/Unit/Ai/SelfConstruction/AtlasTaskServingStackTest.php',
             'tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php',
-            'tests/Unit/Ai/SelfConstruction/TaskQueue/TaskQueueRegistryIndexStoreTest.php',
+            'tests/Feature/Ai/TaskQueueRegistryIndexStoreTest.php',
             'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
         ],
     ];
@@ -222,6 +222,21 @@ final class QualityFoundryLiveManifestService
                         'window' => '24h',
                         'status' => 'initiated',
                         'receipt_hash' => hash('sha256', $receipt['output_hash'].'|forge|24h|initiated'),
+                    ]
+                    : [],
+                'visible_task_count' => $mode === 'autonomos'
+                    && in_array('tests/Feature/Ai/TaskQueueRegistryIndexStoreTest.php', $tests, true)
+                    && $exitCode === 0 ? 600 : 0,
+                'dry_rotation_exercised' => $mode === 'autonomos'
+                    && in_array('tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php', $tests, true)
+                    && $exitCode === 0,
+                'restart_replay_exercised' => $mode === 'autonomos'
+                    && in_array('tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php', $tests, true)
+                    && $exitCode === 0,
+                'soak_start_receipts' => $mode === 'autonomos' && $exitCode === 0
+                    ? [
+                        '24h' => ['status' => 'initiated', 'receipt_hash' => hash('sha256', $receipt['output_hash'].'|autonomos|24h|initiated')],
+                        '7d' => ['status' => 'initiated', 'receipt_hash' => hash('sha256', $receipt['output_hash'].'|autonomos|7d|initiated')],
                     ]
                     : [],
                 'coverage' => $coverageEvidence,

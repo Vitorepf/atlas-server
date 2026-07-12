@@ -56,6 +56,27 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertNotSame([], $manifest['manifests']['kernel']['receipt_hashes']);
         self::assertSame([], $manifest['manifests']['forge']['evidence']['packet_scales']);
         self::assertSame([], $manifest['manifests']['forge']['evidence']['soak_start_receipt']);
+        self::assertSame(0, $manifest['manifests']['autonomos']['evidence']['visible_task_count']);
+        self::assertSame([], $manifest['manifests']['autonomos']['evidence']['soak_start_receipts']);
+    }
+
+    public function test_successful_autonomos_fixture_records_queue_rotation_restart_and_soak_starts(): void
+    {
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static fn (array $command, string $cwd): array => [
+                'exit_code' => 0,
+                'output' => implode(' ', $command).' @ '.$cwd,
+            ],
+        );
+
+        $autonomos = $service->build()['manifests']['autonomos'];
+
+        self::assertSame(600, $autonomos['evidence']['visible_task_count']);
+        self::assertTrue($autonomos['evidence']['dry_rotation_exercised']);
+        self::assertTrue($autonomos['evidence']['restart_replay_exercised']);
+        self::assertSame('initiated', $autonomos['evidence']['soak_start_receipts']['24h']['status']);
+        self::assertSame('initiated', $autonomos['evidence']['soak_start_receipts']['7d']['status']);
     }
 
     public function test_successful_forge_fixture_records_scale_unique_effect_and_soak_start(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Governance\GovernanceConsultSkipCounter;
 use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
@@ -411,10 +412,23 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
     {
         try {
             if (! function_exists('app')) {
+                $this->recordGovernanceConsultSkipped(GovernanceConsultSkipCounter::REASON_CONTAINER_ABSENT);
+
                 return null;
             }
 
-            return app(ProviderGovernanceConsult::class)->consultBeforeSpawn([
+            $consult = app(ProviderGovernanceConsult::class);
+            if (! is_object($consult) || ! method_exists($consult, 'consultBeforeSpawn')) {
+                $this->recordGovernanceConsultSkipped(
+                    is_object($consult)
+                        ? GovernanceConsultSkipCounter::REASON_METHOD_MISSING
+                        : GovernanceConsultSkipCounter::REASON_SEAM_UNBOUND,
+                );
+
+                return null;
+            }
+
+            return $consult->consultBeforeSpawn([
                 'provider' => $this->provider(),
                 'surface' => ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
                 'executor' => 'forge',
@@ -423,7 +437,33 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
                 'kind' => 'atlas_programming',
             ]);
         } catch (\Throwable) {
+            $this->recordGovernanceConsultSkipped(GovernanceConsultSkipCounter::REASON_SEAM_THREW);
+
             return null;
+        }
+    }
+
+    /**
+     * MULTX-05 (partial, no enforce flip): record a fail-open governance skip
+     * for the Forge CLI drivers. Provider-safe (no prompt, no context body).
+     */
+    private function recordGovernanceConsultSkipped(string $reason): void
+    {
+        try {
+            $counter = function_exists('app')
+                ? app(GovernanceConsultSkipCounter::class)
+                : GovernanceConsultSkipCounter::fromConfig();
+            if (! $counter instanceof GovernanceConsultSkipCounter) {
+                $counter = GovernanceConsultSkipCounter::fromConfig();
+            }
+            $counter->record([
+                'surface' => ProviderGovernanceCoverageLedger::SURFACE_FORGE_PROCESS_RUNNER,
+                'executor' => 'forge',
+                'provider' => $this->provider(),
+                'reason' => $reason,
+            ]);
+        } catch (\Throwable) {
+            // Fail-open: bookkeeping must never break Forge spawns.
         }
     }
 

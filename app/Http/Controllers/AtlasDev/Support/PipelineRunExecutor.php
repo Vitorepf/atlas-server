@@ -17,6 +17,7 @@ use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\RegressionLock\RegressionLockLedger;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\Governance\GovernanceConsultSkipCounter;
 use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\HermesCliProvider;
@@ -1557,6 +1558,19 @@ final class PipelineRunExecutor implements RunExecutor
                     0,
                 ];
             }
+        } else {
+            // MULTX-05 (partial, no enforce flip): the seam was resolved to null
+            // OR did not implement `consultBeforeSpawn`. Record the skip so the
+            // fail-open path stops being invisible; the flip observe→enforce is
+            // a separate governed slice (ELEV-26 window), NEVER done here.
+            $this->recordGovernanceConsultSkipped(
+                provider: SonnetClaudeCliAdapter::PROVIDER,
+                surface: ProviderGovernanceCoverageLedger::SURFACE_DEV_CLAUDE_GATEWAY,
+                executor: 'dev',
+                reason: is_object($consult)
+                    ? GovernanceConsultSkipCounter::REASON_METHOD_MISSING
+                    : GovernanceConsultSkipCounter::REASON_SEAM_UNBOUND,
+            );
         }
 
         return [
@@ -4027,6 +4041,35 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
         }
 
         return is_object($resolved) ? $resolved : null;
+    }
+
+    /**
+     * MULTX-05 (partial, no enforce flip): record a fail-open governance skip.
+     *
+     * Provider-safe: no prompt, no context, no raw command — only surface,
+     * executor, provider and a pinned reason enum. Fail-open by construction:
+     * counter errors NEVER propagate.
+     */
+    private function recordGovernanceConsultSkipped(
+        string $provider,
+        string $surface,
+        string $executor,
+        string $reason,
+    ): void {
+        try {
+            $counter = $this->resolve(GovernanceConsultSkipCounter::class);
+            if (! $counter instanceof GovernanceConsultSkipCounter) {
+                $counter = GovernanceConsultSkipCounter::fromConfig();
+            }
+            $counter->record([
+                'surface' => $surface,
+                'executor' => $executor,
+                'provider' => $provider,
+                'reason' => $reason,
+            ]);
+        } catch (\Throwable) {
+            // Fail-open: the runtime path must never break for a bookkeeping miss.
+        }
     }
 
     private function blockedDueToUnwiredDrivers(

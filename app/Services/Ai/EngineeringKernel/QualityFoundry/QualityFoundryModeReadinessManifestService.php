@@ -190,6 +190,27 @@ final class QualityFoundryModeReadinessManifestService
                 $blockers[] = 'soak_start_receipt_missing';
             }
         }
+        if ($mode === 'autonomos') {
+            if ((int) ($evidence['visible_task_count'] ?? 0) <= 500) {
+                $blockers[] = 'visible_queue_evidence_missing';
+            }
+            if (($evidence['dry_rotation_exercised'] ?? false) !== true) {
+                $blockers[] = 'dry_rotation_evidence_missing';
+            }
+            if (($evidence['restart_replay_exercised'] ?? false) !== true) {
+                $blockers[] = 'restart_replay_evidence_missing';
+            }
+            $soakStarts = is_array($evidence['soak_start_receipts'] ?? null) ? $evidence['soak_start_receipts'] : [];
+            foreach (['24h', '7d'] as $window) {
+                $receipt = is_array($soakStarts[$window] ?? null) ? $soakStarts[$window] : [];
+                if (($receipt['status'] ?? null) !== 'initiated'
+                    || ! is_string($receipt['receipt_hash'] ?? null)
+                    || trim($receipt['receipt_hash']) === '') {
+                    $blockers[] = 'soak_start_receipts_missing';
+                    break;
+                }
+            }
+        }
 
         return $blockers;
     }

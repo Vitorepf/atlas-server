@@ -115,6 +115,23 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertContains('forge:soak_start_receipt_missing', $manifest['blockers']);
     }
 
+    public function test_autonomos_readiness_requires_visible_queue_zero_human_rotation_restart_and_two_soak_starts(): void
+    {
+        $input = $this->input();
+        unset($input['modes']['autonomos']['evidence']['visible_task_count']);
+        unset($input['modes']['autonomos']['evidence']['dry_rotation_exercised']);
+        unset($input['modes']['autonomos']['evidence']['restart_replay_exercised']);
+        unset($input['modes']['autonomos']['evidence']['soak_start_receipts']);
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertSame('blocked', $manifest['status']);
+        self::assertContains('autonomos:visible_queue_evidence_missing', $manifest['blockers']);
+        self::assertContains('autonomos:dry_rotation_evidence_missing', $manifest['blockers']);
+        self::assertContains('autonomos:restart_replay_evidence_missing', $manifest['blockers']);
+        self::assertContains('autonomos:soak_start_receipts_missing', $manifest['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
@@ -147,6 +164,13 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
                     'window' => '24h',
                     'status' => 'initiated',
                     'receipt_hash' => hash('sha256', 'soak-start:'.$mode),
+                ],
+                'visible_task_count' => 600,
+                'dry_rotation_exercised' => true,
+                'restart_replay_exercised' => true,
+                'soak_start_receipts' => [
+                    '24h' => ['status' => 'initiated', 'receipt_hash' => hash('sha256', 'soak-start:24h:'.$mode)],
+                    '7d' => ['status' => 'initiated', 'receipt_hash' => hash('sha256', 'soak-start:7d:'.$mode)],
                 ],
             ],
         ];

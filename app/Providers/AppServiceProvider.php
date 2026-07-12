@@ -262,6 +262,10 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Context\AtlasDeliveredPackLedger::class,
             static fn () => \App\Services\Ai\Context\AtlasDeliveredPackLedger::fromConfig(),
         );
+        $this->app->singleton(
+            \App\Services\Ai\Governance\GovernanceConsultSkipCounter::class,
+            static fn () => \App\Services\Ai\Governance\GovernanceConsultSkipCounter::fromConfig(),
+        );
         $this->app->scoped(\App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService::class);
 
         $this->app->afterResolving(function (mixed $resolved): void {
