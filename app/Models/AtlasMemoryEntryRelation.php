@@ -27,6 +27,11 @@ class AtlasMemoryEntryRelation extends Model
         'confidence',
         'reason',
         'metadata',
+        'marked_by_actor',
+        'marked_by_model',
+        'judgment_status',
+        'evidence_refs',
+        'verdict_schema_version',
     ];
 
     protected function casts(): array
@@ -36,6 +41,7 @@ class AtlasMemoryEntryRelation extends Model
             'target_memory_entry_id' => 'string',
             'confidence' => 'float',
             'metadata' => 'array',
+            'evidence_refs' => 'array',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
         ];

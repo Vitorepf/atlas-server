@@ -9,6 +9,7 @@ use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -88,6 +89,9 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         if (($entry['table'] ?? null) !== null || $sourceType === 'table') {
             return $this->tableLastAppendAt($entry);
         }
+        if ($sourceType === 'command') {
+            return $this->commandLastAppendAt($entry);
+        }
 
         $path = (string) ($entry['path'] ?? '');
         if ($path === '') {
@@ -99,6 +103,30 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         }
 
         return $this->jsonlFileLastAppendAt($path, $entry);
+    }
+
+    /** @param array<string,mixed> $entry */
+    private function commandLastAppendAt(array $entry): ?CarbonImmutable
+    {
+        $command = trim((string) ($entry['path'] ?? ''));
+        if ($command === '' || ! str_starts_with($command, 'atlas:')) {
+            return null;
+        }
+
+        try {
+            Artisan::call($command);
+            $decoded = json_decode(trim(Artisan::output()), true);
+            if (! is_array($decoded)) {
+                return null;
+            }
+
+            return $this->rowTimestamp(
+                $this->flattenFirstPayload($decoded),
+                (string) ($entry['timestamp_field'] ?? 'generated_at'),
+            );
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /** @param array<string,mixed> $entry */
@@ -183,6 +211,18 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         }
 
         return null;
+    }
+
+    /** @param array<string,mixed> $decoded @return array<string,mixed> */
+    private function flattenFirstPayload(array $decoded): array
+    {
+        foreach ($decoded as $value) {
+            if (is_array($value)) {
+                return $value;
+            }
+        }
+
+        return $decoded;
     }
 
     private function parseDate(mixed $value): ?CarbonImmutable

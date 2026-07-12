@@ -198,12 +198,13 @@ final class AtlasAcosFreezeCommand extends Command
 
         try {
             $thresholds = (array) ($payload['thresholds'] ?? []);
+            $dualRead = (array) ($payload['dual_read'] ?? []);
             $dual = [
                 'schema_version' => AtlasMeasureDualReadCommand::SCHEMA_VERSION,
                 'medidor' => $measureId,
-                'valor_antigo' => 'simulated_arlcg_estimate:degraded_manual',
-                'valor_novo' => 'real_latency_ledger:pending_samples_min='.(int) ($payload['denominator_min'] ?? $thresholds['denominator_min_samples'] ?? 5),
-                'justificativa' => 'MAXG-01 freeze: degraded simulated ARLCG latency estimate will be dual-read against real AOBG JSONL p50/p95 samples.',
+                'valor_antigo' => (string) ($dualRead['valor_antigo'] ?? 'simulated_arlcg_estimate:degraded_manual'),
+                'valor_novo' => (string) ($dualRead['valor_novo'] ?? 'real_latency_ledger:pending_samples_min='.(int) ($payload['denominator_min'] ?? $thresholds['denominator_min_samples'] ?? 5)),
+                'justificativa' => (string) ($dualRead['justificativa'] ?? 'MAXG-01 freeze: degraded simulated ARLCG latency estimate will be dual-read against real AOBG JSONL p50/p95 samples.'),
                 'commit' => trim((string) @shell_exec('git -C '.escapeshellarg(base_path()).' rev-parse --short HEAD 2>/dev/null')) ?: 'unknown',
                 'recorded_at' => now()->toIso8601String(),
             ];

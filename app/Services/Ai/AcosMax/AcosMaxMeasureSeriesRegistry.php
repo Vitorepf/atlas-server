@@ -6,6 +6,8 @@ namespace App\Services\Ai\AcosMax;
 
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
+use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
+use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 
 final class AcosMaxMeasureSeriesRegistry
@@ -117,6 +119,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'maxl-02-freeze-equivalent',
             ],
             [
+                'slice' => 'MAXH-01',
+                'series' => AtlasMemoryTemporalQualityService::MEASURE_ID,
+                'path' => 'atlas:memory:temporal-quality --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AtlasMemoryTemporalQualityService::freezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.memory.temporal_truth.v2',
+            ],
+            [
                 'slice' => 'ELEV-20s',
                 'series' => 'acos.dead_series_watchdog.v1',
                 'table' => 'atlas_ledger_events',
@@ -128,6 +139,19 @@ final class AcosMaxMeasureSeriesRegistry
                 ],
                 'ttl_days' => 30,
                 'ttl_source' => 'elev-20s-freeze-equivalent',
+            ],
+            [
+                'slice' => 'ELEV-25',
+                'series' => AtlasOperatorReviewDebtMeter::MEASURE_ID,
+                'table' => 'atlas_ledger_events',
+                'source_type' => 'table',
+                'timestamp_field' => 'occurred_at',
+                'where' => [
+                    'scope_type' => 'acos_watchdog',
+                    'scope_id' => 'unified',
+                ],
+                'ttl_days' => AtlasOperatorReviewDebtMeter::TTL_DAYS,
+                'ttl_source' => 'freeze:acos.operator_review_debt.v1',
             ],
         ];
     }

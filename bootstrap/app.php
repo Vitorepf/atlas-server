@@ -143,6 +143,7 @@ use App\Console\Commands\AtlasMemoryQualityCommand;
 use App\Console\Commands\AtlasMemoryRecallCommand;
 use App\Console\Commands\AtlasMemoryReviewQueueCommand;
 use App\Console\Commands\AtlasMemorySeedCoreCommand;
+use App\Console\Commands\AtlasMemoryTemporalQualityCommand;
 use App\Console\Commands\AtlasMineHeldEvidenceCommand;
 use App\Console\Commands\AtlasOpenBrainContextCommand;
 use App\Console\Commands\AtlasOpenBrainMcpCommand;
@@ -322,6 +323,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasMemoryRecallCommand::class,
         AtlasMemoryReviewQueueCommand::class,
         AtlasMemorySeedCoreCommand::class,
+        AtlasMemoryTemporalQualityCommand::class,
         AtlasMineHeldEvidenceCommand::class,
         AtlasOpenBrainContextCommand::class,
         AtlasOpenBrainMcpCommand::class,
