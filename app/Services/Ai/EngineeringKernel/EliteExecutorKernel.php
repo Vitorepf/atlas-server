@@ -522,6 +522,7 @@ final class EliteExecutorKernel
         AiEngineeringCompanyEngagement $engagement,
         AiEngineeringCompanyCycle $cycle,
         MergeActuator $actuator,
+        AtlasTaskPostLandCanarySentinel $sentinel,
     ): array {
         $candidate = $this->prepareMutativeCandidate($order);
         if ($candidate->status === 'blocked') {
@@ -532,15 +533,115 @@ final class EliteExecutorKernel
         }
 
         $governed = $this->governMutativeCandidate($order, $candidate, $engagement, $cycle);
+        $rawAction = $governed['governance']['authorized_merge_action'] ?? null;
+        if (! is_array($rawAction)) {
+            $actuation = $this->actAuthorizedMutativeCandidate($governed['governance'], $actuator);
+
+            return [
+                'status' => (string) ($actuation['status'] ?? 'blocked'),
+                'candidate' => $candidate,
+                'verdict' => $governed['verdict'],
+                'governance' => $governed['governance'],
+                'actuation' => $actuation,
+            ];
+        }
+        try {
+            $action = AuthorizedMergeAction::fromArray($rawAction);
+            $provisional = $this->provisionalMutativeOutcome($order, $candidate, $governed['verdict'], $action);
+            $provisionalEvent = $this->authority()->issueProvisionalOutcome($provisional, $action);
+        } catch (\Throwable $exception) {
+            return [
+                'status' => 'held',
+                'candidate' => $candidate,
+                'verdict' => $governed['verdict'],
+                'governance' => $governed['governance'],
+                'actuation' => [
+                    'status' => 'held', 'acted' => false, 'release_uncertain' => false,
+                    'reason' => 'provisional_outcome_unavailable:'.$exception::class,
+                ],
+            ];
+        }
         $actuation = $this->actAuthorizedMutativeCandidate($governed['governance'], $actuator);
+        $settlement = null;
+        if (($actuation['status'] ?? null) === 'landed_pending_canary'
+            && is_string($actuation['settlement_event_id'] ?? null)
+            && $actuation['settlement_event_id'] !== '') {
+            try {
+                $landed = $this->ledger()->eventById($actuation['settlement_event_id']);
+                if (! $landed instanceof AtlasLedgerEvent) {
+                    throw new \RuntimeException('release_landed_event_missing');
+                }
+                $request = CanarySettlementRequest::fromCanonicalLanded(
+                    $action, $landed, $provisionalEvent, $order->canonicalHash(), $order->deliveryId,
+                    $action->evidenceHash, 'atlas.engineering_kernel.canary',
+                );
+                $settlement = $this->settleLandedRelease($request, $actuator, $sentinel);
+            } catch (\Throwable $exception) {
+                $settlement = [
+                    'status' => 'release_uncertain', 'resolved' => false, 'release_uncertain' => true,
+                    'quarantined' => true, 'reason' => 'canary_settlement_exception:'.$exception::class,
+                ];
+            }
+        }
 
         return [
-            'status' => (string) ($actuation['status'] ?? ($governed['governance']['admitted'] ? 'authorized' : 'blocked')),
+            'status' => (string) ($settlement['status'] ?? ($actuation['status'] ?? 'blocked')),
             'candidate' => $candidate,
             'verdict' => $governed['verdict'],
             'governance' => $governed['governance'],
             'actuation' => $actuation,
+            'provisional_outcome' => $provisional->toArray(),
+            'provisional_event' => $provisionalEvent,
+            'settlement' => $settlement,
         ];
+    }
+
+    private function provisionalMutativeOutcome(
+        ExecutionOrder $order,
+        VerifiedMutativeCandidate $candidate,
+        QualityCourtVerdict $verdict,
+        AuthorizedMergeAction $action,
+    ): EngineeringOutcome {
+        $dispositions = [];
+        foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
+            $disposition = $verdict->dispositions[$role]->toArray();
+            if ($disposition['status'] === 'not_applicable') {
+                $disposition['applicability_rule'] = 'mutative_scope_excludes_'.$role;
+                $disposition['justification'] = $disposition['reason'];
+            }
+            $disposition['evidence_hash'] = CanonicalKernelPayload::hash($disposition);
+            $dispositions[$role] = $disposition;
+        }
+        $releaseHash = hash('sha256', 'release_pending:'.$action->nonce);
+        $data = [
+            'schema_version' => 'atlas.engineering_outcome.v2',
+            'run_id' => $order->runId,
+            'delivery_id' => $order->deliveryId,
+            'status' => 'held',
+            'correlated_hashes' => [
+                'order' => $order->canonicalHash(), 'intent' => $order->productIntentVerdictHash,
+                'spec' => $order->specHash, 'baseline' => hash('sha256', $candidate->baseCommit),
+                'diff' => $candidate->diffHash, 'evidence' => $action->evidenceHash, 'release' => $releaseHash,
+            ],
+            'role_dispositions' => $dispositions,
+            'evidence_bundle' => [
+                'hash' => $action->evidenceHash, 'status' => 'accepted',
+                'court_case_hash' => $verdict->caseHash, 'candidate_hash' => $candidate->candidateHash,
+                'verification_hash' => $candidate->verificationHash,
+            ],
+            'provider_receipt' => $candidate->providerReceipt,
+            'sandbox_receipt' => $candidate->sandboxReceipt,
+            'release_receipt' => ['status' => 'pending_canary', 'hash' => $releaseHash],
+            'canary_rollback_receipt' => ['status' => 'pending'],
+            'operator_effort' => ['active_seconds' => 0], 'cost' => ['amount' => 0, 'currency' => 'USD'],
+            'tokens' => ['input' => 0, 'output' => 0], 'elapsed_ms' => 0,
+            'uncertainties' => ['release_pending_canary'],
+            'observation_schedule' => array_fill_keys(EngineeringOutcome::WINDOWS, 'pending'),
+            'claim_eligible' => false,
+        ];
+        $data['evidence_bundle']['authority'] = $this->authority()->sealOutcome($data);
+
+        return EngineeringOutcome::fromArray($data);
     }
 
     public function devGate(): AtlasDevGateAdapter

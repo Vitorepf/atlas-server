@@ -99,6 +99,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->app->forgetInstance(EliteExecutorKernel::class);
         $actuator = $this->createMock(MergeActuator::class);
         $actuator->expects($this->never())->method('act');
+        $sentinel = $this->createMock(\App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel::class);
         $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
         $engagement = $company->createEngagement('mutative orchestrator provider refusal');
         $cycle = $company->createCycle($engagement);
@@ -106,7 +107,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $data['tool_permissions']['mutate'] = true;
 
         $result = $this->app->make(EliteExecutorKernel::class)->executeMutativeCandidate(
-            ExecutionOrder::fromArray($data), $engagement, $cycle, $actuator,
+            ExecutionOrder::fromArray($data), $engagement, $cycle, $actuator, $sentinel,
         );
 
         $this->assertSame('blocked', $result['status']);
@@ -348,6 +349,25 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertFalse($governed['governance']['admitted']);
         $this->assertNull($governed['governance']['authorized_merge_action']);
         $this->assertNotEmpty($governed['governance']['blockers'], json_encode($governed['governance']));
+        $order = ExecutionOrder::fromArray($data);
+        $provisionalAction = new AuthorizedMergeAction(
+            action: 'commit', taskPacketId: $order->deliveryId, candidateHash: $candidate->candidateHash,
+            decisionHash: hash('sha256', 'decision'), releaseLedgerPath: storage_path('atlas/provisional-release.jsonl'),
+            files: $candidate->files, verificationHash: $candidate->verificationHash,
+            rollbackHash: hash('sha256', 'rollback'), baseCommit: $candidate->baseCommit,
+            treeHash: $candidate->treeHash, scopeHash: hash('sha256', implode('|', $candidate->files)),
+            leaseId: 'lease-provisional', fencingToken: 1, orderHash: $order->canonicalHash(),
+            deliveryId: $order->deliveryId, evidenceHash: hash('sha256', 'provisional-evidence'),
+            nonce: hash('sha256', 'provisional-nonce'),
+        );
+        $factory = new \ReflectionMethod(EliteExecutorKernel::class, 'provisionalMutativeOutcome');
+        $provisional = $factory->invoke($kernel, $order, $candidate, $persistedVerdict, $provisionalAction);
+        $this->assertSame('held', $provisional->status);
+        $this->assertCount(22, $provisional->roleDispositions);
+        $this->assertTrue(app(KernelEvidenceAuthority::class)->verifyOutcome($provisional->toArray()));
+        $provisionalEvent = app(KernelEvidenceAuthority::class)->issueProvisionalOutcome($provisional, $provisionalAction);
+        $this->assertSame('engineering.outcome.provisional', data_get($provisionalEvent->payload, 'event_name'));
+        $this->assertTrue(app(KernelEvidenceAuthority::class)->verifyEvent($provisionalEvent, 'provisional_outcome'));
         $persisted = AiEngineeringCompanyRoleRun::query()
             ->where('engagement_record_id', $engagement->getKey())
             ->whereIn('role_id', self::ROLE_IDS)
