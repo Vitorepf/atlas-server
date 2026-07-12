@@ -21,6 +21,7 @@ final class Lote2FreezeReadersTest extends TestCase
             'atlas:ai:lesson-half-life' => ['slice' => 'MULTJ-01', 'status' => 'insufficient_signal'],
             'atlas:ai:lesson-dedup-calibration' => ['slice' => 'MULTJ-02', 'status' => 'pending_window'],
             'atlas:ai:counterfactual-lift' => ['slice' => 'MULTJ-03', 'status' => 'insufficient_signal'],
+            'atlas:ai:procedural-skill-promoter' => ['slice' => 'MULTJ-04', 'status' => 'pending_window'],
             'atlas:mission:e2e' => ['slice' => 'TETO-02', 'status' => 'insufficient_signal'],
         ];
 
@@ -51,6 +52,7 @@ final class Lote2FreezeReadersTest extends TestCase
             'MULTX-06' => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
             'MULTJ-01' => AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID,
             'MULTJ-03' => AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID,
+            'MULTJ-04' => AcosMaxLote2MeasureService::MULTJ04_MEASURE_ID,
             'TETO-02' => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
         ] as $slice => $series) {
             $this->assertSame($series, data_get($entries->get($slice), 'series'), $slice);

@@ -1241,6 +1241,13 @@ return [
             'pack_injection_enabled' => (bool) env('ATLAS_AI_ABSTRACTION_LADDER_PACK_INJECTION_ENABLED', false),
         ],
 
+        // MULTJ-04 — procedural playbook -> skill.v1 promoter. Default OFF:
+        // reports the mechanism + soak window, and only materialises floor-met
+        // proposals into the same ASI-02 held queue when explicitly enabled.
+        'procedural_skill_promoter' => [
+            'enqueue_enabled' => (bool) env('ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_ENQUEUE_ENABLED', false),
+        ],
+
         // MAXJ-07 — co-recall composition detector → ASI-02 held queue. Default OFF.
         'co_recall_composition' => [
             'enabled' => (bool) env('ATLAS_AI_CO_RECALL_COMPOSITION_ENABLED', false),

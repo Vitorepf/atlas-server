@@ -375,6 +375,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:atlas.ai.counterfactual_lift.v2',
             ],
             [
+                'slice' => 'MULTJ-04',
+                'series' => AcosMaxLote2MeasureService::MULTJ04_MEASURE_ID,
+                'path' => 'atlas:ai:procedural-skill-promoter --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-04')['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.procedural_skill_promoter.v1',
+            ],
+            [
                 'slice' => 'MULTJ-06',
                 'series' => AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID,
                 'path' => 'atlas:ai:abstraction-ladder --json',

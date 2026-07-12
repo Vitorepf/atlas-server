@@ -47,6 +47,7 @@ use App\Console\Commands\AtlasAiMemoryForgetCommand;
 use App\Console\Commands\AtlasAiOperationsDomainCommand;
 use App\Console\Commands\AtlasAiPersonalDevelopmentDomainCommand;
 use App\Console\Commands\AtlasAiProgrammingRuntimeControlPlaneCommand;
+use App\Console\Commands\AtlasAiProceduralSkillPromoterCommand;
 use App\Console\Commands\AtlasAiProviderPerformanceCommand;
 use App\Console\Commands\AtlasAiProviderReleaseSourcesCommand;
 use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
@@ -281,6 +282,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAiAutonomousHoldingCommand::class,
         AtlasAiAbstractionLadderCommand::class,
         AtlasAiCounterfactualLiftCommand::class,
+        AtlasAiProceduralSkillPromoterCommand::class,
         AtlasAiCyberDomainCommand::class,
         AtlasAiDecideCommand::class,
         AtlasAiDomainsCommand::class,
