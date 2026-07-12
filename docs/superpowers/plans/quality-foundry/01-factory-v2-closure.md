@@ -80,7 +80,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 **Migration/data ownership:** create the one master-authorized `atlas_task_scope_reservations` table only after live schema inspection confirms no equivalent. Its contract is UUID primary key; `run_id`; canonical scope/path; mode; lease owner/token; authority hash; state; monotonically increasing fencing token/version; baseline hash; `lease_expires_at`; `released_at`; timestamps; partial unique active-scope constraint. Ledger events reference the row and token; they do not replace transactional state.
 
 - [x] Write RED tests for two simultaneous acquires, renewal by a stale token, expiry/takeover, an old worker settling after takeover, retry with the same idempotency key, crash before/after persistence, and replay reconstruction.
-- [ ] Run the focused reservation and long-horizon suites; expected RED is duplicate ownership, stale-token acceptance, or premature completion on the current implementation.
+- [x] Run the focused reservation and long-horizon suites; expected RED is duplicate ownership, stale-token acceptance, or premature completion on the current implementation.
 - [x] Implement atomic acquire/renew/release/takeover and compare-and-swap fencing in the existing Forge repository/service. Do not add a parallel Forge cycle.
 - [x] Emit canonical reservation receipts into `atlas_ledger_events` only after the database transaction commits.
 - [x] Make Forge completion require a live reservation, final Kernel outcome and successful settlement; an expired lease yields `held` or retry, never success.
