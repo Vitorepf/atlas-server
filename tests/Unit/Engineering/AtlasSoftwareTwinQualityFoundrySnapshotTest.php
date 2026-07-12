@@ -49,6 +49,23 @@ final class AtlasSoftwareTwinQualityFoundrySnapshotTest extends TestCase
         ]));
     }
 
+    public function test_snapshot_exposes_calibration_and_unresolved_prediction_refs_without_granting_claim(): void
+    {
+        $input = $this->input();
+        $input['prediction_calibration'] = [
+            'schema' => 'atlas.quality_foundry.prediction_calibration.v1',
+            'status' => 'degraded', 'resolved_count' => 1, 'unresolved_count' => 1,
+            'confidence' => 0.4, 'claim_eligible' => false,
+        ];
+        $input['unresolved_predictions'] = [['prediction_id' => 'p-1', 'reason' => 'outcome_missing']];
+
+        $snapshot = AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts($input);
+
+        self::assertSame($input['prediction_calibration'], $snapshot['prediction_calibration']);
+        self::assertSame($input['unresolved_predictions'], $snapshot['unresolved_predictions']);
+        self::assertFalse($snapshot['claim_policy']['claim_eligible']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
