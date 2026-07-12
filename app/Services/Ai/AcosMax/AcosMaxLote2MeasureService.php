@@ -80,21 +80,300 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multx01FlywheelLoops(): array
     {
-        return $this->emptyReport('MULTX-01', 'insufficient_signal', 'no_complete_proven_real_loop_window', [
+        $requiredTables = ['ai_run_outcomes', 'ai_rag_feedback_events', 'ai_learning_candidates'];
+        $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
+        if ($missingTables !== []) {
+            return $this->emptyReport('MULTX-01', 'insufficient_signal', 'loop_source_tables_missing', [
+                'measure_id' => self::MULTX01_MEASURE_ID,
+                'denominator_min' => 1,
+                'loops_complete' => 0,
+                'loops' => [],
+                'loops_partial' => [],
+                'n_total' => 0,
+                'fixture_rejected' => 0,
+                'missing_tables' => $missingTables,
+                'time_per_loop' => [
+                    'p50_seconds' => null,
+                    'p95_seconds' => null,
+                ],
+                'marco_esp_v1' => [
+                    'satisfied' => false,
+                    'blocked_by' => ['loop_source_tables_missing'],
+                ],
+                'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
+            ]);
+        }
+
+        $deliveriesByOutcome = [];
+        $recallsByCandidate = [];
+        foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
+            $outcomeId = trim((string) ($row->run_outcome_id ?? ''));
+            if ($outcomeId !== '') {
+                $deliveriesByOutcome[$outcomeId][] = $row;
+            }
+
+            $candidateId = trim((string) ($row->memory_candidate_id ?? ''));
+            if ($candidateId !== '') {
+                $recallsByCandidate[$candidateId][] = $row;
+            }
+        }
+
+        $candidatesByOutcome = [];
+        foreach (DB::table('ai_learning_candidates')->orderBy('created_at')->get() as $candidate) {
+            $outcomeId = trim((string) ($candidate->run_outcome_id ?? ''));
+            if ($outcomeId !== '') {
+                $candidatesByOutcome[$outcomeId][] = $candidate;
+            }
+        }
+
+        $loops = [];
+        $partial = [];
+        $durations = [];
+        $fixtureRejected = 0;
+
+        foreach (DB::table('ai_run_outcomes')->orderBy('created_at')->get() as $outcome) {
+            $assembled = $this->assembleMultx01Loop(
+                $outcome,
+                $deliveriesByOutcome[(string) $outcome->id] ?? [],
+                $candidatesByOutcome[(string) $outcome->id] ?? [],
+                $recallsByCandidate,
+            );
+
+            if ($assembled['complete'] === true) {
+                $loops[] = $assembled['loop'];
+                $durations[] = (int) $assembled['loop']['time_to_recall_seconds'];
+            } else {
+                $partial[] = $assembled['partial'];
+                if (in_array('fixture_chain', (array) $assembled['partial']['blocked_by'], true)) {
+                    $fixtureRejected++;
+                }
+            }
+        }
+
+        $loopsComplete = count($loops);
+        $marcoSatisfied = $loopsComplete >= 1;
+
+        return [
+            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'slice' => 'MULTX-01',
+            'status' => $marcoSatisfied ? 'ok' : 'insufficient_signal',
+            'reason' => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
+            'formula_version' => (string) data_get(self::freezePayload('MULTX-01'), 'formula_version'),
+            'generated_at' => now()->toIso8601String(),
+            'freeze' => self::freezePayload('MULTX-01'),
             'measure_id' => self::MULTX01_MEASURE_ID,
             'denominator_min' => 1,
-            'loops_complete' => 0,
-            'loops_partial' => [],
-            'n_total' => 0,
+            'loops_complete' => $loopsComplete,
+            'loops' => $loops,
+            'loops_partial' => $partial,
+            'n_total' => $loopsComplete + count($partial),
+            'fixture_rejected' => $fixtureRejected,
             'time_per_loop' => [
-                'p50_seconds' => null,
-                'p95_seconds' => null,
+                'p50_seconds' => $this->percentileInt($durations, 0.50),
+                'p95_seconds' => $this->percentileInt($durations, 0.95),
             ],
-            'valid_loop_definition' => [
-                'requires_proven_real_outcome' => true,
-                'legacy_unjoined_rows' => 'legacy_unjoined',
+            'marco_esp_v1' => [
+                'satisfied' => $marcoSatisfied,
+                'blocked_by' => $marcoSatisfied ? [] : ['no_complete_proven_real_loop_window'],
+                'requires_loops_complete_min' => 1,
+                'requires_proven_real' => true,
+                'requires_chained_ids' => true,
+                'requires_zero_fixture' => true,
             ],
+            'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
+            'claim_policy' => [
+                'read_only' => true,
+                'provider_calls_made' => false,
+                'memory_written' => false,
+                'synthetic_fixture_claim_allowed' => false,
+                'completion_claim_allowed_without_proven_real' => false,
+            ],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function multx01ValidLoopDefinition(): array
+    {
+        return [
+            'requires_proven_real_outcome' => true,
+            'requires_decision_receipt_id' => true,
+            'requires_delivered_context_receipt' => true,
+            'requires_learning_candidate' => true,
+            'requires_subsequent_measured_recall' => true,
+            'requires_zero_fixture' => true,
+            'legacy_unjoined_rows' => 'legacy_unjoined',
+        ];
+    }
+
+    /**
+     * @param  list<object>  $deliveries
+     * @param  list<object>  $candidates
+     * @param  array<string,list<object>>  $recallsByCandidate
+     * @return array{complete:bool,loop?:array<string,mixed>,partial?:array<string,mixed>}
+     */
+    private function assembleMultx01Loop(object $outcome, array $deliveries, array $candidates, array $recallsByCandidate): array
+    {
+        $outcomePayload = $this->decodeJsonObject($outcome->payload ?? null);
+        $delivery = $this->firstContextDelivery($deliveries);
+        $candidate = $candidates[0] ?? null;
+        $recall = $candidate === null ? null : $this->firstSubsequentRecall(
+            $recallsByCandidate[(string) $candidate->id] ?? [],
+            (string) ($candidate->created_at ?? $outcome->created_at ?? ''),
+        );
+
+        $decisionId = $this->firstNonEmpty([
+            data_get($outcomePayload, 'decision_id'),
+            data_get($outcomePayload, 'decision_receipt_id'),
+            data_get($outcomePayload, 'receipt_id'),
         ]);
+        $provenReal = data_get($outcomePayload, 'proven_real') === true;
+        $fixture = $this->isFixtureMarked($outcome, $outcomePayload)
+            || ($delivery !== null && $this->isFixtureMarked($delivery, $this->decodeJsonObject($delivery->payload ?? null)))
+            || ($candidate !== null && $this->isFixtureMarked($candidate, $this->decodeJsonObject($candidate->payload ?? null)))
+            || ($recall !== null && $this->isFixtureMarked($recall, $this->decodeJsonObject($recall->payload ?? null)));
+
+        $blockedBy = [];
+        if (! $provenReal) {
+            $blockedBy[] = 'outcome_not_proven_real';
+        }
+        if ($decisionId === '') {
+            $blockedBy[] = 'decision_receipt_missing';
+        }
+        if ($delivery === null || trim((string) ($delivery->retrieval_receipt_id ?? '')) === '') {
+            $blockedBy[] = 'delivered_context_missing';
+        }
+        if ($candidate === null) {
+            $blockedBy[] = 'learning_candidate_missing';
+        }
+        if ($recall === null) {
+            $blockedBy[] = 'subsequent_measured_recall_missing';
+        }
+        if ($fixture) {
+            $blockedBy[] = 'fixture_chain';
+        }
+
+        $taskId = $this->firstNonEmpty([
+            data_get($outcomePayload, 'task_id'),
+            $outcome->run_id ?? null,
+        ]);
+
+        $chain = [
+            'task_id' => $taskId,
+            'outcome_id' => (string) ($outcome->id ?? ''),
+            'decision_id' => $decisionId,
+            'retrieval_receipt_id' => $delivery === null ? null : (string) ($delivery->retrieval_receipt_id ?? ''),
+            'learning_candidate_id' => $candidate === null ? null : (string) ($candidate->id ?? ''),
+            'subsequent_recall_feedback_id' => $recall === null ? null : (string) ($recall->id ?? ''),
+        ];
+
+        if ($blockedBy !== []) {
+            return [
+                'complete' => false,
+                'partial' => [
+                    'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => (string) $value, $chain))),
+                    'chain' => $chain,
+                    'proven_real' => $provenReal,
+                    'fixture_free' => ! $fixture,
+                    'blocked_by' => array_values(array_unique($blockedBy)),
+                ],
+            ];
+        }
+
+        return [
+            'complete' => true,
+            'loop' => [
+                'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => (string) $value, $chain))),
+                'chain' => $chain,
+                'proven_real' => true,
+                'fixture_free' => true,
+                'time_to_recall_seconds' => $this->secondsBetween(
+                    (string) ($outcome->created_at ?? ''),
+                    (string) ($recall->created_at ?? ''),
+                ),
+            ],
+        ];
+    }
+
+    /**
+     * @param  list<object>  $deliveries
+     */
+    private function firstContextDelivery(array $deliveries): ?object
+    {
+        foreach ($deliveries as $delivery) {
+            if (trim((string) ($delivery->retrieval_receipt_id ?? '')) !== '') {
+                return $delivery;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<object>  $recalls
+     */
+    private function firstSubsequentRecall(array $recalls, string $candidateCreatedAt): ?object
+    {
+        foreach ($recalls as $recall) {
+            if ($candidateCreatedAt === '' || strtotime((string) ($recall->created_at ?? '')) >= strtotime($candidateCreatedAt)) {
+                return $recall;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function isFixtureMarked(object $row, array $payload): bool
+    {
+        if (data_get($payload, 'fixture') === true || data_get($payload, 'is_fixture') === true) {
+            return true;
+        }
+
+        return str_contains(strtolower((string) ($row->source ?? '')), 'fixture');
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     */
+    private function firstNonEmpty(array $values): string
+    {
+        foreach ($values as $value) {
+            $string = trim((string) $value);
+            if ($string !== '') {
+                return $string;
+            }
+        }
+
+        return '';
+    }
+
+    private function secondsBetween(string $start, string $end): int
+    {
+        $startTs = strtotime($start);
+        $endTs = strtotime($end);
+        if ($startTs === false || $endTs === false) {
+            return 0;
+        }
+
+        return max(0, $endTs - $startTs);
+    }
+
+    /**
+     * @param  list<int>  $values
+     */
+    private function percentileInt(array $values, float $percentile): ?int
+    {
+        if ($values === []) {
+            return null;
+        }
+
+        sort($values);
+        $index = (int) ceil(count($values) * $percentile) - 1;
+        $index = max(0, min(count($values) - 1, $index));
+
+        return $values[$index];
     }
 
     /** @return array<string,mixed> */
