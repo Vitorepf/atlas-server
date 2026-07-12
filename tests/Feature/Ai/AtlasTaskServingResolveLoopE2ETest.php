@@ -6,17 +6,11 @@ namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
-use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use App\Services\Ai\SelfConstruction\AtlasTaskCommitVerificationGate;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
@@ -32,13 +26,24 @@ use Tests\TestCase;
 final class AtlasTaskServingResolveLoopE2ETest extends TestCase
 {
     use MakesAgentControlPlaneTaskQueueOrchestrator;
+
     private string $repo = '';
 
     private string $envFile = '';
 
+    private string $previousVerifyEnv = 'true';
+
     protected function setUp(): void
     {
         parent::setUp();
+        // This fixture isolates serving/replenishment mechanics. Constitution-gated
+        // self-edit landings have their own committer tests and are not part of this loop.
+        config([
+            'atlas.loop.constitution_gate_enabled' => false,
+        ]);
+        $previous = Env::get('ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT');
+        $this->previousVerifyEnv = is_bool($previous) ? ($previous ? 'true' : 'false') : (string) ($previous ?? 'true');
+        Env::getRepository()->set('ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT', 'false');
         Storage::fake('local');
         $this->repo = sys_get_temp_dir().'/atlas-resolve-'.bin2hex(random_bytes(5));
         @mkdir($this->repo, 0775, true);
@@ -57,6 +62,7 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
     protected function tearDown(): void
     {
         AtlasLoopMasterSwitch::$envPathOverride = null;
+        Env::getRepository()->set('ATLAS_TASK_SERVING_VERIFY_BEFORE_COMMIT', $this->previousVerifyEnv);
         @unlink($this->envFile);
         File::deleteDirectory($this->repo);
         parent::tearDown();
@@ -126,10 +132,13 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
     {
         $path = $this->repo.'/'.$rel;
         @mkdir(\dirname($path), 0775, true);
-        // Minimal valid content (the committer commits files, it does not run them — the AI runs the real tests).
+        // The verifier requires a real assertion when the packet declares a test file.
         $isTest = str_contains($rel, 'tests/');
         $class = pathinfo($rel, PATHINFO_FILENAME);
-        @file_put_contents($path, "<?php\n\n// ".($isTest ? 'test for' : 'implementation of')." {$class}\n");
+        $contents = $isTest
+            ? "<?php\ndeclare(strict_types=1);\n\nuse PHPUnit\\Framework\\TestCase;\n\nfinal class {$class} extends TestCase\n{\n    public function test_stub(): void\n    {\n        self::assertTrue(true);\n    }\n}\n"
+            : "<?php\n\n// implementation of {$class}\n";
+        @file_put_contents($path, $contents);
     }
 
     /** @return list<string> */
@@ -171,5 +180,4 @@ final class AtlasTaskServingResolveLoopE2ETest extends TestCase
 
         return ['code' => (int) $p->getExitCode(), 'out' => $p->getOutput(), 'err' => $p->getErrorOutput()];
     }
-
 }
