@@ -10,6 +10,7 @@ use App\Services\Ai\Compounding\CausalLearningPromotionService;
 use App\Services\Ai\Compounding\CausalLearningRoutingPromotionOwner;
 use App\Services\Ai\Compounding\CausalLearningVerdict;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainLateRegressionCoordinator;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -70,6 +71,55 @@ final class CausalLearningPromotionTest extends TestCase
 
         self::assertSame('revoked', $revoked->status);
         self::assertSame('route-v1', $revoked->activeVersion);
+    }
+
+    public function test_late_regression_coordinator_uses_gate_then_rolls_back_owner_and_requests_claim_review(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-causal-coordinator-'.bin2hex(random_bytes(5)).'.jsonl';
+        $routing = new AtlasConductorRoutingMemory;
+        $routing->setLogPathForTesting($path);
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->candidate(), [
+            'task_category' => 'engineering', 'role' => 'worker', 'provider' => 'provider-a', 'model' => 'model-a',
+        ]));
+        $service = new CausalLearningPromotionService(null, new CausalLearningRoutingPromotionOwner($routing));
+
+        try {
+            $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
+            $result = (new AtlasExternalBrainLateRegressionCoordinator(promotions: $service))->handle($candidate, $promotion, [
+                'observed_outcome' => 'failure', 'regression_threshold_crossed' => true, 'evidence_refs' => ['outcome:late-1'],
+            ]);
+
+            self::assertSame('revoked', $result['status']);
+            self::assertSame('late_adverse_outcome', $result['decision']['reason']);
+            self::assertSame('route-v1', $result['promotion']->activeVersion);
+            self::assertNull($routing->preferredFor('engineering', 'worker'));
+            self::assertTrue($result['response']['rivals_revocation_request']['required']);
+        } finally {
+            if (is_file($path)) @unlink($path);
+            if (is_file($path.'.preferred.jsonl')) @unlink($path.'.preferred.jsonl');
+        }
+    }
+
+    public function test_late_regression_without_evidence_is_held_without_rollback(): void
+    {
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->candidate(), [
+            'task_category' => 'engineering', 'role' => 'worker', 'provider' => 'provider-a', 'model' => 'model-a',
+        ]));
+        $path = sys_get_temp_dir().'/atlas-causal-hold-'.bin2hex(random_bytes(5)).'.jsonl';
+        $routing = new AtlasConductorRoutingMemory;
+        $routing->setLogPathForTesting($path);
+        $service = new CausalLearningPromotionService(null, new CausalLearningRoutingPromotionOwner($routing));
+
+        try {
+            $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
+            $result = (new AtlasExternalBrainLateRegressionCoordinator(promotions: $service))->handle($candidate, $promotion, ['observed_outcome' => 'failure', 'regression_threshold_crossed' => true]);
+
+            self::assertSame('hold', $result['status']);
+            self::assertSame('provider-a', $routing->preferredFor('engineering', 'worker')['provider']);
+        } finally {
+            if (is_file($path)) @unlink($path);
+            if (is_file($path.'.preferred.jsonl')) @unlink($path.'.preferred.jsonl');
+        }
     }
 
     public function test_code_task_cannot_be_promoted_as_policy(): void

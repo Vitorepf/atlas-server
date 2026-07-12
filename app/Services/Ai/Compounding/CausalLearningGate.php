@@ -43,6 +43,33 @@ final class CausalLearningGate
         return $result;
     }
 
+    /**
+     * Decide whether a later observation has enough explicit evidence to revoke a
+     * reversible promotion. Missing evidence remains unknown; it never becomes a
+     * favorable or adverse inference.
+     *
+     * @param array<string,mixed> $observation
+     * @return array{status:string,reason:string,evidence_refs:list<string>}
+     */
+    public function adjudicateLateRegression(CausalLearningCandidate $candidate, array $observation): array
+    {
+        $refs = array_values(array_filter(array_map('strval', (array) ($observation['evidence_refs'] ?? [])), static fn (string $ref): bool => trim($ref) !== ''));
+        $outcome = strtolower(trim((string) ($observation['observed_outcome'] ?? '')));
+        $adverseOutcome = in_array($outcome, ['failure', 'failed', 'negative', 'regression'], true);
+        $thresholdCrossed = ($observation['regression_threshold_crossed'] ?? false) === true;
+        if (! $thresholdCrossed && is_numeric($observation['observed_metric'] ?? null) && is_numeric($observation['frozen_metric'] ?? null)) {
+            $thresholdCrossed = (float) $observation['observed_metric'] < (float) $observation['frozen_metric'];
+        }
+        if ($refs === []) {
+            return ['status' => 'hold', 'reason' => 'late_regression_evidence_missing', 'evidence_refs' => []];
+        }
+        if (! $adverseOutcome || ! $thresholdCrossed) {
+            return ['status' => 'retain', 'reason' => 'late_regression_threshold_not_crossed', 'evidence_refs' => $refs];
+        }
+
+        return ['status' => 'revoke', 'reason' => 'late_adverse_outcome', 'evidence_refs' => $refs];
+    }
+
     /** @param array<string,mixed> $data */
     private function hasZeroBinding(array $data): bool
     {

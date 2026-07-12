@@ -204,7 +204,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [x] Compare frozen route/world/claim versions to current facts and real outcomes; distinguish expected drift, unknown and material regression.
 - [x] Generate a benchmark-gap or repair proposal with exact evidence, scope, risk, invalidator and outcome metric through Proposal Arena/Task Fabric.
 - [x] Deduplicate/merge recurring gaps and respect active claims/reservations; never mutate claims or routes directly.
-- [ ] Revoke reversible learning through CausalLearningGate when evidence crosses the frozen threshold; ask Rivals to evaluate claim revocation.
+- [x] Revoke reversible learning through CausalLearningGate when evidence crosses the frozen threshold; ask Rivals to evaluate claim revocation. Evidence: `AtlasExternalBrainLateRegressionCoordinator` requires causal late-regression adjudication, then delegates revoke/rollback to `CausalLearningPromotionService`; the response keeps the Rivals claim-revocation request read-only.
 - [x] Run drift, expiry, recurrence dedupe, benchmark-gap and claim-authority tests.
 
 **GREEN acceptance:** material drift produces one governed evidence-backed response; unknown stays unknown; no observer issues a claim or direct code change.
