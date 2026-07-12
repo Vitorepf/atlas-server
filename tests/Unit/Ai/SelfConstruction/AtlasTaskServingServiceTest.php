@@ -12,6 +12,7 @@ use App\Services\Ai\EngineeringKernel\FalseClaimInvariant;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\SovereignHonestyFloor;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
@@ -25,6 +26,7 @@ use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
@@ -48,11 +50,25 @@ final class AtlasTaskServingServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config()->set('atlas.programming.strict_retrieval_gate', false);
         Storage::fake('local');
         $this->envFile = sys_get_temp_dir().'/atlas-report-env-'.bin2hex(random_bytes(5)).'.env';
         file_put_contents($this->envFile, "ATLAS_LOOP_MASTER_ENABLED=true\n");
         AtlasLoopMasterSwitch::$envPathOverride = $this->envFile;
         AtlasTaskServingSwitch::on();
+        app()->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
+        {
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return [
+                    'allowed' => true,
+                    'status' => 'passed',
+                    'mode' => $mode,
+                    'workspace' => $workspace,
+                    'blockers' => [],
+                ];
+            }
+        });
     }
 
     protected function tearDown(): void
@@ -104,6 +120,7 @@ final class AtlasTaskServingServiceTest extends TestCase
             ),
             governance: new AtlasTaskCommitGovernanceChain(modeOverride: AtlasTaskCommitGovernanceChain::MODE_OFF),
             eliteKernel: $this->eliteKernel(),
+            contextRuntime: $this->contextRuntime(),
         );
 
         $result = $serving->report($served['client'], $served['task_packet_id'], $served['lease_id'], [
@@ -112,7 +129,7 @@ final class AtlasTaskServingServiceTest extends TestCase
         ]);
 
         $this->assertSame('commit_failed', $result['status']);
-        $this->assertSame('elite_kernel_fake_green', $result['reason']);
+        $this->assertSame('elite_kernel_fake_green', $result['reason'], json_encode($result));
         $this->assertFalse($result['lease_closed']);
         $this->assertSame($served['task_packet_id'], $result['task_packet_id']);
     }
@@ -229,6 +246,11 @@ final class AtlasTaskServingServiceTest extends TestCase
             new AtlasForgeGateAdapter,
             new AtlasAutonomosGateAdapter($floor),
         );
+    }
+
+    private function contextRuntime(): AtlasContextRuntime
+    {
+        return app(AtlasContextRuntime::class);
     }
 
     private function tempGitRepoWithChangedFile(string $relativePath): string
