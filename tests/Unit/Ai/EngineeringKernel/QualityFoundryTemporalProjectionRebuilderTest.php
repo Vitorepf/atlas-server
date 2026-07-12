@@ -67,6 +67,17 @@ final class QualityFoundryTemporalProjectionRebuilderTest extends TestCase
         self::assertSame('pending', $projection['temporal_state']);
     }
 
+    public function test_explicit_historical_gap_is_legacy_unproven_but_absence_stays_unknown(): void
+    {
+        $event = $this->outcomeEvent();
+        $event['payload']['outcome']['observation_schedule'] = ['24h' => 'legacy_unproven'];
+
+        $projection = (new QualityFoundryTemporalProjectionRebuilder)->rebuild([$event]);
+
+        self::assertSame('unknown', $projection['windows']['0h']['state']);
+        self::assertSame('legacy_unproven', $projection['windows']['24h']['state']);
+    }
+
     /** @return array<string,mixed> */
     private function outcomeEvent(): array
     {

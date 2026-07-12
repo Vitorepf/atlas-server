@@ -109,6 +109,15 @@ final class QualityFoundryTemporalProjectionRebuilder
         }
         unset($projection);
 
+        $legacySchedule = (array) data_get($outcome, 'observation_schedule', []);
+        foreach ($windows as $window => &$projection) {
+            if ($projection['state'] === 'unknown' && ($legacySchedule[$window] ?? null) === 'legacy_unproven') {
+                $projection['state'] = 'legacy_unproven';
+                $blockers[] = 'temporal_window_legacy_unproven:'.$window;
+            }
+        }
+        unset($projection);
+
         $blockers = array_values(array_unique($blockers));
         $allObserved = array_is_list($windows)
             ? false
@@ -141,6 +150,7 @@ final class QualityFoundryTemporalProjectionRebuilder
             'status' => $outcome['status'] ?? 'unknown',
             'outcome_hash' => $outcome['outcome_hash'] ?? null,
             'correlated_hashes' => (array) ($outcome['correlated_hashes'] ?? []),
+            'observation_schedule' => (array) ($outcome['observation_schedule'] ?? []),
         ];
     }
 

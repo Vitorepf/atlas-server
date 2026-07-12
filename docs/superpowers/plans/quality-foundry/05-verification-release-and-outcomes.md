@@ -187,10 +187,10 @@ Outcome dimensions include defects, incidents, rollback, rework, vulnerabilities
 
 - [ ] Write RED tests for missing status/source, outcome before release, wrong release hash, duplicate/contradictory observer, missing window, delayed observation, favorable default and immediate outcome treated as temporal.
 - [x] Record `outcome.observed` for exactly 0h/24h/7d/30d/90d/150d with observer/provenance, release/order/spec/world hashes and uncertainty. Evidence: `EliteExecutorKernelReadOnlyVerticalTest::test_all_canonical_observation_windows_record_independent_receipts`, plus typed provenance/window validation in `TypedEngineeringContractTest`.
-- [ ] Materialize reconstructible `ai_run_outcomes` and temporal projections; absent remains `unknown`, historical gaps `legacy_unproven`.
+- [x] Materialize reconstructible `ai_run_outcomes` and temporal projections; absent remains `unknown`, historical gaps `legacy_unproven`. Evidence: `QualityFoundryTemporalProjectionMaterializer` plus `QualityFoundryTemporalProjectionMaterializationTest` and historical-gap replay coverage.
 - [x] Keep observation windows independent; 24h does not imply 7d and later contradiction supersedes eligibility without rewriting prior observations. Evidence: `EliteExecutorKernelReadOnlyVerticalTest` independent-window/replay proof plus `QualityFoundryTemporalProjectionRebuilderTest` contradiction quarantine.
 - [x] Route late adverse outcomes to learning hold and Rivals claim evaluation/revocation; no direct claim mutation. Evidence: `QualityFoundryLateOutcomeAdjudicatorTest` and the materializer's governed late-adjudication seam.
-- [ ] Run outcome default/replay/delayed/contradictory/temporal tests and ledger reconstruction.
+- [x] Run outcome default/replay/delayed/contradictory/temporal tests and ledger reconstruction. Evidence: typed/vertical outcome suites, `QualityFoundryTemporalProjectionRebuilderTest`, materialization replay and late-adjudication tests.
 
 **GREEN acceptance:** no missing or premature favorable outcome; all observations correlate to the actual release; late harm removes eligibility and remains auditable.
 
