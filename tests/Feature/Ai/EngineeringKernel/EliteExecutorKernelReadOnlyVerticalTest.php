@@ -116,6 +116,29 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $this->assertSame('candidate_preparation_blocked', $result['actuation']['reason']);
     }
 
+    public function test_public_execute_returns_canonical_blocked_mutative_outcome_and_replays_it(): void
+    {
+        $provider = $this->createMock(ProviderPort::class);
+        $provider->expects($this->once())->method('invoke')->willReturn(['status' => 'unavailable']);
+        $this->app->instance(ProviderPort::class, $provider);
+        $this->app->forgetInstance(EliteExecutorKernel::class);
+        $data = $this->orderData();
+        $data['tool_permissions']['mutate'] = true;
+        $data['idempotency_key'] = 'public-mutative-refusal-'.Str::uuid();
+        $order = ExecutionOrder::fromArray($data);
+        $kernel = $this->app->make(EliteExecutorKernel::class);
+
+        $first = $kernel->execute($order);
+        $replay = $kernel->execute(ExecutionOrder::fromArray($data));
+
+        $this->assertSame('blocked', $first->status);
+        $this->assertSame($first->outcomeHash, $replay->outcomeHash);
+        $this->assertEquals($first->correlatedHashes, $replay->correlatedHashes);
+        $this->assertCount(22, $first->roleDispositions);
+        $this->assertFalse($first->claimEligible);
+        $this->assertSame('unavailable', $first->providerReceipt['status']);
+    }
+
     public function test_mutative_candidate_provider_refusal_has_zero_sandbox_authority(): void
     {
         $provider = $this->createMock(ProviderPort::class);

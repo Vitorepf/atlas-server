@@ -13,6 +13,7 @@ use App\Services\Ai\EngineeringKernel\Adapters\AgentExecutionProviderPortAdapter
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
+use App\Services\Ai\EngineeringKernel\Adapters\TaskLaneMergeActuatorAdapter;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -723,8 +724,11 @@ final class EliteExecutorKernel
             return $existing;
         }
 
+        if (($order->toolPermissions['mutate'] ?? null) === true) {
+            return $this->executeMutativeOrder($order);
+        }
         if (($order->toolPermissions['mutate'] ?? null) !== false) {
-            throw new \LogicException('mutating_execution_not_available_in_packet_3');
+            throw new \LogicException('mutative_permission_contract_invalid');
         }
 
         $started = $this->recordEvent(LedgerEventType::ExecutionStarted, $order, [
@@ -810,6 +814,97 @@ final class EliteExecutorKernel
         }
 
         return $outcome;
+    }
+
+    private function executeMutativeOrder(ExecutionOrder $order): EngineeringOutcome
+    {
+        $started = $this->recordEvent(LedgerEventType::ExecutionStarted, $order, [
+            'event_name' => 'execution.started', 'order_hash' => $order->canonicalHash(),
+            'idempotency_key' => $order->idempotencyKey,
+            'role_roster_catalog_hash' => CanonicalKernelPayload::hash($order->roleRoster),
+            'execution_kind' => 'mutative',
+        ]);
+        if ($started === null) {
+            throw new \RuntimeException('canonical_engineering_ledger_unavailable');
+        }
+        try {
+            $company = app(AtlasRealEngineeringCompanyRuntimeService::class);
+            $engagement = $company->createEngagement('engineering kernel mutative delivery '.$order->deliveryId);
+            $cycle = $company->createCycle($engagement);
+            $result = $this->executeMutativeCandidate(
+                $order, $engagement, $cycle, app(TaskLaneMergeActuatorAdapter::class),
+                app(AtlasTaskPostLandCanarySentinel::class),
+            );
+            $settled = data_get($result, 'settlement.engineering_outcome');
+            if (is_array($settled)) {
+                return EngineeringOutcome::fromArray($settled);
+            }
+            $provisional = $result['provisional_outcome'] ?? null;
+            if (is_array($provisional)) {
+                return EngineeringOutcome::fromArray($provisional);
+            }
+
+            $candidate = $result['candidate'] ?? null;
+            $outcome = $this->blockedMutativeOutcome(
+                $order, $candidate instanceof VerifiedMutativeCandidate ? $candidate : null,
+                (string) data_get($result, 'actuation.reason', 'mutative_candidate_blocked'),
+            );
+        } catch (\Throwable $exception) {
+            $outcome = $this->blockedMutativeOutcome($order, null, 'mutative_execution_exception:'.$exception::class);
+        }
+        $completed = $this->recordEvent(LedgerEventType::OperationCompleted, $order, [
+            'schema_version' => 'atlas.engineering_kernel.execution_receipt.v2',
+            'event_name' => 'engineering.outcome.recorded', 'idempotency_key' => $order->idempotencyKey,
+            'order_hash' => $order->canonicalHash(), 'outcome' => $outcome->toArray(),
+        ]);
+        if ($completed === null) {
+            throw new \RuntimeException('engineering_outcome_ledger_append_failed');
+        }
+
+        return $outcome;
+    }
+
+    private function blockedMutativeOutcome(ExecutionOrder $order, ?VerifiedMutativeCandidate $candidate, string $reason): EngineeringOutcome
+    {
+        $candidateHash = $candidate?->candidateHash ?: hash('sha256', 'candidate:none:'.$order->canonicalHash());
+        $diffHash = $candidate?->diffHash ?: hash('sha256', 'diff:none:'.$order->canonicalHash());
+        $treeHash = $candidate?->treeHash ?: hash('sha256', 'tree:none:'.$order->canonicalHash());
+        $evidenceHash = hash('sha256', 'mutative-blocked:'.$order->canonicalHash().':'.$reason);
+        $releaseHash = hash('sha256', 'mutative-no-release:'.$order->canonicalHash());
+        $dispositions = [];
+        foreach (EngineeringRoleRoster::OFFICIAL_ROLES as $role) {
+            $entry = [
+                'role' => $role, 'status' => 'block', 'reason' => $reason,
+                'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
+                'candidate_hash' => $candidateHash, 'diff_hash' => $diffHash, 'tree_hash' => $treeHash,
+                'signer_context' => 'atlas.engineering_kernel.mutative_execution_block.v1',
+            ];
+            $entry['signature'] = CanonicalKernelPayload::hash($entry);
+            $entry['evidence_hash'] = CanonicalKernelPayload::hash($entry);
+            $dispositions[$role] = $entry;
+        }
+        $data = [
+            'schema_version' => 'atlas.engineering_outcome.v2', 'run_id' => $order->runId,
+            'delivery_id' => $order->deliveryId, 'status' => 'blocked',
+            'correlated_hashes' => [
+                'order' => $order->canonicalHash(), 'intent' => $order->productIntentVerdictHash,
+                'spec' => $order->specHash, 'baseline' => hash('sha256', $order->baseCommit),
+                'diff' => $diffHash, 'evidence' => $evidenceHash, 'release' => $releaseHash,
+            ],
+            'role_dispositions' => $dispositions,
+            'evidence_bundle' => ['hash' => $evidenceHash, 'status' => 'refused', 'reason' => $reason],
+            'provider_receipt' => $candidate?->providerReceipt ?: ['status' => 'not_started'],
+            'sandbox_receipt' => $candidate?->sandboxReceipt ?: ['status' => 'not_started'],
+            'release_receipt' => ['status' => 'not_authorized', 'hash' => $releaseHash],
+            'canary_rollback_receipt' => ['status' => 'not_applicable'],
+            'operator_effort' => ['active_seconds' => 0], 'cost' => ['amount' => 0, 'currency' => 'USD'],
+            'tokens' => ['input' => 0, 'output' => 0], 'elapsed_ms' => 0,
+            'uncertainties' => [$reason], 'observation_schedule' => array_fill_keys(EngineeringOutcome::WINDOWS, 'pending'),
+            'claim_eligible' => false,
+        ];
+        $data['evidence_bundle']['authority'] = $this->authority()->sealOutcome($data);
+
+        return EngineeringOutcome::fromArray($data);
     }
 
     public function observeOutcome(OutcomeObservation $observation): OutcomeLearningReceipt
