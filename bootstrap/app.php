@@ -100,6 +100,7 @@ use App\Console\Commands\AtlasCompactionSoakWatchCommand;
 use App\Console\Commands\AtlasContextFeedbackHealthCommand;
 use App\Console\Commands\AtlasContextLatencyCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
+use App\Console\Commands\AtlasContextSufficiencyCalibrationCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
 use App\Console\Commands\AtlasDevDesktopAcceptanceCommand;
@@ -408,6 +409,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCompactionSoakWatchCommand::class,
         AtlasContextFeedbackHealthCommand::class,
         AtlasContextLatencyCommand::class,
+        AtlasContextSufficiencyCalibrationCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasContextPolicyTrendCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
