@@ -372,6 +372,11 @@ return [
     'atlas_decide' => [
         'gateway_consultation_enabled' => (bool) env('ATLAS_DECIDE_GATEWAY_CONSULTATION_ENABLED', true),
         'gateway_consultation_mode' => env('ATLAS_DECIDE_GATEWAY_CONSULTATION_MODE', 'shadow'),
+
+        // MULTK-07 — derive requested_autonomy from evidence, MONOTONICALLY
+        // DOWNWARD from 'autonomous' (machine tightens, never loosens).
+        // Default-OFF: consultation stays byte-identical until the flag flips.
+        'requested_autonomy_shrink_enabled' => (bool) env('ATLAS_DECIDE_REQUESTED_AUTONOMY_SHRINK_ENABLED', false),
     ],
 
     /*

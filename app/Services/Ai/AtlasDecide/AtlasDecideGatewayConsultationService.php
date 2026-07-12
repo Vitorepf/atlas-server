@@ -103,13 +103,21 @@ final class AtlasDecideGatewayConsultationService
             'actor' => $actor,
         ]);
 
+        // MULTK-07 — the request handed to Admission is DERIVED from evidence
+        // (privacy_class, ASI-11 lineage reversal rate, sample size n)
+        // MONOTONICALLY DOWNWARD from `'autonomous'` when the flag is on.
+        // Default-OFF: byte-identical to the previous hardcoded literal.
+        // Admission remains the ONLY authority — this changes the REQUEST,
+        // never the verdict; floors from area 18 continue to win.
+        $requestedAutonomy = $this->deriveRequestedAutonomy($context, $privacy);
+
         // Admission decides if the gateway can autonomously follow the learned route.
         $admissionEnv = $this->admission->admit([
             'change_kind' => 'gateway_provider_route',
             'proposed_effect' => 'follow ADML active route',
             'scope' => ['privacy_class' => $privacy],
             'actor' => $actor,
-            'requested_autonomy' => 'autonomous',
+            'requested_autonomy' => $requestedAutonomy['level'],
         ]);
 
         $verdict = $this->deriveVerdict($activeRoute, $kernelEnv['decision'], $admissionEnv['decision']);
@@ -133,6 +141,7 @@ final class AtlasDecideGatewayConsultationService
             'kernel_decision' => $kernelEnv['decision'],
             'admission_decision' => $admissionEnv['decision'],
             'kernel_hash' => $kernelHash,
+            'requested_autonomy' => $requestedAutonomy,
         ];
         $envelope['envelope_hash'] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::ENVELOPE_SCHEMA,
@@ -162,6 +171,35 @@ final class AtlasDecideGatewayConsultationService
     }
 
     // ---------- internals ----------
+
+    /**
+     * MULTK-07 — return the `requested_autonomy` handed to Admission.
+     * Default-OFF (config `atlas.atlas_decide.requested_autonomy_shrink_enabled`):
+     * hardcoded `'autonomous'` — byte-identical to the pre-MULTK-07 path.
+     * ON: pure derivation from evidence, monotonically ≤ `'autonomous'`.
+     *
+     * @param  array<string,mixed>  $context
+     * @return array{level:string, derivation:array<string,mixed>|null}
+     */
+    private function deriveRequestedAutonomy(array $context, string $privacy): array
+    {
+        $flagOn = (bool) config('atlas.atlas_decide.requested_autonomy_shrink_enabled', false);
+        if (! $flagOn) {
+            return ['level' => 'autonomous', 'derivation' => null];
+        }
+
+        $derivation = RequestedAutonomyDerivation::derive([
+            'privacy_class' => $privacy,
+            'reversal_rate' => $context['reversal_rate'] ?? null,
+            'n' => $context['reversal_sample_size'] ?? null,
+            'ceiling' => 'autonomous',
+        ]);
+
+        return [
+            'level' => $derivation['requested_autonomy'],
+            'derivation' => $derivation,
+        ];
+    }
 
     private function deriveVerdict(?array $activeRoute, string $kernelDecision, string $admissionDecision): string
     {
