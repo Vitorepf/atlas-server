@@ -147,6 +147,23 @@ final class AtlasTaskBrainReplenisherTest extends TestCase
         $this->assertSame(1, $r['skipped_template_family_count']);
     }
 
+    public function test_autonomos_proposal_competition_selects_one_quality_complete_candidate_before_enqueue(): void
+    {
+        $r = (new AtlasTaskBrainReplenisher($this->orchestrator()))
+            ->replenishFromModel(
+                $this->model(),
+                'app/Demo',
+                targetMin: 20,
+                maxPerRun: 40,
+                requireProposalCompetition: true,
+            );
+
+        $this->assertSame('proposal_competition_passed', $r['proposal_competition']['status']);
+        $this->assertSame(3, $r['proposal_competition']['candidate_count']);
+        $this->assertSame(1, $r['enqueued_count']);
+        $this->assertSame($r['proposal_competition']['winner_id'], $r['enqueued'][0]);
+    }
+
     public function test_doc_gap_is_skipped_when_the_capability_already_exists_anywhere_in_the_repo(): void
     {
         // THE LIVE FALSE-POSITIVE the worker kept giving back: the comprehension scrapes a class name from docs

@@ -36,6 +36,7 @@ use Throwable;
 use App\Services\Ai\SelfConstruction\AgentControlPlaneTaskQueueOrchestrator;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainProposalArena;
 
 final class AtlasTaskBrainReplenisher
 {
@@ -163,7 +164,16 @@ final class AtlasTaskBrainReplenisher
             return array_merge($this->summary($scopeRoot, $before, $before, [], 'comprehension_failed'), ['error' => $e->getMessage()]);
         }
 
-        return $this->replenishFromModel($model, $scopeRoot, $targetMin, $maxPerRun, $before, $inspector, $includeOrphans);
+        return $this->replenishFromModel(
+            $model,
+            $scopeRoot,
+            $targetMin,
+            $maxPerRun,
+            $before,
+            $inspector,
+            $includeOrphans,
+            (bool) ($opts['require_proposal_competition'] ?? false),
+        );
     }
 
     /**
@@ -180,10 +190,28 @@ final class AtlasTaskBrainReplenisher
         ?int $before = null,
         ?AtlasTaskPacketQualityInspector $inspector = null,
         bool $includeOrphans = false,
+        bool $requireProposalCompetition = false,
     ): array {
         $inspector ??= new AtlasTaskPacketQualityInspector;
         $before ??= $this->claimableDepth();
         $candidates = $this->structureTasks($model, $includeOrphans);
+
+        $proposalCompetition = null;
+        if ($requireProposalCompetition) {
+            $proposalCompetition = $this->evaluateProposalCompetition($candidates);
+            if (($proposalCompetition['status'] ?? '') !== 'proposal_competition_passed') {
+                return array_merge(
+                    $this->summary($scopeRoot, $before, $before, [], 'proposal_competition_blocked'),
+                    ['proposal_competition' => $proposalCompetition],
+                );
+            }
+
+            $winnerId = (string) ($proposalCompetition['winner_id'] ?? '');
+            $candidates = array_values(array_filter(
+                $candidates,
+                static fn (array $candidate): bool => (string) ($candidate['task_packet_id'] ?? '') === $winnerId,
+            ));
+        }
 
         $enqueued = [];
         $skippedExisting = 0;
@@ -241,11 +269,49 @@ final class AtlasTaskBrainReplenisher
                 'skipped_template_family_count' => $this->lastSkippedTemplateFamilyCount,
             ],
         );
+        if ($proposalCompetition !== null) {
+            $context['proposal_competition'] = $proposalCompetition;
+        }
 
         // W16 give_back→replenisher feedback (additive, flag-gated atlas.loop.feedback.replenisher_enabled,
         // default OFF ⇒ byte-identical). ON ⇒ surfaces the mined give_back FACTs as a give_back_facts sub-array
         // so next-round structuring can learn from what got handed back. Default-constructed when not injected.
         return ($this->giveBackFeedback ?? new AtlasLoopGiveBackToReplenisherFeedback)->augment($context);
+    }
+
+    /** @param list<array<string,mixed>> $candidates @return array<string,mixed> */
+    private function evaluateProposalCompetition(array $candidates): array
+    {
+        $proposals = array_map(static function (array $candidate): array {
+            return [
+                'proposal_id' => (string) ($candidate['task_packet_id'] ?? ''),
+                'objective' => (string) ($candidate['objective'] ?? ''),
+                'leverage' => 0.8,
+                'evidence_strength' => 0.8,
+                'implementability' => 0.8,
+                'has_runnable_evidence_path' => true,
+                'evidence_refs' => ['brain:snapshot:'.(string) data_get($candidate, 'proposal_baseline.snapshot_id', 'unknown'), 'task:'.(string) ($candidate['task_packet_id'] ?? '')],
+                'finding' => (string) ($candidate['finding'] ?? ''),
+                'baseline' => $candidate['proposal_baseline'] ?? null,
+                'expected_delta' => (string) ($candidate['expected_delta'] ?? ''),
+                'rollback_plan' => (string) ($candidate['rollback_plan'] ?? ''),
+                'required_tests' => (array) ($candidate['required_tests'] ?? []),
+            ];
+        }, $candidates);
+
+        $arena = (new AtlasExternalBrainProposalArena)->compete([
+            'proposals' => $proposals,
+            'require_competition' => true,
+            'require_quality_contract' => true,
+        ]);
+        $winnerId = (string) data_get($arena, 'winner.proposal_id', '');
+
+        return [
+            'status' => $winnerId !== '' ? 'proposal_competition_passed' : 'proposal_competition_blocked',
+            'candidate_count' => count($proposals),
+            'winner_id' => $winnerId !== '' ? $winnerId : null,
+            'arena' => $arena,
+        ];
     }
 
     /**
@@ -279,6 +345,7 @@ final class AtlasTaskBrainReplenisher
                         ."they are your commit scope). If the capability already exists elsewhere, give_back.",
                     allowed: [$newFile, $testFile],
                     accept: ["the class {$className} exists at {$newFile}", "the PHPUnit test at {$testFile} passes"],
+                    snapshotId: $model->snapshotId,
                 ),
                 $this->gapMeta($gap),
             );
@@ -393,6 +460,7 @@ final class AtlasTaskBrainReplenisher
                 'a test exercises the new call path',
                 'the scope test suite passes',
             ],
+            snapshotId: $model->snapshotId,
         );
     }
 
@@ -544,7 +612,7 @@ final class AtlasTaskBrainReplenisher
      * @param  list<string>  $accept
      * @return array<string, mixed>
      */
-    private function packet(string $id, string $objective, array $allowed, array $accept): array
+    private function packet(string $id, string $objective, array $allowed, array $accept, ?string $snapshotId = null): array
     {
         // Producer/inspector parity: a packet whose allowed_files include a
         // PROPERTY-GATED target must carry constitution_gate_receipt in
@@ -571,6 +639,14 @@ final class AtlasTaskBrainReplenisher
             'scope_in' => $allowed,
             'acceptance_criteria' => $accept,
             'required_evidence' => $evidence,
+            'finding' => 'brain-grounded-task:'.$id,
+            'proposal_baseline' => [
+                'snapshot_id' => $snapshotId ?? 'unspecified',
+                'allowed_files_hash' => hash('sha256', implode('|', $allowed)),
+            ],
+            'expected_delta' => 'deliver the declared capability change and prove it with the acceptance criteria',
+            'rollback_plan' => 'revert the scoped commit and return the packet to claimable state on failed verification',
+            'required_tests' => $accept,
             'workspace_policy' => [
                 'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
                 'isolation' => 'shared_local_main_with_scope_lock',

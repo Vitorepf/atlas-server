@@ -25,6 +25,7 @@ class AtlasTaskReplenishCommand extends Command
         {--max=40 : max tasks to mint per pass}
         {--docs-root=* : optional docs roots for the comprehension (doc-stated gaps)}
         {--with-orphans : ALSO mint orphan-wiring tasks, shaped RESOLVABLE (allowed_files carry the orphan + its grounded integration site); OFF by default — this is the complete-list mode}
+        {--require-proposal-competition : Autonomos mode: require 2+ competing quality-complete proposals before enqueue}
         {--dry-run : structure tasks and report, but enqueue nothing}
         {--watch : keep topping up on an interval (Ctrl-C to stop)}
         {--every=120 : seconds between passes in --watch}
@@ -50,6 +51,9 @@ class AtlasTaskReplenishCommand extends Command
         $docRoots = array_values(array_filter((array) $this->option('docs-root')));
         if ($docRoots !== []) {
             $opts['docs_roots'] = $docRoots;
+        }
+        if ((bool) $this->option('require-proposal-competition')) {
+            $opts['require_proposal_competition'] = true;
         }
 
         $replenisher = \App\Services\Ai\SelfConstruction\AtlasTaskServingStack::replenisher();
