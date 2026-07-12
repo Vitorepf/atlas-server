@@ -133,6 +133,22 @@ class MultiAgentLiveCycleExecutorServiceTest extends TestCase
         $this->assertSame(['context_scout', 'architect', 'implementer', 'reviewer', 'judge'], $roles);
     }
 
+    public function test_circuit_breaker_blocks_before_lanes_on_repeated_failure(): void
+    {
+        $r = $this->executor()->execute([
+            'execute' => true,
+            'finding' => ['finding_id' => 'f-repeat', 'kind' => 'test'],
+            'executable_slice' => $this->slice(),
+            'circuit_breaker' => ['failure_fingerprint' => 'same-failure', 'same_failure_count' => 3],
+            'session_id' => 'sess-repeat', 'cycle_id' => 'cyc-repeat',
+        ]);
+
+        $this->assertSame(MultiAgentLiveCycleExecutorService::STATUS_BLOCKED, $r['status']);
+        $this->assertSame('replan', $r['circuit_breaker']['status']);
+        $this->assertSame(0, $r['lane_count']);
+        $this->assertContains('circuit_breaker:replan', $r['blockers']);
+    }
+
     public function test_provider_unavailable_in_execute_mode_blocks_not_success(): void
     {
         $r = $this->executor()->execute([

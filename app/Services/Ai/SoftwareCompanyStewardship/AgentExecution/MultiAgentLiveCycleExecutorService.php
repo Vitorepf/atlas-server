@@ -105,6 +105,19 @@ final class MultiAgentLiveCycleExecutorService
             : MultiAgentLaneOrchestratorService::MODE_PLAN_ONLY;
         $useReal = (bool) ($input['use_real_services'] ?? false);
 
+            $circuitBreaker = (new MultiAgentCircuitBreaker)->evaluate([
+            ...(is_array($input['circuit_breaker'] ?? null) ? $input['circuit_breaker'] : []),
+            'execution_requested' => $executionReady,
+        ]);
+        if ($circuitBreaker['triggered'] === true) {
+            return $this->blockedReceipt(
+                $cycleId, $sessionId, $areaId, $focus, [], $scopeProfile, $mode,
+                $useReal,
+                ['circuit_breaker:'.(string) $circuitBreaker['status']],
+                ['circuit_breaker' => $circuitBreaker],
+            );
+        }
+
         $finding = is_array($input['finding'] ?? null) ? $input['finding'] : [];
 
         // 1) Resolve an executable slice (planner gate for broad factory_max).
@@ -226,6 +239,7 @@ final class MultiAgentLiveCycleExecutorService
             certification: $certification,
             mergeEligible: $mergeEligible,
             blockers: $blockers,
+            circuitBreaker: $circuitBreaker,
         );
     }
 
@@ -713,6 +727,7 @@ final class MultiAgentLiveCycleExecutorService
         array $certification,
         bool $mergeEligible,
         array $blockers,
+        array $circuitBreaker,
     ): array {
         $writeLanes = array_values(array_filter($laneSessions, static fn (array $s): bool => in_array((string) ($s['write_authority'] ?? ''), [
             MultiAgentLaneOrchestratorService::AUTHORITY_WORKTREE_WRITE,
@@ -789,6 +804,7 @@ final class MultiAgentLiveCycleExecutorService
             'blockers' => $allBlockers,
             'next_action' => $this->nextAction($status, $allBlockers, $repairPlan),
             'claim_policy' => $this->claimPolicy(),
+            'circuit_breaker' => $circuitBreaker,
         ];
 
         $payload['cycle_receipt_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
@@ -844,6 +860,7 @@ final class MultiAgentLiveCycleExecutorService
             'blockers' => $blockers,
             'next_action' => $this->nextAction(self::STATUS_BLOCKED, $blockers, null),
             'claim_policy' => $this->claimPolicy(),
+            'circuit_breaker' => $extra['circuit_breaker'] ?? null,
         ];
 
         $payload['cycle_receipt_hash'] = 'sha256:'.MissionCanonicalHash::sha256($payload);
