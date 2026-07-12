@@ -9,6 +9,7 @@ use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\MemoryScopeHelpers;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -17,7 +18,7 @@ use Illuminate\Support\Str;
 
 class AtlasVerbatimMemoryService
 {
-    use \App\Services\Ai\Support\MemoryScopeHelpers;
+    use MemoryScopeHelpers;
 
     private AtlasMemorySemanticIndexer $semanticIndexer;
 
@@ -327,6 +328,9 @@ class AtlasVerbatimMemoryService
             'importance' => in_array($memory->verbatim_type, ['decision', 'requirement', 'failure'], true) ? 4 : 3,
             'priority' => in_array($memory->verbatim_type, ['decision', 'requirement'], true) ? 80 : 65,
             'confidence' => 0.95,
+            'privacy_class' => $memory->privacy_class,
+            'external_ai_allowed' => $memory->external_ai_allowed,
+            'redaction_status' => $memory->redaction_status,
             'source_type' => 'atlas_verbatim_memory',
             'source_id' => $memory->id,
             'source_label' => 'Atlas Verbatim Store',
@@ -358,7 +362,7 @@ class AtlasVerbatimMemoryService
             : null;
 
         if ($entry) {
-            $entry->forceFill($payload)->save();
+            $entry = $this->registry->curate($entry, $payload);
         } else {
             $entry = $this->registry->record($payload);
         }

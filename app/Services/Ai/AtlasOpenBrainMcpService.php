@@ -36,18 +36,19 @@ use App\Services\Ai\Kernel\Evidence\KernelReplayReportInput;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
 use App\Services\Ai\Kernel\Mcp\OpenBrainMcpInput;
+use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Engineering\CodeGraph\CodeGraphAdjacencyIndex;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
-use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
@@ -148,6 +149,7 @@ class AtlasOpenBrainMcpService
         private readonly AtlasOpenBrainWriteBackService $writeBack,
         private readonly AtlasAobgWorkspaceOnboardingService $workspaceOnboarding,
         private readonly AtlasAobgBlackboardService $blackboard,
+        private readonly AtlasMemoryRegistryService $registry,
     ) {
         $this->processStartedAt = Carbon::now()->toIso8601String();
     }
@@ -1817,7 +1819,7 @@ class AtlasOpenBrainMcpService
         $tags = is_array($arguments['tags'] ?? null) ? $arguments['tags'] : [];
         $evidence = is_array($arguments['evidence'] ?? null) ? $arguments['evidence'] : [];
 
-        $entry = AtlasMemoryEntry::create([
+        $entry = $this->registry->record([
             'memory_type' => $memoryType,
             'scope_type' => $scopeType,
             'scope_id' => $this->string($arguments['scope_id'] ?? null),
@@ -1842,15 +1844,6 @@ class AtlasOpenBrainMcpService
             'metadata' => ['evidence' => $evidence, 'context' => $context],
             'recorded_at' => now(),
         ]);
-
-        // D3 (Obra #18) — the MCP record path bypasses AtlasMemoryRegistryService's
-        // accruals, so relate this new entry against its (type,scope) bucket here too.
-        // Fail-open: relation accrual must never fail the record tool.
-        try {
-            app(AtlasMemoryGovernanceService::class)->relateNewEntry($entry);
-        } catch (Throwable) {
-            // never fail the record tool over relation accrual
-        }
 
         return [
             'ok' => true,
@@ -2628,7 +2621,7 @@ class AtlasOpenBrainMcpService
         }
 
         try {
-            $tier = app(\App\Services\Ai\Mcp\AtlasMcpTierService::class);
+            $tier = app(AtlasMcpTierService::class);
 
             return [
                 'enabled' => true,

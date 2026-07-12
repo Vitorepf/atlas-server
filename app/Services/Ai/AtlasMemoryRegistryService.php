@@ -7,6 +7,7 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasProject;
 use App\Models\AtlasTask;
 use App\Services\Ai\Brain\AtlasMemoryJournal;
+use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 use App\Services\Ai\Memory\AtlasMemoryRationalePolicy;
 use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
@@ -19,6 +20,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Throwable;
 
 class AtlasMemoryRegistryService
@@ -35,12 +37,15 @@ class AtlasMemoryRegistryService
 
     private ?AtlasMemoryJournal $journal;
 
+    private CognitiveImmunePromotionGateEvaluator $admissionEvaluator;
+
     public function __construct(
         ?AtlasMemoryPrivacyService $privacy = null,
         ?MemoryQueryInput $input = null,
         ?AtlasMemorySemanticIndexer $semanticIndexer = null,
         ?AtlasRealityGraphIngestionService $realityGraphIngestion = null,
         ?AtlasMemoryJournal $journal = null,
+        ?CognitiveImmunePromotionGateEvaluator $admissionEvaluator = null,
     ) {
         $this->privacy = $privacy ?? app(AtlasMemoryPrivacyService::class);
         $this->input = $input ?? app(MemoryQueryInput::class);
@@ -50,6 +55,7 @@ class AtlasMemoryRegistryService
         $this->realityGraphIngestion = $realityGraphIngestion;
         // SIS8 — journal-first reversibility; lazy + fail-open like the accrual above.
         $this->journal = $journal;
+        $this->admissionEvaluator = $admissionEvaluator ?? app(CognitiveImmunePromotionGateEvaluator::class);
     }
 
     /**
@@ -58,6 +64,7 @@ class AtlasMemoryRegistryService
     public function record(array $attributes): AtlasMemoryEntry
     {
         $payload = $this->normalize($attributes);
+        $payload = $this->applyAdmission($payload, 'record', $attributes);
 
         $entry = AtlasMemoryEntry::query()->create($payload);
         // SIS8 — journal-first: record the authoritative mutation before any
@@ -81,6 +88,7 @@ class AtlasMemoryRegistryService
     public function upsert(array $identity, array $attributes): AtlasMemoryEntry
     {
         $payload = $this->normalize($attributes);
+        $payload = $this->applyAdmission($payload, 'upsert', $attributes);
 
         $entry = AtlasMemoryEntry::query()->updateOrCreate($identity, $payload);
         $this->journal($entry, 'upsert');
@@ -132,6 +140,7 @@ class AtlasMemoryRegistryService
             unset($merged['content_hash']);
         }
         $payload = $this->normalize($merged);
+        $payload = $this->applyAdmission($payload, 'curate', $attributes);
 
         $entry->fill($payload)->save();
         $this->journal($entry, 'curate');
@@ -184,6 +193,155 @@ class AtlasMemoryRegistryService
         } catch (Throwable $throwable) {
             report($throwable);
         }
+    }
+
+    /**
+     * ASI-02 (+ELEV-08) — the single memory-admission chokepoint. Every Registry
+     * mutation receives the same G0-G8 cognitive-immune receipt. Lote 1 stays in
+     * observe by default: forbid gates are recorded per writer but do not block
+     * until the operator flips the mode to enforce.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $rawAttributes
+     * @return array<string,mixed>
+     */
+    private function applyAdmission(array $payload, string $operation, array $rawAttributes = []): array
+    {
+        $writer = $this->admissionWriter($payload, $operation);
+        $receipt = $this->evaluateAdmission(array_merge($payload, [
+            'immune_signals' => $rawAttributes['immune_signals'] ?? data_get($payload, 'metadata.immune_signals', []),
+        ]), $writer);
+
+        if (($receipt['mode'] ?? 'observe') === 'enforce' && ($receipt['blocks_write'] ?? false) === true) {
+            throw new InvalidArgumentException('memory_admission_blocked:'.implode(',', (array) data_get($receipt, 'verdict.blocking_gate_ids', [])));
+        }
+
+        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        data_set($metadata, 'acos_max.asi_02.admission', $receipt);
+        $payload['metadata'] = $metadata;
+
+        return $payload;
+    }
+
+    /**
+     * Exposed for existing candidate/write-back doors so they can delegate to the
+     * same G0-G8 evaluator without creating a second admission policy.
+     *
+     * @param  array<string,mixed>  $attributes
+     * @return array<string,mixed>
+     */
+    public function evaluateAdmission(array $attributes, string $writer = 'registry'): array
+    {
+        $mode = strtolower((string) config('atlas.memory_admission.mode', 'observe'));
+        if (! in_array($mode, ['observe', 'enforce'], true)) {
+            $mode = 'observe';
+        }
+
+        $verdict = $this->admissionEvaluator->evaluate($this->admissionSignals($attributes));
+        $blockingGateIds = array_values((array) ($verdict['blocking_gate_ids'] ?? []));
+
+        return [
+            'schema_version' => 'atlas.acos_max.memory_admission.v1',
+            'slice' => 'ASI-02',
+            'elevation' => 'ELEV-08',
+            'mode' => $mode,
+            'writer' => $writer,
+            'blocks_write' => $mode === 'enforce' && $blockingGateIds !== [],
+            'verdict' => $verdict,
+            'evaluated_at' => now()->toJSON(),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function admissionWindowReport(int $minWrites = 50): array
+    {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+            return [
+                'status' => 'pending_window',
+                'writes' => 0,
+                'gate_evaluations' => 0,
+                'min_writes' => $minWrites,
+                'note' => 'ELEV-14: observe window awaits real memory writes; do not fake green.',
+            ];
+        }
+
+        $entries = AtlasMemoryEntry::query()->get(['id', 'metadata']);
+        $writes = $entries->count();
+        $evaluations = $entries
+            ->filter(fn (AtlasMemoryEntry $entry): bool => is_array(data_get($entry->metadata, 'acos_max.asi_02.admission')))
+            ->count();
+
+        return [
+            'status' => $writes >= $minWrites && $evaluations === $writes ? 'ready' : 'pending_window',
+            'writes' => $writes,
+            'gate_evaluations' => $evaluations,
+            'min_writes' => $minWrites,
+            'note' => $writes >= $minWrites
+                ? 'ASI-02 observe window has enough real writes; require gate_evaluations == writes before enforce.'
+                : 'ELEV-14: observe window may be filled by Autonomos at 1 worker; pending_window is honest until >=50 real writes.',
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $attributes
+     * @return array<string,mixed>
+     */
+    private function admissionSignals(array $attributes): array
+    {
+        $metadata = is_array($attributes['metadata'] ?? null) ? $attributes['metadata'] : [];
+        $immuneSignals = is_array($attributes['immune_signals'] ?? null)
+            ? $attributes['immune_signals']
+            : (is_array(data_get($metadata, 'immune_signals')) ? data_get($metadata, 'immune_signals') : []);
+        $privacyClass = strtolower($this->stringValue($attributes['privacy_class'] ?? data_get($metadata, 'privacy.class') ?? 'normal'));
+        $externalAllowed = ! array_key_exists('external_ai_allowed', $attributes) || $attributes['external_ai_allowed'] !== false;
+        $body = $this->stringValue($attributes['body'] ?? '');
+        $summary = $this->stringValue($attributes['summary'] ?? '');
+        $title = $this->stringValue($attributes['title'] ?? '');
+        $sourcePresent = $this->stringValue($attributes['source_type'] ?? '') !== ''
+            || $this->stringValue($attributes['source_id'] ?? '') !== ''
+            || $this->stringValue($attributes['source_label'] ?? '') !== ''
+            || (array) data_get($metadata, 'evidence_refs', []) !== []
+            || (array) data_get($metadata, 'paths', []) !== [];
+
+        return array_merge([
+            'atomic_claim_present' => trim($body.$summary.$title) !== '',
+            'claim_type' => $this->stringValue($attributes['memory_type'] ?? ($attributes['kind'] ?? 'technical_context')),
+            'claim_source_present' => $sourcePresent,
+            'scope' => $this->stringValue($attributes['scope_type'] ?? ($attributes['scope'] ?? 'global')),
+            'consent_granted' => (bool) data_get($metadata, 'consent_granted', true),
+            'retention_ok' => (bool) data_get($metadata, 'retention_ok', true),
+            'privacy_class' => $privacyClass !== '' ? $privacyClass : 'normal',
+            'provider_safe' => $externalAllowed && ! in_array($privacyClass, ['secret', 'sensitive'], true),
+            'contains_secret' => in_array($privacyClass, ['secret'], true) || $this->looksSecret($title."\n".$summary."\n".$body),
+            'contains_sensitive_unnecessary' => in_array($privacyClass, ['sensitive'], true) || ! $externalAllowed,
+            'future_utility' => true,
+            'novelty' => true,
+            'outcome_validated' => (bool) data_get($metadata, 'outcome_validated', false),
+            'promotion_mode_hint' => $this->stringValue(data_get($metadata, 'promotion_mode_hint', 'review')),
+            'on_probation' => (bool) data_get($metadata, 'on_probation', false),
+        ], $immuneSignals);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     */
+    private function admissionWriter(array $payload, string $operation): string
+    {
+        $source = trim((string) ($payload['source_type'] ?? 'registry'));
+
+        return $source !== '' ? $operation.':'.$source : $operation.':registry';
+    }
+
+    private function stringValue(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private function looksSecret(string $text): bool
+    {
+        return preg_match('/\b(sk-[A-Za-z0-9_-]{12,}|api[_-]?key|secret[_-]?key|password|token=)/i', $text) === 1;
     }
 
     /**
@@ -541,11 +699,11 @@ class AtlasMemoryRegistryService
             $body .= ' motivo: resultado registrado para preservar aprendizado operacional do engineering_run.';
         }
 
-        $entry = AtlasMemoryEntry::query()->updateOrCreate([
+        return $this->upsert([
             'memory_type' => 'harness_learning',
             'source_type' => 'engineering_run',
             'source_id' => $run->id,
-        ], $this->normalize([
+        ], [
             'memory_type' => 'harness_learning',
             'scope_type' => 'engineering_run',
             'scope_id' => $run->id,
@@ -575,11 +733,7 @@ class AtlasMemoryRegistryService
                 'context_pack_hash' => $run->context_pack_hash,
                 'blocking_reasons' => $blockingReasons,
             ]),
-        ]));
-        $this->accrueRealityGraph($entry);
-        $this->accrueRelations($entry);
-
-        return $entry;
+        ]);
     }
 
     /**

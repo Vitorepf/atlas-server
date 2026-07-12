@@ -208,6 +208,7 @@ final class AtlasOpenBrainWriteBackServiceTest extends TestCase
         $result = $this->service()->recordOutcome([
             'id' => 'task-no-store',
             'request' => 'do the thing',
+            'evidence_refs' => ['test:brain-store-absent'],
         ]);
 
         $this->assertFalse($result['ok'], 'no store ⇒ honest not-recorded');
@@ -229,6 +230,7 @@ final class AtlasOpenBrainWriteBackServiceTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/call',
             'params' => ['name' => 'atlas_record_outcome', 'arguments' => [
                 'id' => 'mcp-task-1', 'request' => 'add the cache', 'delivered' => true,
+                'evidence_refs' => ['test:mcp-record-outcome'],
             ]],
         ]);
         $recStruct = $rec['result']['structuredContent'];

@@ -74,6 +74,8 @@ final class AtlasMemoryCandidateGateService
             'importance' => (int) ($payload['importance'] ?? 3),
             'priority' => (int) ($payload['priority'] ?? 70),
             'confidence' => (float) ($payload['confidence'] ?? 0.75),
+            'privacy_class' => (string) ($payload['privacy_class'] ?? 'normal'),
+            'external_ai_allowed' => (bool) ($payload['external_ai_allowed'] ?? true),
             'source_type' => 'memory_candidate',
             'source_id' => (string) $candidate->id,
             'source_label' => 'atlas:memory:capture-candidates',
@@ -84,6 +86,7 @@ final class AtlasMemoryCandidateGateService
             'metadata' => [
                 'paths' => array_values((array) ($payload['paths'] ?? [])),
                 'domains' => array_values(array_filter([(string) ($payload['domain'] ?? '')])),
+                'immune_signals' => is_array($payload['immune_signals'] ?? null) ? $payload['immune_signals'] : [],
                 'candidate' => [
                     'id' => (string) $candidate->id,
                     'source' => (string) ($payload['source_path'] ?? $payload['source_id'] ?? ''),
@@ -95,7 +98,7 @@ final class AtlasMemoryCandidateGateService
 
         $metadata = $entry->metadata ?? [];
         data_set($metadata, 'candidate.reverse_handle', 'php artisan atlas:ai:memory-forget '.$entry->id.'   (undo: --restore)');
-        $entry->forceFill(['metadata' => $metadata])->save();
+        $entry = $this->registry->curate($entry, ['metadata' => $metadata]);
 
         $candidate->forceFill([
             'status' => 'admitted',
@@ -126,6 +129,7 @@ final class AtlasMemoryCandidateGateService
         $memoryType = $this->enumOrDefault($payload['memory_type'] ?? $payload['type'] ?? null, AtlasMemoryEntry::TYPES, 'technical_context');
         $scopeType = $this->enumOrDefault($payload['scope_type'] ?? null, AtlasMemoryEntry::SCOPES, 'global');
         $scopeId = $scopeType === 'global' ? null : $this->stringOrNull($payload['scope_id'] ?? null);
+        $privacyClass = $this->enumOrDefault($payload['privacy_class'] ?? null, AtlasMemoryEntry::PRIVACY_CLASSES, 'normal');
 
         return [
             'source_type' => $sourcePath !== null ? 'docs' : 'manual',
@@ -142,6 +146,9 @@ final class AtlasMemoryCandidateGateService
             'importance' => $payload['importance'] ?? 3,
             'priority' => $payload['priority'] ?? 70,
             'confidence' => $payload['confidence'] ?? 0.75,
+            'privacy_class' => $privacyClass,
+            'external_ai_allowed' => array_key_exists('external_ai_allowed', $payload) ? (bool) $payload['external_ai_allowed'] : true,
+            'immune_signals' => is_array($payload['immune_signals'] ?? null) ? $payload['immune_signals'] : [],
             'rationale_hash' => hash('sha256', mb_strtolower(trim($body))),
         ];
     }
@@ -182,12 +189,17 @@ final class AtlasMemoryCandidateGateService
         if ($this->rationaleReuseCount((string) ($payload['rationale_hash'] ?? '')) >= 3) {
             $missing[] = 'rationale_distinction_required';
         }
+        $admission = $this->registry->evaluateAdmission(array_merge($payload, [
+            'source_type' => 'memory_candidate',
+            'source_label' => 'atlas:memory:capture-candidates',
+        ]), 'memory_candidate');
 
         return [
             'passed' => $missing === [],
             'missing_checks' => array_values(array_unique($missing)),
             'checked_at' => now()->toJSON(),
-            'provider_safe' => true,
+            'provider_safe' => data_get($admission, 'verdict.gate_statuses.G3') === 'pass',
+            'admission' => $admission,
             'rationale_hash' => (string) ($payload['rationale_hash'] ?? ''),
         ];
     }

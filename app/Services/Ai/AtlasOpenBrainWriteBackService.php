@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\AiLearningProposal;
-use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldRegistryGovernance;
@@ -35,7 +35,7 @@ use Throwable;
  *      BRANCH ref — NEVER a merge to main).
  *   2. propose_learning → {@see AtlasLearningProposalService::propose()}
  *      (the canonical compounding admission pipeline: runs the
- *      {@see \App\Services\Ai\Compounding\AtlasCaptureQualityGate} that rejects noise,
+ *      {@see AtlasCaptureQualityGate} that rejects noise,
  *      dedups by content, and ALWAYS materialises status='proposed' — `apply`/
  *      `auto_apply` are rejected by that service, so this surface CANNOT auto-promote).
  *
@@ -88,6 +88,7 @@ class AtlasOpenBrainWriteBackService
         private readonly AtlasRealityGraphIngestionService $ingestion,
         private readonly AtlasLearningProposalService $proposals,
         private readonly CodeGraphWorkspaceIdentity $workspaceIdentity,
+        private readonly AtlasMemoryRegistryService $registry,
     ) {}
 
     /**
@@ -96,16 +97,16 @@ class AtlasOpenBrainWriteBackService
      * merge. Idempotent (re-recording the same outcome collapses to the same nodes).
      *
      * @param  array<string,mixed>  $input  untrusted:
-     *   - id        (required) external mission/task ref (the node identity).
-     *   - request   (required) what the session was asked to do (label, redacted).
-     *   - files     array<string> paths the session touched (bounded).
-     *   - branch    optional branch ref (never a merge).
-     *   - provider  optional provider/agent label.
-     *   - delivered optional bool (default false).
-     *   - result    optional {status|ok} — the test/measure result.
-     *   - memory_refs array<string> cited existing memory node ids/source ids.
-     *   - privacy_class optional self-declared class — MUST be `normal` or omitted.
-     *   - workspace / cwd optional — resolved + recorded for audit (never leaked).
+     *                                      - id        (required) external mission/task ref (the node identity).
+     *                                      - request   (required) what the session was asked to do (label, redacted).
+     *                                      - files     array<string> paths the session touched (bounded).
+     *                                      - branch    optional branch ref (never a merge).
+     *                                      - provider  optional provider/agent label.
+     *                                      - delivered optional bool (default false).
+     *                                      - result    optional {status|ok} — the test/measure result.
+     *                                      - memory_refs array<string> cited existing memory node ids/source ids.
+     *                                      - privacy_class optional self-declared class — MUST be `normal` or omitted.
+     *                                      - workspace / cwd optional — resolved + recorded for audit (never leaked).
      * @return array<string,mixed>
      */
     public function recordOutcome(array $input): array
@@ -203,14 +204,14 @@ class AtlasOpenBrainWriteBackService
      * NEVER auto-promotes, NEVER mutates canonical memory.
      *
      * @param  array<string,mixed>  $input  untrusted:
-     *   - kind         (required) one of {@see AtlasLearningProposalService::ALLOWED_KINDS}.
-     *   - summary      (required) the proposed learning, one sentence.
-     *   - evidence_refs(required) array<string> file:line / id / hash citations.
-     *   - scope        optional scope (default global).
-     *   - current_state / proposed_state optional structured detail.
-     *   - flow_id      optional audit ref.
-     *   - privacy_class optional self-declared class — MUST be `normal` or omitted.
-     *   - workspace / cwd optional — resolved + recorded for audit.
+     *                                      - kind         (required) one of {@see AtlasLearningProposalService::ALLOWED_KINDS}.
+     *                                      - summary      (required) the proposed learning, one sentence.
+     *                                      - evidence_refs(required) array<string> file:line / id / hash citations.
+     *                                      - scope        optional scope (default global).
+     *                                      - current_state / proposed_state optional structured detail.
+     *                                      - flow_id      optional audit ref.
+     *                                      - privacy_class optional self-declared class — MUST be `normal` or omitted.
+     *                                      - workspace / cwd optional — resolved + recorded for audit.
      * @return array<string,mixed>
      */
     public function proposeLearning(array $input): array
@@ -245,10 +246,17 @@ class AtlasOpenBrainWriteBackService
 
             $workspaceId = $this->resolveWorkspaceId($input);
 
-            // Obra 2 / MEM-01/02: G0–G8 promotion gate evaluator (fail-closed when blocked).
-            $immuneBlock = $this->cognitiveImmunePromotionBlock($kind, $summary, $evidenceRefs, $input);
-            if ($immuneBlock !== null) {
-                return $immuneBlock;
+            $admission = $this->cognitiveImmuneAdmission($kind, $summary, $evidenceRefs, $input);
+            if (($admission['blocks_write'] ?? false) === true) {
+                $blocked = $this->reject(
+                    self::ACTION_PROPOSE_LEARNING,
+                    self::REJECT_QUALITY,
+                    'cognitive_immune_promotion_blocked:'.implode(',', (array) data_get($admission, 'verdict.blocking_gate_ids', [])),
+                    $input,
+                );
+                $blocked['memory_admission'] = $admission;
+
+                return $blocked;
             }
 
             // Delegate to the canonical admission pipeline. It runs the capture quality
@@ -275,7 +283,7 @@ class AtlasOpenBrainWriteBackService
                 return $this->reject(self::ACTION_PROPOSE_LEARNING, self::REJECT_INVALID, $e->getMessage(), $input);
             }
 
-            return $this->proposalEnvelope($proposal, $workspaceId, $input);
+            return $this->proposalEnvelope($proposal, $workspaceId, $input, $admission);
         } catch (Throwable $e) {
             return $this->failOpen(self::ACTION_PROPOSE_LEARNING, $e);
         }
@@ -332,7 +340,7 @@ class AtlasOpenBrainWriteBackService
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
-    private function proposalEnvelope(AiLearningProposal $proposal, string $workspaceId, array $input): array
+    private function proposalEnvelope(AiLearningProposal $proposal, string $workspaceId, array $input, array $admission = []): array
     {
         $status = (string) ($proposal->status ?? 'proposed');
         // The capture gate's 'enforce' mode returns a TRANSIENT model with
@@ -356,6 +364,7 @@ class AtlasOpenBrainWriteBackService
             'status' => $gateRejected ? self::REJECT_QUALITY : 'pending_review',
             'kind' => (string) ($proposal->kind ?? ''),
             'quality' => (array) data_get($proposal->payload, 'quality', []),
+            'memory_admission' => $admission,
             'reason' => $gateRejected
                 ? (string) data_get($proposal->payload, 'quality.reason', 'low_quality')
                 : 'pending_review',
@@ -394,53 +403,32 @@ class AtlasOpenBrainWriteBackService
     }
 
     /**
-     * Obra 2 / MEM-01/02: run G0–G8 promotion evaluator when enabled.
-     * Only hard-blocks when promotion_status=blocked (safety/contradiction).
-     * Pending/candidate still allow propose (never auto-promote).
+     * ASI-02: write-back delegates G0–G8 classification to the registry
+     * chokepoint evaluator. In observe mode this is a receipt only; in enforce
+     * mode forbid gates become a reject envelope above.
      *
      * @param  list<string>  $evidenceRefs
      * @param  array<string,mixed>  $input
-     * @return array<string,mixed>|null
+     * @return array<string,mixed>
      */
-    private function cognitiveImmunePromotionBlock(string $kind, string $summary, array $evidenceRefs, array $input): ?array
+    private function cognitiveImmuneAdmission(string $kind, string $summary, array $evidenceRefs, array $input): array
     {
-        try {
-            $kernel = app(AtlasMemoryCognitiveImmuneLearningKernelService::class);
-            $signals = array_merge([
-                'atomic_claim_present' => $summary !== '',
-                'claim_type' => $kind,
-                'claim_source_present' => $evidenceRefs !== [],
-                'scope' => $this->string($input['scope'] ?? null) ?? 'global',
-                'consent_granted' => true,
-                'retention_ok' => true,
-                'privacy_class' => $this->string($input['privacy_class'] ?? null) ?? 'normal',
-                'provider_safe' => true,
-                'contains_secret' => false,
-                'contains_sensitive_unnecessary' => false,
-                'future_utility' => true,
-                'novelty' => true,
-                'outcome_validated' => false,
+        return $this->registry->evaluateAdmission([
+            'memory_type' => $kind,
+            'scope_type' => $this->string($input['scope'] ?? null) ?? 'global',
+            'title' => $summary,
+            'summary' => $summary,
+            'body' => $summary,
+            'source_type' => 'aobg_write_back',
+            'source_label' => 'atlas_propose_learning',
+            'privacy_class' => $this->string($input['privacy_class'] ?? null) ?? 'normal',
+            'external_ai_allowed' => true,
+            'metadata' => [
+                'evidence_refs' => $evidenceRefs,
                 'promotion_mode_hint' => 'human_review',
-                'on_probation' => false,
-            ], is_array($input['immune_signals'] ?? null) ? $input['immune_signals'] : []);
-
-            $verdict = $kernel->evaluatePromotionGates($signals);
-            if ($verdict === null) {
-                return null;
-            }
-            if (($verdict['promotion_status'] ?? '') === 'blocked') {
-                return $this->reject(
-                    self::ACTION_PROPOSE_LEARNING,
-                    self::REJECT_QUALITY,
-                    'cognitive_immune_promotion_blocked:'.implode(',', (array) ($verdict['blocking_gate_ids'] ?? [])),
-                    $input,
-                );
-            }
-        } catch (Throwable) {
-            // Fail-open on evaluator infra — capture quality gate still runs.
-        }
-
-        return null;
+                'immune_signals' => is_array($input['immune_signals'] ?? null) ? $input['immune_signals'] : [],
+            ],
+        ], 'aobg_write_back:propose_learning');
     }
 
     private function failOpen(string $action, Throwable $e): array
@@ -621,5 +609,4 @@ class AtlasOpenBrainWriteBackService
 
         return array_slice($value, 0, max(0, $maxKeys), true);
     }
-
 }
