@@ -1309,6 +1309,38 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('source_mix:', $pack['markdown']);
     }
 
+    public function test_maxe07_ev_weighted_source_policy_is_monotonic_and_floor_bounded(): void
+    {
+        config()->set('atlas.aobg.source_selection_ev_weighted', true);
+        $method = new \ReflectionMethod($this->service(), 'sourceSelectionPolicy');
+        $method->setAccessible(true);
+
+        $weak = $method->invoke($this->service(), [
+            'code' => ['delivered' => 4, 'used' => 4, 'unused' => 0, 'noise' => 0, 'utility_sum' => 360, 'utility_count' => 4],
+            'memory' => ['delivered' => 4, 'used' => 2, 'unused' => 2, 'noise' => 0, 'utility_sum' => 20, 'utility_count' => 2],
+            'graph' => ['delivered' => 4, 'used' => 0, 'unused' => 4, 'noise' => 0],
+        ], 3);
+        $strong = $method->invoke($this->service(), [
+            'memory' => ['delivered' => 4, 'used' => 2, 'unused' => 2, 'noise' => 0, 'utility_sum' => 160, 'utility_count' => 2],
+        ], 3);
+
+        $this->assertSame('atlas.aobg.source_selection_policy.v2', $weak['schema_version']);
+        $this->assertSame('atlas.aobg.source_selection_ev_weighted.v1', $weak['formula_version']);
+        $this->assertSame('ev_weighted', $weak['mode']);
+        $this->assertSame(1.0, data_get($weak, 'budget_multipliers.code'));
+        $this->assertGreaterThanOrEqual(0.5, data_get($weak, 'budget_multipliers.memory'));
+        $this->assertLessThan(1.0, data_get($weak, 'budget_multipliers.memory'));
+        $this->assertGreaterThan(
+            data_get($weak, 'budget_multipliers.memory'),
+            data_get($strong, 'budget_multipliers.memory'),
+            'higher measured utility must monotonically raise the multiplier',
+        );
+        $this->assertSame(1.0, data_get($weak, 'budget_multipliers.graph'), 'bucket without measured utility stays neutral');
+        $this->assertSame(0.5, data_get($weak, 'guardrails.multiplier_floor'));
+        $this->assertFalse(data_get($weak, 'guardrails.raw_text_exposed'));
+        config()->set('atlas.aobg.source_selection_ev_weighted', false);
+    }
+
     public function test_MeasuredOnlyPolicy_ignores_synthetic_and_low_attribution_before_shrinking(): void
     {
         $this->bootCompoundingSchema();

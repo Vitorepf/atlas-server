@@ -4628,6 +4628,11 @@ return [
         // Default-OFF: pacote é byte-idêntico enquanto flag desligada; ligar só depois de
         // A/B provado no golden v2 (ELEV-01).
         'facet_retrieval' => (bool) env('ATLAS_AOBG_FACET_RETRIEVAL', false),
+        // MAXE-07: source budget multipliers from measured expected value
+        // (used_ratio * post_execution_utility by source bucket). Default-OFF;
+        // v1 fixed-step source policy remains authoritative until enough measured
+        // COM feedback exists and the operator flips this mode.
+        'source_selection_ev_weighted' => (bool) env('ATLAS_AOBG_SOURCE_SELECTION_EV_WEIGHTED', false),
         // Deterministic cross-source Reciprocal Rank Fusion receipt. It only
         // reorders already provider-safe refs and invokes no provider.
         // Mode ladder: offline → shadow → canary → default (see AtlasIntelligenceRolloutMode).

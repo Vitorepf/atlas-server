@@ -1210,6 +1210,9 @@ class AtlasOpenBrainContextPackService
                 $demoteContextRefs = array_merge($demoteContextRefs, $this->stringList(data_get($nextPolicy, 'demote_context_refs', [])));
             }
             $sourceTypeStats = $this->mergeSourceTypeStats($sourceTypeStats, $attribution);
+            if ($utility !== null) {
+                $sourceTypeStats = $this->mergeSourceUtilityStats($sourceTypeStats, $attribution, $utility);
+            }
             if ((string) $event->feedback_hash !== '') {
                 $feedbackHashes[] = (string) $event->feedback_hash;
             }
@@ -1398,6 +1401,10 @@ class AtlasOpenBrainContextPackService
      */
     private function sourceSelectionPolicy(array $stats, int $actionableFeedbackCount): array
     {
+        if ((bool) config('atlas.aobg.source_selection_ev_weighted', false)) {
+            return $this->evWeightedSourceSelectionPolicy($stats, $actionableFeedbackCount);
+        }
+
         $multipliers = [
             'code' => 1.0,
             'graph' => 1.0,
@@ -1464,6 +1471,91 @@ class AtlasOpenBrainContextPackService
     }
 
     /**
+     * MAXE-07 — formula v2. Continuous source multipliers from measured expected
+     * value: used_ratio * average post_execution_utility for refs actually used
+     * in that source bucket. Buckets without measured signal stay neutral.
+     *
+     * @param  array<string,array<string,int|float>>  $stats
+     * @return array<string,mixed>
+     */
+    private function evWeightedSourceSelectionPolicy(array $stats, int $actionableFeedbackCount): array
+    {
+        $multipliers = [
+            'code' => 1.0,
+            'graph' => 1.0,
+            'memory' => 1.0,
+        ];
+        $sourceTypes = [];
+        $actions = [];
+
+        foreach (['code', 'graph', 'memory'] as $type) {
+            $row = $stats[$type] ?? ['delivered' => 0, 'used' => 0, 'unused' => 0, 'noise' => 0];
+            $delivered = max(0, (int) ($row['delivered'] ?? 0));
+            $used = max(0, (int) ($row['used'] ?? 0));
+            $unused = max(0, (int) ($row['unused'] ?? 0));
+            $noise = max(0, (int) ($row['noise'] ?? 0));
+            $utilityCount = max(0, (int) ($row['utility_count'] ?? 0));
+            $utilitySum = max(0.0, (float) ($row['utility_sum'] ?? 0.0));
+            $useRatio = $delivered > 0 ? round($used / $delivered, 4) : 0.0;
+            $wasteRatio = $delivered > 0 ? round(($unused + $noise) / $delivered, 4) : 0.0;
+            $avgUtility = $utilityCount > 0 ? round($utilitySum / $utilityCount, 4) : null;
+            $expectedValue = $avgUtility === null ? null : round($useRatio * ($avgUtility / 100), 4);
+
+            $multiplier = 1.0;
+            $action = 'keep';
+            if ($actionableFeedbackCount > 0
+                && $delivered >= AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS
+                && $utilityCount >= AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS
+                && $expectedValue !== null) {
+                $multiplier = round(max(0.5, min(1.0, 0.5 + $expectedValue)), 4);
+                $action = $multiplier < 1.0 ? 'ev_weighted_adjust_initial_share' : 'preserve_initial_share';
+            } elseif ($delivered >= AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS) {
+                $action = 'insufficient_ev_signal';
+            }
+
+            $multipliers[$type] = $multiplier;
+            if ($action !== 'keep') {
+                $actions[] = $action.':'.$type;
+            }
+            $sourceTypes[$type] = [
+                'delivered' => $delivered,
+                'used' => $used,
+                'unused' => $unused,
+                'noise' => $noise,
+                'use_ratio' => $useRatio,
+                'waste_ratio' => $wasteRatio,
+                'utility_count' => $utilityCount,
+                'average_utility' => $avgUtility,
+                'expected_value' => $expectedValue,
+                'action' => $action,
+                'budget_multiplier' => $multiplier,
+                'minimum_measured_events' => AtlasContextFeedbackSignalPolicy::SOURCE_BUCKET_MIN_EVENTS,
+            ];
+        }
+
+        $applied = min($multipliers) < 1.0;
+
+        return [
+            'schema_version' => 'atlas.aobg.source_selection_policy.v2',
+            'formula_version' => 'atlas.aobg.source_selection_ev_weighted.v1',
+            'mode' => 'ev_weighted',
+            'status' => $applied ? 'active' : ($actionableFeedbackCount > 0 ? 'observed' : 'inactive'),
+            'applied_to_initial_pack' => $applied,
+            'actions' => $actions !== [] ? $actions : ['keep_source_mix'],
+            'budget_multipliers' => $multipliers,
+            'source_types' => $sourceTypes,
+            'guardrails' => [
+                'min_top_item_per_present_source' => true,
+                'expansion_handles_remain_available' => true,
+                'raw_text_exposed' => false,
+                'auto_apply_scope' => $applied ? 'bounded_source_mix_only' : 'none',
+                'multiplier_floor' => 0.5,
+                'multiplier_ceiling' => 1.0,
+            ],
+        ];
+    }
+
+    /**
      * @param  array<string,array<string,int>>  $stats
      * @param  array<string,mixed>  $attribution
      * @return array<string,array<string,int>>
@@ -1487,6 +1579,29 @@ class AtlasOpenBrainContextPackService
                 $stats[$type] ??= ['delivered' => 0, 'used' => 0, 'unused' => 0, 'noise' => 0];
                 $stats[$type][$bucket] = ($stats[$type][$bucket] ?? 0) + 1;
             }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @param  array<string,array<string,int|float>>  $stats
+     * @param  array<string,mixed>  $attribution
+     * @return array<string,array<string,int|float>>
+     */
+    private function mergeSourceUtilityStats(array $stats, array $attribution, float $utility): array
+    {
+        foreach ((array) ($attribution['used_refs'] ?? []) as $ref) {
+            if (! is_array($ref)) {
+                continue;
+            }
+            $type = $this->normalizedInitialSourceType((string) ($ref['source_type'] ?? $ref['ref'] ?? ''));
+            if ($type === null) {
+                continue;
+            }
+            $stats[$type] ??= ['delivered' => 0, 'used' => 0, 'unused' => 0, 'noise' => 0];
+            $stats[$type]['utility_sum'] = (float) ($stats[$type]['utility_sum'] ?? 0.0) + $utility;
+            $stats[$type]['utility_count'] = (int) ($stats[$type]['utility_count'] ?? 0) + 1;
         }
 
         return $stats;
