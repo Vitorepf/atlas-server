@@ -50,6 +50,24 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertFalse($manifest['shadow']['mutation_allowed']);
     }
 
+    public function test_readiness_flags_cannot_synthesize_soak_or_world_claims(): void
+    {
+        $input = $this->input();
+        $input['quality_foundry_ready'] = true;
+        $input['soak_elapsed'] = true;
+        $input['multiplier_proven'] = true;
+        $input['world_leading'] = true;
+        $input['world_10x_quality_proven'] = true;
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertFalse($manifest['claim_eligible']);
+        self::assertFalse($manifest['comparative_claims_allowed']);
+        self::assertArrayNotHasKey('soak_elapsed', $manifest);
+        self::assertArrayNotHasKey('world_leading', $manifest);
+        self::assertArrayNotHasKey('world_10x_quality_proven', $manifest);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {

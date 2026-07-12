@@ -160,7 +160,7 @@ Brain → Proposal Arena → Product/Spec Courts → atomic reservation
 ```
 
 - [ ] Write RED tests proving no external session counts as worker, no direct commit, no dry result burns target, no `served` target enters done-set, no bad post-commit verdict settles and no Constitution/claim/kill-switch self-modification.
-- [ ] Require 2–3 proposals ranked by leverage, simplification, recurrence, verifiability and blast radius; refuse proposals lacking finding/baseline/delta/rollback/test.
+- [x] Require 2–3 proposals ranked by leverage, simplification, recurrence, verifiability and blast radius; refuse proposals lacking finding/baseline/delta/rollback/test. Evidence: `AtlasTaskBrainReplenisherTest::test_autonomos_proposal_competition_selects_one_quality_complete_candidate_before_enqueue` proves a three-candidate competition and quality-contract gate; `AtlasExternalBrainProposalSelectionLoopTest::test_ranking_explicitly_penalizes_blast_radius_and_rewards_recurrence_and_verifiability` proves the explicit ranking dimensions.
 - [ ] Make `next→seed`, scope reservation, worker cycle, report and restart idempotent; more than 500 live tasks remain visible.
 - [ ] Call real provider via shared port, use isolated workcell/Kernel and keep primary+fallback provider; total outage pauses/retries without corruption.
 - [ ] Enforce existing authority with nonce/replay/expiry/revocation; out-of-envelope work replans/quarantines and the daemon continues another eligible task.
@@ -216,7 +216,7 @@ Brain → Proposal Arena → Product/Spec Courts → atomic reservation
 - [ ] Forge readiness: real fixture Obras of 1/3/10 packets, crash boundaries, zero duplicate effect and a defined 24h soak start receipt.
 - [ ] Autônomos readiness: staging/limited fixture cycle, >500 visible tasks, zero-human proof, dry rotation, restart and a defined 24h/7d soak start receipt.
 - [ ] Verify all modes use one Kernel/bar and produce comparable quality-loss inputs; cost/time/operator effort remain secondary metrics.
-- [ ] State-test that canary/readiness cannot imply elapsed soak, `quality_foundry_ready`, `multiplier_proven`, `world_leading` or 10×.
+- [x] State-test that canary/readiness cannot imply elapsed soak, `quality_foundry_ready`, `multiplier_proven`, `world_leading` or 10×. Evidence: `QualityFoundryModeReadinessManifestServiceTest::test_readiness_flags_cannot_synthesize_soak_or_world_claims` and `QualityFoundryReadinessStateMachineTest::test_green_implementation_cannot_jump_to_cutover_soak_or_claims` keep all comparative claim flags false.
 - [x] Produce three mode manifests with live test/evidence refs and blockers. Evidence: `atlas:engineering:quality-foundry-manifests --json` emits live Kernel/Dev/Forge/Autônomos manifests; the three mode manifests contain executed test commands, exit/output/duration receipt metadata, SHA-256 test refs and explicit blockers, while comparative/soak claims remain false.
 
 **GREEN acceptance:** each mode is implementation/canary ready at its proven scope; no soak is marked elapsed and no dominance claim is issued.
