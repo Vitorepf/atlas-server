@@ -1563,6 +1563,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Cognition\Watchdog\Checks\RagDimensionWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\ContextFeedbackHealthWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\CompactionSoakWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardStabilityWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\LiftCycleClosureWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardReceiptsDiagnosisWatchdogCheck::class,

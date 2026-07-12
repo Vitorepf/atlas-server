@@ -147,7 +147,7 @@
 - [x] MAXE-08 — landed · `compactMemoryItemForPack` agora degrada em degraus: body-inteiro → summary-inteiro (`body_omitted=true`, título+summary intactos) → truncação com marker só como último recurso; teste unitário `tests/Unit/Ai/AcosMax/Maxe08SummaryFirstPackingTest.php` cobre os 3 caminhos incluindo caso negativo (summary alone overflow ⇒ marker); regressão `tests/Feature/Ai/Context/ContextPackMemoryMultiItemTest.php` verde
 - [x] MAXE-06 — landed · AOBG session working-set demotes canonical context refs already delivered in the same session, disables pack cache while session_id is active, records delivered refs fail-open to shared working-set state, and permits honest-empty second packs instead of repeating context; tests: `php artisan test tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php --filter=session_working_set`
 - [ ] MAXE-07 — pending
-- [ ] MAXF-02 — pending
+- [x] MAXF-02 — landed · `atlas:compaction:recovery-sample --json` samples recent long-horizon compaction receipts, runs `CompactionRecoveryExecutor`, reports recovery_rate by kind/scope, appends provider-safe JSONL evidence without recovered raw content, and registers WDG check `maxf-02.compaction_recovery_sample`; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
 - [ ] MAXF-03 — pending
 - [ ] MAXF-08 — pending
 - [ ] MAXF-10 — pending

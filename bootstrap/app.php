@@ -96,6 +96,7 @@ use App\Console\Commands\AtlasCognitionScorecardWatchdogCommand;
 use App\Console\Commands\AtlasCognitionVerifyClaimsCommand;
 use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
 use App\Console\Commands\AtlasCompactionCertifyCommand;
+use App\Console\Commands\AtlasCompactionRecoverySampleCommand;
 use App\Console\Commands\AtlasCompactionSoakWatchCommand;
 use App\Console\Commands\AtlasContextFeedbackHealthCommand;
 use App\Console\Commands\AtlasContextLatencyCommand;
@@ -411,6 +412,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCognitionRemintTouchedCommand::class,
         AtlasCognitionVerifyClaimsCommand::class,
         AtlasCompactionCertifyCommand::class,
+        AtlasCompactionRecoverySampleCommand::class,
         AtlasCompactionSoakWatchCommand::class,
         AtlasContextFeedbackHealthCommand::class,
         AtlasContextLatencyCommand::class,
