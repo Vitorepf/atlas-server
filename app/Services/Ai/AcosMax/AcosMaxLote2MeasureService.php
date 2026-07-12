@@ -141,15 +141,225 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multj03CounterfactualLift(): array
     {
-        return $this->emptyReport('MULTJ-03', 'insufficient_signal', 'no_paired_peek_evaluations', [
+        $denominatorMin = (int) data_get(self::freezePayload('MULTJ-03'), 'thresholds.denominator_min_pairs', 8);
+        $sampleRate = (float) data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate', 0.05);
+
+        if (! Schema::hasTable('ai_rag_feedback_events')) {
+            return $this->emptyReport('MULTJ-03', 'insufficient_signal', 'paired_feedback_table_missing', [
+                'measure_id' => self::MULTJ03_MEASURE_ID,
+                'denominator_min' => $denominatorMin,
+                'sample_rate' => $sampleRate,
+                'rate' => $sampleRate,
+                'n_pairs' => 0,
+                'paired_delta' => null,
+                'memory_types' => [],
+                'peek_policy' => [
+                    'record_usage_for_peek' => false,
+                    'usage_rows_recorded' => 0,
+                ],
+                'invalid_pairs' => [
+                    'peek_policy_violation' => 0,
+                    'incomplete' => 0,
+                    'positive_lift_fabricated' => 0,
+                ],
+            ]);
+        }
+
+        $pairs = [];
+        foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
+            $payload = $this->decodeJsonObject($row->payload ?? null);
+            $meta = $this->counterfactualLiftMeta($payload);
+            if ($meta === []) {
+                continue;
+            }
+
+            $pairId = trim((string) ($meta['pair_id'] ?? ''));
+            $arm = $this->counterfactualArm((string) ($meta['arm'] ?? ''));
+            if ($pairId === '' || $arm === '') {
+                continue;
+            }
+
+            $pairs[$pairId] ??= [
+                'memory_type' => $this->memoryTypeFromCounterfactualMeta($meta),
+                'rows' => [],
+                'policy_violation_rows' => 0,
+            ];
+            $pairs[$pairId]['memory_type'] = $pairs[$pairId]['memory_type'] !== 'unknown'
+                ? $pairs[$pairId]['memory_type']
+                : $this->memoryTypeFromCounterfactualMeta($meta);
+            $pairs[$pairId]['rows'][$arm] = [
+                'score' => $this->counterfactualScore($row, $meta),
+                'policy_valid' => strtolower(trim((string) ($meta['mode'] ?? 'peek'))) === 'peek'
+                    && ($meta['record_usage'] ?? false) === false,
+            ];
+            if (! $pairs[$pairId]['rows'][$arm]['policy_valid']) {
+                $pairs[$pairId]['policy_violation_rows']++;
+            }
+        }
+
+        $groups = [];
+        $validDeltas = [];
+        $invalidPolicyPairs = 0;
+        $invalidPolicyRows = 0;
+        $incompletePairs = 0;
+        $positiveLiftFabricated = 0;
+
+        foreach ($pairs as $pair) {
+            $rows = $pair['rows'];
+            if (($pair['policy_violation_rows'] ?? 0) > 0) {
+                $invalidPolicyPairs++;
+                $invalidPolicyRows += count($rows);
+                continue;
+            }
+            if (! isset($rows['control'], $rows['treatment'])) {
+                $incompletePairs++;
+                continue;
+            }
+
+            $memoryType = (string) ($pair['memory_type'] ?? 'unknown');
+            $control = (float) $rows['control']['score'];
+            $treatment = (float) $rows['treatment']['score'];
+            $delta = round($treatment - $control, 4);
+            $groups[$memoryType] ??= [
+                'memory_type' => $memoryType,
+                'n_pairs' => 0,
+                'control_score_sum' => 0.0,
+                'treatment_score_sum' => 0.0,
+                'delta_sum' => 0.0,
+            ];
+            $groups[$memoryType]['n_pairs']++;
+            $groups[$memoryType]['control_score_sum'] += $control;
+            $groups[$memoryType]['treatment_score_sum'] += $treatment;
+            $groups[$memoryType]['delta_sum'] += $delta;
+            $validDeltas[] = $delta;
+
+            if ($memoryType === 'irrelevant' && $delta > 0.0001) {
+                $positiveLiftFabricated++;
+            }
+        }
+
+        $memoryTypes = array_values(array_map(
+            fn (array $group): array => $this->finalizeCounterfactualLiftGroup($group, $denominatorMin),
+            $groups,
+        ));
+        usort($memoryTypes, static fn (array $a, array $b): int => $a['memory_type'] <=> $b['memory_type']);
+
+        $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group['status'] === 'measured'));
+        $measuredPairs = array_sum(array_column($measured, 'n_pairs'));
+        $measuredDeltaSum = array_sum(array_map(
+            static fn (array $group): float => (float) $group['paired_delta'] * (int) $group['n_pairs'],
+            $measured,
+        ));
+
+        return [
+            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'slice' => 'MULTJ-03',
+            'status' => $measuredPairs > 0 ? 'ok' : 'insufficient_signal',
+            'reason' => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
+            'formula_version' => (string) data_get(self::freezePayload('MULTJ-03'), 'formula_version'),
+            'generated_at' => now()->toIso8601String(),
+            'freeze' => self::freezePayload('MULTJ-03'),
             'measure_id' => self::MULTJ03_MEASURE_ID,
-            'denominator_min' => 8,
-            'sample_rate' => data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate'),
-            'n_pairs' => 0,
-            'paired_delta' => null,
-            'memory_types' => [],
-            'record_usage_for_peek' => false,
-        ]);
+            'denominator_min' => $denominatorMin,
+            'sample_rate' => $sampleRate,
+            'rate' => $sampleRate,
+            'n_pairs' => count($validDeltas),
+            'paired_delta' => $measuredPairs > 0 ? round($measuredDeltaSum / $measuredPairs, 4) : null,
+            'memory_types' => $memoryTypes,
+            'peek_policy' => [
+                'record_usage_for_peek' => false,
+                'usage_rows_recorded' => $invalidPolicyRows,
+            ],
+            'invalid_pairs' => [
+                'peek_policy_violation' => $invalidPolicyPairs,
+                'incomplete' => $incompletePairs,
+                'positive_lift_fabricated' => $positiveLiftFabricated,
+            ],
+            'claim_policy' => [
+                'read_only' => true,
+                'provider_calls_made' => false,
+                'memory_written' => false,
+                'retrieval_policy_changed' => false,
+                'record_usage_for_peek' => false,
+                'synthetic_fixture_claim_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $group
+     * @return array<string,mixed>
+     */
+    private function finalizeCounterfactualLiftGroup(array $group, int $denominatorMin): array
+    {
+        $n = (int) $group['n_pairs'];
+
+        return [
+            'memory_type' => (string) $group['memory_type'],
+            'status' => $n >= $denominatorMin ? 'measured' : 'insufficient_signal',
+            'n_pairs' => $n,
+            'control_score_mean' => $n > 0 ? round((float) $group['control_score_sum'] / $n, 4) : null,
+            'treatment_score_mean' => $n > 0 ? round((float) $group['treatment_score_sum'] / $n, 4) : null,
+            'paired_delta' => $n > 0 ? round((float) $group['delta_sum'] / $n, 4) : null,
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    private function decodeJsonObject(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @return array<string,mixed>
+     */
+    private function counterfactualLiftMeta(array $payload): array
+    {
+        $meta = data_get($payload, 'counterfactual_lift_v2');
+
+        return is_array($meta) ? $meta : [];
+    }
+
+    private function counterfactualArm(string $arm): string
+    {
+        $arm = strtolower(trim($arm));
+
+        return match ($arm) {
+            'control', 'without', 'without_lesson' => 'control',
+            'treatment', 'with', 'with_lesson' => 'treatment',
+            default => '',
+        };
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private function memoryTypeFromCounterfactualMeta(array $meta): string
+    {
+        $memoryType = trim((string) ($meta['memory_type'] ?? ''));
+
+        return $memoryType === '' ? 'unknown' : $memoryType;
+    }
+
+    /**
+     * @param  array<string,mixed>  $meta
+     */
+    private function counterfactualScore(object $row, array $meta): float
+    {
+        $score = $meta['score'] ?? $row->post_execution_utility ?? $row->context_sufficiency ?? 0;
+
+        return is_numeric($score) ? (float) $score : 0.0;
     }
 
     /** @return array<string,mixed> */
