@@ -202,6 +202,7 @@ use App\Console\Commands\AtlasSchedulerInstallLaunchdCommand;
 use App\Console\Commands\AtlasSchedulerStatusCommand;
 use App\Console\Commands\AtlasSchedulerTickCommand;
 use App\Console\Commands\AtlasSelfDiagnosticCommand;
+use App\Console\Commands\AtlasSemanticJinaV3DualReadCommand;
 use App\Console\Commands\AtlasSoftwareCompanyFirstLiveBranchProofCommand;
 use App\Console\Commands\AtlasSoftwareCompanyIntegrationLaneCommand;
 use App\Console\Commands\AtlasSoftwareCompanyLiveCycleAuditCommand;
@@ -448,6 +449,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasIntelligenceRolloutPromoteCommand::class,
         AtlasPatamar4SelfConstructF4GapsCommand::class,
         AtlasSchedulerEnsureLaunchdCommand::class,
+        AtlasSemanticJinaV3DualReadCommand::class,
         AtlasSwarmExecuteArmCommand::class,
         AtlasSchedulerHeartbeatCommand::class,
         AtlasSchedulerInstallLaunchdCommand::class,

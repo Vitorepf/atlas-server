@@ -560,6 +560,10 @@ return [
         'embedding_cache_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_CACHE_ENABLED', true),
         'embedding_cache_ttl_seconds' => (int) env('ATLAS_SEMANTIC_EMBEDDING_CACHE_TTL_SECONDS', 3600),
         'semantic_rag_model' => env('ATLAS_SEMANTIC_RAG_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'),
+        'jina_v3_dual_read_ledger_path' => env(
+            'ATLAS_SEMANTIC_JINA_V3_DUAL_READ_LEDGER',
+            storage_path(\App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
+        ),
         'embedding_daemon_enabled' => (bool) env('ATLAS_SEMANTIC_RAG_DAEMON_ENABLED', true),
         'embedding_daemon_auto_start' => (bool) env('ATLAS_SEMANTIC_RAG_DAEMON_AUTO_START', true),
         'embedding_daemon_socket_path' => env(

@@ -26,7 +26,7 @@ return [
             'multilingual_pt' => true,
             'deterministic' => true,
             'license_allowed' => ['apache-2.0', 'mit', 'bsd-3-clause', 'openrail-m'],
-            'consumed_by_slices' => ['MAXA-02', 'MAXA-03', 'MAXA-07', 'MAXA-10', 'MAXB-01'],
+            'consumed_by_slices' => ['MAXA-02', 'MAXA-03', 'MAXA-04', 'MAXA-07', 'MAXA-10', 'MAXB-01'],
         ],
 
         'late_chunk' => [

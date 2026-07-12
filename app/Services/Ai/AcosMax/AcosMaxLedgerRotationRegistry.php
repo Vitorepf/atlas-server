@@ -284,6 +284,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs',
             ],
+            'atlas.semantic.jina_v3_dual_read.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MAXA-04 shadow dual-read receipts before any model promotion',
+            ],
         ];
     }
 

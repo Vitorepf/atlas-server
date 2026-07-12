@@ -463,6 +463,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_days' => 90,
                 'ttl_source' => 'maxd-04-ppr-shadow-dual-read-window',
             ],
+            [
+                'slice' => 'MAXA-04',
+                'series' => Maxa04JinaV3DualReadLedger::SCHEMA,
+                'path' => storage_path(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
+                'source_type' => 'jsonl',
+                'timestamp_field' => 'recorded_at',
+                'ttl_days' => 90,
+                'ttl_source' => 'maxa-04-jina-v3-dual-read-window',
+            ],
         ];
     }
 
