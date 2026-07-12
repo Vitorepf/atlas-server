@@ -11,6 +11,7 @@ use App\Services\Ai\Memory\AtlasMemoryConflictResolutionService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
+use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\SemanticSearchService;
 use Illuminate\Support\Str;
@@ -55,6 +56,7 @@ class AtlasHybridMemoryRetrievalService
      */
     public function recall(string $query = '', array $context = [], array $filters = [], array $options = []): array
     {
+        $latencyStartedAt = hrtime(true);
         $query = trim($query);
         $limit = $this->input->recallLimit($options['limit'] ?? null);
         $registryLimit = $this->input->registryCandidateLimit($options['registry_limit'] ?? null, $limit);
@@ -82,7 +84,7 @@ class AtlasHybridMemoryRetrievalService
             ])
             : ['recorded_count' => 0, 'audit_id' => null, 'skipped' => 'peek_no_usage'];
 
-        return [
+        $result = [
             'query' => $query,
             'context' => $this->publicContext($context),
             'summary' => [
@@ -107,6 +109,20 @@ class AtlasHybridMemoryRetrievalService
                 'compounding' => $compounding,
             ],
         ];
+
+        $this->recordLatencySample($latencyStartedAt, $result);
+
+        return $result;
+    }
+
+    /** @param array<string,mixed> $recall */
+    private function recordLatencySample(int $startedAt, array $recall): void
+    {
+        try {
+            app(AtlasAobgLatencyLedger::class)->recordRecall((hrtime(true) - $startedAt) / 1_000_000, $recall);
+        } catch (\Throwable) {
+            // Measurement is fail-open; recall must keep returning provider-safe context.
+        }
     }
 
     /**

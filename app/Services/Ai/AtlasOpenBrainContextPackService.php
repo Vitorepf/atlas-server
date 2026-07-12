@@ -14,6 +14,7 @@ use App\Services\Ai\Context\AtlasRetrievalFusionService;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
 use App\Services\Ai\Obra\AtlasObraStateService;
+use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\AtlasCode\WorkspaceFolderIntelligenceService;
@@ -170,6 +171,7 @@ class AtlasOpenBrainContextPackService
      */
     public function packFor(string $task, array $opts = []): array
     {
+        $latencyStartedAt = hrtime(true);
         $task = trim($task);
 
         $workspaceId = $this->resolveWorkspaceId($opts);
@@ -334,7 +336,19 @@ class AtlasOpenBrainContextPackService
             AtlasDeliveredPackLedger::fromConfig()->record($pack);
         }
 
+        $this->recordLatencySample($latencyStartedAt, $pack);
+
         return $pack;
+    }
+
+    /** @param array<string,mixed> $pack */
+    private function recordLatencySample(int $startedAt, array $pack): void
+    {
+        try {
+            app(AtlasAobgLatencyLedger::class)->recordPack((hrtime(true) - $startedAt) / 1_000_000, $pack);
+        } catch (Throwable) {
+            // Measurement is fail-open; context delivery is the product path.
+        }
     }
 
     /**

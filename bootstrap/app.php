@@ -15,6 +15,7 @@ use App\Console\Commands\AiTelemetryHealthCommand;
 use App\Console\Commands\AiTelemetryPerformanceReportCommand;
 use App\Console\Commands\AiTelemetryRollupCommand;
 use App\Console\Commands\AiWorkCommand;
+use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
@@ -90,6 +91,7 @@ use App\Console\Commands\AtlasCognitiveFunctionDecomposeCommand;
 use App\Console\Commands\AtlasCompactionCertifyCommand;
 use App\Console\Commands\AtlasCompactionSoakWatchCommand;
 use App\Console\Commands\AtlasContextFeedbackHealthCommand;
+use App\Console\Commands\AtlasContextLatencyCommand;
 use App\Console\Commands\AtlasContextPolicyTrendCommand;
 use App\Console\Commands\AtlasCostCalibrateCommand;
 use App\Console\Commands\AtlasDevBeatTestReportCommand;
@@ -232,6 +234,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AiTelemetryPerformanceReportCommand::class,
         AiTelemetryRollupCommand::class,
         AiWorkCommand::class,
+        AtlasAcosFreezeCommand::class,
         AtlasAobgSemanticRetrievalLiftCommand::class,
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,
@@ -374,6 +377,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasCompactionCertifyCommand::class,
         AtlasCompactionSoakWatchCommand::class,
         AtlasContextFeedbackHealthCommand::class,
+        AtlasContextLatencyCommand::class,
         AtlasCostCalibrateCommand::class,
         AtlasContextPolicyTrendCommand::class,
         AtlasPatamar4ActivateFlagsCommand::class,
