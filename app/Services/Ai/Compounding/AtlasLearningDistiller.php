@@ -10,13 +10,59 @@ class AtlasLearningDistiller
     public const SCHEMA_VERSION = 'atlas.ai.compounding.learning_candidate.v1';
 
     /**
+     * ASI-09 — author≠judge seam. The adapter AUTHORS the claim text; the judges
+     * downstream (CaptureQualityGate + false_learning_gate + ASI-02 admission)
+     * remain deterministic and untouched. Optional to preserve byte-identical
+     * behavior when `atlas.ai.distiller.model_author_enabled` is OFF (default).
+     */
+    public function __construct(
+        private readonly ?DistillerAuthorAdapter $author = null,
+    ) {}
+
+    /**
      * @param  array<string,mixed>  $signals
      */
     public function distill(AiRunOutcome $outcome, array $signals = []): AiLearningCandidate
     {
         $evidenceRefs = $this->array($signals['evidence_refs'] ?? $outcome->evidence_refs ?? []);
-        $claim = $this->string($signals['claim'] ?? null)
-            ?? $this->defaultClaim($outcome);
+        $signalsClaim = $this->string($signals['claim'] ?? null);
+
+        // ASI-09 — model AUTHOR seam (default-OFF). Only engaged when (a) the flag
+        // is ON, (b) an adapter is bound, and (c) the caller did not already
+        // provide a claim in $signals (caller-provided claims are authoritative).
+        // The adapter may return null (missing inputs, provider unreachable,
+        // privacy class local-only mismatch, …); we fall back to the deterministic
+        // template — the JUDGES downstream evaluate whichever claim wins.
+        $authorMeta = null;
+        if ($signalsClaim === null
+            && $this->author !== null
+            && (bool) config('atlas.ai.distiller.model_author_enabled', false)
+        ) {
+            $authored = $this->author->authorClaim($outcome, $signals);
+            if (is_array($authored)) {
+                $authoredClaim = $this->string($authored['claim'] ?? null);
+                if ($authoredClaim !== null) {
+                    $signalsClaim = $authoredClaim;
+                    // If the caller did not supply refs, adopt the ones the
+                    // author cited so the JUDGES can verify.
+                    if ($evidenceRefs === []) {
+                        $authoredRefs = $authored['evidence_refs'] ?? [];
+                        if (is_array($authoredRefs)) {
+                            $evidenceRefs = array_values(array_filter(
+                                $authoredRefs,
+                                static fn ($ref): bool => is_string($ref) && $ref !== '',
+                            ));
+                        }
+                    }
+                    $authorMeta = [
+                        'source' => 'model_author',
+                        'adapter' => $this->author::class,
+                    ];
+                }
+            }
+        }
+
+        $claim = $signalsClaim ?? $this->defaultClaim($outcome);
         $confidence = $this->score($signals['confidence'] ?? null, $outcome->evidence_quality);
         $decision = $evidenceRefs === [] ? 'hold' : ($confidence >= 70 ? 'promote' : 'hold');
         $missingEvidence = match (true) {
@@ -66,6 +112,12 @@ class AtlasLearningDistiller
             ],
             'decided_at' => now(),
         ];
+        // ASI-09 audit — record which side of author≠judge produced the claim
+        // (only when the model-author actually authored; template path leaves
+        // the field absent so the OFF path is byte-identical).
+        if ($authorMeta !== null) {
+            $payload['payload']['author'] = $authorMeta;
+        }
         $payload['candidate_hash'] = CompoundingHash::make([
             'schema' => self::SCHEMA_VERSION,
             'run_outcome_id' => $outcome->id,
