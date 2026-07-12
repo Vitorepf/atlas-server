@@ -192,6 +192,60 @@ final class ScopeGuardTest extends TestCase
         $this->assertContains(ScopeViolation::KIND_PRE_EXISTING_CHANGE, $kinds);
     }
 
+    public function test_content_hash_mismatch_overrides_provider_preserved_claim_and_fails(): void
+    {
+        $baseline = new WorktreeBaseline(
+            gitStatusBefore: '?? assets/binary.bin',
+            gitDiffBeforeHash: str_repeat('a', 64),
+            preExistingChanges: [new ScopePreExistingChange(
+                path: 'assets/binary.bin',
+                preserved: true,
+                beforeHash: str_repeat('b', 64),
+                afterHash: str_repeat('c', 64),
+            )],
+        );
+
+        $receipt = $this->guard()->check(
+            envelope: $this->envelopeFixture(),
+            taskContract: $this->taskContractFixture(),
+            diffResult: $this->diff(['app/Services/Ai/Cli/AtlasCliDevWorkflowService.php']),
+            baseline: $baseline,
+        );
+
+        $this->assertSame(ScopeGuardReceipt::STATUS_FAILED, $receipt->status);
+        $violation = collect($receipt->violations)->firstWhere('kind', ScopeViolation::KIND_PRE_EXISTING_CHANGE);
+        $this->assertNotNull($violation);
+        $this->assertStringContainsString('NOT preserved', $violation->detail);
+        $this->assertFalse($receipt->userPreExistingChanges[0]->preserved);
+    }
+
+    public function test_equal_content_hashes_prove_wip_preservation(): void
+    {
+        $hash = str_repeat('b', 64);
+        $baseline = new WorktreeBaseline(
+            gitStatusBefore: ' M app/user-work.php',
+            gitDiffBeforeHash: str_repeat('a', 64),
+            preExistingChanges: [new ScopePreExistingChange(
+                path: 'app/user-work.php',
+                preserved: false,
+                beforeHash: $hash,
+                afterHash: $hash,
+            )],
+        );
+
+        $receipt = $this->guard()->check(
+            envelope: $this->envelopeFixture(),
+            taskContract: $this->taskContractFixture(),
+            diffResult: $this->diff(['app/Services/Ai/Cli/AtlasCliDevWorkflowService.php']),
+            baseline: $baseline,
+        );
+
+        $this->assertSame(ScopeGuardReceipt::STATUS_PASSED, $receipt->status);
+        $this->assertTrue($receipt->userPreExistingChanges[0]->preserved);
+        $this->assertSame($hash, $receipt->userPreExistingChanges[0]->beforeHash);
+        $this->assertSame($hash, $receipt->userPreExistingChanges[0]->afterHash);
+    }
+
     public function test_no_changed_files_means_passed_with_zero_violations(): void
     {
         $receipt = $this->guard()->check(

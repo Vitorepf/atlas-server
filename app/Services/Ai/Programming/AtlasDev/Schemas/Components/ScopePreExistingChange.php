@@ -18,9 +18,16 @@ final class ScopePreExistingChange implements AtlasDevSchemaContract
         public readonly string $path,
         public readonly bool $preserved,
         public readonly bool $providerSafe = true,
+        public readonly ?string $beforeHash = null,
+        public readonly ?string $afterHash = null,
     ) {
         if ($this->path === '') {
             throw new InvalidArgumentException('ScopePreExistingChange.path must not be empty.');
+        }
+        foreach (['beforeHash' => $this->beforeHash, 'afterHash' => $this->afterHash] as $name => $hash) {
+            if ($hash !== null && preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+                throw new InvalidArgumentException("ScopePreExistingChange.{$name} must be a sha256 hash.");
+            }
         }
     }
 
@@ -32,6 +39,8 @@ final class ScopePreExistingChange implements AtlasDevSchemaContract
             providerSafe: array_key_exists('provider_safe', $payload)
                 ? AtlasDevSchemaArray::bool($payload, 'provider_safe')
                 : true,
+            beforeHash: array_key_exists('before_hash', $payload) ? AtlasDevSchemaArray::nullableString($payload, 'before_hash') : null,
+            afterHash: array_key_exists('after_hash', $payload) ? AtlasDevSchemaArray::nullableString($payload, 'after_hash') : null,
         );
     }
 
@@ -42,10 +51,16 @@ final class ScopePreExistingChange implements AtlasDevSchemaContract
 
     public function toCanonicalArray(): array
     {
-        return CanonicalJson::canonicalize([
+        $payload = [
             'path' => $this->path,
             'preserved' => $this->preserved,
-        ]);
+        ];
+        if ($this->beforeHash !== null || $this->afterHash !== null) {
+            $payload['before_hash'] = $this->beforeHash;
+            $payload['after_hash'] = $this->afterHash;
+        }
+
+        return CanonicalJson::canonicalize($payload);
     }
 
     public function toProviderSafeArray(): array
@@ -66,5 +81,17 @@ final class ScopePreExistingChange implements AtlasDevSchemaContract
     public function isProviderSafe(): bool
     {
         return $this->providerSafe;
+    }
+
+    public function contentPreserved(): ?bool
+    {
+        if ($this->beforeHash === null && $this->afterHash === null) {
+            return null;
+        }
+        if ($this->beforeHash === null || $this->afterHash === null) {
+            return false;
+        }
+
+        return hash_equals($this->beforeHash, $this->afterHash);
     }
 }

@@ -116,10 +116,13 @@ final class ScopeGuard
             // If the path appears in the diff and the upstream caller marked
             // preserved=false, surface the violation. If the caller marked
             // preserved=true we trust it (callers diff old vs new content).
-            $preserved = $change->preserved;
+            $contentPreserved = $change->contentPreserved();
+            $preserved = $contentPreserved ?? $change->preserved;
             $finalPreExisting[] = new ScopePreExistingChange(
                 path: $change->path,
                 preserved: $preserved,
+                beforeHash: $change->beforeHash,
+                afterHash: $change->afterHash,
             );
             if (! $preserved) {
                 $violations[] = new ScopeViolation(
