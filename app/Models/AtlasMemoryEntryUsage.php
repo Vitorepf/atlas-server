@@ -20,7 +20,11 @@ class AtlasMemoryEntryUsage extends Model
         'too_much',
         'corrected',
         'dismissed',
+        // MAXB-05 — mined from gate/forget/curate; NEVER in FEEDBACK_NEGATIVE (archive/inactivate floor).
+        'mined_negative',
     ];
+
+    public const FEEDBACK_ACTION_MINED_NEGATIVE = 'mined_negative';
 
     /** @var array<int,string> */
     public const FEEDBACK_POSITIVE_EXPLICIT = [

@@ -74,10 +74,27 @@ class ProgrammingTestImpactAnalyzer
             return [];
         }
 
-        return [
+        $candidates = [
             'tests/Unit/'.$basename.'Test.php',
             'tests/Feature/'.$basename.'Test.php',
         ];
+
+        // MAXG-03 — retrieval land-gate suite for Context/** and *Memory* paths.
+        $normalized = str_replace('\\', '/', $file);
+        if (str_starts_with($normalized, 'app/Services/Ai/Context/')
+            || str_contains($normalized, '/Memory')
+            || str_contains($normalized, 'Memory')
+        ) {
+            if (str_starts_with($normalized, 'app/Services/Ai/')
+                && (str_contains($normalized, 'Context/')
+                    || str_contains($normalized, 'Memory')
+                    || str_contains(basename($normalized), 'Memory'))
+            ) {
+                $candidates[] = 'tests/Feature/Ai/Memory/MemoryRecallGoldenV2LandGateTest.php';
+            }
+        }
+
+        return $candidates;
     }
 
     /**

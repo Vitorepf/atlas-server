@@ -594,6 +594,11 @@ return [
         // MAXH-05 — soft temporal truth demotion in recall. Default OFF keeps ranking byte-identical.
         // When ON, stale/expired/superseded rows are demoted but remain recoverable with explain flags.
         'temporal_recall_demotion_enabled' => (bool) env('ATLAS_MEMORY_TEMPORAL_RECALL_DEMOTION_ENABLED', false),
+        // MAXB-04 — MMR top-K after score-sort / before greedy budget. Default OFF = byte-identical.
+        'mmr_top_k_enabled' => (bool) env('ATLAS_MEMORY_MMR_TOP_K_ENABLED', false),
+        'mmr_lambda' => (float) env('ATLAS_MEMORY_MMR_LAMBDA', 0.7),
+        // MAXB-05 — mined_negative labels from gate/forget/curate. Default OFF; never feeds FEEDBACK_NEGATIVE.
+        'mined_negative_feedback_enabled' => (bool) env('ATLAS_MEMORY_MINED_NEGATIVE_FEEDBACK_ENABLED', false),
         'max_embedding_chars' => (int) env('ATLAS_SEMANTIC_MAX_EMBEDDING_CHARS', 12000),
         'activation_daily_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_DAILY_LIMIT', 2),
         'activation_pending_limit' => (int) env('ATLAS_SEMANTIC_ACTIVATION_PENDING_LIMIT', 4),
@@ -1217,6 +1222,13 @@ return [
         'abstraction_ladder' => [
             'enqueue_enabled' => (bool) env('ATLAS_AI_ABSTRACTION_LADDER_ENQUEUE_ENABLED', false),
             'pack_injection_enabled' => (bool) env('ATLAS_AI_ABSTRACTION_LADDER_PACK_INJECTION_ENABLED', false),
+        ],
+
+        // MAXJ-07 — co-recall composition detector → ASI-02 held queue. Default OFF.
+        'co_recall_composition' => [
+            'enabled' => (bool) env('ATLAS_AI_CO_RECALL_COMPOSITION_ENABLED', false),
+            'enqueue_enabled' => (bool) env('ATLAS_AI_CO_RECALL_COMPOSITION_ENQUEUE_ENABLED', false),
+            'floor' => max(3, (int) env('ATLAS_AI_CO_RECALL_COMPOSITION_FLOOR', 8)),
         ],
 
         // AP-819 Obra A (F1) — auto-feed do cérebro de falhas. Harvester lê falhas

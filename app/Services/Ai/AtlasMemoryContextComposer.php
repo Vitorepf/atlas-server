@@ -6,6 +6,7 @@ use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\Memory\MemoryMmrTopKSelector;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use Illuminate\Support\Str;
 
@@ -17,6 +18,7 @@ class AtlasMemoryContextComposer
         private readonly ContextParetoDominanceFilter $paretoFilter = new ContextParetoDominanceFilter,
         private readonly MemoryInjectionBudgetAllocator $budgetAllocator = new MemoryInjectionBudgetAllocator,
         private readonly MemoryFeedbackDecayScorer $decayScorer = new MemoryFeedbackDecayScorer,
+        private readonly MemoryMmrTopKSelector $mmrSelector = new MemoryMmrTopKSelector,
     ) {}
 
     /**
@@ -53,6 +55,9 @@ class AtlasMemoryContextComposer
             ?: (($right['health_score'] ?? 0) <=> ($left['health_score'] ?? 0))
             ?: strcmp((string) $left['source'], (string) $right['source'])
             ?: strcmp((string) $left['title'], (string) $right['title']));
+
+        // MAXB-04 — MMR after sort, before greedy budget (default-OFF).
+        $candidates = $this->applyMmrTopK($candidates, $limit);
 
         $totalBudget = $budget;
 
@@ -363,7 +368,67 @@ class AtlasMemoryContextComposer
             'provider_projection' => is_array($raw['provider_projection'] ?? null) ? $raw['provider_projection'] : [],
             'audit' => $this->audit($raw),
             'explain' => is_array($raw['explain'] ?? null) ? $raw['explain'] : [],
+            // MAXB-04 — optional dense vector for MMR (never required; absent ⇒ MMR skips that row).
+            'embedding_vector' => is_array($raw['embedding_vector'] ?? null) ? array_values($raw['embedding_vector']) : null,
         ];
+    }
+
+    /**
+     * MAXB-04 — diversity selection when flag ON and ≥2 registry rows carry embeddings.
+     *
+     * @param  list<array<string,mixed>>  $candidates
+     * @return list<array<string,mixed>>
+     */
+    private function applyMmrTopK(array $candidates, int $limit): array
+    {
+        if (! function_exists('config')) {
+            return $candidates;
+        }
+
+        try {
+            $enabled = (bool) config('atlas.semantic_memory.mmr_top_k_enabled', false);
+        } catch (\Throwable) {
+            return $candidates;
+        }
+
+        if (! $enabled) {
+            return $candidates;
+        }
+
+        try {
+            $lambda = (float) config('atlas.semantic_memory.mmr_lambda', MemoryMmrTopKSelector::DEFAULT_LAMBDA);
+        } catch (\Throwable) {
+            $lambda = MemoryMmrTopKSelector::DEFAULT_LAMBDA;
+        }
+        $vectors = [];
+        foreach ($candidates as $candidate) {
+            if (($candidate['source_ref_type'] ?? null) !== 'atlas_memory_entry') {
+                continue;
+            }
+            $id = trim((string) ($candidate['source_ref_id'] ?? ''));
+            $vector = $candidate['embedding_vector'] ?? null;
+            if ($id === '' || ! is_array($vector) || $vector === []) {
+                continue;
+            }
+            $vectors[$id] = array_values($vector);
+        }
+
+        if (count($vectors) < 2) {
+            return $candidates;
+        }
+
+        return $this->mmrSelector->select(
+            $candidates,
+            $limit,
+            $lambda,
+            static function (string $a, string $b) use ($vectors): ?float {
+                if (! isset($vectors[$a], $vectors[$b])) {
+                    return null;
+                }
+
+                return MemoryMmrTopKSelector::cosine($vectors[$a], $vectors[$b]);
+            },
+        );
     }
 
     /**

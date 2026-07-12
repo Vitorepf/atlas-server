@@ -8,6 +8,7 @@ use App\Models\AtlasMemoryCandidate;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainContextInjectionBoundaryClassifier;
 use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
@@ -18,6 +19,7 @@ final class AtlasMemoryCandidateGateService
     public function __construct(
         private readonly AtlasMemoryRegistryService $registry,
         private readonly AtlasOpenBrainContextInjectionBoundaryClassifier $injectionBoundaryClassifier,
+        private readonly AtlasMemoryUsageService $usages,
     ) {}
 
     /**
@@ -63,6 +65,16 @@ final class AtlasMemoryCandidateGateService
                 'status' => 'rejected',
                 'rejected_at' => now(),
             ])->save();
+
+            // MAXB-05 — admission reject becomes mined_negative when an entry ref exists.
+            $linkedEntryId = is_string($candidate->memory_entry_id ?? null) ? trim((string) $candidate->memory_entry_id) : '';
+            if ($linkedEntryId !== '') {
+                $this->usages->recordMinedNegative($linkedEntryId, 'candidate_gate_reject', [
+                    'label_kind' => 'admission',
+                    'source_id' => 'gate:'.(string) $candidate->id,
+                    'query_context_hash' => hash('sha256', (string) ($candidate->title ?? '').'|'.(string) ($candidate->id ?? '')),
+                ]);
+            }
 
             return ['candidate' => $candidate->refresh(), 'entry' => null, 'quality' => $quality];
         }

@@ -38,6 +38,7 @@ trait CreatesAtlasMemoryEntryTable
             $table->string('source_id', 120)->nullable()->index();
             $table->string('source_label', 180)->nullable();
             $table->string('status', 24)->default('active')->index();
+            $table->string('content_hash', 64)->nullable()->index();
             $table->json('tags')->default('[]');
             $table->json('metadata')->default('{}');
             $table->timestamp('recorded_at')->useCurrent()->index();

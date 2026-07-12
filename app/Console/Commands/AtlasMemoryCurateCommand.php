@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasMemoryRegistryService;
+use App\Services\Ai\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 
@@ -21,7 +22,7 @@ class AtlasMemoryCurateCommand extends Command
 
     protected $description = 'Curate an Atlas memory entry summary or archive a low-value entry.';
 
-    public function handle(AtlasMemoryRegistryService $registry): int
+    public function handle(AtlasMemoryRegistryService $registry, AtlasMemoryUsageService $usages): int
     {
         if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->error('Tabela atlas_memory_entries ainda nao existe. Rode migrations.');
@@ -84,6 +85,15 @@ class AtlasMemoryCurateCommand extends Command
         }
 
         $curated = $registry->curate($entry, $attributes);
+
+        if ($archive) {
+            // MAXB-05 — MEM-06 curate demote/archive → mined_negative (flag-gated).
+            $usages->recordMinedNegative((string) $curated->id, 'curate_demote', [
+                'label_kind' => 'retrieval_calibration',
+                'content_hash' => $curated->content_hash,
+                'source_id' => 'curate:'.$curated->id,
+            ]);
+        }
 
         return $this->print(['ok' => true, 'memory' => $this->row($curated)]);
     }

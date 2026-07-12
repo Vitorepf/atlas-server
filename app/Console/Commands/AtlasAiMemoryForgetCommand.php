@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\AtlasMemoryEntry;
 use Illuminate\Console\Command;
+use App\Services\Ai\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 /**
@@ -21,7 +22,7 @@ class AtlasAiMemoryForgetCommand extends Command
 
     protected $description = 'Archive (or --restore) an Atlas memory entry — non-destructive and reversible (the Sunday-digest prune handle).';
 
-    public function handle(): int
+    public function handle(AtlasMemoryUsageService $usages): int
     {
         if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             $this->warn('Table atlas_memory_entries unavailable — nothing to do.');
@@ -44,6 +45,12 @@ class AtlasAiMemoryForgetCommand extends Command
         } else {
             $entry->forceFill(['status' => 'archived', 'archived_at' => now()])->save();
             $action = 'archived';
+            // MAXB-05 — digest discard / forget becomes a mined_negative label (flag-gated).
+            $usages->recordMinedNegative($id, 'memory_forget', [
+                'label_kind' => 'retrieval_calibration',
+                'content_hash' => $entry->content_hash,
+                'source_id' => 'forget:'.$id,
+            ]);
         }
 
         $result = [

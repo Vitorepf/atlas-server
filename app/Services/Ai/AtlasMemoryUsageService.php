@@ -254,6 +254,91 @@ class AtlasMemoryUsageService
     }
 
     /**
+     * MAXB-05 — write a mined_negative label that NEVER enters FEEDBACK_NEGATIVE /
+     * archive-inactivate floors. Default-OFF via config flag.
+     *
+     * @param  array<string,mixed>  $context  provider-safe only (hashes/ids/kinds)
+     */
+    public function recordMinedNegative(
+        string $memoryEntryId,
+        string $miningSource,
+        array $context = [],
+    ): ?AtlasMemoryEntryUsage {
+        if (! (bool) config('atlas.semantic_memory.mined_negative_feedback_enabled', false)) {
+            return null;
+        }
+
+        if (! DatabaseTableAvailability::all(['atlas_memory_entry_usages', 'atlas_memory_entries'])) {
+            return null;
+        }
+
+        $memoryEntryId = trim($memoryEntryId);
+        if ($memoryEntryId === '') {
+            return null;
+        }
+
+        $entry = AtlasMemoryEntry::query()->find($memoryEntryId);
+        if ($entry === null) {
+            return null;
+        }
+
+        $allowedSources = [
+            'candidate_gate_reject',
+            'digest_discard',
+            'memory_forget',
+            'curate_demote',
+        ];
+        $miningSource = trim($miningSource);
+        if (! in_array($miningSource, $allowedSources, true)) {
+            $miningSource = 'candidate_gate_reject';
+        }
+
+        $labelKind = is_string($context['label_kind'] ?? null) && $context['label_kind'] !== ''
+            ? (string) $context['label_kind']
+            : ($miningSource === 'candidate_gate_reject' ? 'admission' : 'retrieval_calibration');
+
+        $queryContextHash = is_string($context['query_context_hash'] ?? null) && $context['query_context_hash'] !== ''
+            ? (string) $context['query_context_hash']
+            : null;
+
+        $payload = [
+            'memory_entry_id' => $entry->id,
+            'memory_type' => $entry->memory_type,
+            'scope_type' => $entry->scope_type,
+            'scope_id' => $entry->scope_id,
+            'source_type' => 'mined_negative:'.$miningSource,
+            'source_id' => is_string($context['source_id'] ?? null) && $context['source_id'] !== ''
+                ? (string) $context['source_id']
+                : 'mined:'.hash('sha256', $entry->id.'|'.$miningSource.'|'.(string) ($entry->content_hash ?? '')),
+            'position' => 0,
+            'included_reason' => 'maxb05_mined_negative',
+            'source_ref_json' => [
+                'type' => 'atlas_memory_entry',
+                'id' => $entry->id,
+                'content_hash' => $entry->content_hash,
+            ],
+            'context_payload_json' => [
+                'schema_version' => 'atlas.memory.mined_negative.v1',
+                'mining_source' => $miningSource,
+                'label_kind' => $labelKind,
+            ],
+            'metadata' => array_filter([
+                'label_kind' => $labelKind,
+                'mining_source' => $miningSource,
+                'query_context_hash' => $queryContextHash,
+                'content_hash' => $entry->content_hash,
+                'created_by' => 'maxb05_mined_negative',
+            ], static fn (mixed $v): bool => $v !== null && $v !== ''),
+            'feedback_action' => AtlasMemoryEntryUsage::FEEDBACK_ACTION_MINED_NEGATIVE,
+            'feedback_recorded_at' => now(),
+            'used_at' => now(),
+        ];
+
+        // Never call recordFeedback() — that triggers applyFeedbackGovernance archive paths.
+        return AtlasMemoryEntryUsage::query()->create($payload);
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function usagePayload(AtlasMemoryEntryUsage $usage): array
