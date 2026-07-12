@@ -260,6 +260,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:acos.learning_latency.v1',
             ],
             [
+                'slice' => 'MULTX-09',
+                'series' => AcosMaxLote2MeasureService::MULTX09_MEASURE_ID,
+                'path' => 'atlas:windows --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AcosMaxLote2MeasureService::freezePayload('MULTX-09')['ttl_days'],
+                'ttl_source' => 'freeze:acos.windows_orchestrator.v1',
+            ],
+            [
                 'slice' => 'MULTJ-01',
                 'series' => AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID,
                 'path' => 'atlas:ai:lesson-half-life --json',

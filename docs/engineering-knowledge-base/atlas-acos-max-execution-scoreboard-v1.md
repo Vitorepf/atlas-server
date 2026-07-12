@@ -61,7 +61,7 @@
 
 ## LOTE 3 — Eficiência estrutural + protocolo (M2) — GATE M2: floor intermediário ELEV-16 · toda flag no PromotionProtocol · :356 wirado · daemon com manifest
 - [x] ELEV-26s — landed
-- [ ] MULTX-09 — pending
+- [x] MULTX-09 — landed · `atlas:windows --json` publica DAG read-only do PromotionProtocol com caminho crítico/dias restantes, grupos paralelizáveis e watchdog `dead_window`; janelas `not_started` ficam sem ETA fabricada; série `acos.windows_orchestrator.v1` registrada (ELEV-20s); test: `php artisan test tests/Feature/Console/AtlasAcosWindowsCommandTest.php`
 - [x] MAXA-02 — landed(abf571a8f) · memo por request + cache persistente por hash(provider/model/text); teste prova 2 chamadas iguais no processo = 1 embed e novo serviço = 0 embeds; troca de modelo reembeda
 - [x] MAXA-07 — landed · vector indexes now build/repair/convert as HNSW `m=16, ef_construction=64` across the 4 pgvector tables; live conversion migration drops old ivfflat indexes; sqlite remains no-op; test: `php artisan test tests/Unit/Ai/AcosMax/Maxa07HnswVectorIndexMigrationTest.php`
 - [x] MAXA-01 — landed(abf571a8f) · daemon residente `semantic_rag` via Unix socket JSONL + manifest sha256; `SemanticRagRuntimeClient` usa daemon e cai para spawn se socket/daemon ausente; probe warm_embed_ms=3.324
