@@ -51,6 +51,7 @@ final readonly class ExecutionOrder
         public string $experimentRef,
         public string $idempotencyKey,
         public string $budgetPosture,
+        public ?string $marketDecisionHash = null,
     ) {}
 
     /** @param array<string,mixed> $data */
@@ -109,13 +110,14 @@ final readonly class ExecutionOrder
             experimentRef: CanonicalKernelPayload::requireString($data, 'experiment_ref'),
             idempotencyKey: CanonicalKernelPayload::requireString($data, 'idempotency_key'),
             budgetPosture: $budget,
+            marketDecisionHash: array_key_exists('market_decision_hash', $data) ? CanonicalKernelPayload::requireHash($data, 'market_decision_hash') : null,
         );
     }
 
     /** @return array<string,mixed> */
     public function toArray(): array
     {
-        return [
+        $payload = [
             'schema_version' => $this->schemaVersion,
             'run_id' => $this->runId,
             'delivery_id' => $this->deliveryId,
@@ -145,6 +147,9 @@ final readonly class ExecutionOrder
             'idempotency_key' => $this->idempotencyKey,
             'budget_posture' => $this->budgetPosture,
         ];
+        if ($this->marketDecisionHash !== null) $payload['market_decision_hash'] = $this->marketDecisionHash;
+
+        return $payload;
     }
 
     public function canonicalHash(): string
@@ -165,7 +170,7 @@ final readonly class ExecutionOrder
     private static function assertExactFields(array $data): void
     {
         $expected = ['schema_version', 'run_id', 'delivery_id', 'mode', 'risk_class', 'complexity_band', 'duration_regime', 'work_topology', 'product_intent_verdict_hash', 'spec_hash', 'world_model_snapshot_hash', 'workspace', 'base_commit', 'allowed_scope', 'forbidden_scope', 'authority_envelope', 'decision_receipt', 'operator_contract', 'role_roster', 'provider_route', 'tool_permissions', 'evidence_policy', 'release_policy', 'rollback_policy', 'outcome_policy', 'experiment_ref', 'idempotency_key', 'budget_posture'];
-        $extra = array_diff(array_keys($data), $expected);
+        $extra = array_diff(array_keys($data), [...$expected, 'market_decision_hash']);
         if ($extra !== []) {
             throw new InvalidArgumentException('execution_order_unknown_fields');
         }

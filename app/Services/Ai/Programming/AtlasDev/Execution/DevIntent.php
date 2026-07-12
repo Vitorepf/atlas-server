@@ -21,6 +21,7 @@ final readonly class DevIntent
         public string $durationRegime,
         public string $topology,
         public array $constraints,
+        public ?string $marketDecisionHash,
         public string $intentHash,
     ) {}
 
@@ -49,24 +50,31 @@ final readonly class DevIntent
             'risk_class' => $data['risk_class'], 'duration_regime' => trim($data['duration_regime']),
             'topology' => trim($data['topology']), 'constraints' => array_values((array) ($data['constraints'] ?? [])),
         ];
+        $marketDecisionHash = $data['market_decision_hash'] ?? null;
+        if ($marketDecisionHash !== null && preg_match('/^[a-f0-9]{64}$/', (string) $marketDecisionHash) !== 1) {
+            throw new InvalidArgumentException('dev_intent_market_decision_hash_invalid');
+        }
+        if ($marketDecisionHash !== null) $canonical['market_decision_hash'] = $marketDecisionHash;
 
         return new self(
             $canonical['raw_goal'], $canonical['workspace'], $canonical['operator_id'],
             $canonical['product_intent_hash'], $canonical['spec_hash'], $canonical['world_model_snapshot_hash'],
             $canonical['authority_hash'], $canonical['risk_class'], $canonical['duration_regime'],
-            $canonical['topology'], $canonical['constraints'], CanonicalKernelPayload::hash($canonical),
+            $canonical['topology'], $canonical['constraints'], $marketDecisionHash, CanonicalKernelPayload::hash($canonical),
         );
     }
 
     /** @return array<string,mixed> */
     public function toArray(): array
     {
-        return [
+        $payload = [
             'raw_goal' => $this->rawGoal, 'workspace' => $this->workspace, 'operator_id' => $this->operatorId,
             'product_intent_hash' => $this->productIntentHash, 'spec_hash' => $this->specHash,
             'world_model_snapshot_hash' => $this->worldModelSnapshotHash, 'authority_hash' => $this->authorityHash,
             'risk_class' => $this->riskClass, 'duration_regime' => $this->durationRegime,
             'topology' => $this->topology, 'constraints' => $this->constraints, 'intent_hash' => $this->intentHash,
         ];
+        if ($this->marketDecisionHash !== null) $payload['market_decision_hash'] = $this->marketDecisionHash;
+        return $payload;
     }
 }

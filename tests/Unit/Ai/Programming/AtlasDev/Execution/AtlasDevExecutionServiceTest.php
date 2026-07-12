@@ -55,6 +55,14 @@ final class AtlasDevExecutionServiceTest extends TestCase
         $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $run->runHash);
     }
 
+    public function test_market_decision_hash_is_bound_to_dev_intent(): void
+    {
+        $intent = DevIntent::fromArray(array_replace($this->validIntent(), ['market_decision_hash' => str_repeat('e', 64)]));
+
+        self::assertSame(str_repeat('e', 64), $intent->marketDecisionHash);
+        self::assertSame($intent->marketDecisionHash, DevIntent::fromArray($intent->toArray())->marketDecisionHash);
+    }
+
     /** @return array<string,mixed> */
     private function validIntent(): array
     {

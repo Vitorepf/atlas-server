@@ -70,6 +70,7 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
             'idempotency_key' => 'atlas-dev:'.$run->runHash,
             'budget_posture' => 'unbounded_quality_first',
         ];
+        if ($intent->marketDecisionHash !== null) $order['market_decision_hash'] = $intent->marketDecisionHash;
 
         return $order;
     }
