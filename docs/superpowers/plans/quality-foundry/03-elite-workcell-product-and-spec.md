@@ -187,7 +187,7 @@ Circuit breakers are fixed:
 - insufficient authority, inconsistent ledger or irreversibility outside envelope → hard stop;
 - candidate with no frontier improvement ends that line, not the mission.
 
-- [ ] Write RED state-machine tests for each breaker, kill/restart at every boundary and repeated identical evidence.
+- [x] Write RED state-machine tests for each breaker, kill/restart at every boundary and repeated identical evidence.
 - [ ] Add candidate-set tests proving R5 uses competing approaches and different verifier families when available.
 - [ ] Persist fingerprints, evidence deltas, approach IDs and terminal reasons in existing workcell events/outcomes.
 - [ ] Ensure final certifier never edits code and cannot certify without the complete independent evidence bundle.
