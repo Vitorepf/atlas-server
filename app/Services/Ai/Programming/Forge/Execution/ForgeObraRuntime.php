@@ -13,6 +13,7 @@ use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use App\Services\Ai\Programming\Forge\ForgeLongHorizonStateService;
 use App\Services\Ai\Programming\Forge\ForgeWorkPacketExecutionCycleService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
@@ -41,7 +42,12 @@ final class ForgeObraRuntime
 
         return DB::transaction(function () use ($commissioning, $workspaceGate): ForgeObraSnapshot {
             $existingIntake = AiForgeIntake::query()
-                ->where('rich_input_payload->commissioning_hash', $commissioning->commissioningHash)
+                ->where(function ($query) use ($commissioning): void {
+                    $query->where('rich_input_payload->commissioning_hash', $commissioning->commissioningHash);
+                    if (DatabaseTableAvailability::hasColumn('ai_forge_intakes', 'commissioning_hash')) {
+                        $query->orWhere('commissioning_hash', $commissioning->commissioningHash);
+                    }
+                })
                 ->lockForUpdate()
                 ->first();
             if ($existingIntake instanceof AiForgeIntake) {
@@ -66,6 +72,7 @@ final class ForgeObraRuntime
                 'workspace_slug' => basename(rtrim($commissioning->workspace, '/')), 'risk_band' => self::riskBand($commissioning->riskClass),
                 'recommended_forge_mode' => 'obra_intake', 'actor_type' => 'forge_commissioning',
                 'workspace_execution_gate' => $workspaceGate,
+                'commissioning_hash' => $commissioning->commissioningHash,
                 'authority_hash' => $commissioning->authorityHash, 'product_intent_hash' => $commissioning->productIntentHash,
                 'spec_hash' => $commissioning->specHash, 'world_model_snapshot_hash' => $commissioning->worldModelSnapshotHash,
                 'market_decision_hash' => $commissioning->marketDecisionHash,

@@ -59,6 +59,10 @@ final class ForgeObraRuntimeTest extends TestCase
         $this->assertNull($snapshot->marketDecisionHash);
         $this->assertDatabaseCount('ai_forge_intakes', 1);
         $this->assertDatabaseCount('ai_forge_long_horizon_states', 1);
+        $this->assertDatabaseHas('ai_forge_intakes', [
+            'id' => $snapshot->intakeId,
+            'commissioning_hash' => $commissioning->commissioningHash,
+        ]);
 
         $tick = $runtime->tick(ForgeObraId::fromString($snapshot->obra->value), ForgeTickBudget::fromArray([
             'max_packets' => 1, 'lease_seconds' => 900, 'allow_provider' => false,

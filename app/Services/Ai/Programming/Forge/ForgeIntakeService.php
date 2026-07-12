@@ -225,6 +225,7 @@ class ForgeIntakeService
             'context_refs' => $contextRefs !== [] ? $contextRefs : null,
             'context_pack_hash' => AiValueNormalizer::trimmedStringOrNull($options['context_pack_hash'] ?? null),
             'rich_input_payload' => $richInputPayload !== [] ? $richInputPayload : null,
+            'commissioning_hash' => AiValueNormalizer::trimmedStringOrNull($options['commissioning_hash'] ?? null),
             'rich_input_schema_version' => $richInputPayload['schema_version'] ?? null,
             'context_operations_hash' => $contextOperations['operations_runtime_hash'] ?? null,
             'persistent_context_hash' => $persistentContext['persistent_context_hash'] ?? null,
@@ -253,6 +254,9 @@ class ForgeIntakeService
         }
         if (! DatabaseTableAvailability::hasColumn('ai_forge_intakes', 'workspace_execution_gate')) {
             unset($createPayload['workspace_execution_gate']);
+        }
+        if (! DatabaseTableAvailability::hasColumn('ai_forge_intakes', 'commissioning_hash')) {
+            unset($createPayload['commissioning_hash']);
         }
 
         return AiForgeIntake::query()->create($createPayload);

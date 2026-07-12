@@ -36,6 +36,7 @@ trait CreatesForgeIntakeTables
             $table->json('context_refs')->nullable();
             $table->string('context_pack_hash', 64)->nullable();
             $table->json('rich_input_payload')->nullable();
+            $table->string('commissioning_hash', 64)->nullable()->unique();
             $table->string('rich_input_schema_version', 120)->nullable();
             $table->json('context_operations')->nullable();
             $table->string('context_operations_hash', 64)->nullable()->index();

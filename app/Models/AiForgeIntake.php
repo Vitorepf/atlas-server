@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<int,mixed>|null $context_refs
  * @property array<int,mixed>|null $non_goals
  * @property array<string,mixed>|null $sdd_spec
+ * @property string|null $commissioning_hash
  */
 class AiForgeIntake extends Model
 {
@@ -48,6 +49,7 @@ class AiForgeIntake extends Model
         'context_refs',
         'context_pack_hash',
         'rich_input_payload',
+        'commissioning_hash',
         'rich_input_schema_version',
         'context_operations',
         'context_operations_hash',
