@@ -830,6 +830,15 @@ final class AutonomousEvolutionSessionService
     {
         $usesOwnerChain = (bool) data_get($cycle, 'owner_flow.uses_full_owner_runtime_chain', false);
         $changedFiles = $this->workcellChangedFilesFromCycle($cycle);
+        $validation = $this->workcellValidationFromCycle($cycle);
+        $evidenceRefs = array_values(array_filter([
+            ...array_map(static fn (string $ref): array => ['kind' => 'owner_receipt', 'ref' => $ref], array_values(array_filter([
+                (string) ($cycle['result_bridge_id'] ?? ''),
+                (string) ($cycle['inbox_item_id'] ?? ''),
+            ], static fn (string $v): bool => $v !== ''))),
+            $changedFiles !== [] ? ['kind' => 'changed_files', 'ref' => 'cycle:'.(string) ($cycle['cycle_id'] ?? '').':changed-files'] : null,
+            ($validation['ran'] ?? false) === true ? ['kind' => 'test_results', 'ref' => 'cycle:'.(string) ($cycle['cycle_id'] ?? '').':validation'] : null,
+        ], static fn (mixed $ref): bool => is_array($ref) && ($ref['ref'] ?? '') !== ''));
 
         return [
             'provider' => (string) data_get($cycle, 'provider_result.provider', 'cursor_cli'),
@@ -839,15 +848,12 @@ final class AutonomousEvolutionSessionService
             'auth_mode' => 'local_account',
             'changed_files' => $changedFiles,
             'diff_shape' => $this->workcellDiffShape($changedFiles),
-            'validation' => $this->workcellValidationFromCycle($cycle),
+            'validation' => $validation,
             'worktree_path' => (string) ($cycle['worktree_path'] ?? ''),
             'branch_ref' => (string) ($cycle['branch_ref'] ?? ''),
             'inbox_item_id' => (string) ($cycle['inbox_item_id'] ?? ''),
             'result_bridge_id' => (string) ($cycle['result_bridge_id'] ?? ''),
-            'evidence_refs' => array_values(array_filter([
-                (string) ($cycle['result_bridge_id'] ?? ''),
-                (string) ($cycle['inbox_item_id'] ?? ''),
-            ], static fn (string $v): bool => $v !== '')),
+            'evidence_refs' => $evidenceRefs,
             'owner_runtime_chain' => $usesOwnerChain ? 'AP-747->AP-748->AP-749->AP-758->AP-759->AP-750' : '',
             'merge_governance' => is_array($cycle['merge_governance'] ?? null) ? $cycle['merge_governance'] : [],
         ];
