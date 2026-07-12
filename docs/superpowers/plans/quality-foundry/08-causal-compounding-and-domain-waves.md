@@ -262,7 +262,7 @@ Wave order is fixed:
 - [x] Run a confounded fixture; assert hold and zero change.
 - [x] Run a code proposal; assert governed task emission and zero direct application.
 - [x] Run a late-regression fixture; assert route rollback, negative outcome memory, repair proposal and Rivals revocation request.
-- [ ] Run a template-farm/simplification/domain-wave fixture; assert every gate above.
+- [x] Run a template-farm/simplification/domain-wave fixture; assert every gate above.
 - [ ] Produce a readiness manifest with live evidence and explicit temporal/comparative gaps.
 
 **GREEN acceptance:** compounding is causal, reversible, leverage-oriented and claim-safe in fixtures; real causal multiplier/domain promotion remains pending until real campaigns/outcomes satisfy the gates.
