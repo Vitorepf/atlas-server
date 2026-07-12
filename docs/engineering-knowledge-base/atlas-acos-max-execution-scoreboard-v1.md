@@ -86,7 +86,7 @@
 - [ ] ELEV-24 — pending
 - [ ] ELEV-27 — pending
 - [ ] ELEV-29s — pending
-- [ ] TETO-08 — pending (cockpit read-only; fontes futuras = unavailable)
+- [x] TETO-08 — landed · `atlas:acos:cockpit --json` agrega read-only M, R, loops/funil, janelas/caminho crítico, flips pendentes, review-debt, freios e lote corrente do scoreboard; cada seção cita fonte, fontes futuras ficam `unavailable` (ex.: MULTX-02/funnel) e o comando declara `mutates_state=false`; test/smoke: `php artisan test tests/Feature/Console/AtlasAcosCockpitCommandTest.php` + `php artisan atlas:acos:cockpit --json`
 
 ## LOTE 4 — Ligar o fluxo (F1; FLIPS = OPERADOR) — GATE F1-fluxo: ≥5 outcomes/dia 7d · decision_id 100% · reflection/pattern com dado real · distiller shadow dual-read
 - [ ] MAXC-01 — pending
