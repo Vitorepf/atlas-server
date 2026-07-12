@@ -303,6 +303,15 @@ final class KernelEvidenceAuthority
             throw new InvalidArgumentException('release_authorization_governor_decision_not_persisted_admitted');
         }
 
+        $credentialScope = [
+            'action' => $request->action,
+            'files' => $request->files,
+            'scope_hash' => $request->scopeHash,
+            'nonce' => $request->nonce,
+            'expires_at' => $request->expiresAt,
+            'one_effect' => true,
+        ];
+
         return $this->issue('release_authorization', LedgerEventType::ReleaseAuthorized, [
             'event_name' => 'release.authorized',
             'task_packet_id' => (string) ($row['task_packet_id'] ?? ''),
@@ -325,6 +334,8 @@ final class KernelEvidenceAuthority
             'nonce' => $request->nonce,
             'issued_at' => $request->issuedAt,
             'expires_at' => $request->expiresAt,
+            'credential_scope' => $credentialScope,
+            'credential_hash' => CanonicalKernelPayload::hash($credentialScope),
         ], $request->context, 300);
     }
 
@@ -337,7 +348,21 @@ final class KernelEvidenceAuthority
 
     public function verifyReleaseAuthorization(AtlasLedgerEvent $event): bool
     {
-        return $this->verifyEvent($event, 'release_authorization');
+        if (! $this->verifyEvent($event, 'release_authorization')) {
+            return false;
+        }
+
+        $payload = is_array($event->payload) ? $event->payload : [];
+        $scope = $payload['credential_scope'] ?? null;
+
+        return is_array($scope)
+            && ($scope['one_effect'] ?? false) === true
+            && is_array($scope['files'] ?? null)
+            && trim((string) ($scope['action'] ?? '')) !== ''
+            && preg_match('/^[a-f0-9]{64}$/', (string) ($scope['scope_hash'] ?? '')) === 1
+            && trim((string) ($scope['nonce'] ?? '')) !== ''
+            && trim((string) ($scope['expires_at'] ?? '')) !== ''
+            && hash_equals((string) ($payload['credential_hash'] ?? ''), CanonicalKernelPayload::hash($scope));
     }
 
     /** @param array<string,mixed> $receipt */

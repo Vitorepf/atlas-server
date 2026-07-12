@@ -607,6 +607,29 @@ final class CanonicalCommitActuationTest extends TestCase
         $this->assertSame($head, trim($this->git(['rev-parse', 'HEAD'])));
     }
 
+    public function test_release_authorization_without_ephemeral_credential_scope_is_rejected(): void
+    {
+        $ledger = $this->app->make(AtlasEvidenceLedger::class);
+        $action = $this->authorizedAction($ledger);
+        $event = $ledger->eventById($action->canonicalEventId);
+        $payload = (array) $event?->payload;
+        unset($payload['credential_scope'], $payload['credential_hash']);
+
+        $forged = $ledger->record(LedgerEventType::ReleaseAuthorized, $payload, [
+            'correlation_id' => $action->nonce,
+            'scope_type' => 'task_packet', 'scope_id' => $action->taskPacketId,
+            'emitter_stage' => 'governor.credential_mutation',
+        ]);
+
+        $authority = new KernelEvidenceAuthority(
+            $ledger,
+            $this->app->make(DecisionReceiptRuntimeGuard::class),
+            new AtlasMergeGovernorReleaseDecisionLedger($this->repo.'/release.jsonl'),
+        );
+
+        $this->assertFalse($authority->verifyReleaseAuthorization($forged));
+    }
+
     public function test_landed_append_failure_after_commit_is_release_uncertain(): void
     {
         file_put_contents($this->repo.'/app/target.txt', "after\n");

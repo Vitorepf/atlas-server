@@ -136,7 +136,7 @@ Applicable evidence types are: unit, integration, contract, E2E, property, mutat
 - [x] Write RED tests for ledger down, stale/revoked/expired authority, nonce replay, changed candidate/base/tree/files, missing verification/rollback hash, wrong lease/fencing token, over-broad credential and direct actuator call. Evidence: `CanonicalCommitActuationTest` and `EliteExecutorKernelReadOnlyVerticalTest` zero-effect/fail-closed cases.
 - [x] Make `prepare` recompute authority/scope/candidate/evidence/rollback, persist decision and replay it before authorization. Evidence: `CanonicalCommitActuationTest` and `PreLandSeamTest`.
 - [x] Make `authorize` issue an immutable one-effect capability bound to action, candidate, base/tree, files, lease/fence, receipt and expiry. Evidence: `CanonicalCommitActuationTest` binding-mutation, nonce, lease and persisted-authority cases.
-- [ ] Make `act` revalidate every binding and execute exactly one idempotent effect with ephemeral scoped credentials.
+- [x] Make `act` revalidate every binding and execute exactly one idempotent effect with ephemeral scoped credentials. Evidence: `CanonicalCommitActuationTest` replay/binding cases and `test_release_authorization_without_ephemeral_credential_scope_is_rejected`; `release.authorized` now carries a hashed one-effect scope envelope.
 - [ ] Add static guards for Git/fs/release/deploy entrypoints outside the allowlist and runtime proof for all mutative surfaces.
 - [x] Run PreLandSeam, MergeActuator, governance fail-closed, architecture bypass and credential-scope tests. Evidence: combined Governor/PreLand/architecture command: 35 passed, 241 assertions.
 
