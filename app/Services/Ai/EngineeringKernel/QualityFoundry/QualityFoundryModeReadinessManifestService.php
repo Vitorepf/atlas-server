@@ -40,6 +40,7 @@ final class QualityFoundryModeReadinessManifestService
                 'quality_loss_input' => is_array($receipt['quality_loss_input'] ?? null) ? $receipt['quality_loss_input'] : null,
                 'execution' => [
                     'command' => array_values(array_map('strval', (array) ($receipt['command'] ?? []))),
+                    'shared_command' => array_values(array_map('strval', (array) ($receipt['shared_command'] ?? []))),
                     'exit_code' => isset($receipt['exit_code']) ? (int) $receipt['exit_code'] : null,
                     'output_hash' => isset($receipt['output_hash']) ? (string) $receipt['output_hash'] : null,
                     'duration_ms' => isset($receipt['duration_ms']) ? (int) $receipt['duration_ms'] : null,

@@ -20,6 +20,13 @@ final class QualityFoundryLiveManifestService
     private const EXACTLY_ONCE_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/QualityFoundryExactlyOnceEvidenceTest.php';
     private const COVERAGE_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/QualityFoundryExecutionCoverageEvidenceTest.php';
 
+    /** @var list<string> */
+    private const SHARED_EVIDENCE_TESTS = [
+        self::ROLLBACK_EVIDENCE_TEST,
+        self::EXACTLY_ONCE_EVIDENCE_TEST,
+        self::COVERAGE_EVIDENCE_TEST,
+    ];
+
     /** @var array<string,list<string>> */
     private const MODE_TESTS = [
         'kernel' => [
@@ -27,8 +34,12 @@ final class QualityFoundryLiveManifestService
             'tests/Unit/Ai/EngineeringKernel/ExecutionOrderModeParityTest.php',
         ],
         'dev' => [
-            'tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHermesProviderTest.php',
-            'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
+            'tests/Feature/Ai/Programming/AtlasDev/EndToEndPlanOnlyTest.php',
+            'tests/Unit/Ai/Programming/AtlasDev/Execution/AtlasDevExecutionServiceTest.php',
+            'tests/Unit/Ai/Programming/AtlasDev/Pipeline/RiskLevelScorerTest.php',
+            'tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php',
+            'tests/Feature/Ai/Programming/AtlasDev/Http/PlanRunSurfaceParityTest.php',
+            'tests/Unit/Ai/Programming/AtlasDev/PlanVisible/AtlasDevOperatorInteractionTelemetryTest.php',
         ],
         'forge' => [
             'tests/Unit/Ai/Programming/Forge/Execution/ForgeObraRuntimeContractTest.php',
@@ -42,6 +53,8 @@ final class QualityFoundryLiveManifestService
             'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
         ],
     ];
+
+    public const DEV_READINESS_FILTER = 'question_r0_routes_to_read_only_answer|three_files_raise_to_r3|risky_plus_multiagent_is_r5|repair_retry_restores_operator_wip_baseline|plan_run_cycle_succeeds_for_app_and_api_with_canonical_guards|aggregates_operator_experience_without_quality_signal|r5_requires_explicit_operator_authority_and_confirmation_token';
 
     /** @var callable(array<int,string>,string):array{exit_code:int,output:string} */
     private $runner;
@@ -77,13 +90,9 @@ final class QualityFoundryLiveManifestService
         foreach (self::MODE_TESTS as $mode => $tests) {
             $modes[$mode] = $this->runMode(
                 $mode,
-                array_values(array_unique([
-                    ...$tests,
-                    self::ROLLBACK_EVIDENCE_TEST,
-                    self::EXACTLY_ONCE_EVIDENCE_TEST,
-                    self::COVERAGE_EVIDENCE_TEST,
-                ])),
+                $tests,
                 $root,
+                $mode === 'dev' ? self::DEV_READINESS_FILTER : null,
             );
         }
 
@@ -167,11 +176,12 @@ final class QualityFoundryLiveManifestService
     }
 
     /** @param list<string> $tests @return array<string,mixed> */
-    private function runMode(string $mode, array $tests, string $root): array
+    private function runMode(string $mode, array $tests, string $root, ?string $filter = null): array
     {
         $startedAt = microtime(true);
+        $allTests = array_values(array_unique([...$tests, ...self::SHARED_EVIDENCE_TESTS]));
         $testRefs = [];
-        foreach ($tests as $path) {
+        foreach ($allTests as $path) {
             $absolute = $root.DIRECTORY_SEPARATOR.$path;
             $testRefs[] = [
                 'path' => $path,
@@ -179,14 +189,28 @@ final class QualityFoundryLiveManifestService
             ];
         }
 
-        $result = ($this->runner)(array_merge([PHP_BINARY, 'artisan', 'test'], $tests), $root);
-        $output = (string) ($result['output'] ?? '');
-        $exitCode = (int) ($result['exit_code'] ?? 1);
+        $command = array_merge([PHP_BINARY, 'artisan', 'test'], $tests);
+        if ($filter !== null) {
+            $command[] = '--filter='.$filter;
+        }
+        $results = [];
+        $sharedCommand = null;
+        if ($filter !== null) {
+            $results[] = ($this->runner)($command, $root);
+            $sharedCommand = array_merge([PHP_BINARY, 'artisan', 'test'], self::SHARED_EVIDENCE_TESTS);
+            $results[] = ($this->runner)($sharedCommand, $root);
+        } else {
+            $command = array_merge([PHP_BINARY, 'artisan', 'test'], $allTests);
+            $results = [($this->runner)($command, $root)];
+        }
+        $output = implode("\n", array_map(static fn (array $result): string => (string) ($result['output'] ?? ''), $results));
+        $exitCode = max(array_map(static fn (array $result): int => (int) ($result['exit_code'] ?? 1), $results));
         $coverageEvidence = $this->coverageEvidenceFromOutput($output);
         $receipt = [
             'schema' => 'atlas.quality_foundry.live_test_receipt.v1',
             'mode' => $mode,
-            'command' => array_merge([PHP_BINARY, 'artisan', 'test'], $tests),
+            'command' => $command,
+            'shared_command' => $sharedCommand,
             'exit_code' => $exitCode,
             'output_hash' => hash('sha256', $output),
             'test_refs' => $testRefs,
@@ -202,15 +226,15 @@ final class QualityFoundryLiveManifestService
             'test_refs' => $testRefs,
             'kernel_routed' => $exitCode === 0,
             'coverage_percent' => $coverageEvidence['coverage_percent'] ?? 0,
-            'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+            'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
             'evidence' => [
-                'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
-                'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
-                'exactly_once_provider' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
-                'exactly_once_mutation' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
-                'canary_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
-                'crash_boundaries_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
-                'wip_preserved' => in_array('tests/Feature/Ai/Programming/AtlasDev/RepairToGreenTest.php', $tests, true) && $exitCode === 0,
+                'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
+                'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
+                'exactly_once_provider' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
+                'exactly_once_mutation' => in_array(self::EXACTLY_ONCE_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
+                'canary_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
+                'crash_boundaries_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
+                'wip_preserved' => in_array('tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php', $tests, true) && $exitCode === 0,
                 'zero_human_proven' => in_array('tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php', $tests, true) && $exitCode === 0,
                 'packet_scales' => $mode === 'forge' && in_array('tests/Feature/Ai/Programming/Forge/ForgeObraRuntimeTest.php', $tests, true) && $exitCode === 0
                     ? [1, 3, 10]
@@ -240,13 +264,27 @@ final class QualityFoundryLiveManifestService
                         '7d' => ['status' => 'initiated', 'receipt_hash' => hash('sha256', $receipt['output_hash'].'|autonomos|7d|initiated')],
                     ]
                     : [],
+                'canary_risk_bands' => $mode === 'dev'
+                    && in_array('tests/Feature/Ai/Programming/AtlasDev/EndToEndPlanOnlyTest.php', $tests, true)
+                    && in_array('tests/Unit/Ai/Programming/AtlasDev/Pipeline/RiskLevelScorerTest.php', $tests, true)
+                    && in_array('tests/Unit/Ai/Programming/AtlasDev/Execution/AtlasDevExecutionServiceTest.php', $tests, true)
+                    && $exitCode === 0 ? ['R0', 'R3', 'R5'] : [],
+                'surface_parity' => $mode === 'dev'
+                    && in_array('tests/Feature/Ai/Programming/AtlasDev/Http/PlanRunSurfaceParityTest.php', $tests, true)
+                    && $exitCode === 0,
+                'operator_effort' => $mode === 'dev'
+                    && in_array('tests/Unit/Ai/Programming/AtlasDev/PlanVisible/AtlasDevOperatorInteractionTelemetryTest.php', $tests, true)
+                    && $exitCode === 0
+                    ? ['measurement_mode' => 'observed_operator_runs', 'run_count' => 1]
+                    : [],
                 'coverage' => $coverageEvidence,
             ],
             // The canonical rollback suite asserts provisional and terminal
             // outcome events through AtlasEvidenceLedger. This is test-path
             // evidence only; it does not imply production cutover.
-            'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+            'outcome_writer_active' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
             'command' => $receipt['command'],
+            'shared_command' => $receipt['shared_command'],
             'exit_code' => $exitCode,
             'output_hash' => $receipt['output_hash'],
             'duration_ms' => $receipt['duration_ms'],

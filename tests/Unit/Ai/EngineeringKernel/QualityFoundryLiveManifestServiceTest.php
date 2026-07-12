@@ -99,6 +99,30 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertSame(['cost', 'time', 'operator_effort'], $inputs[0]['secondary_metrics']);
     }
 
+    public function test_successful_dev_readiness_fixture_records_all_required_canary_dimensions(): void
+    {
+        $commands = [];
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static function (array $command, string $cwd) use (&$commands): array {
+                $commands[] = $command;
+
+                return ['exit_code' => 0, 'output' => implode(' ', $command).' @ '.$cwd];
+            },
+        );
+
+        $dev = $service->build()['manifests']['dev'];
+
+        self::assertSame(['R0', 'R3', 'R5'], $dev['evidence']['canary_risk_bands']);
+        self::assertTrue($dev['evidence']['wip_preserved']);
+        self::assertTrue($dev['evidence']['surface_parity']);
+        self::assertSame('observed_operator_runs', $dev['evidence']['operator_effort']['measurement_mode']);
+        self::assertNotEmpty(array_filter($commands, static fn (array $command): bool => in_array('--filter='.QualityFoundryLiveManifestService::DEV_READINESS_FILTER, $command, true)));
+        self::assertNotEmpty(array_filter($commands, static fn (array $command): bool => in_array('tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php', $command, true) && ! in_array('--filter='.QualityFoundryLiveManifestService::DEV_READINESS_FILTER, $command, true)));
+        self::assertArrayHasKey('shared_command', $dev['execution']);
+        self::assertNotContains('--filter='.QualityFoundryLiveManifestService::DEV_READINESS_FILTER, $dev['execution']['shared_command']);
+    }
+
     public function test_successful_forge_fixture_records_scale_unique_effect_and_soak_start(): void
     {
         $service = new QualityFoundryLiveManifestService(
