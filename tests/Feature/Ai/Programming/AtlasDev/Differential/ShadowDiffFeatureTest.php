@@ -10,14 +10,13 @@ use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderHealthCheck;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffGate;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarness;
 use App\Services\Ai\Programming\AtlasDev\Differential\Shadow\ShadowDiffHarnessResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationCommandResult;
 use App\Services\Ai\Programming\AtlasDev\Gate\VerificationGateResult;
-use App\Services\Ai\Programming\AtlasDev\Intelligence\ReviewIntelligenceService;
-use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Provider\ClaudeCliGateway;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
@@ -25,7 +24,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
-use App\Services\Ai\Programming\AtlasDev\Schemas\ReviewReceipt;
+use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -61,6 +60,21 @@ final class ShadowDiffFeatureTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config()->set('atlas.programming.sovereign_floor_enforced', false);
+        $this->app->instance(AtlasWorkspaceIntelligenceExecutionGateService::class, new class
+        {
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return ['allowed' => true, 'status' => 'ready', 'mode' => $mode, 'blockers' => []];
+            }
+        });
+        $this->app->instance(AtlasContextRuntime::class, new class
+        {
+            public function certifyEnforcement(array $input): array
+            {
+                return ['status' => 'passed', 'blockers' => []];
+            }
+        });
         config()->set('atlas_dev.efficient.deterministic_fast_path_enabled', false);
         config()->set('atlas_dev.best_of_n.candidate_count', 1);
         // This suite pins the E4 axis. The elevations that landed AFTER it was
@@ -617,7 +631,6 @@ final class ShadowDiffFeatureTest extends TestCase
         $process = new Process(['git', ...$args], $workspace, null, null, 10.0);
         $process->run();
     }
-
 }
 
 /**
