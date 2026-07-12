@@ -92,9 +92,12 @@ final class AtlasAiSelfConstructionAgentControlPlaneClaimLeaseRepositoryTest ext
     {
         $repo = new AgentControlPlaneClaimLeaseRepository;
         $r = $repo->claim('task-release-1', 'agent-1', $this->scope(['app/Rel.php']));
+        $this->assertNotEmpty($r['authority_nonce']);
+        $this->assertFalse($r['authority_revoked']);
         $release = $repo->release($r['lease_id'], 'agent-1', ['reason' => 'completed_dry_run']);
         $this->assertSame('ok', $release['status']);
         $this->assertSame('released', $release['lease_status']);
+        $this->assertTrue($release['authority_revoked']);
     }
 
     public function test_release_by_non_owner_blocks(): void

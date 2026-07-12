@@ -294,6 +294,8 @@ final class AtlasTaskServingService
         return [
             'task_packet_id' => $taskPacketId,
             'lease_id' => $leaseId,
+            'authority_nonce' => (string) ($lease['authority_nonce'] ?? ''),
+            'authority_revoked' => (bool) ($lease['authority_revoked'] ?? false),
             'lease_expires_at' => (string) ($lease['expires_at'] ?? ''),
             'allowed_files' => array_values(array_map('strval', (array) ($lease['allowed_files'] ?? []))),
             'authority_hash' => (string) ($lease['authority_hash'] ?? ''),

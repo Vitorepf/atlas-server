@@ -230,6 +230,8 @@ class AgentControlPlaneLeaseRegistryShaper
             'task_packet_id' => (string) ($lease['task_packet_id'] ?? ''),
             'agent_id' => (string) ($lease['agent_id'] ?? ''),
             'lease_status' => (string) ($lease['lease_status'] ?? ''),
+            'authority_nonce' => (string) ($lease['authority_nonce'] ?? ''),
+            'authority_revoked' => (bool) ($lease['authority_revoked'] ?? false),
             'acquired_at' => (string) ($lease['acquired_at'] ?? ''),
             'expires_at' => (string) ($lease['expires_at'] ?? ''),
             'expires_at_unix' => (int) ($lease['expires_at_unix'] ?? 0),

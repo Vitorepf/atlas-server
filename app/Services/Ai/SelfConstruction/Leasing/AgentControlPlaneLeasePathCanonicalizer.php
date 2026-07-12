@@ -172,24 +172,34 @@ final class AgentControlPlaneLeasePathCanonicalizer
         $entryTaskPrefix = $this->canonicalizeTaskPrefix((string) ($entry['task_prefix'] ?? ''));
 
         foreach ($this->normalizeSet($taskPrefixes) as $prefix) {
-            if ($prefix !== '' && $this->safeMatch($prefix, $entryTaskPrefix)) {
+            if ($prefix !== '' && $this->safeIdentifierMatch($prefix, $entryTaskPrefix)) {
                 return true;
             }
         }
 
         foreach ($this->normalizeSet($agentPrefixes) as $prefix) {
-            if ($prefix !== '' && $this->safeMatch($prefix, $entryAgentId)) {
+            if ($prefix !== '' && $this->safeIdentifierMatch($prefix, $entryAgentId)) {
                 return true;
             }
         }
 
         foreach ($this->normalizeSet($leasePrefixes) as $prefix) {
-            if ($prefix !== '' && $this->safeMatch($prefix, $entryLeaseId)) {
+            if ($prefix !== '' && $this->safeIdentifierMatch($prefix, $entryLeaseId)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /** Identifier prefixes are not filesystem paths: `agent-` must match `agent-001`. */
+    private function safeIdentifierMatch(string $filter, string $target): bool
+    {
+        $filter = strtolower(trim($filter));
+        $target = strtolower(trim($target));
+
+        return $filter !== '' && $filter !== '/' && $filter !== '.'
+            && ($filter === $target || str_starts_with($target, $filter));
     }
 
     /**

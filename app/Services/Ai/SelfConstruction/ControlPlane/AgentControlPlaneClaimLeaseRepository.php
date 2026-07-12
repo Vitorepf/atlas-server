@@ -145,6 +145,8 @@ final class AgentControlPlaneClaimLeaseRepository
             $lease = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'lease_id' => $leaseId,
+                'authority_nonce' => 'authority_'.(string) Str::ulid(),
+                'authority_revoked' => false,
                 'task_packet_id' => $taskPacketId,
                 'agent_id' => $agentId,
                 'lease_status' => self::LEASE_STATUS_ACTIVE,
@@ -221,6 +223,7 @@ final class AgentControlPlaneClaimLeaseRepository
             $lease['ttl_seconds'] = $ttl;
             $lease['expires_at'] = $now->addSeconds($ttl)->toIso8601String();
             $lease['expires_at_unix'] = $now->getTimestamp() + $ttl;
+            $lease['authority_revoked'] = false;
             $lease['renew_count'] = (int) $lease['renew_count'] + 1;
 
             $receipt = $this->buildReceipt(self::RECEIPT_LEASE_RENEWED, [
@@ -267,6 +270,7 @@ final class AgentControlPlaneClaimLeaseRepository
             $now = CarbonImmutable::now();
             $reason = (string) ($options['reason'] ?? 'released_by_owner');
             $lease['lease_status'] = self::LEASE_STATUS_RELEASED;
+            $lease['authority_revoked'] = true;
             $lease['released_at'] = $now->toIso8601String();
             $lease['released_by'] = $agentId;
             $lease['release_reason'] = $reason;
@@ -629,6 +633,7 @@ final class AgentControlPlaneClaimLeaseRepository
             if ($expiresAt > 0 && $expiresAt <= $now) {
                 $expiredAt = CarbonImmutable::now()->toIso8601String();
                 $lease['lease_status'] = self::LEASE_STATUS_EXPIRED;
+                $lease['authority_revoked'] = true;
                 $receipt = $this->buildReceipt(self::RECEIPT_LEASE_EXPIRED, [
                     'task_packet_id' => (string) $lease['task_packet_id'],
                     'agent_id' => (string) $lease['agent_id'],
@@ -795,6 +800,8 @@ final class AgentControlPlaneClaimLeaseRepository
         foreach ($entries as $i => $entry) {
             if ((string) ($entry['lease_id'] ?? '') === $leaseId) {
                 $entries[$i]['lease_status'] = (string) ($lease['lease_status'] ?? '');
+                $entries[$i]['authority_nonce'] = (string) ($lease['authority_nonce'] ?? '');
+                $entries[$i]['authority_revoked'] = (bool) ($lease['authority_revoked'] ?? false);
                 $entries[$i]['expires_at'] = (string) ($lease['expires_at'] ?? '');
                 $entries[$i]['expires_at_unix'] = (int) ($lease['expires_at_unix'] ?? 0);
 

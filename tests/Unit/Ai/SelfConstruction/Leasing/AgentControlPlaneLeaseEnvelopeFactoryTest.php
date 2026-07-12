@@ -124,6 +124,25 @@ final class AgentControlPlaneLeaseEnvelopeFactoryTest extends TestCase
         $this->assertSame($lease, $env['lease']);
     }
 
+    public function test_envelope_ok_exposes_authority_nonce_and_revocation_state(): void
+    {
+        $env = $this->factory->envelopeOk('acquired', $this->lease([
+            'authority_nonce' => 'authority-nonce-001',
+            'authority_revoked' => false,
+        ]));
+
+        $this->assertSame('authority-nonce-001', $env['authority_nonce']);
+        $this->assertFalse($env['authority_revoked']);
+    }
+
+    public function test_lease_integrity_hash_changes_when_authority_nonce_changes(): void
+    {
+        $first = $this->factory->envelopeOk('acquired', $this->lease(['authority_nonce' => 'nonce-a']));
+        $second = $this->factory->envelopeOk('acquired', $this->lease(['authority_nonce' => 'nonce-b']));
+
+        $this->assertNotSame($first['lease_integrity_hash'], $second['lease_integrity_hash']);
+    }
+
     public function test_envelope_ok_extra_merges(): void
     {
         $env = $this->factory->envelopeOk('acquired', $this->lease(), ['custom' => 'value']);
