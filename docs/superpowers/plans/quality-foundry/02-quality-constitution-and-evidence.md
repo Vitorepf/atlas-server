@@ -233,7 +233,7 @@ Every event has schema, run/delivery IDs, correlated hashes, timestamp and prove
 - [x] Mutate each role to absent/pass-without-evidence/forged-N/A/self-certified and prove acceptance blocks.
 - [x] Mutate evidence hashes, world/spec snapshot, ledger order and outcome status and prove acceptance or claim eligibility blocks.
 - [x] Produce a Constitution readiness manifest with live test/evidence refs and zero unresolved mutation survivors. Evidence: `QualityFoundryConstitutionReadinessManifest` remains `implemented_not_cutover_ready`, requires parity/mutation/live refs, blocks survivors and reserves comparative authority for Rivals.
-- [ ] Run focused and neighboring suites, full architecture validation, docs health and `git diff --check`.
+- [x] Run focused and neighboring suites, full architecture validation, docs health and `git diff --check`. Evidence: focused/neighboring suite passed (18 tests, 145 assertions); `git diff --check` passed; architecture validation executed and remains blocked by the pre-existing missing `atlas_engineering_runs` projection table; docs-health executed and remains blocked by 201 repository violations (including concurrent WIP documentation), with blockers recorded verbatim in the command output.
 
 **GREEN acceptance:** parity is proven, every adversarial mutation is killed, no average masks red, and the highest honest state is `implemented_not_cutover_ready` or the already-proven factory state. `art_grade_delivery` may be issued only per eligible delivery; comparative states remain Rivals-only.
 
