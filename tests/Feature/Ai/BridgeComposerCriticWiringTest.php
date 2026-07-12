@@ -67,7 +67,7 @@ class BridgeComposerCriticWiringTest extends TestCase
         {
             public function __construct(private AiProvider $p) {}
 
-            public function get(?string $provider = null): AiProvider
+            public function get(?string $provider = null, bool $skipCoverage = false): AiProvider
             {
                 return $this->p;
             }

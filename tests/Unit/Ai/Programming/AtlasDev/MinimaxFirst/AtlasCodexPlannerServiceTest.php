@@ -152,7 +152,7 @@ final class AtlasCodexPlannerServiceTest extends TestCase
                 private array &$requested,
             ) {}
 
-            public function get(?string $provider = null): AiProvider
+            public function get(?string $provider = null, bool $skipCoverage = false): AiProvider
             {
                 $this->requested[] = $provider;
 

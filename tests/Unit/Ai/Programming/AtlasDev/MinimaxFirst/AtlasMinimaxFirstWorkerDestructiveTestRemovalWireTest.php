@@ -168,7 +168,7 @@ PHP;
         return new class($provider) extends AiProviderManager {
             public function __construct(private readonly AiProvider $provider) {}
 
-            public function get(?string $provider = null): AiProvider
+            public function get(?string $provider = null, bool $skipCoverage = false): AiProvider
             {
                 return $this->provider;
             }

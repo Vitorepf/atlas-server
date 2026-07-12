@@ -153,7 +153,7 @@ final class AtlasLoopObraPlanningProviderInvokerTest extends TestCase
                 // no-op
             }
 
-            public function get(?string $provider = null): AiProvider
+            public function get(?string $provider = null, bool $skipCoverage = false): AiProvider
             {
                 throw new InvalidArgumentException('Unsupported AI provider [no_such_provider].');
             }
@@ -255,7 +255,7 @@ final class AtlasLoopObraPlanningProviderInvokerTest extends TestCase
                 // intentionally bypass heavy parent ctor
             }
 
-            public function get(?string $provider = null): AiProvider
+            public function get(?string $provider = null, bool $skipCoverage = false): AiProvider
             {
                 $responder = $this->responder;
 
