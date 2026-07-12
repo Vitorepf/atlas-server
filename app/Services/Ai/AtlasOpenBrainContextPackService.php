@@ -444,6 +444,7 @@ class AtlasOpenBrainContextPackService
 
         return $this->retrievalAgendaComposer->compose($task, [
             'facets' => (array) ($facetExtraction['facets'] ?? []),
+            'facet_coverage' => (array) data_get($pack, 'sufficiency.facets', []),
             'wired_into_packfor' => true,
         ]);
     }

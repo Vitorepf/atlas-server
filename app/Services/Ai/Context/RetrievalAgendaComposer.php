@@ -44,6 +44,8 @@ final class RetrievalAgendaComposer
     /**
      * @param  array<string,mixed>  $context  optional:
      *                                        - facets: list from MAXC-01 TaskFacetExtractor
+     *                                        - facet_coverage: MAXC-02 per-facet refs_delivered report
+     *                                        - sufficiency: MAXC-02 block; facets are used as coverage
      *                                        - wired_into_packfor: bool — caller stamps pack wiring
      * @return array<string,mixed>
      */
@@ -69,22 +71,16 @@ final class RetrievalAgendaComposer
         $facets = is_array($context['facets'] ?? null) ? $context['facets'] : [];
         $claims = $this->extractClaims($raw);
         $unknowns = $this->extractUnknowns($raw);
+        $facetCoverage = $this->facetCoverage($context);
 
         // Pétreo: task WITHOUT claims AND WITHOUT unknowns ⇒ empty agenda (byte-identical to MAXC baseline).
         if ($claims === [] && $unknowns === []) {
             return $empty;
         }
 
-        $counter = $claims !== []
-            ? [[
-                'origin' => 'anti_confirmation',
-                'refs_found' => 0,
-                'sources_expected' => 1,
-                'status' => 'empty_honest',
-            ]]
-            : [];
+        $counter = $this->counterEvidenceSlots($claims);
 
-        $namedGaps = $this->essentialUnknownGaps($unknowns, $facets);
+        $namedGaps = $this->essentialUnknownGaps($unknowns, $facets, $facetCoverage);
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -100,7 +96,7 @@ final class RetrievalAgendaComposer
     }
 
     /**
-     * @return list<array{claim:string,expected_source:string,verb:string}>
+     * @return list<array{claim:string,expected_source:string,verb:string,kind:string,source_query:array<string,mixed>}>
      */
     private function extractClaims(string $task): array
     {
@@ -116,28 +112,24 @@ final class RetrievalAgendaComposer
                 if ($phrase === '') {
                     continue;
                 }
-                $out[] = [
-                    'claim' => $phrase,
-                    'expected_source' => $this->guessExpectedSource($phrase),
-                    'verb' => 'quoted',
-                ];
+                $out[] = $this->claimItem($phrase, 'quoted', 'quoted');
             }
         }
 
         // Verbs that mark a verifiable claim (EN + PT). Ordered by strength.
         $verbs = [
-            'must not' => 'norm',
-            'must' => 'norm',
-            'should not' => 'norm',
-            'should' => 'norm',
-            'cannot' => 'norm',
+            'must not' => 'normative',
+            'must' => 'normative',
+            'should not' => 'normative',
+            'should' => 'normative',
+            'cannot' => 'normative',
             'will' => 'assertion',
             'is not' => 'assertion',
             'is' => 'assertion',
-            'não pode' => 'norm',
-            'deve não' => 'norm',
-            'deve' => 'norm',
-            'não deve' => 'norm',
+            'não pode' => 'normative',
+            'deve não' => 'normative',
+            'deve' => 'normative',
+            'não deve' => 'normative',
             'é' => 'assertion',
         ];
         // Split into sentences (crude but deterministic).
@@ -166,18 +158,30 @@ final class RetrievalAgendaComposer
             if ($this->claimAlreadyCaptured($out, $claimText)) {
                 continue;
             }
-            $out[] = [
-                'claim' => $claimText,
-                'expected_source' => $this->guessExpectedSource($sentence),
-                'verb' => $foundVerb,
-            ];
+            $out[] = $this->claimItem($claimText, $foundVerb, $found);
         }
 
         return $out;
     }
 
     /**
-     * @param  list<array{claim:string,expected_source:string,verb:string}>  $claims
+     * @return array{claim:string,expected_source:string,verb:string,kind:string,source_query:array<string,mixed>}
+     */
+    private function claimItem(string $claim, string $verb, string $kind): array
+    {
+        $source = $this->guessExpectedSource($claim);
+
+        return [
+            'claim' => $claim,
+            'expected_source' => $source,
+            'verb' => $verb,
+            'kind' => $kind,
+            'source_query' => $this->sourceQuery('claim_verification', $source, $claim),
+        ];
+    }
+
+    /**
+     * @param  list<array{claim:string,expected_source:string,verb:string,kind:string,source_query:array<string,mixed>}>  $claims
      */
     private function claimAlreadyCaptured(array $claims, string $candidate): bool
     {
@@ -193,7 +197,7 @@ final class RetrievalAgendaComposer
     }
 
     /**
-     * @return list<array{unknown:string,essential:bool}>
+     * @return list<array{unknown:string,essential:bool,taxonomy:string,name:string,expected_source:string,source_query:array<string,mixed>}>
      */
     private function extractUnknowns(string $task): array
     {
@@ -222,13 +226,49 @@ final class RetrievalAgendaComposer
             if ($marker === null) {
                 continue;
             }
+            $unknown = mb_substr($sentence, 0, 160);
+            $taxonomy = $this->unknownTaxonomy($marker);
+            $name = $this->unknownName($unknown, $marker);
+            $source = $this->guessExpectedSource($unknown);
             $out[] = [
-                'unknown' => mb_substr($sentence, 0, 160),
-                'essential' => in_array($marker, ['how', 'why', 'como', 'por que', 'porque'], true),
+                'unknown' => $unknown,
+                'essential' => in_array($taxonomy, ['mechanism', 'rationale'], true),
+                'taxonomy' => $taxonomy,
+                'name' => $name,
+                'expected_source' => $source,
+                'source_query' => $this->sourceQuery('unknown_resolution', $source, $unknown),
             ];
         }
 
         return $out;
+    }
+
+    private function unknownTaxonomy(string $marker): string
+    {
+        return match ($marker) {
+            'how', 'como' => 'mechanism',
+            'why', 'por que', 'porque' => 'rationale',
+            'when', 'quando' => 'temporal',
+            'where' => 'location',
+            'quem' => 'actor',
+            'what', 'which', 'qual' => 'identification',
+            default => 'unknown',
+        };
+    }
+
+    private function unknownName(string $unknown, string $marker): string
+    {
+        $name = preg_replace('/^\s*'.preg_quote($marker, '/').'\b\s*/iu', '', $unknown) ?? $unknown;
+        for ($i = 0; $i < 4; $i++) {
+            $next = preg_replace('/^\s*(?:does|do|did|is|are|can|could|should|must|will|would|the|a|an|o|os|as|uma|um)\b\s*/iu', '', $name) ?? $name;
+            if ($next === $name) {
+                break;
+            }
+            $name = $next;
+        }
+        $name = trim((string) preg_replace('/\s+/u', ' ', $name), " \t\n\r\0\x0B?.!,;:");
+
+        return $name !== '' ? mb_substr($name, 0, 120) : mb_substr($unknown, 0, 120);
     }
 
     private function guessExpectedSource(string $sentence): string
@@ -251,11 +291,77 @@ final class RetrievalAgendaComposer
     }
 
     /**
-     * @param  list<array{unknown:string,essential:bool}>  $unknowns
-     * @param  array<int,array{type:string,value:string,essential?:bool}>  $facets
-     * @return list<array{unknown:string,essential:bool}>
+     * @return array{purpose:string,source:string,query:string,record_usage:bool}
      */
-    private function essentialUnknownGaps(array $unknowns, array $facets): array
+    private function sourceQuery(string $purpose, string $source, string $text): array
+    {
+        $prefix = match ($purpose) {
+            'counter_evidence' => 'counter evidence against claim: ',
+            'unknown_resolution' => 'resolve unknown: ',
+            default => 'verify claim: ',
+        };
+
+        return [
+            'purpose' => $purpose,
+            'source' => $source,
+            'query' => mb_substr($prefix.$text, 0, 240),
+            'record_usage' => false,
+        ];
+    }
+
+    /**
+     * @param  list<array{claim:string,expected_source:string,verb:string,kind:string,source_query:array<string,mixed>}>  $claims
+     * @return list<array<string,mixed>>
+     */
+    private function counterEvidenceSlots(array $claims): array
+    {
+        $slots = [];
+        foreach ($claims as $claim) {
+            $claimText = (string) ($claim['claim'] ?? '');
+            if ($claimText === '') {
+                continue;
+            }
+            $source = (string) ($claim['expected_source'] ?? 'reality_graph');
+            $slots[] = [
+                'origin' => 'anti_confirmation',
+                'claim' => $claimText,
+                'source' => $source,
+                'query' => $this->sourceQuery('counter_evidence', $source, $claimText)['query'],
+                'source_query' => $this->sourceQuery('counter_evidence', $source, $claimText),
+                'refs_against' => [],
+                'refs_found' => 0,
+                'sources_expected' => 1,
+                'max_refs' => 1,
+                'status' => 'empty_honest',
+            ];
+        }
+
+        return $slots;
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array<int,array<string,mixed>>
+     */
+    private function facetCoverage(array $context): array
+    {
+        if (is_array($context['facet_coverage'] ?? null)) {
+            return $context['facet_coverage'];
+        }
+        if (is_array($context['sufficiency'] ?? null) && is_array($context['sufficiency']['facets'] ?? null)) {
+            return $context['sufficiency']['facets'];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  list<array{unknown:string,essential:bool,taxonomy:string,name:string,expected_source:string,source_query:array<string,mixed>}>  $unknowns
+     * @param  array<int,array{type:string,value:string,essential?:bool}>  $facets
+     * @param  array<int,array<string,mixed>>  $facetCoverage
+     * @return list<array<string,mixed>>
+     */
+    private function essentialUnknownGaps(array $unknowns, array $facets, array $facetCoverage): array
     {
         // §2980: unknown essencial sem hit ⇒ not_enough_context=true with the unknown NAMED.
         // "hit" = at least one facet value appears in the unknown text (peek budget only).
@@ -264,24 +370,52 @@ final class RetrievalAgendaComposer
             if (! ($unknown['essential'] ?? false)) {
                 continue;
             }
-            $lower = mb_strtolower((string) ($unknown['unknown'] ?? ''));
-            $hit = false;
-            foreach ($facets as $facet) {
-                $value = mb_strtolower((string) ($facet['value'] ?? ''));
-                if ($value !== '' && str_contains($lower, $value)) {
-                    $hit = true;
-                    break;
-                }
-            }
-            if (! $hit) {
+            if (! $this->unknownHasHit($unknown, $facets, $facetCoverage)) {
+                $taxonomy = (string) ($unknown['taxonomy'] ?? 'unknown');
+                $name = (string) ($unknown['name'] ?? $unknown['unknown'] ?? '');
                 $gaps[] = [
                     'unknown' => (string) ($unknown['unknown'] ?? ''),
                     'essential' => true,
+                    'taxonomy' => $taxonomy,
+                    'name' => $name,
+                    'expected_source' => (string) ($unknown['expected_source'] ?? 'reality_graph'),
+                    'handle' => 'expand:unknown:'.$taxonomy.':'.$name,
+                    'source_query' => (array) ($unknown['source_query'] ?? []),
                 ];
             }
         }
 
         return $gaps;
+    }
+
+    /**
+     * @param  array{unknown:string,essential:bool,taxonomy:string,name:string,expected_source:string,source_query:array<string,mixed>}  $unknown
+     * @param  array<int,array{type:string,value:string,essential?:bool}>  $facets
+     * @param  array<int,array<string,mixed>>  $facetCoverage
+     */
+    private function unknownHasHit(array $unknown, array $facets, array $facetCoverage): bool
+    {
+        $lower = mb_strtolower((string) ($unknown['unknown'] ?? ''));
+        if ($facetCoverage !== []) {
+            foreach ($facetCoverage as $facet) {
+                $value = mb_strtolower((string) ($facet['value'] ?? ''));
+                $refsDelivered = (int) ($facet['refs_delivered'] ?? 0);
+                if ($value !== '' && $refsDelivered > 0 && str_contains($lower, $value)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        foreach ($facets as $facet) {
+            $value = mb_strtolower((string) ($facet['value'] ?? ''));
+            if ($value !== '' && str_contains($lower, $value)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
