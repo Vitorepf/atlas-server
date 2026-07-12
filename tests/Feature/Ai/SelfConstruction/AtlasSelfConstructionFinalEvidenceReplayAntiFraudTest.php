@@ -71,6 +71,8 @@ final class AtlasSelfConstructionFinalEvidenceReplayAntiFraudTest extends TestCa
             'failed_criteria' => [],
         ]);
         $bundle['evidence_dependencies']['failed_criteria'] = ['human_signed_os_complete_receipt_present'];
+        $bundle['final_readiness_map']['final_completion_allowed'] = true;
+        $bundle['machine_status']['completion_claim_allowed'] = true;
         $this->rehashBundle($bundle);
 
         $replay = (new AtlasSelfConstructionFinalEvidenceReplayService)->replay($bundle);
