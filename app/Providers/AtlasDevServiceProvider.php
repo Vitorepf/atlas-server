@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
+use App\Http\Controllers\AtlasDev\Support\KernelRunExecutor;
 use App\Http\Controllers\AtlasDev\Support\RunExecutor;
 use App\Services\Ai\AtlasOpenBrainService;
 use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
@@ -85,7 +85,7 @@ final class AtlasDevServiceProvider extends ServiceProvider
         $this->app->singleton(ClaudeCliGateway::class, fn (Application $app): ClaudeCliGateway => new SymfonyClaudeCliGateway($app['config']));
         $this->app->singleton(VerificationCommandRunner::class, fn (): VerificationCommandRunner => new SymfonyProcessCommandRunner);
 
-        $this->app->bind(RunExecutor::class, PipelineRunExecutor::class);
+        $this->app->bind(RunExecutor::class, KernelRunExecutor::class);
 
         $this->app->singleton(AtlasMinimaxFirstWorkerService::class, function (): AtlasMinimaxFirstWorkerService {
             return new AtlasMinimaxFirstWorkerService(

@@ -20,6 +20,7 @@ final readonly class DevIntent
         public string $riskClass,
         public string $durationRegime,
         public string $topology,
+        public bool $mutate,
         public array $constraints,
         public ?string $marketDecisionHash,
         public string $intentHash,
@@ -48,19 +49,22 @@ final readonly class DevIntent
             'product_intent_hash' => $data['product_intent_hash'], 'spec_hash' => $data['spec_hash'],
             'world_model_snapshot_hash' => $data['world_model_snapshot_hash'], 'authority_hash' => $data['authority_hash'],
             'risk_class' => $data['risk_class'], 'duration_regime' => trim($data['duration_regime']),
-            'topology' => trim($data['topology']), 'constraints' => array_values((array) ($data['constraints'] ?? [])),
+            'topology' => trim($data['topology']), 'mutate' => (bool) ($data['mutate'] ?? false),
+            'constraints' => array_values((array) ($data['constraints'] ?? [])),
         ];
         $marketDecisionHash = $data['market_decision_hash'] ?? null;
         if ($marketDecisionHash !== null && preg_match('/^[a-f0-9]{64}$/', (string) $marketDecisionHash) !== 1) {
             throw new InvalidArgumentException('dev_intent_market_decision_hash_invalid');
         }
-        if ($marketDecisionHash !== null) $canonical['market_decision_hash'] = $marketDecisionHash;
+        if ($marketDecisionHash !== null) {
+            $canonical['market_decision_hash'] = $marketDecisionHash;
+        }
 
         return new self(
             $canonical['raw_goal'], $canonical['workspace'], $canonical['operator_id'],
             $canonical['product_intent_hash'], $canonical['spec_hash'], $canonical['world_model_snapshot_hash'],
             $canonical['authority_hash'], $canonical['risk_class'], $canonical['duration_regime'],
-            $canonical['topology'], $canonical['constraints'], $marketDecisionHash, CanonicalKernelPayload::hash($canonical),
+            $canonical['topology'], $canonical['mutate'], $canonical['constraints'], $marketDecisionHash, CanonicalKernelPayload::hash($canonical),
         );
     }
 
@@ -72,9 +76,12 @@ final readonly class DevIntent
             'product_intent_hash' => $this->productIntentHash, 'spec_hash' => $this->specHash,
             'world_model_snapshot_hash' => $this->worldModelSnapshotHash, 'authority_hash' => $this->authorityHash,
             'risk_class' => $this->riskClass, 'duration_regime' => $this->durationRegime,
-            'topology' => $this->topology, 'constraints' => $this->constraints, 'intent_hash' => $this->intentHash,
+            'topology' => $this->topology, 'mutate' => $this->mutate, 'constraints' => $this->constraints, 'intent_hash' => $this->intentHash,
         ];
-        if ($this->marketDecisionHash !== null) $payload['market_decision_hash'] = $this->marketDecisionHash;
+        if ($this->marketDecisionHash !== null) {
+            $payload['market_decision_hash'] = $this->marketDecisionHash;
+        }
+
         return $payload;
     }
 }

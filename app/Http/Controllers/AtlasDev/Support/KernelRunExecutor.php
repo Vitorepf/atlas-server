@@ -1,0 +1,130 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers\AtlasDev\Support;
+
+use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+use App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService;
+use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevRunResult;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult;
+use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
+use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
+use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+
+/**
+ * Compatibility translator for the v1 HTTP/worker contract.
+ *
+ * It owns no provider, workspace or release behavior. It derives the typed
+ * Dev intent from persisted v1 artifacts, delegates to AtlasDevExecutionService
+ * and projects the v2 outcome back into RunExecutionResult.
+ */
+final class KernelRunExecutor implements RunExecutor
+{
+    public function __construct(
+        private readonly AtlasDevFastPathOrchestrator $orchestrator,
+        private readonly AtlasDevExecutionService $execution,
+    ) {}
+
+    public function execute(
+        OperationEnvelope $envelope,
+        LightTaskContract $taskContract,
+        ProviderPromptProjection $promptProjection,
+        string $runId,
+        ?string $expectedCompactSddHash = null,
+    ): RunExecutionResult {
+        $plan = $this->orchestrator->planOnly(
+            'atlas_dev_execution',
+            $envelope->workspace,
+            $envelope->normalizedIntent !== '' ? $envelope->normalizedIntent : $envelope->rawIntent,
+            $envelope->userConstraints,
+        );
+        $intent = DevIntent::fromArray([
+            'raw_goal' => $envelope->normalizedIntent !== '' ? $envelope->normalizedIntent : $envelope->rawIntent,
+            'workspace' => $envelope->workspace,
+            'operator_id' => $envelope->surfaceContext->productSurface,
+            'product_intent_hash' => hash('sha256', $envelope->normalizedIntent.'|'.$envelope->rawIntent),
+            'spec_hash' => $taskContract->specHash,
+            'world_model_snapshot_hash' => $envelope->workspaceHash,
+            'authority_hash' => $this->authorityHash($envelope, $taskContract, $runId),
+            'risk_class' => $this->riskClass($plan),
+            'duration_regime' => $this->duration($plan),
+            'topology' => $this->topology($plan),
+            'mutate' => $taskContract->allowsWrite() && $envelope->preflight->writeAllowed,
+            'constraints' => $envelope->userConstraints,
+        ]);
+        $run = ConfirmedDevRun::fromIntent($intent, $intent->operatorId, $intent->authorityHash);
+        $result = $this->execution->run($run);
+
+        return $this->toLegacyResult($result, $taskContract, $runId);
+    }
+
+    private function authorityHash(OperationEnvelope $envelope, LightTaskContract $contract, string $runId): string
+    {
+        return CanonicalKernelPayload::hash([
+            'run_id' => $runId,
+            'envelope_hash' => $envelope->envelopeHash,
+            'task_contract_hash' => $contract->taskContractHash,
+            'preflight_hash' => $envelope->preflight->hash(),
+        ]);
+    }
+
+    private function riskClass(PlanOnlyResult $plan): string
+    {
+        return in_array($plan->riskLevel, ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true) ? $plan->riskLevel : 'R3';
+    }
+
+    private function duration(PlanOnlyResult $plan): string
+    {
+        return $plan->isForgePreview() ? 'durable_task' : 'interactive';
+    }
+
+    private function topology(PlanOnlyResult $plan): string
+    {
+        return $plan->isForgePreview() ? 'DAG' : 'single';
+    }
+
+    private function toLegacyResult(DevRunResult $result, LightTaskContract $contract, string $runId): RunExecutionResult
+    {
+        $outcome = is_array($result->details['kernel_outcome'] ?? null) ? $result->details['kernel_outcome'] : [];
+        $status = (string) ($outcome['status'] ?? $result->status);
+        $completion = match ($status) {
+            'released', 'completed_read_only' => 'passed',
+            'held', 'forge_handoff_required' => 'needs_review',
+            default => 'blocked',
+        };
+        $hashes = is_array($outcome['correlated_hashes'] ?? null) ? $outcome['correlated_hashes'] : [];
+        $provider = is_array($outcome['provider_receipt'] ?? null) ? $outcome['provider_receipt'] : [];
+        $verification = is_array($outcome['evidence_bundle'] ?? null) ? $outcome['evidence_bundle'] : [];
+
+        return new RunExecutionResult(
+            completionState: $completion,
+            scopeGuardStatus: $completion === 'passed' ? 'passed' : 'blocked',
+            verificationStatus: $completion === 'passed' ? 'passed' : 'blocked',
+            persistedReceiptPaths: [],
+            providerCallSummary: [
+                'provider' => (string) ($provider['provider'] ?? $contract->providerLock->provider),
+                'model_family' => (string) ($provider['model'] ?? $contract->providerLock->modelFamily),
+                'provider_calls' => ($provider === [] ? 0 : 1),
+                'exit_code' => $completion === 'passed' ? 0 : 1,
+                'duration_ms' => (int) ($outcome['elapsed_ms'] ?? 0),
+                'tokens_in' => null,
+                'tokens_out' => null,
+                'estimated_cost_usd' => null,
+                'error_codes' => array_values(array_map('strval', (array) ($result->details['kernel_outcome']['uncertainties'] ?? []))),
+            ],
+            verificationReceiptHash: self::hashOrNull($verification['hash'] ?? null),
+            scopeGuardReceiptHash: self::hashOrNull($hashes['release'] ?? null),
+            diffHash: self::hashOrNull($hashes['diff'] ?? null),
+            reasons: $result->reason === null ? null : [$result->reason],
+        );
+    }
+
+    private static function hashOrNull(mixed $value): ?string
+    {
+        return is_string($value) && preg_match('/^[a-f0-9]{64}$/', $value) === 1 ? $value : null;
+    }
+}
