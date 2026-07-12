@@ -18,5 +18,13 @@ final readonly class CausalLearningPromotion
         public array $observationSchedule,
         public string $reason,
         public bool $claimEligible = false,
+        /** @var array<string,mixed> */
+        public array $ownerBinding = [],
+        public string $owner = '',
+        /** @var array<string,mixed> */
+        public array $beforeState = [],
+        /** @var array<string,mixed> */
+        public array $afterState = [],
+        public string $effectReceiptHash = '',
     ) {}
 }

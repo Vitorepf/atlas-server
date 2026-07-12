@@ -9,6 +9,8 @@ use App\Services\Ai\Compounding\CausalLearningCandidate;
 use App\Services\Ai\Compounding\CausalLearningGate;
 use App\Services\Ai\Compounding\CausalLearningEvidenceBindingVerifier;
 use App\Services\Ai\Compounding\CausalLearningPromotionService;
+use App\Services\Ai\Compounding\CausalLearningRoutingPromotionOwner;
+use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Support\Facades\Schema;
@@ -101,5 +103,45 @@ final class CausalLearningLedgerTest extends TestCase
 
         self::assertSame('promote_reversible', $verdict->verdict);
         self::assertSame('promoted', $promotion->status);
+    }
+
+    public function test_owner_effect_receipt_is_persisted_with_canonical_promotion_event(): void
+    {
+        $ledger = app(AtlasEvidenceLedger::class);
+        $hashes = [];
+        $bindingRefs = [];
+        foreach (['assignment', 'experiment', 'order', 'run', 'release', 'outcome', 'authority'] as $binding) {
+            $event = $ledger->record(LedgerEventType::LearningProposed, ['artifact_binding' => $binding], ['event_id' => 'owner-artifact-'.$binding, 'emitter_stage' => 'test.artifact']);
+            $hashes[$binding] = (string) $event->payload_hash;
+            $bindingRefs[$binding] = ['hash' => $hashes[$binding], 'artifact_id' => 'owner-artifact-'.$binding];
+        }
+        $candidate = CausalLearningCandidate::fromArray([
+            'assignment_hash' => $hashes['assignment'], 'experiment_hash' => $hashes['experiment'], 'order_hash' => $hashes['order'],
+            'run_hash' => $hashes['run'], 'release_hash' => $hashes['release'], 'outcome_hash' => $hashes['outcome'],
+            'change_class' => 'routing', 'hypothesis' => 'owner route improves quality', 'baseline' => 'route-v1', 'metric' => 'quality',
+            'window' => '7d', 'effect' => 0.18, 'ci_low' => 0.06, 'ci_high' => 0.30, 'confounders' => ['provider_drift' => 'controlled'],
+            'rollback' => 'route-v1', 'reversible' => true, 'assignment_precedes_run' => true, 'real_outcome' => true,
+            'authority_hash' => $hashes['authority'], 'scope' => 'atlas.route', 'expiry' => '2026-08-01T00:00:00Z',
+            'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z', 'run_at' => '2026-07-12T00:20:00Z',
+            'outcome_at' => '2026-07-12T01:00:00Z', 'task_category' => 'engineering', 'role' => 'worker', 'provider' => 'provider-a', 'model' => 'model-a',
+            'observation_schedule' => ['0h' => 'pending', '24h' => 'pending', '7d' => 'pending', '30d' => 'pending', '90d' => 'pending', '150d' => 'pending'],
+            'binding_refs' => $bindingRefs,
+        ]);
+        $verdict = (new CausalLearningGate($ledger))->adjudicate($candidate);
+        $path = sys_get_temp_dir().'/atlas-causal-ledger-routing-'.bin2hex(random_bytes(5)).'.jsonl';
+        $routing = new AtlasConductorRoutingMemory;
+        $routing->setLogPathForTesting($path);
+
+        try {
+            (new CausalLearningPromotionService($ledger, new CausalLearningRoutingPromotionOwner($routing)))->promote($candidate, $verdict, 'route-v2');
+            $event = AtlasLedgerEvent::query()->where('payload->event_name', 'causal.learning.promoted')->firstOrFail();
+            self::assertSame(CausalLearningRoutingPromotionOwner::OWNER, $event->payload['owner']);
+            self::assertSame('route-v1', $event->payload['before_state']['version']);
+            self::assertSame('route-v2', $event->payload['after_state']['version']);
+            self::assertSame(64, strlen((string) $event->payload['effect_receipt_hash']));
+        } finally {
+            if (is_file($path)) @unlink($path);
+            if (is_file($path.'.preferred.jsonl')) @unlink($path.'.preferred.jsonl');
+        }
     }
 }

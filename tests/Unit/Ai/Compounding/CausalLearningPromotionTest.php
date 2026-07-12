@@ -7,7 +7,9 @@ namespace Tests\Unit\Ai\Compounding;
 use App\Services\Ai\Compounding\CausalLearningCandidate;
 use App\Services\Ai\Compounding\CausalLearningGate;
 use App\Services\Ai\Compounding\CausalLearningPromotionService;
+use App\Services\Ai\Compounding\CausalLearningRoutingPromotionOwner;
 use App\Services\Ai\Compounding\CausalLearningVerdict;
+use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -24,6 +26,38 @@ final class CausalLearningPromotionTest extends TestCase
         self::assertSame('route-v1', $promotion->rollbackVersion);
         self::assertSame(['0h', '24h', '7d', '30d', '90d', '150d'], array_keys($promotion->observationSchedule));
         self::assertFalse($promotion->claimEligible);
+    }
+
+    public function test_promotion_and_revoke_apply_through_reversible_routing_owner_with_receipts(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-causal-routing-'.bin2hex(random_bytes(5)).'.jsonl';
+        $routing = new AtlasConductorRoutingMemory;
+        $routing->setLogPathForTesting($path);
+        $candidate = CausalLearningCandidate::fromArray(array_replace($this->candidate(), [
+            'task_category' => 'engineering', 'role' => 'worker', 'provider' => 'provider-a', 'model' => 'model-a',
+        ]));
+        $service = new CausalLearningPromotionService(null, new CausalLearningRoutingPromotionOwner($routing));
+
+        try {
+            $promotion = $service->promote($candidate, (new CausalLearningGate)->adjudicate($candidate), 'route-v2', $this->artifacts($candidate));
+
+            self::assertSame(CausalLearningRoutingPromotionOwner::OWNER, $promotion->owner);
+            self::assertSame('route-v1', $promotion->beforeState['version']);
+            self::assertSame('route-v2', $promotion->afterState['version']);
+            self::assertSame('provider-a', $routing->preferredFor('engineering', 'worker')['provider']);
+            self::assertSame(64, strlen($promotion->effectReceiptHash));
+
+            $revoked = $service->revoke($promotion, 'late_regression');
+
+            self::assertSame('route-v1', $revoked->activeVersion);
+            self::assertSame('route-v2', $revoked->beforeState['version']);
+            self::assertSame('route-v1', $revoked->afterState['version']);
+            self::assertNull($routing->preferredFor('engineering', 'worker'));
+            self::assertSame(64, strlen($revoked->effectReceiptHash));
+        } finally {
+            if (is_file($path)) @unlink($path);
+            if (is_file($path.'.preferred.jsonl')) @unlink($path.'.preferred.jsonl');
+        }
     }
 
     public function test_adverse_late_outcome_revokes_and_restores_previous_version(): void

@@ -102,7 +102,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 - [x] Write RED tests for change class spoofing, authority escalation, irreversible config/schema/code application, promotion without rollback, stale verdict reuse and late adverse outcome ignored.
 - [x] Bind promoted reversible changes to exact scope, authority, version, expiry, rollback and observation schedule.
-- [ ] Apply through existing routing/memory/policy owners only; persist before/after and effect receipt in canonical events.
+- [x] Apply through existing routing/memory/policy owners only; persist before/after and effect receipt in canonical events. Evidence: `CausalLearningRoutingPromotionOwner` applies/rolls back preferred routes through `AtlasConductorRoutingMemory`; promotion/revocation receipts are persisted in `atlas_ledger_events` and covered by focused unit/feature tests.
 - [x] Monitor real outcomes and calibration; late regression invokes gate `revoke` and restores the last proven reversible state.
 - [x] Convert code/config/schema proposals outside the reversible envelope into normal Task Fabric packets with Product/Spec/Kernel gates.
 - [x] Run authority, replay, rollback, expiry, late-regression and no-direct-code-promotion tests.
