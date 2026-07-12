@@ -817,7 +817,7 @@ class AtlasRealEngineeringExecutionKernelService
                 $id = 'product_spec_'.substr(RealExecutionHash::make([$case->caseHash, $receipt['hash']]), 0, 24);
 
                 return AiEngineeringCompanyRoleRun::query()->create(['engagement_record_id' => $engagement->getKey(),
-                    'cycle_record_id' => $cycle->getKey(), 'role_run_id' => $id, 'role_id' => 'product_management', 'status' => 'passed',
+                    'cycle_record_id' => $cycle->getKey(), 'role_run_id' => $id, 'role_id' => 'backend_spec_authority', 'status' => 'passed',
                     'responsibilities' => [], 'output' => ['spec_hash' => $case->order->specHash],
                     'evidence_refs' => ['contract:'.$receipt['contract_artifact']['sha256'], 'ledger:'.$event->event_id],
                     'receipt' => $receipt, 'role_hash' => $receipt['hash']]);
@@ -838,7 +838,7 @@ class AtlasRealEngineeringExecutionKernelService
     private function backendSpecCourtAuthorityReceipt(CandidateQualityCase $case): ?array
     {
         $expectedBinding = $this->backendOwnerBinding($case);
-        $rows = AiEngineeringCompanyRoleRun::query()->where('role_id', 'product_management')->get()
+        $rows = AiEngineeringCompanyRoleRun::query()->where('role_id', 'backend_spec_authority')->get()
             ->filter(static fn (AiEngineeringCompanyRoleRun $row): bool => data_get($row->receipt, 'purpose') === 'product_spec_backend_contract_authority'
                 && data_get($row->receipt, 'binding.case_hash') === $case->caseHash);
         if ($rows->count() !== 1) {

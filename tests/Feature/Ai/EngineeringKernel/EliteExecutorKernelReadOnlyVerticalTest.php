@@ -349,6 +349,63 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
         $authorityRow = $authorityService->adjudicateAndPersistProductSpecBackendAuthority($engagement, $cycle, $qualityCase, $draft, $intent);
         $authorityReceipt = $authorityRow->receipt;
         $authorityEventId = (string) data_get($authorityReceipt, 'ledger_event.event_id');
+
+        $positiveData = $data;
+        $positiveData['idempotency_key'] = 'mutative-positive-'.Str::uuid();
+        $positiveData['authority_envelope'] = [
+            'kind' => 'mutative', 'lease_id' => 'lease-positive', 'lease_owner' => 'kernel-test', 'fencing_token' => 7,
+        ];
+        $positiveData['release_policy'] = [
+            'kind' => 'canonical_commit_with_canary', 'requires_canary_settlement' => true,
+            'verification_command' => 'php artisan test tests/Feature/Ai/EngineeringKernel/EliteExecutorKernelReadOnlyVerticalTest.php',
+        ];
+        $positiveData['rollback_policy'] = [
+            'kind' => 'scoped_revert', 'restore_strategy' => 'git_revert_scoped_commit',
+            'verification_command' => 'php artisan test tests/Feature/Ai/EngineeringKernel/EliteExecutorKernelReadOnlyVerticalTest.php',
+        ];
+        $positiveMatrix = [];
+        foreach (self::ROLE_IDS as $role) {
+            if (in_array($role, ['qa_testing', 'backend', 'release', 'evidence_audit', 'final_certification'], true)) {
+                continue;
+            }
+            $positiveMatrix[$role] = [
+                'status' => 'not_applicable',
+                'rule' => 'mutative_fixture_scope_excludes_'.$role,
+                'justification' => 'fixture changes only one backend candidate and has no '.$role.' surface effect',
+            ];
+        }
+        $positiveMatrixHash = CanonicalKernelPayload::hash($positiveMatrix);
+        foreach ($positiveMatrix as $role => $entry) {
+            $positiveMatrix[$role]['evidence_hash'] = CanonicalKernelPayload::hash([
+                'role' => $role, 'rule' => $entry['rule'], 'justification' => $entry['justification'],
+                'matrix_hash' => $positiveMatrixHash,
+            ]);
+        }
+        $positiveData['evidence_policy']['mutative_applicability'] = $positiveMatrix;
+        $positiveData['evidence_policy']['mutative_applicability_hash'] = $positiveMatrixHash;
+        $positiveOrder = ExecutionOrder::fromArray($positiveData);
+        $positiveCandidate = $kernel->prepareMutativeCandidate($positiveOrder);
+        $this->assertSame('behaviorally_verified_pending_quality_court', $positiveCandidate->status, json_encode($positiveCandidate));
+        $positiveEngagement = $company->createEngagement('Quality Foundry positive mutative authorization');
+        $positiveCycle = $company->createCycle($positiveEngagement);
+        $positiveCase = CandidateQualityCase::fromCandidate($positiveOrder, $positiveCandidate, $positiveEngagement, $positiveCycle);
+        $positiveAuthorityRow = $authorityService->adjudicateAndPersistProductSpecBackendAuthority(
+            $positiveEngagement, $positiveCycle, $positiveCase, $draft, $intent,
+        );
+        $positiveGoverned = $kernel->governMutativeCandidate(
+            $positiveOrder, $positiveCandidate, $positiveEngagement, $positiveCycle,
+        );
+        $this->assertTrue($positiveGoverned['verdict']->authorityEligible, json_encode($positiveGoverned, JSON_PRETTY_PRINT));
+        $this->assertTrue($positiveGoverned['governance']['admitted'], json_encode($positiveGoverned['governance'], JSON_PRETTY_PRINT));
+        $this->assertNotNull($positiveGoverned['governance']['authorized_merge_action']);
+        $this->assertSame('pass', $positiveGoverned['verdict']->dispositions['backend']->status);
+        $this->assertSame('pass', $positiveGoverned['verdict']->dispositions['release']->status);
+        $this->assertSame('pass', $positiveGoverned['verdict']->dispositions['evidence_audit']->status);
+        $this->assertSame('pass', $positiveGoverned['verdict']->dispositions['final_certification']->status);
+        $this->assertNotNull($positiveAuthorityRow);
+        $positiveAuthorityRow->delete();
+        @unlink((string) data_get($positiveAuthorityRow->receipt, 'contract_artifact.path'));
+
         $authorityProbe = new \ReflectionMethod(AtlasRealEngineeringExecutionKernelService::class, 'backendSpecCourtAuthorityReceipt');
         $this->assertIsArray($authorityProbe->invoke($authorityService, $qualityCase));
         $eventOriginal = DB::table('atlas_ledger_events')->where('event_id', $authorityEventId)->first();
@@ -586,7 +643,7 @@ final class EliteExecutorKernelReadOnlyVerticalTest extends TestCase
             AtlasRealEngineeringExecutionKernelService::BACKEND_SPEC_COURT_OWNER_DOMAIN);
         $courtReceipt['hash'] = EngineeringCompanyHash::make($courtReceipt);
         $courtRow = AiEngineeringCompanyRoleRun::query()->create(['engagement_record_id' => $engagement->getKey(), 'cycle_record_id' => $cycle->getKey(),
-            'role_run_id' => 'backend-spec-court-negative-'.uniqid(), 'role_id' => 'product_management', 'status' => 'passed',
+            'role_run_id' => 'backend-spec-court-negative-'.uniqid(), 'role_id' => 'backend_spec_authority', 'status' => 'passed',
             'responsibilities' => [], 'output' => [], 'evidence_refs' => [], 'receipt' => $courtReceipt, 'role_hash' => $courtReceipt['hash']]);
         foreach (['outside_path', 'artifact_tamper', 'stale_receipt'] as $courtAttack) {
             $attackedReceipt = $courtReceipt;
