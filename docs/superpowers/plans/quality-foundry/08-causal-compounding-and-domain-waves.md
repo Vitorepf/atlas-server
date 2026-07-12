@@ -75,12 +75,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 **Allowed files:** Compounding family, narrow outcome/experiment adapters and focused tests. No learning ledger table.
 
 - [ ] Write RED construction/adjudication tests for missing hypothesis/assignment/baseline/metric/window/effect/IC/confounders/rollback/outcome, post-outcome assignment, hash mismatch, simulated outcome and non-reversible promotion.
-- [ ] Add RED causal fixtures for selection bias, regression to mean, concurrent change, novelty/provider drift and outcome lag.
-- [ ] Implement immutable candidate/verdict types with deterministic hash and exact verdict set.
+- [x] Add RED causal fixtures for selection bias, regression to mean, concurrent change, novelty/provider drift and outcome lag.
+- [x] Implement immutable candidate/verdict types with deterministic hash and exact verdict set.
 - [ ] Verify assignment predates execution and matches run/order/release/outcome; keep intent-to-treat failures in analysis.
-- [ ] Return `hold` for correlation/uncertainty, `reject` for invalid evidence, `emit_code_task` for code, and `promote_reversible` only for authorized reversible classes.
-- [ ] Emit `learning.adjudicated` to the canonical ledger; idempotent replay produces the same verdict.
-- [ ] Run focused causal gate, outcome/temporal, assignment replay and adversarial confounder tests.
+- [x] Return `hold` for correlation/uncertainty, `reject` for invalid evidence, `emit_code_task` for code, and `promote_reversible` only for authorized reversible classes.
+- [x] Emit `learning.adjudicated` to the canonical ledger; idempotent replay produces the same verdict.
+- [x] Run focused causal gate, outcome/temporal, assignment replay and adversarial confounder tests.
 
 **GREEN acceptance:** every invalid/correlational fixture holds/rejects; only complete causal reversible evidence promotes; no simulation or code change applies directly.
 
@@ -258,9 +258,9 @@ Wave order is fixed:
 
 **Allowed files:** cross-subsystem fixture tests, readiness projection and canonical docs.
 
-- [ ] Run a positive reversible-routing fixture with preregistered assignment and observed gain; assert scoped promotion and later retain.
-- [ ] Run a confounded fixture; assert hold and zero change.
-- [ ] Run a code proposal; assert governed task emission and zero direct application.
+- [x] Run a positive reversible-routing fixture with preregistered assignment and observed gain; assert scoped promotion and later retain.
+- [x] Run a confounded fixture; assert hold and zero change.
+- [x] Run a code proposal; assert governed task emission and zero direct application.
 - [ ] Run a late-regression fixture; assert route rollback, negative outcome memory, repair proposal and Rivals revocation request.
 - [ ] Run a template-farm/simplification/domain-wave fixture; assert every gate above.
 - [ ] Produce a readiness manifest with live evidence and explicit temporal/comparative gaps.
