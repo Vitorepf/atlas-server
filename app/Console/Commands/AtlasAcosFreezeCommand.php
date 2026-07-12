@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
+use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use Illuminate\Console\Command;
 use Throwable;
@@ -199,6 +200,36 @@ final class AtlasAcosFreezeCommand extends Command
                 'valor_antigo' => 'atlas.ai.learning_recall_use_lift.v1 aggregate reader unchanged',
                 'valor_novo' => 'atlas.ai.lesson_quality.v2 grouped lesson-quality reader',
                 'justificativa' => 'MAXJ-01 adds a grouped v2 medidor beside the frozen aggregate RecallUseLift v1 reader.',
+            ],
+        ];
+    }
+
+    /** @return array<string,mixed> */
+    public static function lessonTypeYieldFreezePayload(): array
+    {
+        return [
+            'kind' => 'measure_freeze',
+            'measure_id' => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID,
+            'formula_version' => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_FORMULA_VERSION,
+            'formula' => 'Segment existing learning recall/use A/B feedback by active ai_compounding_memories.memory_type; each type compares cases where that type was actually used against baseline feedback with no recalled memory type, and reports lift only when case_count and baseline_count both satisfy the hard v2 floor.',
+            'thresholds' => [
+                'denominator_min_cases_per_type' => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_DENOMINATOR_MIN,
+                'floor_policy' => 'max(8, requested_min_cases)',
+                'aggregate_v1_config_mutation_allowed' => false,
+            ],
+            'denominator_min' => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_DENOMINATOR_MIN,
+            'ttl_days' => 30,
+            'author_engine_id' => 'cursor-acos-max-maxj-05',
+            'judge_engine_id' => 'codex-independent-lesson-type-yield-judge',
+            'series' => [
+                'id' => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID,
+                'reader_command' => 'atlas:ai:lesson-type-yield --json',
+                'registry_status' => 'registered_elev_20s',
+            ],
+            'dual_read' => [
+                'valor_antigo' => 'atlas.ai.learning_recall_use_lift.v1 aggregate reader with existing min_cases_per_arm config',
+                'valor_novo' => 'atlas.ai.lesson_type_yield.v2 memory_type segmented reader with hard n>=8 floor',
+                'justificativa' => 'MAXJ-05 adds a new v2 series beside the frozen aggregate v1 reader; config/atlas.php learning_recall_use_lift.min_cases_per_arm remains untouched.',
             ],
         ];
     }

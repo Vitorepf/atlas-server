@@ -23,6 +23,14 @@ final class AtlasLearningRecallUseLiftService
 {
     public const SCHEMA_VERSION = 'atlas.ai.learning_recall_use_lift.v1';
 
+    public const LESSON_TYPE_YIELD_SCHEMA_VERSION = 'atlas.ai.lesson_type_yield.report.v2';
+
+    public const LESSON_TYPE_YIELD_MEASURE_ID = 'atlas.ai.lesson_type_yield.v2';
+
+    public const LESSON_TYPE_YIELD_FORMULA_VERSION = 'atlas_ai_lesson_type_yield_v2';
+
+    public const LESSON_TYPE_YIELD_DENOMINATOR_MIN = 8;
+
     /**
      * @return array<string,mixed>
      */
@@ -124,6 +132,143 @@ final class AtlasLearningRecallUseLiftService
                 'measure' => 'php artisan atlas:ai:learning-recall-lift --json',
                 'strict' => 'php artisan atlas:ai:learning-recall-lift --json --strict',
                 'collect_live_recall_use' => 'record AiRagFeedbackEvent.source_utility with active compounding memory hash/id when recalled memory is actually used in a passing task',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function lessonTypeYieldReport(?int $minCases = null): array
+    {
+        if (! (bool) config('atlas.ai.loop.learning_recall_use_lift.enabled', true)) {
+            return [
+                'schema_version' => self::LESSON_TYPE_YIELD_SCHEMA_VERSION,
+                'measure_id' => self::LESSON_TYPE_YIELD_MEASURE_ID,
+                'formula_version' => self::LESSON_TYPE_YIELD_FORMULA_VERSION,
+                'status' => 'disabled',
+                'generated_at' => Carbon::now()->toIso8601String(),
+                'types' => [],
+                'claim_policy' => [
+                    'read_only' => true,
+                    'provider_calls_made' => false,
+                    'memory_written' => false,
+                    'retrieval_policy_changed' => false,
+                    'completion_claim_allowed' => false,
+                ],
+            ];
+        }
+
+        $requiredTables = ['ai_compounding_memories', 'ai_rag_feedback_events', 'ai_run_outcomes'];
+        $missingTables = array_values(array_filter(
+            $requiredTables,
+            static fn (string $table): bool => ! DatabaseTableAvailability::has($table),
+        ));
+        if ($missingTables !== []) {
+            return [
+                'schema_version' => self::LESSON_TYPE_YIELD_SCHEMA_VERSION,
+                'measure_id' => self::LESSON_TYPE_YIELD_MEASURE_ID,
+                'formula_version' => self::LESSON_TYPE_YIELD_FORMULA_VERSION,
+                'status' => 'blocked',
+                'generated_at' => Carbon::now()->toIso8601String(),
+                'measurement' => [
+                    'missing_tables' => $missingTables,
+                    'blockers' => ['tables_missing'],
+                ],
+                'types' => [],
+                'claim_policy' => [
+                    'read_only' => true,
+                    'provider_calls_made' => false,
+                    'memory_written' => false,
+                    'retrieval_policy_changed' => false,
+                    'completion_claim_allowed' => false,
+                ],
+            ];
+        }
+
+        $minCases = max(self::LESSON_TYPE_YIELD_DENOMINATOR_MIN, $minCases ?? self::LESSON_TYPE_YIELD_DENOMINATOR_MIN);
+        $memories = AiCompoundingMemory::query()
+            ->active()
+            ->get(['id', 'memory_hash', 'claim', 'flow_id', 'confidence', 'memory_type'])
+            ->all();
+        $atlasMemoryEntries = $this->atlasMemoryEntries();
+        $memoryKeys = $this->memoryKeys($memories, $atlasMemoryEntries);
+        $memoryTypes = $this->memoryTypes($memories);
+
+        $events = AiRagFeedbackEvent::query()
+            ->orderByDesc('created_at')
+            ->limit(max(50, (int) config('atlas.ai.loop.learning_recall_use_lift.max_events', 500)))
+            ->get()
+            ->map(fn (AiRagFeedbackEvent $event): array => $this->eventPayload($event, $memoryKeys, $memoryTypes))
+            ->values()
+            ->all();
+
+        $baseline = array_values(array_filter(
+            $events,
+            static fn (array $event): bool => ((array) ($event['matched_memory_types'] ?? [])) === [],
+        ));
+        $baselineMetrics = $this->armMetrics($baseline);
+
+        $types = [];
+        foreach ($this->knownMemoryTypes($memories) as $type) {
+            $withType = array_values(array_filter(
+                $events,
+                static fn (array $event): bool => in_array($type, (array) ($event['matched_memory_types'] ?? []), true),
+            ));
+            $withMetrics = $this->armMetrics($withType);
+            $caseCount = (int) $withMetrics['case_count'];
+            $baselineCount = (int) $baselineMetrics['case_count'];
+            $measurementReady = $caseCount >= $minCases && $baselineCount >= $minCases;
+            $lift = $measurementReady
+                ? round((float) $withMetrics['passed_rate'] - (float) $baselineMetrics['passed_rate'], 4)
+                : null;
+
+            $types[] = [
+                'memory_type' => $type,
+                'status' => $measurementReady ? 'measured' : 'insufficient_signal',
+                'reason' => $caseCount < $minCases
+                    ? 'case_count_below_lesson_type_floor'
+                    : ($baselineCount < $minCases ? 'baseline_count_below_lesson_type_floor' : null),
+                'case_count' => $caseCount,
+                'baseline_case_count' => $baselineCount,
+                'denominator_min' => $minCases,
+                'with_recalled_memory_type' => $withMetrics,
+                'without_recalled_memory_type' => $baselineMetrics,
+                'passed_rate_lift' => $lift,
+            ];
+        }
+
+        $measuredTypeCount = count(array_filter($types, static fn (array $type): bool => ($type['status'] ?? null) === 'measured'));
+
+        return [
+            'schema_version' => self::LESSON_TYPE_YIELD_SCHEMA_VERSION,
+            'measure_id' => self::LESSON_TYPE_YIELD_MEASURE_ID,
+            'formula_version' => self::LESSON_TYPE_YIELD_FORMULA_VERSION,
+            'status' => $measuredTypeCount > 0 ? 'ok' : 'insufficient_signal',
+            'generated_at' => Carbon::now()->toIso8601String(),
+            'denominator_min' => $minCases,
+            'totals' => [
+                'memory_type_count' => count($types),
+                'measured_type_count' => $measuredTypeCount,
+                'feedback_event_count' => count($events),
+                'baseline_case_count' => (int) $baselineMetrics['case_count'],
+            ],
+            'types' => $types,
+            'dual_read' => [
+                'aggregate_v1_schema_version' => self::SCHEMA_VERSION,
+                'aggregate_v1_command' => 'php artisan atlas:ai:learning-recall-lift --json',
+                'aggregate_v1_min_cases_config_key_unchanged' => 'atlas.ai.loop.learning_recall_use_lift.min_cases_per_arm',
+            ],
+            'claim_policy' => [
+                'read_only' => true,
+                'provider_calls_made' => false,
+                'memory_written' => false,
+                'retrieval_policy_changed' => false,
+                'synthetic_fixture_claim_allowed' => false,
+                'completion_claim_allowed' => false,
+            ],
+            'commands_next' => [
+                'measure' => 'php artisan atlas:ai:lesson-type-yield --json',
             ],
         ];
     }
@@ -234,17 +379,21 @@ final class AtlasLearningRecallUseLiftService
      * @param  array<string,string>  $memoryKeys
      * @return array<string,mixed>
      */
-    private function eventPayload(AiRagFeedbackEvent $event, array $memoryKeys): array
+    private function eventPayload(AiRagFeedbackEvent $event, array $memoryKeys, ?array $memoryTypes = null): array
     {
         $sourceUtility = $this->sourceUtility($event->source_utility);
         $matched = [];
         $matchedSources = [];
+        $matchedTypes = [];
         foreach ($sourceUtility as $key => $value) {
             if (! isset($memoryKeys[$key]) || ! $this->utilityIsPositive($value)) {
                 continue;
             }
             $matched[] = hash('sha256', (string) $key);
             $matchedSources[$memoryKeys[$key]] = true;
+            if ($memoryTypes !== null && isset($memoryTypes[$key])) {
+                $matchedTypes[$memoryTypes[$key]] = true;
+            }
         }
 
         $outcome = null;
@@ -252,7 +401,7 @@ final class AtlasLearningRecallUseLiftService
             $outcome = AiRunOutcome::query()->find($event->run_outcome_id);
         }
 
-        return [
+        $payload = [
             'event_hash' => hash('sha256', (string) $event->id),
             'flow_id' => $event->flow_id,
             'outcome_status' => $event->outcome_status ?? $outcome?->outcome_status,
@@ -267,6 +416,12 @@ final class AtlasLearningRecallUseLiftService
             'matched_memory_sources' => array_keys($matchedSources),
             'created_at' => $event->created_at?->toIso8601String(),
         ];
+
+        if ($memoryTypes !== null) {
+            $payload['matched_memory_types'] = array_keys($matchedTypes);
+        }
+
+        return $payload;
     }
 
     /**
@@ -355,5 +510,51 @@ final class AtlasLearningRecallUseLiftService
         }
 
         return array_values(array_unique($blockers));
+    }
+
+    /**
+     * @param  list<AiCompoundingMemory>  $memories
+     * @return array<string,string>
+     */
+    private function memoryTypes(array $memories): array
+    {
+        $types = [];
+        foreach ($memories as $memory) {
+            $memoryType = trim((string) $memory->memory_type);
+            if ($memoryType === '') {
+                continue;
+            }
+            foreach ([$memory->id, $memory->memory_hash] as $value) {
+                if (! is_string($value) || trim($value) === '') {
+                    continue;
+                }
+                $value = trim($value);
+                foreach ([$value, 'memory:'.$value, 'compounding_memory:'.$value, 'ai_compounding_memory:'.$value] as $key) {
+                    $types[$key] = $memoryType;
+                }
+            }
+        }
+
+        return $types;
+    }
+
+    /**
+     * @param  list<AiCompoundingMemory>  $memories
+     * @return list<string>
+     */
+    private function knownMemoryTypes(array $memories): array
+    {
+        $types = [];
+        foreach ($memories as $memory) {
+            $type = trim((string) $memory->memory_type);
+            if ($type !== '') {
+                $types[$type] = true;
+            }
+        }
+
+        $types = array_keys($types);
+        sort($types);
+
+        return $types;
     }
 }

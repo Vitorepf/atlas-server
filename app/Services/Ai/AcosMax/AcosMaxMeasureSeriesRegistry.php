@@ -13,6 +13,7 @@ use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
+use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 
@@ -185,6 +186,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => (int) AtlasAcosFreezeCommand::lessonQualityFreezePayload()['ttl_days'],
                 'ttl_source' => 'freeze:atlas.ai.lesson_quality.v2',
+            ],
+            [
+                'slice' => 'MAXJ-05',
+                'series' => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID,
+                'path' => 'atlas:ai:lesson-type-yield --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AtlasAcosFreezeCommand::lessonTypeYieldFreezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.ai.lesson_type_yield.v2',
             ],
             [
                 'slice' => 'MAXK-01',

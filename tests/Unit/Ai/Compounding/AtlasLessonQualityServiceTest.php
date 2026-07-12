@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Compounding;
 
 use App\Console\Commands\AtlasAcosFreezeCommand;
+use App\Models\AiCompoundingMemory;
 use App\Models\AiLearningCandidate;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
 use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
+use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\Concerns\BootsCompoundingSchema;
@@ -106,6 +109,70 @@ final class AtlasLessonQualityServiceTest extends TestCase
         $this->assertSame(0.5, $group['measured_lift']);
     }
 
+    public function test_maxj05_freeze_payload_records_floor_and_registry_entry(): void
+    {
+        $freezePath = storage_path('framework/testing/maxj05-freeze-'.bin2hex(random_bytes(4)).'.jsonl');
+        $payload = AtlasAcosFreezeCommand::lessonTypeYieldFreezePayload();
+
+        $output = new BufferedOutput;
+        $exit = Artisan::call('atlas:acos:freeze', [
+            '--json' => json_encode($payload, JSON_THROW_ON_ERROR),
+            '--path' => $freezePath,
+        ], $output);
+
+        $this->assertSame(0, $exit);
+        $result = json_decode(trim($output->fetch()), true, flags: JSON_THROW_ON_ERROR);
+        $row = json_decode(trim((string) file_get_contents($freezePath)), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID, $result['measure_id']);
+        $this->assertSame('atlas_ai_lesson_type_yield_v2', $row['formula_version']);
+        $this->assertSame(8, $row['denominator_min']);
+        $this->assertSame('cursor-acos-max-maxj-05', $row['author_engine_id']);
+        $this->assertSame('codex-independent-lesson-type-yield-judge', $row['judge_engine_id']);
+        $this->assertTrue($row['judge_author_distinct']);
+
+        $entry = collect(app(AcosMaxMeasureSeriesRegistry::class)->entries())->firstWhere('slice', 'MAXJ-05');
+        $this->assertSame(AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID, $entry['series'] ?? null);
+        $this->assertSame('command', $entry['source_type'] ?? null);
+    }
+
+    public function test_lesson_type_yield_uses_new_floor_without_changing_v1_aggregate(): void
+    {
+        CarbonImmutable::setTestNow('2026-07-12T06:00:00+00:00');
+        config(['atlas.ai.loop.learning_recall_use_lift.min_cases_per_arm' => 2]);
+
+        $routing = $this->activeMemory('routing_memory', 'atlas_dev');
+        $rare = $this->activeMemory('refutation_memory', 'atlas_dev');
+        for ($i = 1; $i <= 10; $i++) {
+            $this->recallLiftFeedback('routing-with-'.$i, 'atlas_dev', $i <= 8 ? 'passed' : 'failed', [$routing->memory_hash => 'useful']);
+            $this->recallLiftFeedback('routing-baseline-'.$i, 'atlas_dev', $i <= 5 ? 'passed' : 'failed', ['docs/base-'.$i => 'useful']);
+        }
+        $this->recallLiftFeedback('rare-with-1', 'atlas_dev', 'passed', [$rare->memory_hash => 'useful']);
+
+        $service = app(AtlasLearningRecallUseLiftService::class);
+        $before = $service->report();
+        $payload = $this->callLessonTypeYield();
+        $after = $service->report();
+
+        $this->assertSame($before, $after);
+        $this->assertSame(2, data_get($after, 'measurement.min_cases_per_arm'));
+        $this->assertSame(AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID, $payload['measure_id']);
+        $this->assertSame(8, $payload['denominator_min']);
+
+        $routingType = collect($payload['types'])->firstWhere('memory_type', 'routing_memory');
+        $rareType = collect($payload['types'])->firstWhere('memory_type', 'refutation_memory');
+
+        $this->assertSame('measured', $routingType['status']);
+        $this->assertSame(10, $routingType['case_count']);
+        $this->assertSame(0.3, $routingType['passed_rate_lift']);
+
+        $this->assertSame('insufficient_signal', $rareType['status']);
+        $this->assertSame(1, $rareType['case_count']);
+        $this->assertSame('case_count_below_lesson_type_floor', $rareType['reason']);
+        $this->assertNull($rareType['passed_rate_lift']);
+    }
+
     /**
      * @return array<string,mixed>
      */
@@ -113,6 +180,19 @@ final class AtlasLessonQualityServiceTest extends TestCase
     {
         $output = new BufferedOutput;
         $exit = Artisan::call('atlas:ai:lesson-quality', ['--json' => true], $output);
+
+        $this->assertSame(0, $exit);
+
+        return json_decode(trim($output->fetch()), true, flags: JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function callLessonTypeYield(): array
+    {
+        $output = new BufferedOutput;
+        $exit = Artisan::call('atlas:ai:lesson-type-yield', ['--json' => true], $output);
 
         $this->assertSame(0, $exit);
 
@@ -183,6 +263,57 @@ final class AtlasLessonQualityServiceTest extends TestCase
             'run_outcome_id' => $outcome->id,
             'payload' => [],
             'feedback_hash' => hash('sha256', 'feedback-'.$id),
+        ]);
+    }
+
+    private function activeMemory(string $memoryType, string $flowId): AiCompoundingMemory
+    {
+        return AiCompoundingMemory::query()->create([
+            'schema_version' => 'atlas.ai.compounding.memory.v1',
+            'learning_candidate_id' => null,
+            'memory_type' => $memoryType,
+            'scope' => 'atlas-server',
+            'flow_id' => $flowId,
+            'status' => 'active',
+            'claim' => 'Measure lesson-type yield for '.$memoryType,
+            'confidence' => 90,
+            'evidence_refs' => ['receipt:memory-'.$memoryType],
+            'revalidation_policy' => 'revalidate_on_failure_or_expiry',
+            'valid_until' => now()->addDays(7),
+            'last_revalidated_at' => now(),
+            'payload' => [],
+            'memory_hash' => hash('sha256', 'memory-'.$memoryType.'-'.$flowId),
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $sourceUtility
+     */
+    private function recallLiftFeedback(string $runId, string $flowId, string $status, array $sourceUtility): void
+    {
+        $quality = $status === 'passed' ? 90 : 30;
+        $outcome = $this->outcome($runId, $flowId, $status, $quality);
+
+        AiRagFeedbackEvent::query()->create([
+            'schema_version' => 'atlas.ai.rag.feedback.v1',
+            'retrieval_receipt_id' => 'retr-'.$runId,
+            'flow_id' => $flowId,
+            'query_plan_hash' => hash('sha256', 'query-'.$runId),
+            'included_sources' => count($sourceUtility),
+            'used_sources' => max(1, min(count($sourceUtility), 2)),
+            'noise_sources' => $status === 'passed' ? 0 : 1,
+            'missed_required_sources' => [],
+            'context_sufficiency' => $quality,
+            'post_execution_utility' => $quality,
+            'source_utility' => $sourceUtility,
+            'outcome_status' => $status,
+            'failure_reason' => $status === 'passed' ? null : 'fixture_failure',
+            'next_retrieval_hint' => null,
+            'memory_candidate_id' => null,
+            'learning_proposal_id' => null,
+            'run_outcome_id' => $outcome->id,
+            'payload' => [],
+            'feedback_hash' => hash('sha256', 'feedback-'.$runId),
         ]);
     }
 }
