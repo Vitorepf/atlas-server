@@ -66,6 +66,27 @@ class AtlasDecideLiveOutcomeFeedbackServiceTest extends TestCase
         ]);
     }
 
+    public function test_testing_environment_default_write_does_not_touch_live_outcomes_path(): void
+    {
+        $livePath = storage_path('atlas/atlas_decide/live_outcomes.jsonl');
+        $service = new AtlasDecideLiveOutcomeFeedbackService;
+
+        $this->assertNotSame($livePath, $service->logPath());
+
+        $before = is_file($livePath) ? hash_file('sha256', $livePath) : null;
+        $service->record([
+            'task_category' => 'acos_max',
+            'role' => 'asi_05_negative_case',
+            'provider' => 'local',
+            'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+            'actor' => 'asi_05_phpunit_negative_case',
+        ]);
+        $after = is_file($livePath) ? hash_file('sha256', $livePath) : null;
+
+        $this->assertSame($before, $after);
+        $this->assertFileExists($service->logPath());
+    }
+
     private function seedOutcomes(string $provider, int $success, int $failure, int $timeout = 0): void
     {
         $base = [

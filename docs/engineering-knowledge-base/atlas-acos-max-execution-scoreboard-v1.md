@@ -16,7 +16,7 @@
 - [x] ELEV-22 — landed(fda87090b3) · hot-list acos-max-elev-22.v1 + PreToolUse advisory claim check + release on scoped commit; fail-open; TTL 900s
 
 ## LOTE 1 — Freios (F0) — GATE F0: porta única observe · ledgers imunes · event_hash+cadeia+âncora · captura operador viva · restore drill · attempts terminais
-- [ ] ASI-05 — pending
+- [x] ASI-05 — landed · live ledger testing guard for AtlasDecide outcomes + brain heartbeat · cleanup receipt `storage/app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl` hash=`sha256:10bedba4feaa78658219c341fbfa42ec5834a7c8fe5477a28d7275913f8e3c2e` · removed live_outcomes=7 heartbeat=2 · focused hash acceptance identical
 - [ ] ASI-01 — pending
 - [ ] ASI-02 (+ELEV-08) — pending
 - [ ] MAXI-01 — pending

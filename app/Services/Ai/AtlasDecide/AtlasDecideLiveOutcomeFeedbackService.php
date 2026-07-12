@@ -87,6 +87,9 @@ final class AtlasDecideLiveOutcomeFeedbackService
         if ($this->logPathOverride !== null) {
             return $this->logPathOverride;
         }
+        if ($this->runningUnderPhpunit()) {
+            return $this->testingLogPath();
+        }
         $base = function_exists('storage_path')
             ? storage_path('atlas/atlas_decide')
             : sys_get_temp_dir().'/atlas/atlas_decide';
@@ -483,6 +486,25 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $label = strtolower(trim((string) $value));
 
         return $label !== '' ? mb_substr($label, 0, 80) : null;
+    }
+
+    private function runningUnderPhpunit(): bool
+    {
+        if (function_exists('app') && app()->environment('testing')) {
+            return true;
+        }
+
+        return getenv('APP_ENV') === 'testing'
+            || ($_ENV['APP_ENV'] ?? null) === 'testing'
+            || ($_SERVER['APP_ENV'] ?? null) === 'testing';
+    }
+
+    private function testingLogPath(): string
+    {
+        $token = (string) (getenv('TEST_TOKEN') ?: getmypid());
+
+        return sys_get_temp_dir().DIRECTORY_SEPARATOR.'atlas-phpunit'.DIRECTORY_SEPARATOR.$token
+            .DIRECTORY_SEPARATOR.'atlas'.DIRECTORY_SEPARATOR.'atlas_decide'.DIRECTORY_SEPARATOR.'live_outcomes.jsonl';
     }
 
     /**
