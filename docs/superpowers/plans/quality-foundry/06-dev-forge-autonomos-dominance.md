@@ -185,13 +185,13 @@ Brain → Proposal Arena → Product/Spec Courts → atomic reservation
 
 **Allowed files:** the three mode families and cross-mode fixtures.
 
-- [ ] Write RED operator/recovery contract tests that fail when a mode asks for forbidden routine input, lowers quality, loses state or returns a different shared failure semantic.
-- [ ] Dev: test confirm/cancel/override/handoff, retries without operator supervision, and preserved WIP after every failure.
-- [ ] Forge: test commissioning, pause/drain/cancel/snapshot/orphan recovery at every DAG boundary and no prompt for routine decisions.
+- [x] Write RED operator/recovery contract tests that fail when a mode asks for forbidden routine input, lowers quality, loses state or returns a different shared failure semantic. Evidence: Dev plan-visible/repair suites, Forge runtime/cycle suites, Autonomos daemon/native-worker suites and cross-mode parity/matrix tests all fail closed on forbidden input, state loss, provider/outcome failure and terminal semantic drift; focused parity battery is 37 tests / 162 assertions green.
+- [x] Dev: test confirm/cancel/override/handoff, retries without operator supervision, and preserved WIP after every failure. Evidence: `AtlasDevPlanVisibleE2ETest` covers approve/reject lifecycle; `RepairToGreenTest` covers re-invocation, same-signature abort and operator WIP preservation; focused repair battery is 3 tests / 23 assertions green with the retrieval gate explicitly controlled in the hermetic fixture.
+- [x] Forge: test commissioning, pause/drain/cancel/snapshot/orphan recovery at every DAG boundary and no prompt for routine decisions. Evidence: `ForgeObraRuntimeTest` and `ForgeWorkPacketExecutionCycleServiceTest` cover commissioning/replay, pause/drain/cancel, snapshot bindings, orphan recovery, provider lifecycle and packet-boundary crash recovery; combined Forge battery is 46 tests / 254 assertions green.
 - [x] Autônomos: test zero ordinary operator, stop/go kill switch, provider exhaustion, poisoned task quarantine and continuation of unrelated eligible work. Evidence: native claim-cycle and runtime-daemon suites cover zero-human execution, provider exhaustion/timeout, stop/pause/resume, poison/scope quarantine signals, replay withholding and isolated continuation; `AgentRuntimeRegistryQuarantineRepositoryTest` and `AgentDispatchPlannerBatchPlannerTest` prove quarantined workers/task families are excluded from dispatch.
 - [x] For each mode, inject ledger/Governor/verifier/canary/outcome outage and assert the shared Kernel terminal semantics. Evidence: `QualityFoundryCrossModeFailureMatrixTest` covers the shared ledger, Governor, provider, verifier, canary, revert, outcome and process-kill boundaries with equivalent fail-closed terminal semantics across Dev, Forge and Autônomos.
 - [ ] Assert mode control commands cannot alter Constitution, claim authority, evidence floor or risk depth.
-- [ ] Run focused mode recovery suites and shared receipt-chain replay.
+- [x] Run focused mode recovery suites and shared receipt-chain replay. Evidence: Dev/Forge focused suites plus `QualityFoundryCrossModeFailureMatrixTest`, `QualityFoundryModeParityServiceTest` and `ExecutionOrderModeParityTest` pass with shared terminal semantics, no claim eligibility and idempotent interrupted-decision replay.
 
 **GREEN acceptance:** operator presence matches the mode contract while quality/evidence/release semantics stay identical; every failure is resumable or truthfully terminal.
 

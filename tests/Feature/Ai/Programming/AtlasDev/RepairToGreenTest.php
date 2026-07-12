@@ -22,6 +22,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\Components\GitState;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\Preflight;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\SurfaceContext;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Container\Container;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -59,6 +60,14 @@ final class RepairToGreenTest extends TestCase
         // the whole sequence, changing what the gate observes. These tests
         // pin the M2 repair loop, not E5 (covered by RegressionBaseline*Test).
         config()->set('atlas_dev.elevations.e5.mode', 'off');
+        config()->set('atlas.programming.strict_retrieval_gate', false);
+        $this->app->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
+        {
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return ['allowed' => true, 'status' => 'ready', 'mode' => $mode, 'blockers' => []];
+            }
+        });
 
         $this->tmpStorage = sys_get_temp_dir().'/atlas-dev-repair-'.bin2hex(random_bytes(4));
         mkdir($this->tmpStorage, 0o755, true);
