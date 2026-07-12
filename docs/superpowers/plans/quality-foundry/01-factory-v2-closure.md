@@ -206,7 +206,7 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 
 - [x] Write RED state-machine tests showing that green implementation cannot imply `cutover_ready`, elapsed windows, `quality_foundry_ready`, `multiplier_proven`, `world_leading`, or `world_10x_quality_proven`.
 - [ ] Require P0-13/P0-19 closed, vertical E2E, 100% coverage, four manifests, N−1 migration compatibility, exercised rollback and active outcome writers for `cutover_ready`.
-- [ ] Emit observation schedules for 0h, 24h, 7d, 30d, 90d and 150d; do not synthesize elapsed observations.
+- [x] Emit observation schedules for 0h, 24h, 7d, 30d, 90d and 150d; do not synthesize elapsed observations.
 - [ ] Add a reachability/usage gate for eventual v1 removal: zero observed use, rollback window closed, replay/export verified and N−1 no longer needed.
 - [ ] Run state/readiness/temporal tests and final repository gates. Record blockers verbatim.
 

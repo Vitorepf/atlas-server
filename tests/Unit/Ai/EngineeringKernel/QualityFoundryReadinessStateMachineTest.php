@@ -19,6 +19,8 @@ final class QualityFoundryReadinessStateMachineTest extends TestCase
         self::assertSame('implemented_not_cutover_ready', $report['cutover_state']);
         self::assertSame('implemented_not_cutover_ready', $report['highest_honest_state']);
         self::assertSame('pending', $report['temporal_state']);
+        self::assertSame(['0h', '24h', '7d', '30d', '90d', '150d'], array_keys($report['temporal']['observation_schedule']));
+        self::assertNull($report['temporal']['observation_schedule']['150d']['observed_at']);
         self::assertSame('world_10x_quality_proof_pending', $report['comparative_state']);
         self::assertFalse($report['quality_foundry_ready']);
         self::assertFalse($report['world_10x_quality_proven']);

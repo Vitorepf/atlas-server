@@ -112,6 +112,7 @@ final class QualityFoundryReadinessStateMachine
     {
         $observations = is_array($evidence['observations'] ?? null) ? $evidence['observations'] : [];
         $windows = [];
+        $schedule = [];
         $last = 'pending';
         $blockers = [];
         foreach (self::WINDOWS as $window) {
@@ -120,6 +121,12 @@ final class QualityFoundryReadinessStateMachine
                 && trim((string) ($row['receipt_hash'] ?? '')) !== ''
                 && trim((string) ($row['observed_at'] ?? '')) !== '';
             $windows[$window] = $valid ? 'observed' : 'pending';
+            $schedule[$window] = [
+                'window' => $window,
+                'status' => $valid ? 'observed' : 'pending',
+                'observed_at' => $valid ? (string) $row['observed_at'] : null,
+                'receipt_hash' => $valid ? (string) $row['receipt_hash'] : null,
+            ];
             if (! $valid) {
                 $blockers[] = 'temporal_window_pending:'.$window;
                 break;
@@ -127,7 +134,22 @@ final class QualityFoundryReadinessStateMachine
             $last = $window === '0h' ? 'observed_0h' : 'observed_'.$window;
         }
 
-        return ['state' => $last, 'windows' => $windows, 'blockers' => $blockers];
+        foreach (array_slice(self::WINDOWS, count($windows)) as $window) {
+            $windows[$window] = 'pending';
+            $schedule[$window] = [
+                'window' => $window,
+                'status' => 'pending',
+                'observed_at' => null,
+                'receipt_hash' => null,
+            ];
+        }
+
+        return [
+            'state' => $last,
+            'windows' => $windows,
+            'observation_schedule' => $schedule,
+            'blockers' => $blockers,
+        ];
     }
 
     /** @param array<string,mixed> $evidence @return array<string,mixed> */
