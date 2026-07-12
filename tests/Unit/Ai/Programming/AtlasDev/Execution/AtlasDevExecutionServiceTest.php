@@ -6,8 +6,15 @@ namespace Tests\Unit\Ai\Programming\AtlasDev\Execution;
 
 use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
 use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevKernelExecutionPort;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevPlan;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\RoutingDecision;
+use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 final class AtlasDevExecutionServiceTest extends TestCase
 {
@@ -63,6 +70,81 @@ final class AtlasDevExecutionServiceTest extends TestCase
         self::assertSame($intent->marketDecisionHash, DevIntent::fromArray($intent->toArray())->marketDecisionHash);
     }
 
+    public function test_blocked_plan_never_enters_the_shared_kernel(): void
+    {
+        $calls = 0;
+        $kernel = new class($calls) implements DevKernelExecutionPort
+        {
+            public function __construct(private int &$calls) {}
+
+            public function execute(ConfirmedDevRun $run, DevPlan $plan): EngineeringOutcome
+            {
+                $this->calls++;
+                throw new \LogicException('kernel must not be called for a blocked plan');
+            }
+        };
+
+        $intent = DevIntent::fromArray($this->validIntent());
+        $result = $this->service($kernel)->run(
+            ConfirmedDevRun::fromIntent($intent, 'operator-1', str_repeat('d', 64)),
+            $this->plan($intent, RoutingDecision::BLOCKED),
+        );
+
+        self::assertSame('blocked', $result->status);
+        self::assertSame('dev_plan_blocked', $result->reason);
+        self::assertSame(0, $calls);
+    }
+
+    public function test_forge_handoff_is_deterministic_and_does_not_enter_the_kernel(): void
+    {
+        $calls = 0;
+        $kernel = new class($calls) implements DevKernelExecutionPort
+        {
+            public function __construct(private int &$calls) {}
+
+            public function execute(ConfirmedDevRun $run, DevPlan $plan): EngineeringOutcome
+            {
+                $this->calls++;
+                throw new \LogicException('forge handoff must not enter the Dev kernel');
+            }
+        };
+
+        $intent = DevIntent::fromArray($this->validIntent());
+        $run = ConfirmedDevRun::fromIntent($intent, 'operator-1', str_repeat('d', 64));
+        $plan = $this->plan($intent, RoutingDecision::FORGE_PROMOTION_PREVIEW);
+        $service = $this->service($kernel);
+
+        $first = $service->run($run, $plan);
+        $second = $service->run($run, $plan);
+
+        self::assertSame('forge_handoff_required', $first->status);
+        self::assertSame($first->runHash, $second->runHash);
+        self::assertSame($first->planHash, $second->planHash);
+        self::assertSame($first->details, $second->details);
+        self::assertSame(0, $calls);
+    }
+
+    public function test_shared_kernel_failure_is_blocked_with_a_stable_failure_reason(): void
+    {
+        $kernel = new class implements DevKernelExecutionPort
+        {
+            public function execute(ConfirmedDevRun $run, DevPlan $plan): EngineeringOutcome
+            {
+                throw new \RuntimeException('provider temporarily unavailable');
+            }
+        };
+
+        $intent = DevIntent::fromArray($this->validIntent());
+        $result = $this->service($kernel)->run(
+            ConfirmedDevRun::fromIntent($intent, 'operator-1', str_repeat('d', 64)),
+            $this->plan($intent, RoutingDecision::ATLAS_DEV_FAST_PATH),
+        );
+
+        self::assertSame('blocked', $result->status);
+        self::assertSame('shared_kernel_execution_failed', $result->reason);
+        self::assertSame('RuntimeException', $result->details['exception']);
+    }
+
     /** @return array<string,mixed> */
     private function validIntent(): array
     {
@@ -72,5 +154,39 @@ final class AtlasDevExecutionServiceTest extends TestCase
             'world_model_snapshot_hash' => str_repeat('c', 64), 'authority_hash' => str_repeat('d', 64),
             'risk_class' => 'R5', 'duration_regime' => 'interactive', 'topology' => 'single',
         ];
+    }
+
+    private function service(DevKernelExecutionPort $kernel): \App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService
+    {
+        $orchestrator = new class extends AtlasDevFastPathOrchestrator
+        {
+            public function __construct() {}
+
+            public function planOnly(string $surfaceId, string $workspace, string $rawIntent, array $userConstraints = [], array $surfaceHints = []): PlanOnlyResult
+            {
+                throw new \LogicException('plan must be supplied by the confirmed caller in this test');
+            }
+        };
+
+        return new \App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService($orchestrator, $kernel);
+    }
+
+    private function plan(DevIntent $intent, string $routingKind): DevPlan
+    {
+        $result = (new ReflectionClass(PlanOnlyResult::class))->newInstanceWithoutConstructor();
+        $routing = new RoutingDecision($routingKind, ['fixture'], $routingKind === RoutingDecision::BLOCKED ? ['fixture_blocker'] : []);
+        $routingProperty = (new ReflectionClass(PlanOnlyResult::class))->getProperty('routing');
+        $routingProperty->setValue($result, $routing);
+        (new ReflectionClass(PlanOnlyResult::class))->getProperty('blockers')->setValue(
+            $result,
+            $routingKind === RoutingDecision::BLOCKED ? ['fixture_blocker'] : [],
+        );
+
+        $plan = (new ReflectionClass(DevPlan::class))->newInstanceWithoutConstructor();
+        foreach (['intent' => $intent, 'result' => $result, 'planHash' => hash('sha256', $routingKind)] as $property => $value) {
+            (new ReflectionClass(DevPlan::class))->getProperty($property)->setValue($plan, $value);
+        }
+
+        return $plan;
     }
 }
