@@ -179,6 +179,19 @@ final readonly class RoleDisposition
             $status === 'not_applicable' ? $reason : '');
     }
 
+    public static function assertIndependentWitnesses(string $author, string $builder, string $verifier, string $finalCertifier): void
+    {
+        $identities = array_map('trim', [$author, $builder, $verifier, $finalCertifier]);
+        if (in_array('', $identities, true) || count(array_unique($identities)) !== 4) {
+            throw new InvalidArgumentException('role_disposition_witnesses_not_independent');
+        }
+    }
+
+    public function canonicalHash(): string
+    {
+        return CanonicalKernelPayload::hash($this->toArray());
+    }
+
     /** @return array<string,string> */
     public function toArray(): array
     {

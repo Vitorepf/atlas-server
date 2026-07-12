@@ -13,6 +13,7 @@ use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
 use App\Services\Ai\EngineeringKernel\OutcomeLearningReceipt;
 use App\Services\Ai\EngineeringKernel\OutcomeObservation;
+use App\Services\Ai\EngineeringKernel\RoleDisposition;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -88,6 +89,14 @@ final class TypedEngineeringContractTest extends TestCase
         $renamed['backend']['role'] = 'invented_role';
         $this->expectException(InvalidArgumentException::class);
         EngineeringRoleRoster::validateCanonicalRoster($renamed);
+    }
+
+    public function test_role_disposition_requires_distinct_author_builder_verifier_and_certifier(): void
+    {
+        RoleDisposition::assertIndependentWitnesses('author', 'builder', 'verifier', 'certifier');
+
+        $this->expectException(InvalidArgumentException::class);
+        RoleDisposition::assertIndependentWitnesses('author', 'author', 'verifier', 'certifier');
     }
 
     public function test_execution_order_is_complete_canonical_and_deterministic(): void
