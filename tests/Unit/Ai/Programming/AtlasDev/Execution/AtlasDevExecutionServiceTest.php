@@ -151,7 +151,10 @@ final class AtlasDevExecutionServiceTest extends TestCase
             }
         };
 
-        $intent = DevIntent::fromArray($this->validIntent());
+        $intent = DevIntent::fromArray(array_replace($this->validIntent(), [
+            'duration_regime' => 'durable_task',
+            'topology' => 'DAG',
+        ]));
         $run = ConfirmedDevRun::fromIntent($intent, 'operator-1', str_repeat('d', 64));
         $plan = $this->plan($intent, RoutingDecision::FORGE_PROMOTION_PREVIEW);
         $service = $this->service($kernel);
@@ -164,6 +167,36 @@ final class AtlasDevExecutionServiceTest extends TestCase
         self::assertSame($first->planHash, $second->planHash);
         self::assertSame($first->details, $second->details);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($first->details, 'handoff.handoff_hash'));
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($first->details, 'handoff.idempotency_key'));
+        self::assertSame(
+            data_get($first->details, 'handoff.idempotency_key'),
+            data_get($second->details, 'handoff.idempotency_key'),
+        );
+        self::assertSame(0, $calls);
+    }
+
+    public function test_forge_route_cannot_bypass_duration_and_topology_contract(): void
+    {
+        $calls = 0;
+        $kernel = new class($calls) implements DevKernelExecutionPort
+        {
+            public function __construct(private int &$calls) {}
+
+            public function execute(ConfirmedDevRun $run, DevPlan $plan): EngineeringOutcome
+            {
+                $this->calls++;
+                throw new \LogicException('invalid Forge handoff must not enter the kernel');
+            }
+        };
+
+        $intent = DevIntent::fromArray($this->validIntent());
+        $result = $this->service($kernel)->run(
+            ConfirmedDevRun::fromIntent($intent, 'operator-1', str_repeat('d', 64)),
+            $this->plan($intent, RoutingDecision::FORGE_PROMOTION_PREVIEW),
+        );
+
+        self::assertSame('blocked', $result->status);
+        self::assertSame('dev_forge_handoff_contract_mismatch', $result->reason);
         self::assertSame(0, $calls);
     }
 

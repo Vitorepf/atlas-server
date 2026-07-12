@@ -103,7 +103,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 - [x] Implement `DevIntent`, `DevPlan`, `ConfirmedDevRun`, `DevRunResult` as immutable types bound to ProductIntent/spec/world/authority hashes.
 - [ ] Make HTTP, CLI, Desktop, Mission and Senior Loop call `plan/run`; prohibit direct provider/workspace/release logic in adapters.
 - [ ] Preserve checkout source byte-for-byte until authorized integration; retries reset only isolated sandboxes and integration is serial.
-- [ ] Keep any technical complexity in Dev when duration/topology fit; hand off to Forge only for duration/topology and make the handoff idempotent.
+- [x] Keep any technical complexity in Dev when duration/topology fit; hand off to Forge only for duration/topology and make the handoff idempotent. Evidence: `AtlasDevExecutionServiceTest` now rejects Forge routing for `interactive/single`, permits only durable regimes with `workcell/DAG/portfolio`, and proves a stable `handoff.idempotency_key` across repeated runs; 11 tests / 37 assertions pass.
 - [ ] Measure operator questions, minutes, overrides, cancellations, handoffs and active time without using them to lower quality.
 - [ ] Run façade, WIP tracked/untracked/rename/delete/binary/concurrent-change, surface parity, R5, retry/recovery and architecture tests.
 

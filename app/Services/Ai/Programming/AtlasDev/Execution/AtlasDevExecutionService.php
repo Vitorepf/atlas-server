@@ -37,6 +37,14 @@ final class AtlasDevExecutionService
         if ($plan->isBlocked()) {
             return DevRunResult::blocked($run, 'dev_plan_blocked', $plan->planHash, ['blockers' => $plan->result->blockers]);
         }
+        if ($plan->requiresForgeHandoff() && ! $this->forgeHandoffContractAllows($run->intent)) {
+            return DevRunResult::blocked($run, 'dev_forge_handoff_contract_mismatch', $plan->planHash, [
+                'duration_regime' => $run->intent->durationRegime,
+                'topology' => $run->intent->topology,
+                'required_duration_regimes' => ['durable_task', 'obra', 'continuous'],
+                'required_topologies' => ['workcell', 'DAG', 'portfolio'],
+            ]);
+        }
         if ($plan->requiresForgeHandoff()) {
             $handoff = [
                 'kind' => $plan->result->routing->kind,
@@ -44,6 +52,11 @@ final class AtlasDevExecutionService
                 'blockers' => $plan->result->routing->blockers,
                 'suggested_flow' => $plan->result->routing->suggestedFlow(),
             ];
+            $handoff['idempotency_key'] = \App\Services\Ai\EngineeringKernel\CanonicalKernelPayload::hash([
+                'schema' => 'atlas.dev.forge_handoff.v1',
+                'intent_hash' => $run->intent->intentHash,
+                'plan_hash' => $plan->planHash,
+            ]);
             $handoff['handoff_hash'] = \App\Services\Ai\EngineeringKernel\CanonicalKernelPayload::hash([
                 'run_hash' => $run->runHash,
                 'plan_hash' => $plan->planHash,
@@ -65,5 +78,11 @@ final class AtlasDevExecutionService
         }
 
         return DevRunResult::fromKernelOutcome($run, $plan->planHash, $outcome);
+    }
+
+    private function forgeHandoffContractAllows(DevIntent $intent): bool
+    {
+        return in_array($intent->durationRegime, ['durable_task', 'obra', 'continuous'], true)
+            && in_array($intent->topology, ['workcell', 'DAG', 'portfolio'], true);
     }
 }
