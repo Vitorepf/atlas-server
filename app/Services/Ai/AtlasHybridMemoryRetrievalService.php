@@ -15,10 +15,20 @@ use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\SemanticSearchService;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 class AtlasHybridMemoryRetrievalService
 {
+    /**
+     * MAXH-09 — canonical option keys for the temporal-recall projection.
+     * `as_of`: consulta ficta "o que era verdade em D" — peek forçado (record_usage=false).
+     * `current_only`: só entradas vigentes agora (canônico do `HasTemporalTruth::current`).
+     */
+    public const OPTION_AS_OF = 'temporal_as_of';
+
+    public const OPTION_CURRENT_ONLY = 'temporal_current_only';
+
     /**
      * On pgsql, recall ranks PRIMARILY by real vector similarity (R1). The
      * lexical token-overlap score is kept as a tiebreaker/fallback. The blended
@@ -61,6 +71,13 @@ class AtlasHybridMemoryRetrievalService
         $latencyStartedAt = hrtime(true);
         $query = trim($query);
 
+        // MAXH-09 — `as_of` queries are PEEK-forced (record_usage=false) so historical
+        // consultations never mutate the live usage series.
+        $asOfInstant = $this->resolveAsOfInstant($options[self::OPTION_AS_OF] ?? null);
+        if ($asOfInstant !== null) {
+            $options['record_usage'] = false;
+        }
+
         $cacheKey = $this->recallCache->keyFor($query, $context, $this->cacheFilterKeys($filters), $options);
         $cacheEnabled = $this->recallCache->isEnabled();
         $cached = $cacheEnabled ? $this->recallCache->get($cacheKey) : null;
@@ -73,7 +90,14 @@ class AtlasHybridMemoryRetrievalService
         $verbatimLimit = $this->input->verbatimCandidateLimit($options['verbatim_limit'] ?? null, $limit);
         $semanticLimit = $this->input->semanticCandidateLimit($options['semantic_limit'] ?? null, $limit);
 
-        $registry = $this->registryItems($query, $context, $filters, $registryLimit, (bool) ($options['include_registry'] ?? true));
+        $registry = $this->registryItems(
+            $query,
+            $context,
+            $filters,
+            $registryLimit,
+            (bool) ($options['include_registry'] ?? true),
+            $this->temporalFilterFromOptions($options, $asOfInstant),
+        );
         $dominantRecallCount = collect($registry)->filter(fn (array $item): bool => ($item['concentration_demoted'] ?? false) === true)->count();
         $verbatim = $this->verbatimItems($query, $context, $filters, $verbatimLimit, (bool) ($options['include_verbatim'] ?? true));
         $semantic = $this->semanticItems($query, $filters, $semanticLimit, (bool) ($options['include_semantic'] ?? true));
@@ -270,7 +294,13 @@ class AtlasHybridMemoryRetrievalService
      * @param  array<string,mixed>  $filters
      * @return array<int,array<string,mixed>>
      */
-    private function registryItems(string $query, array $context, array $filters, int $limit, bool $enabled): array
+    /**
+     * @param  array<string,mixed>  $context
+     * @param  array<string,mixed>  $filters
+     * @param  array{as_of?:CarbonImmutable,current_only:bool}|null  $temporalFilter
+     * @return array<int,array<string,mixed>>
+     */
+    private function registryItems(string $query, array $context, array $filters, int $limit, bool $enabled, ?array $temporalFilter = null): array
     {
         if (! $enabled || $limit <= 0 || ! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return [];
@@ -289,6 +319,18 @@ class AtlasHybridMemoryRetrievalService
             ->relevantForContext($registryContext, $this->registryFilters($filters), $limit)
             ->filter(fn (AtlasMemoryEntry $entry): bool => $this->privacy->providerAllowed($entry))
             ->values();
+
+        // MAXH-09 — post-fetch temporal projection: when the caller asks for
+        // `--as-of=D` or `--current-only`, apply the same predicate that
+        // `HasTemporalTruth::current($at)` uses at the query layer. Post-filter
+        // (not query-time) keeps registry SQL untouched and honest: absent
+        // temporal columns (legacy NULL rows) are treated as current, exactly
+        // like the trait scope.
+        if ($temporalFilter !== null) {
+            $entries = $entries
+                ->filter(fn (AtlasMemoryEntry $entry): bool => $this->matchesTemporalFilter($entry, $temporalFilter))
+                ->values();
+        }
 
         // R1: rank PRIMARILY by real vector similarity on pgsql; empty map ->
         // honest lexical fallback (sqlite / no embeddings / no venv).
@@ -740,6 +782,99 @@ class AtlasHybridMemoryRetrievalService
             'implicit_positive_weight' => $implicitWeight,
             'clamp' => ['min' => 0.7, 'max' => 1.15],
         ];
+    }
+
+    /**
+     * MAXH-09 — parse the caller-supplied `--as-of` payload into a CarbonImmutable
+     * instant (or `null` when omitted/invalid). Accepts ISO-8601 strings,
+     * `Y-m-d` dates, epoch seconds, `CarbonImmutable`, or `DateTimeInterface`.
+     * Anything unparseable degrades to `null` (fail-open: no as-of applied,
+     * recall stays byte-identical).
+     */
+    private function resolveAsOfInstant(mixed $value): ?CarbonImmutable
+    {
+        if ($value === null || $value === '' || $value === false) {
+            return null;
+        }
+        if ($value instanceof CarbonImmutable) {
+            return $value;
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return CarbonImmutable::instance(\DateTimeImmutable::createFromInterface($value));
+        }
+        if (is_int($value) || (is_string($value) && ctype_digit($value))) {
+            try {
+                return CarbonImmutable::createFromTimestamp((int) $value);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+        if (is_string($value)) {
+            try {
+                return CarbonImmutable::parse($value);
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * MAXH-09 — assemble the temporal filter payload from the option bag.
+     * Returns `null` when neither knob is set → callers stay on the byte-
+     * identical fast path (no post-fetch filter, no scope work).
+     *
+     * @param  array<string,mixed>  $options
+     * @return array{as_of:?CarbonImmutable,current_only:bool}|null
+     */
+    private function temporalFilterFromOptions(array $options, ?CarbonImmutable $asOfInstant): ?array
+    {
+        $currentOnly = (bool) ($options[self::OPTION_CURRENT_ONLY] ?? false);
+        if ($asOfInstant === null && ! $currentOnly) {
+            return null;
+        }
+
+        return [
+            'as_of' => $asOfInstant,
+            'current_only' => $currentOnly,
+        ];
+    }
+
+    /**
+     * MAXH-09 — same predicate the `HasTemporalTruth::current($at)` scope
+     * applies at the query layer:
+     *   - `valid_from` is NULL or ≤ reference
+     *   - `valid_until` is NULL or > reference
+     *   - `superseded_by_id` is NULL
+     *
+     * `as_of` shifts the reference instant; `current_only` alone uses `now()`.
+     * All-NULL temporal columns (legacy rows) pass — mirrors the trait's
+     * "no expiry" tolerance so this projection never lies by omission.
+     *
+     * @param  array{as_of:?CarbonImmutable,current_only:bool}  $filter
+     */
+    private function matchesTemporalFilter(AtlasMemoryEntry $entry, array $filter): bool
+    {
+        $asOf = $filter['as_of'] ?? null;
+        $reference = $asOf ?? CarbonImmutable::now();
+
+        $validFrom = $entry->valid_from;
+        if ($validFrom !== null && method_exists($validFrom, 'greaterThan') && $validFrom->greaterThan($reference)) {
+            return false;
+        }
+
+        $validUntil = $entry->valid_until;
+        if ($validUntil !== null && method_exists($validUntil, 'lessThanOrEqualTo') && $validUntil->lessThanOrEqualTo($reference)) {
+            return false;
+        }
+
+        $supersededBy = is_scalar($entry->superseded_by_id ?? null) ? trim((string) $entry->superseded_by_id) : '';
+        if ($supersededBy !== '') {
+            return false;
+        }
+
+        return true;
     }
 
     /**

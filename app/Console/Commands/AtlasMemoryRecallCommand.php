@@ -25,6 +25,8 @@ class AtlasMemoryRecallCommand extends Command
         {--no-verbatim : Exclude verbatim recall}
         {--no-semantic : Exclude semantic notes}
         {--peek : Consulta sem efeito colateral — NÃO grava recall usage/estatística}
+        {--as-of= : MAXH-09 — recall temporal "o que era verdade em D" (aceita ISO-8601, Y-m-d, epoch). Peek-forçado.}
+        {--current-only : MAXH-09 — só entradas vigentes agora (canônico do HasTemporalTruth::current).}
         {--json : Print machine-readable JSON}';
 
     // O3 · discoverability: "search" é o verbo que o operador digita; recall é a primitiva.
@@ -54,6 +56,8 @@ class AtlasMemoryRecallCommand extends Command
                 'include_verbatim' => ! (bool) $this->option('no-verbatim'),
                 'include_semantic' => ! (bool) $this->option('no-semantic'),
                 'record_usage' => ! (bool) $this->option('peek'),
+                AtlasHybridMemoryRetrievalService::OPTION_AS_OF => $this->stringOption('as-of'),
+                AtlasHybridMemoryRetrievalService::OPTION_CURRENT_ONLY => (bool) $this->option('current-only'),
             ],
         );
 
