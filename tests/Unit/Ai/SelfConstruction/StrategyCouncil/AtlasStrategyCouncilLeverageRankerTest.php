@@ -585,4 +585,49 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
 
         $this->assertSame(['alpha', 'bravo', 'charlie'], array_column($verdict['ranked'], 'candidate_id'));
     }
+
+    public function test_structural_dependency_bottleneck_beats_high_volume_shallow_work(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'high-volume-shallow',
+                'proxy_signals' => ['task_count'],
+                'dependency_reach' => 1,
+                'recurrence' => 1,
+                'outcome_gap' => 1,
+                'evidence_freshness' => 0.95,
+            ]),
+            $this->candidate([
+                'candidate_id' => 'dependency-bottleneck',
+                'dependency_reach' => 9,
+                'recurrence' => 8,
+                'outcome_gap' => 9,
+                'evidence_freshness' => 0.95,
+            ]),
+        ]);
+
+        $this->assertSame('dependency-bottleneck', $verdict['ranked'][0]['candidate_id']);
+        $this->assertSame(9, $verdict['ranked'][0]['factors']['dependency_reach']);
+        $this->assertContains('outcome_gap=9', $verdict['ranked'][0]['reasons']);
+    }
+
+    public function test_stale_or_missing_world_outcome_evidence_lowers_confidence_without_becoming_success(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'stale',
+                'evidence_freshness' => 0.20,
+            ]),
+            $this->candidate([
+                'candidate_id' => 'fresh',
+                'evidence_freshness' => 0.95,
+            ]),
+            $this->candidate(['candidate_id' => 'missing']),
+        ]);
+
+        $this->assertSame(['fresh', 'stale', 'missing'], array_column($verdict['ranked'], 'candidate_id'));
+        $this->assertSame(0.20, $verdict['ranked'][1]['factors']['evidence_freshness']);
+        $this->assertSame(0.0, $verdict['ranked'][2]['factors']['evidence_freshness']);
+        $this->assertContains('evidence_freshness=0', $verdict['ranked'][2]['reasons']);
+    }
 }

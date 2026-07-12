@@ -25,8 +25,9 @@ namespace App\Services\Ai\SelfConstruction\StrategyCouncil;
  * waste_reduction DESC, dependency_count ASC, risk ASC, candidate_id ASC). Each factor appears as a
  * reason in the candidate's reasons list, so the operator can read why one beat another.
  *
- * 6 additional optional factors (compound_unlock, proof_cost, implementation_risk,
- * simplification_gain, worker_fit, give_back_likelihood) are appended as the LOWEST-priority
+ * Structural evidence factors (dependency_reach, recurrence, outcome_gap,
+ * simplification_opportunity, verification_strength, blast_radius and evidence_freshness) plus
+ * the existing optional factors are appended as the LOWEST-priority
  * tie-breakers, after every pre-existing factor and before the candidate_id ASC tiebreak — they
  * only ever differentiate candidates that already tie on every original factor, so no pre-existing
  * ranking outcome changes. Each candidate input field defaults to 0 (neutral) when omitted.
@@ -109,6 +110,10 @@ final class AtlasStrategyCouncilLeverageRanker
             $crossCampaignCompounding = ($campaignCount >= 2 && $unlockFamilyCount >= 2) ? 1 : 0;
             $queueFeedOrRepair = (bool) ($c['is_queue_feed_or_repair'] ?? false);
             $workerFloorVeto = ($lowWorkerFloor && $queueFeedOrRepair) ? 1 : 0;
+            $fallbackFreshness = (float) ($c['evidence_freshness'] ?? 0.0);
+            $worldFreshness = max(0.0, min(1.0, (float) ($c['world_freshness'] ?? $fallbackFreshness)));
+            $outcomeFreshness = max(0.0, min(1.0, (float) ($c['outcome_freshness'] ?? $fallbackFreshness)));
+            $evidenceFreshness = min($worldFreshness, $outcomeFreshness);
 
             $accepted[] = [
                 'candidate_id' => $id,
@@ -134,6 +139,15 @@ final class AtlasStrategyCouncilLeverageRanker
                     'simplification_gain' => (int) ($c['simplification_gain'] ?? 0),
                     'worker_fit' => (int) ($c['worker_fit'] ?? 0),
                     'give_back_likelihood' => (int) ($c['give_back_likelihood'] ?? 0),
+                    'dependency_reach' => (int) ($c['dependency_reach'] ?? 0),
+                    'recurrence' => (int) ($c['recurrence'] ?? 0),
+                    'outcome_gap' => (int) ($c['outcome_gap'] ?? 0),
+                    'simplification_opportunity' => (int) ($c['simplification_opportunity'] ?? 0),
+                    'verification_strength' => (int) ($c['verification_strength'] ?? 0),
+                    'blast_radius' => (int) ($c['blast_radius'] ?? 0),
+                    'world_freshness' => round($worldFreshness, 6),
+                    'outcome_freshness' => round($outcomeFreshness, 6),
+                    'evidence_freshness' => round($evidenceFreshness, 6),
                 ],
                 'reasons' => [],
             ];
@@ -158,6 +172,13 @@ final class AtlasStrategyCouncilLeverageRanker
                 ?: $a['factors']['proof_cost'] <=> $b['factors']['proof_cost']
                 ?: $a['factors']['implementation_risk'] <=> $b['factors']['implementation_risk']
                 ?: $a['factors']['give_back_likelihood'] <=> $b['factors']['give_back_likelihood']
+                ?: $b['factors']['evidence_freshness'] <=> $a['factors']['evidence_freshness']
+                ?: $b['factors']['dependency_reach'] <=> $a['factors']['dependency_reach']
+                ?: $b['factors']['recurrence'] <=> $a['factors']['recurrence']
+                ?: $b['factors']['outcome_gap'] <=> $a['factors']['outcome_gap']
+                ?: $b['factors']['simplification_opportunity'] <=> $a['factors']['simplification_opportunity']
+                ?: $b['factors']['verification_strength'] <=> $a['factors']['verification_strength']
+                ?: $b['factors']['blast_radius'] <=> $a['factors']['blast_radius']
                 ?: strcmp($a['candidate_id'], $b['candidate_id']);
         });
 
@@ -183,6 +204,15 @@ final class AtlasStrategyCouncilLeverageRanker
                 'simplification_gain='.$row['factors']['simplification_gain'],
                 'worker_fit='.$row['factors']['worker_fit'],
                 'give_back_likelihood='.$row['factors']['give_back_likelihood'],
+                'world_freshness='.$row['factors']['world_freshness'],
+                'outcome_freshness='.$row['factors']['outcome_freshness'],
+                'evidence_freshness='.$row['factors']['evidence_freshness'],
+                'dependency_reach='.$row['factors']['dependency_reach'],
+                'recurrence='.$row['factors']['recurrence'],
+                'outcome_gap='.$row['factors']['outcome_gap'],
+                'simplification_opportunity='.$row['factors']['simplification_opportunity'],
+                'verification_strength='.$row['factors']['verification_strength'],
+                'blast_radius='.$row['factors']['blast_radius'],
             ];
             $accepted[$i]['dominance_trace'] = isset($accepted[$i + 1])
                 ? $this->dominanceTrace($row['factors'], $accepted[$i + 1]['factors'])
@@ -237,6 +267,14 @@ final class AtlasStrategyCouncilLeverageRanker
         foreach (['proof_cost', 'implementation_risk', 'give_back_likelihood'] as $f) {
             $wv = (int) ($w[$f] ?? 0);
             $nv = (int) ($n[$f] ?? 0);
+            if ($wv !== $nv) {
+                return $f.'='.$wv.'_beats_'.$nv;
+            }
+        }
+
+        foreach (['evidence_freshness', 'dependency_reach', 'recurrence', 'outcome_gap', 'simplification_opportunity', 'verification_strength', 'blast_radius'] as $f) {
+            $wv = (float) ($w[$f] ?? 0);
+            $nv = (float) ($n[$f] ?? 0);
             if ($wv !== $nv) {
                 return $f.'='.$wv.'_beats_'.$nv;
             }
