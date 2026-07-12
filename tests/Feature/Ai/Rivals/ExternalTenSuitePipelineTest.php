@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\Rivals;
 use App\Services\Ai\Rivals\Core\Adjudicator;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\FrozenUnitManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionBundleImporter;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
@@ -84,6 +85,7 @@ class ExternalTenSuitePipelineTest extends TestCase
                 'commit' => str_repeat('a', 40),
                 'finished_at' => now()->toIso8601String(),
             ]));
+            FrozenUnitManifest::fromPlan($plan, [['case_id' => $caseId]], true)->persist();
             $states = new RunStateMachine;
             $states->mark($plan->runId(), RunStateMachine::PLANNED);
             $states->mark($plan->runId(), RunStateMachine::NATIVE_RUNNING);

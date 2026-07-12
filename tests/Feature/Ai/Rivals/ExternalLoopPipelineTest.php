@@ -6,6 +6,7 @@ use App\Services\Ai\Rivals\Adapters\External\Tau2BenchAdapter;
 use App\Services\Ai\Rivals\Core\Adjudicator;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
+use App\Services\Ai\Rivals\Core\FrozenUnitManifest;
 use App\Services\Ai\Rivals\Core\ReplayVerifier;
 use App\Services\Ai\Rivals\Core\ReportBuilder;
 use App\Services\Ai\Rivals\Core\RunPlan;
@@ -64,6 +65,7 @@ class ExternalLoopPipelineTest extends TestCase
             1,
         );
         $runId = $plan->persist();
+        FrozenUnitManifest::fromPlan(RunPlan::load($runId), [['case_id' => 'airline_task_012']], true)->persist();
         (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED);
         (new RunStateMachine)->mark($runId, RunStateMachine::NATIVE_RUNNING);
 
