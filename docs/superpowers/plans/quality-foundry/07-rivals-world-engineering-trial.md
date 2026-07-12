@@ -214,13 +214,13 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 
 **Allowed files:** Rivals claim/report owners, architecture sole-authority guard and tests.
 
-- [ ] Write RED tests for issuer outside Rivals, missing scope/baseline/evidence/experiment/exposure/IC, universal claim, claim before outcome, claim older than 90d, material frontier/harness change and late adverse outcome.
-- [ ] Define claim bundles with claim level, exact mode/stack/risk/duration/unit population, baseline, metric/weights, effect/IC, campaigns/exposure, evidence pack, issued/expiry timestamps and invalidators.
-- [ ] Allow issue only after state-machine completion and all conjunctive gates; emit `claim.evaluated` then `claim.issued|rejected`.
-- [ ] Expire at 90 days and require revalidation after material frontier/harness/regression change.
-- [ ] Consume contradictory/late outcomes and emit `claim.revoked`; never delete the original claim.
-- [ ] Ensure all non-Rivals services are read-only claim consumers and cannot mutate state.
-- [ ] Run claim-tier, report, architecture authority, expiry/revocation and full evidence replay tests.
+- [x] Write RED tests for issuer outside Rivals, missing scope/baseline/evidence/experiment/exposure/IC, universal claim, claim before outcome, claim older than 90d, material frontier/harness change and late adverse outcome.
+- [x] Define claim bundles with claim level, exact mode/stack/risk/duration/unit population, baseline, metric/weights, effect/IC, campaigns/exposure, evidence pack, issued/expiry timestamps and invalidators.
+- [x] Allow issue only after state-machine completion and all conjunctive gates; emit `claim.evaluated` then `claim.issued|rejected`.
+- [x] Expire at 90 days and require revalidation after material frontier/harness/regression change.
+- [x] Consume contradictory/late outcomes and emit `claim.revoked`; never delete the original claim.
+- [x] Ensure all non-Rivals services are read-only claim consumers and cannot mutate state.
+- [x] Run claim-tier, report, architecture authority, expiry/revocation and full evidence replay tests.
 
 **GREEN acceptance:** only Rivals writes claim events; claims are narrow, evidence-backed, expiring and revocable; projections reconstruct from canonical events/artifacts.
 

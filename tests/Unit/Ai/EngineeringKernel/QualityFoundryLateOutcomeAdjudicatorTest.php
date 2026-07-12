@@ -14,7 +14,8 @@ final class QualityFoundryLateOutcomeAdjudicatorTest extends TestCase
     public function test_late_adverse_outcome_holds_learning_requests_rivals_review_and_revokes_only_through_authority(): void
     {
         $ledger = $this->createMock(AtlasEvidenceLedger::class);
-        $ledger->expects(self::exactly(2))->method('record');
+        // learning.hold.requested + rivals.claim.evaluation.requested + canonical claim.revoked
+        $ledger->expects(self::exactly(3))->method('record');
         $claim = ['claim_id' => 'claim-1', 'status' => 'issued', 'claim_eligible' => true];
         $result = (new QualityFoundryLateOutcomeAdjudicator(new RivalsClaimAuthority))->adjudicate([
             'projection_hash' => hash('sha256', 'projection'),

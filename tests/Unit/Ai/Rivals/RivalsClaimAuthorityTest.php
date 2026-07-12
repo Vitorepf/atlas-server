@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Rivals;
 
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Rivals\Core\RivalsClaimAuthority;
 use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
@@ -59,12 +60,89 @@ final class RivalsClaimAuthorityTest extends TestCase
         (new RivalsClaimAuthority)->issue(array_replace($this->evidence(), ['evidence_refs' => []]));
     }
 
+    public function test_universal_scope_is_rejected(): void
+    {
+        $evidence = $this->evidence();
+        $evidence['scope']['risk'] = '*';
+        $this->expectException(InvalidArgumentException::class);
+        (new RivalsClaimAuthority)->issue($evidence);
+    }
+
+    public function test_issue_requires_state_machine_completion(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new RivalsClaimAuthority)->issue(array_replace($this->evidence(), ['run_state' => 'planned']));
+    }
+
+    public function test_claim_requires_stack_unit_population_and_metric_weights(): void
+    {
+        $authority = new RivalsClaimAuthority;
+
+        $noWeights = $this->evidence();
+        unset($noWeights['metric_weights']);
+        try {
+            $authority->issue($noWeights);
+            self::fail('missing metric_weights must be rejected');
+        } catch (InvalidArgumentException) {
+        }
+
+        $noStack = $this->evidence();
+        unset($noStack['scope']['stack']);
+        $this->expectException(InvalidArgumentException::class);
+        $authority->issue($noStack);
+    }
+
+    public function test_material_frontier_change_forces_revalidation(): void
+    {
+        $authority = new RivalsClaimAuthority;
+        $claim = $authority->issue($this->evidence());
+
+        self::assertTrue($authority->requiresRevalidation($claim, ['material_frontier_change']));
+        self::assertTrue($authority->requiresRevalidation($claim, ['late_adverse_outcome'])); // a preregistered invalidator
+        self::assertFalse($authority->requiresRevalidation($claim, ['unrelated_signal']));
+    }
+
+    public function test_issue_emits_evaluated_then_issued_canonical_events(): void
+    {
+        $events = [];
+        $ledger = $this->createMock(AtlasEvidenceLedger::class);
+        $ledger->method('record')->willReturnCallback(
+            function ($type, array $payload) use (&$events) {
+                $events[] = $payload['event_name'];
+
+                return null;
+            }
+        );
+
+        (new RivalsClaimAuthority)->issue($this->evidence(), $ledger);
+        self::assertSame(['claim.evaluated', 'claim.issued'], $events);
+    }
+
+    public function test_revoke_emits_canonical_claim_revoked_event(): void
+    {
+        $events = [];
+        $ledger = $this->createMock(AtlasEvidenceLedger::class);
+        $ledger->method('record')->willReturnCallback(
+            function ($type, array $payload) use (&$events) {
+                $events[] = $payload['event_name'];
+
+                return null;
+            }
+        );
+
+        $authority = new RivalsClaimAuthority;
+        $claim = $authority->issue($this->evidence());
+        $authority->revoke($claim, 'late_adverse_outcome', $ledger);
+        self::assertContains('claim.revoked', $events);
+    }
+
     /** @return array<string,mixed> */
     private function evidence(): array
     {
         return [
             'adjudication_status' => 'passed', 'claim_level' => 'world_10x_quality_proven',
-            'scope' => ['suite' => 'atlas-bench', 'mode' => 'atlas', 'risk' => 'R3', 'duration' => 'durable_task', 'cases' => ['c1','c2','c3']],
+            'run_state' => 'bundled', 'metric_weights' => ['quality_loss' => 1.0, 'cost' => 0.0],
+            'scope' => ['suite' => 'atlas-bench', 'mode' => 'atlas', 'risk' => 'R3', 'duration' => 'durable_task', 'stack' => 'php_laravel', 'unit_population' => 'atlas_bench_cases', 'cases' => ['c1', 'c2', 'c3']],
             'baseline_hash' => str_repeat('a', 64), 'evidence_pack_hash' => str_repeat('b', 64),
             'experiment_hash' => str_repeat('c', 64), 'effect' => 0.20, 'ci_low' => 0.08, 'ci_high' => 0.32,
             'exposure' => ['campaigns' => 3, 'attempts' => 300, 'distinct_cases' => 3],

@@ -44,7 +44,8 @@ final class QualityFoundryLateOutcomeAdjudicator
 
         $revokedClaim = null;
         if (is_array($claim) && ($claim['status'] ?? null) === 'issued') {
-            $revokedClaim = $this->claims->revoke($claim, $reason);
+            // revoke through the sole authority; it emits the canonical claim.revoked event
+            $revokedClaim = $this->claims->revoke($claim, $reason, $ledger);
         }
 
         return [
@@ -68,6 +69,7 @@ final class QualityFoundryLateOutcomeAdjudicator
         foreach ((array) ($projection['windows'] ?? []) as $window => $data) {
             if (($data['state'] ?? null) === 'contradictory') {
                 $adverse[] = (string) $window;
+
                 continue;
             }
             foreach ((array) ($data['observations'] ?? []) as $observation) {
