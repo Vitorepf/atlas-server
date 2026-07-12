@@ -168,8 +168,8 @@ final class AtlasSelfConstructionRuntimeSoakScenarioBuilder
                 'virtual_unix' => $virtualNow,
                 'kind' => (string) $template['kind'],
                 'expected_outcome' => (string) $template['expected_outcome'],
-                'required_evidence' => array_values((array) $template['required_evidence']),
-                'forbidden_dependency_flags' => array_values((array) $template['forbidden_dependency_flags']),
+                'required_evidence' => (array) $template['required_evidence'],
+                'forbidden_dependency_flags' => (array) $template['forbidden_dependency_flags'],
             ];
             $virtualNow += $tickStep;
             $tickIndex++;

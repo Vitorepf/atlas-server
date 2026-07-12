@@ -271,7 +271,7 @@ final class AtlasNativeWorkerCapabilityRegistry
             }
         }
 
-        return ['passed' => $blockers === [], 'blockers' => array_values($blockers)];
+        return ['passed' => $blockers === [], 'blockers' => $blockers];
     }
 
     private function autonomyRank(string $level): int

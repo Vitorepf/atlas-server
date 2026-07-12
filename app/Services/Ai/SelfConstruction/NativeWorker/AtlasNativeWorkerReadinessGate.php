@@ -49,7 +49,8 @@ final class AtlasNativeWorkerReadinessGate
      *     runtime_owner?:string,
      *     server_side_verification_available?:bool,
      *     rollback_available?:bool,
-     *     components?:array<string,array{present?:bool, verified?:bool}>
+     *     components?:array<string,array{present?:bool, verified?:bool}>,
+     *     heartbeat_age_seconds?:int|float|string|null
      * }  $observed
      * @return array{schema:string, ready:bool, blockers:list<string>, components_required:list<string>, components_verified:list<string>}
      */
