@@ -95,7 +95,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [x] Run Engineering Company and Workcell roster suites; expected RED is missing membership or mode/topology-specific drift.
 - [x] Extend the existing registry to be the sole source of the 22 role definitions.
 - [x] Implement deterministic depth profiles: R0 applicability/minimal evidence; R1 light independent review/local tests; R2 standard review/contracts/integration; R3 multiple verifiers/regression/compatibility/controlled release; R4 security/mutation/property/chaos/rollback; R5 competing candidates, different-family verifiers and disaster drills.
-- [ ] Persist selected depth separately from mode, complexity, duration and topology.
+- [x] Persist selected depth separately from mode, complexity, duration and topology.
 - [ ] Run focused suites plus neighboring Workcell/Engineering Company tests, architecture guard, Pint and PHPStan.
 
 **GREEN acceptance:** all 22 roles appear once, in order, for every mode/risk/topology; only depth changes; duplicate or unknown keys are refused.
@@ -116,12 +116,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** focused EngineeringKernel `Quality/**`, EngineeringCompany writer, `AcceptanceBundle`, existing model/migration and tests.
 
-- [ ] Write RED construction tests for missing/unknown role, missing disposition, favorable default, N/A without rule/rationale/evidence/signer, stale hash, duplicate disposition and absence of any one of 22 roles.
-- [ ] Write RED tests proving `not_applicable` cannot be chosen from mode or implementation convenience and cannot be signed by the author.
+- [x] Write RED construction tests for missing/unknown role, missing disposition, favorable default, N/A without rule/rationale/evidence/signer, stale hash, duplicate disposition and absence of any one of 22 roles.
+- [x] Write RED tests proving `not_applicable` cannot be chosen from mode or implementation convenience and cannot be signed by the author.
 - [x] Implement immutable disposition validation and canonical hashing. Legal statuses are exactly `pass`, `block`, `not_applicable`.
-- [ ] Store dispositions in existing role-run records and append `role.disposition.recorded` to `atlas_ledger_events`; retries with the same hash are idempotent and conflicting hashes block.
-- [ ] Make missing or invalid dispositions materialize as `block` in acceptance, not as a persisted fake disposition.
-- [ ] Run focused disposition tests, role-run persistence/replay, AcceptanceBundle and neighboring outcome suites.
+- [x] Store dispositions in existing role-run records and append `role.disposition.recorded` to `atlas_ledger_events`; retries with the same hash are idempotent and conflicting hashes block.
+- [x] Make missing or invalid dispositions materialize as `block` in acceptance, not as a persisted fake disposition.
+- [x] Run focused disposition tests, role-run persistence/replay, AcceptanceBundle and neighboring outcome suites.
 
 **GREEN acceptance:** a bundle cannot be certified with 21 roles, a forged N/A, stale provenance, duplicate role, absent signer or favorable default; replay reconstructs the same 22 dispositions.
 
