@@ -99,6 +99,22 @@ final class EngineeringExecutionCoverageTest extends TestCase
         $this->assertContains('release_receipt', $report['incomplete_samples'][0]['missing_fields']);
     }
 
+    public function test_replaying_same_event_id_is_idempotent_and_conflicting_payload_fails_closed(): void
+    {
+        $event = $this->completeEvent(['event_id' => 'coverage-replay-event']);
+
+        $this->coverage->record($event);
+        $this->coverage->record($event);
+
+        $this->assertSame(1, AtlasLedgerEvent::query()
+            ->where('event_id', 'coverage-replay-event')
+            ->count());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('engineering_execution_coverage_event_conflict');
+        $this->coverage->record(array_replace($event, ['terminal_outcome' => 'conflict']));
+    }
+
     public function test_report_recomputes_completeness_instead_of_trusting_payload_complete_flag(): void
     {
         $this->insertLedgerPayload([

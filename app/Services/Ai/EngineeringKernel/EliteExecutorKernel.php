@@ -14,6 +14,8 @@ use App\Services\Ai\EngineeringKernel\Adapters\AtlasAutonomosGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\AtlasForgeGateAdapter;
 use App\Services\Ai\EngineeringKernel\Adapters\TaskLaneMergeActuatorAdapter;
+use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionCoverage;
+use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
 use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -712,24 +714,57 @@ final class EliteExecutorKernel
 
     public function execute(ExecutionOrder $order): EngineeringOutcome
     {
+        $outcome = null;
         if (self::idempotencyLockStrategy((string) DB::connection()->getDriverName()) === 'postgres_advisory_xact_lock') {
-            return DB::transaction(function () use ($order): EngineeringOutcome {
+            $outcome = DB::transaction(function () use ($order): EngineeringOutcome {
                 DB::select('SELECT pg_advisory_xact_lock(?)', [(int) hexdec(substr(hash('sha256', $order->idempotencyKey), 0, 15))]);
 
                 return $this->executeLocked($order);
             });
+        } else {
+            try {
+                $outcome = Cache::lock('atlas:engineering-kernel:idempotency:'.hash('sha256', $order->idempotencyKey), 30)
+                    ->block(1, fn (): EngineeringOutcome => $this->executeLocked($order));
+            } catch (LockTimeoutException) {
+                throw new \RuntimeException('engineering_execution_idempotency_lock_unavailable');
+            }
         }
-        try {
-            return Cache::lock('atlas:engineering-kernel:idempotency:'.hash('sha256', $order->idempotencyKey), 30)
-                ->block(1, fn (): EngineeringOutcome => $this->executeLocked($order));
-        } catch (LockTimeoutException) {
-            throw new \RuntimeException('engineering_execution_idempotency_lock_unavailable');
-        }
+
+        $this->recordExecutionCoverage($order, $outcome);
+
+        return $outcome;
     }
 
     public static function idempotencyLockStrategy(string $driver): string
     {
         return $driver === 'pgsql' ? 'postgres_advisory_xact_lock' : 'test_cache_lock';
+    }
+
+    private function recordExecutionCoverage(ExecutionOrder $order, EngineeringOutcome $outcome): void
+    {
+        $surface = (string) ($order->authorityEnvelope['surface'] ?? match ($order->mode) {
+            'dev' => 'atlas_dev.pipeline_run_executor',
+            'forge' => 'atlas_forge.work_packet_execution_cycle',
+            'autonomos' => 'atlas_autonomos.native_worker',
+        });
+        if (! EngineeringExecutionSurfaceRegistry::isConfirmedMutativeSurface($surface)) {
+            $surface = 'engineering_kernel.merge_actuator';
+        }
+
+        app(EngineeringExecutionCoverage::class)->record([
+            'event_id' => substr(hash('sha256', 'engineering-execution-coverage:'.$order->idempotencyKey.':'.$outcome->outcomeHash), 0, 32),
+            'mode' => EngineeringExecutionCoverage::MODE_OBSERVE,
+            'surface' => $surface,
+            'run_id' => $order->runId,
+            'execution_order_hash' => $order->canonicalHash(),
+            'provider_receipt' => CanonicalKernelPayload::hash($outcome->providerReceipt),
+            'workspace_delta_hash' => (string) ($outcome->correlatedHashes['diff'] ?? ''),
+            'acceptance_receipt' => (string) ($outcome->correlatedHashes['evidence'] ?? ''),
+            'release_receipt' => (string) ($outcome->correlatedHashes['release'] ?? ''),
+            'terminal_outcome' => $outcome->status,
+            'kernel_routed' => true,
+            'emitter_stage' => 'elite_executor_kernel',
+        ]);
     }
 
     private function executeLocked(ExecutionOrder $order): EngineeringOutcome

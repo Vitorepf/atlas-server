@@ -46,7 +46,9 @@ final class EngineeringExecutionCoverage
 
         $payload = $this->coveragePayload($event);
         $eventId = $this->string($event['event_id'] ?? (string) Str::ulid(), 32);
-        $payloadHash = $this->hashPayload($payload);
+        // recorded_at is observational metadata; excluding it keeps a deterministic
+        // event id replay-safe while still detecting semantic payload conflicts.
+        $payloadHash = $this->hashPayload(array_diff_key($payload, ['recorded_at' => true]));
         $occurredAt = $this->occurredAt($event['occurred_at'] ?? null);
         $runId = $this->nullableString($payload['run_id'] ?? null, 80);
 
@@ -81,6 +83,15 @@ final class EngineeringExecutionCoverage
                 'payload_hash' => $payloadHash,
                 'occurred_at' => $occurredAt->toISOString(),
             ]);
+        }
+
+        $existing = AtlasLedgerEvent::query()->where('event_id', $eventId)->first();
+        if ($existing instanceof AtlasLedgerEvent) {
+            if ((string) $existing->getAttribute('payload_hash') === $payloadHash) {
+                return;
+            }
+
+            throw new \RuntimeException('engineering_execution_coverage_event_conflict');
         }
 
         AtlasLedgerEvent::query()->create($row);
