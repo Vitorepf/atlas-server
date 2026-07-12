@@ -362,6 +362,52 @@ final class AtlasAurgIngestionTest extends TestCase
         $this->assertSame($edges, (int) AtlasAurgEdge::query()->count());
     }
 
+    public function test_docs_ingest_skips_unchanged_files_on_consecutive_sync(): void
+    {
+        $service = $this->service();
+        $first = $service->sync(['docs']);
+
+        $second = $service->sync(['docs']);
+
+        $this->assertGreaterThan(0, $first['sources']['docs']['nodes']);
+        $this->assertSame(0, $second['sources']['docs']['nodes']);
+        $this->assertGreaterThanOrEqual($first['sources']['docs']['nodes'], $second['sources']['docs']['skipped_unchanged']);
+    }
+
+    public function test_evidence_prune_keeps_linked_evidence_nodes_outside_recent_window(): void
+    {
+        $service = $this->service();
+        $service->sync(['memory']);
+        $staleEvidence = 'evidence:evidence:stale-linked-maxd08';
+        $memoryNode = 'memory:memory_entry:'.$this->safeMemoryId;
+        AtlasAurgNode::query()->create([
+            'id' => $staleEvidence,
+            'kind' => 'evidence',
+            'source_kind' => 'evidence',
+            'source_id' => 'stale-linked-maxd08',
+            'label' => 'STALE_LINKED',
+            'workspace_id' => null,
+            'provider_safe' => true,
+            'sensitive' => false,
+            'meta' => ['payload_hash' => hash('sha256', 'stale-linked-maxd08')],
+            'content_hash' => hash('sha256', 'stale-linked-maxd08'),
+        ]);
+        AtlasAurgEdge::query()->create([
+            'from_node_id' => $staleEvidence,
+            'to_node_id' => $memoryNode,
+            'kind' => 'proves',
+            'source' => 'linker_evidence',
+            'confidence' => 1.0,
+            'meta' => ['matched' => 'fixture'],
+        ]);
+
+        $stats = $service->sync(['evidence'], prune: true);
+
+        $this->assertTrue(AtlasAurgNode::query()->whereKey($staleEvidence)->exists());
+        $this->assertTrue(AtlasAurgEdge::query()->where('from_node_id', $staleEvidence)->exists());
+        $this->assertSame(1, $stats['pruned']['evidence_kept_linked']);
+    }
+
     public function test_prune_removes_vanished_rows_scoped_to_source_kind(): void
     {
         $service = $this->service();
@@ -476,6 +522,9 @@ final class AtlasAurgIngestionTest extends TestCase
 
         // Workspace keying for code-intelligence tables (idempotent, cross-driver).
         (require database_path('migrations/2026_06_08_233000_add_workspace_id_to_code_intelligence_tables.php'))->up();
+
+        // Edge model now stamps temporal validity columns.
+        (require database_path('migrations/2026_07_07_181500_add_temporal_truth_to_atlas_aurg_edges.php'))->up();
 
         // Evidence ledger table (live source for RAG-09).
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();

@@ -142,15 +142,21 @@ class AtlasRealityGraphIngestionService
             $stats['sources'][$source] = [
                 'nodes' => count($gathered['nodes']),
                 'edges' => $edgeCount,
-            ];
+            ] + (array) ($gathered['stats'] ?? []);
 
             // Prune only when the source read-model is actually readable — a missing
             // source table means "cannot verify vanishing", not "everything vanished"
             // (honest degrade: never wipe a layer on infrastructure absence).
             if ($prune && $this->sourceAvailable($source)) {
-                $pruned = $this->pruneSource($this->sourceKindFor($source), array_column($gathered['nodes'], 'id'));
+                $keepIds = (array) ($gathered['keep_ids'] ?? array_column($gathered['nodes'], 'id'));
+                $pruned = $this->pruneSource($this->sourceKindFor($source), $keepIds);
                 $stats['pruned']['nodes'] += $pruned['nodes'];
                 $stats['pruned']['edges'] += $pruned['edges'];
+                foreach ($pruned as $key => $value) {
+                    if (! in_array($key, ['nodes', 'edges'], true)) {
+                        $stats['pruned'][$key] = (int) ($stats['pruned'][$key] ?? 0) + (int) $value;
+                    }
+                }
             }
         }
 
@@ -1091,6 +1097,8 @@ class AtlasRealityGraphIngestionService
     private function gatherDocs(): array
     {
         $nodes = [];
+        $keepIds = [];
+        $skippedUnchanged = 0;
         $root = base_path('docs/engineering-knowledge-base');
         if (! is_dir($root)) {
             return ['nodes' => $nodes, 'edges' => []];
@@ -1118,8 +1126,28 @@ class AtlasRealityGraphIngestionService
         sort($files, SORT_STRING);
         $files = array_slice($files, 0, $this->cap('docs_limit', 2000));
 
+        $existingById = AtlasAurgNode::query()
+            ->where('source_kind', 'doc')
+            ->where('kind', AtlasRealityGraphSnapshotBuilderService::NODE_DOC)
+            ->get(['id', 'meta'])
+            ->keyBy('id');
+
         foreach ($files as $relative) {
             $absolute = base_path($relative);
+            $nodeId = $this->nodeKey('doc', AtlasRealityGraphSnapshotBuilderService::NODE_DOC, $relative);
+            $keepIds[] = $nodeId;
+            $mtime = @filemtime($absolute);
+            $size = @filesize($absolute);
+            $existing = $existingById->get($nodeId);
+            $existingMeta = $existing instanceof AtlasAurgNode ? (array) ($existing->meta ?? []) : [];
+            if ($mtime !== false && $size !== false
+                && (int) ($existingMeta['doc_mtime'] ?? -1) === (int) $mtime
+                && (int) ($existingMeta['doc_size'] ?? -1) === (int) $size) {
+                $skippedUnchanged++;
+
+                continue;
+            }
+
             $content = @file_get_contents($absolute);
             if (! is_string($content)) {
                 continue;
@@ -1138,12 +1166,19 @@ class AtlasRealityGraphIngestionService
                     'doc_status' => 'canonical_engineering_knowledge',
                     'paths' => $this->existingRepoPathsFromText($content),
                     'memory_refs' => $this->memoryRefsFromText($content),
+                    'doc_mtime' => $mtime !== false ? (int) $mtime : null,
+                    'doc_size' => $size !== false ? (int) $size : null,
                 ],
                 contentHash: hash('sha256', $relative.'|'.hash('sha256', $content)),
             );
         }
 
-        return ['nodes' => $nodes, 'edges' => []];
+        return [
+            'nodes' => $nodes,
+            'edges' => [],
+            'keep_ids' => $keepIds,
+            'stats' => ['skipped_unchanged' => $skippedUnchanged],
+        ];
     }
 
     // ------------------------------------------------------------------
@@ -2140,8 +2175,29 @@ class AtlasRealityGraphIngestionService
             $staleQuery->whereNotIn('id', $keepIds);
         }
         $staleIds = $staleQuery->pluck('id')->all();
+        $keptLinked = 0;
+        if ($sourceKind === 'evidence' && $staleIds !== []) {
+            $linked = [];
+            foreach (array_chunk($staleIds, 500) as $chunk) {
+                $rows = AtlasAurgEdge::query()
+                    ->whereIn('from_node_id', $chunk)
+                    ->orWhereIn('to_node_id', $chunk)
+                    ->get(['from_node_id', 'to_node_id']);
+                foreach ($rows as $edge) {
+                    foreach ([(string) $edge->from_node_id, (string) $edge->to_node_id] as $id) {
+                        if (in_array($id, $chunk, true)) {
+                            $linked[$id] = true;
+                        }
+                    }
+                }
+            }
+            if ($linked !== []) {
+                $staleIds = array_values(array_filter($staleIds, static fn (string $id): bool => ! isset($linked[$id])));
+                $keptLinked = count($linked);
+            }
+        }
         if ($staleIds === []) {
-            return ['nodes' => 0, 'edges' => 0];
+            return ['nodes' => 0, 'edges' => 0, 'evidence_kept_linked' => $keptLinked];
         }
 
         $edgesDeleted = 0;
@@ -2154,7 +2210,7 @@ class AtlasRealityGraphIngestionService
             $nodesDeleted += AtlasAurgNode::query()->whereIn('id', $chunk)->delete();
         }
 
-        return ['nodes' => (int) $nodesDeleted, 'edges' => (int) $edgesDeleted];
+        return ['nodes' => (int) $nodesDeleted, 'edges' => (int) $edgesDeleted, 'evidence_kept_linked' => $keptLinked];
     }
 
     /**
