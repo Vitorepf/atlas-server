@@ -160,6 +160,10 @@ final class AtlasAgenticWorkcellRuntimeService
             'payload' => $this->sanitizePayload(is_array($input['payload'] ?? null) ? $input['payload'] : []),
             'evidence_refs' => AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []),
         ];
+        $circuitBreaker = $this->circuitBreakerReceipt($input['circuit_breaker'] ?? null);
+        if ($circuitBreaker !== []) {
+            $payload['payload']['circuit_breaker'] = $circuitBreaker;
+        }
         $payload['event_hash'] = MissionCanonicalHash::sha256($payload);
         $record = AtlasAgenticWorkcellEvent::query()->create($payload);
 
@@ -186,6 +190,10 @@ final class AtlasAgenticWorkcellRuntimeService
         $qualityScore = $this->numericOrNull($input['quality_score'] ?? null);
         $roiScore = $this->numericOrNull($input['coordination_roi_score'] ?? null);
         $signals = is_array($input['signals'] ?? null) ? $input['signals'] : [];
+        $circuitBreaker = $this->circuitBreakerReceipt($input['circuit_breaker'] ?? null);
+        if ($circuitBreaker !== []) {
+            $signals['circuit_breaker'] = $circuitBreaker;
+        }
         $status = $evidenceRefs === [] ? self::STATUS_BLOCKED : (AiValueNormalizer::trimmedScalarStringOrNull($input['status'] ?? null) ?? self::STATUS_READY);
         $payload = [
             'workcell_id' => $workcell->id,
@@ -927,6 +935,25 @@ final class AtlasAgenticWorkcellRuntimeService
             'verification_check_count' => count((array) ($verificationPlan['checks'] ?? [])),
             'independent_verification_required' => true,
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private function circuitBreakerReceipt(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $receipt = [
+            'failure_fingerprint' => trim((string) ($value['failure_fingerprint'] ?? '')),
+            'evidence_delta_rounds' => max(0, (int) ($value['evidence_delta_rounds'] ?? 0)),
+            'approach_id' => trim((string) ($value['approach_id'] ?? $value['candidate_id'] ?? '')),
+            'terminal_reason' => trim((string) ($value['terminal_reason'] ?? $value['reason'] ?? '')),
+            'status' => trim((string) ($value['status'] ?? '')),
+            'decision_hash' => trim((string) ($value['decision_hash'] ?? '')),
+        ];
+
+        return array_filter($receipt, static fn (mixed $item): bool => $item !== '' && $item !== null);
     }
 
     /**

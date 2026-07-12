@@ -4,6 +4,8 @@ namespace Tests\Feature\Ai\AgenticWorkcell;
 
 use App\Services\Ai\AgenticWorkcell\AtlasAgenticWorkcellRuntimeService;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
+use App\Models\AtlasAgenticWorkcellEvent;
+use App\Models\AtlasAgenticWorkcellOutcome;
 use Tests\Concerns\CreatesAgenticWorkcellTables;
 use Tests\Concerns\CreatesRuntimeEfficiencyTables;
 use Tests\TestCase;
@@ -168,6 +170,42 @@ class AtlasAgenticWorkcellRuntimeServiceTest extends TestCase
         $this->assertDatabaseCount('atlas_agentic_workcell_org_patterns', 1);
         $this->assertStringNotContainsString($objective, $encoded);
         $this->assertStringContainsString('objective_hash', $encoded);
+    }
+
+    public function test_circuit_breaker_receipt_is_persisted_in_event_and_outcome_json(): void
+    {
+        $runtime = app(AtlasAgenticWorkcellRuntimeService::class);
+        $workcell = $runtime->design([
+            'objective' => 'Persistir recibos de interrupcao governada.',
+            'domain' => 'programming', 'evidence_refs' => ['test:circuit'],
+        ]);
+        $receipt = [
+            'failure_fingerprint' => 'fp-persisted', 'evidence_delta_rounds' => 2,
+            'approach_id' => 'approach-b', 'terminal_reason' => 'two_rounds_without_evidence_delta',
+            'status' => 'change_approach', 'decision_hash' => 'hash-circuit',
+        ];
+        $event = $runtime->recordEvent([
+            'workcell_id' => $workcell['workcell_id'], 'event_type' => 'circuit_breaker.triggered',
+            'status' => 'blocked', 'circuit_breaker' => $receipt, 'evidence_refs' => ['event:circuit'],
+        ]);
+        $outcome = $runtime->closeOutcome([
+            'workcell_id' => $workcell['workcell_id'], 'status' => 'blocked',
+            'circuit_breaker' => $receipt, 'evidence_refs' => ['outcome:circuit'],
+        ]);
+
+        self::assertSame('blocked', $event['status']);
+        self::assertSame('fp-persisted', data_get(
+            AtlasAgenticWorkcellEvent::query()->findOrFail($event['event_id'])->payload,
+            'circuit_breaker.failure_fingerprint',
+        ));
+        self::assertSame('approach-b', data_get(
+            AtlasAgenticWorkcellOutcome::query()->findOrFail($outcome['outcome_id'])->signals,
+            'circuit_breaker.approach_id',
+        ));
+        self::assertSame('two_rounds_without_evidence_delta', data_get(
+            AtlasAgenticWorkcellOutcome::query()->findOrFail($outcome['outcome_id'])->signals,
+            'circuit_breaker.terminal_reason',
+        ));
     }
 
     public function test_execution_order_admission_binds_hashes_scope_evidence_and_isolated_candidates(): void
