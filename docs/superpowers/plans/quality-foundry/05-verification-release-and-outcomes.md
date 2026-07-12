@@ -215,7 +215,7 @@ Outcome dimensions include defects, incidents, rollback, rework, vulnerabilities
 - [ ] Inject ledger/Governor/provider/verifier/canary/revert/outcome failure and process kill at each boundary.
 - [x] Assert zero unauthorized effect, no post-effect false success, safe idempotent replay and identical hold/block/uncertain/revert states. Evidence: parity terminal-state matrix plus interrupted-decision reconciliation tests.
 - [x] Assert no mode writes a comparative claim and all outcomes default ineligible. Evidence: terminal parity assertions require `claim_eligible_all_false` across Dev/Forge/Autônomos.
-- [ ] Run architecture coverage, full shared subsystem tests and receipt-chain replay.
+- [x] Run architecture coverage, full shared subsystem tests and receipt-chain replay. Evidence: shared Kernel/Foundry/Evidence suites and simulation receipt-chain replay passed after restoring the FACT-only simulation receipt contract; architecture validation executed and remains blocked by the pre-existing missing `atlas_engineering_runs` projection table and repository health debt.
 
 **GREEN acceptance:** mode parity is proven over success and failure; every effect and terminal state has a correlated receipt; no bypass or claim writer exists.
 
