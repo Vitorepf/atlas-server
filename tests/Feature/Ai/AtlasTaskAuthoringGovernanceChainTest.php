@@ -137,7 +137,7 @@ final class AtlasTaskAuthoringGovernanceChainTest extends TestCase
         $envelope = $chain->govern($this->defaultCandidates());
         $this->assertArrayHasKey('arena', $envelope);
         $arena = $envelope['arena'];
-        foreach (['candidates_considered', 'selected_candidate_id', 'rejected_candidate_ids', 'selection_reason', 'diversity_score', 'template_farm_warning'] as $key) {
+        foreach (['candidates_considered', 'selected_candidate_id', 'rejected_candidate_ids', 'selection_reason', 'diversity_score', 'template_farm_warning', 'ranked_proposal_evidence'] as $key) {
             $this->assertArrayHasKey($key, $arena, "arena must have key: {$key}");
         }
         $this->assertSame(1, $arena['candidates_considered']);
@@ -145,11 +145,35 @@ final class AtlasTaskAuthoringGovernanceChainTest extends TestCase
         $this->assertSame([], $arena['rejected_candidate_ids']);
     }
 
+    public function test_arena_emits_ranked_proposal_evidence_for_task_fabric_consumers(): void
+    {
+        $candidates = [[
+            'candidate_id' => 'evidence-candidate',
+            'title' => 'evidence-backed proposal',
+            'owner_scope' => 'scope-a',
+            'leverage_rank' => 'high',
+            'capability_gap' => [],
+            'invariants' => [],
+            'evidence_refs' => ['receipt:canonical-1'],
+            'evidence_path' => 'docs/evidence/canonical-1.md',
+        ]];
+        $envelope = (new AtlasTaskAuthoringGovernanceChain(
+            modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_OBSERVE,
+        ))->govern($candidates);
+
+        $evidence = $envelope['arena']['ranked_proposal_evidence'];
+        $selected = array_values(array_filter($evidence, static fn (array $row): bool => $row['candidate_id'] === 'evidence-candidate'));
+        $this->assertNotEmpty($selected);
+        $this->assertTrue($selected[0]['selected']);
+        $this->assertContains('receipt:canonical-1', $selected[0]['evidence_refs']);
+        $this->assertNotEmpty($selected[0]['reason_vectors']);
+    }
+
     public function test_multiple_accepted_candidates_fills_rejected_ids_deterministically(): void
     {
         $candidates = [
-            ['candidate_id' => 'A', 'title' => 'alpha', 'owner_scope' => 'scope-a', 'leverage_rank' => 'high', 'capability_gap' => [], 'invariants' => []],
-            ['candidate_id' => 'B', 'title' => 'beta',  'owner_scope' => 'scope-b', 'leverage_rank' => 'high', 'capability_gap' => [], 'invariants' => []],
+            ['candidate_id' => 'A', 'title' => 'alpha', 'owner_scope' => 'scope-a', 'leverage_rank' => 'high', 'capability_gap' => [], 'invariants' => [], 'evidence_path' => 'docs/evidence/a.md'],
+            ['candidate_id' => 'B', 'title' => 'beta',  'owner_scope' => 'scope-b', 'leverage_rank' => 'high', 'capability_gap' => [], 'invariants' => [], 'evidence_path' => 'docs/evidence/b.md'],
         ];
         $chain = new AtlasTaskAuthoringGovernanceChain(
             modeOverride: AtlasTaskAuthoringGovernanceChain::MODE_OBSERVE,

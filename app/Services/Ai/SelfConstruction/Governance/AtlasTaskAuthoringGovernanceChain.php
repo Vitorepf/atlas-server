@@ -78,8 +78,11 @@ final class AtlasTaskAuthoringGovernanceChain
         }
 
         try {
+            $candidates = $this->normalizeCandidates($candidates);
             $filtered = ($this->filter ?? new AtlasStrategyCouncilRoadmapCandidateFilter())->filter($candidates);
-            $ranked = ($this->ranker ?? new AtlasStrategyCouncilLeverageRanker())->rank($filtered);
+            $ranked = ($this->ranker ?? new AtlasStrategyCouncilLeverageRanker())->rank(
+                $this->rankerCandidates(is_array($filtered['kept'] ?? null) ? $filtered['kept'] : []),
+            );
             $top = $this->extractTop($ranked);
 
             $budgetVerdict = [];
@@ -149,7 +152,9 @@ final class AtlasTaskAuthoringGovernanceChain
      */
     private function extractTop(array $ranked): ?array
     {
-        $accepted = is_array($ranked['accepted'] ?? null) ? array_values($ranked['accepted']) : array_values($ranked);
+        $accepted = is_array($ranked['accepted'] ?? null)
+            ? array_values($ranked['accepted'])
+            : (is_array($ranked['ranked'] ?? null) ? array_values($ranked['ranked']) : array_values($ranked));
         foreach ($accepted as $row) {
             if (is_array($row)) {
                 return $row;
@@ -202,7 +207,9 @@ final class AtlasTaskAuthoringGovernanceChain
             return 'skipped';
         }
         try {
-            $accepted = is_array($ranked['accepted'] ?? null) ? array_values($ranked['accepted']) : array_values($ranked);
+            $accepted = is_array($ranked['accepted'] ?? null)
+                ? array_values($ranked['accepted'])
+                : (is_array($ranked['ranked'] ?? null) ? array_values($ranked['ranked']) : array_values($ranked));
             $rejected = is_array($ranked['rejected'] ?? null) ? array_values($ranked['rejected']) : [];
             $selected = (string) ($top['candidate_id'] ?? hash('sha256', (string) json_encode($top)));
             $rejectedIds = [];
@@ -246,6 +253,38 @@ final class AtlasTaskAuthoringGovernanceChain
         }
     }
 
+    /** @param array<int,array<string,mixed>> $candidates @return array<int,array<string,mixed>> */
+    private function rankerCandidates(array $candidates): array
+    {
+        return array_map(static function (array $candidate): array {
+            $refs = array_values(array_filter(array_map('strval', (array) ($candidate['evidence_refs'] ?? []))));
+            if ($refs === []) {
+                $refs = array_values(array_filter(array_map('strval', (array) data_get($candidate, 'capability_gap.evidence_seed', []))));
+            }
+            if ($refs === [] && trim((string) ($candidate['evidence_path'] ?? '')) !== '') {
+                $refs = ['path:'.trim((string) $candidate['evidence_path'])];
+            }
+            $candidate['evidence_refs'] = $refs;
+
+            return $candidate;
+        }, $candidates);
+    }
+
+    /** @param array<int,array<string,mixed>> $candidates @return array<int,array<string,mixed>> */
+    private function normalizeCandidates(array $candidates): array
+    {
+        return array_map(static function (array $candidate): array {
+            if (trim((string) ($candidate['evidence_path'] ?? '')) === '') {
+                $seed = array_values(array_filter(array_map('strval', (array) data_get($candidate, 'capability_gap.evidence_seed', []))));
+                if ($seed !== []) {
+                    $candidate['evidence_path'] = 'evidence://'.rawurlencode($seed[0]);
+                }
+            }
+
+            return $candidate;
+        }, $candidates);
+    }
+
     /**
      * @param  array<int,array<string,mixed>>  $ranked
      * @param  array<string,mixed>|null  $top
@@ -281,7 +320,9 @@ final class AtlasTaskAuthoringGovernanceChain
             ? (string) ($top['candidate_id'] ?? hash('sha256', (string) json_encode($top)))
             : null;
 
-        $accepted = is_array($ranked['accepted'] ?? null) ? array_values($ranked['accepted']) : array_values($ranked);
+        $accepted = is_array($ranked['accepted'] ?? null)
+            ? array_values($ranked['accepted'])
+            : (is_array($ranked['ranked'] ?? null) ? array_values($ranked['ranked']) : array_values($ranked));
         $rejected = is_array($ranked['rejected'] ?? null) ? array_values($ranked['rejected']) : [];
 
         $rejectedIds = [];
@@ -298,6 +339,25 @@ final class AtlasTaskAuthoringGovernanceChain
             }
         }
 
+        $proposalEvidence = [];
+        foreach ($accepted as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $candidateId = (string) ($row['candidate_id'] ?? '');
+            $candidate = array_values(array_filter(
+                $candidates,
+                static fn (array $candidate): bool => (string) ($candidate['candidate_id'] ?? '') === $candidateId,
+            ))[0] ?? [];
+            $proposalEvidence[] = [
+                'candidate_id' => $candidateId,
+                'selected' => $candidateId !== '' && $candidateId === $selectedId,
+                'evidence_refs' => array_values(array_unique(array_map('strval', (array) ($row['evidence_refs'] ?? $candidate['evidence_refs'] ?? [])))),
+                'reason_vectors' => array_values(array_map('strval', (array) ($row['reasons'] ?? []))),
+                'factors' => is_array($row['factors'] ?? null) ? $row['factors'] : [],
+            ];
+        }
+
         return [
             'candidates_considered' => count($candidates),
             'diversity_score' => $this->computeDiversityScore($candidates),
@@ -305,6 +365,7 @@ final class AtlasTaskAuthoringGovernanceChain
             'selected_candidate_id' => $selectedId,
             'selection_reason' => $selectedId !== null ? 'top_of_leverage_rank_accepted_set' : 'no_candidates_accepted',
             'template_farm_warning' => $this->detectTemplateFarm($candidates),
+            'ranked_proposal_evidence' => $proposalEvidence,
         ];
     }
 
@@ -321,6 +382,7 @@ final class AtlasTaskAuthoringGovernanceChain
             'selected_candidate_id' => null,
             'selection_reason' => $reason,
             'template_farm_warning' => false,
+            'ranked_proposal_evidence' => [],
         ];
     }
 

@@ -117,6 +117,7 @@ final class AtlasStrategyCouncilLeverageRanker
 
             $accepted[] = [
                 'candidate_id' => $id,
+                'evidence_refs' => array_values(array_map('strval', $evidenceRefs)),
                 'factors' => [
                     'organ' => (string) ($c['organ'] ?? ''),
                     'worker_floor_veto' => $workerFloorVeto,
