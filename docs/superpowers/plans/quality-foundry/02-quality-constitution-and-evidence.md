@@ -228,10 +228,10 @@ Every event has schema, run/delivery IDs, correlated hashes, timestamp and prove
 
 **Allowed files:** focused cross-mode fixtures, mutation tests, readiness projection and canonical docs.
 
-- [ ] Write RED parity and mutation tests that fail when any mode omits a role, lowers depth, accepts forged evidence/N/A or gains claim authority.
-- [ ] Build an equivalent Dev/Forge/Autônomos fixture at each risk level and assert the same roster, applicability, evidence floor and verdict; only operator/duration/topology metadata may differ.
-- [ ] Mutate each role to absent/pass-without-evidence/forged-N/A/self-certified and prove acceptance blocks.
-- [ ] Mutate evidence hashes, world/spec snapshot, ledger order and outcome status and prove acceptance or claim eligibility blocks.
+- [x] Write RED parity and mutation tests that fail when any mode omits a role, lowers depth, accepts forged evidence/N/A or gains claim authority.
+- [x] Build an equivalent Dev/Forge/Autônomos fixture at each risk level and assert the same roster, applicability, evidence floor and verdict; only operator/duration/topology metadata may differ.
+- [x] Mutate each role to absent/pass-without-evidence/forged-N/A/self-certified and prove acceptance blocks.
+- [x] Mutate evidence hashes, world/spec snapshot, ledger order and outcome status and prove acceptance or claim eligibility blocks.
 - [ ] Produce a Constitution readiness manifest with live test/evidence refs and zero unresolved mutation survivors.
 - [ ] Run focused and neighboring suites, full architecture validation, docs health and `git diff --check`.
 

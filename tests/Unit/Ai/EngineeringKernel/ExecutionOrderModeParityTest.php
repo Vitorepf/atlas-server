@@ -82,6 +82,28 @@ final class ExecutionOrderModeParityTest extends TestCase
         self::assertArrayHasKey('claim_eligible', $report['mismatches']);
     }
 
+    public function test_equivalent_mode_fixture_preserves_parity_at_every_quality_risk_depth(): void
+    {
+        foreach (array_keys(EngineeringRoleRoster::DEPTH_PROFILES) as $risk) {
+            $base = $this->order();
+            $base['risk_class'] = $risk;
+            $orders = [];
+            foreach (['dev', 'forge', 'autonomos'] as $mode) {
+                $orders[$mode] = array_replace($base, [
+                    'mode' => $mode,
+                    'run_id' => $mode.'-'.$risk.'-run',
+                    'delivery_id' => $mode.'-'.$risk.'-delivery',
+                    'duration_regime' => $mode === 'dev' ? 'interactive' : 'durable_task',
+                    'work_topology' => $mode === 'forge' ? 'DAG' : 'single',
+                    'experiment_ref' => $mode.'-'.$risk.'-experiment',
+                    'idempotency_key' => $mode.'-'.$risk.'-idempotency',
+                ]);
+            }
+
+            self::assertTrue((new ExecutionOrderModeParity)->compareOrders($orders)['parity'], $risk);
+        }
+    }
+
     /** @return array<string,mixed> */
     private function order(): array
     {
