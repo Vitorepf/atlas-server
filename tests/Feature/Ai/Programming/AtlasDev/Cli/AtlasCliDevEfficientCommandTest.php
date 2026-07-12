@@ -591,7 +591,9 @@ final class AtlasCliDevEfficientCommandTest extends TestCase
                 data_get($event->payload, 'payload.context_ref_attribution.noise_refs', []),
             );
 
-            $this->assertSame('cited', data_get($event->payload, 'payload.attribution_quality'));
+            // COM-11 upgrades cited attribution to gate_verified when the
+            // post-execution utility measurement is available.
+            $this->assertSame('gate_verified', data_get($event->payload, 'payload.attribution_quality'));
             $this->assertContains($memoryRef, $usedRefs, 'A memory ref cited in the report/log must be credited as used.');
             $this->assertContains($citedFileRef, $usedRefs, 'A read file cited in the report/log must be credited as used.');
             $this->assertNotContains($memoryRef, $noiseRefs, 'A cited memory ref must never remain noise.');

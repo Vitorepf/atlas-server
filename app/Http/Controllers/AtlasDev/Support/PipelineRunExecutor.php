@@ -89,7 +89,7 @@ use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCursorCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeMinimaxM27CliInvocationDriver;
 use App\Services\Ai\Programming\HermesWorkspaceDefaults;
-use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Throwable;
 use Illuminate\Contracts\Container\Container;
@@ -4150,7 +4150,7 @@ reason: MiniMax worker completed without a workspace diff in allowed_files.
             : ($taskContract->intentText !== '' ? $taskContract->intentText : $taskContract->taskId);
 
         try {
-            $awisGate = app(AtlasWorkspaceIntelligenceExecutionGateService::class)->gate(
+            $awisGate = app(AwisExecutionGatePort::class)->gate(
                 workspace: $envelope->workspace,
                 mode: 'dev',
                 task: $task,
