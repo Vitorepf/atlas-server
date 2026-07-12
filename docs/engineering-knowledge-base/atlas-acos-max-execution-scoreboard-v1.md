@@ -170,7 +170,7 @@
 - [ ] MAXL-05 — pending
 - [ ] MAXL-07 — pending
 - [ ] MAXL-08 — pending
-- [ ] MAXM-02 — pending
+- [x] MAXM-02 — landed · `AtlasOpenBrainMemoryProjectionSafetyGate` agora é autoridade também nas duas saídas provider-bound: provider projections (CLAUDE/AGENTS) bloqueiam memória normal com prompt-leak/imperativo/hostilidade e registram `provider_memory_blocked` no Evidence Ledger; AOBG context packs filtram antes de renderizar, expõem `projection_safety_blocked_count`, aceitam `provider_projection.safe_text+classification` substituindo raw por texto sanitizado; tests: `php artisan test tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php --filter=maxm02` + `php artisan test tests/Feature/AtlasMemoryRegistryTest.php --filter=maxm02`
 - [ ] MAXM-03 — pending
 - [ ] MAXM-04 — pending
 - [ ] MAXM-06 — pending

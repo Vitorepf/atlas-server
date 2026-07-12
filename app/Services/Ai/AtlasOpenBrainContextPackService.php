@@ -27,6 +27,7 @@ use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -163,6 +164,7 @@ class AtlasOpenBrainContextPackService
         private readonly AtlasContextFeedbackSignalPolicy $feedbackSignalPolicy,
         private readonly TaskFacetExtractor $taskFacetExtractor,
         private readonly PackSufficiencyBlockBuilder $packSufficiencyBlockBuilder,
+        private readonly AtlasOpenBrainMemoryProjectionSafetyGate $memoryProjectionSafetyGate,
     ) {}
 
     /**
@@ -2722,6 +2724,8 @@ class AtlasOpenBrainContextPackService
             $title = (string) ($row['title'] ?? '');
             $summary = (string) ($row['summary'] ?? '');
             $body = (string) ($row['body'] ?? ($row['snippet'] ?? ($row['excerpt'] ?? '')));
+            $lineage = is_array($row['lineage'] ?? null) ? $row['lineage'] : [];
+            $freshness = is_array($row['freshness'] ?? null) ? $row['freshness'] : [];
             $candidates[] = [
                 // Interno ao floor (removido antes de servir): score do ranker híbrido —
                 // é o que autoriza o rank-escape do floor lexical (P0 do pack).
@@ -2738,13 +2742,16 @@ class AtlasOpenBrainContextPackService
                 'body' => $body,
                 'privacy_class' => (string) ($row['privacy_class'] ?? ''),
                 // ids/hashes only — provenance the consumer can audit, no raw content.
-                'source_type' => (string) ($row['source_type'] ?? ''),
-                'content_hash' => (string) ($row['content_hash'] ?? data_get($row, 'lineage.content_hash', data_get($row, 'audit_trail.content_hash', ''))),
+                'source_type' => (string) ($row['source_type'] ?? data_get($lineage, 'origin_type', $row['source'] ?? '')),
+                'content_hash' => (string) ($row['content_hash'] ?? data_get($lineage, 'content_hash', data_get($row, 'audit_trail.content_hash', ''))),
+                'recorded_at' => (string) ($row['recorded_at'] ?? data_get($freshness, 'recorded_at', '')),
+                'provider_projection' => is_array($row['provider_projection'] ?? null) ? $row['provider_projection'] : [],
             ];
         }
         $this->recordPackMemoryPreFilterUsage($task, $workspaceId, $recall);
         [$candidates, $demotedCount] = $this->filterDemotedMemoryItems($candidates, $this->stringList($opts['_demote_context_refs'] ?? []));
         [$candidates, $relevanceFilteredCount] = $this->filterLowRelevanceMemoryItems($task, $candidates);
+        [$candidates, $projectionSafetyBlockedCount] = $this->filterProviderSafeMemoryCandidates($candidates);
 
         // L3-6: optional semantic re-rank over the recalled items (symbols+docs) via
         // the REAL local embedding engine. Flag-gated (atlas.aobg.semantic_retrieval,
@@ -2776,9 +2783,62 @@ class AtlasOpenBrainContextPackService
                 'retrieval_mode' => $memoryMode,
                 'feedback_demoted_count' => $demotedCount,
                 'relevance_filtered_count' => $relevanceFilteredCount,
+                'projection_safety_blocked_count' => $projectionSafetyBlockedCount,
                 'note' => self::HONESTY_LABEL,
             ],
         ];
+    }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $candidates
+     * @return array{0:array<int,array<string,mixed>>,1:int}
+     */
+    private function filterProviderSafeMemoryCandidates(array $candidates): array
+    {
+        if ($candidates === []) {
+            return [[], 0];
+        }
+
+        $kept = [];
+        $blocked = 0;
+        foreach ($candidates as $candidate) {
+            $safeText = trim((string) data_get($candidate, 'provider_projection.safe_text', ''));
+            $classification = data_get($candidate, 'provider_projection.classification');
+            $gate = $this->memoryProjectionSafetyGate->evaluate([
+                'summary' => (string) ($candidate['summary'] ?? ''),
+                'excerpt' => (string) ($candidate['body'] ?? ''),
+                'title' => (string) ($candidate['title'] ?? ''),
+                'source' => (string) ($candidate['source_type'] ?? ($candidate['id'] ?? '')),
+                'freshness' => (string) ($candidate['content_hash'] ?? ''),
+                'recorded_at' => (string) ($candidate['recorded_at'] ?? ''),
+                'safe_text' => $safeText,
+                'classification' => $classification,
+            ]);
+            if (($gate['accepted'] ?? false) !== true) {
+                $blocked++;
+
+                continue;
+            }
+            if ($safeText !== '' && ! empty($classification)) {
+                $candidate['title'] = 'sanitized:'.$this->classificationLabel($classification);
+                $candidate['summary'] = $safeText;
+                $candidate['body'] = '';
+            }
+            $kept[] = $candidate;
+        }
+
+        return [$kept, $blocked];
+    }
+
+    private function classificationLabel(mixed $classification): string
+    {
+        if (is_scalar($classification)) {
+            $label = trim((string) $classification);
+
+            return $label !== '' ? Str::limit($label, 80, '') : 'memory_projection';
+        }
+
+        return 'memory_projection';
     }
 
     /**

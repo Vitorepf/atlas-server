@@ -87,6 +87,7 @@ class AtlasMemoryContextComposer
                 'estimated_chars' => Str::length($excerpt),
                 'lineage' => $candidate['lineage'],
                 'freshness' => $candidate['freshness'],
+                'provider_projection' => $candidate['provider_projection'],
                 'audit' => $candidate['audit'],
                 'audit_trail' => $candidate['audit'],
                 'explain' => $candidate['explain'],
@@ -359,6 +360,7 @@ class AtlasMemoryContextComposer
             'reason' => $reason,
             'lineage' => $this->lineage($source, $sourceRefType, $sourceRefId, $raw),
             'freshness' => $this->freshness($raw),
+            'provider_projection' => is_array($raw['provider_projection'] ?? null) ? $raw['provider_projection'] : [],
             'audit' => $this->audit($raw),
             'explain' => is_array($raw['explain'] ?? null) ? $raw['explain'] : [],
         ];

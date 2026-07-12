@@ -26,6 +26,7 @@ class AtlasProviderProjectionService
         private readonly AtlasMemoryRegistryService $registry,
         private readonly AtlasMemoryPrivacyService $privacy,
         private readonly AtlasEvidenceLedger $ledger,
+        private readonly AtlasOpenBrainMemoryProjectionSafetyGate $memoryProjectionSafetyGate,
         private readonly ?ProviderProjectionInput $input = null,
     ) {}
 
@@ -802,7 +803,7 @@ class AtlasProviderProjectionService
         $availableMemoryLines = max(1, $maxLines - count($lines) - $manualFrameLines - $pointerBudget - 1);
 
         $entryLines = $entries
-            ->map(fn (AtlasMemoryEntry $entry): string => $this->entryLine($entry))
+            ->map(fn (AtlasMemoryEntry $entry): string => $this->entryLine($entry, $target))
             ->filter(fn (string $line): bool => $line !== '')
             ->values();
         $entryBudget = $entryLines->isNotEmpty()
@@ -837,10 +838,36 @@ class AtlasProviderProjectionService
         return implode("\n", $lines);
     }
 
-    private function entryLine(AtlasMemoryEntry $entry): string
+    private function entryLine(AtlasMemoryEntry $entry, string $target): string
     {
         $title = $this->privacy->providerTitle($entry) ?: $this->privacy->providerSummary($entry) ?: $entry->memory_type;
         $text = $this->privacy->providerSummary($entry) ?: $this->privacy->providerBody($entry);
+        $safeText = trim((string) data_get($entry->metadata, 'provider_projection.safe_text', ''));
+        $classification = data_get($entry->metadata, 'provider_projection.classification');
+        $gate = $this->memoryProjectionSafetyGate->evaluate([
+            'summary' => (string) ($this->privacy->providerSummary($entry) ?? ''),
+            'excerpt' => (string) $this->privacy->providerBody($entry),
+            'title' => (string) $title,
+            'source' => (string) ($entry->source_type ?: $entry->source_id ?: $entry->id),
+            'recorded_at' => (string) ($entry->recorded_at ?? ''),
+            'safe_text' => $safeText,
+            'classification' => $classification,
+        ]);
+        if (($gate['accepted'] ?? false) !== true) {
+            $this->ledger->recordProviderMemoryBlocked($entry, [
+                'allowed' => false,
+                'privacy_class' => (string) ($entry->privacy_class ?? 'normal'),
+                'external_ai_allowed' => (bool) ($entry->external_ai_allowed ?? true),
+                'metadata_external_ai_allowed' => data_get($entry->metadata ?? [], 'privacy.external_ai_allowed'),
+                'reason' => 'projection_safety_gate:'.implode(',', (array) ($gate['violations'] ?? [])),
+            ], $target, []);
+
+            return '';
+        }
+        if ($safeText !== '' && ! empty($classification)) {
+            $title = 'sanitized:'.$this->classificationLabel($classification);
+            $text = $safeText;
+        }
         $text = Str::limit(trim($text), $this->projectionInput()->memoryChars(), '...');
         if ($text === '') {
             return '';
@@ -849,6 +876,17 @@ class AtlasProviderProjectionService
         $scope = $entry->scope_id ? $entry->scope_type : ($entry->scope_type ?: 'global');
 
         return '- ['.$entry->memory_type.']['.$scope.'] '.Str::limit((string) $title, 80, '').': '.$text;
+    }
+
+    private function classificationLabel(mixed $classification): string
+    {
+        if (is_scalar($classification)) {
+            $label = trim((string) $classification);
+
+            return $label !== '' ? Str::limit($label, 80, '') : 'memory_projection';
+        }
+
+        return 'memory_projection';
     }
 
     /**

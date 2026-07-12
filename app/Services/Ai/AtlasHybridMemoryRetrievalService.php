@@ -346,6 +346,7 @@ class AtlasHybridMemoryRetrievalService
                     'source_id' => $entry->source_id,
                     'source_label' => $entry->source_label,
                     'content_hash' => $entry->content_hash,
+                    'provider_projection' => $this->providerProjectionMetadata($entry),
                     'recorded_at' => $entry->recorded_at?->toJSON(),
                     'last_used_at' => $entry->last_used_at?->toJSON(),
                     'governance_checked_at' => $entry->governance_checked_at?->toJSON(),
@@ -373,6 +374,28 @@ class AtlasHybridMemoryRetrievalService
             ->filter(fn (?array $item): bool => $item !== null)
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{safe_text?:string,classification?:mixed}
+     */
+    private function providerProjectionMetadata(AtlasMemoryEntry $entry): array
+    {
+        $safeText = trim((string) data_get($entry->metadata, 'provider_projection.safe_text', ''));
+        $classification = data_get($entry->metadata, 'provider_projection.classification');
+        if ($safeText === '' && empty($classification)) {
+            return [];
+        }
+
+        $metadata = [];
+        if ($safeText !== '') {
+            $metadata['safe_text'] = $safeText;
+        }
+        if (! empty($classification)) {
+            $metadata['classification'] = $classification;
+        }
+
+        return $metadata;
     }
 
     /**
