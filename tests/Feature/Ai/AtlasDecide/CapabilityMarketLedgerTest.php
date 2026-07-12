@@ -37,6 +37,9 @@ final class CapabilityMarketLedgerTest extends TestCase
             'id' => 'kernel', 'capabilities' => ['php'], 'authority_status' => 'active', 'allowed' => true,
             'quality_status' => 'proven', 'quality_hash' => str_repeat('d', 64), 'verifier_families' => ['a', 'b'],
             'available' => true, 'estimated_time_ms' => 10, 'estimated_cost' => 1.0, 'provider_version' => 'v1',
+            'supported_risk_classes' => ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'],
+            'order_hash' => str_repeat('a', 64), 'snapshot_hash' => str_repeat('b', 64), 'authority_hash' => str_repeat('c', 64),
+            'quality_evidence' => ['capability' => 'php', 'risk_class' => 'R3', 'observation_window' => '7d'],
         ]];
         $service = new CapabilityMarketClearingService(app(AtlasEvidenceLedger::class));
 
@@ -44,6 +47,10 @@ final class CapabilityMarketLedgerTest extends TestCase
         $second = $service->clear($request, $routes);
 
         self::assertSame($first->decisionHash, $second->decisionHash);
+        self::assertSame(['quality:'.str_repeat('d', 64)], $first->evidenceRefs);
+        self::assertSame(['kernel' => true], $first->availability);
+        self::assertSame(10, $first->estimatedTimeMs);
+        self::assertSame(1.0, $first->estimatedCost);
         self::assertSame(1, AtlasLedgerEvent::query()->where('event_type', LedgerEventType::DecisionIssued->value)->count());
         self::assertSame('capability.market.cleared', AtlasLedgerEvent::query()->firstOrFail()->payload['event_name']);
     }

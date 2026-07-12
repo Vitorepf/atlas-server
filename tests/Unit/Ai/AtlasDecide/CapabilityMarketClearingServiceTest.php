@@ -43,6 +43,37 @@ final class CapabilityMarketClearingServiceTest extends TestCase
         self::assertSame('a', $first->selectedRoute);
     }
 
+    public function test_proven_quality_wins_before_time_and_cost(): void
+    {
+        $decision = (new CapabilityMarketClearingService)->clear($this->request(), [
+            $this->route('fast-calibrated', quality: 'calibrated', time: 1, cost: 1.0),
+            $this->route('slow-proven', quality: 'proven', time: 999, cost: 999.0),
+        ]);
+
+        self::assertSame('slow-proven', $decision->selectedRoute);
+    }
+
+    public function test_route_for_wrong_risk_class_is_rejected(): void
+    {
+        $decision = (new CapabilityMarketClearingService)->clear($this->request(risk: 'R5'), [
+            $this->route('r3-only', quality: 'proven', supportedRisk: ['R3']),
+        ]);
+
+        self::assertNull($decision->selectedRoute);
+        self::assertSame('risk_fit_insufficient', $decision->rejected['r3-only']);
+    }
+
+    public function test_route_with_stale_order_or_snapshot_binding_is_rejected(): void
+    {
+        $route = $this->route('drifted', quality: 'proven');
+        $route['snapshot_hash'] = str_repeat('f', 64);
+
+        $decision = (new CapabilityMarketClearingService)->clear($this->request(), [$route]);
+
+        self::assertNull($decision->selectedRoute);
+        self::assertSame('request_binding_mismatch', $decision->rejected['drifted']);
+    }
+
     public function test_invalid_request_fails_closed(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -59,10 +90,13 @@ final class CapabilityMarketClearingServiceTest extends TestCase
     }
 
     /** @param list<string> $verifier */
-    private function route(string $id, string $quality, array $verifier = ['independent-a', 'independent-b'], float $cost = 3.0): array
+    private function route(string $id, string $quality, array $verifier = ['independent-a', 'independent-b'], float $cost = 3.0, int $time = 100, array $supportedRisk = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5']): array
     {
         return ['id' => $id, 'capabilities' => ['php'], 'authority_status' => 'active', 'allowed' => true,
             'quality_status' => $quality, 'quality_hash' => str_repeat('d', 64), 'verifier_families' => $verifier,
-            'available' => true, 'estimated_time_ms' => 100, 'estimated_cost' => $cost, 'provider_version' => 'v1'];
+            'available' => true, 'estimated_time_ms' => $time, 'estimated_cost' => $cost, 'provider_version' => 'v1',
+            'supported_risk_classes' => $supportedRisk, 'order_hash' => str_repeat('a', 64),
+            'snapshot_hash' => str_repeat('b', 64), 'authority_hash' => str_repeat('c', 64),
+            'quality_evidence' => ['capability' => 'php', 'risk_class' => 'R3', 'observation_window' => '7d'],];
     }
 }
