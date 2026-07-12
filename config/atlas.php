@@ -4701,6 +4701,10 @@ return [
         // RAGX-08 extension: claim/span/content-version refs over the already
         // delivered pack. Default-OFF; no new retrieval pass, DB write, or LLM.
         'span_level_retrieval' => (bool) env('ATLAS_AOBG_SPAN_LEVEL_RETRIEVAL', false),
+        // ESP-12: five-layer epistemic evidence bundle (must_carry,
+        // novelty_pool, operator policy, CONTRAEVIDENCIA, claim citations).
+        // Default-OFF; composes only provider-safe data already in packFor.
+        'epistemic_evidence_bundle' => (bool) env('ATLAS_AOBG_EPISTEMIC_EVIDENCE_BUNDLE', false),
         // MAXE-07: source budget multipliers from measured expected value
         // (used_ratio * post_execution_utility by source bucket). Default-OFF;
         // v1 fixed-step source policy remains authoritative until enough measured

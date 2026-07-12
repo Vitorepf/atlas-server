@@ -280,6 +280,91 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('ref='.$spanRef, $pack['markdown']);
     }
 
+    public function test_esp12_epistemic_evidence_bundle_stays_default_off(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', true);
+        config()->set('atlas.aobg.span_level_retrieval', true);
+        config()->set('atlas.aobg.epistemic_evidence_bundle', false);
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock): void {
+            $mock->shouldReceive('recall')->andReturn([
+                'summary' => ['policy' => 'provider_safe_only', 'recall_count' => 1, 'redacted_ref_count' => 0],
+                'recall' => [[
+                    'source_ref_type' => 'atlas_memory_entry',
+                    'source_ref_id' => 'mem-esp12-off',
+                    'type' => 'decision',
+                    'title' => 'ESP12 fixture note',
+                    'summary' => 'Provider-safe summary',
+                    'body' => 'The policy must enforce scoped commits only on local main.',
+                    'source_type' => 'memory_entry',
+                    'content_hash' => 'esp12-off-v1',
+                    'privacy_class' => 'normal',
+                    'score' => 1.0,
+                ]],
+            ]);
+        });
+
+        $pack = $this->service()->packFor(
+            'The policy must enforce scoped commits only.',
+            [
+                'code_budget' => 0,
+            ],
+        );
+
+        $this->assertArrayHasKey('retrieval_agenda', $pack);
+        $this->assertArrayHasKey('span_level_retrieval', $pack);
+        $this->assertArrayNotHasKey('epistemic_evidence_bundle', $pack);
+        $this->assertStringNotContainsString('## Epistemic evidence bundle', $pack['markdown']);
+    }
+
+    public function test_esp12_epistemic_evidence_bundle_attaches_five_layers_when_enabled(): void
+    {
+        config()->set('atlas.aobg.facet_retrieval', true);
+        config()->set('atlas.aobg.span_level_retrieval', true);
+        config()->set('atlas.aobg.epistemic_evidence_bundle', true);
+        $this->mock(AtlasHybridMemoryRetrievalService::class, function ($mock): void {
+            $mock->shouldReceive('recall')->andReturn([
+                'summary' => ['policy' => 'provider_safe_only', 'recall_count' => 1, 'redacted_ref_count' => 0],
+                'recall' => [[
+                    'source_ref_type' => 'atlas_memory_entry',
+                    'source_ref_id' => 'mem-esp12-on',
+                    'type' => 'decision',
+                    'title' => 'ESP12 fixture note',
+                    'summary' => 'Provider-safe summary',
+                    'body' => 'The policy must enforce scoped commits only on local main. Contrary evidence is not delivered.',
+                    'source_type' => 'memory_entry',
+                    'content_hash' => 'esp12-on-v1',
+                    'privacy_class' => 'normal',
+                    'score' => 1.0,
+                ]],
+            ]);
+        });
+
+        $pack = $this->service()->packFor(
+            'The policy must enforce scoped commits only.',
+            [
+                'code_budget' => 0,
+            ],
+        );
+        $bundle = (array) data_get($pack, 'epistemic_evidence_bundle');
+        $spanRef = (string) data_get($pack, 'span_level_retrieval.claims.0.spans.0.span_ref');
+
+        $this->assertTrue((bool) ($bundle['present'] ?? false));
+        $this->assertSame(
+            ['must_carry', 'novelty_pool', 'operator_policy', 'counter_evidence', 'claim_citations'],
+            array_keys((array) ($bundle['layers'] ?? [])),
+        );
+        $this->assertSame('report_only', data_get($bundle, 'operator_policy.mode'));
+        $this->assertFalse((bool) data_get($bundle, 'operator_policy.evidence_layer'));
+        $this->assertSame('CONTRAEVIDÊNCIA', data_get($bundle, 'counter_evidence.label'));
+        $this->assertSame('empty_honest', data_get($bundle, 'counter_evidence.slots.0.status'));
+        $this->assertSame($spanRef, data_get($bundle, 'claim_citations.items.0.citations.0.span_ref'));
+        $this->assertNotEmpty(data_get($bundle, 'claim_citations.items.0.citations.0.content_version'));
+        $this->assertContains($spanRef, data_get($bundle, 'must_carry.refs'));
+        $this->assertStringContainsString('## Epistemic evidence bundle', $pack['markdown']);
+        $this->assertStringContainsString('CONTRAEVIDÊNCIA', $pack['markdown']);
+        $this->assertStringContainsString('content_version=', $pack['markdown']);
+    }
+
     public function test_esp11_no_claims_pack_matches_maxc_baseline_except_volatile_fields(): void
     {
         config()->set('atlas.aobg.facet_retrieval', true);

@@ -15,6 +15,7 @@ use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
 use App\Services\Ai\Context\AtlasRetrievalFusionService;
+use App\Services\Ai\Context\EpistemicEvidenceBundleComposer;
 use App\Services\Ai\Context\PackSufficiencyBlockBuilder;
 use App\Services\Ai\Context\RetrievalAgendaComposer;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
@@ -119,6 +120,7 @@ class AtlasOpenBrainContextPackService
         'same_layer_path_omission_provenance',
         'separator_term_expansion',
         'span_level_retrieval',
+        'epistemic_evidence_bundle',
         'pack_section_timings',
         'test_symbol_on_demand_expansion',
         'obra_working_set_lineage',
@@ -176,6 +178,7 @@ class AtlasOpenBrainContextPackService
         private readonly PackSufficiencyBlockBuilder $packSufficiencyBlockBuilder,
         private readonly RetrievalAgendaComposer $retrievalAgendaComposer,
         private readonly SpanLevelRetrievalResolver $spanLevelRetrievalResolver,
+        private readonly EpistemicEvidenceBundleComposer $epistemicEvidenceBundleComposer,
         private readonly AtlasOpenBrainMemoryProjectionSafetyGate $memoryProjectionSafetyGate,
     ) {}
 
@@ -388,6 +391,12 @@ class AtlasOpenBrainContextPackService
                     $spanLevelRetrieval = $this->spanLevelRetrievalResolver->resolve($pack);
                     if (($spanLevelRetrieval['present'] ?? false) === true) {
                         $pack['span_level_retrieval'] = $spanLevelRetrieval;
+                    }
+                }
+                if ((bool) config('atlas.aobg.epistemic_evidence_bundle', false)) {
+                    $epistemicEvidenceBundle = $this->epistemicEvidenceBundleComposer->compose($pack);
+                    if (($epistemicEvidenceBundle['present'] ?? false) === true) {
+                        $pack['epistemic_evidence_bundle'] = $epistemicEvidenceBundle;
                     }
                 }
             }
@@ -3920,6 +3929,54 @@ class AtlasOpenBrainContextPackService
                         (int) ($span['start'] ?? 0),
                         (int) ($span['end'] ?? 0),
                         mb_substr((string) ($span['span_excerpt'] ?? ''), 0, 180),
+                    );
+                }
+            }
+        }
+
+        $epistemicEvidence = (array) ($pack['epistemic_evidence_bundle'] ?? []);
+        if (($epistemicEvidence['present'] ?? false) === true) {
+            $lines[] = '';
+            $lines[] = '## Epistemic evidence bundle';
+            $mustCarryRefs = (array) data_get($epistemicEvidence, 'must_carry.refs', []);
+            $lines[] = '- must_carry: '.($mustCarryRefs === [] ? '_empty_honest_' : implode(', ', array_slice($mustCarryRefs, 0, 3)));
+            $noveltyRefs = (array) data_get($epistemicEvidence, 'novelty_pool.refs', []);
+            $lines[] = '- novelty_pool: '.($noveltyRefs === [] ? '_empty_honest_' : implode(', ', array_slice($noveltyRefs, 0, 5)));
+            $lines[] = sprintf(
+                '- operator_policy: %s (separate_from_evidence=%s)',
+                (string) data_get($epistemicEvidence, 'operator_policy.mode', 'report_only'),
+                data_get($epistemicEvidence, 'operator_policy.separate_from_evidence', true) ? 'true' : 'false',
+            );
+            $lines[] = sprintf(
+                '- CONTRAEVIDÊNCIA: %s',
+                (string) data_get($epistemicEvidence, 'counter_evidence.status', 'unknown'),
+            );
+            foreach (array_slice((array) data_get($epistemicEvidence, 'counter_evidence.slots', []), 0, 3) as $slot) {
+                if (! is_array($slot)) {
+                    continue;
+                }
+                $lines[] = sprintf(
+                    '  - claim=%s status=%s refs_against=%d',
+                    mb_substr((string) ($slot['claim'] ?? ''), 0, 120),
+                    (string) ($slot['status'] ?? 'unknown'),
+                    count((array) ($slot['refs_against'] ?? [])),
+                );
+            }
+            foreach (array_slice((array) data_get($epistemicEvidence, 'claim_citations.items', []), 0, 5) as $claim) {
+                if (! is_array($claim)) {
+                    continue;
+                }
+                foreach (array_slice((array) ($claim['citations'] ?? []), 0, 2) as $citation) {
+                    if (! is_array($citation)) {
+                        continue;
+                    }
+                    $lines[] = sprintf(
+                        '  - claim=%s ref=%s content_version=%s bytes=%d-%d',
+                        mb_substr((string) ($claim['claim'] ?? ''), 0, 120),
+                        (string) ($citation['span_ref'] ?? ''),
+                        substr((string) ($citation['content_version'] ?? ''), 0, 16),
+                        (int) ($citation['start'] ?? 0),
+                        (int) ($citation['end'] ?? 0),
                     );
                 }
             }
