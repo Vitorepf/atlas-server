@@ -219,6 +219,40 @@ final class Maxh03ConsolidationScannerTest extends TestCase
         $this->assertNull($older->superseded_by_id);
     }
 
+    public function test_maxh06_axis_resolver_turns_decisive_low_risk_conflict_into_reversible_supersedence(): void
+    {
+        $recordedAt = CarbonImmutable::now()->toIso8601String();
+        $canonical = $this->memory('runtime timeout contract', [
+            'memory_type' => 'technical_context',
+            'authority_level' => 'canonical',
+            'recorded_at' => $recordedAt,
+            'metadata' => ['polarity' => 'affirm'],
+        ]);
+        $operational = $this->memory('runtime timeout contract', [
+            'memory_type' => 'technical_context',
+            'authority_level' => 'operational',
+            'recorded_at' => $recordedAt,
+            'metadata' => ['polarity' => 'negate'],
+        ]);
+        $scanner = new MemoryConsolidationScanner(new StubMemoryPairwiseCosineScorer([
+            (string) $canonical->summary => [(string) $operational->id => 0.91],
+            (string) $operational->summary => [(string) $canonical->id => 0.91],
+        ]));
+
+        $report = $scanner->scan(MemoryConsolidationScanner::MODE_ENFORCE);
+
+        $this->assertSame(1, $report['relations_written']);
+        $this->assertSame(1, data_get($report, 'enforce.applied'));
+        $proposal = $report['proposals'][0] ?? [];
+        $this->assertSame(AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES, $proposal['verdict']);
+        $this->assertSame('authority', data_get($proposal, 'axis_resolution.decisive_axis'));
+        $this->assertTrue((bool) data_get($proposal, 'maxh06_axis_resolved'));
+
+        $operational->refresh();
+        $this->assertSame((string) $canonical->id, (string) $operational->superseded_by_id);
+        $this->assertNotNull($operational->valid_until);
+    }
+
     /**
      * @return list<AtlasMemoryEntry>
      */

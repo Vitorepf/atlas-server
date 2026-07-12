@@ -277,6 +277,16 @@ final class MemoryConsolidationScanner
             (int) $factB['recorded_ts'],
             ($factA['key'] !== '' && $factA['key'] === $factB['key']),
         );
+        $maxh06AxisResolved = false;
+        if ($verdict === AtlasMemoryConflictResolutionService::VERDICT_CONFLICTS_WITH) {
+            $axisDirection = $this->axisSupersessionDirection($axis);
+            if ($axisDirection !== null) {
+                $verdict = AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES;
+                $verdictReason = 'maxh06_axis_resolution:'.(string) ($axis['decisive_axis'] ?? 'unknown');
+                $temporalVerdict = $axisDirection;
+                $maxh06AxisResolved = true;
+            }
+        }
 
         // Cosine is the primary confidence signal in observe mode; kernels only
         // gate the verb, they don't produce a confidence themselves. The freeze
@@ -304,7 +314,24 @@ final class MemoryConsolidationScanner
             'polarity_contradiction' => $polarityContradiction,
             'numeric_range_overlap' => $numericOverlap,
             'temporal_supersession' => $temporalVerdict,
+            'maxh06_axis_resolved' => $maxh06AxisResolved,
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $axis
+     */
+    private function axisSupersessionDirection(?array $axis): ?string
+    {
+        if (! is_array($axis)) {
+            return null;
+        }
+
+        return match ((string) ($axis['winner'] ?? '')) {
+            'a' => 'a_supersedes_b',
+            'b' => 'b_supersedes_a',
+            default => null,
+        };
     }
 
     /**

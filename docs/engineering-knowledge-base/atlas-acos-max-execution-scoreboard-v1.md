@@ -155,7 +155,7 @@
 - [x] MAXF-06 — landed · recovery hits now increment deterministic `importance` counters on matching `ai_session_states` items (`decision`/`blocker`/`dod`/`risk_critical`) without writing recovered content or memory rows, feeding the existing ranker importance sink; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionZeroLossRecoveryTest.php tests/Feature/Ai/Compaction/CompactionTurnRecoveryTest.php tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
 - [x] MAXF-07 — landed · `AiConversationContextBuilder` supports opt-in `rehydratable_turn_refs`: default output remains byte-compatible for raw provider prompts, while rehydratable consumers get `turn:{id}` refs, short digest text, and recovery queries for recent turns; tests: `php artisan test tests/Unit/AiConversationContextBuilderTest.php`
 - [x] MAXF-05 — landed · semantic/paraphrase dedup now exists as default-OFF shadow-only JSONL (`atlas.compaction.semantic_dedup_shadow.v1`) over conversation-turn pairs, never changing selection/payload and skipping lexical duplicates; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionQualityGateBlocksOverwriteTest.php`
-- [ ] MAXH-06 — pending
+- [x] MAXH-06 — landed · `MemoryConsolidationScanner` now turns a `conflicts_with` pair into a reversible `supersedes` proposal when `MemoryConflictAxisResolver` has a decisive low-risk winner (`authority > evidence > freshness`); ties remain unresolved, high-risk visible verdicts still go to digest review via the existing escalation path, and the proposal carries `maxh06_axis_resolved=true`; tests: `php artisan test tests/Feature/Ai/AcosMax/Maxh03ConsolidationScannerTest.php`
 - [ ] MAXI-05 — pending
 - [ ] MAXI-06 — pending
 - [ ] MAXI-07 — pending
