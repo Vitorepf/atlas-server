@@ -62,6 +62,7 @@ final class AtlasRollbackCascadeExecutor
     public function __construct(
         private readonly AtlasDecisionLineageLedger $ledger,
         private readonly ?string $repoRootOverride = null,
+        private readonly ?object $negativeSearch = null,
     ) {}
 
     /**
@@ -143,10 +144,15 @@ final class AtlasRollbackCascadeExecutor
         // Compute the formal state.
         $state = $this->classifyState($reversedEntities, $blockedEntities, $firstConflictSha);
 
+        $archivedMemoryIds = $this->archivedMemoryIds($reversedEntities);
+        $negativeSearchReceipt = $this->runNegativeSearch($archivedMemoryIds, $dryRun);
+
         return $this->finish($state, $reversedEntities, [
             'blocked' => $blockedEntities,
             'closure_size' => $closure['count'],
             'first_conflict_commit' => $firstConflictSha,
+            'negative_search' => $negativeSearchReceipt,
+            'completion' => $this->completionStatus($negativeSearchReceipt, $archivedMemoryIds, $dryRun),
         ], $decisionId, $dryRun, $startedAt);
     }
 
@@ -358,5 +364,79 @@ final class AtlasRollbackCascadeExecutor
     private function repoRoot(): ?string
     {
         return $this->repoRootOverride ?? (function_exists('base_path') ? base_path() : null);
+    }
+
+    /**
+     * ESP-08 — after memory archive, prove absence across recall + caches + relations.
+     *
+     * @param  list<string>  $memoryEntryIds
+     * @return array<string,mixed>|null
+     */
+    private function runNegativeSearch(array $memoryEntryIds, bool $dryRun): ?array
+    {
+        if ($dryRun || $memoryEntryIds === []) {
+            return null;
+        }
+
+        try {
+            $verifier = $this->negativeSearch ?? app(AtlasRollbackNegativeSearchVerifier::class);
+
+            return $verifier->verify($memoryEntryIds);
+        } catch (Throwable $e) {
+            return [
+                'schema' => AtlasRollbackNegativeSearchVerifier::SCHEMA,
+                'status' => AtlasRollbackNegativeSearchVerifier::STATUS_INCOMPLETE,
+                'required_stores' => AtlasRollbackNegativeSearchVerifier::REQUIRED_STORES,
+                'searches' => [],
+                'search_count' => 0,
+                'failed_stores' => [],
+                'error' => mb_substr($e->getMessage(), 0, 200),
+                'incomplete_reason' => 'negative_search_verifier_failed',
+            ];
+        }
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $reversed
+     * @return list<string>
+     */
+    private function archivedMemoryIds(array $reversed): array
+    {
+        $ids = [];
+        foreach ($reversed as $row) {
+            if (($row['kind'] ?? '') !== AtlasDecisionLineageLedger::KIND_MEMORY) {
+                continue;
+            }
+            if (($row['action'] ?? '') !== 'archived') {
+                continue;
+            }
+            $id = trim((string) ($row['entity_ref'] ?? ''));
+            if ($id !== '') {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * @param  array<string,mixed>|null  $negativeSearchReceipt
+     * @param  list<string>  $archivedMemoryIds
+     */
+    private function completionStatus(?array $negativeSearchReceipt, array $archivedMemoryIds, bool $dryRun): string
+    {
+        if ($dryRun) {
+            return 'dry_run';
+        }
+        if ($archivedMemoryIds === []) {
+            return 'done';
+        }
+        if ($negativeSearchReceipt === null) {
+            return 'incomplete';
+        }
+
+        return ($negativeSearchReceipt['status'] ?? '') === AtlasRollbackNegativeSearchVerifier::STATUS_PASS
+            ? 'done'
+            : 'incomplete';
     }
 }
