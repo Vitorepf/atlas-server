@@ -78,6 +78,35 @@ final class QualityFoundryEvidenceApplicabilityMatrixTest extends TestCase
         self::assertContains('evidence_applicability', $verdict->blockers);
     }
 
+    public function test_r0_to_r5_policy_is_deterministic_and_one_dimension_failure_remains_red(): void
+    {
+        $matrix = new QualityFoundryEvidenceApplicabilityMatrix;
+        $deliveryFacts = [
+            'mutative' => true, 'runtime_boundary' => true, 'security_sensitive' => true,
+            'performance_sensitive' => true, 'user_facing' => true, 'migration' => true,
+            'outcome_claimed' => true,
+        ];
+
+        foreach (['R0', 'R1', 'R2', 'R3', 'R4', 'R5'] as $risk) {
+            $required = $matrix->evaluate(['risk_class' => $risk, 'delivery_facts' => $deliveryFacts])['required'];
+            $evidence = [];
+            foreach ($required as $dimension) {
+                $evidence[$dimension] = ['status' => 'pass', 'receipt_hash' => 'receipt-'.$dimension];
+            }
+            $ready = $matrix->evaluate([
+                'risk_class' => $risk, 'mode' => 'dev', 'delivery_facts' => $deliveryFacts, 'evidence' => $evidence,
+            ]);
+            self::assertTrue($ready['accepted'], $risk.': '.implode(',', $ready['blockers']));
+
+            $failedEvidence = $evidence;
+            $failedEvidence[$required[0]]['receipt_hash'] = '';
+            $failed = $matrix->evaluate([
+                'risk_class' => $risk, 'delivery_facts' => $deliveryFacts, 'evidence' => $failedEvidence,
+            ]);
+            self::assertFalse($failed['accepted'], $risk.' accepted invalid '.$required[0]);
+        }
+    }
+
     /** @param array<string,mixed> $applicability @return array<string,mixed> */
     private function courtFacts(array $applicability): array
     {
