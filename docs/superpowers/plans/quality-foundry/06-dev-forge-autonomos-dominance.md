@@ -99,7 +99,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 
 **Allowed files:** AtlasDev services/types/controllers/commands, shared Kernel adapters and focused tests.
 
-- [ ] Write RED façade tests for invalid/unconfirmed intent, stale authority, R5, interactive/durable selection, ownership overlap, source WIP, provider/retry failure and idempotent Forge handoff.
+- [x] Write RED façade tests for invalid/unconfirmed intent, stale authority, R5, interactive/durable selection, ownership overlap, source WIP, provider/retry failure and idempotent Forge handoff. Evidence: `AtlasDevExecutionServiceTest` covers invalid authority, R5, duration/topology, provider failure and idempotent handoff; `ScopeGuardTest` covers ownership overlap and content-hash WIP preservation; `AtlasDevSurfaceArchitectureContractTest` covers facade boundaries.
 - [x] Implement `DevIntent`, `DevPlan`, `ConfirmedDevRun`, `DevRunResult` as immutable types bound to ProductIntent/spec/world/authority hashes.
 - [x] Make HTTP, CLI, Desktop, Mission and Senior Loop call `plan/run`; prohibit direct provider/workspace/release logic in adapters. Evidence: `AtlasDevServiceProvider` binds `RunExecutor` to `KernelRunExecutor` for HTTP/CLI/Desktop/Senior Loop, while `AtlasDevMissionAdapter::executeViaDevFacade` binds Mission/WorkOrder to `DevPlanRunFacade::plan` then `run`; `AtlasDevSurfaceArchitectureContractTest` enforces the shared facade and absence of provider/process ownership.
 - [ ] Preserve checkout source byte-for-byte until authorized integration; retries reset only isolated sandboxes and integration is serial.
