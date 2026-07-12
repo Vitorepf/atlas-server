@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use Illuminate\Support\Carbon;
+use Throwable;
 
 final class AtlasRetrievalCostLatencyGovernorService
 {
@@ -13,13 +15,16 @@ final class AtlasRetrievalCostLatencyGovernorService
 
     public const BUDGET_POLICY_SCHEMA = 'atlas.aucri.retrieval_budget_policy.v1';
 
-    public const RECEIPT_SCHEMA = 'atlas.aucri.retrieval_cost_latency_receipt.v1';
+    public const RECEIPT_SCHEMA = 'atlas.aucri.retrieval_cost_latency_receipt.v2';
 
     public const CACHE_DECISION_SCHEMA = 'atlas.aucri.retrieval_cache_decision.v1';
 
     public const DEGRADED_MODE_SCHEMA = 'atlas.aucri.retrieval_degraded_mode.v1';
 
-    public function __construct(private readonly AtlasRetrievalEvaluationBenchmarkArenaService $arena) {}
+    public function __construct(
+        private readonly AtlasRetrievalEvaluationBenchmarkArenaService $arena,
+        private readonly AtlasAobgLatencyLedger $latencyLedger,
+    ) {}
 
     /**
      * @param  array<string,mixed>  $input
@@ -35,11 +40,13 @@ final class AtlasRetrievalCostLatencyGovernorService
         $maxRefs = max(0, (int) ($input['max_refs'] ?? $policy['max_refs']));
         $keptSources = array_slice($requiredSources, 0, $maxRefs);
         $removedSources = array_values(array_diff($requiredSources, $keptSources));
-        $observedLatencyMs = max(1, (int) ($input['observed_latency_ms'] ?? $input['simulated_latency_ms'] ?? $this->estimatedLatency($maxRefs, $risk)));
+        $latency = $this->latencyObservation($input, $maxRefs, $risk);
+        $observedLatencyMs = $latency['ms'];
+        $latencyBasis = $latency['basis'];
         $estimatedCostUnits = $this->estimatedCostUnits($maxRefs, $risk, (int) data_get($arenaReport, 'summary.case_count', 0));
         $cacheDecision = $this->cacheDecision($risk, $arenaReport, $input);
         $degradedMode = $this->degradedMode($policy, $observedLatencyMs, $estimatedCostUnits, $removedSources, $risk, $cacheDecision);
-        $receipt = $this->receipt($flowId, $risk, $policy, $observedLatencyMs, $estimatedCostUnits, $requiredSources, $keptSources, $removedSources, $arenaReport, $cacheDecision, $degradedMode);
+        $receipt = $this->receipt($flowId, $risk, $policy, $observedLatencyMs, $latencyBasis, $estimatedCostUnits, $requiredSources, $keptSources, $removedSources, $arenaReport, $cacheDecision, $degradedMode);
         $status = $this->status($receipt, $degradedMode, $arenaReport);
 
         $payload = [
@@ -209,7 +216,7 @@ final class AtlasRetrievalCostLatencyGovernorService
      * @param  array<string,mixed>  $degradedMode
      * @return array<string,mixed>
      */
-    private function receipt(string $flowId, string $risk, array $policy, int $observedLatencyMs, int $estimatedCostUnits, array $requiredSources, array $keptSources, array $removedSources, array $arenaReport, array $cacheDecision, array $degradedMode): array
+    private function receipt(string $flowId, string $risk, array $policy, int $observedLatencyMs, string $latencyBasis, int $estimatedCostUnits, array $requiredSources, array $keptSources, array $removedSources, array $arenaReport, array $cacheDecision, array $degradedMode): array
     {
         $receipt = [
             'schema_version' => self::RECEIPT_SCHEMA,
@@ -217,6 +224,7 @@ final class AtlasRetrievalCostLatencyGovernorService
             'risk_level' => $risk,
             'budget_ms' => (int) $policy['budget_ms'],
             'observed_latency_ms' => $observedLatencyMs,
+            'basis' => $latencyBasis,
             'budget_cost_units' => (int) $policy['budget_cost_units'],
             'estimated_cost_units' => $estimatedCostUnits,
             'required_sources' => $requiredSources,
@@ -231,6 +239,58 @@ final class AtlasRetrievalCostLatencyGovernorService
         $receipt['receipt_hash'] = MissionCanonicalHash::sha256($receipt);
 
         return $receipt;
+    }
+
+    /**
+     * @param  array<string,mixed>  $input
+     * @return array{ms:int,basis:'estimated'|'observed'}
+     */
+    private function latencyObservation(array $input, int $maxRefs, string $risk): array
+    {
+        if (is_numeric($input['observed_latency_ms'] ?? null)) {
+            return [
+                'ms' => max(1, (int) $input['observed_latency_ms']),
+                'basis' => 'observed',
+            ];
+        }
+
+        if (is_numeric($input['simulated_latency_ms'] ?? null)) {
+            return [
+                'ms' => max(1, (int) $input['simulated_latency_ms']),
+                'basis' => 'estimated',
+            ];
+        }
+
+        $ledgerP95Ms = $this->latencyLedgerPackP95Ms();
+        if ($ledgerP95Ms !== null) {
+            return [
+                'ms' => max(1, (int) round($ledgerP95Ms)),
+                'basis' => 'observed',
+            ];
+        }
+
+        return [
+            'ms' => $this->estimatedLatency($maxRefs, $risk),
+            'basis' => 'estimated',
+        ];
+    }
+
+    private function latencyLedgerPackP95Ms(): ?float
+    {
+        try {
+            $days = (array) ($this->latencyLedger->report(days: 7)['days'] ?? []);
+        } catch (Throwable) {
+            return null;
+        }
+
+        foreach (array_reverse($days, preserve_keys: true) as $day) {
+            $p95 = data_get($day, 'ops.'.AtlasAobgLatencyLedger::OP_PACK.'.p95_ms');
+            if (is_numeric($p95)) {
+                return (float) $p95;
+            }
+        }
+
+        return null;
     }
 
     /**

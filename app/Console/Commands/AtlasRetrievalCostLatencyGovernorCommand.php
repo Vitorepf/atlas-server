@@ -40,7 +40,7 @@ final class AtlasRetrievalCostLatencyGovernorCommand extends Command
         $this->components->twoColumnDetail('Atlas Retrieval Budget', (string) $payload['schema_version']);
         $this->components->twoColumnDetail('Status', (string) $payload['status']);
         $this->components->twoColumnDetail('Flow', (string) data_get($payload, 'receipt.flow_id', 'unknown'));
-        $this->components->twoColumnDetail('Latency', data_get($payload, 'receipt.observed_latency_ms').'/'.data_get($payload, 'receipt.budget_ms').'ms');
+        $this->components->twoColumnDetail('Latency', data_get($payload, 'receipt.observed_latency_ms').'/'.data_get($payload, 'receipt.budget_ms').'ms ('.data_get($payload, 'receipt.basis', 'unknown').')');
         $this->components->twoColumnDetail('Cost', data_get($payload, 'receipt.estimated_cost_units').'/'.data_get($payload, 'receipt.budget_cost_units'));
         $this->components->twoColumnDetail('Degraded', (string) data_get($payload, 'degraded_mode.status', 'unknown'));
 

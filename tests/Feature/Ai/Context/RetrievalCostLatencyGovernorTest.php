@@ -5,11 +5,30 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\Context\AtlasRetrievalCostLatencyGovernorService;
+use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 final class RetrievalCostLatencyGovernorTest extends TestCase
 {
+    private string $ledgerRoot;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->ledgerRoot = storage_path('framework/testing/maxg02-command-'.bin2hex(random_bytes(4)));
+        $this->deleteDirectory($this->ledgerRoot);
+        app()->instance(AtlasAobgLatencyLedger::class, new AtlasAobgLatencyLedger($this->ledgerRoot));
+    }
+
+    protected function tearDown(): void
+    {
+        $this->deleteDirectory($this->ledgerRoot);
+
+        parent::tearDown();
+    }
+
     public function test_low_risk_budget_is_ready_with_receipt_and_no_external_work(): void
     {
         $payload = app(AtlasRetrievalCostLatencyGovernorService::class)->govern([
@@ -21,7 +40,8 @@ final class RetrievalCostLatencyGovernorTest extends TestCase
         $this->assertSame(AtlasRetrievalCostLatencyGovernorService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
         $this->assertSame('atlas.aucri.retrieval_budget_policy.v1', data_get($payload, 'budget_policy.schema_version'));
-        $this->assertSame('atlas.aucri.retrieval_cost_latency_receipt.v1', data_get($payload, 'receipt.schema_version'));
+        $this->assertSame(AtlasRetrievalCostLatencyGovernorService::RECEIPT_SCHEMA, data_get($payload, 'receipt.schema_version'));
+        $this->assertSame('estimated', data_get($payload, 'receipt.basis'));
         $this->assertSame('eligible', data_get($payload, 'cache_decision.status'));
         $this->assertSame('not_needed', data_get($payload, 'degraded_mode.status'));
         $this->assertFalse(data_get($payload, 'claims.providers_invoked'));
@@ -75,5 +95,38 @@ final class RetrievalCostLatencyGovernorTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertSame(AtlasRetrievalCostLatencyGovernorService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ready', $payload['status']);
+    }
+
+    public function test_command_receipt_uses_observed_pack_p95_from_latency_ledger(): void
+    {
+        $ledger = new AtlasAobgLatencyLedger($this->ledgerRoot);
+        $ledger->record(AtlasAobgLatencyLedger::OP_PACK, 1234.0, refs: 4, budgetChars: 2000, ts: '2026-07-11T12:00:00+00:00');
+
+        $exit = Artisan::call('atlas:context:retrieval-budget', [
+            '--domain' => 'developer',
+            '--task-type' => 'debug',
+            '--risk' => 'low',
+            '--budget-ms' => 5000,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('observed', data_get($payload, 'receipt.basis'));
+        $this->assertSame(1234, data_get($payload, 'receipt.observed_latency_ms'));
+    }
+
+    private function deleteDirectory(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        foreach (array_diff(scandir($dir) ?: [], ['.', '..']) as $entry) {
+            $path = $dir.DIRECTORY_SEPARATOR.$entry;
+            is_dir($path) ? $this->deleteDirectory($path) : @unlink($path);
+        }
+
+        @rmdir($dir);
     }
 }

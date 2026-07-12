@@ -5,16 +5,31 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Context;
 
 use App\Services\Ai\Context\AtlasRetrievalCostLatencyGovernorService;
+use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use Tests\TestCase;
 
 final class AtlasRetrievalCostLatencyGovernorServiceTest extends TestCase
 {
     private AtlasRetrievalCostLatencyGovernorService $service;
 
+    private string $ledgerRoot;
+
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->ledgerRoot = storage_path('framework/testing/maxg02-arlcg-'.bin2hex(random_bytes(4)));
+        $this->deleteDirectory($this->ledgerRoot);
+        app()->instance(AtlasAobgLatencyLedger::class, new AtlasAobgLatencyLedger($this->ledgerRoot));
+
         $this->service = app(AtlasRetrievalCostLatencyGovernorService::class);
+    }
+
+    protected function tearDown(): void
+    {
+        $this->deleteDirectory($this->ledgerRoot);
+
+        parent::tearDown();
     }
 
     // ── AC1: required source trimming → blocked + receipt ────────────────────
@@ -98,6 +113,36 @@ final class AtlasRetrievalCostLatencyGovernorServiceTest extends TestCase
         $this->assertArrayHasKey('receipt', $result);
     }
 
+    public function test_empty_latency_ledger_declares_estimated_basis_without_faking_observation(): void
+    {
+        $result = $this->service->govern([
+            'risk_level' => 'low',
+            'required_sources' => ['src_a'],
+            'max_refs' => 2,
+        ]);
+
+        $this->assertSame('estimated', $result['receipt']['basis']);
+        $this->assertSame(510, $result['receipt']['observed_latency_ms']);
+    }
+
+    public function test_latency_ledger_pack_p95_declares_observed_basis(): void
+    {
+        $ledger = new AtlasAobgLatencyLedger($this->ledgerRoot);
+        foreach ([1000.0, 2000.0, 3000.0] as $ms) {
+            $ledger->record(AtlasAobgLatencyLedger::OP_PACK, $ms, refs: 2, budgetChars: 1000, ts: '2026-07-11T12:00:00+00:00');
+        }
+
+        $result = $this->service->govern([
+            'risk_level' => 'low',
+            'required_sources' => ['src_a'],
+            'max_refs' => 2,
+            'budget_ms' => 5000,
+        ]);
+
+        $this->assertSame('observed', $result['receipt']['basis']);
+        $this->assertSame(2900, $result['receipt']['observed_latency_ms']);
+    }
+
     // ── required_source_removed_silently always false ────────────────────────
 
     public function test_required_source_removed_silently_always_false(): void
@@ -157,5 +202,19 @@ final class AtlasRetrievalCostLatencyGovernorServiceTest extends TestCase
     {
         $result = $this->service->govern(['risk' => 'high']);
         $this->assertSame(0.92, $result['budget_policy']['quality_floor']);
+    }
+
+    private function deleteDirectory(string $dir): void
+    {
+        if (! is_dir($dir)) {
+            return;
+        }
+
+        foreach (array_diff(scandir($dir) ?: [], ['.', '..']) as $entry) {
+            $path = $dir.DIRECTORY_SEPARATOR.$entry;
+            is_dir($path) ? $this->deleteDirectory($path) : @unlink($path);
+        }
+
+        @rmdir($dir);
     }
 }
