@@ -72,6 +72,40 @@ final class Maxg01LatencyLedgerTest extends TestCase
         self::assertSame(38.5, $stats['p95_ms']);
     }
 
+    public function test_record_pack_mirrors_section_timings_into_same_latency_series(): void
+    {
+        $ledger = new AtlasAobgLatencyLedger($this->ledgerRoot);
+        $day = gmdate('Y-m-d');
+
+        $ledger->recordPack(120.0, [
+            'counts' => ['code_graph' => 1, 'memory' => 2, 'reality_graph_paths' => 3],
+            'budget' => ['total_chars' => 6000],
+            'timings_ms' => [
+                'code_graph' => 10.0,
+                'reality_graph' => 20.0,
+                'memory' => 30.0,
+                'total' => 120.0,
+            ],
+        ]);
+
+        $report = $ledger->report(day: $day);
+
+        self::assertSame(120.0, data_get($report, 'ops.pack.p95_ms'));
+        self::assertSame(10.0, $report['ops']['pack.section.code_graph']['p95_ms'] ?? null);
+        self::assertSame(20.0, $report['ops']['pack.section.reality_graph']['p95_ms'] ?? null);
+        self::assertSame(30.0, $report['ops']['pack.section.memory']['p95_ms'] ?? null);
+        $rows = array_map(
+            static fn (string $line): array => json_decode($line, true, flags: JSON_THROW_ON_ERROR),
+            file($ledger->pathForDay($day), FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [],
+        );
+
+        self::assertSame(
+            ['pack', 'pack.section.code_graph', 'pack.section.reality_graph', 'pack.section.memory'],
+            array_column($rows, 'op'),
+        );
+        self::assertSame([6, 6, 6, 6], array_column($rows, 'refs'));
+    }
+
     public function test_one_day_window_exposes_top_level_ops_and_trend_when_samples_exist(): void
     {
         $ledger = new AtlasAobgLatencyLedger($this->ledgerRoot);

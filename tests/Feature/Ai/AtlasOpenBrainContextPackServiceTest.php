@@ -359,6 +359,13 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
     public function test_DeliveredPackLedger_persists_canonical_refs_and_supports_multi_hash_lookup(): void
     {
         $ledgerPath = $this->configureDeliveredPackLedger();
+        file_put_contents($ledgerPath, json_encode([
+            'schema' => 'atlas.aobg.delivered_pack_ledger.v1',
+            'context_pack_hash' => 'expired-pack',
+            'delivered_refs' => ['memory:expired'],
+            'timings_ms' => ['code_graph' => 999.0, 'total' => 1000.0],
+            'ts' => now()->subHours(999)->toJSON(),
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE).PHP_EOL);
 
         $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
         $this->seedAurg();
@@ -389,6 +396,13 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertSame($expectedB, $packB['context_feedback_request']['delivered_context_refs']);
         $this->assertSame((array) ($packA['budget'] ?? []), $entryA['budgets'] ?? null);
         $this->assertSame((array) ($packA['context_delivery_policy'] ?? []), $entryA['policy_snapshot'] ?? null);
+        $this->assertSame($packA['timings_ms'], $entryA['timings_ms'] ?? null);
+        $this->assertArrayHasKey('code_graph', $entryA['timings_ms'] ?? []);
+        $this->assertArrayHasKey('reality_graph', $entryA['timings_ms'] ?? []);
+        $this->assertArrayHasKey('memory', $entryA['timings_ms'] ?? []);
+        $this->assertArrayHasKey('total', $entryA['timings_ms'] ?? []);
+        $this->assertCount(3, file($ledgerPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [], 'record() appends; pruning happens on read, not write');
+        $this->assertNull($ledger->lookup('expired-pack'), 'expired rows remain on disk until external compaction but are pruned from reads');
 
         $union = $ledger->lookupMany([
             (string) $packA['context_pack_hash'],
@@ -399,6 +413,10 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             AtlasCanonicalContextRef::uniqueStrings([...$expectedA, ...$expectedB]),
             $union['delivered_refs'],
         );
+        $timingReport = $ledger->timingReport();
+        $this->assertSame('ok', $timingReport['status']);
+        $this->assertTrue(is_numeric(data_get($timingReport, 'sections.code_graph.p95_ms')));
+        $this->assertTrue(is_numeric(data_get($timingReport, 'trend.sections.memory.latest_p95_ms')));
     }
 
     public function test_feedback_request_preserves_bare_flow_id_without_relabeling_domain(): void

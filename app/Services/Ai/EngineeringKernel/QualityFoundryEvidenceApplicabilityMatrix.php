@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\EngineeringKernel;
 
+use InvalidArgumentException;
+
 /**
  * Constitutional applicability/evidence floor for the Verification Court.
  * The same risk and delivery facts produce the same required dimensions for
@@ -39,6 +41,20 @@ final class QualityFoundryEvidenceApplicabilityMatrix
             }
             $status = (string) ($row['status'] ?? '');
             if ($status === 'pass' && trim((string) ($row['receipt_hash'] ?? '')) !== '') {
+                if (is_array($row['receipt'] ?? null)) {
+                    try {
+                        $receipt = EvidenceReceipt::fromArray($row['receipt']);
+                        if ($receipt->dimension !== $dimension
+                            || (is_array($facts['final_hashes'] ?? null) && ! $receipt->bindsTo($facts['final_hashes']))) {
+                            throw new InvalidArgumentException('evidence_receipt_binding_invalid');
+                        }
+                    } catch (InvalidArgumentException $exception) {
+                        $results[$dimension] = 'invalid';
+                        $blockers[] = 'evidence_invalid:'.$dimension.':'.$exception->getMessage();
+
+                        continue;
+                    }
+                }
                 $results[$dimension] = 'pass';
 
                 continue;

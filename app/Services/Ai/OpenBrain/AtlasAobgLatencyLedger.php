@@ -17,7 +17,20 @@ final class AtlasAobgLatencyLedger
 
     public const OP_HOOK = 'hook';
 
-    public const OPS = [self::OP_PACK, self::OP_RECALL, self::OP_HOOK];
+    public const OP_PACK_CODE_GRAPH = 'pack.section.code_graph';
+
+    public const OP_PACK_REALITY_GRAPH = 'pack.section.reality_graph';
+
+    public const OP_PACK_MEMORY = 'pack.section.memory';
+
+    public const OPS = [
+        self::OP_PACK,
+        self::OP_RECALL,
+        self::OP_HOOK,
+        self::OP_PACK_CODE_GRAPH,
+        self::OP_PACK_REALITY_GRAPH,
+        self::OP_PACK_MEMORY,
+    ];
 
     public const DEFAULT_RELATIVE_DIR = 'atlas/aobg/latency-ledger';
 
@@ -38,7 +51,16 @@ final class AtlasAobgLatencyLedger
 
         $budget = data_get($pack, 'budget.total_chars', data_get($pack, 'budget.requested_total_chars'));
 
-        $this->record(self::OP_PACK, $ms, $refs, is_numeric($budget) ? (int) $budget : null);
+        $budgetChars = is_numeric($budget) ? (int) $budget : null;
+        $this->record(self::OP_PACK, $ms, $refs, $budgetChars);
+
+        $timings = is_array($pack['timings_ms'] ?? null) ? $pack['timings_ms'] : [];
+        foreach ($this->sectionOps() as $section => $op) {
+            $sectionMs = $timings[$section] ?? null;
+            if (is_numeric($sectionMs)) {
+                $this->record($op, (float) $sectionMs, $refs, $budgetChars);
+            }
+        }
     }
 
     public function recordRecall(float $ms, array $recall): void
@@ -224,6 +246,16 @@ final class AtlasAobgLatencyLedger
         }
 
         return $delta < 0.0 ? 'improved' : ($delta > 0.0 ? 'regressed' : 'flat');
+    }
+
+    /** @return array<string,string> */
+    private function sectionOps(): array
+    {
+        return [
+            'code_graph' => self::OP_PACK_CODE_GRAPH,
+            'reality_graph' => self::OP_PACK_REALITY_GRAPH,
+            'memory' => self::OP_PACK_MEMORY,
+        ];
     }
 
     /** @param list<float> $values */

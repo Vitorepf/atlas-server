@@ -67,7 +67,7 @@
 - [x] MAXA-01 — landed(abf571a8f) · daemon residente `semantic_rag` via Unix socket JSONL + manifest sha256; `SemanticRagRuntimeClient` usa daemon e cai para spawn se socket/daemon ausente; probe warm_embed_ms=3.324
 - [x] MAXA-10 — landed · semantic spine external fallback default-OFF; OpenAI requires explicit provider or opt-in fallback flag (key alone is ignored); `atlas:semantic:embedding-info --json` reports `external_fallback=opt_in_off`; test: `php artisan test tests/Unit/Semantic/EmbeddingServiceTest.php`
 - [x] MAXB-01 — landed(abf571a8f) · GÊMEO fechado pelo landing MAXA-01+MAXA-02 (mesmo sha); ranking intocado, cache/daemon apenas removem overhead; fallback spawn negativo coberto
-- [ ] MAXE-04 — pending (harmonizado com MAXG-01 — uma régua, duas granularidades; ver plano vi-b)
+- [x] MAXE-04 — landed · `packFor()` records `timings_ms` for code_graph/reality_graph/memory/total; COM-01 delivered-pack ledger schema v2 appends rows and prunes on read; MAXG-01 latency ledger mirrors section ops `pack.section.*` for trend via `atlas:context:latency --json`; refs/hash payload unchanged; tests: `php artisan test tests/Feature/Ai/AtlasOpenBrainContextPackServiceTest.php --filter=DeliveredPackLedger` + `php artisan test tests/Unit/Ai/AcosMax/Maxg01LatencyLedgerTest.php`
 - [ ] MAXE-05 — pending
 - [ ] MAXB-09 — pending
 - [ ] MAXG-09 — pending

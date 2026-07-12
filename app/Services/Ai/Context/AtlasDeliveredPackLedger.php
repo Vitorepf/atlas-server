@@ -15,7 +15,7 @@ use Throwable;
  */
 final class AtlasDeliveredPackLedger
 {
-    public const SCHEMA = 'atlas.aobg.delivered_pack_ledger.v1';
+    public const SCHEMA = 'atlas.aobg.delivered_pack_ledger.v2';
 
     public const DEFAULT_RETENTION_HOURS = 168;
 
@@ -52,14 +52,12 @@ final class AtlasDeliveredPackLedger
                 'delivered_refs' => AtlasCanonicalContextRef::deliveredFromPack($pack),
                 'budgets' => (array) ($pack['budget'] ?? []),
                 'policy_snapshot' => (array) ($pack['context_delivery_policy'] ?? []),
+                'timings_ms' => $this->normalizeTimings((array) ($pack['timings_ms'] ?? [])),
                 'ts' => (string) ($pack['generated_at'] ?? now()->toJSON()),
             ];
 
-            $store = new JsonlReceiptStore($this->path);
-            $rows = $store->replay();
-            $rows[] = $entry;
-            $rows = $this->pruneRows($rows);
-            $store->rewrite($rows, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+            (new JsonlReceiptStore($this->path))
+                ->append($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         } catch (Throwable) {
             // Fail-open: ledger write must never break pack assembly.
         }
@@ -125,6 +123,69 @@ final class AtlasDeliveredPackLedger
     }
 
     /**
+     * @return array<string,mixed>
+     */
+    public function timingReport(int $days = 7): array
+    {
+        $rows = $this->pruneRows((new JsonlReceiptStore($this->path))->replay());
+        $days = max(1, $days);
+        $dayKeys = [];
+        foreach ($rows as $row) {
+            $day = substr((string) ($row['ts'] ?? ''), 0, 10);
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) === 1) {
+                $dayKeys[$day] = true;
+            }
+        }
+        $dayKeys = array_keys($dayKeys);
+        rsort($dayKeys);
+        $dayKeys = array_slice($dayKeys, 0, $days);
+        sort($dayKeys);
+        $wantedDays = array_fill_keys($dayKeys, true);
+
+        $byDay = [];
+        foreach ($rows as $row) {
+            $day = substr((string) ($row['ts'] ?? ''), 0, 10);
+            if (! isset($wantedDays[$day])) {
+                continue;
+            }
+            foreach ($this->normalizeTimings((array) ($row['timings_ms'] ?? [])) as $section => $ms) {
+                $byDay[$day][$section][] = $ms;
+            }
+        }
+
+        $reports = [];
+        foreach ($dayKeys as $day) {
+            $sections = [];
+            foreach ($byDay[$day] ?? [] as $section => $values) {
+                sort($values);
+                $sections[$section] = [
+                    'samples' => count($values),
+                    'p50_ms' => $this->roundOrNull($this->percentile($values, 0.50)),
+                    'p95_ms' => $this->roundOrNull($this->percentile($values, 0.95)),
+                ];
+            }
+            ksort($sections);
+            $reports[$day] = [
+                'date' => $day,
+                'samples' => array_sum(array_map(static fn (array $stats): int => (int) $stats['samples'], $sections)),
+                'sections' => $sections,
+            ];
+        }
+
+        $latest = $reports === [] ? ['date' => null, 'samples' => 0, 'sections' => []] : $reports[array_key_last($reports)];
+
+        return [
+            'schema_version' => 'atlas.aobg.delivered_pack_timing_report.v1',
+            'status' => ((int) ($latest['samples'] ?? 0)) > 0 ? 'ok' : 'empty',
+            'generated_at' => now()->toJSON(),
+            'window' => $latest,
+            'sections' => (array) ($latest['sections'] ?? []),
+            'trend' => $this->timingTrend($reports),
+            'days' => $reports,
+        ];
+    }
+
+    /**
      * @param  list<array<string,mixed>>  $rows
      * @return list<array<string,mixed>>
      */
@@ -151,5 +212,87 @@ final class AtlasDeliveredPackLedger
         }
 
         return $kept;
+    }
+
+    /**
+     * @param  array<string,mixed>  $timings
+     * @return array<string,float>
+     */
+    private function normalizeTimings(array $timings): array
+    {
+        $normalized = [];
+        foreach (['code_graph', 'reality_graph', 'memory', 'total'] as $section) {
+            $value = $timings[$section] ?? null;
+            if (is_numeric($value)) {
+                $normalized[$section] = round(max(0.0, (float) $value), 3);
+            }
+        }
+
+        return $normalized;
+    }
+
+    /** @param array<string,array{date:string,samples:int,sections:array<string,array<string,mixed>>}> $reports */
+    private function timingTrend(array $reports): array
+    {
+        $pointsBySection = [];
+        foreach ($reports as $date => $report) {
+            foreach ((array) ($report['sections'] ?? []) as $section => $stats) {
+                $pointsBySection[$section][] = [
+                    'date' => (string) $date,
+                    'samples' => (int) ($stats['samples'] ?? 0),
+                    'p50_ms' => $stats['p50_ms'] ?? null,
+                    'p95_ms' => $stats['p95_ms'] ?? null,
+                ];
+            }
+        }
+        ksort($pointsBySection);
+
+        $sections = [];
+        foreach ($pointsBySection as $section => $points) {
+            $latest = $points[array_key_last($points)] ?? null;
+            $previous = count($points) > 1 ? $points[count($points) - 2] : null;
+            $latestP95 = is_numeric($latest['p95_ms'] ?? null) ? (float) $latest['p95_ms'] : null;
+            $previousP95 = is_numeric($previous['p95_ms'] ?? null) ? (float) $previous['p95_ms'] : null;
+            $delta = $latestP95 !== null && $previousP95 !== null
+                ? $this->roundOrNull($latestP95 - $previousP95)
+                : null;
+            $sections[$section] = [
+                'points' => $points,
+                'latest_p95_ms' => $this->roundOrNull($latestP95),
+                'previous_p95_ms' => $this->roundOrNull($previousP95),
+                'delta_p95_ms' => $delta,
+                'direction' => $delta === null ? 'unknown' : ($delta < 0.0 ? 'improved' : ($delta > 0.0 ? 'regressed' : 'flat')),
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.aobg.delivered_pack_timing_trend.v1',
+            'sections' => $sections,
+        ];
+    }
+
+    /** @param list<float> $values */
+    private function percentile(array $values, float $q): ?float
+    {
+        if ($values === []) {
+            return null;
+        }
+        if (count($values) === 1) {
+            return $values[0];
+        }
+
+        $rank = $q * (count($values) - 1);
+        $low = (int) floor($rank);
+        $high = (int) ceil($rank);
+        if ($low === $high) {
+            return $values[$low];
+        }
+
+        return $values[$low] + (($values[$high] - $values[$low]) * ($rank - $low));
+    }
+
+    private function roundOrNull(?float $value): ?float
+    {
+        return $value === null ? null : round($value, 3);
     }
 }

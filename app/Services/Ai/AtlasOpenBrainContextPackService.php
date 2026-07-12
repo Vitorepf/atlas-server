@@ -103,6 +103,7 @@ class AtlasOpenBrainContextPackService
         'retrieval_fusion_receipt',
         'same_layer_path_omission_provenance',
         'separator_term_expansion',
+        'pack_section_timings',
         'test_symbol_on_demand_expansion',
     ];
 
@@ -172,6 +173,7 @@ class AtlasOpenBrainContextPackService
     public function packFor(string $task, array $opts = []): array
     {
         $latencyStartedAt = hrtime(true);
+        $timingsMs = [];
         $task = trim($task);
 
         $workspaceId = $this->resolveWorkspaceId($opts);
@@ -216,9 +218,17 @@ class AtlasOpenBrainContextPackService
 
         // Each section is built INDEPENDENTLY and fail-safe: any one degrading to
         // empty never blocks the others (honest empty, never fabricated).
+        $sectionStartedAt = hrtime(true);
         $code = $this->codeSection($task, $workspaceId, $codeBudget, $changedFiles, $opts);
+        $timingsMs['code_graph'] = $this->elapsedMs($sectionStartedAt);
+
+        $sectionStartedAt = hrtime(true);
         $reality = $this->realitySection($task, $workspaceId);
+        $timingsMs['reality_graph'] = $this->elapsedMs($sectionStartedAt);
+
+        $sectionStartedAt = hrtime(true);
         $memorySection = $this->memorySection($task, $workspaceId, $memoryBudget, $opts);
+        $timingsMs['memory'] = $this->elapsedMs($sectionStartedAt);
         $reality = $this->applyRealitySourceSelection($reality, $sourceSelectionPolicy);
         $contextDeliveryPolicy = $this->mergeInitialCodeGraphDeliveryPolicy(
             $contextDeliveryPolicy,
@@ -332,6 +342,9 @@ class AtlasOpenBrainContextPackService
             $pack['progressive_disclosure'] = $this->progressiveDisclosureManifest();
         }
 
+        $timingsMs['total'] = $this->elapsedMs($latencyStartedAt);
+        $pack['timings_ms'] = $timingsMs;
+
         if ((bool) config('atlas.aobg.delivered_pack_ledger.enabled', true)) {
             AtlasDeliveredPackLedger::fromConfig()->record($pack);
         }
@@ -345,10 +358,15 @@ class AtlasOpenBrainContextPackService
     private function recordLatencySample(int $startedAt, array $pack): void
     {
         try {
-            app(AtlasAobgLatencyLedger::class)->recordPack((hrtime(true) - $startedAt) / 1_000_000, $pack);
+            app(AtlasAobgLatencyLedger::class)->recordPack($this->elapsedMs($startedAt), $pack);
         } catch (Throwable) {
             // Measurement is fail-open; context delivery is the product path.
         }
+    }
+
+    private function elapsedMs(int $startedAt): float
+    {
+        return round(max(0, hrtime(true) - $startedAt) / 1_000_000, 3);
     }
 
     /**
