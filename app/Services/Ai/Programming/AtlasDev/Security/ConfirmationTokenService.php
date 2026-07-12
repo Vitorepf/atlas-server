@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Security;
 
-use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
+use App\Http\Controllers\AtlasDev\Support\KernelRunExecutor;
 use App\Models\AtlasDevConfirmationToken;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Support\Carbon;
@@ -35,7 +35,7 @@ class ConfirmationTokenService
     /**
      * Mint a single-use confirmation token bound to (run_id, task_contract_hash,
      * compact_sdd_hash). The compact_sdd_hash is the server-side pin used by
-     * {@see PipelineRunExecutor} to
+     * {@see KernelRunExecutor} to
      * detect tampering of compact_sdd.json between Plan and Run.
      *
      * The pin is optional only because the column is nullable for older rows.

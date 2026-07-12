@@ -152,7 +152,7 @@ final class ProviderPromptBuilder
         // Single source of truth: only providers that edit the worktree directly
         // receive the in-place mutation contract. Every other provider (the Claude
         // gateway) keeps the default text-diff contract from PromptSectionsMapper.
-        // This list mirrors PipelineRunExecutor::providerMutatedWorkspace() exactly
+        // This list mirrors the canonical workspace-mutation provider contract exactly
         // so the prompt the provider is told can never diverge from how Atlas reads
         // the result. {@see WorkspaceMutatingProviders}
         if (! WorkspaceMutatingProviders::includes($provider)) {

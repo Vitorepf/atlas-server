@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Differential;
 
-use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
-
 /**
  * E4 -- Differential testing service for best-of-N candidate comparison.
  *
- * Invoked from {@see PipelineRunExecutor::executeBestOfNHermes()}
+ * Invoked by the compatibility candidate-comparison path
  * when N>=2 candidates have been generated. Compares every candidate's diff
  * text and produces a {@see CandidateDivergenceResult}:
  *

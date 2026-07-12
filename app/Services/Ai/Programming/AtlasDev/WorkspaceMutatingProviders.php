@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev;
 
-use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
-
 /**
  * Canonical, single-source list of Atlas Dev providers that edit the worktree
  * DIRECTLY (in-place workspace mutation), as opposed to returning a text diff
@@ -20,7 +18,7 @@ use App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor;
  * BOTH:
  *   - {@see PromptProjection\ProviderPromptBuilder::adaptSectionsForProvider()}
  *     (the prompt contract the provider receives), and
- *   - {@see PipelineRunExecutor::providerMutatedWorkspace()}
+ *   - the compatibility executor's workspace-diff projection
  *     (whether the pipeline reads workspaceDiff instead of applying a patch).
  *
  * Keeping a single source guarantees the prompt the provider is told and the way
