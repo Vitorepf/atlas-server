@@ -62,6 +62,9 @@ class OperatorProfileDigestService
                 'privacy_class' => $item->privacy_class,
                 'automation_level' => $item->automation_level,
             ])->all(),
+            'behavior_confidence_curve' => $items->take(50)
+                ->map(fn (OperatorProfileItem $item): array => app(OperatorProfileFeedbackService::class)->previewBehaviorAdjustment($item))
+                ->all(),
             'safety' => [
                 'raw_private_context_included' => false,
                 'repo_projection_safe' => false,
