@@ -114,4 +114,28 @@ final class AtlasExternalBrainProposalSelectionLoopTest extends TestCase
         $this->assertSame($first['arena_hash'], $second['arena_hash']);
         $this->assertSame($first['winner']['proposal_id'], $second['winner']['proposal_id']);
     }
+
+    public function test_ranking_explicitly_penalizes_blast_radius_and_rewards_recurrence_and_verifiability(): void
+    {
+        $arena = new AtlasExternalBrainProposalArena;
+        $shared = [
+            'evidence_refs' => ['receipt:a', 'receipt:b'],
+            'leverage' => 0.7,
+            'evidence_strength' => 0.8,
+            'implementability' => 0.8,
+            'recurrence' => 0.9,
+            'verifiability' => 0.9,
+        ];
+
+        $wide = $arena->compete(['proposals' => [
+            ['proposal_id' => 'wide-blast', ...$shared, 'blast_radius' => 1.0],
+        ]]);
+        $bounded = $arena->compete(['proposals' => [
+            ['proposal_id' => 'bounded-blast', ...$shared, 'blast_radius' => 0.0],
+        ]]);
+
+        self::assertSame('wide-blast', $wide['winner']['proposal_id']);
+        self::assertSame('bounded-blast', $bounded['winner']['proposal_id']);
+        self::assertGreaterThan($wide['winner']['arena_score'], $bounded['winner']['arena_score']);
+    }
 }

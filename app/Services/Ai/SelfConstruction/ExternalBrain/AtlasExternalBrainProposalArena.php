@@ -62,6 +62,11 @@ final class AtlasExternalBrainProposalArena
         'novelty'                   =>  0.15,
         'anti_proxy_quality'        =>  0.15,
         'compression_opportunity'   =>  0.15,
+        // These dimensions are explicit because Autônomos must optimize
+        // structural leverage, not merely produce plausible-looking tasks.
+        'recurrence'                =>  0.10,
+        'verifiability'             =>  0.10,
+        'blast_radius'              => -0.10,
         'operator_rank_priority'    =>  0.10,
         'anti_goodhart_risk'        => -0.20,
         'historical_give_back_rate' => -0.15,
@@ -72,6 +77,9 @@ final class AtlasExternalBrainProposalArena
     /** Alias map: an input key that feeds the named WEIGHTS dimension when the canonical key is absent. */
     private const DIMENSION_ALIASES = [
         'leverage' => 'structural_leverage',
+        'recurrence' => 'repeatability',
+        'verifiability' => 'evidence_strength',
+        'blast_radius' => 'blast_radius_risk',
     ];
 
     /**
