@@ -81,12 +81,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 
 **Allowed files:** EngineeringKernel acceptance files, SelfConstruction VerificationCourt services and focused tests. No second court namespace or persistence.
 
-- [ ] Write RED tests for absent role, one blocked role, forged N/A, self-verification, stale/mismatched hashes, no assertions, fixed smoke, missing rollback posture and incompatible world/spec/order hashes.
-- [ ] Write RED composition tests that pass each component in isolation but omit one applicable evidence class from the aggregate bundle.
-- [ ] Implement the gate as deterministic composition: structural/hash floor → 22 dispositions → evidence applicability → false-green → security/NFR → replay/regression → independent witnesses → release/rollback posture.
-- [ ] Preserve component reason codes in one `CertVerdict`; any block wins, no averaging or score threshold.
-- [ ] Emit `acceptance.adjudicated` only after the verdict is persisted; retry with identical bundle hash is idempotent.
-- [ ] Run AcceptanceGate contract, false-green, disposition, Verification Court evidence/replay and mutation suites.
+- [x] Write RED tests for absent role, one blocked role, forged N/A, self-verification, stale/mismatched hashes, no assertions, fixed smoke, missing rollback posture and incompatible world/spec/order hashes.
+- [x] Write RED composition tests that pass each component in isolation but omit one applicable evidence class from the aggregate bundle.
+- [x] Implement the gate as deterministic composition: structural/hash floor → 22 dispositions → evidence applicability → false-green → security/NFR → replay/regression → independent witnesses → release/rollback posture.
+- [x] Preserve component reason codes in one `CertVerdict`; any block wins, no averaging or score threshold.
+- [x] Emit `acceptance.adjudicated` only after the verdict is persisted; retry with identical bundle hash is idempotent.
+- [x] Run AcceptanceGate contract, false-green, disposition, Verification Court evidence/replay and mutation suites.
 
 **GREEN acceptance:** one sovereign verdict covers all required evidence and roles; any red blocks; mode/trust changes witness depth only; author cannot certify.
 
