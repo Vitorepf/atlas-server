@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\RuntimeDaemon;
 
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\EngineeringKernel\ExecutionOrder;
 use App\Services\Ai\EngineeringKernel\ProviderPort;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionHermeticSandboxApplyService;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks;
@@ -23,6 +25,7 @@ class AtlasSelfConstructionNativeActionExecutor
         private readonly ?AtlasNativeWorkerProductionRuntime $production = null,
         private readonly ?ProviderPort $provider = null,
         private readonly ?AtlasSelfConstructionHermeticSandboxApplyService $sandbox = null,
+        private readonly ?EliteExecutorKernel $eliteKernel = null,
     ) {}
 
     /**
@@ -66,6 +69,34 @@ class AtlasSelfConstructionNativeActionExecutor
                 if ($qualityFoundryBinding === null) {
                     return ['status' => 'held', 'reason' => 'quality_foundry_execution_order_missing', 'retryable' => false];
                 }
+
+                // Quality Foundry orders are owned by the shared Kernel. The
+                // daemon may translate the claim into the canonical binding,
+                // but it must not invoke a provider or apply a sandbox itself.
+                // The legacy path below remains only for non-Quality-Foundry
+                // compatibility while Packet 6 drains and removes v1.
+                try {
+                    $kernel = $this->eliteKernel ?? app(EliteExecutorKernel::class);
+                    $outcome = $kernel->execute(ExecutionOrder::fromArray($qualityFoundryBinding['execution_order']));
+
+                    return [
+                        'status' => 'held',
+                        'reason' => 'kernel_outcome_pending_release',
+                        'retryable' => true,
+                        'kernel_routed' => true,
+                        'order_hash' => $qualityFoundryBinding['order_hash'],
+                        'engineering_outcome' => $outcome->toArray(),
+                    ];
+                } catch (\Throwable $exception) {
+                    return [
+                        'status' => 'held',
+                        'reason' => 'kernel_execution_failed',
+                        'retryable' => true,
+                        'kernel_routed' => true,
+                        'order_hash' => $qualityFoundryBinding['order_hash'],
+                        'exception' => $exception::class,
+                    ];
+                }
             }
             if (! $this->provider instanceof ProviderPort) {
                 return ['status' => 'held', 'reason' => 'provider_port_unavailable', 'retryable' => true];
@@ -96,9 +127,6 @@ class AtlasSelfConstructionNativeActionExecutor
                     'action' => $action,
                     'state_hash' => (string) ($state['state_hash'] ?? ''),
                 ];
-                if ($qualityFoundryBinding !== null) {
-                    $providerRequest['quality_foundry'] = $qualityFoundryBinding;
-                }
                 $providerReceipt ??= $this->provider->invoke($providerRequest);
             } catch (\Throwable $e) {
                 return [
