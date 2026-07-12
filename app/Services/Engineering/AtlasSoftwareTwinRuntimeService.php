@@ -15,6 +15,7 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
+use InvalidArgumentException;
 use SplFileInfo;
 
 // Intentionally NOT final: this read-only predictive service is designed to be
@@ -539,6 +540,53 @@ class AtlasSoftwareTwinRuntimeService
             $payload['snapshot_id'] = null;
             $payload['writes'] = false;
         }
+
+        return $payload;
+    }
+
+    /**
+     * Quality Foundry façade over existing Software Twin/AURG/ledger facts.
+     * It freezes only provider-safe references; source payloads remain in their owners.
+     *
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public static function freezeQualityFoundryFacts(array $input): array
+    {
+        $workspace = trim((string) ($input['workspace_id'] ?? ''));
+        $baseCommit = trim((string) ($input['base_commit'] ?? ''));
+        $consumer = trim((string) ($input['consumer'] ?? ''));
+        $asOf = trim((string) ($input['as_of'] ?? ''));
+        if ($workspace === '' || preg_match('/^[a-f0-9]{40,64}$/', $baseCommit) !== 1 || $consumer === '' || $asOf === '') {
+            throw new InvalidArgumentException('software_twin_quality_snapshot_context_invalid');
+        }
+        $supported = ['code','contract','deploy_runtime','flag','incident','ownership','outcome','performance','security','docs','decision','concurrent_work','tool_provider'];
+        $facts = [];
+        $byId = [];
+        foreach ((array) ($input['facts'] ?? []) as $fact) {
+            if (! is_array($fact)) throw new InvalidArgumentException('software_twin_quality_snapshot_fact_invalid');
+            $id = trim((string) ($fact['id'] ?? ''));
+            if (($fact['workspace_id'] ?? null) !== $workspace) throw new InvalidArgumentException('software_twin_quality_snapshot_workspace_leak');
+            if ($id === '' || ! in_array($fact['type'] ?? null, $supported, true) || trim((string) ($fact['source'] ?? '')) === '' || preg_match('/^[a-f0-9]{64}$/', (string) ($fact['hash'] ?? '')) !== 1) {
+                throw new InvalidArgumentException('software_twin_quality_snapshot_fact_provenance_invalid');
+            }
+            $status = (string) ($fact['status'] ?? 'unknown');
+            if (! in_array($status, ['fresh','stale','unknown','conflicted'], true)) throw new InvalidArgumentException('software_twin_quality_snapshot_freshness_invalid');
+            $ref = ['id' => $id, 'type' => (string) $fact['type'], 'workspace_id' => $workspace, 'source' => (string) $fact['source'], 'hash' => (string) $fact['hash'], 'status' => $status,
+                'valid_from' => $fact['valid_from'] ?? null, 'valid_until' => $fact['valid_until'] ?? null, 'observed_at' => $fact['observed_at'] ?? null];
+            $byId[$id][] = $ref;
+        }
+        $conflicted = [];
+        foreach ($byId as $id => $versions) {
+            $hashes = array_values(array_unique(array_column($versions, 'hash')));
+            if (count($hashes) > 1) { $conflicted[] = $id; foreach ($versions as &$version) $version['status'] = 'conflicted'; unset($version); }
+            foreach ($versions as $version) $facts[] = $version;
+        }
+        usort($facts, static fn (array $a, array $b): int => [$a['id'], $a['hash']] <=> [$b['id'], $b['hash']]);
+        $unknown = array_values(array_unique(array_column(array_filter($facts, static fn (array $f): bool => $f['status'] === 'unknown'), 'id')));
+        $stale = array_values(array_unique(array_column(array_filter($facts, static fn (array $f): bool => $f['status'] === 'stale'), 'id')));
+        $payload = ['schema_version' => 'atlas.quality_foundry.software_twin_snapshot.v1', 'workspace_id' => $workspace, 'base_commit' => $baseCommit, 'as_of' => $asOf, 'consumer' => $consumer, 'facts' => $facts, 'unknown' => $unknown, 'stale' => $stale, 'conflicted' => array_values(array_unique($conflicted)), 'claim_policy' => ['read_only' => true, 'claim_eligible' => false]];
+        $payload['snapshot_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
     }
