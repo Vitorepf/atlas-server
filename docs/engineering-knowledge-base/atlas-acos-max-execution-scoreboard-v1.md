@@ -60,7 +60,7 @@
 - [ ] TETO-02 — pending (mission_e2e_rate — freeze junto das réguas)
 
 ## LOTE 3 — Eficiência estrutural + protocolo (M2) — GATE M2: floor intermediário ELEV-16 · toda flag no PromotionProtocol · :356 wirado · daemon com manifest
-- [ ] ELEV-26s — pending
+- [x] ELEV-26s — landed
 - [ ] MULTX-09 — pending
 - [ ] MAXA-02 — pending
 - [ ] MAXA-07 — pending

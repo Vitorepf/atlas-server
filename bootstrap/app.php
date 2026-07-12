@@ -18,6 +18,7 @@ use App\Console\Commands\AiWorkCommand;
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Console\Commands\AtlasAcosObraRetroCommand;
+use App\Console\Commands\AtlasPromotionsCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
@@ -242,6 +243,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasAcosFreezeCommand::class,
         AtlasAcosMSeriesCommand::class,
         AtlasAcosObraRetroCommand::class,
+        AtlasPromotionsCommand::class,
         AtlasAobgSemanticRetrievalLiftCommand::class,
         AtlasAiArchitectureValidateCommand::class,
         AtlasAiAutomationDomainCommand::class,
