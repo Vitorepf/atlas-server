@@ -83,6 +83,16 @@ final class RunStateMachine
         if (! array_key_exists($state, self::TRANSITIONS)) {
             throw new RuntimeException("rivals_unknown_run_state:{$state}");
         }
+        if ($state === self::NATIVE_RUNNING && is_file(RunPaths::planPath($runId))) {
+            $plan = RunPlan::load($runId);
+            if (($plan->data['suite_id'] ?? null) !== 'local_fake') {
+                try {
+                    FrozenUnitManifest::load($runId);
+                } catch (\Throwable $e) {
+                    throw new RuntimeException('rivals_unit_freeze_required:'.($e->getMessage() ?: 'manifest_missing'), 0, $e);
+                }
+            }
+        }
         $current = $this->current($runId);
         $from = (string) ($current['state'] ?? '');
         if ($current === null && $state !== self::PLANNED) {

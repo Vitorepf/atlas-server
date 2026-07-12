@@ -14,6 +14,7 @@ use App\Services\Ai\Rivals\Core\EvidencePackBuilder;
 use App\Services\Ai\Rivals\Core\EnterpriseReportBuilder;
 use App\Services\Ai\Rivals\Core\FaseABatteryOrchestrator;
 use App\Services\Ai\Rivals\Core\FaseAClosureReceipt;
+use App\Services\Ai\Rivals\Core\FrozenUnitManifest;
 use App\Services\Ai\Rivals\Core\ModelRegistry;
 use App\Services\Ai\Rivals\Core\NativeExecutionBundleImporter;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
@@ -798,6 +799,11 @@ class AtlasRivalsCommand extends Command
         $plan = RunPlan::fromArray($data);
         $runId = $plan->persist();
         $preregistration->persist();
+        $freeze = null;
+        if (in_array($suiteId, (new SuiteRegistry)->externalSuiteIds(), true)) {
+            $freeze = FrozenUnitManifest::fromPlan($plan, $cases, app()->environment('testing'));
+            $freeze->persist();
+        }
         (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED, [
             'suite_id' => $suiteId,
             'cases' => count($cases),
@@ -822,6 +828,7 @@ class AtlasRivalsCommand extends Command
                 : null,
             'native_manifest_hash' => $manifest?->hash(),
             'preregistration_hash' => $preregistration->hash(),
+            'frozen_unit_manifest_hash' => $freeze?->hash(),
             'note' => $manifest !== null
                 ? 'Execute native commands outside PHP, then atlas:rivals import-results --run='.$runId.' --file=...'
                 : null,

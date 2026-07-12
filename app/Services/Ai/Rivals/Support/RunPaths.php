@@ -49,6 +49,11 @@ class RunPaths
         return self::runDir($runId).'/preregistration.json';
     }
 
+    public static function unitFreezePath(string $runId): string
+    {
+        return self::runDir($runId).'/frozen_units.json';
+    }
+
     public static function nativeResultsDir(string $runId): string
     {
         return self::runDir($runId).'/external_results/units';

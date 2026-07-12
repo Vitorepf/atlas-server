@@ -194,6 +194,16 @@ class FaseABatteryOrchestrator
         $plan = RunPlan::fromArray($data);
         $runId = $plan->persist();
         $preregistration->persist();
+        $units = [];
+        foreach ($caseIds as $caseId) {
+            $casePath = RunPaths::root()."/external/{$suiteId}/cases/{$caseId}.json";
+            $case = is_file($casePath) ? json_decode((string) file_get_contents($casePath), true) : null;
+            if (! is_array($case)) {
+                throw new RuntimeException("rivals_battery_frozen_case_missing:{$caseId}");
+            }
+            $units[] = $case;
+        }
+        FrozenUnitManifest::fromPlan($plan, $units, app()->environment('testing'))->persist();
         (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED, [
             'suite_id' => $suiteId,
             'cases' => count($caseIds),
