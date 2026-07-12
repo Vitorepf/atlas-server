@@ -23,9 +23,9 @@ final class QualityFoundryReadinessManifest
         'docs/superpowers/plans/quality-foundry/02-quality-constitution-and-evidence.md',
         'docs/superpowers/plans/quality-foundry/03-elite-workcell-product-and-spec.md',
         'docs/superpowers/plans/quality-foundry/04-world-model-and-capability-market.md',
-        'docs/superpowers/plans/quality-foundry/05-verification-release-canary.md',
-        'docs/superpowers/plans/quality-foundry/06-mode-recovery-and-operational-resilience.md',
-        'docs/superpowers/plans/quality-foundry/07-rivals-2-independent-evaluation.md',
+        'docs/superpowers/plans/quality-foundry/05-verification-release-and-outcomes.md',
+        'docs/superpowers/plans/quality-foundry/06-dev-forge-autonomos-dominance.md',
+        'docs/superpowers/plans/quality-foundry/07-rivals-world-engineering-trial.md',
         'docs/superpowers/plans/quality-foundry/08-causal-compounding-and-domain-waves.md',
     ];
 
