@@ -115,6 +115,9 @@ return [
         // doc-stated-gap signals into the served payload so the pasted brain can originate against multi-file
         // leverage instead of file-local micro-leverage. Set env false only for compatibility debugging.
         'scope_signal_digest_enabled' => (bool) env('ATLAS_BRAIN_SCOPE_SIGNAL_DIGEST_ENABLED', true),
+        // MAXN-05 governed frontier fetcher. Live network is default-OFF; dry-run may still render the
+        // provider-safe outbound plan for egress review without touching the network.
+        'frontier_fetcher_enabled' => (bool) env('ATLAS_BRAIN_FRONTIER_FETCHER_ENABLED', false),
 
         // THE PORTFOLIO OF SELF-IMPROVEMENT PATHS (data, not code). The brain ROTATES these so it always
         // seeks the highest leverage, never dries, never duplicates. Each executor_organ is a real class.

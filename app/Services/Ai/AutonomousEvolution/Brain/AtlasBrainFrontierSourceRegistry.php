@@ -16,7 +16,8 @@ use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
  * frontier path has real material to work with.
  *
  * SCHEMA per row (every field is just a fact — no learning scalar persisted):
- *   {title:string, url:string, summary:string, source:string, captured_at:string?}
+ *   {title:string, url:string, summary:string, source:string, captured_at:string?,
+ *    trust_tier?:string, source_trust_tier?:string, anti_hype_note?:string, lead_only?:bool}
  *
  * Bounded read: by default top-K (most recent K entries) so the brain payload stays small even if
  * the file grows. Deterministic order: newest-first within K (the line order in the file is the
@@ -78,6 +79,15 @@ final class AtlasBrainFrontierSourceRegistry
             'source' => $source,
             'captured_at' => trim((string) ($candidate['captured_at'] ?? '')),
         ];
+        foreach (['trust_tier', 'source_trust_tier', 'anti_hype_note'] as $field) {
+            $value = trim((string) ($candidate[$field] ?? ''));
+            if ($value !== '') {
+                $row[$field] = $value;
+            }
+        }
+        if (array_key_exists('lead_only', $candidate)) {
+            $row['lead_only'] = (bool) $candidate['lead_only'];
+        }
 
         try {
             (new JsonlReceiptStore($this->pathFor($scopeSlug)))->append($row);
@@ -108,6 +118,7 @@ final class AtlasBrainFrontierSourceRegistry
         if ($k <= 0) {
             return [];
         }
+
         // Newest-first within K: the file order IS capture order; reverse + slice keeps it stable.
         return array_slice(array_reverse($this->validRows($scope)), 0, $k);
     }

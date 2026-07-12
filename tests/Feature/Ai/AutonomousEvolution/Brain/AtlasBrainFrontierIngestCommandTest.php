@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\AutonomousEvolution\Brain;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tests\TestCase;
 
@@ -69,6 +70,63 @@ final class AtlasBrainFrontierIngestCommandTest extends TestCase
         self::assertSame(0, $exit);
         self::assertSame(0, $payload['appended'], '--limit=0 must append 0 rows, not 1');
         self::assertSame(0, app(AtlasBrainFrontierSourceRegistry::class)->count('loop'));
+    }
+
+    public function test_fetch_dry_run_builds_provider_safe_outbound_payload_without_network(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake();
+
+        [$exit, $payload] = $this->callJson([
+            '--scope' => 'loop',
+            '--limit' => 3,
+            '--captured-at' => '2026-07-12T00:00:00Z',
+            '--fetch' => true,
+            '--dry-run' => true,
+            '--json' => true,
+        ]);
+
+        self::assertSame(0, $exit);
+        self::assertSame('dry_run', $payload['fetch_status']);
+        self::assertFalse($payload['network_attempted']);
+        self::assertSame(0, $payload['appended']);
+        self::assertSame(0, app(AtlasBrainFrontierSourceRegistry::class)->count('loop'));
+        Http::assertNothingSent();
+
+        self::assertSame(['discover', 'read', 'ground'], array_column($payload['outbound_payloads'], 'stage'));
+        self::assertTrue($payload['egress_safety']['provider_safe']);
+        $outboundJson = json_encode($payload['outbound_payloads'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        self::assertIsString($outboundJson);
+        foreach ([base_path(), storage_path(), 'app/Services/', 'tests/Feature/', 'ATLAS_TOKEN', 'DB_PASSWORD'] as $forbidden) {
+            self::assertStringNotContainsString($forbidden, $outboundJson);
+        }
+        foreach ($payload['outbound_payloads'] as $outbound) {
+            self::assertSame('static_public_allowlist', $outbound['payload_origin']);
+            self::assertFalse($outbound['class_gate']['repo_derived_content_allowed']);
+            self::assertSame(['sensitive', 'secret', 'cyber', 'workspace_local'], $outbound['class_gate']['blocked_classes']);
+        }
+    }
+
+    public function test_fetch_without_dry_run_is_default_gated_and_does_not_send_network(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake();
+        config()->set('atlas.brain.frontier_fetcher_enabled', false);
+
+        [$exit, $payload] = $this->callJson([
+            '--scope' => 'loop',
+            '--limit' => 3,
+            '--captured-at' => '2026-07-12T00:00:00Z',
+            '--fetch' => true,
+            '--json' => true,
+        ]);
+
+        self::assertSame(0, $exit);
+        self::assertSame('gated_off', $payload['fetch_status']);
+        self::assertFalse($payload['fetch_enabled']);
+        self::assertFalse($payload['network_attempted']);
+        self::assertSame(0, $payload['appended']);
+        Http::assertNothingSent();
     }
 
     /** @return array{0:int,1:array<string,mixed>} */
