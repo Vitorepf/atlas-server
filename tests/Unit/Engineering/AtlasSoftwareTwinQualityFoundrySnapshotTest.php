@@ -41,14 +41,22 @@ final class AtlasSoftwareTwinQualityFoundrySnapshotTest extends TestCase
         ]));
     }
 
+    public function test_fact_without_temporal_provenance_fails_closed(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        AtlasSoftwareTwinRuntimeService::freezeQualityFoundryFacts(array_replace($this->input(), [
+            'facts' => [array_replace($this->input()['facts'][0], ['observed_at' => null])],
+        ]));
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
         return [
             'workspace_id' => 'atlas-server', 'base_commit' => str_repeat('a', 40), 'consumer' => 'quality-foundry',
             'as_of' => '2026-07-12T01:00:00Z', 'facts' => [
-                ['id' => 'f1', 'type' => 'code', 'workspace_id' => 'atlas-server', 'source' => 'code-graph', 'hash' => str_repeat('1', 64), 'status' => 'fresh'],
-                ['id' => 'f2', 'type' => 'outcome', 'workspace_id' => 'atlas-server', 'source' => 'ledger', 'hash' => str_repeat('2', 64), 'status' => 'stale'],
+                ['id' => 'f1', 'type' => 'code', 'workspace_id' => 'atlas-server', 'source' => 'code-graph', 'hash' => str_repeat('1', 64), 'status' => 'fresh', 'valid_from' => '2026-07-11T00:00:00Z', 'valid_until' => null, 'observed_at' => '2026-07-12T00:30:00Z'],
+                ['id' => 'f2', 'type' => 'outcome', 'workspace_id' => 'atlas-server', 'source' => 'ledger', 'hash' => str_repeat('2', 64), 'status' => 'stale', 'valid_from' => '2026-07-10T00:00:00Z', 'valid_until' => '2026-07-11T00:00:00Z', 'observed_at' => '2026-07-11T01:00:00Z'],
             ],
         ];
     }

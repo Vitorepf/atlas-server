@@ -570,6 +570,12 @@ class AtlasSoftwareTwinRuntimeService
             if ($id === '' || ! in_array($fact['type'] ?? null, $supported, true) || trim((string) ($fact['source'] ?? '')) === '' || preg_match('/^[a-f0-9]{64}$/', (string) ($fact['hash'] ?? '')) !== 1) {
                 throw new InvalidArgumentException('software_twin_quality_snapshot_fact_provenance_invalid');
             }
+            if (! self::validTimestamp($fact['valid_from'] ?? null)
+                || ! array_key_exists('valid_until', $fact)
+                || ($fact['valid_until'] !== null && ! self::validTimestamp($fact['valid_until']))
+                || ! self::validTimestamp($fact['observed_at'] ?? null)) {
+                throw new InvalidArgumentException('software_twin_quality_snapshot_fact_temporal_provenance_invalid');
+            }
             $status = (string) ($fact['status'] ?? 'unknown');
             if (! in_array($status, ['fresh','stale','unknown','conflicted'], true)) throw new InvalidArgumentException('software_twin_quality_snapshot_freshness_invalid');
             $ref = ['id' => $id, 'type' => (string) $fact['type'], 'workspace_id' => $workspace, 'source' => (string) $fact['source'], 'hash' => (string) $fact['hash'], 'status' => $status,
@@ -589,6 +595,13 @@ class AtlasSoftwareTwinRuntimeService
         $payload['snapshot_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
+    }
+
+    private static function validTimestamp(mixed $value): bool
+    {
+        if (! is_string($value) || trim($value) === '') return false;
+
+        return date_create_immutable($value) !== false;
     }
 
     /**
