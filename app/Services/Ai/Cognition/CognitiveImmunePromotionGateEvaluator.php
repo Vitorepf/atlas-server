@@ -33,9 +33,6 @@ final class CognitiveImmunePromotionGateEvaluator
 
     private const STATUS_PENDING = 'pending';
 
-    /** Forbid-gates: default pass on a real candidate, block on an explicit unsafe flag. */
-    private const FORBID_GATE_IDS = ['G3', 'G4'];
-
     /** Recognised promotion scopes (G6). */
     private const KNOWN_SCOPES = ['global', 'workspace', 'project', 'task', 'domain', 'session'];
 
@@ -44,6 +41,9 @@ final class CognitiveImmunePromotionGateEvaluator
 
     /** Promotion modes that explicitly forbid promotion (G7). */
     private const BLOCKED_PROMOTION_MODES = ['block', 'blocked'];
+
+    /** ASI-12 guard: a single loud actor cannot graduate probation alone. */
+    private const PROBATION_MIN_RECALL_ACTORS = 2;
 
     /**
      * @param  array<string,mixed>  $signals
@@ -92,8 +92,8 @@ final class CognitiveImmunePromotionGateEvaluator
             'schema_version' => self::SCHEMA_VERSION,
             'gate_statuses' => $gateStatuses,
             'promotion_status' => $promotionStatus,
-            'blocking_gate_ids' => array_values($blockingGateIds),
-            'pending_gate_ids' => array_values($pendingGateIds),
+            'blocking_gate_ids' => $blockingGateIds,
+            'pending_gate_ids' => $pendingGateIds,
             'reasons' => $reasons,
             'autonomous_promotion_allowed' => $promotionStatus === 'trusted',
         ];
@@ -283,7 +283,7 @@ final class CognitiveImmunePromotionGateEvaluator
     }
 
     /**
-     * G8 Probation: enters as `watch` before `trusted`; passes once probation cleared.
+     * G8 Probation: `watch` graduates to `trusted` only through calibrated evidence.
      *
      * @param  array<string,mixed>  $signals
      * @return array{0: string, 1: string}
@@ -294,9 +294,28 @@ final class CognitiveImmunePromotionGateEvaluator
             return [self::STATUS_PENDING, 'probation_unevaluated'];
         }
 
-        return $this->explicitlyFalse($signals, 'on_probation')
-            ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'probation_not_cleared'];
+        if ($this->hasProbationNegativeFeedback($signals)) {
+            return [self::STATUS_PENDING, 'probation_negative_feedback_present'];
+        }
+
+        if ($this->hasProbationSuperveningContradiction($signals)) {
+            return [self::STATUS_PENDING, 'probation_supervening_contradiction_present'];
+        }
+
+        if ($this->probationWatchAgeDays($signals) < ImmuneCalibrationService::TTL_DAYS) {
+            return [self::STATUS_PENDING, 'probation_watch_time_below_calibrated_threshold'];
+        }
+
+        $recallEvidence = $this->probationRecallEvidence($signals);
+        if ($recallEvidence['positive_actor_count'] < self::PROBATION_MIN_RECALL_ACTORS) {
+            return [self::STATUS_PENDING, 'probation_recall_single_actor_inflated'];
+        }
+
+        if ($recallEvidence['recalls'] < ImmuneCalibrationService::DENOMINATOR_MIN) {
+            return [self::STATUS_PENDING, 'probation_recall_below_calibrated_threshold'];
+        }
+
+        return [self::STATUS_PASS, ''];
     }
 
     /**
@@ -374,5 +393,166 @@ final class CognitiveImmunePromotionGateEvaluator
         $value = $signals[$key] ?? 0;
 
         return is_int($value) ? $value : (int) $value;
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function hasProbationNegativeFeedback(array $signals): bool
+    {
+        foreach ([
+            'probation_negative_feedback_count',
+            'recall_negative_feedback',
+            'all_time_recall_negative_feedback',
+            'negative_feedback_count',
+        ] as $key) {
+            if ($this->intValue($signals, $key) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function hasProbationSuperveningContradiction(array $signals): bool
+    {
+        return $this->flag($signals, 'contradicts_newer')
+            || $this->flag($signals, 'probation_supervening_contradiction')
+            || $this->intValue($signals, 'probation_supervening_contradiction_count') > 0;
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function probationWatchAgeDays(array $signals): int
+    {
+        if (array_key_exists('probation_watch_age_days', $signals)) {
+            return max(0, $this->intValue($signals, 'probation_watch_age_days'));
+        }
+
+        $startedAt = $this->timestampValue($signals, 'probation_entered_at')
+            ?? $this->timestampValue($signals, 'watch_started_at')
+            ?? $this->timestampValue($signals, 'probation_started_at');
+        $evaluatedAt = $this->timestampValue($signals, 'probation_evaluated_at')
+            ?? $this->timestampValue($signals, 'evaluated_at');
+
+        if ($startedAt === null || $evaluatedAt === null || $evaluatedAt < $startedAt) {
+            return 0;
+        }
+
+        return intdiv($evaluatedAt - $startedAt, 86400);
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     */
+    private function timestampValue(array $signals, string $key): ?int
+    {
+        $value = $signals[$key] ?? null;
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        $timestamp = strtotime($value);
+
+        return $timestamp === false ? null : $timestamp;
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     * @return array{recalls:int, positive_actor_count:int}
+     */
+    private function probationRecallEvidence(array $signals): array
+    {
+        $counts = $this->probationRecallActorCounts($signals);
+        $recalls = 0;
+        $positiveActorCount = 0;
+
+        foreach ($counts as $count) {
+            $count = max(0, $count);
+            if ($count === 0) {
+                continue;
+            }
+
+            $positiveActorCount++;
+            $recalls += $count;
+        }
+
+        return [
+            'recalls' => $recalls,
+            'positive_actor_count' => $positiveActorCount,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $signals
+     * @return array<string,int>
+     */
+    private function probationRecallActorCounts(array $signals): array
+    {
+        foreach ([
+            'probation_recall_actor_counts',
+            'recall_actor_counts',
+            'recalls_by_actor',
+        ] as $key) {
+            $counts = $this->actorCountsFromValue($signals[$key] ?? null);
+            if ($counts !== []) {
+                return $counts;
+            }
+        }
+
+        return $this->actorCountsFromConcentrationV2($signals['recall_concentration_v2'] ?? null);
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function actorCountsFromValue(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $counts = [];
+        foreach ($value as $key => $entry) {
+            if (is_array($entry)) {
+                $actor = $this->stringFromMixed($entry['actor'] ?? $key);
+                $count = $this->intFromMixed($entry['count'] ?? $entry['recalls'] ?? 0);
+            } else {
+                $actor = $this->stringFromMixed($key);
+                $count = $this->intFromMixed($entry);
+            }
+
+            if ($actor !== '') {
+                $counts[$actor] = ($counts[$actor] ?? 0) + $count;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array<string,int>
+     */
+    private function actorCountsFromConcentrationV2(mixed $value): array
+    {
+        if (! is_array($value) || ! is_array($value['per_actor'] ?? null)) {
+            return [];
+        }
+
+        return $this->actorCountsFromValue($value['per_actor']);
+    }
+
+    private function stringFromMixed(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    private function intFromMixed(mixed $value): int
+    {
+        return is_numeric($value) ? (int) $value : 0;
     }
 }

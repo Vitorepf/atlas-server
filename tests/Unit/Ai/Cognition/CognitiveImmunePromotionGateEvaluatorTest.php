@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Cognition;
 
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use PHPUnit\Framework\TestCase;
 
 final class CognitiveImmunePromotionGateEvaluatorTest extends TestCase
@@ -13,13 +14,14 @@ final class CognitiveImmunePromotionGateEvaluatorTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->evaluator = new CognitiveImmunePromotionGateEvaluator();
+        $this->evaluator = new CognitiveImmunePromotionGateEvaluator;
     }
 
     /**
      * A fully-clean candidate: consent + retention + privacy, a complete atomic
      * claim, a future signal, provider-safe, no contradiction, outcome
-     * validated, recognised scope, an auto promotion mode and no probation.
+     * validated, recognised scope, an auto promotion mode and calibrated G8
+     * probation evidence from MAXI-03 / ASI-12.
      *
      * @return array<string,mixed>
      */
@@ -43,6 +45,13 @@ final class CognitiveImmunePromotionGateEvaluatorTest extends TestCase
             'scope' => 'project',
             'promotion_mode_hint' => 'auto',
             'on_probation' => false,
+            'probation_watch_age_days' => ImmuneCalibrationService::TTL_DAYS,
+            'probation_recall_actor_counts' => [
+                'interactive:operator' => ImmuneCalibrationService::DENOMINATOR_MIN,
+                'autonomos:worker-1' => ImmuneCalibrationService::DENOMINATOR_MIN,
+            ],
+            'probation_negative_feedback_count' => 0,
+            'probation_supervening_contradiction_count' => 0,
         ];
     }
 
@@ -93,6 +102,8 @@ final class CognitiveImmunePromotionGateEvaluatorTest extends TestCase
     {
         $signals = $this->cleanTrustedSignals();
         $signals['on_probation'] = true;
+        $signals['probation_watch_age_days'] = 0;
+        $signals['probation_recall_actor_counts'] = [];
 
         $result = $this->evaluator->evaluate($signals);
 
@@ -101,7 +112,7 @@ final class CognitiveImmunePromotionGateEvaluatorTest extends TestCase
         $this->assertSame('pending', $result['gate_statuses']['G8']);
         $this->assertContains('G8', $result['pending_gate_ids']);
         $this->assertSame([], $result['blocking_gate_ids']);
-        $this->assertSame('probation_not_cleared', $result['reasons']['G8']);
+        $this->assertSame('probation_watch_time_below_calibrated_threshold', $result['reasons']['G8']);
     }
 
     public function test_missing_outcome_validation_leaves_g5_pending_and_status_candidate(): void

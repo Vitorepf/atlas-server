@@ -423,6 +423,10 @@ class CaptureService
             'scope' => 'domain',
             'promotion_mode_hint' => 'proposal',
             'on_probation' => true,
+            'probation_watch_age_days' => $this->intMetadata($metadata, 'probation_watch_age_days'),
+            'probation_recall_actor_counts' => (array) data_get($metadata, 'probation_recall_actor_counts', []),
+            'probation_negative_feedback_count' => $this->intMetadata($metadata, 'probation_negative_feedback_count'),
+            'probation_supervening_contradiction_count' => $this->intMetadata($metadata, 'probation_supervening_contradiction_count'),
             'signal_sources' => [
                 'input_classifier_schema_version' => $classification['schema_version'],
                 'input_class' => $classification['input_class'],

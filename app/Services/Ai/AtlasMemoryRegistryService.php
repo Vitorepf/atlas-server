@@ -396,6 +396,10 @@ class AtlasMemoryRegistryService
             'outcome_validated' => (bool) data_get($metadata, 'outcome_validated', false),
             'promotion_mode_hint' => $this->stringValue(data_get($metadata, 'promotion_mode_hint', 'review')),
             'on_probation' => (bool) data_get($metadata, 'on_probation', false),
+            'probation_watch_age_days' => (int) data_get($metadata, 'probation_watch_age_days', 0),
+            'probation_recall_actor_counts' => (array) data_get($metadata, 'probation_recall_actor_counts', []),
+            'probation_negative_feedback_count' => (int) data_get($metadata, 'probation_negative_feedback_count', 0),
+            'probation_supervening_contradiction_count' => (int) data_get($metadata, 'probation_supervening_contradiction_count', 0),
         ], $derivedSignals);
     }
 
