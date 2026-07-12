@@ -13,6 +13,7 @@ final class AtlasAcosLongHorizonGateCommand extends Command
     protected $signature = 'atlas:cognition:acos-long-horizon-gate
         {--fixture=live : live, mature or short-window}
         {--series= : Override Fable delta-series JSONL path}
+        {--series-v2= : Override MAXL-04 per-area delta-series v2 JSONL path}
         {--receipt= : Optional path to write receipt JSON}
         {--write-receipt : Write to configured receipt path when --receipt is omitted}
         {--strict : Exit non-zero unless ACOS long-horizon readiness is certified}
@@ -23,9 +24,11 @@ final class AtlasAcosLongHorizonGateCommand extends Command
     public function handle(AtlasAcosLongHorizonGateService $gate): int
     {
         $series = trim((string) ($this->option('series') ?: ''));
+        $seriesV2 = trim((string) ($this->option('series-v2') ?: ''));
         $payload = $gate->evaluate(array_filter([
             'fixture' => trim((string) $this->option('fixture')),
             'series_path' => $series !== '' ? $series : null,
+            'series_v2_path' => $seriesV2 !== '' ? $seriesV2 : null,
         ], static fn (mixed $value): bool => $value !== null));
 
         $receiptPath = $this->receiptPath();

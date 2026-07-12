@@ -47,6 +47,11 @@ final class AtlasAcosLongHorizonGateService
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
         $maxGapDays = max(1, (int) ($options['max_gap_days'] ?? $cfg['max_gap_days'] ?? 1));
         $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
+        $seriesV2Path = (string) ($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl'));
+        $minAreaOverall = max(0.0, min(10.0, (float) ($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall)));
+        $minAreaCode = max(0.0, min(10.0, (float) ($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall)));
+        $minAreaDoc = max(0.0, min(10.0, (float) ($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall)));
+        $minAreaPipeline = max(0.0, min(10.0, (float) ($options['min_area_pipeline'] ?? $cfg['min_area_pipeline'] ?? $minAreaOverall)));
 
         // "Today" is injectable so the frozen test can pin the freshness window
         // deterministically; in production it is the real UTC calendar day. It
@@ -63,11 +68,27 @@ final class AtlasAcosLongHorizonGateService
         };
 
         $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $warningMargin, $maxLatestStaleDays, $maxGapDays, $today, $seriesPath);
-        $blockers = $assessment['blockers'];
+        $assessmentV2 = null;
+        if (array_key_exists('series_v2', $options) || array_key_exists('series_v2_path', $options)) {
+            $seriesV2 = is_array($options['series_v2'] ?? null)
+                ? $options['series_v2']
+                : $this->readSeries($seriesV2Path);
+            $assessmentV2 = $this->assessAreaSeriesV2($seriesV2, $minDays, [
+                'overall' => $minAreaOverall,
+                'code' => $minAreaCode,
+                'doc' => $minAreaDoc,
+                'pipeline' => $minAreaPipeline,
+            ], $maxLatestStaleDays, $maxGapDays, $today, $seriesV2Path);
+        }
+
+        $blockers = array_values(array_merge(
+            $assessment['blockers'],
+            is_array($assessmentV2) ? $assessmentV2['blockers'] : [],
+        ));
         $certified = $blockers === [];
         $status = $certified ? 'acos_long_horizon_ready' : 'insufficient_long_horizon_evidence';
 
-        return $this->payload($status, $certified, $fixture, $assessment, $scorecard, $series, $blockers, [
+        $config = [
             'min_days' => $minDays,
             'min_overall' => $minOverall,
             'min_pipeline' => $minPipeline,
@@ -75,7 +96,18 @@ final class AtlasAcosLongHorizonGateService
             'max_latest_stale_days' => $maxLatestStaleDays,
             'max_gap_days' => $maxGapDays,
             'series_path' => $seriesPath,
-        ]);
+        ];
+        if ($assessmentV2 !== null) {
+            $config += [
+                'series_v2_path' => $seriesV2Path,
+                'min_area_overall' => $minAreaOverall,
+                'min_area_code' => $minAreaCode,
+                'min_area_doc' => $minAreaDoc,
+                'min_area_pipeline' => $minAreaPipeline,
+            ];
+        }
+
+        return $this->payload($status, $certified, $fixture, $assessment, $scorecard, $series, $blockers, $config, $assessmentV2);
     }
 
     /**
@@ -342,6 +374,170 @@ final class AtlasAcosLongHorizonGateService
         return $count;
     }
 
+    /**
+     * MAXL-05: v2 longitudinal gate over the per-area delta series produced by
+     * MAXL-04. It composes the v1 time-integrity guards and adds area floor
+     * scanning; the original v1 aggregate assessment remains readable alongside it.
+     *
+     * @param  list<array<string,mixed>>  $series
+     * @param  array{overall: float, code: float, doc: float, pipeline: float}  $floors
+     * @return array<string,mixed>
+     */
+    private function assessAreaSeriesV2(
+        array $series,
+        int $minDays,
+        array $floors,
+        int $maxLatestStaleDays,
+        int $maxGapDays,
+        DateTimeImmutable $today,
+        string $seriesPath,
+    ): array {
+        $dates = array_values(array_filter(array_map(
+            static fn (array $row): string => (string) ($row['date'] ?? ''),
+            $series,
+        ), static fn (string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1));
+        sort($dates);
+
+        $firstDate = $dates[0] ?? null;
+        $latestDate = $dates[count($dates) - 1] ?? null;
+        $todayKey = $today->format('Y-m-d');
+        $seriesDayCount = count(array_unique($dates));
+        $calendarSpanDays = $this->calendarSpanDays($firstDate, $latestDate);
+        $futureDatedRows = count(array_filter(
+            array_unique($dates),
+            static fn (string $date): bool => $date > $todayKey,
+        ));
+        $latestStalenessDays = $this->latestStalenessDays($latestDate, $today);
+        $certificationWindowDates = $this->certificationWindowDates($latestDate, $minDays);
+        $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
+        $maxConsecutiveGapDays = $this->maxConsecutiveGapDays($sampledDatesInWindow);
+        $backfilledSamples = $this->backfilledSamplesInWindow($series, $certificationWindowDates);
+        $resolvedEvidenceRows = $this->resolvedEvidenceRowsV2($series);
+        $areaScan = $this->certificationWindowAreaScan($series, $certificationWindowDates, $floors);
+
+        $blockers = [];
+        if ($seriesDayCount < $minDays) {
+            $blockers[] = 'series_v2_day_count_below_floor';
+        }
+        if ($calendarSpanDays < $minDays) {
+            $blockers[] = 'series_v2_calendar_span_below_floor';
+        }
+        if ($resolvedEvidenceRows < $seriesDayCount) {
+            $blockers[] = 'series_v2_resolved_evidence_source_missing';
+        }
+        if ($futureDatedRows > 0) {
+            $blockers[] = 'series_v2_future_dated_rows';
+        }
+        if ($latestDate === null || $latestStalenessDays > $maxLatestStaleDays) {
+            $blockers[] = 'series_v2_window_stale';
+        }
+        if ($maxConsecutiveGapDays > $maxGapDays) {
+            $blockers[] = 'series_v2_gap_exceeds_floor';
+        }
+        if ($backfilledSamples > 0) {
+            $blockers[] = 'series_v2_backfilled_sample_detected';
+        }
+
+        foreach ($areaScan['areas_below_floor'] as $area) {
+            $blockers[] = 'area_below_floor:'.$area;
+        }
+
+        return [
+            'schema_version' => 'atlas.cognition.acos_long_horizon_gate.area_v2',
+            'series_path' => $seriesPath,
+            'series_day_count' => $seriesDayCount,
+            'calendar_span_days' => $calendarSpanDays,
+            'first_date' => $firstDate,
+            'latest_date' => $latestDate,
+            'today' => $todayKey,
+            'future_dated_rows' => $futureDatedRows,
+            'latest_staleness_days' => $latestStalenessDays,
+            'certification_window_start' => $certificationWindowDates[0] ?? null,
+            'certification_window_end' => $latestDate,
+            'certification_window_sample_count' => count($sampledDatesInWindow),
+            'max_consecutive_gap_days' => $maxConsecutiveGapDays,
+            'backfilled_samples' => $backfilledSamples,
+            'resolved_evidence_rows' => $resolvedEvidenceRows,
+            'floors' => $floors,
+            'min_area_scores' => $areaScan['min_area_scores'],
+            'area_days_below_floor' => $areaScan['area_days_below_floor'],
+            'areas_below_floor' => $areaScan['areas_below_floor'],
+            'blockers' => $blockers,
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $series
+     */
+    private function resolvedEvidenceRowsV2(array $series): int
+    {
+        $count = 0;
+        foreach ($series as $row) {
+            $provenance = (string) ($row['provenance'] ?? '');
+            $source = (string) data_get($row, 'sources.scorecard', '');
+            if ($provenance === 'resolved-evidence' || str_contains($source, 'resolved-evidence')) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $series
+     * @param  list<string>  $certificationWindowDates
+     * @param  array{overall: float, code: float, doc: float, pipeline: float}  $floors
+     * @return array{min_area_scores: array<string,array{overall: float, code: float, doc: float, pipeline: float}>, area_days_below_floor: array<string,int>, areas_below_floor: list<string>}
+     */
+    private function certificationWindowAreaScan(array $series, array $certificationWindowDates, array $floors): array
+    {
+        $window = array_fill_keys($certificationWindowDates, true);
+        $minAreaScores = [];
+        $areaDaysBelowFloor = [];
+
+        foreach ($series as $row) {
+            $date = (string) ($row['date'] ?? '');
+            if ($date === '' || ! isset($window[$date]) || ! is_array($row['by_area'] ?? null)) {
+                continue;
+            }
+
+            foreach ($row['by_area'] as $area => $scores) {
+                if (! is_string($area) || ! is_array($scores)) {
+                    continue;
+                }
+
+                $dayBelow = false;
+                foreach (['overall', 'code', 'doc', 'pipeline'] as $dimension) {
+                    $score = round((float) ($scores[$dimension] ?? 0.0), 3);
+                    $minAreaScores[$area][$dimension] = isset($minAreaScores[$area][$dimension])
+                        ? min($minAreaScores[$area][$dimension], $score)
+                        : $score;
+                    if ($score < $floors[$dimension]) {
+                        $dayBelow = true;
+                    }
+                }
+
+                if ($dayBelow) {
+                    $areaDaysBelowFloor[$area] = ($areaDaysBelowFloor[$area] ?? 0) + 1;
+                } else {
+                    $areaDaysBelowFloor[$area] ??= 0;
+                }
+            }
+        }
+
+        ksort($minAreaScores);
+        ksort($areaDaysBelowFloor);
+
+        return [
+            'min_area_scores' => $minAreaScores,
+            'area_days_below_floor' => $areaDaysBelowFloor,
+            'areas_below_floor' => array_values(array_keys(array_filter(
+                $areaDaysBelowFloor,
+                static fn (int $days): bool => $days > 0,
+            ))),
+        ];
+    }
+
     private function recordedAtCalendarDate(mixed $recordedAt): ?string
     {
         if (! is_string($recordedAt) || trim($recordedAt) === '') {
@@ -560,6 +756,7 @@ final class AtlasAcosLongHorizonGateService
         array $series,
         array $blockers,
         array $config,
+        ?array $assessmentV2 = null,
     ): array {
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -590,7 +787,14 @@ final class AtlasAcosLongHorizonGateService
                 'completion_requires_real_30d_window' => true,
             ],
         ];
-        $payload['receipt_hash'] = 'sha256:'.hash('sha256', json_encode([
+        if ($assessmentV2 !== null) {
+            $payload['assessment_v2'] = $assessmentV2;
+            $payload['evidence']['series_v2_rows_sampled'] = (int) ($assessmentV2['series_day_count'] ?? 0);
+            $payload['claim_policy']['longitudinal_area_floor_v2'] = true;
+            $payload['claim_policy']['gate_v1_byte_identical_without_v2'] = true;
+        }
+
+        $receiptPayload = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
             'certified' => $certified,
@@ -598,7 +802,12 @@ final class AtlasAcosLongHorizonGateService
             'assessment' => $assessment,
             'blockers' => $blockers,
             'warnings' => array_values((array) ($assessment['warnings'] ?? [])),
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        ];
+        if ($assessmentV2 !== null) {
+            $receiptPayload['assessment_v2'] = $assessmentV2;
+        }
+
+        $payload['receipt_hash'] = 'sha256:'.hash('sha256', json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
     }

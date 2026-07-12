@@ -458,6 +458,61 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
         );
     }
 
+    public function test_maxl05_v2_blocks_when_aggregate_passes_but_one_area_breaks_floor(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+        $series = $this->healthySeries($today, 9.8);
+        $seriesV2 = $this->healthyAreaSeries($today, [
+            'memory' => ['overall' => 9.8, 'code' => 9.8, 'doc' => 9.8, 'pipeline' => 9.8],
+            'evidence' => ['overall' => 9.7, 'code' => 9.7, 'doc' => 9.7, 'pipeline' => 9.7],
+        ]);
+        $badDay = $today->modify('-12 days')->format('Y-m-d');
+        foreach ($seriesV2 as &$row) {
+            if (($row['date'] ?? null) === $badDay) {
+                $row['by_area']['memory']['overall'] = 8.4;
+            }
+        }
+        unset($row);
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->highScorecard('l'),
+            'series' => $series,
+            'series_v2' => $seriesV2,
+        ]);
+
+        $this->assertFalse($payload['certified']);
+        $this->assertSame('insufficient_long_horizon_evidence', $payload['status']);
+        $this->assertSame([], data_get($payload, 'assessment.blockers'));
+        $this->assertContains('area_below_floor:memory', $payload['blockers']);
+        $this->assertSame(['memory'], data_get($payload, 'assessment_v2.areas_below_floor'));
+        $this->assertSame(1, data_get($payload, 'assessment_v2.area_days_below_floor.memory'));
+        $this->assertSame(8.4, data_get($payload, 'assessment_v2.min_area_scores.memory.overall'));
+        $this->assertTrue((bool) data_get($payload, 'claim_policy.longitudinal_area_floor_v2'));
+    }
+
+    public function test_maxl05_v2_certifies_when_every_area_holds_the_floor(): void
+    {
+        $today = new \DateTimeImmutable('2026-06-13 00:00:00 UTC');
+
+        $payload = app(AtlasAcosLongHorizonGateService::class)->evaluate([
+            'fixture' => 'live',
+            'now' => $today,
+            'scorecard_report' => $this->highScorecard('m'),
+            'series' => $this->healthySeries($today, 9.8),
+            'series_v2' => $this->healthyAreaSeries($today, [
+                'memory' => ['overall' => 9.8, 'code' => 9.8, 'doc' => 9.8, 'pipeline' => 9.8],
+                'evidence' => ['overall' => 9.7, 'code' => 9.7, 'doc' => 9.7, 'pipeline' => 9.7],
+            ]),
+        ]);
+
+        $this->assertTrue($payload['certified']);
+        $this->assertSame([], $payload['blockers']);
+        $this->assertSame([], data_get($payload, 'assessment_v2.areas_below_floor'));
+        $this->assertSame(31, data_get($payload, 'assessment_v2.series_day_count'));
+    }
+
     /**
      * MED-01: recompute the certification-window floor scan directly from series rows,
      * independent of AtlasAcosLongHorizonGateService (jsonl-style read path).
@@ -541,6 +596,40 @@ final class AtlasAcosLongHorizonGateCommandTest extends TestCase
                 'recorded_at' => $date.'T00:00:00+00:00',
                 'metrics' => ['scorecard_overall' => $overall],
                 'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+            ];
+        }
+
+        return $series;
+    }
+
+    /**
+     * @param  array<string,array{overall: float, code: float, doc: float, pipeline: float}>  $areas
+     * @return list<array<string,mixed>>
+     */
+    private function healthyAreaSeries(\DateTimeImmutable $today, array $areas): array
+    {
+        $series = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = $today->modify("-$i days")->format('Y-m-d');
+            $byArea = [];
+            foreach ($areas as $area => $scores) {
+                $byArea[$area] = [
+                    'overall' => $scores['overall'],
+                    'code' => $scores['code'],
+                    'doc' => $scores['doc'],
+                    'pipeline' => $scores['pipeline'],
+                    'subsystem_count' => 1,
+                ];
+            }
+
+            $series[] = [
+                'date' => $date,
+                'recorded_at' => $date.'T00:00:00+00:00',
+                'schema_version' => 'atlas.acos.delta_series.v2',
+                'provenance' => 'resolved-evidence',
+                'aggregate' => ['overall' => 9.8, 'code' => 9.8, 'doc' => 9.8, 'pipeline' => 9.8],
+                'by_area' => $byArea,
+                'sources' => ['scorecard' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
             ];
         }
 
