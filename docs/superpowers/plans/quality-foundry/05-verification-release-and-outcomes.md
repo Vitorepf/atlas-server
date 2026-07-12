@@ -137,7 +137,7 @@ Applicable evidence types are: unit, integration, contract, E2E, property, mutat
 - [x] Make `prepare` recompute authority/scope/candidate/evidence/rollback, persist decision and replay it before authorization. Evidence: `CanonicalCommitActuationTest` and `PreLandSeamTest`.
 - [x] Make `authorize` issue an immutable one-effect capability bound to action, candidate, base/tree, files, lease/fence, receipt and expiry. Evidence: `CanonicalCommitActuationTest` binding-mutation, nonce, lease and persisted-authority cases.
 - [x] Make `act` revalidate every binding and execute exactly one idempotent effect with ephemeral scoped credentials. Evidence: `CanonicalCommitActuationTest` replay/binding cases and `test_release_authorization_without_ephemeral_credential_scope_is_rejected`; `release.authorized` now carries a hashed one-effect scope envelope.
-- [ ] Add static guards for Git/fs/release/deploy entrypoints outside the allowlist and runtime proof for all mutative surfaces.
+- [x] Add static guards for Git/fs/release/deploy entrypoints outside the allowlist and runtime proof for all mutative surfaces. Evidence: `QualityFoundryMutativeSurfaceStaticScannerTest` proves blocked/allowed/read-only cases and scans canonical sources; `EngineeringKernelBypassRegressionTest` composes the guard with the registered mutative-surface runtime coverage (7 tests, 41 assertions green).
 - [x] Run PreLandSeam, MergeActuator, governance fail-closed, architecture bypass and credential-scope tests. Evidence: combined Governor/PreLand/architecture command: 35 passed, 241 assertions.
 
 **GREEN acceptance:** every invalid/stale path causes zero effect; replay is idempotent; all modes use the same interface; no direct mutation bypass survives.

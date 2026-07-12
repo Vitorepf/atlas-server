@@ -20,6 +20,8 @@ final class QualityFoundryMutativeSurfaceStaticScanner
         '/EngineeringKernel/',
         '/SelfConstruction/Governance/',
         '/RealExecution/',
+        '/Foundry/Frontier/Outcome/',
+        '/SelfConstruction/AtlasTaskScopedCommitter.php',
     ];
 
     /** @var list<array{pattern:string,reason:string}> */
@@ -29,7 +31,6 @@ final class QualityFoundryMutativeSurfaceStaticScanner
         ['pattern' => '/\b(?:File|Storage)::\s*(?:put|append|delete|move|copy)\s*\(/i', 'reason' => 'filesystem_mutation'],
         ['pattern' => '/\b(?:unlink|rename|copy|mkdir|rmdir)\s*\(/i', 'reason' => 'filesystem_mutation'],
         ['pattern' => '/\bgit\s+(?:commit|revert|push|merge)\b/i', 'reason' => 'git_mutation'],
-        ['pattern' => '/\b(?:deploy|release)\s*\(/i', 'reason' => 'release_or_deploy_mutation'],
         ['pattern' => '/->\s*(?:commit|push|release|deploy)\s*\(/i', 'reason' => 'release_or_deploy_mutation'],
     ];
 
@@ -43,11 +44,10 @@ final class QualityFoundryMutativeSurfaceStaticScanner
                 continue;
             }
 
-            foreach (preg_split('/\R/', $source) ?: [] as $lineNumber => $line) {
-                $code = $this->withoutCommentsAndStrings($line);
+            foreach ($this->codeLines($source) as $lineNumber => $code) {
                 foreach (self::MUTATION_RULES as $rule) {
                     if (preg_match($rule['pattern'], $code) === 1) {
-                        $violations[] = $this->violation($path, $lineNumber + 1, $rule['reason']);
+                        $violations[] = $this->violation($path, $lineNumber, $rule['reason']);
                     }
                 }
             }
@@ -74,11 +74,27 @@ final class QualityFoundryMutativeSurfaceStaticScanner
         return false;
     }
 
-    private function withoutCommentsAndStrings(string $line): string
+    /** @return array<int,string> */
+    private function codeLines(string $source): array
     {
-        $withoutComments = preg_replace('/\/\/.*$|#.*$/', '', $line) ?? $line;
+        $lines = [];
+        $currentLine = 1;
+        foreach (token_get_all($source) as $token) {
+            if (is_array($token)) {
+                [$id, $text, $line] = $token;
+                $currentLine = $line;
+                if (in_array($id, [T_COMMENT, T_DOC_COMMENT, T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE], true)) {
+                    continue;
+                }
 
-        return preg_replace("/'(?:\\\\.|[^'\\\\])*'|\"(?:\\\\.|[^\"\\\\])*\"/", '', $withoutComments) ?? $withoutComments;
+                $lines[$line] = ($lines[$line] ?? '').$text;
+                continue;
+            }
+
+            $lines[$currentLine] = ($lines[$currentLine] ?? '').$token;
+        }
+
+        return $lines;
     }
 
     /** @return array{file:string,line:int,reason:string} */

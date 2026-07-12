@@ -8,6 +8,7 @@ use App\Services\Ai\EngineeringKernel\Adapters\TaskLaneMergeActuatorAdapter;
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionCoverage;
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use App\Services\Ai\EngineeringKernel\MergeActuator;
+use App\Services\Ai\EngineeringKernel\Quality\QualityFoundryMutativeSurfaceStaticScanner;
 use ReflectionClass;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -57,6 +58,28 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
     {
         $this->assertSame(['act', 'prepareRevert', 'revert'], $this->publicMethodNames(MergeActuator::class));
         $this->assertSame(['act', 'prepareRevert', 'revert'], $this->publicMethodNames(TaskLaneMergeActuatorAdapter::class));
+    }
+
+    public function test_quality_foundry_mutative_static_guard_scans_canonical_governed_sources(): void
+    {
+        $paths = [
+            'app/Services/Ai/EngineeringKernel/MergeActuator.php',
+            'app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php',
+            'app/Services/Ai/Programming/AtlasDev/Execution/EliteExecutorKernelDevAdapter.php',
+            'app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php',
+            'app/Services/Ai/SelfConstruction/AtlasTaskScopedCommitter.php',
+            'app/Services/Ai/Foundry/Frontier/Outcome/RealGitRevertPort.php',
+        ];
+        $files = [];
+        foreach ($paths as $path) {
+            $files[$path] = (string) file_get_contents(base_path($path));
+        }
+
+        $report = (new QualityFoundryMutativeSurfaceStaticScanner)->scan($files);
+
+        $this->assertSame(QualityFoundryMutativeSurfaceStaticScanner::SCHEMA, $report['schema']);
+        $this->assertSame('pass', $report['status'], json_encode($report['violations']));
+        $this->assertSame([], $report['violations']);
     }
 
     /**

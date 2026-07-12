@@ -24,9 +24,31 @@ final class QualityFoundryMutativeSurfaceStaticScannerTest extends TestCase
     public function test_read_only_mentions_and_allowlisted_governed_mutation_pass(): void
     {
         $result = (new QualityFoundryMutativeSurfaceStaticScanner)->scan([
-            'app/Services/Ai/Surface/ReadOnly.php' => "<?php\nreturn 'git commit is forbidden here';",
+            'app/Services/Ai/Surface/ReadOnly.php' => "<?php\n/** git commit and deploy are forbidden here. */\npublic function release(): void {}\nreturn 'git commit is forbidden here';",
             'app/Services/Ai/SelfConstruction/Governance/AtlasTaskMergeActuator.php' => "<?php\nexec('git revert --no-edit');",
+            'app/Services/Ai/Foundry/Frontier/Outcome/RealGitRevertPort.php' => "<?php\nnew \\Symfony\\Component\\Process\\Process(['git', 'revert']);",
         ]);
+
+        self::assertSame('pass', $result['status']);
+        self::assertSame([], $result['violations']);
+    }
+
+    public function test_canonical_quality_foundry_sources_are_scanned_from_the_real_repository(): void
+    {
+        $root = dirname(__DIR__, 4);
+        $paths = [
+            'app/Services/Ai/EngineeringKernel/MergeActuator.php',
+            'app/Services/Ai/EngineeringKernel/KernelEvidenceAuthority.php',
+            'app/Services/Ai/Foundry/Frontier/Outcome/RealGitRevertPort.php',
+            'app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryReadinessManifest.php',
+        ];
+        $files = [];
+        foreach ($paths as $path) {
+            self::assertFileExists($root.'/'.$path);
+            $files[$path] = (string) file_get_contents($root.'/'.$path);
+        }
+
+        $result = (new QualityFoundryMutativeSurfaceStaticScanner)->scan($files);
 
         self::assertSame('pass', $result['status']);
         self::assertSame([], $result['violations']);
