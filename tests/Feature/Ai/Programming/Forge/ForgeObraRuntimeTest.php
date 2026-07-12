@@ -302,6 +302,9 @@ final class ForgeObraRuntimeTest extends TestCase
         $started = $runtime->providerStart($snapshot->obra, (string) $cycle->uuid);
         self::assertSame('started', $started['status']);
         self::assertNotEmpty($started['provider_execution_id']);
+        $startedReplay = $runtime->providerStart($snapshot->obra, (string) $cycle->uuid);
+        self::assertTrue($startedReplay['replayed']);
+        self::assertSame($started['provider_execution_id'], $startedReplay['provider_execution_id']);
 
         $polled = $runtime->providerPoll($snapshot->obra, (string) $cycle->uuid, $started['fencing_token']);
         self::assertSame('running', $polled['status']);

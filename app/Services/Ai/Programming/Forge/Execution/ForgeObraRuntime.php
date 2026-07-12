@@ -186,6 +186,18 @@ final class ForgeObraRuntime
         }
 
         if ($budget->allowProvider) {
+            $providerStart = $this->providerStart($obra, (string) $cycle->uuid);
+            if (($providerStart['status'] ?? null) !== 'started') {
+                $reason = 'provider_start_'.((string) ($providerStart['reason'] ?? 'rejected'));
+                $this->cycles->block($cycle, $reason, $state);
+                $state->refresh();
+
+                return ForgeTickResult::blocked(
+                    ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
+                    (string) $packet->packet_id, (string) $cycle->uuid, $reason,
+                );
+            }
+            $providerFence = (int) ($providerStart['fencing_token'] ?? 0);
             $workspace = (string) data_get($binding, 'workspace', base_path());
             $outcome = $this->cycles->executeRealCycle(
                 $intake,
@@ -206,6 +218,7 @@ final class ForgeObraRuntime
                 ];
                 $this->cycles->complete($cycle, $evidence, $gate, $state);
                 $state->refresh();
+                $this->providerPoll($obra, (string) $cycle->uuid, $providerFence);
 
                 return ForgeTickResult::planned(
                     ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
@@ -215,6 +228,7 @@ final class ForgeObraRuntime
             $reason = 'kernel_outcome_'.(($outcome->status ?? '') ?: 'blocked');
             $this->cycles->block($cycle, $reason, $state);
             $state->refresh();
+            $this->providerPoll($obra, (string) $cycle->uuid, $providerFence);
 
             return ForgeTickResult::blocked(
                 ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
@@ -242,7 +256,10 @@ final class ForgeObraRuntime
                 return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'stale', 'reason' => 'provider_fencing_token_mismatch'];
             }
 
-            return $current + ['schema' => 'atlas.forge.provider_lifecycle.v1', 'replayed' => true];
+            $current['schema'] = 'atlas.forge.provider_lifecycle.v1';
+            $current['replayed'] = true;
+
+            return $current;
         }
         if ($cycle->execution_mode !== ForgeWorkPacketExecutionCycleCanon::MODE_REAL) {
             return ['schema' => 'atlas.forge.provider_lifecycle.v1', 'status' => 'blocked', 'reason' => 'provider_lifecycle_requires_real_cycle'];
