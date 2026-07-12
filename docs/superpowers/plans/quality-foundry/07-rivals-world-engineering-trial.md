@@ -112,12 +112,12 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 
 **Allowed files:** those Rivals core/support/benchmark owners, versioned config, hermetic fixtures/tests.
 
-- [ ] Write RED tests for run without preregistration, mutable unit after freeze, hidden gold inside workspace, unrestricted egress, contamination canary hit, known/public memorized unit, post-unblinding invalidation and unequal resource pinning.
+- [x] Write RED tests for run without preregistration, mutable unit after freeze, hidden gold inside workspace, unrestricted egress, contamination canary hit, known/public memorized unit, post-unblinding invalidation and unequal resource pinning.
 - [x] Require preregistration before run creation: hypothesis, arms, unit/repo/time slice, metric/weights, outcome windows, power, exclusion/invalidation, resources, versions and analysis plan.
 - [x] Freeze case/repo as the statistical unit with immutable hashes and nested repetition IDs. `FrozenUnitManifest` persists the preregistration-bound case/base/golden/hidden-test hashes and repetition IDs; non-harness runs cannot enter `native_running` without it.
-- [ ] Materialize candidate workspace without hidden tests/golds; mediate egress and inject contamination canaries.
-- [ ] Rotate/renew private cases and alternative solutions; invalidate only under preregistered rules before unblinding.
-- [ ] Run contamination/security, RunPaths traversal, preregistration/state-machine and deterministic freeze/replay tests.
+- [x] Materialize candidate workspace without hidden tests/golds; mediate egress and inject contamination canaries.
+- [x] Rotate/renew private cases and alternative solutions; invalidate only under preregistered rules before unblinding.
+- [x] Run contamination/security, RunPaths traversal, preregistration/state-machine and deterministic freeze/replay tests.
 
 **GREEN acceptance:** no execution starts before immutable preregistration/unit freeze; hidden data cannot enter candidate context; contamination/invalidation is detectable and replayable.
 

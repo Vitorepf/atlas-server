@@ -96,6 +96,16 @@ return [
         'max_case_age_days' => (int) env('ATLAS_RIVALS2_CASE_MAX_AGE_DAYS', 30),
     ],
 
+    // Candidate workspace egress: default-deny; hosts fora do allowlist são negados
+    // e registrados. Canaries são sentinelas de exfiltração (conteúdo, não path).
+    'egress' => [
+        'allowlist' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('ATLAS_RIVALS2_EGRESS_ALLOWLIST', '')),
+        ))),
+        'canary_count' => (int) env('ATLAS_RIVALS2_CANARY_COUNT', 3),
+    ],
+
     // Reality Score: acima deste inchaço vs golden, o patch deixa de contar como minimal.
     'reality' => [
         'max_bloat_ratio' => 2.0,
