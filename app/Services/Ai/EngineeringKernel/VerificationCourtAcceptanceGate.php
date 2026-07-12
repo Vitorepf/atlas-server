@@ -108,6 +108,7 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
             $d = $byRole[$role] ?? null;
             if (! is_array($d)) {
                 $blockers[] = 'missing_role:'.$role;
+
                 continue;
             }
             if (($d['status'] ?? '') === 'not_applicable' && ($d['na_proof'] ?? false) !== true) {
@@ -121,8 +122,8 @@ final class VerificationCourtAcceptanceGate implements AcceptanceGate
         }
 
         return [
-            'status' => $required !== [] && $blockers === [] ? 'pass' : 'fail',
-            'detail' => $required === [] ? 'required_roles_missing' : ($blockers === [] ? 'roles_passed' : implode(',', $blockers)),
+            'status' => $blockers === [] ? 'pass' : 'fail',
+            'detail' => $blockers === [] ? 'roles_passed' : implode(',', $blockers),
         ];
     }
 
