@@ -231,7 +231,7 @@ final readonly class ExecutionOrder
     private static function evidencePolicy(array $data): array
     {
         $policy = CanonicalKernelPayload::requireArray($data, 'evidence_policy');
-        if (array_diff(array_keys($policy), ['acceptance_event_id', 'role_disposition_event_ids', 'behavioral_profile']) !== []) {
+        if (array_diff(array_keys($policy), ['acceptance_event_id', 'role_disposition_event_ids', 'behavioral_profile', 'mutative_applicability', 'mutative_applicability_hash']) !== []) {
             throw new InvalidArgumentException('evidence_policy_caller_narrative_forbidden');
         }
         CanonicalKernelPayload::requireString($policy, 'acceptance_event_id');
@@ -246,6 +246,16 @@ final readonly class ExecutionOrder
         }
         if (array_key_exists('behavioral_profile', $policy)) {
             CanonicalKernelPayload::requireEnum($policy, 'behavioral_profile', ['kernel_candidate_fixture_v1']);
+        }
+        if (array_key_exists('mutative_applicability', $policy)) {
+            $matrix = CanonicalKernelPayload::requireArray($policy, 'mutative_applicability');
+            $matrixHash = CanonicalKernelPayload::requireHash($policy, 'mutative_applicability_hash');
+            $unsignedMatrix = array_map(static fn (mixed $item): mixed => is_array($item) ? array_diff_key($item, ['evidence_hash' => true]) : $item, $matrix);
+            if (! hash_equals($matrixHash, CanonicalKernelPayload::hash($unsignedMatrix))) {
+                throw new InvalidArgumentException('mutative_applicability_hash_invalid');
+            }
+        } elseif (array_key_exists('mutative_applicability_hash', $policy)) {
+            throw new InvalidArgumentException('mutative_applicability_matrix_missing');
         }
 
         return $policy;

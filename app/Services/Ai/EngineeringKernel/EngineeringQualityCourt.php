@@ -158,16 +158,18 @@ final class EngineeringQualityCourt
         $matrix = data_get($case->order->evidencePolicy, 'mutative_applicability');
         $matrixHash = (string) data_get($case->order->evidencePolicy, 'mutative_applicability_hash', '');
         $entry = is_array($matrix) ? ($matrix[$role] ?? null) : null;
+        $unsignedMatrix = is_array($matrix)
+            ? array_map(static fn (mixed $item): mixed => is_array($item) ? array_diff_key($item, ['evidence_hash' => true]) : $item, $matrix)
+            : [];
         if (! is_array($matrix) || ! is_array($entry) || ($entry['status'] ?? null) !== 'not_applicable'
             || ! is_string($entry['rule'] ?? null) || trim($entry['rule']) === ''
             || ! is_string($entry['justification'] ?? null) || trim($entry['justification']) === ''
-            || ! hash_equals($matrixHash, CanonicalKernelPayload::hash($matrix))) {
+            || ! hash_equals($matrixHash, CanonicalKernelPayload::hash($unsignedMatrix))) {
             return null;
         }
         $unsigned = [
             'role' => $role, 'rule' => $entry['rule'], 'justification' => $entry['justification'],
-            'case_hash' => $case->caseHash, 'candidate_hash' => $case->candidate->candidateHash,
-            'tree_hash' => $case->candidate->treeHash, 'matrix_hash' => $matrixHash,
+            'matrix_hash' => $matrixHash,
         ];
         $expectedEvidenceHash = CanonicalKernelPayload::hash($unsigned);
         if (! hash_equals((string) ($entry['evidence_hash'] ?? ''), $expectedEvidenceHash)) {

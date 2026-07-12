@@ -40,6 +40,31 @@ final class TypedEngineeringContractTest extends TestCase
         $this->assertSame($order->toArray(), ExecutionOrder::fromArray($order->toArray())->toArray());
     }
 
+    public function test_mutative_applicability_matrix_is_frozen_without_case_hash_circularity(): void
+    {
+        $data = $this->validOrder();
+        $unsignedMatrix = ['documentation_dx' => [
+            'status' => 'not_applicable', 'rule' => 'no_public_contract_change',
+            'justification' => 'candidate does not touch public documentation or API contract',
+        ]];
+        $matrixHash = CanonicalKernelPayload::hash($unsignedMatrix);
+        $matrix = $unsignedMatrix;
+        $matrix['documentation_dx']['evidence_hash'] = CanonicalKernelPayload::hash([
+            'role' => 'documentation_dx', 'rule' => $matrix['documentation_dx']['rule'],
+            'justification' => $matrix['documentation_dx']['justification'], 'matrix_hash' => $matrixHash,
+        ]);
+        $data['evidence_policy']['mutative_applicability'] = $matrix;
+        $data['evidence_policy']['mutative_applicability_hash'] = $matrixHash;
+
+        $order = ExecutionOrder::fromArray($data);
+
+        $this->assertSame($matrixHash, $order->evidencePolicy['mutative_applicability_hash']);
+        $this->assertSame($order->canonicalHash(), ExecutionOrder::fromArray($order->toArray())->canonicalHash());
+        $data['evidence_policy']['mutative_applicability_hash'] = hash('sha256', 'tampered');
+        $this->expectException(InvalidArgumentException::class);
+        ExecutionOrder::fromArray($data);
+    }
+
     #[DataProvider('invalidOrderProvider')]
     public function test_execution_order_refuses_invalid_or_missing_contract_fields(callable $mutate): void
     {
