@@ -28,5 +28,12 @@ final class AtlasDevSurfaceArchitectureContractTest extends TestCase
                 self::assertStringNotContainsString($forbidden, $source, $path.' owns forbidden surface behavior: '.$forbidden);
             }
         }
+
+        $missionAdapter = (string) file_get_contents($root.'/app/Services/Ai/Programming/Kernel/AtlasDevMissionAdapter.php');
+        self::assertStringContainsString('DevPlanRunFacade', $missionAdapter);
+        self::assertStringContainsString('->plan($intent)', $missionAdapter);
+        self::assertStringContainsString('->run($run, $plan)', $missionAdapter);
+        self::assertStringNotContainsString('AiProvider', $missionAdapter);
+        self::assertStringNotContainsString('Symfony\\Component\\Process\\Process', $missionAdapter);
     }
 }

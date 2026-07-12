@@ -10,6 +10,11 @@ use App\Services\Ai\Mission\MissionFactoryService;
 use App\Services\Ai\Mission\MissionLifecycleService;
 use App\Services\Ai\Mission\ObjectiveDecomposerService;
 use App\Services\Ai\Mission\WorkOrderFactoryService;
+use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevPlanRunFacade;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevRunResult;
+use InvalidArgumentException;
 
 class AtlasDevMissionAdapter
 {
@@ -18,6 +23,7 @@ class AtlasDevMissionAdapter
         private readonly ObjectiveDecomposerService $decomposer,
         private readonly WorkOrderFactoryService $workOrderFactory,
         private readonly MissionLifecycleService $lifecycle,
+        private readonly ?DevPlanRunFacade $devFacade = null,
     ) {}
 
     /**
@@ -113,6 +119,71 @@ class AtlasDevMissionAdapter
         ];
     }
 
+    /**
+     * Execute a Mission work order through the canonical Dev plan/run facade.
+     *
+     * The Mission layer owns lifecycle/evidence; the Dev facade owns planning,
+     * authority binding, provider access and Kernel execution. This bridge only
+     * translates the already-created Mission contract into the typed Dev intent.
+     */
+    public function executeViaDevFacade(
+        AiMission $mission,
+        AiObjective $objective,
+        AiWorkOrder $workOrder,
+        string $capability,
+        string $taskContractHash,
+        string $workspace,
+        string $operatorId,
+        string $authorityHash,
+        bool $mutate = false,
+    ): DevRunResult {
+        foreach ([
+            'task_contract_hash' => $taskContractHash,
+            'authority_hash' => $authorityHash,
+        ] as $name => $hash) {
+            if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+                throw new InvalidArgumentException('mission_dev_'.$name.'_invalid');
+            }
+        }
+        if (trim($workspace) === '' || trim($operatorId) === '') {
+            throw new InvalidArgumentException('mission_dev_workspace_operator_required');
+        }
+
+        $isObra = $mission->mission_type === MissionFactoryService::TYPE_OBRA;
+        $intent = DevIntent::fromArray([
+            'raw_goal' => trim((string) ($workOrder->instructions ?: $mission->raw_prompt ?: $objective->description ?: $capability)),
+            'workspace' => trim($workspace),
+            'operator_id' => trim($operatorId),
+            'product_intent_hash' => MissionCanonicalHash::sha256([
+                'mission_id' => $mission->id,
+                'objective_id' => $objective->id,
+                'capability' => $capability,
+            ]),
+            'spec_hash' => $taskContractHash,
+            'world_model_snapshot_hash' => MissionCanonicalHash::sha256([
+                'workspace' => trim($workspace),
+                'mission_id' => $mission->id,
+                'work_order_id' => $workOrder->id,
+                'receipt_hash' => $workOrder->receipt_hash,
+            ]),
+            'authority_hash' => $authorityHash,
+            'risk_class' => $this->riskClass($mission->risk_level),
+            'duration_regime' => $isObra ? 'obra' : 'durable_task',
+            'topology' => $isObra ? 'DAG' : 'workcell',
+            'mutate' => $mutate,
+            'constraints' => array_values(array_filter([
+                ...((array) $workOrder->expected_tests),
+                ...((array) $workOrder->rollback_plan),
+            ], static fn (mixed $value): bool => is_scalar($value) && trim((string) $value) !== '')),
+        ]);
+
+        $facade = $this->devFacade ?? app(DevPlanRunFacade::class);
+        $plan = $facade->plan($intent);
+        $run = ConfirmedDevRun::fromIntent($intent, trim($operatorId), $authorityHash);
+
+        return $facade->run($run, $plan);
+    }
+
     private function defaultRiskLevelForCapability(string $capability): string
     {
         return match ($capability) {
@@ -120,6 +191,16 @@ class AtlasDevMissionAdapter
             'programming.database',
             'programming.security' => 'high',
             default => 'medium',
+        };
+    }
+
+    private function riskClass(?string $riskLevel): string
+    {
+        return match (strtolower(trim((string) $riskLevel))) {
+            'low' => 'R1',
+            'medium' => 'R3',
+            'high', 'critical' => 'R5',
+            default => 'R5',
         };
     }
 

@@ -12,8 +12,15 @@ use App\Services\Ai\Mission\MissionLifecycleService;
 use App\Services\Ai\Mission\ObjectiveDecomposerService;
 use App\Services\Ai\Mission\WorkOrderFactoryService;
 use App\Services\Ai\Programming\Kernel\AtlasDevMissionAdapter;
+use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevPlan;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevPlanRunFacade;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevRunResult;
+use App\Services\Ai\Programming\AtlasDev\Pipeline\PlanOnlyResult;
 use Illuminate\Support\Collection;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 /**
  * Focused unit coverage for the factory-critical dev mission adapter.
@@ -60,6 +67,75 @@ final class AtlasDevMissionAdapterTest extends TestCase
         $this->assertSame('Fix /healthz regression', $request['instructions']);
         $this->assertSame(['patch'], $request['expected_artifacts']);
         $this->assertSame(['tests/Feature/HealthzTest.php'], $request['expected_tests']);
+    }
+
+    public function test_mission_executes_through_typed_dev_plan_run_facade(): void
+    {
+        $facade = new class implements DevPlanRunFacade
+        {
+            public ?DevIntent $plannedIntent = null;
+
+            public ?ConfirmedDevRun $runBinding = null;
+
+            public function plan(DevIntent $intent): DevPlan
+            {
+                $this->plannedIntent = $intent;
+                $result = (new ReflectionClass(PlanOnlyResult::class))->newInstanceWithoutConstructor();
+                $plan = (new ReflectionClass(DevPlan::class))->newInstanceWithoutConstructor();
+                (new ReflectionClass(DevPlan::class))->getProperty('intent')->setValue($plan, $intent);
+                (new ReflectionClass(DevPlan::class))->getProperty('result')->setValue($plan, $result);
+                (new ReflectionClass(DevPlan::class))->getProperty('planHash')->setValue($plan, str_repeat('e', 64));
+
+                return $plan;
+            }
+
+            public function run(ConfirmedDevRun $run, ?DevPlan $planned = null): DevRunResult
+            {
+                $this->runBinding = $run;
+
+                return DevRunResult::blocked($run, 'fixture_bridge_result', $planned?->planHash ?? '');
+            }
+        };
+
+        $mission = new AiMission([
+            'id' => '00000000-0000-0000-0000-000000000101',
+            'raw_prompt' => 'Migrar o router',
+            'mission_type' => MissionFactoryService::TYPE_OBRA,
+            'risk_level' => 'high',
+        ]);
+        $objective = new AiObjective([
+            'id' => '00000000-0000-0000-0000-000000000102',
+            'description' => 'Migrar o router com segurança',
+        ]);
+        $workOrder = new AiWorkOrder([
+            'id' => '00000000-0000-0000-0000-000000000103',
+            'instructions' => 'Migrar o router em workcell isolada',
+            'expected_tests' => ['php artisan test --filter=Router'],
+            'rollback_plan' => ['reverter o commit da obra'],
+            'receipt_hash' => str_repeat('f', 64),
+        ]);
+        $authorityHash = str_repeat('a', 64);
+        $taskHash = str_repeat('b', 64);
+
+        $result = $this->makeAdapter(devFacade: $facade)->executeViaDevFacade(
+            $mission,
+            $objective,
+            $workOrder,
+            'programming.refactor',
+            $taskHash,
+            '/tmp/atlas-mission-workcell',
+            'mission-operator',
+            $authorityHash,
+        );
+
+        $this->assertSame('blocked', $result->status);
+        $this->assertNotNull($facade->plannedIntent);
+        $this->assertSame('R5', $facade->plannedIntent->riskClass);
+        $this->assertSame('obra', $facade->plannedIntent->durationRegime);
+        $this->assertSame('DAG', $facade->plannedIntent->topology);
+        $this->assertSame($taskHash, $facade->plannedIntent->specHash);
+        $this->assertSame($authorityHash, $facade->runBinding?->authorityHash);
+        $this->assertSame($facade->plannedIntent->intentHash, $facade->runBinding?->intentHash);
     }
 
     public function test_adapt_promotes_trivial_classification_to_task_mission_type(): void
@@ -126,7 +202,7 @@ final class AtlasDevMissionAdapterTest extends TestCase
         $this->assertSame(MissionFactoryService::TYPE_OBRA, $report['mission_type']);
     }
 
-    private function makeAdapter(?MissionFactoryService $missionFactory = null): AtlasDevMissionAdapter
+    private function makeAdapter(?MissionFactoryService $missionFactory = null, ?DevPlanRunFacade $devFacade = null): AtlasDevMissionAdapter
     {
         $mission = new AiMission([
             'id' => '00000000-0000-0000-0000-000000000099',
@@ -157,6 +233,7 @@ final class AtlasDevMissionAdapterTest extends TestCase
             decomposer: $decomposer,
             workOrderFactory: $workOrderFactory,
             lifecycle: $lifecycle,
+            devFacade: $devFacade,
         );
     }
 }

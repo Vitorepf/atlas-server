@@ -6,7 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Execution;
 
 use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 
-final class AtlasDevExecutionService
+final class AtlasDevExecutionService implements DevPlanRunFacade
 {
     public function __construct(
         private readonly AtlasDevFastPathOrchestrator $orchestrator,

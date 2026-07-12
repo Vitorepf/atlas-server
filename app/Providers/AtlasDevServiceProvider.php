@@ -11,6 +11,8 @@ use App\Services\Ai\EngineeringKernel\Spec\AtlasSpecGateAdapter;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DocContextTierSelector;
 use App\Services\Ai\Programming\AtlasDev\Discovery\OpenBrainProjectionAdapter;
+use App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService;
+use App\Services\Ai\Programming\AtlasDev\Execution\DevPlanRunFacade;
 use App\Services\Ai\Programming\AtlasDev\Gate\AtlasDevVerificationCommandRunnerContract as VerificationCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\Gate\SymfonyProcessCommandRunner;
 use App\Services\Ai\Programming\AtlasDev\MinimaxFirst\AtlasCodexPlannerService;
@@ -86,6 +88,7 @@ final class AtlasDevServiceProvider extends ServiceProvider
         $this->app->singleton(VerificationCommandRunner::class, fn (): VerificationCommandRunner => new SymfonyProcessCommandRunner);
 
         $this->app->bind(RunExecutor::class, KernelRunExecutor::class);
+        $this->app->bind(DevPlanRunFacade::class, AtlasDevExecutionService::class);
 
         $this->app->singleton(AtlasMinimaxFirstWorkerService::class, function (): AtlasMinimaxFirstWorkerService {
             return new AtlasMinimaxFirstWorkerService(
