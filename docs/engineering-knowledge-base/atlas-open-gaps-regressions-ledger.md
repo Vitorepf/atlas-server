@@ -326,6 +326,15 @@ Ver secao FIX-ORDER e tabelas GAP-* no corpo deste doc.
 | **GAP-RE-HERMES** | 🟢 | INVENTORY | Hermes mesh/kanban full OS fora de escopo (OUT) | hermes-executive-runtime · OBRA9 |
 | **GAP-RE-MISSION-HTTP** | 🟢 | PARTIAL | checklist escrito; `kernel_http_integration` permanece OFF | mission-foundation · MISSION-HTTP-FLIP-CHECKLIST |
 
+## 🟠 ACOS Max — gaps abertos pela execução (2026-07-12+)
+
+### GAP-ACOS-MAX-PIP07-DRIFT — 🟠 PIP-07 progress carimba 10/10; vivo = pipeline 9.41 · ABERTO
+- **Prova (2026-07-12):** `php artisan atlas:cognition:scorecard --strict --json` → `ok=false`, `pipeline_score=9.41` (640/680), `overall_score=9.8`, hash `sha256:78ad20ada9508254a0726d7dabbdfe0887511a7545423f5a93f22cfa4a7a337e`, `partial_facet_count=11` (AARF/ADGW/ARCLG/AREBA/ASEF/AURG/G2/G3/G6/G8/MEM-DELTA). `atlas:cognition:scorecard:verify-claims --json` → `ok=false` (docs carimbam 10 vs vivo 9.41). Progress doc `atlas-acos-excellence-10-10-progress.md:154` ainda diz PIP-07 ✅ pipeline=10.
+- **Classe:** regressão pós-cunhagem / stamp desatualizado (não erro de leitor do CHECK).
+- **Impacto ACOS Max:** bloqueia narrativa 10/10 do v1; ADV-01/MAXG-08 já bloqueados por CPT-10; ASI-10 não pode flipar.
+- **Fix_approach:** dono = executor v1 — re-rodar PIP-07 re-cunhagem sob selo PIP-02 OU atualizar stamps com vivo + fechar partial facets; Max só re-checa.
+- **Evidence:** ledger event_id=`01KXBB5CBH2HFY7B6E36JYAKEW` · JSONL `storage/app/atlas/evidence/acos-max-lote4-v1-onda5-check.jsonl`.
+
 ## Z. Refutados / falso-alarme (não re-abrir)
 - Maestro Exceptions (UnknownSchemaVersion/SchemaDowngradeRefused/InvalidProvider): `use` aponta pra path deletado MAS as classes foram INLINADAS nos survivors → maestro:schema/bid OK.
 - `AtlasEngineeringStringListNormalizer` em ProbeRunner: só import pendurado (0 uso no corpo) → não autoloaded, não fataliza.
