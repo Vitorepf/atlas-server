@@ -22,6 +22,7 @@ final class CausalLearningPromotionTest extends TestCase
         self::assertSame('promoted', $promotion->status);
         self::assertSame('atlas.route', $promotion->scope);
         self::assertSame('route-v1', $promotion->rollbackVersion);
+        self::assertSame(['0h', '24h', '7d', '30d', '90d', '150d'], array_keys($promotion->observationSchedule));
         self::assertFalse($promotion->claimEligible);
     }
 
@@ -106,6 +107,7 @@ final class CausalLearningPromotionTest extends TestCase
             'authority_hash' => str_repeat('1', 64), 'scope' => 'atlas.route', 'expiry' => '2026-08-01T00:00:00Z',
             'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z',
             'run_at' => '2026-07-12T00:20:00Z', 'outcome_at' => '2026-07-12T01:00:00Z',
+            'observation_schedule' => ['0h' => 'pending', '24h' => 'pending', '7d' => 'pending', '30d' => 'pending', '90d' => 'pending', '150d' => 'pending'],
             'binding_refs' => [
                 'assignment' => ['hash' => str_repeat('b', 64), 'artifact_id' => 'assignment-1'],
                 'experiment' => ['hash' => str_repeat('c', 64), 'artifact_id' => 'experiment-1'],

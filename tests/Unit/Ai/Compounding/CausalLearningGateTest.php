@@ -62,7 +62,7 @@ final class CausalLearningGateTest extends TestCase
             'assignment_hash', 'experiment_hash', 'order_hash', 'run_hash', 'release_hash', 'outcome_hash',
             'hypothesis', 'baseline', 'metric', 'window', 'effect', 'ci_low', 'ci_high', 'confounders',
             'rollback', 'reversible', 'assignment_precedes_run', 'real_outcome', 'authority_hash', 'scope',
-            'expiry', 'assignment_at', 'release_at', 'run_at', 'outcome_at', 'binding_refs',
+            'expiry', 'assignment_at', 'release_at', 'run_at', 'outcome_at', 'observation_schedule', 'binding_refs',
         ] as $field) {
             try {
                 CausalLearningCandidate::fromArray(array_diff_key($this->valid(), [$field => true]));
@@ -204,6 +204,7 @@ final class CausalLearningGateTest extends TestCase
             'authority_hash' => $hash('1'), 'scope' => 'atlas.dev.routing', 'expiry' => '2026-08-01T00:00:00Z',
             'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z',
             'run_at' => '2026-07-12T00:20:00Z', 'outcome_at' => '2026-07-12T01:00:00Z',
+            'observation_schedule' => ['0h' => 'pending', '24h' => 'pending', '7d' => 'pending', '30d' => 'pending', '90d' => 'pending', '150d' => 'pending'],
             'binding_refs' => $this->bindingRefs($hash),
         ];
     }

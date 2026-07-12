@@ -15,6 +15,7 @@ final readonly class CausalLearningPromotion
         public string $previousVersion,
         public string $rollbackVersion,
         public string $expiresAt,
+        public array $observationSchedule,
         public string $reason,
         public bool $claimEligible = false,
     ) {}

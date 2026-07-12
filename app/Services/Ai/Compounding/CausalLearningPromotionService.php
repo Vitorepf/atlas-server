@@ -42,7 +42,8 @@ final class CausalLearningPromotionService
         $promotion = new CausalLearningPromotion(
             status: 'promoted', candidateHash: $candidate->candidateHash, decisionHash: $verdict->decisionHash,
             scope: $candidate->data['scope'], activeVersion: $nextVersion, previousVersion: $candidate->data['baseline'],
-            rollbackVersion: $candidate->data['rollback'], expiresAt: $candidate->data['expiry'], reason: 'causal_evidence_admitted',
+            rollbackVersion: $candidate->data['rollback'], expiresAt: $candidate->data['expiry'],
+            observationSchedule: $candidate->data['observation_schedule'], reason: 'causal_evidence_admitted',
         );
         $this->record($promotion, 'causal.learning.promoted');
 
@@ -56,7 +57,8 @@ final class CausalLearningPromotionService
         $revoked = new CausalLearningPromotion(
             status: 'revoked', candidateHash: $promotion->candidateHash, decisionHash: $promotion->decisionHash,
             scope: $promotion->scope, activeVersion: $promotion->rollbackVersion, previousVersion: $promotion->activeVersion,
-            rollbackVersion: $promotion->rollbackVersion, expiresAt: $promotion->expiresAt, reason: $reason,
+            rollbackVersion: $promotion->rollbackVersion, expiresAt: $promotion->expiresAt,
+            observationSchedule: $promotion->observationSchedule, reason: $reason,
         );
         $this->record($revoked, 'causal.learning.revoked');
 
@@ -75,7 +77,8 @@ final class CausalLearningPromotionService
         $ledger->record(LedgerEventType::LearningProposed, [
             'event_name' => $eventName, 'candidate_hash' => $promotion->candidateHash, 'decision_hash' => $promotion->decisionHash,
             'status' => $promotion->status, 'scope' => $promotion->scope, 'active_version' => $promotion->activeVersion,
-            'rollback_version' => $promotion->rollbackVersion, 'expires_at' => $promotion->expiresAt, 'reason' => $promotion->reason,
+            'rollback_version' => $promotion->rollbackVersion, 'expires_at' => $promotion->expiresAt,
+            'observation_schedule' => $promotion->observationSchedule, 'reason' => $promotion->reason,
             'claim_eligible' => false,
         ], ['event_id' => $eventId, 'correlation_id' => $promotion->candidateHash, 'scope_type' => 'causal_learning',
             'scope_id' => $promotion->scope, 'emitter_stage' => 'atlas.compounding.causal_promotion']);
