@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\NativeWorker;
 
 use App\Console\Commands\AtlasSelfConstructionRuntimeDaemonCommand;
+use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfConstruction\NativeWorker\AtlasNativeWorkerProductionCallbacks;
 use App\Services\Ai\SelfConstruction\RuntimeDaemon\AtlasSelfConstructionRuntimeDaemonCycle;
 use Tests\TestCase;
@@ -36,5 +37,25 @@ final class AtlasNativeWorkerProductionCallbacksTest extends TestCase
             AtlasSelfConstructionRuntimeDaemonCycle::class,
             $cycle,
         );
+    }
+
+    public function test_autonomos_runtime_report_cannot_request_a_direct_commit(): void
+    {
+        $serving = app(AtlasTaskServingService::class);
+        $callbacks = new AtlasNativeWorkerProductionCallbacks(
+            $serving,
+            app(\App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchMaterializer::class),
+        );
+
+        $result = $callbacks->report('atlas-self-construction-runtime-daemon', [
+            'task_packet_id' => 'task-direct-commit',
+            'lease_id' => 'lease-direct-commit',
+            'outcome' => 'success',
+            'commit' => true,
+        ]);
+
+        $this->assertSame(AtlasTaskServingService::REPORT_SCHEMA, $result['schema']);
+        $this->assertSame('invalid_report', $result['status']);
+        $this->assertSame('autonomos_direct_commit_forbidden', $result['reason']);
     }
 }

@@ -41,10 +41,7 @@ final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerRec
                 return $next;
             },
             'report_callback' => function (array $outcome) use ($clientId): array {
-                $taskPacketId = (string) ($outcome['task_packet_id'] ?? '');
-                $leaseId = (string) ($outcome['lease_id'] ?? '');
-
-                return $this->serving->report($clientId, $taskPacketId, $leaseId, $outcome);
+                return $this->report($clientId, $outcome);
             },
             'patch_materializer' => function (array $patchPlan): array {
                 return $this->patchMaterializer->materialize($patchPlan);
@@ -63,6 +60,16 @@ final class AtlasNativeWorkerProductionCallbacks implements AtlasNativeWorkerRec
     /** @param array<string,mixed> $outcome @return array<string,mixed> */
     public function report(string $clientId, array $outcome): array
     {
+        if ($clientId === 'atlas-self-construction-runtime-daemon' && (bool) ($outcome['commit'] ?? false)) {
+            return [
+                'schema' => AtlasTaskServingService::REPORT_SCHEMA,
+                'status' => 'invalid_report',
+                'client_id' => $clientId,
+                'reason' => 'autonomos_direct_commit_forbidden',
+                'lease_closed' => false,
+            ];
+        }
+
         return $this->serving->report(
             $clientId,
             (string) ($outcome['task_packet_id'] ?? ''),
