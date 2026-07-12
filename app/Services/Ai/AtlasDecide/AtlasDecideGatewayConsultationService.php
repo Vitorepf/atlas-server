@@ -42,9 +42,17 @@ final class AtlasDecideGatewayConsultationService
 
     public const VERDICT_FREE_TO_CHOOSE = 'free_to_choose';
 
+    public const VERDICT_ABSTAINED_UNCERTAIN = 'abstained_uncertain';
+
     public const VERDICT_REQUIRES_APPROVAL = 'requires_approval';
 
     public const VERDICT_BLOCKED = 'blocked';
+
+    private const MULTK04_FORMULA_VERSION = 'atlas.decide.abstention_uncertainty.v1';
+
+    private const MULTK04_LOWER_BOUND_FLOOR = 0.8;
+
+    private const MULTK04_WIDTH_CEILING = 0.35;
 
     private ?string $logPathOverride = null;
 
@@ -120,7 +128,8 @@ final class AtlasDecideGatewayConsultationService
             'requested_autonomy' => $requestedAutonomy['level'],
         ]);
 
-        $verdict = $this->deriveVerdict($activeRoute, $kernelEnv['decision'], $admissionEnv['decision']);
+        $abstention = $this->uncertaintyAbstention($context);
+        $verdict = $this->deriveVerdict($activeRoute, $kernelEnv['decision'], $admissionEnv['decision'], $abstention);
         $kernelHash = (string) ($kernelEnv['kernel_hash'] ?? $this->kernel->kernelHash());
         $routingBasis = $this->routingBasis($activeRoute, $verdict);
         $evidenceRefs = $this->evidenceRefs($activeRoute, (string) $kernelEnv['decision'], (string) $admissionEnv['decision'], $kernelHash);
@@ -143,6 +152,10 @@ final class AtlasDecideGatewayConsultationService
             'kernel_hash' => $kernelHash,
             'requested_autonomy' => $requestedAutonomy,
         ];
+        if ($abstention !== null) {
+            $envelope['abstention'] = $abstention;
+            $envelope['operational_equivalent'] = self::VERDICT_FREE_TO_CHOOSE;
+        }
         $envelope['envelope_hash'] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::ENVELOPE_SCHEMA,
             'task_category' => $taskCategory,
@@ -201,11 +214,14 @@ final class AtlasDecideGatewayConsultationService
         ];
     }
 
-    private function deriveVerdict(?array $activeRoute, string $kernelDecision, string $admissionDecision): string
+    private function deriveVerdict(?array $activeRoute, string $kernelDecision, string $admissionDecision, ?array $abstention = null): string
     {
         if ($kernelDecision === AtlasConstitutionalKernelService::DECISION_BLOCK
             || $admissionDecision === AtlasAutonomyAdmissionService::DECISION_DENY) {
             return self::VERDICT_BLOCKED;
+        }
+        if ($abstention !== null) {
+            return self::VERDICT_ABSTAINED_UNCERTAIN;
         }
         if ($activeRoute === null || empty($activeRoute['provider'])) {
             return self::VERDICT_FREE_TO_CHOOSE;
@@ -215,6 +231,73 @@ final class AtlasDecideGatewayConsultationService
         }
 
         return self::VERDICT_REQUIRES_APPROVAL;
+    }
+
+    /**
+     * MULTK-04 — explicit abstention when every measured candidate remains below
+     * the lower-bound floor and the evidence is still wide. This never blocks;
+     * it only names the same operational path that used to be an unexplained
+     * `free_to_choose`.
+     *
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>|null
+     */
+    private function uncertaintyAbstention(array $context): ?array
+    {
+        $candidates = (array) ($context['uncertainty_candidates'] ?? []);
+        if ($candidates === []) {
+            return null;
+        }
+
+        $measured = [];
+        foreach ($candidates as $candidate) {
+            if (! is_array($candidate)) {
+                continue;
+            }
+            $interval = (array) ($candidate['uncertainty_interval'] ?? $candidate['interval'] ?? []);
+            if (($interval['status'] ?? null) !== 'ok'
+                || ! is_numeric($interval['lower_bound'] ?? null)
+                || ! is_numeric($interval['upper_bound'] ?? null)) {
+                continue;
+            }
+            $lower = max(0.0, min(1.0, (float) $interval['lower_bound']));
+            $upper = max($lower, min(1.0, (float) $interval['upper_bound']));
+            $measured[] = [
+                'provider' => (string) ($candidate['provider'] ?? 'unknown'),
+                'model' => (string) ($candidate['model'] ?? 'unknown'),
+                'lower_bound' => round($lower, 6),
+                'upper_bound' => round($upper, 6),
+                'width' => round($upper - $lower, 6),
+            ];
+        }
+
+        if ($measured === []) {
+            return null;
+        }
+
+        foreach ($measured as $candidate) {
+            if ((float) $candidate['lower_bound'] >= self::MULTK04_LOWER_BOUND_FLOOR) {
+                return null;
+            }
+        }
+
+        $maxWidth = max(array_map(static fn (array $candidate): float => (float) $candidate['width'], $measured));
+        if ($maxWidth <= self::MULTK04_WIDTH_CEILING) {
+            return null;
+        }
+
+        return [
+            'schema_version' => self::MULTK04_FORMULA_VERSION,
+            'status' => self::VERDICT_ABSTAINED_UNCERTAIN,
+            'reason' => 'all_candidates_below_floor_with_wide_uncertainty',
+            'operational_effect' => 'continue_gateway_default',
+            'operational_equivalent' => self::VERDICT_FREE_TO_CHOOSE,
+            'lower_bound_floor' => self::MULTK04_LOWER_BOUND_FLOOR,
+            'width_ceiling' => self::MULTK04_WIDTH_CEILING,
+            'candidate_count' => count($measured),
+            'max_interval_width' => round($maxWidth, 6),
+            'candidates' => $measured,
+        ];
     }
 
     /**
@@ -342,6 +425,9 @@ final class AtlasDecideGatewayConsultationService
         $basis = strtolower(trim((string) ($activeRoute['routing_basis'] ?? $activeRoute['basis'] ?? '')));
         if (in_array($basis, ['score', 'cost_outcome', 'exploration'], true)) {
             return $basis;
+        }
+        if ($verdict === self::VERDICT_ABSTAINED_UNCERTAIN) {
+            return 'abstention_uncertainty';
         }
 
         return $verdict === self::VERDICT_FOLLOW_LEARNED ? 'score' : 'gateway_default';

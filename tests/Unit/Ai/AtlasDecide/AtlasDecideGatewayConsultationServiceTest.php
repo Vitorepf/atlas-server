@@ -80,6 +80,75 @@ class AtlasDecideGatewayConsultationServiceTest extends TestCase
         $this->assertNull($env['active_route']);
     }
 
+    public function test_multk04_wide_uncertainty_abstains_but_keeps_gateway_default_operationally(): void
+    {
+        $svc = $this->build(null);
+        $env = $svc->consult([
+            'task_category' => 'code_generation',
+            'role' => 'primary',
+            'privacy_class' => 'public',
+            'uncertainty_candidates' => [
+                [
+                    'provider' => 'codex_cli',
+                    'model' => 'gpt-5.5',
+                    'uncertainty_interval' => [
+                        'status' => 'ok',
+                        'lower_bound' => 0.42,
+                        'upper_bound' => 0.91,
+                    ],
+                ],
+                [
+                    'provider' => 'claude_cli',
+                    'model' => 'opus',
+                    'uncertainty_interval' => [
+                        'status' => 'ok',
+                        'lower_bound' => 0.51,
+                        'upper_bound' => 0.90,
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(AtlasDecideGatewayConsultationService::VERDICT_ABSTAINED_UNCERTAIN, $env['verdict']);
+        $this->assertSame(AtlasDecideGatewayConsultationService::VERDICT_FREE_TO_CHOOSE, $env['operational_equivalent']);
+        $this->assertSame('continue_gateway_default', data_get($env, 'abstention.operational_effect'));
+        $this->assertSame(2, data_get($env, 'abstention.candidate_count'));
+        $this->assertSame('abstention_uncertainty', $env['routing_basis']);
+    }
+
+    public function test_multk04_candidate_above_floor_never_abstains(): void
+    {
+        $svc = $this->build(null);
+        $env = $svc->consult([
+            'task_category' => 'code_generation',
+            'role' => 'primary',
+            'privacy_class' => 'public',
+            'uncertainty_candidates' => [
+                [
+                    'provider' => 'codex_cli',
+                    'model' => 'gpt-5.5',
+                    'uncertainty_interval' => [
+                        'status' => 'ok',
+                        'lower_bound' => 0.82,
+                        'upper_bound' => 0.99,
+                    ],
+                ],
+                [
+                    'provider' => 'claude_cli',
+                    'model' => 'opus',
+                    'uncertainty_interval' => [
+                        'status' => 'ok',
+                        'lower_bound' => 0.40,
+                        'upper_bound' => 0.95,
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(AtlasDecideGatewayConsultationService::VERDICT_FREE_TO_CHOOSE, $env['verdict']);
+        $this->assertArrayNotHasKey('abstention', $env);
+    }
+
     public function test_active_route_with_autonomous_admission_returns_follow_learned(): void
     {
         $svc = $this->build([

@@ -181,7 +181,7 @@
 - [ ] MAXN-06 — pending
 - [ ] RAGX-08 — pending
 - [x] MULTK-03 — landed · read-only `atlas:decide:replay-divergence --json` replays `gateway_consultations.jsonl` without writing gateway/live ledgers, publishes `{n_replayed,n_diverged,divergence_rate}` plus per-scope cells with `insufficient_n` below n=10; same-state replay returns divergence 0; series `atlas.decide.replay_divergence.v1` registered in ELEV-20s + ELEV-24 rotation policy; tests: `php artisan test tests/Feature/Ai/AcosMax/Multk03DecisionReplayTest.php tests/Feature/Ai/AcosMax/Elev24RotationRegistryTest.php`
-- [ ] MULTK-04 — pending
+- [x] MULTK-04 — landed · `AtlasDecideGatewayConsultationService` now emits first-class verdict `abstained_uncertain` when explicit MULTK-01 uncertainty intervals all sit below the lower-bound floor and remain wide; operational effect stays `free_to_choose`/gateway default (no queue/block), candidate above floor never abstains, and receipt routing basis is `abstention_uncertainty`; tests: `php artisan test tests/Unit/Ai/AtlasDecide/AtlasDecideGatewayConsultationServiceTest.php`
 - [ ] MULTK-02 — pending
 - [ ] MULTN15-03 — pending
 - [ ] MULTN15-04 — pending
