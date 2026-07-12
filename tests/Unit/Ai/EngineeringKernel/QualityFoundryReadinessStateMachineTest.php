@@ -80,4 +80,25 @@ final class QualityFoundryReadinessStateMachineTest extends TestCase
         self::assertSame('implemented_not_cutover_ready', $report['cutover_state']);
         self::assertContains('cutover_performed_without_authorized_state_transition', $report['blockers']);
     }
+
+    public function test_v1_removal_requires_zero_use_closed_rollback_replay_export_and_n_minus_1_clearance(): void
+    {
+        $machine = new QualityFoundryReadinessStateMachine;
+        $blocked = $machine->evaluate([
+            'v1_observed_use_count' => 0,
+            'v1_rollback_window_closed' => true,
+            'v1_replay_export_verified' => true,
+        ]);
+        self::assertSame('v1_removal_blocked', $blocked['v1_removal_state']);
+        self::assertContains('v1_removal_gate_missing:n_minus_1_no_longer_needed', $blocked['blockers']);
+
+        $ready = $machine->evaluate([
+            'v1_observed_use_count' => 0,
+            'v1_rollback_window_closed' => true,
+            'v1_replay_export_verified' => true,
+            'n_minus_1_no_longer_needed' => true,
+        ]);
+        self::assertSame('v1_removal_ready', $ready['v1_removal_state']);
+        self::assertFalse($ready['v1_removal']['code_removal_performed']);
+    }
 }

@@ -40,6 +40,7 @@ final class QualityFoundryReadinessStateMachine
         $cutover = $this->cutoverState($evidence, $implementation);
         $temporal = $this->temporalState($evidence);
         $comparative = $this->comparativeState($evidence);
+        $v1Removal = $this->v1RemovalState($evidence);
 
         $payload = [
             'schema' => self::SCHEMA,
@@ -47,6 +48,7 @@ final class QualityFoundryReadinessStateMachine
             'cutover_state' => $cutover['state'],
             'temporal_state' => $temporal['state'],
             'comparative_state' => $comparative['state'],
+            'v1_removal_state' => $v1Removal['state'],
             'highest_honest_state' => $cutover['state'] === 'cutover_ready'
                 ? ($temporal['state'] === 'pending' ? 'cutover_ready' : $temporal['state'])
                 : $implementation['state'],
@@ -60,6 +62,7 @@ final class QualityFoundryReadinessStateMachine
             'cutover' => $cutover,
             'temporal' => $temporal,
             'comparative' => $comparative,
+            'v1_removal' => $v1Removal,
             'verification_refs' => array_values((array) ($evidence['verification_refs'] ?? [])),
         ];
 
@@ -71,6 +74,7 @@ final class QualityFoundryReadinessStateMachine
             (array) ($cutover['blockers'] ?? []),
             (array) ($temporal['blockers'] ?? []),
             (array) ($comparative['blockers'] ?? []),
+            (array) ($v1Removal['blockers'] ?? []),
             (array) ($payload['blockers'] ?? []),
         )));
         $payload['status'] = $payload['blockers'] === [] ? 'ready' : 'blocked';
@@ -164,6 +168,25 @@ final class QualityFoundryReadinessStateMachine
             'state' => $valid ? 'world_10x_quality_proven' : 'world_10x_quality_proof_pending',
             'blockers' => $valid ? [] : ['rivals_comparative_evidence_pending'],
             'issuer' => $valid ? 'rivals' : null,
+        ];
+    }
+
+    /** @param array<string,mixed> $evidence @return array<string,mixed> */
+    private function v1RemovalState(array $evidence): array
+    {
+        $checks = [
+            'zero_observed_use' => (int) ($evidence['v1_observed_use_count'] ?? -1) === 0,
+            'rollback_window_closed' => ($evidence['v1_rollback_window_closed'] ?? false) === true,
+            'replay_export_verified' => ($evidence['v1_replay_export_verified'] ?? false) === true,
+            'n_minus_1_no_longer_needed' => ($evidence['n_minus_1_no_longer_needed'] ?? false) === true,
+        ];
+        $missing = array_keys(array_filter($checks, static fn (bool $value): bool => ! $value));
+
+        return [
+            'state' => $missing === [] ? 'v1_removal_ready' : 'v1_removal_blocked',
+            'checks' => $checks,
+            'blockers' => array_map(static fn (string $check): string => 'v1_removal_gate_missing:'.$check, $missing),
+            'code_removal_performed' => false,
         ];
     }
 }
