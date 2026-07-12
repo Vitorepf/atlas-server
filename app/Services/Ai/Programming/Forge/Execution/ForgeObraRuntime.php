@@ -143,7 +143,20 @@ final class ForgeObraRuntime
         $cycle = $this->cycles->startCycle($intake, $packet, $built, $state);
         $state->refresh();
 
-        if ($budget->allowProvider && $this->kernel !== null) {
+        if ($budget->allowProvider && $this->kernel === null) {
+            $reason = 'elite_executor_kernel_unavailable';
+            $this->cycles->block($cycle, $reason, $state);
+            $state->refresh();
+
+            return ForgeTickResult::blocked(
+                ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
+                (string) $packet->packet_id,
+                (string) $cycle->cycle_id,
+                $reason,
+            );
+        }
+
+        if ($budget->allowProvider) {
             $workspace = (string) data_get($binding, 'workspace', base_path());
             $order = ($this->orders ?? new EngineeringModeExecutionOrderFactory)->make([
                 'run_hash' => (string) $cycle->cycle_hash,

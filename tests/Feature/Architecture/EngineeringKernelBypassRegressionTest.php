@@ -82,6 +82,22 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
         $this->assertSame([], $report['violations']);
     }
 
+    public function test_forge_provider_execution_cannot_fallback_to_planned_without_kernel(): void
+    {
+        $source = (string) file_get_contents(base_path('app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php'));
+
+        $this->assertStringContainsString(
+            "elite_executor_kernel_unavailable",
+            $source,
+            'Forge provider execution must fail closed when the shared Kernel is unavailable.',
+        );
+        $this->assertStringContainsString(
+            'if ($budget->allowProvider) {',
+            $source,
+            'Forge mutative provider execution must enter the shared Kernel branch only after the null guard.',
+        );
+    }
+
     /**
      * @param  class-string  $class
      * @return list<string>
