@@ -77,7 +77,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [x] Write RED construction/adjudication tests for missing hypothesis/assignment/baseline/metric/window/effect/IC/confounders/rollback/outcome, post-outcome assignment, hash mismatch, simulated outcome and non-reversible promotion.
 - [x] Add RED causal fixtures for selection bias, regression to mean, concurrent change, novelty/provider drift and outcome lag.
 - [x] Implement immutable candidate/verdict types with deterministic hash and exact verdict set.
-- [ ] Verify assignment predates execution and matches run/order/release/outcome; keep intent-to-treat failures in analysis.
+- [x] Verify assignment predates execution and matches run/order/release/outcome; keep intent-to-treat failures in analysis.
 - [x] Return `hold` for correlation/uncertainty, `reject` for invalid evidence, `emit_code_task` for code, and `promote_reversible` only for authorized reversible classes.
 - [x] Emit `learning.adjudicated` to the canonical ledger; idempotent replay produces the same verdict.
 - [x] Run focused causal gate, outcome/temporal, assignment replay and adversarial confounder tests.
