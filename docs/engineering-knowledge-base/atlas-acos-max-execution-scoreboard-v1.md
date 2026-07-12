@@ -198,7 +198,7 @@
 - [ ] MULTV-07 — pending
 - [ ] MULTV-05 — pending
 - [x] MULTX-03 — landed · `AtlasEngineeringOutcomeRecorder` emits additive `atlas.engineering_outcome.v2` contract in the spine with unified executor task categories, provider presence, explicit `verified_source_present`, and fail-closed `verified=false`/`verified_basis=absent` when caller omits verification; compounding and live-outcome fan-out now consume the derived contract instead of defaulting passed outcomes to verified; tests: `php artisan test tests/Feature/Ai/Aemor/AtlasEngineeringOutcomeRecorderTest.php`
-- [ ] MULTX-02 — pending
+- [x] MULTX-02 — landed · `atlas:flywheel:funnel --json` publishes the M leakage funnel by executor with five raw stages `{num,den,status}` (`outcomes_without_lesson`, `lessons_without_promotion`, `promoted_without_recall`, `recalls_without_citation`, `citations_without_better_outcome`); empty windows return `no_signal` and no scalar health score is emitted; series `atlas.m.funnel.v1` registered in ELEV-20s + ELEV-24 rotation policy; tests: `php artisan test tests/Feature/Ai/AcosMax/Multx02FunnelTest.php` (+ rotation guard green; dead-series guard has pre-existing unrelated gaps MAXH-10/MAXL-03/MAXL-04/MAXM-06/REC-03/REC-05)
 - [ ] MULTX-04 — pending
 - [ ] MULTX-06 (série) — pending
 - [ ] ESP-06 — pending

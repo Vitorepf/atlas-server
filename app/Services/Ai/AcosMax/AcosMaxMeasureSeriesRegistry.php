@@ -11,6 +11,7 @@ use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
+use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
@@ -261,6 +262,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:acos.flywheel.loops.v1',
             ],
             [
+                'slice' => 'MULTX-02',
+                'series' => AtlasFlywheelFunnelService::MEASURE_ID,
+                'path' => 'atlas:flywheel:funnel --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => 30,
+                'ttl_source' => 'freeze:atlas.m.funnel.v1',
+            ],
+            [
                 'slice' => 'MULTX-06',
                 'series' => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
                 'path' => 'atlas:flywheel:learning-latency --json',
@@ -343,17 +353,17 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 'slice' => 'MAXI-04',
-                'series' => \App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+                'series' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
                 'path' => storage_path('app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl'),
                 'source_type' => 'jsonl',
                 'timestamp_field' => 'recorded_at',
-                'ttl_days' => \App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
+                'ttl_days' => AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
                 'ttl_source' => 'freeze:atlas.immune.classifier_hybrid.v1',
             ],
             [
                 'slice' => 'TETO-01',
-                'series' => \App\Services\Ai\AcosMax\AtlasNCaptureDrillService::MEASURE_ID,
-                'path' => storage_path(\App\Services\Ai\AcosMax\AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH),
+                'series' => AtlasNCaptureDrillService::MEASURE_ID,
+                'path' => storage_path(AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH),
                 'source_type' => 'jsonl',
                 'timestamp_field' => 'recorded_at',
                 'ttl_days' => 365,
@@ -361,7 +371,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 'slice' => 'MAXA-06',
-                'series' => \App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID,
+                'series' => AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID,
                 'path' => 'AtlasKnowledgeItemEmbeddingCoverageService::report',
                 'source_type' => 'computed_reader_field',
                 'timestamp_field' => 'generated_at',

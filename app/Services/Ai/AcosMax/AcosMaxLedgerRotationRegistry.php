@@ -176,6 +176,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'MULTX-01 loops',
             ],
+            'atlas.m.funnel.v1' => [
+                'max_size_mb' => 32,
+                'max_age_days' => 30,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'MULTX-02 diagnostic funnel by executor',
+            ],
             'acos.learning_latency.v1' => [
                 'max_size_mb' => 32,
                 'max_age_days' => 90,
