@@ -164,6 +164,12 @@ final class AcosMaxLedgerRotationRegistry
                 'mode' => 'rotate_hybrid',
                 'rationale' => 'ESP-06 outcome envelope adapters',
             ],
+            'atlas.esp_09.challenger_advisory.v1' => [
+                'max_size_mb' => 16,
+                'max_age_days' => 90,
+                'mode' => 'rotate_hybrid',
+                'rationale' => 'ESP-09 independent challenger advisory series',
+            ],
             'operator.approval_history.v1' => [
                 'max_size_mb' => 32,
                 'max_age_days' => 180,

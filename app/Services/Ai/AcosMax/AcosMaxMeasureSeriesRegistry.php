@@ -247,6 +247,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'ttl_source' => 'freeze:atlas.esp_06.outcome_envelope.v1',
             ],
             [
+                'slice' => 'ESP-09',
+                'series' => Esp09IndependentChallengerService::MEASURE_ID,
+                'path' => 'Esp09IndependentChallengerService::refutationSeries',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) Esp09IndependentChallengerService::freezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.esp_09.challenger_advisory.v1',
+            ],
+            [
                 'slice' => 'MULTN15-02',
                 'series' => OperatorApprovalHistoryMeter::MEASURE_ID,
                 'path' => 'atlas:operator-approval-history --json',
