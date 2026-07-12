@@ -86,13 +86,13 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 
 **Allowed files:** read-only inspection of all Rivals files first; edits only after claims are released/coordinated and a packet-specific scope is agreed.
 
-- [ ] Record RED behavior for every partial/absent master requirement and every failing baseline test; missing live proof remains RED even when a class/file exists.
-- [ ] Check blackboard for every intended Rivals path, inspect `git status`, diff/index/untracked artifacts and recent commits, and record ownership/conflicts without staging or reverting them.
-- [ ] Run the current focused Rivals unit/feature suites and capture exact baseline failures; do not fix unrelated failures in this packet.
-- [ ] Inventory existing implementations of preregistration, run state, suites/arms/models, contamination, evidence pack/replay, statistics, adjudication, claims and reports.
-- [ ] Map each master requirement to `implemented_and_proven`, `implemented_unproven`, `partial`, or `absent`; prefer existing owners and delete no concurrent work.
-- [ ] Freeze schema/version hashes and current golden fixtures for later RED tests.
-- [ ] Obtain non-conflicting file claims for Packet 2 before implementation.
+- [x] Record RED behavior for every partial/absent master requirement and every failing baseline test; missing live proof remains RED even when a class/file exists.
+- [x] Check blackboard for every intended Rivals path, inspect `git status`, diff/index/untracked artifacts and recent commits, and record ownership/conflicts without staging or reverting them.
+- [x] Run the current focused Rivals unit/feature suites and capture exact baseline failures; do not fix unrelated failures in this packet.
+- [x] Inventory existing implementations of preregistration, run state, suites/arms/models, contamination, evidence pack/replay, statistics, adjudication, claims and reports.
+- [x] Map each master requirement to `implemented_and_proven`, `implemented_unproven`, `partial`, or `absent`; prefer existing owners and delete no concurrent work.
+- [x] Freeze schema/version hashes and current golden fixtures for later RED tests.
+- [x] Obtain non-conflicting file claims for Packet 2 before implementation.
 
 **GREEN acceptance:** the implementation packets have exact owners/paths, no concurrent change was overwritten, and baseline test/evidence gaps are recorded.
 
@@ -113,7 +113,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, content-addr
 **Allowed files:** those Rivals core/support/benchmark owners, versioned config, hermetic fixtures/tests.
 
 - [ ] Write RED tests for run without preregistration, mutable unit after freeze, hidden gold inside workspace, unrestricted egress, contamination canary hit, known/public memorized unit, post-unblinding invalidation and unequal resource pinning.
-- [ ] Require preregistration before run creation: hypothesis, arms, unit/repo/time slice, metric/weights, outcome windows, power, exclusion/invalidation, resources, versions and analysis plan.
+- [x] Require preregistration before run creation: hypothesis, arms, unit/repo/time slice, metric/weights, outcome windows, power, exclusion/invalidation, resources, versions and analysis plan.
 - [ ] Freeze case/repo as the statistical unit with immutable hashes and nested repetition IDs.
 - [ ] Materialize candidate workspace without hidden tests/golds; mediate egress and inject contamination canaries.
 - [ ] Rotate/renew private cases and alternative solutions; invalidate only under preregistered rules before unblinding.

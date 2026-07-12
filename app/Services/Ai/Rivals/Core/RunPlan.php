@@ -96,11 +96,20 @@ class RunPlan
 
     public function persist(): string
     {
-        $runId = $this->data['run_id'];
+        $plan = $this;
+        if (($this->data['preregistration_hash'] ?? null) === null) {
+            $preregistration = Preregistration::fromPlan($this);
+            $plan = self::fromArray(array_replace($this->data, [
+                'preregistration_hash' => $preregistration->hash(),
+            ]));
+            $preregistration->persist();
+        }
+
+        $runId = $plan->data['run_id'];
         RunPaths::ensureDir(RunPaths::runDir($runId));
         file_put_contents(
             RunPaths::planPath($runId),
-            json_encode($this->data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+            json_encode($plan->data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
         );
 
         return $runId;
