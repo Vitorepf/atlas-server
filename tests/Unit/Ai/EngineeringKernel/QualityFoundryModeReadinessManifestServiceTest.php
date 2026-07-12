@@ -85,6 +85,21 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertContains('autonomos:zero_human_evidence_missing', $manifest['blockers']);
     }
 
+    public function test_dev_readiness_requires_risk_band_canaries_surface_parity_and_operator_measurement(): void
+    {
+        $input = $this->input();
+        unset($input['modes']['dev']['evidence']['canary_risk_bands']);
+        unset($input['modes']['dev']['evidence']['surface_parity']);
+        unset($input['modes']['dev']['evidence']['operator_effort']);
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertSame('blocked', $manifest['status']);
+        self::assertContains('dev:risk_band_canaries_missing', $manifest['blockers']);
+        self::assertContains('dev:surface_parity_missing', $manifest['blockers']);
+        self::assertContains('dev:operator_effort_evidence_missing', $manifest['blockers']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
@@ -105,6 +120,12 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
                 'crash_boundaries_exercised' => true,
                 'wip_preserved' => true,
                 'zero_human_proven' => true,
+                'canary_risk_bands' => ['R0', 'R3', 'R5'],
+                'surface_parity' => true,
+                'operator_effort' => [
+                    'measurement_mode' => 'observed_operator_runs',
+                    'run_count' => 1,
+                ],
             ],
         ];
 

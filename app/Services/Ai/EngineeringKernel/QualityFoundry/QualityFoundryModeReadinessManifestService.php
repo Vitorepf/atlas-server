@@ -158,6 +158,21 @@ final class QualityFoundryModeReadinessManifestService
         if ($mode === 'autonomos' && ($evidence['zero_human_proven'] ?? false) !== true) {
             $blockers[] = 'zero_human_evidence_missing';
         }
+        if ($mode === 'dev') {
+            $bands = array_values(array_unique(array_map('strval', (array) ($evidence['canary_risk_bands'] ?? []))));
+            sort($bands, SORT_STRING);
+            if ($bands !== ['R0', 'R3', 'R5']) {
+                $blockers[] = 'risk_band_canaries_missing';
+            }
+            if (($evidence['surface_parity'] ?? false) !== true) {
+                $blockers[] = 'surface_parity_missing';
+            }
+            $operatorEffort = is_array($evidence['operator_effort'] ?? null) ? $evidence['operator_effort'] : [];
+            if (($operatorEffort['measurement_mode'] ?? null) !== 'observed_operator_runs'
+                || (int) ($operatorEffort['run_count'] ?? 0) < 1) {
+                $blockers[] = 'operator_effort_evidence_missing';
+            }
+        }
 
         return $blockers;
     }
