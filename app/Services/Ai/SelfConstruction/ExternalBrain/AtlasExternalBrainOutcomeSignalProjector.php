@@ -123,6 +123,7 @@ final class AtlasExternalBrainOutcomeSignalProjector
             'outcome_confidence' => $confidence,
             'outcome_gap' => $hasFreshEvidence ? 0 : 1,
             'outcome_signal' => ! $hasFreshEvidence ? 'unknown' : ($adverse > $success ? 'negative' : 'positive'),
+            'failure_recurrence' => $adverse,
             'recurrence' => max((int) round($recurrence), count($rows) > 1 ? count($rows) - 1 : 0),
             'evidence_refs' => array_values(array_unique($refs)),
         ];

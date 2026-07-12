@@ -630,4 +630,50 @@ final class AtlasStrategyCouncilLeverageRankerTest extends TestCase
         $this->assertSame(0.0, $verdict['ranked'][2]['factors']['evidence_freshness']);
         $this->assertContains('evidence_freshness=0', $verdict['ranked'][2]['reasons']);
     }
+
+    public function test_stale_domain_facts_and_outcome_free_work_receive_no_freshness_credit(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'stale-domain',
+                'world_freshness' => 0.10,
+                'outcome_freshness' => 0.90,
+                'outcome_confidence' => 0.0,
+            ]),
+            $this->candidate([
+                'candidate_id' => 'fresh-domain',
+                'world_freshness' => 0.90,
+                'outcome_freshness' => 0.90,
+                'outcome_confidence' => 0.8,
+                'outcome_signal' => 'positive',
+            ]),
+            $this->candidate(['candidate_id' => 'outcome-free']),
+        ]);
+
+        $this->assertSame(['fresh-domain', 'stale-domain', 'outcome-free'], array_column($verdict['ranked'], 'candidate_id'));
+        $this->assertSame(0.0, $verdict['ranked'][2]['factors']['outcome_confidence']);
+        $this->assertSame('unknown', $verdict['ranked'][2]['factors']['outcome_signal']);
+    }
+
+    public function test_repeated_failures_remain_negative_and_do_not_become_success(): void
+    {
+        $verdict = (new AtlasStrategyCouncilLeverageRanker)->rank([
+            $this->candidate([
+                'candidate_id' => 'repeated-failure',
+                'outcome_signal' => 'negative',
+                'outcome_confidence' => 0.0,
+                'failure_recurrence' => 4,
+            ]),
+            $this->candidate([
+                'candidate_id' => 'unknown-work',
+                'outcome_signal' => 'unknown',
+                'outcome_confidence' => 0.0,
+            ]),
+        ]);
+
+        $this->assertSame('unknown-work', $verdict['ranked'][0]['candidate_id']);
+        $this->assertSame('negative', $verdict['ranked'][1]['factors']['outcome_signal']);
+        $this->assertSame(4, $verdict['ranked'][1]['factors']['failure_recurrence']);
+        $this->assertContains('outcome_signal=negative', $verdict['ranked'][1]['reasons']);
+    }
 }

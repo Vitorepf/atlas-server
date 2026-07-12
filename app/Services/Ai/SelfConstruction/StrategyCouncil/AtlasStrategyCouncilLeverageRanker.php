@@ -114,6 +114,12 @@ final class AtlasStrategyCouncilLeverageRanker
             $worldFreshness = max(0.0, min(1.0, (float) ($c['world_freshness'] ?? $fallbackFreshness)));
             $outcomeFreshness = max(0.0, min(1.0, (float) ($c['outcome_freshness'] ?? $fallbackFreshness)));
             $evidenceFreshness = min($worldFreshness, $outcomeFreshness);
+            $outcomeSignal = strtolower((string) ($c['outcome_signal'] ?? 'unknown'));
+            $outcomeSignalRank = match ($outcomeSignal) {
+                'positive' => 2,
+                'unknown' => 1,
+                default => 0,
+            };
 
             $accepted[] = [
                 'candidate_id' => $id,
@@ -144,6 +150,9 @@ final class AtlasStrategyCouncilLeverageRanker
                     'recurrence' => (int) ($c['recurrence'] ?? 0),
                     'outcome_gap' => (int) ($c['outcome_gap'] ?? 0),
                     'outcome_confidence' => round(max(0.0, min(1.0, (float) ($c['outcome_confidence'] ?? 0.0))), 6),
+                    'outcome_signal' => $outcomeSignal,
+                    'outcome_signal_rank' => $outcomeSignalRank,
+                    'failure_recurrence' => max(0, (int) ($c['failure_recurrence'] ?? 0)),
                     'simplification_opportunity' => (int) ($c['simplification_opportunity'] ?? 0),
                     'verification_strength' => (int) ($c['verification_strength'] ?? 0),
                     'blast_radius' => (int) ($c['blast_radius'] ?? 0),
@@ -176,6 +185,7 @@ final class AtlasStrategyCouncilLeverageRanker
                 ?: $a['factors']['give_back_likelihood'] <=> $b['factors']['give_back_likelihood']
                 ?: $b['factors']['evidence_freshness'] <=> $a['factors']['evidence_freshness']
                 ?: $b['factors']['outcome_confidence'] <=> $a['factors']['outcome_confidence']
+                ?: $b['factors']['outcome_signal_rank'] <=> $a['factors']['outcome_signal_rank']
                 ?: $b['factors']['dependency_reach'] <=> $a['factors']['dependency_reach']
                 ?: $b['factors']['recurrence'] <=> $a['factors']['recurrence']
                 ?: $b['factors']['outcome_gap'] <=> $a['factors']['outcome_gap']
@@ -214,6 +224,8 @@ final class AtlasStrategyCouncilLeverageRanker
                 'recurrence='.$row['factors']['recurrence'],
                 'outcome_gap='.$row['factors']['outcome_gap'],
                 'outcome_confidence='.$row['factors']['outcome_confidence'],
+                'outcome_signal='.$row['factors']['outcome_signal'],
+                'failure_recurrence='.$row['factors']['failure_recurrence'],
                 'simplification_opportunity='.$row['factors']['simplification_opportunity'],
                 'verification_strength='.$row['factors']['verification_strength'],
                 'blast_radius='.$row['factors']['blast_radius'],
@@ -276,7 +288,7 @@ final class AtlasStrategyCouncilLeverageRanker
             }
         }
 
-        foreach (['evidence_freshness', 'outcome_confidence', 'dependency_reach', 'recurrence', 'outcome_gap', 'simplification_opportunity', 'verification_strength', 'blast_radius'] as $f) {
+        foreach (['evidence_freshness', 'outcome_confidence', 'outcome_signal_rank', 'dependency_reach', 'recurrence', 'outcome_gap', 'simplification_opportunity', 'verification_strength', 'blast_radius'] as $f) {
             $wv = (float) ($w[$f] ?? 0);
             $nv = (float) ($n[$f] ?? 0);
             if ($wv !== $nv) {
