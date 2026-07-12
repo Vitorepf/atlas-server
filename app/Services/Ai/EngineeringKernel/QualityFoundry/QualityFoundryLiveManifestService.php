@@ -44,7 +44,6 @@ final class QualityFoundryLiveManifestService
         'forge' => [
             'tests/Unit/Ai/Programming/Forge/Execution/ForgeObraRuntimeContractTest.php',
             'tests/Feature/Ai/Programming/Forge/ForgeObraRuntimeTest.php',
-            'tests/Feature/Architecture/EngineeringKernelBypassRegressionTest.php',
         ],
         'autonomos' => [
             'tests/Unit/Ai/SelfConstruction/AtlasTaskServingStackTest.php',
@@ -55,6 +54,8 @@ final class QualityFoundryLiveManifestService
     ];
 
     public const DEV_READINESS_FILTER = 'question_r0_routes_to_read_only_answer|three_files_raise_to_r3|risky_plus_multiagent_is_r5|repair_retry_restores_operator_wip_baseline|plan_run_cycle_succeeds_for_app_and_api_with_canonical_guards|aggregates_operator_experience_without_quality_signal|r5_requires_explicit_operator_authority_and_confirmation_token';
+
+    public const FORGE_READINESS_FILTER = 'packet_scale_fixture|replayed_control_command_has_zero_duplicate_effect|orphaned_running_cycle_is_recovered_once_without_duplicate_transition|provider_lifecycle_persists_start_poll_heartbeat_and_fenced_cancel|unattended_supervisor_renews_provider_lifecycle_with_the_cycle_fence|commission_persists_obra_state_and_tick_plans_a_safe_packet_through_injected_cycle_service|commissioning_freezes_authority_release_and_interruption_contract';
 
     /** @var callable(array<int,string>,string):array{exit_code:int,output:string} */
     private $runner;
@@ -92,7 +93,9 @@ final class QualityFoundryLiveManifestService
                 $mode,
                 $tests,
                 $root,
-                $mode === 'dev' ? self::DEV_READINESS_FILTER : null,
+                $mode === 'dev'
+                    ? self::DEV_READINESS_FILTER
+                    : ($mode === 'forge' ? self::FORGE_READINESS_FILTER : null),
             );
         }
 

@@ -125,12 +125,14 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
 
     public function test_successful_forge_fixture_records_scale_unique_effect_and_soak_start(): void
     {
+        $commands = [];
         $service = new QualityFoundryLiveManifestService(
             basePath: base_path(),
-            runner: static fn (array $command, string $cwd): array => [
-                'exit_code' => 0,
-                'output' => implode(' ', $command).' @ '.$cwd,
-            ],
+            runner: static function (array $command, string $cwd) use (&$commands): array {
+                $commands[] = $command;
+
+                return ['exit_code' => 0, 'output' => implode(' ', $command).' @ '.$cwd];
+            },
         );
 
         $manifest = $service->build();
@@ -141,6 +143,9 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertSame('24h', $forge['evidence']['soak_start_receipt']['window']);
         self::assertSame('initiated', $forge['evidence']['soak_start_receipt']['status']);
         self::assertNotSame('', $forge['evidence']['soak_start_receipt']['receipt_hash']);
+        self::assertNotEmpty(array_filter($commands, static fn (array $command): bool => in_array('--filter='.QualityFoundryLiveManifestService::FORGE_READINESS_FILTER, $command, true)));
+        self::assertNotEmpty($forge['execution']['shared_command']);
+        self::assertNotContains('--filter='.QualityFoundryLiveManifestService::FORGE_READINESS_FILTER, $forge['execution']['shared_command']);
     }
 
     public function test_successful_canonical_rollback_suite_is_recorded_as_live_rollback_evidence(): void
