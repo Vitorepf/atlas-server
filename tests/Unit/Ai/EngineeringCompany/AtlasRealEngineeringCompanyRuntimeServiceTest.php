@@ -10,6 +10,7 @@ use App\Models\AiEngineeringCompanyReleasePack;
 use App\Models\AiEngineeringCompanyReview;
 use App\Models\AiEngineeringCompanyRoleRun;
 use App\Services\Ai\EngineeringCompany\AtlasRealEngineeringCompanyRuntimeService;
+use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\BootsCompoundingSchema;
@@ -48,7 +49,8 @@ class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
         // real-execution smoke. The sovereign gate blocks the real-execution step, so the whole
         // engagement is honestly blocked instead of theatre-green. The role machinery still runs.
         $this->assertSame('blocked', $result['status']);
-        $this->assertCount(9, $result['roles']);
+        $this->assertCount(22, $result['roles']);
+        $this->assertSame(EngineeringRoleRoster::OFFICIAL_ROLES, array_column($result['roles'], 'role_id'));
         $this->assertSame('blocked', data_get($result, 'real_execution.status'));
         $this->assertSame('recorded', data_get($result, 'benchmark.status'));
         $this->assertSame('blocked', data_get($result, 'certification.status'));
@@ -57,7 +59,7 @@ class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
         $this->assertFalse((bool) data_get($result, 'certification.claim_policy.ready_to_claim_autonomous_software_company'));
         $this->assertFalse((bool) data_get($result, 'certification.claim_policy.ready_to_claim_external_superiority'));
         $this->assertTrue(AiEngineeringCompanyEngagement::query()->where('status', 'blocked')->exists());
-        $this->assertSame(9, AiEngineeringCompanyRoleRun::query()->distinct('role_id')->count('role_id'));
+        $this->assertSame(22, AiEngineeringCompanyRoleRun::query()->distinct('role_id')->count('role_id'));
         $this->assertTrue(AiEngineeringCompanyBenchmark::query()->where('status', 'recorded')->exists());
         $this->assertTrue(AiEngineeringCompanyCertification::query()->where('status', 'blocked')->exists());
     }

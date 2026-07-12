@@ -74,40 +74,27 @@ class AtlasRealEngineeringCompanyRuntimeService
     {
         $engagement = $this->createEngagement($goalText);
         $cycle = $this->createCycle($engagement);
-        $preExecutionRoles = [];
-        foreach (array_slice(self::ROLES, 0, 3) as $role) {
-            $preExecutionRoles[] = $this->runRole($engagement, $cycle, $role, 'passed');
-        }
-
         $realExecution = app(AtlasRealEngineeringExecutionKernelService::class)->run($goalText, [
             'context_sufficiency' => (int) ($options['context_sufficiency'] ?? 86),
             'test_status' => (string) ($options['test_status'] ?? 'passed'),
         ]);
-        $engineer = $this->runRole($engagement, $cycle, 'senior_engineer', data_get($realExecution, 'status') === 'completed' ? 'passed' : 'blocked', [
-            'real_execution_status' => data_get($realExecution, 'status'),
-            'patch_hash' => data_get($realExecution, 'patch_run.patch_hash'),
-            'test_hash' => data_get($realExecution, 'test_run.test_hash'),
-        ]);
-        $debugger = $this->runRole($engagement, $cycle, 'debugger', data_get($realExecution, 'repair_attempt') ? 'passed' : 'skipped', [
-            'repair_attempt' => data_get($realExecution, 'repair_attempt.repair_attempt_id'),
-        ]);
         $review = $this->createReview($engagement, $realExecution, (string) ($options['review_status'] ?? 'passed'));
-        $reviewer = $this->runRole($engagement, $cycle, 'independent_reviewer', $review->status, [
-            'review_hash' => $review->review_hash,
-        ]);
         $qa = $this->createQaRun($engagement, $realExecution, (string) ($options['qa_status'] ?? 'passed'));
-        $qaRole = $this->runRole($engagement, $cycle, 'qa_test_engineer', $qa->status, [
-            'qa_hash' => $qa->qa_hash,
-        ]);
         $release = $this->createReleasePack($engagement, $realExecution, $review, $qa);
-        $releaseRole = $this->runRole($engagement, $cycle, 'release_delivery_manager', $release->status === 'ready_for_internal_delivery' ? 'passed' : 'blocked', [
-            'release_hash' => $release->release_hash,
-        ]);
         $benchmark = $this->createBenchmark($engagement, $realExecution);
-        $learningRole = $this->runRole($engagement, $cycle, 'learning_memory_manager', 'passed', [
-            'benchmark_hash' => $benchmark->benchmark_hash,
-            'memory_action' => 'record_company_runtime_outcome_candidate',
-        ]);
+        $qualityRoleRuns = [];
+        foreach (self::QUALITY_ROLES as $role) {
+            $roleStatus = data_get($realExecution, 'status') === 'completed' && $review->status === 'passed'
+                && $qa->status === 'passed' && $release->status === 'ready_for_internal_delivery' ? 'passed' : 'blocked';
+            $qualityRoleRuns[] = $this->runRole($engagement, $cycle, $role, $roleStatus, [
+                'real_execution_status' => data_get($realExecution, 'status'),
+                'review_hash' => $review->review_hash,
+                'qa_hash' => $qa->qa_hash,
+                'release_hash' => $release->release_hash,
+                'benchmark_hash' => $benchmark->benchmark_hash,
+                'role_depth' => $this->qualityRoleDepth($role, (string) ($options['risk_class'] ?? 'R3')),
+            ]);
+        }
 
         $certification = $this->certify($engagement);
         $engagementStatus = $certification->status === 'passed' ? 'completed' : 'blocked';
@@ -116,7 +103,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'schema_version' => self::ENGAGEMENT_SCHEMA,
             'engagement_id' => $engagement->engagement_id,
             'status' => $engagementStatus,
-            'roles' => self::ROLES,
+            'roles' => self::QUALITY_ROLES,
             'evidence_refs' => $evidenceRefs,
             'certification_hash' => $certification->certification_hash,
         ];
@@ -134,13 +121,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'engagement' => $engagement->refresh()->toArray(),
             'cycle' => $cycle->toArray(),
             'roles' => array_map(fn (AiEngineeringCompanyRoleRun $role): array => $role->toArray(), [
-                ...$preExecutionRoles,
-                $engineer,
-                $debugger,
-                $reviewer,
-                $qaRole,
-                $releaseRole,
-                $learningRole,
+                ...$qualityRoleRuns,
             ]),
             'real_execution' => $realExecution,
             'review' => $review->toArray(),
@@ -153,6 +134,21 @@ class AtlasRealEngineeringCompanyRuntimeService
         ];
     }
 
+    private function qualityRoleDepth(string $role, string $riskClass): string
+    {
+        $risk = (int) ltrim(strtoupper(trim($riskClass)), 'R');
+
+        return match (true) {
+            $risk <= 1 => 'minimal_evidence',
+            $risk <= 3 => 'light_independent_review',
+            $risk <= 5 => 'standard_contract_integration',
+            $risk <= 7 => 'multi_verifier_regression_compatibility',
+            $risk <= 9 && in_array($role, ['appsec_privacy', 'performance_resilience', 'devops_sre', 'evidence_audit'], true) => 'security_mutation_property_chaos_rollback',
+            $risk <= 9 => 'deep_independent_regression',
+            default => 'competing_candidates_different_family_disaster_drill',
+        };
+    }
+
     public function createEngagement(string $goalText): AiEngineeringCompanyEngagement
     {
         $engagementId = 'aecomp_'.substr(EngineeringCompanyHash::make([$goalText, microtime(true)]), 0, 24);
@@ -161,7 +157,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'engagement_id' => $engagementId,
             'goal' => $goalText,
             'status' => 'accepted',
-            'roles' => self::ROLES,
+            'roles' => self::QUALITY_ROLES,
         ];
         $receipt['hash'] = EngineeringCompanyHash::make($receipt);
 
@@ -170,7 +166,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'goal' => $goalText,
             'status' => 'accepted',
             'target_runtime' => 'atlas_real_execution_kernel',
-            'roles' => self::ROLES,
+            'roles' => self::QUALITY_ROLES,
             'evidence_refs' => [],
             'receipt' => $receipt,
             'receipt_hash' => $receipt['hash'],
@@ -182,7 +178,7 @@ class AtlasRealEngineeringCompanyRuntimeService
         $cycleId = 'aecompcyc_'.substr(EngineeringCompanyHash::make([$engagement->engagement_id, 1]), 0, 24);
         $plan = [
             'mode' => 'single_cycle_company_runtime',
-            'roles' => self::ROLES,
+            'roles' => self::QUALITY_ROLES,
             'execution_kernel' => 'atlas_real_engineering_execution_kernel',
             'gates' => ['independent_review', 'qa', 'release_pack', 'benchmark', 'certification'],
             'multi_worktree_policy' => 'delegate_patch_execution_to_real_execution_kernel',
@@ -647,7 +643,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             $this->check('canonical_doc', File::exists(base_path('docs/engineering-knowledge-base/atlas-real-engineering-company-runtime.md'))),
             $this->check('persistence_tables', $this->tablesReady()),
             $this->check('engagement_exists', $engagement !== null),
-            $this->check('all_roles_recorded', $engagement !== null && AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $engagement->id)->distinct('role_id')->count('role_id') >= count(self::ROLES)),
+            $this->check('all_roles_recorded', $engagement !== null && AiEngineeringCompanyRoleRun::query()->where('engagement_record_id', $engagement->id)->distinct('role_id')->count('role_id') >= count(self::QUALITY_ROLES)),
             $this->check('all_roles_have_agent_control_plane_task_packets', $engagement !== null && $this->allRolesHaveAgentTaskPackets($engagement)),
             $this->check('real_execution_completed', $engagement !== null && AiEngineeringCompanyReleasePack::query()->where('engagement_record_id', $engagement->id)->where('status', 'ready_for_internal_delivery')->exists()),
             $this->check('independent_review_passed', $engagement !== null && AiEngineeringCompanyReview::query()->where('engagement_record_id', $engagement->id)->where('status', 'passed')->exists()),
@@ -778,11 +774,11 @@ class AtlasRealEngineeringCompanyRuntimeService
             ->where('engagement_record_id', $engagement->id)
             ->get();
 
-        if ($roles->count() < count(self::ROLES)) {
+        if ($roles->count() < count(self::QUALITY_ROLES)) {
             return false;
         }
 
-        foreach (self::ROLES as $roleId) {
+        foreach (self::QUALITY_ROLES as $roleId) {
             $role = $roles->firstWhere('role_id', $roleId);
             if (! $role instanceof AiEngineeringCompanyRoleRun) {
                 return false;
