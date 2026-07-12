@@ -12,8 +12,8 @@
 - [x] MAXE-02 — landed · removed absolute duplicate AOBG hooks in .claude/settings.json (1×/event)
 - [x] MAXE-03 — landed · atlas-ctx.sh activate TTL 6h + hard timeout/perl-alarm on pack
 - [x] MAXF-01 — landed · compactForScope failed_open + repair migration receipts; live Schema@5433 pending_window (pgsql hang)
-- [ ] MAXE-01 — pending
-- [ ] ELEV-22 — pending
+- [x] MAXE-01 — landed · renderMarkdown prints ref=<canonical> per item + citation footer; deliveredFromPack == rendered refs; ARFL share>0 = pending_window
+- [x] ELEV-22 — landed · hot-list acos-max-elev-22.v1 + PreToolUse advisory claim check + release on scoped commit; fail-open; TTL 900s
 
 ## LOTE 1 — Freios (F0) — GATE F0: porta única observe · ledgers imunes · event_hash+cadeia+âncora · captura operador viva · restore drill · attempts terminais
 - [ ] ASI-05 — pending

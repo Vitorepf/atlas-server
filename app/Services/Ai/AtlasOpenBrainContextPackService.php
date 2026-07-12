@@ -2986,6 +2986,7 @@ class AtlasOpenBrainContextPackService
                 '- report used/noise/missed refs from %d delivered refs; no raw logs or source text',
                 (int) ($feedback['delivered_ref_count'] ?? 0),
             );
+            $lines[] = '- in the report, cite every used context item with its exact rendered ref= value';
             $lines[] = '';
         }
 
@@ -2999,8 +3000,9 @@ class AtlasOpenBrainContextPackService
                 $sig = trim((string) ($item['signature'] ?? ''));
                 $sig = $sig !== '' ? '; sig='.mb_substr($sig, 0, 160) : '';
                 $lines[] = sprintf(
-                    '- %s [%s] type=%s%s',
+                    '- %s ref=%s [%s] type=%s%s',
                     (string) ($item['id'] ?? ''),
+                    AtlasCanonicalContextRef::fromCodeItem((array) $item),
                     (string) ($item['file_path'] ?? 'n/a'),
                     ($item['symbol_type'] ?? '') !== '' ? (string) $item['symbol_type'] : 'n/a',
                     $sig,
@@ -3021,7 +3023,8 @@ class AtlasOpenBrainContextPackService
                     (array) ($path['chain'] ?? []),
                 );
                 $lines[] = sprintf(
-                    '- %s%s',
+                    '- ref=%s %s%s',
+                    AtlasCanonicalContextRef::fromGraphPath((array) $path),
                     implode(' -> ', $chain),
                     ($path['cross_layer'] ?? false) ? '  (cross-layer)' : '',
                 );
@@ -3044,7 +3047,8 @@ class AtlasOpenBrainContextPackService
                 $title = (string) ($item['title'] ?? '');
                 $summary = trim((string) ($item['summary'] ?? ($item['body'] ?? '')));
                 $lines[] = sprintf(
-                    '- [%s] %s%s',
+                    '- ref=%s [%s] %s%s',
+                    AtlasCanonicalContextRef::fromMemoryItem((array) $item),
                     ($item['type'] ?? '') !== '' ? (string) $item['type'] : 'memory',
                     $title !== '' ? $title : '(untitled)',
                     $summary !== '' ? ' — '.mb_substr($summary, 0, 200) : '',

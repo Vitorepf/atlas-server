@@ -323,6 +323,37 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('## Context feedback request', $pack['markdown']);
         $this->assertStringContainsString('context_pack_hash='.substr($pack['context_pack_hash'], 0, 16), $pack['markdown']);
         $this->assertStringContainsString('no raw logs or source text', $pack['markdown']);
+        $this->assertStringContainsString('cite every used context item with its exact rendered ref= value', $pack['markdown']);
+    }
+
+    public function test_rendered_markdown_exposes_canonical_refs_for_every_delivered_item(): void
+    {
+        $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
+        $this->seedAurg();
+        $this->seedMemory('mem-1', 'Embedding decision rendered refs note', true, 'normal');
+
+        $pack = $this->service()->packFor('embedding decision rendered refs');
+        $expectedRefs = AtlasCanonicalContextRef::deliveredFromPack($pack);
+        $renderedItemLines = $this->renderedDeliveredItemLines((string) $pack['markdown']);
+        $renderedRefs = $this->renderedCanonicalContextRefs((string) $pack['markdown']);
+
+        $this->assertNotEmpty($expectedRefs);
+        $this->assertCount(
+            count((array) $pack['code_graph']) + count((array) $pack['reality_graph_paths']) + count((array) $pack['memory']),
+            $renderedItemLines,
+            'every delivered code/graph/memory item should render as a markdown item line',
+        );
+        $this->assertSame($expectedRefs, $renderedRefs, 'rendered refs must match deliveredFromPack exactly');
+        foreach ($renderedItemLines as $line) {
+            $this->assertMatchesRegularExpression('/\bref=(?:code|graph|memory):[a-f0-9]{32}\b/', $line);
+        }
+
+        $withoutFirstRef = preg_replace('/\sref=(?:code|graph|memory):[a-f0-9]{32}\b/', '', (string) $pack['markdown'], 1) ?? '';
+        $this->assertNotSame(
+            $expectedRefs,
+            $this->renderedCanonicalContextRefs($withoutFirstRef),
+            'negative case: a rendered item without ref must fail the delivered refs contract',
+        );
     }
 
     public function test_DeliveredPackLedger_persists_canonical_refs_and_supports_multi_hash_lookup(): void
@@ -2106,6 +2137,40 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         config()->set('atlas.aobg.delivered_pack_ledger.path', $path);
 
         return $path;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function renderedDeliveredItemLines(string $markdown): array
+    {
+        $lines = [];
+        $inDeliveredSection = false;
+        foreach (explode("\n", $markdown) as $line) {
+            if (str_starts_with($line, '## ')) {
+                $inDeliveredSection = str_starts_with($line, '## Code graph')
+                    || str_starts_with($line, '## Reality graph')
+                    || str_starts_with($line, '## Memory');
+
+                continue;
+            }
+
+            if ($inDeliveredSection && str_starts_with($line, '- ')) {
+                $lines[] = $line;
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function renderedCanonicalContextRefs(string $markdown): array
+    {
+        preg_match_all('/\bref=((?:code|graph|memory):[a-f0-9]{32})\b/', $markdown, $matches);
+
+        return $matches[1] ?? [];
     }
 
     /** Symbols table WITH the W-1 workspace_id column (so scoping is exercised). */
