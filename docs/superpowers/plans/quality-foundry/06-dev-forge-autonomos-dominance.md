@@ -100,7 +100,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 **Allowed files:** AtlasDev services/types/controllers/commands, shared Kernel adapters and focused tests.
 
 - [ ] Write RED façade tests for invalid/unconfirmed intent, stale authority, R5, interactive/durable selection, ownership overlap, source WIP, provider/retry failure and idempotent Forge handoff.
-- [ ] Implement `DevIntent`, `DevPlan`, `ConfirmedDevRun`, `DevRunResult` as immutable types bound to ProductIntent/spec/world/authority hashes.
+- [x] Implement `DevIntent`, `DevPlan`, `ConfirmedDevRun`, `DevRunResult` as immutable types bound to ProductIntent/spec/world/authority hashes.
 - [ ] Make HTTP, CLI, Desktop, Mission and Senior Loop call `plan/run`; prohibit direct provider/workspace/release logic in adapters.
 - [ ] Preserve checkout source byte-for-byte until authorized integration; retries reset only isolated sandboxes and integration is serial.
 - [ ] Keep any technical complexity in Dev when duration/topology fit; hand off to Forge only for duration/topology and make the handoff idempotent.
@@ -126,7 +126,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical re
 **Allowed files:** Forge family/models/tables and shared adapters; no second event/outcome ledger.
 
 - [ ] Write RED type/contract tests for commissioning missing authority/release/interruption policy, duplicate commissioning, non-idempotent tick/control/snapshot, simulation satisfying real state and two canonical cycles.
-- [ ] Implement immutable Forge types and freeze commissioning into one authority-bound Obra identity.
+- [x] Implement immutable Forge types and freeze commissioning into one authority-bound Obra identity.
 - [ ] Persist a DAG of resumable packets; dependencies advance only from real Kernel outcomes. Snapshot is rebuilt from canonical events.
 - [ ] Run supervisor/jobs/reaper with leases, heartbeat and fencing; provider start/poll/cancel/heartbeat goes through shared ports.
 - [ ] Execute each packet through Product/Spec/Workcell/Kernel; workers never touch main and integration is serial.
