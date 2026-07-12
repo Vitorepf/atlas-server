@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\Autonomy;
 
+use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Autonomy\AtlasWeeklyMemoryDigestService;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
@@ -16,6 +18,12 @@ use Tests\TestCase;
  */
 class AtlasWeeklyMemoryDigestServiceTest extends TestCase
 {
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_digest_has_a_stable_read_model_shape(): void
     {
         $report = (new AtlasWeeklyMemoryDigestService())->digest(7);
@@ -70,6 +78,45 @@ class AtlasWeeklyMemoryDigestServiceTest extends TestCase
         $applied = (new AtlasWeeklyMemoryDigestService($routing))->digest(7)['applied_learnings'];
 
         $this->assertSame(0, $applied['count']);
+        @unlink($log.'.preferred.jsonl');
+    }
+
+    public function test_operator_review_debt_publishes_four_frozen_metrics_and_ephemeral_slow_cap(): void
+    {
+        Carbon::setTestNow('2026-07-12 00:00:00');
+        config(['atlas.ai.autonomous_learning.limit' => 50]);
+
+        $log = sys_get_temp_dir().'/atlas-pref-'.bin2hex(random_bytes(4)).'.jsonl';
+        $routing = new AtlasConductorRoutingMemory();
+        $routing->setLogPathForTesting($log);
+        file_put_contents($log.'.preferred.jsonl', json_encode([
+            'action' => 'set',
+            'task_category' => 'code',
+            'role' => 'dev',
+            'provider' => 'hermes_cli',
+            'model' => 'x',
+            'recorded_at' => '2026-07-02T00:00:00+00:00',
+        ], JSON_THROW_ON_ERROR).PHP_EOL);
+
+        $debt = (new AtlasWeeklyMemoryDigestService($routing))->digest(14)['operator_review_debt'];
+
+        $this->assertSame(AtlasOperatorReviewDebtMeter::MEASURE_ID, $debt['measure_id']);
+        $this->assertSame([
+            'itens_auto_aplicados_nao_revisados',
+            'idade_max_da_fila',
+            'itens_revisados_na_janela',
+            'tempo_medio_inspecao',
+        ], array_keys($debt['metrics']));
+        $this->assertSame(1, $debt['metrics']['itens_auto_aplicados_nao_revisados']['value']);
+        $this->assertSame(10, $debt['metrics']['idade_max_da_fila']['value_days']);
+        $this->assertSame(AtlasOperatorReviewDebtMeter::MAX_QUEUE_AGE_DAYS, $debt['metrics']['idade_max_da_fila']['cap_days']);
+        $this->assertSame('alert', $debt['status']);
+        $this->assertTrue($debt['cadence']['auto_slowed']);
+        $this->assertSame(50, $debt['cadence']['configured_auto_apply_limit']);
+        $this->assertSame(AtlasOperatorReviewDebtMeter::SLOWED_AUTO_APPLY_LIMIT, $debt['cadence']['next_cycle_effective_limit']);
+        $this->assertSame('ephemeral_safety_cap', $debt['cadence']['persistence']);
+        $this->assertTrue($debt['cadence']['never_becomes_approval_queue']);
+
         @unlink($log.'.preferred.jsonl');
     }
 

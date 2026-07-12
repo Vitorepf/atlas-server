@@ -129,7 +129,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [x] Require quality evidence to match capability, risk, stack, model/provider version and relevant observation window; missing evidence is unknown, not zero loss.
 - [x] Select a candidate set when topology/diversity requires it; never choose an ineligible route for exploration.
 - [x] Persist a decision receipt with rejected alternatives/reasons and pass its hash into `ExecutionOrder`.
-- [ ] Run deterministic replay, permutation/property, cost-outcome router, provider key resolver and Kernel order-correlation tests.
+- [x] Run deterministic replay, permutation/property, cost-outcome router, provider key resolver and Kernel order-correlation tests.
 
 **GREEN acceptance:** authority/risk ineligibility always wins over score; proven quality wins before time/cost; route ordering is deterministic; replay yields the same decision hash; claims remain false/ineligible.
 

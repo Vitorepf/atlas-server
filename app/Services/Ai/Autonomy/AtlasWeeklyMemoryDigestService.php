@@ -65,6 +65,7 @@ final class AtlasWeeklyMemoryDigestService
         $operatorProfile = $this->operatorProfile($days);
         $proactive = $this->proactiveProposals($days);
         $autoApplySafe = $this->autoApplySafe($days);
+        $operatorReviewDebt = (new AtlasOperatorReviewDebtMeter($this->routing))->report($days);
 
         return [
             'schema_version' => self::SCHEMA,
@@ -78,6 +79,7 @@ final class AtlasWeeklyMemoryDigestService
             'learning_proposals' => $proposals,
             'operator_profile' => $operatorProfile,
             'proactive_proposals' => $proactive,
+            'operator_review_debt' => $operatorReviewDebt,
             'staged_captures' => $staged,
             'memory_candidates' => $memoryCandidates,
             'aemor_candidates' => $aemor,
@@ -122,9 +124,8 @@ final class AtlasWeeklyMemoryDigestService
             ];
         }
 
-        $applier = $this->autoApplier ?? app(AtlasAutonomousLearningApplier::class);
-
         try {
+            $applier = $this->autoApplier ?? app(AtlasAutonomousLearningApplier::class);
             $window = $applier->digestWindow($days);
         } catch (Throwable $e) {
             return $empty + ['note' => 'classification failed: '.$e->getMessage()];

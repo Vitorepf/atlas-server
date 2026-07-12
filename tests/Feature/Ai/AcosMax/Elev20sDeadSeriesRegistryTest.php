@@ -72,6 +72,7 @@ final class Elev20sDeadSeriesRegistryTest extends TestCase
             'asi.metric.m.v1',
             'acos.verified_share.v1',
             'acos.asi05.ledger_cleanup.v1',
+            'acos.operator_review_debt.v1',
         ] as $expectedSeries) {
             $this->assertContains($expectedSeries, $registeredSeries);
         }

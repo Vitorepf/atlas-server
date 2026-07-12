@@ -76,7 +76,7 @@ final class AtlasAutonomousLearningApplier
             return $this->summary(false, 0, 0, [], 'disabled — default max friction (operator opt-in required)');
         }
 
-        $limit = max(1, min(500, $limit));
+        $limit = (new AtlasOperatorReviewDebtMeter())->effectiveAutoApplyLimit(max(1, min(500, $limit)));
         $applied = 0;
         $held = 0;
         $items = [];

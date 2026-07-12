@@ -44,6 +44,41 @@ class AtlasAiWeeklyMemoryDigestCommand extends Command
             ['Total saved', (string) $t['total_saved']],
         ]);
 
+        $reviewDebt = $report['operator_review_debt'] ?? [];
+        if (is_array($reviewDebt) && isset($reviewDebt['metrics'])) {
+            $metrics = (array) $reviewDebt['metrics'];
+            $cadence = (array) ($reviewDebt['cadence'] ?? []);
+            $this->newLine();
+            $this->line('<comment>Operator review-debt (ELEV-25):</comment> '.($reviewDebt['status'] ?? 'unknown'));
+            $this->table(['metric', 'value', 'denominator'], [
+                [
+                    'itens_auto_aplicados_nao_revisados',
+                    (string) ($metrics['itens_auto_aplicados_nao_revisados']['value'] ?? 0),
+                    (string) ($metrics['itens_auto_aplicados_nao_revisados']['denominator_value'] ?? 0),
+                ],
+                [
+                    'idade_max_da_fila',
+                    ((string) ($metrics['idade_max_da_fila']['value_days'] ?? 0)).'d',
+                    'cap='.((string) ($metrics['idade_max_da_fila']['cap_days'] ?? 0)).'d',
+                ],
+                [
+                    'itens_revisados_na_janela',
+                    (string) ($metrics['itens_revisados_na_janela']['value'] ?? 0),
+                    (string) ($metrics['itens_revisados_na_janela']['denominator_value'] ?? 0),
+                ],
+                [
+                    'tempo_medio_inspecao',
+                    (string) ($metrics['tempo_medio_inspecao']['value'] ?? 0),
+                    'items_per_digest_session',
+                ],
+            ]);
+            if (($cadence['auto_slowed'] ?? false) === true) {
+                $this->warn('Auto-apply cadence slowed for next cycle only: limit '
+                    .($cadence['configured_auto_apply_limit'] ?? '?').' → '
+                    .($cadence['next_cycle_effective_limit'] ?? '?').' (ephemeral; not an approval queue).');
+            }
+        }
+
         $proposals = $report['learning_proposals'];
         if (($proposals['count'] ?? 0) > 0) {
             $this->newLine();
