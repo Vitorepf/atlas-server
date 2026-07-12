@@ -1,0 +1,58 @@
+{
+    "schema_version": "atlas.memory.substrate_snapshot.v1",
+    "recorded_at": "2026-07-11T21:01:41+00:00",
+    "slice": "SUB-01",
+    "destination": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas-local/substrate-snapshots/2026-07-11T21-01-41-753590",
+    "dump_path": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas-local/substrate-snapshots/2026-07-11T21-01-41-753590/memory-substrate.sql",
+    "dump_hash_sha256": null,
+    "dump_ok": false,
+    "dump_reason": "pg_dump_unavailable",
+    "live_counts": {
+        "atlas_memory_entries": 77,
+        "atlas_memory_entry_usages": 57961,
+        "atlas_memory_entry_relations": 0,
+        "atlas_verbatim_memories": 1,
+        "atlas_decision_receipts": 0,
+        "atlas_memory_quality_snapshots": 5,
+        "atlas_memory_provider_projection_audits": 6
+    },
+    "jsonl_copies": [
+        {
+            "source": "/Users/vitorepf/develop/Atlas/atlas-server/storage/app/atlas/evidence/acos-delta-series.jsonl",
+            "target": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas-local/substrate-snapshots/2026-07-11T21-01-41-753590/series-jsonl/acos-delta-series.jsonl",
+            "present": true,
+            "sha256": "17110586704035e07469a1cc5a8efcaa009730351c2b9fdc218e34efaae47dec",
+            "line_count": 8
+        },
+        {
+            "source": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas/atlas_decide/live_outcomes.jsonl",
+            "target": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas-local/substrate-snapshots/2026-07-11T21-01-41-753590/series-jsonl/live_outcomes.jsonl",
+            "present": true,
+            "sha256": "a778f85695a8ad2b2640fd0b6bd5e143f3fd48d151115522265f5ccc078f1b60",
+            "line_count": 3441
+        },
+        {
+            "source": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas/scheduler/heartbeat.jsonl",
+            "target": "/Users/vitorepf/develop/Atlas/atlas-server/storage/atlas-local/substrate-snapshots/2026-07-11T21-01-41-753590/series-jsonl/heartbeat.jsonl",
+            "present": true,
+            "sha256": "d5ba5a022cd971682dee6163d7d5bdef0cc600e99252054fc49e31a8cc5de111",
+            "line_count": 44508
+        }
+    ],
+    "restore_proof": {
+        "ok": false,
+        "skipped": false,
+        "reason": "dump_failed:pg_dump_unavailable",
+        "ephemeral_schema": "",
+        "restored_counts": [],
+        "live_counts": {
+            "atlas_memory_entries": 77,
+            "atlas_memory_entry_usages": 57961,
+            "atlas_memory_entry_relations": 0,
+            "atlas_verbatim_memories": 1,
+            "atlas_decision_receipts": 0,
+            "atlas_memory_quality_snapshots": 5,
+            "atlas_memory_provider_projection_audits": 6
+        }
+    }
+}
