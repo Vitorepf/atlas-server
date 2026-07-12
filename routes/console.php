@@ -472,6 +472,11 @@ Schedule::command('atlas:forge:reap-leases --json')
     ->withoutOverlapping()
     ->when(static fn (): bool => (bool) config('atlas.forge.scope_lease_reaper_enabled', true));
 
+Schedule::command('atlas:forge:supervise --json')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->when(static fn (): bool => (bool) config('atlas.forge.scope_lease_reaper_enabled', true));
+
 // govA — task-serving queue SELF-MAINTENANCE on a schedule.
 Schedule::command('atlas:task:sweep-malformed --json')
     ->everyFifteenMinutes()
