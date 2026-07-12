@@ -74,6 +74,7 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
      * @param  array<string,mixed>  $options
      *                                        {
      *                                        dry_run?: bool (default true),
+     *                                        production_mode?: bool (default false),
      *                                        claim_callback?: callable(): ?array,
      *                                        report_callback?: callable(array): array,
      *                                        patch_materializer?: callable(array): array,
@@ -114,6 +115,29 @@ final class AtlasNativeWorkerClaimExecuteReportCycle
         $patchMaterializer = $options['patch_materializer'] ?? null;
         $productionRuntime = $options['production_runtime'] ?? null;
         $clientId = (string) ($options['client_id'] ?? 'atlas-native-worker');
+
+        // Productive execution must cross the typed runtime seam. A callback is
+        // an injectable test seam, not an authority-bearing production boundary.
+        // Reject the entire cycle before claim so a callback cannot create a
+        // partial claim/apply/report chain under a productive label.
+        if ((bool) ($options['production_mode'] ?? false)
+            && (is_callable($claimCb) || is_callable($reportCb) || is_callable($patchMaterializer))) {
+            $blockedActions[] = ['action' => 'production_runtime', 'reason' => 'production_callbacks_forbidden'];
+
+            return $this->envelope(
+                self::STATUS_ERROR,
+                false,
+                '',
+                '',
+                '',
+                $plannedSteps,
+                $appliedSteps,
+                $blockedActions,
+                '',
+                [],
+                self::OUTCOME_CLASS_OTHER,
+            );
+        }
 
         // Explicit production bindings only (daemon / supervised runners). Never
         // silently replace intentional missing-callback failure modes used by tests.

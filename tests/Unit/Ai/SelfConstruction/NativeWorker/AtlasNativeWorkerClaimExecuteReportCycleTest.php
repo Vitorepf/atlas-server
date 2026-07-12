@@ -10,6 +10,29 @@ use Tests\TestCase;
 
 class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
 {
+    public function test_production_mode_rejects_injected_callbacks_before_claim(): void
+    {
+        $called = false;
+
+        $result = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([
+            'dry_run' => false,
+            'production_mode' => true,
+            'claim_callback' => function () use (&$called): ?array {
+                $called = true;
+
+                return $this->validClaim();
+            },
+            'report_callback' => static fn (array $payload): array => ['status' => 'ok'] + $payload,
+            'patch_materializer' => static fn (array $payload): array => ['accepted' => true],
+        ]);
+
+        self::assertFalse($called);
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::STATUS_ERROR, $result['status']);
+        self::assertSame('production_callbacks_forbidden', $result['blocked_actions'][0]['reason']);
+        self::assertSame([], $result['applied_steps']);
+        self::assertNotSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_SUCCESS, $result['outcome_class']);
+    }
+
     private function validClaim(): array
     {
         return [
