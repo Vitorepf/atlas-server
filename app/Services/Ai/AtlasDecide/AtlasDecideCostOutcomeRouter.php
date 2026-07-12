@@ -270,6 +270,8 @@ class AtlasDecideCostOutcomeRouter
                 'provider' => $entry['provider'] ?? null,
                 'model' => $entry['model'] ?? null,
                 'result' => $entry['result'] ?? null,
+                'verified_basis' => $entry['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
+                'certified_receipt_id' => $entry['certified_receipt_id'] ?? null,
                 'score_total' => $score,
                 'cost_estimate' => $entry['cost_usd'] ?? null,
                 'tokens_used' => $entry['tokens_used'] ?? null,
@@ -309,13 +311,13 @@ class AtlasDecideCostOutcomeRouter
                 'cost_count' => 0,
                 'token_sum' => 0,
                 'token_count' => 0,
+                'zero_weight_outcome_count' => 0,
                 'latest_recorded_at' => null,
                 'latest_run_ids' => [],
                 'evidence_sources' => [],
                 'provider_resolvable' => ($this->isKnownProviderKey)($provider),
             ];
 
-            $groups[$key]['total_count']++;
             $recordedAt = (string) ($entry['recorded_at'] ?? '');
             if ($recordedAt !== '' && ($groups[$key]['latest_recorded_at'] === null || $recordedAt > $groups[$key]['latest_recorded_at'])) {
                 $groups[$key]['latest_recorded_at'] = $recordedAt;
@@ -328,6 +330,14 @@ class AtlasDecideCostOutcomeRouter
             if ($source !== '' && ! in_array($source, $groups[$key]['evidence_sources'], true)) {
                 $groups[$key]['evidence_sources'][] = $source;
             }
+
+            if ($this->isZeroWeightLiveSuccess($entry)) {
+                $groups[$key]['zero_weight_outcome_count']++;
+
+                continue;
+            }
+
+            $groups[$key]['total_count']++;
 
             if (! $this->isCertifiedCostOutcomeEntry($entry)) {
                 continue;
@@ -388,6 +398,7 @@ class AtlasDecideCostOutcomeRouter
                 'average_cost_estimate' => $averageCost,
                 'cost_sample_count' => (int) $group['cost_count'],
                 'average_tokens_used' => (int) $group['token_count'] > 0 ? (int) round((int) $group['token_sum'] / (int) $group['token_count']) : null,
+                'zero_weight_outcome_count' => (int) $group['zero_weight_outcome_count'],
                 'confidence' => $this->confidenceFor($certifiedCount),
                 'latest_recorded_at' => $group['latest_recorded_at'],
                 'latest_age_days' => $latestAgeDays,
@@ -453,6 +464,8 @@ class AtlasDecideCostOutcomeRouter
             return ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
                 && is_numeric($entry['quality_score'] ?? null)
                 && is_numeric($entry['score_total'] ?? null)
+                && in_array((string) ($entry['verified_basis'] ?? ''), AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASES_WEIGHTED, true)
+                && trim((string) ($entry['certified_receipt_id'] ?? '')) !== ''
                 && (array) ($entry['hard_failures'] ?? []) === [];
         }
 
@@ -460,6 +473,13 @@ class AtlasDecideCostOutcomeRouter
             && (bool) ($entry['tests_passed'] ?? false)
             && (bool) ($entry['replay_passed'] ?? false)
             && (array) ($entry['hard_failures'] ?? []) === [];
+    }
+
+    private function isZeroWeightLiveSuccess(array $entry): bool
+    {
+        return ($entry['evidence_source'] ?? null) === 'live_outcome_feedback'
+            && ($entry['result'] ?? null) === AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
+            && ! $this->isCertifiedCostOutcomeEntry($entry);
     }
 
     /** Inlined verbatim from the retired Rivals 1.0 performance ledger. */

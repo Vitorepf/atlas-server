@@ -591,6 +591,12 @@ final class AtlasTaskScopedCommitter
                     ? AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS
                     : AtlasDecideLiveOutcomeFeedbackService::RESULT_FAILURE,
                 'proven_real' => $proof['proven_real'] === true,
+                'verified_basis' => $proof['proven_real'] === true
+                    ? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED
+                    : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_CLAIMED,
+                'certified_receipt_id' => $proof['proven_real'] === true
+                    ? (string) data_get($verification, 'landing_certify.receipt_ref', $taskPacketId)
+                    : null,
                 'quality_score' => $proof['proven_real'] === true ? 1.0 : (($proof['fake_green'] ?? false) === true ? 0.0 : 0.5),
                 'actor' => 'atlas_autonomos_landing',
                 'language' => 'php',

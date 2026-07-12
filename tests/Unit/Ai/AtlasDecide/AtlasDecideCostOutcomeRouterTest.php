@@ -123,7 +123,23 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
 
     // ── isCertifiedCostOutcomeEntry: live_outcome_feedback source ─────────────
 
-    public function test_live_feedback_certified_when_success_and_numeric_scores(): void
+    public function test_live_feedback_certified_when_success_numeric_scores_and_verified_basis(): void
+    {
+        $router = $this->buildRouter();
+        $entry = [
+            'evidence_source' => 'live_outcome_feedback',
+            'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+            'quality_score' => 0.9,
+            'score_total' => 90.0,
+            'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+            'certified_receipt_id' => 'receipt-1',
+            'hard_failures' => [],
+        ];
+
+        $this->assertTrue($router->isCertifiedCostOutcomeEntry($entry));
+    }
+
+    public function test_live_feedback_success_without_verified_basis_has_zero_ranking_weight(): void
     {
         $router = $this->buildRouter();
         $entry = [
@@ -134,7 +150,7 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
             'hard_failures' => [],
         ];
 
-        $this->assertTrue($router->isCertifiedCostOutcomeEntry($entry));
+        $this->assertFalse($router->isCertifiedCostOutcomeEntry($entry));
     }
 
     public function test_live_feedback_not_certified_when_result_failure(): void
@@ -326,6 +342,8 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
                 'provider' => 'codex_cli',
                 'model' => 'gpt-5.5',
                 'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'codex-receipt-'.$i,
                 'quality_score' => 0.92,
                 'cost_usd' => 0.05,
                 'entry_hash' => 'codex-'.$i,
@@ -337,6 +355,8 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
                 'provider' => 'claude_cli',
                 'model' => 'opus',
                 'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'claude-receipt-'.$i,
                 'quality_score' => 0.93,
                 'cost_usd' => 0.10,
                 'entry_hash' => 'claude-'.$i,
@@ -358,6 +378,47 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
         $this->assertSame('ok', data_get($route, 'selected.uncertainty_interval.status'));
     }
 
+    public function test_unverified_live_successes_do_not_change_cost_outcome_candidate_score_or_cost(): void
+    {
+        $router = $this->buildRouter();
+        $cfg = $this->cfg(['min_evidence' => 1]);
+        $verified = [
+            [
+                'evidence_source' => 'live_outcome_feedback',
+                'provider' => 'codex_cli',
+                'model' => 'gpt-5.5',
+                'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+                'quality_score' => 0.8,
+                'score_total' => 80.0,
+                'cost_estimate' => 0.05,
+                'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
+                'certified_receipt_id' => 'receipt-ok',
+                'hard_failures' => [],
+                'recorded_at' => '2026-06-01T00:00:00+00:00',
+            ],
+        ];
+        $withUnverified = array_merge($verified, [[
+            'evidence_source' => 'live_outcome_feedback',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'result' => AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS,
+            'quality_score' => 1.0,
+            'score_total' => 100.0,
+            'cost_estimate' => 0.001,
+            'verified_basis' => AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_CLAIMED,
+            'hard_failures' => [],
+            'recorded_at' => '2026-06-02T00:00:00+00:00',
+        ]]);
+
+        $baseline = $router->costOutcomeCandidates($verified, $cfg)[0];
+        $candidate = $router->costOutcomeCandidates($withUnverified, $cfg)[0];
+
+        $this->assertSame($baseline['certified_count'], $candidate['certified_count']);
+        $this->assertSame($baseline['average_score'], $candidate['average_score']);
+        $this->assertSame($baseline['average_cost_estimate'], $candidate['average_cost_estimate']);
+        $this->assertSame(1, $candidate['zero_weight_outcome_count']);
+    }
+
     public function test_multk01_series_is_registered_for_elev20s(): void
     {
         $entry = collect((new AcosMaxMeasureSeriesRegistry())->entries())
@@ -366,5 +427,15 @@ class AtlasDecideCostOutcomeRouterTest extends TestCase
         $this->assertSame(AtlasDecideCostOutcomeRouter::MULTK01_MEASURE_ID, $entry['series'] ?? null);
         $this->assertSame('computed_reader_field', $entry['source_type'] ?? null);
         $this->assertSame('freeze:atlas.decide.cost_outcome_uncertainty.v1', $entry['ttl_source'] ?? null);
+    }
+
+    public function test_esp05_zero_weight_outcome_series_is_registered_for_elev20s(): void
+    {
+        $entry = collect((new AcosMaxMeasureSeriesRegistry())->entries())
+            ->firstWhere('slice', 'ESP-05');
+
+        $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::ZERO_WEIGHT_MEASURE_ID, $entry['series'] ?? null);
+        $this->assertSame('computed_reader_field', $entry['source_type'] ?? null);
+        $this->assertSame('freeze:atlas.decide.zero_weight_outcomes.v1', $entry['ttl_source'] ?? null);
     }
 }

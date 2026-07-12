@@ -86,6 +86,8 @@ final class LiveOutcomeProvenRealWritersTest extends TestCase
         $this->assertSame('autonomos_worker', $entry['provider']);
         $this->assertSame('atlas_autonomos_landing', $entry['actor']);
         $this->assertTrue($entry['proven_real']);
+        $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED, $entry['verified_basis']);
+        $this->assertSame('task-live-outcome', $entry['certified_receipt_id']);
         $this->assertSame(AtlasDecideLiveOutcomeFeedbackService::RESULT_SUCCESS, $entry['result']);
     }
 

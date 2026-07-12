@@ -42,6 +42,8 @@ final class AtlasDecideLiveOutcomeFeedbackService
 
     public const SIGNAL_SCHEMA = 'atlas.atlas_decide.degradation_signal.v1';
 
+    public const ZERO_WEIGHT_MEASURE_ID = 'atlas.decide.zero_weight_outcomes.v1';
+
     public const RESULT_SUCCESS = 'success';
 
     public const RESULT_FAILURE = 'failure';
@@ -49,6 +51,19 @@ final class AtlasDecideLiveOutcomeFeedbackService
     public const RESULT_TIMEOUT = 'timeout';
 
     public const VALID_RESULTS = [self::RESULT_SUCCESS, self::RESULT_FAILURE, self::RESULT_TIMEOUT];
+
+    public const VERIFIED_BASIS_SERVER_VERIFIED = 'server_verified';
+
+    public const VERIFIED_BASIS_GATES_PASSED = 'gates_passed';
+
+    public const VERIFIED_BASIS_CLAIMED = 'claimed';
+
+    public const VERIFIED_BASIS_ABSENT = 'absent';
+
+    public const VERIFIED_BASES_WEIGHTED = [
+        self::VERIFIED_BASIS_SERVER_VERIFIED,
+        self::VERIFIED_BASIS_GATES_PASSED,
+    ];
 
     public const SIGNAL_HEALTHY = 'healthy';
 
@@ -77,6 +92,27 @@ final class AtlasDecideLiveOutcomeFeedbackService
     public function usesOverriddenLogPath(): bool
     {
         return $this->logPathOverride !== null;
+    }
+
+    /** @return array<string,mixed> */
+    public static function zeroWeightFreezePayload(): array
+    {
+        return [
+            'kind' => 'measure_freeze',
+            'measure_id' => self::ZERO_WEIGHT_MEASURE_ID,
+            'formula_version' => 'esp05.zero_weight_outcomes.v1',
+            'formula' => 'Within routeStats provider windows, zero_weight_success_rate = success outcomes with verified_basis outside {server_verified,gates_passed} or missing certified_receipt_id divided by total observed calls; zero-weight successes never contribute to routing score/cost.',
+            'thresholds' => [
+                'weighted_verified_basis' => self::VERIFIED_BASES_WEIGHTED,
+                'certified_receipt_id_required' => true,
+                'zero_weight_routing_weight' => 0,
+            ],
+            'denominator_min' => 1,
+            'ttl_days' => 30,
+            'author_engine_id' => 'cursor-acos-max-esp05',
+            'judge_engine_id' => 'codex-independent-esp05-judge',
+            'dual_read_required' => false,
+        ];
     }
 
     public function logPath(): string
@@ -162,6 +198,8 @@ final class AtlasDecideLiveOutcomeFeedbackService
         $contextTokens = $this->positiveIntOrNull($input['context_tokens'] ?? null);
         $routingBasis = $this->labelOrNull($input['routing_basis'] ?? null);
         $decisionId = $this->labelOrNull($input['decision_id'] ?? null);
+        $verifiedBasis = $this->verifiedBasis($input['verified_basis'] ?? null, ($input['proven_real'] ?? false) === true);
+        $certifiedReceiptId = $this->labelOrNull($input['certified_receipt_id'] ?? $input['receipt_id'] ?? null);
         $fallbackProvider = $this->labelOrNull($input['fallback_provider'] ?? null);
         $fallbackModel = $this->labelOrNull($input['fallback_model'] ?? null);
         $wouldHaveBeenGreedyProvider = $this->labelOrNull($input['would_have_been_greedy_provider'] ?? null);
@@ -184,6 +222,8 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'model' => $model,
             'result' => $result,
             'proven_real' => $provenReal,
+            'verified_basis' => $verifiedBasis,
+            'certified_receipt_id' => $certifiedReceiptId,
             'latency_ms' => $latency,
             'quality_score' => $quality,
             'cost_usd' => $costUsd,
@@ -212,6 +252,9 @@ final class AtlasDecideLiveOutcomeFeedbackService
             'provider' => $provider,
             'model' => $model,
             'result' => $result,
+            'proven_real' => $provenReal,
+            'verified_basis' => $verifiedBasis,
+            'certified_receipt_id' => $certifiedReceiptId,
             'cost_usd' => $costUsd,
             'tokens_used' => $tokensUsed,
             'quality_score' => $quality,
@@ -278,6 +321,7 @@ final class AtlasDecideLiveOutcomeFeedbackService
             $provenSuccess = 0;
             $failure = 0;
             $timeout = 0;
+            $zeroWeightSuccess = 0;
             $latencySum = 0;
             $latencyCount = 0;
             $qualitySum = 0.0;
@@ -331,6 +375,9 @@ final class AtlasDecideLiveOutcomeFeedbackService
                 if ($r === self::RESULT_SUCCESS && ($w['proven_real'] ?? false) === true) {
                     $provenSuccess++;
                 }
+                if ($r === self::RESULT_SUCCESS && ! $this->hasWeightedVerifiedBasis($w)) {
+                    $zeroWeightSuccess++;
+                }
                 if (isset($w['latency_ms']) && is_int($w['latency_ms'])) {
                     $latencySum += $w['latency_ms'];
                     $latencyCount++;
@@ -362,10 +409,12 @@ final class AtlasDecideLiveOutcomeFeedbackService
                 'window_size' => $n,
                 'success' => $success,
                 'proven_success' => $provenSuccess,
+                'zero_weight_success' => $zeroWeightSuccess,
                 'failure' => $failure,
                 'timeout' => $timeout,
                 'success_rate' => $successRate,
                 'proven_success_rate' => $provenSuccessRate,
+                'zero_weight_success_rate' => $n > 0 ? round($zeroWeightSuccess / $n, 4) : null,
                 'avg_latency_ms' => $latencyCount > 0 ? (int) round($latencySum / $latencyCount) : null,
                 'avg_quality_score' => $qualityCount > 0 ? round($qualitySum / $qualityCount, 4) : null,
                 'avg_cost_usd' => $costCount > 0 ? round($costSum / $costCount, 6) : null,
@@ -497,6 +546,30 @@ final class AtlasDecideLiveOutcomeFeedbackService
         }
 
         return max(0, (int) $value);
+    }
+
+    private function verifiedBasis(mixed $value, bool $provenReal): string
+    {
+        $basis = $this->labelOrNull($value);
+        if (in_array($basis, [
+            self::VERIFIED_BASIS_SERVER_VERIFIED,
+            self::VERIFIED_BASIS_GATES_PASSED,
+            self::VERIFIED_BASIS_CLAIMED,
+            self::VERIFIED_BASIS_ABSENT,
+        ], true)) {
+            return $basis;
+        }
+
+        return $provenReal ? self::VERIFIED_BASIS_SERVER_VERIFIED : self::VERIFIED_BASIS_CLAIMED;
+    }
+
+    /**
+     * @param  array<string,mixed>  $entry
+     */
+    private function hasWeightedVerifiedBasis(array $entry): bool
+    {
+        return in_array((string) ($entry['verified_basis'] ?? self::VERIFIED_BASIS_ABSENT), self::VERIFIED_BASES_WEIGHTED, true)
+            && trim((string) ($entry['certified_receipt_id'] ?? '')) !== '';
     }
 
     private function labelOrNull(mixed $value): ?string

@@ -7,6 +7,7 @@ namespace App\Services\Ai\AcosMax;
 use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
 use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
@@ -213,6 +214,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => (int) AtlasDecideCostOutcomeRouter::multk01FreezePayload()['ttl_days'],
                 'ttl_source' => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
+            ],
+            [
+                'slice' => 'ESP-05',
+                'series' => AtlasDecideLiveOutcomeFeedbackService::ZERO_WEIGHT_MEASURE_ID,
+                'path' => 'AtlasDecideLiveOutcomeFeedbackService::routeStats.providers.*.zero_weight_success_rate',
+                'source_type' => 'computed_reader_field',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => (int) AtlasDecideLiveOutcomeFeedbackService::zeroWeightFreezePayload()['ttl_days'],
+                'ttl_source' => 'freeze:atlas.decide.zero_weight_outcomes.v1',
             ],
             [
                 'slice' => 'MULTN15-02',

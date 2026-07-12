@@ -81,7 +81,7 @@
 - [ ] MULTN15-06 — pending
 - [x] ESP-02 — landed · `AtlasNativeWorkerCommandPlanRunner` valida comandos estruturados por `argv/cwd/timeout_s/env_allowlist`; `sh|bash|zsh -c` em argv é recusado com `shell_escape_argv`; shell-string legado é contado em observe e recusado com `structured_command_enforce`; test: `php artisan test tests/Unit/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerCommandPlanRunnerTest.php`
 - [x] ESP-03 — landed · `AtlasTestAttestationService` sela `{runner,suite,n_tests,n_assertions,exit_code,tree_hash}`; `AtlasTaskCommitVerificationGate` emite attestation para task tests e `AtlasTaskScopedCommitter` recusa stale/unrecognized antes do commit; `n_tests=0` permanece vacuous/false-green, nunca verde; tests: `php artisan test tests/Unit/Ai/SelfConstruction/AtlasTestAttestationServiceTest.php tests/Feature/Ai/SelfConstruction/AtlasTaskLandingCertifyTest.php`
-- [ ] ESP-05 — pending
+- [x] ESP-05 — landed · live outcomes agora carregam `verified_basis` + `certified_receipt_id`; routing/cost-outcome só certifica `server_verified|gates_passed` com receipt, `claimed|absent` tem peso zero e contador exposto (`zero_weight_outcome_count`/`zero_weight_success_rate`); série `atlas.decide.zero_weight_outcomes.v1` registrada (ELEV-20s); tests: `php artisan test tests/Unit/Ai/AtlasDecide/AtlasDecideCostOutcomeRouterTest.php tests/Unit/Ai/AtlasDecide/AtlasDecideLiveOutcomeFeedbackServiceTest.php tests/Feature/Ai/AtlasDecide/LiveOutcomeProvenRealWritersTest.php`
 - [ ] ELEV-19 — pending
 - [ ] ELEV-24 — pending
 - [ ] ELEV-27 — pending
