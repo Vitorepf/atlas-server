@@ -1052,6 +1052,10 @@ class LocalRagBenchmarkService
         if ($isV2OrLater) {
             $payload['cases'] = $caseCount;
             $payload['case_results'] = $cases;
+            $payload['by_source_metrics_aggregate'] = LocalRagGoldenBySourceMetrics::aggregate(array_values(array_filter(array_map(
+                static fn (array $case): array => is_array($case['by_source_metrics'] ?? null) ? $case['by_source_metrics'] : [],
+                $cases,
+            ))));
         } else {
             $payload['cases'] = $cases;
         }
@@ -1152,6 +1156,13 @@ class LocalRagBenchmarkService
             ->filter(fn (array $item): bool => data_get($item, 'audit_trail.provider_safe') !== true)
             ->count();
 
+        $itemsWithRefHashes = $items
+            ->map(fn (array $item): array => array_merge($item, [
+                'ref_hashes' => $this->sourceRefHashes($item),
+            ]))
+            ->all();
+        $bySourceMetrics = LocalRagGoldenBySourceMetrics::evaluateCase($itemsWithRefHashes, $mustInclude);
+
         return [
             'case_id' => (string) ($case['case_id'] ?? hash('sha256', $query)),
             'query_hash' => hash('sha256', $query),
@@ -1164,6 +1175,7 @@ class LocalRagBenchmarkService
             'expected_source_available' => $availableExpected,
             'improper_floor_discard_count' => $improperFloorDiscard ? 1 : 0,
             'provider_safe_violation_count' => $providerSafeViolations,
+            'by_source_metrics' => $bySourceMetrics,
             'matched_ref_hashes' => $top5
                 ->flatMap(fn (array $item): array => $this->sourceRefHashes($item))
                 ->unique()

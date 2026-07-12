@@ -214,7 +214,7 @@
 
 ## LOTE 9 — Certificação + espinhas (M5) — GATE M5: ADV-Max sem refutação pendente · pétreos §xiii verdes · cascata MULTV-02 advisory ≥30
 - [ ] MAXG-03 — pending
-- [ ] MAXG-05 — pending
+- [x] MAXG-05 — landed · `LocalRagGoldenBySourceMetrics` (pure, gate=false hardcoded, schema `atlas.memory_recall_golden_by_source.v1`) partitions each golden vN case by 4 canonical `source` values {registry, verbatim, semantic, compounding}, computes recall_at_5, MRR, nDCG@5 per source + overall using existing `must_include` hashes and item positions (nenhum rerun — report-only sobre os MESMOS runs); wired into `LocalRagBenchmarkService::evaluateMemoryRecallGoldenCase()` (per-case `by_source_metrics`) + `memoryRecallGoldenFixtureReport()` v2 payload (`by_source_metrics_aggregate`); nenhum novo floor — plano diz explicitamente `nenhum floor novo neste slice`; propriedade pétrea provada: nDCG@5 monotônico sob melhora de posição (`test_ndcg_at_5_monotonic_under_position_improvement`); caso negativo `test_case_negative_no_match_gives_zero_recall_and_null_first_rank`; tests: `php artisan test tests/Unit/Ai/AcosMax/Maxg05GoldenBySourceMetricsTest.php tests/Feature/Ai/AtlasAiLocalRagBenchmarkCommandTest.php`
 - [ ] MAXG-06 — pending
 - [ ] MAXG-07 — pending
 - [ ] MAXB-08 — pending
