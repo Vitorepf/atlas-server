@@ -67,14 +67,8 @@ class AiConversationContextBuilder
             ->latest('created_at')
             ->first();
 
-        $turns = $messages->map(fn (AiMessage $message): array => [
-            'role' => $message->role === 'summary' ? 'assistant' : $message->role,
-            'text' => Str::limit(trim($message->content), $message->role === 'summary' ? 2400 : 1800, '...'),
-            'provider' => $message->provider,
-            'trace_id' => $message->trace_id,
-            'message_id' => $message->id,
-            'position' => $message->position,
-        ])->all();
+        $rehydratableTurnRefs = (bool) ($options['rehydratable_turn_refs'] ?? false);
+        $turns = $messages->map(fn (AiMessage $message): array => $this->turnPayload($message, $rehydratableTurnRefs))->all();
 
         return [
             'thread_id' => $thread->id,
@@ -137,6 +131,37 @@ class AiConversationContextBuilder
             ->get()
             ->sortBy('position')
             ->values();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function turnPayload(AiMessage $message, bool $rehydratableTurnRefs): array
+    {
+        $role = $message->role === 'summary' ? 'assistant' : $message->role;
+        $content = trim($message->content);
+        if (! $rehydratableTurnRefs) {
+            return [
+                'role' => $role,
+                'text' => Str::limit($content, $message->role === 'summary' ? 2400 : 1800, '...'),
+                'provider' => $message->provider,
+                'trace_id' => $message->trace_id,
+                'message_id' => $message->id,
+                'position' => $message->position,
+            ];
+        }
+
+        return [
+            'role' => $role,
+            'text' => Str::limit($content, 80, '...'),
+            'turn_ref' => 'turn:'.$message->id,
+            'recovery_query' => 'rehydrate turn:'.$message->id.' from canonical sources',
+            'compression' => 'rehydratable_turn_ref',
+            'provider' => $message->provider,
+            'trace_id' => $message->trace_id,
+            'message_id' => $message->id,
+            'position' => $message->position,
+        ];
     }
 
     private function contextWindow($messages, ?AiCompaction $compaction): array

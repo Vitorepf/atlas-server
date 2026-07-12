@@ -121,6 +121,42 @@ class AiConversationContextBuilderTest extends TestCase
         $this->assertSame(1, $context['context_window']['compacted_through_position']);
     }
 
+    public function test_rehydratable_turn_refs_compact_recent_turns_without_changing_default_shape(): void
+    {
+        $thread = AiThread::query()->create([
+            'title' => 'Thread com turn refs',
+            'summary' => null,
+            'status' => 'active',
+            'surface' => 'atlas_cli',
+            'metadata' => [],
+        ]);
+        $message = AiMessage::query()->create([
+            'thread_id' => $thread->id,
+            'position' => 1,
+            'role' => 'user',
+            'status' => 'final',
+            'content' => str_repeat('conteudo recuperavel ', 120),
+            'token_estimate' => 400,
+            'occurred_at' => now(),
+            'metadata' => [],
+        ]);
+
+        $default = app(AiConversationContextBuilder::class)->build([
+            'thread_id' => $thread->id,
+        ]);
+        $rehydratable = app(AiConversationContextBuilder::class)->build([
+            'thread_id' => $thread->id,
+            'rehydratable_turn_refs' => true,
+        ]);
+
+        $this->assertArrayNotHasKey('turn_ref', $default['recent_turns'][0]);
+        $this->assertStringContainsString('conteudo recuperavel conteudo recuperavel', $default['recent_turns'][0]['text']);
+        $this->assertSame('turn:'.$message->id, $rehydratable['recent_turns'][0]['turn_ref']);
+        $this->assertSame('rehydratable_turn_ref', $rehydratable['recent_turns'][0]['compression']);
+        $this->assertLessThan(mb_strlen($default['recent_turns'][0]['text']), mb_strlen($rehydratable['recent_turns'][0]['text']));
+        $this->assertStringStartsWith('rehydrate turn:'.$message->id.' from canonical sources', $rehydratable['recent_turns'][0]['recovery_query']);
+    }
+
     private function createAiContextTables(): void
     {
         $this->dropAiContextTables();

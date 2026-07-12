@@ -153,7 +153,7 @@
 - [x] MAXF-10 — landed · `AiCompactionService::compactLocked` marks net-negative candidates (`token_after >= token_before`) with `metadata.net_negative=true`, persists the candidate/receipt path for audit, but skips thread summary overwrite even when quality gate passes; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionQualityGateBlocksOverwriteTest.php`
 - [x] MAXF-04 — landed · conversation compaction now produces deterministic lexical `dup_group` hashes from normalized shingles for repeated turns, feeds the existing ranker dedup penalty, and records duplicate group/segment/token counts in compaction metadata; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionQualityGateBlocksOverwriteTest.php`
 - [x] MAXF-06 — landed · recovery hits now increment deterministic `importance` counters on matching `ai_session_states` items (`decision`/`blocker`/`dod`/`risk_critical`) without writing recovered content or memory rows, feeding the existing ranker importance sink; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionZeroLossRecoveryTest.php tests/Feature/Ai/Compaction/CompactionTurnRecoveryTest.php tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
-- [ ] MAXF-07 — pending
+- [x] MAXF-07 — landed · `AiConversationContextBuilder` supports opt-in `rehydratable_turn_refs`: default output remains byte-compatible for raw provider prompts, while rehydratable consumers get `turn:{id}` refs, short digest text, and recovery queries for recent turns; tests: `php artisan test tests/Unit/AiConversationContextBuilderTest.php`
 - [ ] MAXF-05 — pending
 - [ ] MAXH-06 — pending
 - [ ] MAXI-05 — pending
