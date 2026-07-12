@@ -5,6 +5,7 @@ namespace Tests\Feature\Ai\Rivals;
 use App\Services\Ai\Rivals\Adapters\External\Tau2BenchAdapter;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\ClaimTier;
+use App\Services\Ai\Rivals\Core\FrozenUnitManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
 use App\Services\Ai\Rivals\Core\ResultLedger;
 use App\Services\Ai\Rivals\Core\RunPlan;
@@ -45,6 +46,7 @@ class ReplaceImportLedgerTest extends TestCase
             ClaimTier::DIAGNOSTIC,
         );
         $runId = $plan->persist();
+        FrozenUnitManifest::fromPlan(RunPlan::load($runId), [['case_id' => 'airline_task_012']], true)->persist();
         NativeExecutionManifest::fromPlan($plan, $adapter, $adapter->planCommands($plan))->persist();
         (new RunStateMachine)->mark($runId, RunStateMachine::PLANNED);
         $source = base_path('tests/Fixtures/Rivals/tau2_bench_results.json');
