@@ -133,6 +133,9 @@ class AiCompactionService
                 'compression_ratio_estimate' => $tokenBefore > 0 ? round($tokenAfter / $tokenBefore, 4) : null,
                 'net_negative' => $netNegative,
                 'net_negative_policy' => $netNegative ? 'record_candidate_without_thread_summary_overwrite' : null,
+                'lexical_duplicate_group_count' => $summaryResult['lexical_duplicate_group_count'] ?? 0,
+                'lexical_duplicate_segment_count' => $summaryResult['lexical_duplicate_segment_count'] ?? 0,
+                'lexical_duplicate_token_estimate' => $summaryResult['lexical_duplicate_token_estimate'] ?? 0,
                 'protected_skill_message_count' => $protectedMessages->count(),
                 'protected_skill_names' => $protectedSkillNames,
                 'candidate_summary_hash' => hash('sha256', $summary),
@@ -453,6 +456,7 @@ class AiCompactionService
         $segmentBudget = max(0, $requestedBudget - $fixedTokenEstimate);
 
         $segments = $this->conversationSummarySegments($messages, $state);
+        $duplicateStats = $this->lexicalDuplicateStats($segments);
         $selection = ($this->segmentRanker ?? new SegmentImportanceRanker)->select($segments, $segmentBudget);
         $keptIds = array_flip((array) ($selection['kept_ids'] ?? []));
         $kept = [];
@@ -491,6 +495,9 @@ class AiCompactionService
         return [
             'summary' => Str::limit(implode("\n", $parts), 12000, '...'),
             'dropped_segments' => $dropped,
+            'lexical_duplicate_group_count' => $duplicateStats['group_count'],
+            'lexical_duplicate_segment_count' => $duplicateStats['duplicate_segment_count'],
+            'lexical_duplicate_token_estimate' => $duplicateStats['token_estimate'],
         ];
     }
 
@@ -532,6 +539,16 @@ class AiCompactionService
         $appendState(array_values($state?->next_steps ?? []), 'dod', 'next_step');
 
         $messageCount = $messages->count();
+        $messageDupGroups = [];
+        foreach ($messages->values() as $message) {
+            if ($message instanceof AiMessage) {
+                $group = $this->lexicalDupGroup((string) $message->content);
+                if ($group !== null) {
+                    $messageDupGroups[$group] = ($messageDupGroups[$group] ?? 0) + 1;
+                }
+            }
+        }
+
         foreach ($messages->values() as $index => $message) {
             if (! $message instanceof AiMessage) {
                 continue;
@@ -540,11 +557,13 @@ class AiCompactionService
             if (trim($text) === '') {
                 continue;
             }
+            $dupGroup = $this->lexicalDupGroup((string) $message->content);
             $segments[] = [
                 'id' => 'turn:'.($message->id ?? $index),
                 'kind' => 'conversation_turn',
                 'text' => $text,
                 'digest' => $text,
+                'dup_group' => $dupGroup !== null && ($messageDupGroups[$dupGroup] ?? 0) > 1 ? $dupGroup : null,
                 'recency_rank' => max(0, $messageCount - $index - 1),
                 'token_estimate' => max(20, (int) ceil(mb_strlen($text) / 4) + 8),
                 'has_evidence_ref' => false,
@@ -554,6 +573,56 @@ class AiCompactionService
         }
 
         return $segments;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $segments
+     * @return array{group_count:int,duplicate_segment_count:int,token_estimate:int}
+     */
+    private function lexicalDuplicateStats(array $segments): array
+    {
+        $groups = [];
+        foreach ($segments as $segment) {
+            $group = is_string($segment['dup_group'] ?? null) ? (string) $segment['dup_group'] : null;
+            if ($group === null) {
+                continue;
+            }
+            $groups[$group] ??= ['count' => 0, 'tokens' => 0];
+            $groups[$group]['count']++;
+            if ($groups[$group]['count'] > 1) {
+                $groups[$group]['tokens'] += (int) ($segment['token_estimate'] ?? 0);
+            }
+        }
+
+        $duplicateGroups = array_filter($groups, static fn (array $row): bool => (int) $row['count'] > 1);
+
+        return [
+            'group_count' => count($duplicateGroups),
+            'duplicate_segment_count' => array_sum(array_map(static fn (array $row): int => max(0, (int) $row['count'] - 1), $duplicateGroups)),
+            'token_estimate' => array_sum(array_map(static fn (array $row): int => (int) $row['tokens'], $duplicateGroups)),
+        ];
+    }
+
+    private function lexicalDupGroup(string $text): ?string
+    {
+        $normalized = mb_strtolower(trim((string) preg_replace('/[^\pL\pN]+/u', ' ', $text)));
+        $normalized = trim((string) preg_replace('/\s+/', ' ', $normalized));
+        if (mb_strlen($normalized) < 12) {
+            return null;
+        }
+
+        $tokens = preg_split('/\s+/', $normalized) ?: [];
+        if (count($tokens) >= 5) {
+            $shingles = [];
+            for ($i = 0; $i <= count($tokens) - 5; $i++) {
+                $shingles[] = implode(' ', array_slice($tokens, $i, 5));
+            }
+            $shingles = array_values(array_unique($shingles));
+            sort($shingles, SORT_STRING);
+            $normalized = implode('|', $shingles);
+        }
+
+        return 'lex:'.hash('sha256', $normalized);
     }
 
     /**

@@ -86,6 +86,29 @@ final class CompactionQualityGateBlocksOverwriteTest extends TestCase
         $this->assertSame($compaction->id, data_get($thread->metadata, 'last_compaction_id'));
     }
 
+    public function test_duplicate_turns_are_marked_for_lexical_dedup_before_ranking(): void
+    {
+        [$thread, $session] = $this->threadFixture(
+            previousSummary: 'summary before duplicate compaction',
+            objective: 'Preserve unique work while duplicate turns should not burn the budget twice.',
+        );
+        AiMessage::query()->create([
+            'thread_id' => $thread->id,
+            'position' => 3,
+            'role' => 'user',
+            'status' => 'final',
+            'content' => 'Please compact this conversation.',
+            'token_estimate' => 300,
+            'metadata' => [],
+        ]);
+
+        $compaction = app(AiCompactionService::class)->compact($thread, $session, 'manual');
+
+        $this->assertSame(1, data_get($compaction->metadata, 'lexical_duplicate_group_count'));
+        $this->assertSame(1, data_get($compaction->metadata, 'lexical_duplicate_segment_count'));
+        $this->assertGreaterThan(0, data_get($compaction->metadata, 'lexical_duplicate_token_estimate'));
+    }
+
     /**
      * @return array{0:AiThread,1:AiSession}
      */

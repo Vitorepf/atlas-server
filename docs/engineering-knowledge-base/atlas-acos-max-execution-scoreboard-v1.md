@@ -151,7 +151,7 @@
 - [x] MAXF-03 — landed · `CompactionRecoveryExecutor` now resolves `conversation_turn:{id}` and `turn:{id}` recovery queries from `ai_messages` byte-intact while refusing `status=redacted` turns with named missing reason; MAXF-02 sampler regression remains green; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionTurnRecoveryTest.php tests/Feature/Ai/Compaction/CompactionRecoverySampleCommandTest.php`
 - [ ] MAXF-08 — pending
 - [x] MAXF-10 — landed · `AiCompactionService::compactLocked` marks net-negative candidates (`token_after >= token_before`) with `metadata.net_negative=true`, persists the candidate/receipt path for audit, but skips thread summary overwrite even when quality gate passes; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionQualityGateBlocksOverwriteTest.php`
-- [ ] MAXF-04 — pending
+- [x] MAXF-04 — landed · conversation compaction now produces deterministic lexical `dup_group` hashes from normalized shingles for repeated turns, feeds the existing ranker dedup penalty, and records duplicate group/segment/token counts in compaction metadata; tests: `php artisan test tests/Feature/Ai/Compaction/CompactionQualityGateBlocksOverwriteTest.php`
 - [ ] MAXF-06 — pending
 - [ ] MAXF-07 — pending
 - [ ] MAXF-05 — pending
