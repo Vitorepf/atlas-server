@@ -70,6 +70,24 @@ class ForgeScopeReservationServiceTest extends TestCase
         $this->assertSame('expired', $this->reservations->reconstruct($first['reservation']['id'])['state']);
     }
 
+    public function test_reaper_expires_active_lease_once_and_preserves_fencing_history(): void
+    {
+        $first = $this->acquire('run-a', 'worker-a', 'token-a', 'idem-a', 30);
+        Carbon::setTestNow('2026-07-11 12:01:00');
+
+        $reaped = $this->reservations->reapExpired();
+        $secondPass = $this->reservations->reapExpired();
+
+        $this->assertSame(1, $reaped['reaped_count']);
+        $this->assertSame(0, $secondPass['reaped_count']);
+        $this->assertSame('expired', $this->reservations->reconstruct($first['reservation']['id'])['state']);
+        $this->assertNull(DB::table('atlas_task_scope_reservations')->where('id', $first['reservation']['id'])->value('active_scope_key'));
+
+        $takeover = $this->acquire('run-b', 'worker-b', 'token-b', 'idem-b');
+        $this->assertSame($first['reservation']['fencing_token'] + 1, $takeover['reservation']['fencing_token']);
+        $this->assertSame(3, DB::table('atlas_ledger_events')->where('scope_type', 'forge_reservation')->count());
+    }
+
     public function test_old_worker_cannot_release_or_settle_after_takeover(): void
     {
         $first = $this->acquire('run-a', 'worker-a', 'token-a', 'idem-a', 30);

@@ -169,6 +169,48 @@ class ForgeScopeReservationService
         return ['released' => $affected === 1, 'reservation' => $reservation];
     }
 
+    /**
+     * Reap expired active leases without changing fencing history.
+     *
+     * The operation is idempotent: a second pass sees no active expired row,
+     * and the expired reservation remains reconstructable for audit/replay.
+     *
+     * @return array{reaped_count:int,reservations:list<array<string,mixed>>}
+     */
+    public function reapExpired(?Carbon $now = null): array
+    {
+        $now ??= Carbon::now();
+        $reservations = DB::transaction(function () use ($now): array {
+            $rows = DB::table(self::TABLE)
+                ->where('state', 'active')
+                ->where('lease_expires_at', '<=', $now)
+                ->lockForUpdate()
+                ->get();
+
+            $reaped = [];
+            foreach ($rows as $row) {
+                DB::table(self::TABLE)->where('id', $row->id)->update([
+                    'state' => 'expired',
+                    'active_scope_key' => null,
+                    'released_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $reaped[] = $this->reconstruct((string) $row->id);
+            }
+
+            return array_values(array_filter($reaped));
+        }, 3);
+
+        foreach ($reservations as $reservation) {
+            $this->emitAfterCommit('reaped', $reservation);
+        }
+
+        return [
+            'reaped_count' => count($reservations),
+            'reservations' => $reservations,
+        ];
+    }
+
     /** @return array<string,mixed>|null */
     public function reconstruct(string $id): ?array
     {
