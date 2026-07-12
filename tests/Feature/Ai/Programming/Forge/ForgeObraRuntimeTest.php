@@ -190,6 +190,69 @@ final class ForgeObraRuntimeTest extends TestCase
         self::assertSame($resumedReplay->stateHash, $stateAfterResume?->state_hash);
     }
 
+    public function test_drain_and_cancel_controls_are_replay_safe(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra com drain e cancel replay-safe', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        $runtime = app(ForgeObraRuntime::class);
+        $commissioned = $runtime->commission($commissioning);
+
+        $drained = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('drain'));
+        $drainedReplay = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('drain'));
+        self::assertSame($drained->stateHash, $drainedReplay->stateHash);
+
+        $drainedTick = $runtime->tick($commissioned->obra, ForgeTickBudget::fromArray([
+            'max_packets' => 1, 'lease_seconds' => 900, 'allow_provider' => false,
+        ]));
+        self::assertSame('blocked', $drainedTick->status);
+        self::assertSame('forge_control_drain', $drainedTick->reason);
+
+        $cancelled = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('cancel'));
+        $cancelledReplay = $runtime->control($commissioned->obra, ForgeControlCommand::fromString('cancel'));
+        self::assertSame($cancelled->stateHash, $cancelledReplay->stateHash);
+
+        $state = AiForgeLongHorizonState::query()->where('intake_id', $commissioned->intakeId)->firstOrFail();
+        $reasons = collect((array) $state->blockers)->pluck('reason')->all();
+        self::assertContains('forge_control_drain', $reasons);
+        self::assertContains('forge_control_cancel', $reasons);
+    }
+
+    public function test_orphaned_running_cycle_is_recovered_once_without_duplicate_transition(): void
+    {
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra com recovery de ciclo orfao', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        $runtime = app(ForgeObraRuntime::class);
+        $commissioned = $runtime->commission($commissioning);
+        $tick = $runtime->tick($commissioned->obra, ForgeTickBudget::fromArray([
+            'max_packets' => 1, 'lease_seconds' => 900, 'allow_provider' => false,
+        ]));
+
+        $recovered = $runtime->recoverOrphanedCycle($commissioned->obra, $tick->cycleId);
+        $replay = $runtime->recoverOrphanedCycle($commissioned->obra, $tick->cycleId);
+
+        self::assertTrue($recovered['recovered']);
+        self::assertSame('recovered', $recovered['status']);
+        self::assertFalse($replay['recovered']);
+        self::assertSame('no_running_cycle', $replay['reason']);
+        self::assertSame('blocked', AiForgeWorkPacketExecutionCycle::query()
+            ->where(function ($query) use ($tick): void {
+                $query->where('uuid', $tick->cycleId)->orWhere('id', $tick->cycleId);
+            })
+            ->value('status'));
+    }
+
     public function test_heartbeat_is_fail_closed_when_obra_has_no_running_cycle(): void
     {
         $commissioning = ForgeCommissioning::fromArray([

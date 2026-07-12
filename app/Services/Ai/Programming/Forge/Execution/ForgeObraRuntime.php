@@ -135,6 +135,11 @@ final class ForgeObraRuntime
         $snapshot = ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
             data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash'));
 
+        $controlBlocker = $this->activeControlBlocker($state);
+        if ($controlBlocker !== null) {
+            return ForgeTickResult::blocked($snapshot, 'control', 'control-'.$controlBlocker, $controlBlocker);
+        }
+
         $heartbeat = $this->heartbeat($obra, leaseSeconds: $budget->leaseSeconds);
         if (in_array((string) ($heartbeat['status'] ?? ''), ['stale', 'blocked'], true)) {
             return ForgeTickResult::blocked(
@@ -165,7 +170,7 @@ final class ForgeObraRuntime
             return ForgeTickResult::blocked(
                 ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
                 (string) $packet->packet_id,
-                (string) $cycle->cycle_id,
+                (string) $cycle->uuid,
                 $reason,
             );
         }
@@ -194,7 +199,7 @@ final class ForgeObraRuntime
 
                 return ForgeTickResult::planned(
                     ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
-                    (string) $packet->packet_id, (string) $cycle->cycle_id, $outcomeArray,
+                    (string) $packet->packet_id, (string) $cycle->uuid, $outcomeArray,
                 );
             }
             $reason = 'kernel_outcome_'.(($outcome->status ?? '') ?: 'blocked');
@@ -203,12 +208,12 @@ final class ForgeObraRuntime
 
             return ForgeTickResult::blocked(
                 ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'), data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')),
-                (string) $packet->packet_id, (string) $cycle->cycle_id, $reason, $outcomeArray,
+                (string) $packet->packet_id, (string) $cycle->uuid, $reason, $outcomeArray,
             );
         }
 
         return ForgeTickResult::planned(ForgeObraSnapshot::fromState($state, '', data_get($binding, 'product_intent_hash'), data_get($binding, 'spec_hash'),
-            data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')), (string) $packet->packet_id, (string) $cycle->cycle_id);
+            data_get($binding, 'world_model_snapshot_hash'), data_get($binding, 'market_decision_hash')), (string) $packet->packet_id, (string) $cycle->uuid);
     }
 
     /**
@@ -367,6 +372,17 @@ final class ForgeObraRuntime
     private function controlBlockerReasons(AiForgeLongHorizonState $state): array
     {
         return ['forge_control_pause', 'forge_control_drain'];
+    }
+
+    private function activeControlBlocker(AiForgeLongHorizonState $state): ?string
+    {
+        foreach (['forge_control_cancel', 'forge_control_pause', 'forge_control_drain'] as $reason) {
+            if ($this->hasUnresolvedBlocker($state, [$reason])) {
+                return $reason;
+            }
+        }
+
+        return null;
     }
 
     /** @param list<string> $reasons */
