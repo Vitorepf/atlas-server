@@ -51,6 +51,7 @@ class AtlasRealEngineeringCompanyRuntimeServiceTest extends TestCase
         $this->assertSame('blocked', $result['status']);
         $this->assertCount(22, $result['roles']);
         $this->assertSame(EngineeringRoleRoster::OFFICIAL_ROLES, array_column($result['roles'], 'role_id'));
+        $this->assertSame(['multiple_verifiers_regression_compatibility_controlled_release'], array_values(array_unique(array_column(array_column($result['roles'], 'output'), 'selected_depth'))));
         $this->assertSame('blocked', data_get($result, 'real_execution.status'));
         $this->assertSame('recorded', data_get($result, 'benchmark.status'));
         $this->assertSame('blocked', data_get($result, 'certification.status'));

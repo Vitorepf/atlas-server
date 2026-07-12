@@ -206,6 +206,7 @@ class AtlasRealEngineeringCompanyRuntimeService
         $evidence = ['engagement:'.$engagement->receipt_hash, 'cycle:'.$cycle->cycle_hash];
         $agentTaskPacket = $this->buildRoleAgentTaskPacket($engagement, $cycle, $roleRunId, $roleId, $responsibilities);
         $output = array_merge($output, [
+            'selected_depth' => (string) ($output['role_depth'] ?? ''),
             'agent_runtime_mode' => 'standard_agent_control_plane_task_packet',
             'agent_control_plane_task_packet' => [
                 'schema_version' => AgentControlPlaneTaskPacketBuilder::SCHEMA_VERSION,
@@ -227,6 +228,7 @@ class AtlasRealEngineeringCompanyRuntimeService
             'status' => $status,
             'responsibilities' => $responsibilities,
             'output' => $output,
+            'selected_depth' => $output['selected_depth'],
             'evidence_refs' => $evidence,
         ];
         $receipt['hash'] = EngineeringCompanyHash::make($receipt);
@@ -260,7 +262,16 @@ class AtlasRealEngineeringCompanyRuntimeService
         $binding = ['run_id' => $order->runId, 'delivery_id' => $order->deliveryId, 'order_hash' => $order->canonicalHash(), 'spec_hash' => $order->specHash,
             'engagement_record_id' => (string) $engagement->getKey(), 'cycle_record_id' => (string) $cycle->getKey()];
         $output = ['disposition' => $disposition];
+        $selectedDepth = $this->qualityRoleDepth($roleId, $order->riskClass);
+        $output['selected_depth'] = $selectedDepth;
+        $output['context'] = [
+            'mode' => $order->mode,
+            'complexity_band' => $order->complexityBand,
+            'duration_regime' => $order->durationRegime,
+            'topology' => $order->workTopology,
+        ];
         $receipt = ['schema_version' => self::ROLE_SCHEMA, 'role_run_id' => $roleRunId, 'role_id' => $roleId,
+            'selected_depth' => $selectedDepth,
             'status' => match ($disposition['status']) {
                 'pass' => 'passed', 'not_applicable' => 'not_applicable', default => 'blocked'
             },
