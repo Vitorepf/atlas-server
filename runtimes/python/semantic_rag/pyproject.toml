@@ -7,7 +7,7 @@ dependencies = ["numpy>=1.26"]
 
 [project.optional-dependencies]
 # Real embedding providers (sovereignty order: local first, then API).
-local = ["fastembed>=0.3"]
+local = ["fastembed>=0.8.0"]
 openai = ["openai>=1.40"]
 test = ["pytest>=8.0"]
 

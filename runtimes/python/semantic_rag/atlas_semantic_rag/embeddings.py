@@ -13,6 +13,9 @@ Providers, in sovereignty order (local first):
   2. OpenAIEmbedder     — OpenAI `text-embedding-3-small` (1536-d), real model
      over the API. Used when a key is present and the local model is absent.
 
+MAXA-09 additionally exposes a local FastEmbed late-interaction reranker
+(ColBERT-family token embeddings) for already-shortlisted top-K windows.
+
 Both return L2-normalised float32 vectors so cosine == dot product downstream.
 """
 
@@ -42,6 +45,14 @@ class EmbeddingResult:
     dim: int
 
 
+@dataclass(frozen=True)
+class LateInteractionRerankResult:
+    matches: list[dict[str, float | str]]
+    model: str
+    provider: str
+    dim: int
+
+
 class Embedder(Protocol):
     name: str
     model: str
@@ -51,6 +62,8 @@ class Embedder(Protocol):
 
 
 _EMBEDDER_CACHE: dict[tuple[str, str | None], Embedder] = {}
+
+_LATE_INTERACTION_CACHE: dict[str, "FastEmbedLateInteractionReranker"] = {}
 
 
 def _l2_normalise(matrix: np.ndarray) -> np.ndarray:
@@ -84,6 +97,67 @@ class FastEmbedEmbedder:
     def embed(self, texts: Sequence[str]) -> np.ndarray:
         vectors = list(self._engine.embed(list(texts)))
         return _l2_normalise(np.asarray(vectors, dtype=np.float32))
+
+
+class FastEmbedLateInteractionReranker:
+    """Local, offline ColBERT-family reranker via fastembed late interaction."""
+
+    name = "fastembed_late_interaction"
+
+    def __init__(self, model: str | None = None) -> None:
+        try:
+            from fastembed import LateInteractionTextEmbedding  # type: ignore
+        except Exception as exc:  # pragma: no cover - import guard
+            raise NoEmbeddingProviderError(f"fastembed late-interaction unavailable: {exc}") from exc
+
+        self.model = model or os.environ.get(
+            "ATLAS_SEMANTIC_RAG_LATE_INTERACTION_MODEL",
+            "answerdotai/answerai-colbert-small-v1",
+        )
+        self._engine = LateInteractionTextEmbedding(model_name=self.model)
+        self.dim = int(getattr(self._engine, "embedding_size", 0) or self._engine.get_embedding_size(self.model))
+
+    def rerank(self, query: str, documents: Sequence[dict[str, str]], k: int = 5) -> LateInteractionRerankResult:
+        query_tokens = np.asarray(next(iter(self._engine.query_embed([query]))), dtype=np.float32)
+        passage_vectors = list(self._engine.passage_embed([str(doc.get("text", "")) for doc in documents]))
+
+        raw: list[tuple[str, float]] = []
+        for doc, passage_tokens in zip(documents, passage_vectors, strict=False):
+            doc_id = str(doc.get("id", ""))
+            if not doc_id:
+                continue
+            passage = np.asarray(passage_tokens, dtype=np.float32)
+            if query_tokens.size == 0 or passage.size == 0:
+                score = 0.0
+            else:
+                # ColBERT MaxSim: each query token keeps its strongest passage-token match.
+                score = float(np.max(query_tokens @ passage.T, axis=1).mean())
+            raw.append((doc_id, score))
+
+        raw.sort(key=lambda row: (-row[1], row[0]))
+        selected = raw[: max(1, int(k))]
+        values = [score for _, score in selected]
+        min_score = min(values) if values else 0.0
+        max_score = max(values) if values else 0.0
+
+        matches: list[dict[str, float | str]] = []
+        for doc_id, score in selected:
+            if max_score > min_score:
+                normalized = (score - min_score) / (max_score - min_score)
+            else:
+                normalized = 1.0 if values else 0.0
+            matches.append({
+                "id": doc_id,
+                "score": float(round(max(0.0, min(1.0, normalized)), 6)),
+                "via": "late_interaction",
+            })
+
+        return LateInteractionRerankResult(
+            matches=matches,
+            model=self.model,
+            provider=self.name,
+            dim=self.dim,
+        )
 
 
 class OpenAIEmbedder:
@@ -144,3 +218,23 @@ def embed_texts(texts: Sequence[str], prefer_local: bool = True) -> EmbeddingRes
         provider=embedder.name,
         dim=embedder.dim,
     )
+
+
+def resolve_late_interaction_reranker(model: str | None = None) -> FastEmbedLateInteractionReranker:
+    model_key = model or os.environ.get(
+        "ATLAS_SEMANTIC_RAG_LATE_INTERACTION_MODEL",
+        "answerdotai/answerai-colbert-small-v1",
+    )
+    if model_key not in _LATE_INTERACTION_CACHE:
+        _LATE_INTERACTION_CACHE[model_key] = FastEmbedLateInteractionReranker(model_key)
+
+    return _LATE_INTERACTION_CACHE[model_key]
+
+
+def late_interaction_rerank(
+    query: str,
+    documents: Sequence[dict[str, str]],
+    k: int = 5,
+) -> LateInteractionRerankResult:
+    reranker = resolve_late_interaction_reranker()
+    return reranker.rerank(query, documents, k)

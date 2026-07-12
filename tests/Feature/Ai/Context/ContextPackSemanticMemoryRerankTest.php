@@ -6,6 +6,7 @@ namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
+use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use Mockery;
 use RuntimeException;
@@ -99,6 +100,33 @@ final class ContextPackSemanticMemoryRerankTest extends TestCase
         $this->assertSame('lexical', data_get($pack, 'provenance.memory.retrieval_mode'));
     }
 
+    public function test_late_interaction_stage_reranks_top_window_to_configured_top_k(): void
+    {
+        config([
+            'atlas.aobg.semantic_retrieval' => false,
+            'atlas.aobg.late_interaction_rerank' => true,
+            'atlas.aobg.late_interaction_candidate_window' => 20,
+            'atlas.aobg.late_interaction_top_k' => 2,
+        ]);
+        $this->bindMemory();
+        // mem_0=crop, mem_1=auth, mem_2=cache. The stage should return only top-2.
+        $this->app->instance(
+            SemanticRetrievalRuntime::class,
+            new RerankSpyRuntime(
+                available: true,
+                lateInteractionScores: ['mem_2' => 0.99, 'mem_1' => 0.90, 'mem_0' => 0.10],
+            ),
+        );
+
+        $pack = app(AtlasOpenBrainContextPackService::class)->packFor('stale lookup cache credentials', [
+            'workspace' => 'atlas-server',
+        ]);
+
+        $titles = array_column((array) data_get($pack, 'memory'), 'title');
+        $this->assertSame(['cache note', 'auth note'], $titles);
+        $this->assertSame('late_interaction', data_get($pack, 'provenance.memory.retrieval_mode'));
+    }
+
     protected function tearDown(): void
     {
         Mockery::close();
@@ -110,14 +138,16 @@ final class ContextPackSemanticMemoryRerankTest extends TestCase
  * In-process boundary fake emitting a real-embeddings receipt with controllable
  * per-id scores. Distinct name to avoid clashing with the sibling test's spy.
  */
-final class RerankSpyRuntime implements SemanticRetrievalRuntime
+final class RerankSpyRuntime implements SemanticLateInteractionRuntime, SemanticRetrievalRuntime
 {
     /**
      * @param  array<string,float>  $realScores
+     * @param  array<string,float>  $lateInteractionScores
      */
     public function __construct(
         private readonly bool $available,
         private readonly array $realScores = [],
+        private readonly array $lateInteractionScores = [],
     ) {}
 
     public function available(): bool
@@ -148,6 +178,29 @@ final class RerankSpyRuntime implements SemanticRetrievalRuntime
                 'real_embeddings' => true,
                 'fabricated_vectors' => false,
                 'embeddings_engine_in_python' => true,
+            ],
+        ];
+    }
+
+    public function lateInteractionRerank(array $documents, string $query, int $k = 5): array
+    {
+        if (! $this->available) {
+            throw new RuntimeException('lateInteractionRerank() called on an unavailable runtime — contract violation.');
+        }
+
+        $matches = [];
+        foreach ($documents as $doc) {
+            $id = (string) ($doc['id'] ?? '');
+            $matches[] = ['id' => $id, 'score' => $this->lateInteractionScores[$id] ?? 0.0, 'via' => 'late_interaction'];
+        }
+
+        return [
+            'matches' => $matches,
+            'boundary' => [
+                'real_embeddings' => true,
+                'fabricated_vectors' => false,
+                'embeddings_engine_in_python' => true,
+                'late_interaction' => true,
             ],
         ];
     }

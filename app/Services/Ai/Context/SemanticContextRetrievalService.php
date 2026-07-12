@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\AtlasHybridMemoryRetrievalService;
+use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use Illuminate\Support\Str;
 use Throwable;
@@ -13,7 +15,7 @@ use Throwable;
  * context-pack front door.
  *
  * The context-pack memory section already rides the real pgvector/semantic_rag
- * path ({@see \App\Services\Ai\AtlasHybridMemoryRetrievalService}); but that path
+ * path ({@see AtlasHybridMemoryRetrievalService}); but that path
  * needs embeddings pre-stored in `semantic_notes`. This service is the complementary
  * AD-HOC ranker: given a query and a set of {id,text} candidates assembled at
  * request time (e.g. code-graph symbol cards, doc chunks), it ranks them by REAL
@@ -45,7 +47,7 @@ final class SemanticContextRetrievalService
      * @param  positive-int  $limit
      * @return array{
      *   schema:string,
-     *   mode:'semantic'|'lexical',
+     *   mode:'semantic'|'lexical'|'late_interaction',
      *   query_hash:string,
      *   ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>,
      *   candidate_count:int
@@ -58,26 +60,32 @@ final class SemanticContextRetrievalService
 
         $lexical = $this->lexicalRanking($query, $normalized);
 
-        if ($query === '' || $normalized === [] || ! $this->semanticEnabled() || ! $this->semanticRuntime->available()) {
+        if ($query === '' || $normalized === []) {
             return $this->result('lexical', $query, $lexical, $limit);
         }
 
-        try {
-            $result = $this->semanticRuntime->retrieve(
-                documents: array_values($normalized),
-                query: $query,
-                k: count($normalized),
-            );
-        } catch (Throwable) {
-            return $this->result('lexical', $query, $lexical, $limit);
+        $mode = 'lexical';
+        $ranked = $lexical;
+
+        if ($this->semanticEnabled() && $this->semanticRuntime->available()) {
+            try {
+                $result = $this->semanticRuntime->retrieve(
+                    documents: array_values($normalized),
+                    query: $query,
+                    k: count($normalized),
+                );
+                $semantic = $this->semanticRanking($result, $normalized);
+                if ($semantic !== []) {
+                    $mode = 'semantic';
+                    $ranked = $semantic;
+                }
+            } catch (Throwable) {
+                $mode = 'lexical';
+                $ranked = $lexical;
+            }
         }
 
-        $semantic = $this->semanticRanking($result, $normalized);
-        if ($semantic === []) {
-            return $this->result('lexical', $query, $lexical, $limit);
-        }
-
-        return $this->result('semantic', $query, $semantic, $limit);
+        return $this->lateInteractionResult($query, $normalized, $ranked, $mode, $limit);
     }
 
     /**
@@ -125,6 +133,11 @@ final class SemanticContextRetrievalService
     private function semanticEnabled(): bool
     {
         return (bool) config('atlas.aobg.semantic_retrieval', false);
+    }
+
+    private function lateInteractionEnabled(): bool
+    {
+        return (bool) config('atlas.aobg.late_interaction_rerank', false);
     }
 
     /**
@@ -214,6 +227,96 @@ final class SemanticContextRetrievalService
     }
 
     /**
+     * @param  array<int,array{id:string,text:string}>  $normalized
+     * @param  array<int,array{id:string,score:float,score_origin:string}>  $ranked
+     * @return array{schema:string, mode:'semantic'|'lexical'|'late_interaction', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
+     */
+    private function lateInteractionResult(string $query, array $normalized, array $ranked, string $mode, int $limit): array
+    {
+        if (! $this->lateInteractionEnabled()
+            || ! $this->semanticRuntime instanceof SemanticLateInteractionRuntime
+            || ! $this->semanticRuntime->available()) {
+            return $this->result($mode, $query, $ranked, $limit);
+        }
+
+        $byId = [];
+        foreach ($normalized as $item) {
+            $byId[$item['id']] = $item;
+        }
+
+        $windowSize = max(1, (int) config('atlas.aobg.late_interaction_candidate_window', 20));
+        $topK = max(1, min(
+            max(1, (int) config('atlas.aobg.late_interaction_top_k', 5)),
+            max(1, $limit),
+        ));
+        $window = [];
+        foreach (array_slice($ranked, 0, $windowSize) as $row) {
+            $id = (string) ($row['id'] ?? '');
+            if ($id !== '' && isset($byId[$id])) {
+                $window[] = $byId[$id];
+            }
+        }
+
+        if ($window === []) {
+            return $this->result($mode, $query, $ranked, $limit);
+        }
+
+        try {
+            $late = $this->semanticRuntime->lateInteractionRerank($window, $query, $topK);
+        } catch (Throwable) {
+            return $this->result($mode, $query, $ranked, $limit);
+        }
+
+        $reranked = $this->lateInteractionRanking($late, $window);
+        if ($reranked === []) {
+            return $this->result($mode, $query, $ranked, $limit);
+        }
+
+        return $this->result('late_interaction', $query, $reranked, $topK);
+    }
+
+    /**
+     * @param  array<string,mixed>  $result
+     * @param  array<int,array{id:string,text:string}>  $window
+     * @return array<int,array{id:string,score:float,score_origin:string}>
+     */
+    private function lateInteractionRanking(array $result, array $window): array
+    {
+        $boundary = is_array($result['boundary'] ?? null) ? $result['boundary'] : [];
+        if (($boundary['real_embeddings'] ?? false) !== true
+            || ($boundary['fabricated_vectors'] ?? true) !== false
+            || ($boundary['embeddings_engine_in_python'] ?? false) !== true
+            || ($boundary['late_interaction'] ?? false) !== true) {
+            return [];
+        }
+
+        $known = [];
+        foreach ($window as $item) {
+            $known[$item['id']] = true;
+        }
+
+        $ranked = [];
+        foreach ((array) ($result['matches'] ?? []) as $match) {
+            if (! is_array($match)) {
+                continue;
+            }
+            $id = (string) ($match['id'] ?? '');
+            if ($id === '' || ! isset($known[$id]) || ! is_numeric($match['score'] ?? null)) {
+                continue;
+            }
+            $ranked[] = [
+                'id' => $id,
+                'score' => round(max(0.0, min(1.0, (float) $match['score'])), 4),
+                'score_origin' => 'local_late_interaction',
+            ];
+        }
+
+        usort($ranked, static fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['id'], $b['id']));
+
+        return $ranked;
+    }
+
+    /**
      * Deterministic token-overlap baseline. Labelled `lexical_token_overlap` so it
      * is never mistaken for a semantic vector score.
      *
@@ -268,7 +371,7 @@ final class SemanticContextRetrievalService
 
     /**
      * @param  array<int,array{id:string,score:float,score_origin:string}>  $ranked
-     * @return array{schema:string, mode:'semantic'|'lexical', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
+     * @return array{schema:string, mode:'semantic'|'lexical'|'late_interaction', query_hash:string, ranked:array<int,array{id:string,score:float,score_origin:string,rank:int}>, candidate_count:int}
      */
     private function result(string $mode, string $query, array $ranked, int $limit): array
     {
@@ -282,7 +385,7 @@ final class SemanticContextRetrievalService
 
         return [
             'schema' => self::SCHEMA,
-            'mode' => $mode === 'semantic' ? 'semantic' : 'lexical',
+            'mode' => in_array($mode, ['semantic', 'late_interaction'], true) ? $mode : 'lexical',
             'query_hash' => hash('sha256', $query),
             'ranked' => $withRank,
             'candidate_count' => count($ranked),

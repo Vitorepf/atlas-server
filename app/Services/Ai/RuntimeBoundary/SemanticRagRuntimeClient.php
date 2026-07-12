@@ -18,7 +18,7 @@ namespace App\Services\Ai\RuntimeBoundary;
  * raises explicitly (run scripts/setup-semantic-rag-runtime.sh). That is the
  * canon: a real Python engine or an honest failure, never a hash/token stand-in.
  */
-final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
+final class SemanticRagRuntimeClient implements SemanticLateInteractionRuntime, SemanticRetrievalRuntime
 {
     private const RUNTIME_ROOT = 'runtimes/python/semantic_rag';
 
@@ -83,6 +83,22 @@ final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
             'k' => $k,
             'graph_expand' => $graphExpand,
             'graph_threshold' => $graphThreshold,
+        ]);
+    }
+
+    /**
+     * Late-interaction rerank over an already-shortlisted candidate window.
+     *
+     * @param  array<int,array{id?:string,text:string,metadata?:array<string,mixed>}>  $documents
+     * @return array<string,mixed>
+     */
+    public function lateInteractionRerank(array $documents, string $query, int $k = 5): array
+    {
+        return $this->run([
+            'operation' => 'late_interaction_rerank',
+            'documents' => array_values($documents),
+            'query' => $query,
+            'k' => $k,
         ]);
     }
 

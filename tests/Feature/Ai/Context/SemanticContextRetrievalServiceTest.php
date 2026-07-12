@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Context;
 
 use App\Services\Ai\Context\SemanticContextRetrievalService;
+use App\Services\Ai\RuntimeBoundary\SemanticLateInteractionRuntime;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use RuntimeException;
@@ -95,6 +96,58 @@ final class SemanticContextRetrievalServiceTest extends TestCase
         $this->assertSame('lexical', $result['mode'], 'a fabricated boundary receipt must never be trusted');
     }
 
+    public function test_late_interaction_stage_reranks_only_the_configured_window_and_cuts_top_k(): void
+    {
+        config([
+            'atlas.aobg.semantic_retrieval' => false,
+            'atlas.aobg.late_interaction_rerank' => true,
+            'atlas.aobg.late_interaction_candidate_window' => 20,
+            'atlas.aobg.late_interaction_top_k' => 5,
+        ]);
+        $items = [];
+        foreach (range(1, 25) as $n) {
+            $items[] = ['id' => sprintf('item%02d', $n), 'text' => 'candidate '.$n];
+        }
+        $spy = new SpyRuntime(
+            available: true,
+            lateInteractionScores: [
+                'item20' => 0.99,
+                'item05' => 0.90,
+                'item04' => 0.80,
+                'item03' => 0.70,
+                'item02' => 0.60,
+                // Outside the top-20 lexical window; must never be sent to the stage.
+                'item21' => 1.0,
+            ],
+        );
+        $service = new SemanticContextRetrievalService($spy);
+
+        $result = $service->rank('late interaction query', $items, 25);
+
+        $this->assertSame('late_interaction', $result['mode']);
+        $this->assertSame(1, $spy->lateInteractionCalls);
+        $this->assertSame(20, $spy->lastLateInteractionDocumentCount);
+        $this->assertSame(5, $spy->lastLateInteractionK);
+        $this->assertSame(['item20', 'item05', 'item04', 'item03', 'item02'], array_column($result['ranked'], 'id'));
+        $this->assertSame('local_late_interaction', $result['ranked'][0]['score_origin']);
+        $this->assertNotContains('item21', array_column($result['ranked'], 'id'));
+    }
+
+    public function test_late_interaction_stage_fails_open_to_existing_order_when_runtime_errors(): void
+    {
+        config([
+            'atlas.aobg.semantic_retrieval' => false,
+            'atlas.aobg.late_interaction_rerank' => true,
+        ]);
+        $spy = new SpyRuntime(available: true, throwOnLateInteraction: true);
+        $service = new SemanticContextRetrievalService($spy);
+
+        $result = $service->rank('login credential check', self::ITEMS, 3);
+
+        $this->assertSame('lexical', $result['mode']);
+        $this->assertSame(1, $spy->lateInteractionCalls);
+    }
+
     public function test_live_semantic_retrieval_beats_or_matches_lexical_on_a_non_lexical_query(): void
     {
         config(['atlas.aobg.semantic_retrieval' => true]);
@@ -131,17 +184,26 @@ final class SemanticContextRetrievalServiceTest extends TestCase
  * In-process boundary fake. With realScores set it emits a real-embeddings receipt;
  * with fabricated=true it emits a receipt that fails the anti-fake check.
  */
-final class SpyRuntime implements SemanticRetrievalRuntime
+final class SpyRuntime implements SemanticLateInteractionRuntime, SemanticRetrievalRuntime
 {
     public int $retrieveCalls = 0;
 
+    public int $lateInteractionCalls = 0;
+
+    public int $lastLateInteractionDocumentCount = 0;
+
+    public int $lastLateInteractionK = 0;
+
     /**
      * @param  array<string,float>  $realScores
+     * @param  array<string,float>  $lateInteractionScores
      */
     public function __construct(
         private readonly bool $available,
         private readonly array $realScores = [],
+        private readonly array $lateInteractionScores = [],
         private readonly bool $throwOnRetrieve = false,
+        private readonly bool $throwOnLateInteraction = false,
         private readonly bool $fabricated = false,
     ) {}
 
@@ -174,6 +236,33 @@ final class SpyRuntime implements SemanticRetrievalRuntime
                 'real_embeddings' => ! $this->fabricated,
                 'fabricated_vectors' => $this->fabricated,
                 'embeddings_engine_in_python' => ! $this->fabricated,
+            ],
+        ];
+    }
+
+    public function lateInteractionRerank(array $documents, string $query, int $k = 5): array
+    {
+        $this->lateInteractionCalls++;
+        $this->lastLateInteractionDocumentCount = count($documents);
+        $this->lastLateInteractionK = $k;
+
+        if ($this->throwOnLateInteraction) {
+            throw new RuntimeException('simulated late-interaction engine failure');
+        }
+
+        $matches = [];
+        foreach ($documents as $doc) {
+            $id = (string) ($doc['id'] ?? '');
+            $matches[] = ['id' => $id, 'score' => $this->lateInteractionScores[$id] ?? 0.0, 'via' => 'late_interaction'];
+        }
+
+        return [
+            'matches' => $matches,
+            'boundary' => [
+                'real_embeddings' => ! $this->fabricated,
+                'fabricated_vectors' => $this->fabricated,
+                'embeddings_engine_in_python' => ! $this->fabricated,
+                'late_interaction' => ! $this->fabricated,
             ],
         ];
     }

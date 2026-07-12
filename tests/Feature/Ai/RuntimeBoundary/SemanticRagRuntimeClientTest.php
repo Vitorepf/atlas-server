@@ -72,6 +72,38 @@ final class SemanticRagRuntimeClientTest extends TestCase
         self::assertSame("spawn\n", (string) file_get_contents($callsPath));
     }
 
+    public function test_late_interaction_rerank_sends_governed_runtime_operation(): void
+    {
+        [$runtimeRoot, $callsPath, $socketPath, $daemonManifestPath] = $this->fakeRuntimeRoot();
+
+        config()->set('atlas.semantic_memory.embedding_daemon_enabled', true);
+        config()->set('atlas.semantic_memory.embedding_daemon_auto_start', true);
+        config()->set('atlas.semantic_memory.embedding_daemon_socket_path', $socketPath);
+        config()->set('atlas.semantic_memory.embedding_daemon_manifest_path', $daemonManifestPath);
+
+        $client = new SemanticRagRuntimeClient(new PythonManifestRuntimeClient(
+            $runtimeRoot,
+            'atlas-semantic-rag-test',
+            'missing fake runtime',
+            'semantic_rag_fake',
+            5,
+        ));
+
+        $result = $client->lateInteractionRerank(
+            [
+                ['id' => 'a', 'text' => 'alpha'],
+                ['id' => 'b', 'text' => 'beta'],
+            ],
+            'query',
+            k: 1,
+        );
+
+        self::assertSame('late_interaction_rerank', $result['operation']);
+        self::assertSame('b', $result['matches'][0]['id']);
+        self::assertTrue($result['boundary']['late_interaction']);
+        self::assertSame("daemon\n", (string) file_get_contents($callsPath));
+    }
+
     public function test_php_invokes_real_python_embeddings_end_to_end(): void
     {
         $client = new SemanticRagRuntimeClient;
@@ -133,11 +165,12 @@ final class SemanticRagRuntimeClientTest extends TestCase
 
 function fake_result(array $manifest, string $model, array $vector): array
 {
-    $count = count($manifest['texts'] ?? []);
+    $operation = (string) ($manifest['operation'] ?? 'embed');
+    $count = count($manifest['texts'] ?? ($manifest['documents'] ?? []));
 
-    return [
+    $result = [
         'schema_version' => 'atlas.semantic_rag.python_runtime.receipt.v1',
-        'operation' => (string) ($manifest['operation'] ?? 'embed'),
+        'operation' => $operation,
         'count' => $count,
         'vectors' => array_fill(0, $count, $vector),
         'boundary' => [
@@ -150,6 +183,16 @@ function fake_result(array $manifest, string $model, array $vector): array
             'dim' => count($vector),
         ],
     ];
+
+    if ($operation === 'late_interaction_rerank') {
+        $result['matches'] = [
+            ['id' => 'b', 'score' => 0.91, 'via' => 'late_interaction'],
+            ['id' => 'a', 'score' => 0.12, 'via' => 'late_interaction'],
+        ];
+        $result['boundary']['late_interaction'] = true;
+    }
+
+    return $result;
 }
 
 function option_value(array $argv, string $name): ?string

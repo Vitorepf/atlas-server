@@ -7,8 +7,10 @@ namespace App\Services\Ai;
 use App\Models\AiRagFeedbackEvent;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasContextFeedbackSignalPolicy;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasFusionInjectionApplier;
 use App\Services\Ai\Context\AtlasIntelligenceRolloutMode;
@@ -17,12 +19,14 @@ use App\Services\Ai\Context\PackSufficiencyBlockBuilder;
 use App\Services\Ai\Context\RetrievalAgendaComposer;
 use App\Services\Ai\Context\SemanticContextRetrievalService;
 use App\Services\Ai\Context\TaskFacetExtractor;
-use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
+use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
+use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\AtlasCode\WorkspaceFolderIntelligenceService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -710,8 +714,8 @@ class AtlasOpenBrainContextPackService
     private function attachRuntimeCompose(array $pack, string $task, array $opts, string $workspaceId): array
     {
         try {
-            $runtime = app(\App\Services\Ai\Context\AtlasContextRuntime::class);
-            $taskRequest = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($task, [
+            $runtime = app(AtlasContextRuntime::class);
+            $taskRequest = AiTaskRequest::fromInput($task, [
                 'agent_slug' => 'aobg',
                 'provider' => 'local',
                 'source_type' => 'aobg_context_pack',
@@ -869,7 +873,7 @@ class AtlasOpenBrainContextPackService
     private function briefSection(): array
     {
         try {
-            $svc = app(\App\Services\Ai\Obra\AtlasDeterministicBriefService::class);
+            $svc = app(AtlasDeterministicBriefService::class);
             $brief = $svc->read();
             if ($brief === null) {
                 return ['present' => false];
@@ -957,7 +961,7 @@ class AtlasOpenBrainContextPackService
     private function progressiveDisclosureManifest(): array
     {
         try {
-            $tier = app(\App\Services\Ai\Mcp\AtlasMcpTierService::class);
+            $tier = app(AtlasMcpTierService::class);
 
             return [
                 'schema_version' => 'atlas.mcp.tier.v1',
@@ -1333,7 +1337,7 @@ class AtlasOpenBrainContextPackService
                 $shouldShrink => 0.75,
                 default => 1.0,
             }
-            : 1.0;
+        : 1.0;
         $applied = $multiplier < 1.0 && $canApplyBudget;
 
         $evidence = [
@@ -3253,7 +3257,8 @@ class AtlasOpenBrainContextPackService
             return [$candidates, 'lexical'];
         }
 
-        if (($ranked['mode'] ?? 'lexical') !== 'semantic' || ($ranked['ranked'] ?? []) === []) {
+        $mode = (string) ($ranked['mode'] ?? 'lexical');
+        if (! in_array($mode, ['semantic', 'late_interaction'], true) || ($ranked['ranked'] ?? []) === []) {
             return [$candidates, 'lexical'];
         }
 
@@ -3265,12 +3270,14 @@ class AtlasOpenBrainContextPackService
                 unset($byId[$id]);
             }
         }
-        // Append anything the ranker omitted, preserving the original recall order.
-        foreach ($byId as $candidate) {
-            $reordered[] = $candidate;
+        if ($mode === 'semantic') {
+            // Append anything the vector ranker omitted, preserving the original recall order.
+            foreach ($byId as $candidate) {
+                $reordered[] = $candidate;
+            }
         }
 
-        return [$reordered, 'semantic'];
+        return [$reordered, $mode];
     }
 
     // ------------------------------------------------------------------

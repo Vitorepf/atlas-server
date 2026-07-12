@@ -28,6 +28,7 @@ def test_invalid_operation_rejected():
 def test_valid_manifests_pass():
     validate_manifest({"operation": "embed", "texts": ["a", "b"]})
     validate_manifest({"operation": "retrieve", "documents": [{"id": "1", "text": "a"}], "query": "q"})
+    validate_manifest({"operation": "late_interaction_rerank", "documents": [{"id": "1", "text": "a"}], "query": "q", "k": 1})
     validate_manifest({"operation": "graph", "documents": [{"id": "1", "text": "a"}]})
 
 

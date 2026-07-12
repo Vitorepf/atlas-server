@@ -28,6 +28,7 @@ The kernel invokes `python3 main.py <manifest.json>` (the canonical
 | `embed`    | `{texts:[...]}` | real vectors (for pgvector) + boundary receipt |
 | `retrieve` | `{documents:[{id,text,metadata}], query, k?, graph_expand?, graph_threshold?}` | ranked matches (`via: semantic\|graph`) |
 | `graph`    | `{documents:[...], graph_threshold?}` | embedding-similarity graph |
+| `late_interaction_rerank` | `{documents:[{id,text}], query, k?}` | ColBERT-family local rerank (`via: late_interaction`) + boundary receipt |
 
 Secrets / provider / model overrides in the manifest are rejected
 (`FORBIDDEN_KEYS`) — the kernel governs those; the runtime resolves its own
