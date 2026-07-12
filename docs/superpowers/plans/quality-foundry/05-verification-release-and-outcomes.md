@@ -158,12 +158,12 @@ Applicable evidence types are: unit, integration, contract, E2E, property, mutat
 
 **Allowed files:** release/actuator families, existing canary/rollback adapters, fixture repositories and tests.
 
-- [ ] Write RED tests for act success + settlement write failure, canary timeout/failure, revert failure, process kill after each state, duplicate retry and N−1 incompatibility.
+- [x] Write RED tests for act success + settlement write failure, canary timeout/failure, revert failure, process kill after each state, duplicate retry and N−1 incompatibility. Evidence: `CanonicalCommitActuationTest` failure/crash/replay cases plus `QualityFoundryNMinusOneCompatibilityGuardTest`.
 - [x] Implement `act → canary → settle` receipts with the same order/candidate/release hash; canary failure triggers authorized revert or quarantine. Evidence: `CanonicalCommitActuationTest` canary, revert and binding cases.
 - [x] Set `released` only after successful canary and settlement. Any uncertain post-effect state is `release_uncertain` and enters reconciliation. Evidence: settlement, inconclusive, ledger-failure and post-effect crash cases.
 - [x] Reconcile from ledger plus actual repository/deploy state; never infer from process memory. Evidence: observed-effect crash, failed-revert and replay cases in `CanonicalCommitActuationTest`.
-- [ ] Exercise rollback to the compatible N−1 artifact in a fixture/staging environment and prove migrations remain forward-only/additive.
-- [ ] Run release/canary/revert/reconciliation, crash boundary, N−1 migration and neighboring outcome tests.
+- [x] Exercise rollback to the compatible N−1 artifact in a fixture/staging environment and prove migrations remain forward-only/additive. Evidence: `QualityFoundryNMinusOneCompatibilityGuardTest::test_additive_fixture_proves_rollback_to_compatible_n_minus_one` and destructive/drift blockers.
+- [x] Run release/canary/revert/reconciliation, crash boundary, N−1 migration and neighboring outcome tests. Evidence: combined release/N−1/temporal command: 35 passed, 217 assertions.
 
 **GREEN acceptance:** canary precedes `released`; failures revert/quarantine truthfully; retries produce zero duplicate effect; crash recovery converges to released/reverted/uncertain with evidence.
 
