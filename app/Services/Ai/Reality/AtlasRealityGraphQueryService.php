@@ -80,6 +80,8 @@ class AtlasRealityGraphQueryService
 
     public const SEED_VIA_LEXICAL = 'lexical';
 
+    public const SEED_VIA_ENTITY_EXACT = 'entity_exact';
+
     /** Spec hard cap — opts can lower depth, never raise past this. */
     private const HARD_MAX_DEPTH = 3;
 
@@ -149,10 +151,12 @@ class AtlasRealityGraphQueryService
         // ------------------------------------------------------------------
         $semanticTruncated = false;
         $lexicalTruncated = false;
+        $entityTruncated = false;
+        $entity = $this->entityExactSeeds($query, $terms, $providerBound, $workspaceId, $seedLimit, $entityTruncated);
         $semantic = $this->semanticSeeds($query, $providerBound, $workspaceId, $seedLimit, $semanticTruncated);
         $lexical = $this->lexicalSeeds($terms, $providerBound, $workspaceId, $seedLimit, $lexicalTruncated);
-        $seeds = $this->mergeSeeds($semantic, $lexical, $seedLimit, $capsHit['seeds']);
-        $capsHit['seeds'] = $capsHit['seeds'] || $semanticTruncated || $lexicalTruncated;
+        $seeds = $this->mergeSeeds($entity, $semantic, $lexical, $seedLimit, $capsHit['seeds']);
+        $capsHit['seeds'] = $capsHit['seeds'] || $entityTruncated || $semanticTruncated || $lexicalTruncated;
 
         if ($seeds === []) {
             return $this->result($query, $terms, $providerBound, $workspaceId, $depth, [], [], [], [], self::RANKING_BELOW_THRESHOLD, $capsHit);
@@ -186,6 +190,92 @@ class AtlasRealityGraphQueryService
     // ------------------------------------------------------------------
     // Seeding
     // ------------------------------------------------------------------
+
+    /**
+     * MAXD-06 exact entity seeds: explicit repo paths/FQCNs, memory ids and
+     * domain ids occupy seed slots before vector/LIKE recall. Every match is
+     * cite-or-omit against an existing node; no fuzzy fallback is introduced here.
+     *
+     * @param  list<string>  $terms
+     * @return list<array<string,mixed>>
+     */
+    private function entityExactSeeds(string $query, array $terms, bool $providerBound, string $workspaceId, int $cap, bool &$truncated = false): array
+    {
+        $seeds = [];
+        $seen = [];
+        $push = function (AtlasAurgNode $node, string $entityType, string $matched) use (&$seeds, &$seen, &$truncated, $providerBound, $workspaceId, $cap): void {
+            $nodeId = (string) $node->id;
+            if (isset($seen[$nodeId])) {
+                return;
+            }
+            if ($providerBound && ! $this->providerAdmissible($node)) {
+                return;
+            }
+            if (! $this->workspaceAdmissible($node, $workspaceId)) {
+                return;
+            }
+            if (count($seeds) >= $cap) {
+                $truncated = true;
+
+                return;
+            }
+            $seen[$nodeId] = true;
+            $seeds[] = [
+                'node_id' => $nodeId,
+                'via' => self::SEED_VIA_ENTITY_EXACT,
+                'entity_type' => $entityType,
+                'matched' => $matched,
+                'score' => 1.0,
+                'label' => (string) $node->label,
+                'source_kind' => (string) $node->source_kind,
+                'kind' => (string) $node->kind,
+            ];
+        };
+
+        $paths = $this->entityRepoPaths($query);
+        if ($paths !== []) {
+            $modules = $this->moduleCandidates($providerBound, $workspaceId);
+            foreach ($paths as $path) {
+                foreach ($modules as $module) {
+                    $rootPath = (string) (((array) ($module->meta ?? []))['root_path'] ?? '');
+                    if ($rootPath === '') {
+                        continue;
+                    }
+                    if ($path === $rootPath || str_starts_with($path, rtrim($rootPath, '/').'/')) {
+                        $push($module, 'path', $path);
+                        break;
+                    }
+                }
+            }
+        }
+
+        $refs = $this->entityMemoryRefs($query);
+        if ($refs !== []) {
+            $memoryRows = AtlasAurgNode::query()
+                ->where('source_kind', 'memory')
+                ->where('kind', AtlasRealityGraphSnapshotBuilderService::NODE_MEMORY_ENTRY)
+                ->whereIn('source_id', $refs)
+                ->orderBy('id')
+                ->get();
+            foreach ($memoryRows as $memory) {
+                $push($memory, 'memory_id', (string) $memory->source_id);
+            }
+        }
+
+        if ($terms !== []) {
+            $domains = AtlasAurgNode::query()
+                ->where('source_kind', 'domain')
+                ->where('kind', AtlasRealityGraphSnapshotBuilderService::NODE_DOMAIN)
+                ->whereIn('source_id', $terms)
+                ->orderBy('id')
+                ->get();
+            foreach ($domains as $domain) {
+                $push($domain, 'domain_id', (string) $domain->source_id);
+            }
+        }
+
+        return $seeds;
+    }
 
     /**
      * memory_entry seeds via the EXISTING memory vectors. The brain stores no
@@ -350,14 +440,15 @@ class AtlasRealityGraphQueryService
     }
 
     /**
-     * Semantic first up to half the cap, lexical fills the rest, leftover
-     * semantic tops up. Dedup by node id (semantic wins — the stronger signal).
+     * Exact entity seeds first, then semantic up to half the cap, lexical fills
+     * the rest, leftover semantic tops up. Dedup by node id (earlier tiers win).
      *
+     * @param  list<array<string,mixed>>  $entity
      * @param  list<array<string,mixed>>  $semantic
      * @param  list<array<string,mixed>>  $lexical
      * @return list<array<string,mixed>>
      */
-    private function mergeSeeds(array $semantic, array $lexical, int $cap, bool &$overflow): array
+    private function mergeSeeds(array $entity, array $semantic, array $lexical, int $cap, bool &$overflow): array
     {
         $picked = [];
         $push = static function (array $seed) use (&$picked, $cap): void {
@@ -366,6 +457,9 @@ class AtlasRealityGraphQueryService
             }
         };
 
+        foreach ($entity as $seed) {
+            $push($seed);
+        }
         foreach (array_slice($semantic, 0, (int) ceil($cap / 2)) as $seed) {
             $push($seed);
         }
@@ -377,7 +471,7 @@ class AtlasRealityGraphQueryService
         }
 
         $distinct = [];
-        foreach (array_merge($semantic, $lexical) as $seed) {
+        foreach (array_merge($entity, $semantic, $lexical) as $seed) {
             $distinct[$seed['node_id']] = true;
         }
         $overflow = count($distinct) > $cap;
@@ -843,6 +937,73 @@ class AtlasRealityGraphQueryService
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
+
+    /**
+     * @return list<string>
+     */
+    private function entityRepoPaths(string $query): array
+    {
+        preg_match_all(
+            '~(?<![\pL\pN_])(?:app|tests|docs|config|routes|database|resources|scripts)/[A-Za-z0-9_./-]+~u',
+            $query,
+            $matches,
+        );
+
+        $paths = [];
+        foreach ($matches[0] ?? [] as $match) {
+            $path = rtrim($match, ".,;:!?)]}'\"`");
+            if ($path !== '' && ! str_contains($path, '..')) {
+                $paths[$path] = true;
+            }
+        }
+
+        preg_match_all('/\bApp\\\\[A-Za-z0-9_\\\\]+\b/', $query, $fqcnMatches);
+        foreach ($fqcnMatches[0] ?? [] as $fqcn) {
+            $relative = substr($fqcn, strlen('App\\'));
+            if ($relative === false || $relative === '') {
+                continue;
+            }
+            $paths['app/'.str_replace('\\', '/', $relative).'.php'] = true;
+        }
+
+        return array_slice(array_keys($paths), 0, self::MAX_QUERY_TERMS);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function entityMemoryRefs(string $query): array
+    {
+        preg_match_all(
+            '/\b(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9A-HJKMNP-TV-Z]{26})\b/i',
+            $query,
+            $matches,
+        );
+
+        $refs = [];
+        foreach ($matches[0] ?? [] as $ref) {
+            $refs[] = strtolower($ref);
+            $refs[] = strtoupper($ref);
+        }
+
+        return array_slice(array_values(array_unique($refs)), 0, self::MAX_QUERY_TERMS);
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int,AtlasAurgNode>
+     */
+    private function moduleCandidates(bool $providerBound, string $workspaceId)
+    {
+        $builder = AtlasAurgNode::query()
+            ->where('source_kind', 'code')
+            ->where('kind', AtlasRealityGraphSnapshotBuilderService::NODE_MODULE);
+        if ($providerBound) {
+            $builder->where('provider_safe', true)->where('sensitive', false);
+        }
+        $this->applyWorkspaceScope($builder, $workspaceId);
+
+        return $builder->orderBy('id')->limit(self::HARD_MAX_NODES)->get();
+    }
 
     /**
      * Lowercased lexical terms (>=2 chars), bounded. Keeps the original token

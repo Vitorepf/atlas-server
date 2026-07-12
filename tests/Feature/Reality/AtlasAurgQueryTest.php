@@ -333,6 +333,40 @@ final class AtlasAurgQueryTest extends TestCase
         $this->assertTrue($capped['caps_hit']['seeds']);
     }
 
+    public function test_entity_exact_seeding_prefers_repo_paths_memory_ids_and_domain_ids(): void
+    {
+        $memoryId = '019f534d-5b17-73e8-86b8-8e91ed994158';
+        AtlasAurgNode::query()->create([
+            'id' => 'memory:memory_entry:'.$memoryId,
+            'kind' => 'memory_entry',
+            'source_kind' => 'memory',
+            'source_id' => $memoryId,
+            'label' => 'Unrelated exact id memory',
+            'provider_safe' => true,
+            'sensitive' => false,
+            'meta' => ['type' => 'decision'],
+            'content_hash' => hash('sha256', $memoryId),
+        ]);
+
+        $pathResult = $this->service()->query(
+            'inspect app/Services/Ai/Memory/AtlasMemoryVectorSearchService.php',
+            ['seed_limit' => 1],
+        );
+        $this->assertSame(self::C1, $pathResult['seeds'][0]['node_id']);
+        $this->assertSame(AtlasRealityGraphQueryService::SEED_VIA_ENTITY_EXACT, $pathResult['seeds'][0]['via']);
+        $this->assertSame('path', $pathResult['seeds'][0]['entity_type']);
+
+        $memoryResult = $this->service()->query('recall '.$memoryId, ['seed_limit' => 1]);
+        $this->assertSame('memory:memory_entry:'.$memoryId, $memoryResult['seeds'][0]['node_id']);
+        $this->assertSame(AtlasRealityGraphQueryService::SEED_VIA_ENTITY_EXACT, $memoryResult['seeds'][0]['via']);
+        $this->assertSame('memory_id', $memoryResult['seeds'][0]['entity_type']);
+
+        $domainResult = $this->service()->query('engineering', ['seed_limit' => 1]);
+        $this->assertSame(self::DENG, $domainResult['seeds'][0]['node_id']);
+        $this->assertSame(AtlasRealityGraphQueryService::SEED_VIA_ENTITY_EXACT, $domainResult['seeds'][0]['via']);
+        $this->assertSame('domain_id', $domainResult['seeds'][0]['entity_type']);
+    }
+
     public function test_semantic_seeding_is_honestly_empty_on_sqlite_and_nonsense_finds_nothing(): void
     {
         // sqlite: AtlasMemoryVectorSearchService::available() is false → no
