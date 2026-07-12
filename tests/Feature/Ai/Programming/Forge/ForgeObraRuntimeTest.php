@@ -10,6 +10,8 @@ use App\Services\Ai\Programming\Forge\Execution\ForgeCommissioning;
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraId;
 use App\Services\Ai\Programming\Forge\Execution\ForgeObraRuntime;
 use App\Services\Ai\Programming\Forge\Execution\ForgeTickBudget;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ForgeAuthority\AwisExecutionGatePort;
+use InvalidArgumentException;
 use Tests\Concerns\CreatesForgeLongHorizonStateTable;
 use Tests\TestCase;
 
@@ -21,6 +23,14 @@ final class ForgeObraRuntimeTest extends TestCase
     {
         parent::setUp();
         $this->createForgeLongHorizonStateTable();
+        $this->app->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
+        {
+            /** @param array<int,string> $conversationTexts */
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return ['allowed' => true, 'status' => 'ready', 'mode' => $mode, 'blockers' => []];
+            }
+        });
     }
 
     protected function tearDown(): void
@@ -59,6 +69,31 @@ final class ForgeObraRuntimeTest extends TestCase
         $this->assertDatabaseCount('ai_forge_work_packet_execution_cycles', 1);
         $packet = AiForgeWorkPacket::query()->where('packet_id', $tick->packetId)->firstOrFail();
         $this->assertSame('safe_simulation', AiForgeWorkPacketExecutionCycle::query()->where('work_packet_id', $packet->id)->firstOrFail()->execution_mode);
+    }
+
+    public function test_commission_fails_closed_when_workspace_execution_gate_denies_mutation(): void
+    {
+        $this->app->instance(AwisExecutionGatePort::class, new class implements AwisExecutionGatePort
+        {
+            /** @param array<int,string> $conversationTexts */
+            public function gate(?string $workspace = null, string $mode = 'conversation', string $task = '', array $conversationTexts = []): array
+            {
+                return ['allowed' => false, 'status' => 'blocked', 'mode' => $mode, 'blockers' => ['workspace_not_ready']];
+            }
+        });
+
+        $commissioning = ForgeCommissioning::fromArray([
+            'prompt' => 'Obra que deve parar antes da persistencia', 'workspace' => base_path(),
+            'authority_hash' => str_repeat('a', 64), 'product_intent_hash' => str_repeat('b', 64),
+            'spec_hash' => str_repeat('c', 64), 'world_model_snapshot_hash' => str_repeat('d', 64),
+            'release_policy' => 'canonical_commit_with_canary', 'interruption_policy' => 'pause_drain_resume',
+            'risk_class' => 'R3', 'topology' => 'DAG',
+        ]);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('forge_workspace_execution_blocked');
+
+        app(ForgeObraRuntime::class)->commission($commissioning);
     }
 
     public function test_commissioning_binds_capability_market_decision_hash(): void
