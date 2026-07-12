@@ -9,6 +9,7 @@ use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Services\Ai\AtlasDecide\AtlasDecideCostOutcomeRouter;
 use App\Services\Ai\AtlasDecide\AtlasDecideRouteRegretService;
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
+use App\Services\Ai\Autonomy\OperatorApprovalHistoryMeter;
 use App\Services\Ai\Compounding\AtlasLessonQualityService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
@@ -182,6 +183,15 @@ final class AcosMaxMeasureSeriesRegistry
                 'timestamp_field' => 'generated_at',
                 'ttl_days' => (int) AtlasDecideCostOutcomeRouter::multk01FreezePayload()['ttl_days'],
                 'ttl_source' => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
+            ],
+            [
+                'slice' => 'MULTN15-02',
+                'series' => OperatorApprovalHistoryMeter::MEASURE_ID,
+                'path' => 'atlas:operator-approval-history --json',
+                'source_type' => 'command',
+                'timestamp_field' => 'generated_at',
+                'ttl_days' => OperatorApprovalHistoryMeter::TTL_DAYS,
+                'ttl_source' => 'freeze:operator.approval_history.v1',
             ],
         ];
     }
