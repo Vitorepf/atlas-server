@@ -25,6 +25,7 @@ use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
+use App\Services\Ai\SelfConstruction\Lineage\AtlasDecisionLineageLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\AtlasCode\WorkspaceFolderIntelligenceService;
@@ -91,7 +92,7 @@ class AtlasOpenBrainContextPackService
 
     public const RUNTIME_SCHEMA = 'atlas.aobg.context_pack.runtime.v1';
 
-    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v5';
+    public const RUNTIME_VERSION = 'aobg-context-pack-runtime-v6';
 
     /**
      * Provider-visible flags that let external MCP clients detect whether the
@@ -118,6 +119,7 @@ class AtlasOpenBrainContextPackService
         'separator_term_expansion',
         'pack_section_timings',
         'test_symbol_on_demand_expansion',
+        'obra_working_set_lineage',
     ];
 
     /**
@@ -358,6 +360,14 @@ class AtlasOpenBrainContextPackService
         // (explicit pointer, never inferred). Fail-open + only present when an obra is
         // active, so packs with no active obra are byte-identical to before.
         $pack['retomada'] = $this->retomadaSection($workspaceId, $task);
+        $sessionWorkingSetLineage = $this->sessionWorkingSetLineage($opts, $pack);
+        if ($sessionWorkingSetScope !== null && ($sessionWorkingSetLineage['obra_id'] ?? null) !== null) {
+            $pack['context_delivery_policy']['session_working_set']['lineage'] = array_filter(
+                $sessionWorkingSetLineage,
+                static fn ($value): bool => $value !== null && $value !== '',
+            );
+            $pack['obra_working_set'] = $this->obraWorkingSetSection($sessionWorkingSetScope, $sessionWorkingSetLineage);
+        }
 
         // WO-17-T2 — the deterministic brief ("lembra por quê e avisa antes"): present
         // only when a brief exists; STALE the moment HEAD moves past it (never silent).
@@ -399,7 +409,7 @@ class AtlasOpenBrainContextPackService
         if ((bool) config('atlas.aobg.delivered_pack_ledger.enabled', true)) {
             AtlasDeliveredPackLedger::fromConfig()->record($pack);
         }
-        $this->recordSessionWorkingSetDelivery($sessionWorkingSetScope, $pack);
+        $this->recordSessionWorkingSetDelivery($sessionWorkingSetScope, $pack, $sessionWorkingSetLineage ?? []);
 
         $this->recordLatencySample($latencyStartedAt, $pack);
 
@@ -412,6 +422,155 @@ class AtlasOpenBrainContextPackService
         $sessionId = trim((string) ($opts['session_id'] ?? data_get($opts, 'context.session_id', '')));
 
         return $sessionId !== '' ? 'session:'.$sessionId : null;
+    }
+
+    /**
+     * @param  array<string,mixed>  $opts
+     * @param  array<string,mixed>  $pack
+     * @return array{schema_version:string,obra_id:?string,decision_id:?string,lineage_origin:string}
+     */
+    private function sessionWorkingSetLineage(array $opts, array $pack): array
+    {
+        $decisionId = $this->firstLineageId([
+            $opts['decision_id'] ?? null,
+            data_get($opts, 'context.decision_id'),
+            data_get($opts, 'composed_arc.decision_id'),
+            data_get($opts, 'composed_arc.source.decision_id'),
+            data_get($opts, 'arc.decision_id'),
+        ]);
+
+        foreach ([
+            'caller' => [$opts['obra_id'] ?? null, data_get($opts, 'context.obra_id')],
+            'composed_obra_arc' => [data_get($opts, 'composed_arc.obra_id'), data_get($opts, 'arc.obra_id')],
+        ] as $origin => $values) {
+            $obraId = $this->firstLineageId($values);
+            if ($obraId !== null) {
+                return [
+                    'schema_version' => 'atlas.aobg.session_working_set_lineage.v1',
+                    'obra_id' => $obraId,
+                    'decision_id' => $decisionId,
+                    'lineage_origin' => $origin,
+                ];
+            }
+        }
+
+        $obraId = $this->obraIdFromDecisionLineage($decisionId);
+        if ($obraId === null) {
+            $obraId = $this->firstLineageId([data_get($pack, 'retomada.obra_id')]);
+
+            return [
+                'schema_version' => 'atlas.aobg.session_working_set_lineage.v1',
+                'obra_id' => $obraId,
+                'decision_id' => $decisionId,
+                'lineage_origin' => $obraId !== null ? 'active_obra_state' : 'absent',
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.aobg.session_working_set_lineage.v1',
+            'obra_id' => $obraId,
+            'decision_id' => $decisionId,
+            'lineage_origin' => 'asi11_decision_lineage',
+        ];
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     */
+    private function firstLineageId(array $values): ?string
+    {
+        foreach ($values as $value) {
+            $id = $this->safeLineageId($value);
+            if ($id !== null) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
+    private function safeLineageId(mixed $value): ?string
+    {
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $id = trim((string) $value);
+        if ($id === '') {
+            return null;
+        }
+
+        $id = preg_replace('/[^A-Za-z0-9._:-]/', '-', $id) ?? '';
+        $id = trim($id, '-');
+
+        return $id !== '' ? mb_substr($id, 0, 120) : null;
+    }
+
+    private function obraIdFromDecisionLineage(?string $decisionId): ?string
+    {
+        if ($decisionId === null) {
+            return null;
+        }
+
+        try {
+            $closure = app(AtlasDecisionLineageLedger::class)->closure($decisionId);
+
+            return $this->safeLineageId($closure['obra_id'] ?? null);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<string,mixed>  $lineage
+     * @return array<string,mixed>
+     */
+    private function obraWorkingSetSection(string $scope, array $lineage): array
+    {
+        $obraId = $this->safeLineageId($lineage['obra_id'] ?? null);
+        if ($obraId === null) {
+            return [
+                'schema_version' => 'atlas.aobg.obra_working_set.v1',
+                'present' => false,
+                'reason' => 'obra_id_absent',
+                'items' => [],
+            ];
+        }
+
+        $soak = [
+            'status' => 'pending_window',
+            'basis' => 'real_retomadas_only',
+            'synthetic_retomada_used' => false,
+        ];
+
+        try {
+            $state = (new AtlasCognitiveWorkingSetMemoryService(AtlasCognitiveWorkingSetMemoryService::sharedPath()))
+                ->obraWorkingSet($obraId, $scope, AtlasCognitiveWorkingSetMemoryService::MODE_PERFORMANCE, 32);
+
+            return [
+                'schema_version' => 'atlas.aobg.obra_working_set.v1',
+                'present' => (bool) ($state['present'] ?? false),
+                'obra_id' => $obraId,
+                'session_scope' => $scope,
+                'items' => (array) ($state['items'] ?? []),
+                'count' => (int) ($state['count'] ?? 0),
+                'source_scope_count' => (int) ($state['source_scope_count'] ?? 0),
+                'lineage' => array_filter($lineage, static fn ($value): bool => $value !== null && $value !== ''),
+                'soak' => $soak,
+            ];
+        } catch (Throwable) {
+            return [
+                'schema_version' => 'atlas.aobg.obra_working_set.v1',
+                'present' => false,
+                'obra_id' => $obraId,
+                'session_scope' => $scope,
+                'items' => [],
+                'count' => 0,
+                'source_scope_count' => 0,
+                'reason' => 'working_set_unavailable',
+                'soak' => $soak,
+            ];
+        }
     }
 
     /**
@@ -473,25 +632,39 @@ class AtlasOpenBrainContextPackService
         }
     }
 
-    /** @param array<string,mixed> $pack */
-    private function recordSessionWorkingSetDelivery(?string $scope, array $pack): void
+    /**
+     * @param  array<string,mixed>  $pack
+     * @param  array<string,mixed>  $lineage
+     */
+    private function recordSessionWorkingSetDelivery(?string $scope, array $pack, array $lineage = []): void
     {
         if ($scope === null) {
             return;
         }
 
         try {
+            $obraId = $this->safeLineageId($lineage['obra_id'] ?? data_get($pack, 'context_delivery_policy.session_working_set.lineage.obra_id'));
+            $decisionId = $this->safeLineageId($lineage['decision_id'] ?? data_get($pack, 'context_delivery_policy.session_working_set.lineage.decision_id'));
             $workingSet = new AtlasCognitiveWorkingSetMemoryService(AtlasCognitiveWorkingSetMemoryService::sharedPath());
             foreach (AtlasCanonicalContextRef::deliveredFromPack($pack) as $ref) {
-                $workingSet->track($scope, [
+                $item = [
                     'content_hash' => $ref,
                     'content' => $ref,
                     'type' => 'context_ref',
                     'scope_ref' => $scope,
+                    'origin' => 'context_pack_delivery',
                     'must_keep' => false,
                     'recorded_at' => now()->toJSON(),
                     'last_used_at' => now()->toJSON(),
-                ]);
+                ];
+                if ($obraId !== null) {
+                    $item['obra_id'] = $obraId;
+                }
+                if ($decisionId !== null) {
+                    $item['decision_id'] = $decisionId;
+                }
+
+                $workingSet->track($scope, $item);
             }
         } catch (Throwable) {
             // MAXE-06 is an optimization: context delivery must fail open.
@@ -3607,6 +3780,34 @@ class AtlasOpenBrainContextPackService
                 $lines[] = '- recovery_query: `'.$query.'`';
             }
             $lines[] = '- workflow: '.(string) ($compacted['workflow'] ?? 'review_compaction_receipt');
+            $lines[] = '';
+        }
+
+        $obraWorkingSet = (array) ($pack['obra_working_set'] ?? []);
+        if ($obraWorkingSet !== []) {
+            $lines[] = '## Obra working set (pointers)';
+            $lines[] = sprintf(
+                '- obra_id=%s status=%s count=%d soak=%s/%s',
+                (string) ($obraWorkingSet['obra_id'] ?? ''),
+                ($obraWorkingSet['present'] ?? false) === true ? 'present' : 'empty_honest',
+                (int) ($obraWorkingSet['count'] ?? 0),
+                (string) data_get($obraWorkingSet, 'soak.status', 'pending_window'),
+                (string) data_get($obraWorkingSet, 'soak.basis', 'real_retomadas_only'),
+            );
+            foreach (array_slice((array) ($obraWorkingSet['items'] ?? []), 0, 16) as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $decision = trim((string) ($item['decision_id'] ?? ''));
+                $lines[] = sprintf(
+                    '- ref=%s origin=%s source_scope=%s%s',
+                    (string) ($item['ref'] ?? ''),
+                    (string) ($item['origin'] ?? 'obra_working_set'),
+                    (string) ($item['source_scope'] ?? ''),
+                    $decision !== '' ? ' decision_id='.$decision : '',
+                );
+            }
+            $lines[] = '- invariant: refs are pointers to existing context entries; no content copies are stored here.';
             $lines[] = '';
         }
 

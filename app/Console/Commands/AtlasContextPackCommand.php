@@ -35,6 +35,9 @@ class AtlasContextPackCommand extends Command
         {--code-budget= : Code graph char sub-budget}
         {--memory-budget= : Memory char sub-budget}
         {--changed-file=* : Changed/touched file path to bias code recall}
+        {--session-id= : Provider/session id used for session working-set lineage}
+        {--obra-id= : Active/composed obra id used for obra working-set lineage}
+        {--decision-id= : ASI-11 decision id used to resolve/stamp lineage}
         {--task-type= : Task type for feedback-aware context delivery policy}
         {--domain= : Domain for feedback-aware context delivery policy}
         {--flow-id= : Explicit flow id for feedback-aware context delivery policy}
@@ -71,6 +74,9 @@ class AtlasContextPackCommand extends Command
             'task-type' => 'task_type',
             'domain' => 'domain',
             'flow-id' => 'flow_id',
+            'session-id' => 'session_id',
+            'obra-id' => 'obra_id',
+            'decision-id' => 'decision_id',
         ] as $option => $key) {
             $value = $this->option($option);
             if (is_string($value) && trim($value) !== '') {

@@ -9,18 +9,23 @@ use App\Models\AtlasAurgNode;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
+use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainContextExpansionService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\AtlasOpenBrainMcpService;
-use App\Services\Ai\Compounding\AtlasRagFeedbackService;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathPriorityRank;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathSignalAggregator;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldMomentum;
 use App\Services\Ai\CognitiveMemory\AtlasCognitiveWorkingSetMemoryService;
+use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
+use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
+use App\Services\Ai\SelfConstruction\Lineage\AtlasDecisionLineageLedger;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
-use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -84,6 +89,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->dropCompoundingSchema();
         Schema::dropIfExists('atlas_aurg_edges');
         Schema::dropIfExists('atlas_aurg_nodes');
+        Schema::dropIfExists('atlas_decision_lineage_ledger');
         Schema::dropIfExists('atlas_engineering_code_symbols');
         $this->dropLongHorizonPersistenceTables();
         $this->dropAtlasMemoryEntryTable();
@@ -503,7 +509,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         );
     }
 
-    public function test_DeliveredPackLedger_persists_canonical_refs_and_supports_multi_hash_lookup(): void
+    public function test_delivered_pack_ledger_persists_canonical_refs_and_supports_multi_hash_lookup(): void
     {
         $ledgerPath = $this->configureDeliveredPackLedger();
         file_put_contents($ledgerPath, json_encode([
@@ -634,6 +640,73 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertFileExists(AtlasCognitiveWorkingSetMemoryService::sharedPath());
         $state = json_decode((string) file_get_contents(AtlasCognitiveWorkingSetMemoryService::sharedPath()), true, flags: JSON_THROW_ON_ERROR);
         $this->assertArrayHasKey('session:11111111-1111-4111-8111-111111111111', (array) ($state['working_set'] ?? []));
+    }
+
+    public function test_obra_working_set_rehydrates_prior_session_refs_as_pointers_with_lineage(): void
+    {
+        @unlink(AtlasCognitiveWorkingSetMemoryService::sharedPath());
+        $this->seedMemory('mem-obra-working-a', 'Obra working set alpha', true, 'normal', body: 'obra lineage alpha body');
+        $this->seedMemory('mem-obra-working-b', 'Obra working set beta', true, 'normal', body: 'obra lineage beta body');
+
+        $arc = ComposedObraArcComposer::compose([
+            $this->arcCandidate('a', AtlasBrainPathPriorityRank::class, 'Wire priority rank', 8.0),
+            $this->arcCandidate('b', AtlasBrainPathSignalAggregator::class, 'Wire signal aggregator', 7.0),
+            $this->arcCandidate('c', AtlasBrainPathYieldMomentum::class, 'Wire yield momentum', 6.0),
+        ], [], ['enabled' => true])['arcs'][0];
+        $obraId = (string) $arc['obra_id'];
+        $this->createDecisionLineageLedgerTable();
+        app(AtlasDecisionLineageLedger::class)->append(
+            'decision-multh-06',
+            AtlasDecisionLineageLedger::KIND_RECEIPT,
+            (string) $arc['arc_id'],
+            'multn1702_test',
+            $obraId,
+            'composed_obra_arc',
+        );
+
+        $first = $this->service()->packFor('obra working set', [
+            'session_id' => '22222222-2222-4222-8222-222222222222',
+            'decision_id' => 'decision-multh-06',
+            'memory_budget' => 260,
+            'code_budget' => 0,
+        ]);
+        $firstRefs = array_values(array_filter(array_map(
+            static fn (array $item): string => AtlasCanonicalContextRef::fromMemoryItem($item),
+            (array) ($first['memory'] ?? []),
+        )));
+        $this->assertNotEmpty($firstRefs);
+
+        $second = $this->service()->packFor('new session resumes same obra', [
+            'session_id' => '33333333-3333-4333-8333-333333333333',
+            'decision_id' => 'decision-multh-06',
+            'memory_budget' => 0,
+            'code_budget' => 0,
+        ]);
+
+        $rehydrated = (array) data_get($second, 'obra_working_set.items', []);
+        $rehydratedRefs = array_values(array_map(static fn (array $item): string => (string) $item['ref'], $rehydrated));
+
+        $this->assertNotEmpty($rehydrated);
+        $this->assertSame($firstRefs, array_values(array_intersect($firstRefs, $rehydratedRefs)));
+        $this->assertSame('asi11_decision_lineage', data_get($second, 'obra_working_set.lineage.lineage_origin'));
+        $this->assertSame('pending_window', data_get($second, 'obra_working_set.soak.status'));
+        $this->assertSame('real_retomadas_only', data_get($second, 'obra_working_set.soak.basis'));
+        foreach ($rehydrated as $item) {
+            $this->assertSame('obra_working_set', $item['origin']);
+            $this->assertSame($obraId, $item['obra_id']);
+            $this->assertSame('decision-multh-06', $item['decision_id']);
+            $this->assertArrayNotHasKey('content', $item);
+        }
+        $this->assertStringContainsString('origin=obra_working_set', (string) $second['markdown']);
+
+        $state = json_decode((string) file_get_contents(AtlasCognitiveWorkingSetMemoryService::sharedPath()), true, flags: JSON_THROW_ON_ERROR);
+        $stored = (array) data_get($state, 'working_set.session:22222222-2222-4222-8222-222222222222', []);
+        $this->assertNotEmpty($stored);
+        foreach ($stored as $item) {
+            $this->assertSame($obraId, $item['obra_id']);
+            $this->assertSame('decision-multh-06', $item['decision_id']);
+            $this->assertSame($item['content_hash'], $item['content']);
+        }
     }
 
     public function test_maxm02_context_pack_blocks_unsafe_projection_memory_and_uses_sanitized_replacement(): void
@@ -1554,7 +1627,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         config()->set('atlas.aobg.source_selection_ev_weighted', false);
     }
 
-    public function test_MeasuredOnlyPolicy_ignores_synthetic_and_low_attribution_before_shrinking(): void
+    public function test_measured_only_policy_ignores_synthetic_and_low_attribution_before_shrinking(): void
     {
         $this->bootCompoundingSchema();
 
@@ -1628,7 +1701,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         );
     }
 
-    public function testFeedbackDemotionFiltersMeasuredCodeRefsByHashAndCanonicalForms(): void
+    public function test_feedback_demotion_filters_measured_code_refs_by_hash_and_canonical_forms(): void
     {
         $this->bootCompoundingSchema();
 
@@ -1694,7 +1767,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertContains($canonicalRef, data_get($canonicalPack, 'context_delivery_policy.demote_context_refs'));
     }
 
-    public function testFeedbackDemotionFiltersMeasuredMemoryRefsByHashForm(): void
+    public function test_feedback_demotion_filters_measured_memory_refs_by_hash_form(): void
     {
         $this->bootCompoundingSchema();
         Schema::table('atlas_memory_entries', function (Blueprint $table): void {
@@ -1735,7 +1808,7 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertContains($contextRefHash, data_get($pack, 'context_delivery_policy.demote_context_refs'));
     }
 
-    public function testFeedbackDemotionIgnoresSyntheticUnmeasuredDemoteRefs(): void
+    public function test_feedback_demotion_ignores_synthetic_unmeasured_demote_refs(): void
     {
         $this->bootCompoundingSchema();
 
@@ -2644,6 +2717,29 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function arcCandidate(string $id, string $organClass, string $summary, float $leverage): array
+    {
+        $short = class_basename($organClass);
+
+        return [
+            'id' => $id,
+            'kind' => 'orphan_wiring',
+            'summary' => $summary,
+            'target_path' => 'app/Services/Ai/AutonomousEvolution/Brain/'.$short.'.php',
+            'target_fqcn' => $organClass,
+            'leverage' => $leverage,
+        ];
+    }
+
+    private function createDecisionLineageLedgerTable(): void
+    {
+        Schema::dropIfExists('atlas_decision_lineage_ledger');
+        (require database_path('migrations/2026_07_12_140000_create_atlas_decision_lineage_ledger_table.php'))->up();
     }
 
     private function seedMemory(

@@ -1101,6 +1101,10 @@ class AtlasOpenBrainMcpService
                         'code_budget' => ['type' => 'integer', 'description' => 'Sub-budget de chars para code graph. Opcional.'],
                         'memory_budget' => ['type' => 'integer', 'description' => 'Sub-budget de chars para memória. Opcional.'],
                         'changed_files' => ['type' => 'array', 'description' => 'Arquivos alterados/tocados para enviesar code recall. Paths/refs provider-safe.'],
+                        'session_id' => ['type' => 'string', 'description' => 'Id da sessão externa para working-set session-scoped.'],
+                        'obra_id' => ['type' => 'string', 'description' => 'Id da obra ativa/composta para linhagem do working set.'],
+                        'decision_id' => ['type' => 'string', 'description' => 'ASI-11 decision_id usado para resolver/stampar obra_id quando disponível.'],
+                        'composed_arc' => ['type' => 'object', 'description' => 'Arco MULTN17-02 serializado; quando contém obra_id, alimenta a linhagem do working set sem copiar conteúdo.'],
                         'task_type' => ['type' => 'string', 'description' => 'Tipo da tarefa, usado com domain para flow-specific feedback policy. Ex: debug, dev, review.'],
                         'domain' => ['type' => 'string', 'description' => 'Domínio lógico, usado com task_type para flow_id. Ex: developer, programming, atlas.'],
                         'flow_id' => ['type' => 'string', 'description' => 'Flow explícito para feedback-aware context_delivery_policy. Ex: developer.debug.'],
@@ -3922,11 +3926,15 @@ class AtlasOpenBrainMcpService
             }
         }
 
-        foreach (['task_type', 'domain', 'flow_id'] as $key) {
+        foreach (['task_type', 'domain', 'flow_id', 'session_id', 'obra_id', 'decision_id'] as $key) {
             $value = $this->string($arguments[$key] ?? null);
             if ($value !== null) {
                 $opts[$key] = $value;
             }
+        }
+
+        if (is_array($arguments['composed_arc'] ?? null)) {
+            $opts['composed_arc'] = $arguments['composed_arc'];
         }
 
         $changedFiles = $this->stringList($arguments['changed_files'] ?? []);

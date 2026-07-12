@@ -92,6 +92,16 @@ final class AtlasCanonicalContextRef
             $refs[] = self::fromMemoryItem($item);
         }
 
+        foreach ((array) data_get($pack, 'obra_working_set.items', []) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $ref = trim((string) ($item['ref'] ?? ''));
+            if (self::isCanonical($ref)) {
+                $refs[] = $ref;
+            }
+        }
+
         return array_slice(self::uniqueStrings($refs), 0, max(0, $limit));
     }
 

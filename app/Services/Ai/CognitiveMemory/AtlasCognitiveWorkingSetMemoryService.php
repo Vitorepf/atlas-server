@@ -48,6 +48,8 @@ class AtlasCognitiveWorkingSetMemoryService
 
     public const MODE_DEEP_WORK = 'deep_work';
 
+    public const OBRA_WORKING_SET_SCHEMA = 'atlas.cognitive_memory.obra_working_set.v1';
+
     public const ALLOWED_MODES = [
         self::MODE_EMERGENCY_TRIM,
         self::MODE_MINIMAL,
@@ -204,6 +206,11 @@ class AtlasCognitiveWorkingSetMemoryService
                 $existing['last_used_at'] = $item['last_used_at'];
                 $existing['hit_count'] = (int) ($existing['hit_count'] ?? 0) + 1;
                 $existing['must_keep'] = $existing['must_keep'] || $item['must_keep'];
+                foreach (['content', 'type', 'scope_ref', 'origin', 'obra_id', 'decision_id'] as $key) {
+                    if (isset($item[$key]) && trim((string) $item[$key]) !== '') {
+                        $existing[$key] = $item[$key];
+                    }
+                }
                 $found = true;
                 break;
             }
@@ -267,6 +274,79 @@ class AtlasCognitiveWorkingSetMemoryService
             'total_tracked' => $totalTracked,
             'kept' => count($kept),
             'trimmed' => $trimmed,
+        ];
+    }
+
+    /**
+     * MULTH-06 — pointer-only rehydration for a later session in the same obra.
+     *
+     * The returned items deliberately carry refs and lineage only. They never copy
+     * the original memory/code/graph content back into a second store.
+     *
+     * @return array{schema_version:string,present:bool,obra_id:string,exclude_scope:?string,mode:string,items:list<array<string,mixed>>,count:int,source_scope_count:int}
+     */
+    public function obraWorkingSet(
+        string $obraId,
+        ?string $excludeScope = null,
+        string $mode = self::MODE_PERFORMANCE,
+        int $limit = 32,
+    ): array {
+        $obraId = trim($obraId);
+        $limit = max(0, $limit);
+        $mode = in_array($mode, self::ALLOWED_MODES, true) ? $mode : self::MODE_PERFORMANCE;
+        $items = [];
+        $seenRefs = [];
+        $sourceScopes = [];
+
+        if ($obraId !== '' && $limit > 0) {
+            foreach (array_keys($this->workingSet) as $scope) {
+                if ($excludeScope !== null && $scope === $excludeScope) {
+                    continue;
+                }
+
+                foreach ((array) $this->workingSet($scope, $mode)['items'] as $item) {
+                    if (! is_array($item) || trim((string) ($item['obra_id'] ?? '')) !== $obraId) {
+                        continue;
+                    }
+
+                    $ref = trim((string) ($item['content_hash'] ?? ''));
+                    if ($ref === '' || isset($seenRefs[$ref])) {
+                        continue;
+                    }
+
+                    $entry = [
+                        'ref' => $ref,
+                        'origin' => 'obra_working_set',
+                        'obra_id' => $obraId,
+                        'source_scope' => $scope,
+                    ];
+                    foreach (['decision_id', 'recorded_at', 'last_used_at'] as $key) {
+                        $value = trim((string) ($item[$key] ?? ''));
+                        if ($value !== '') {
+                            $entry[$key] = $value;
+                        }
+                    }
+
+                    $items[] = $entry;
+                    $seenRefs[$ref] = true;
+                    $sourceScopes[$scope] = true;
+
+                    if (count($items) >= $limit) {
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        return [
+            'schema_version' => self::OBRA_WORKING_SET_SCHEMA,
+            'present' => $items !== [],
+            'obra_id' => $obraId,
+            'exclude_scope' => $excludeScope,
+            'mode' => $mode,
+            'items' => $items,
+            'count' => count($items),
+            'source_scope_count' => count($sourceScopes),
         ];
     }
 
