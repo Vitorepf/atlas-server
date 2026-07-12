@@ -128,11 +128,11 @@ For every packet, attach the RED output, GREEN focused/neighboring output, canon
 
 **Allowed files:** `app/Services/Ai/EngineeringKernel/**`, canonical ledger adapter, and focused Kernel tests.
 
-- [ ] Write RED constructor/serialization tests for every fixed `ExecutionOrder` field, invalid mode/risk/topology, missing authority/scope/hashes, and non-`unbounded_quality_first` posture.
-- [ ] Write RED outcome tests for the seven legal statuses, all 22 dispositions, default `claim_eligible=false`, missing evidence, and deterministic canonical hashes.
-- [ ] Add RED replay tests: the same order/idempotency key returns the same receipt chain; a changed hash is refused.
-- [ ] Implement immutable typed value objects and deterministic serialization; keep legacy readers only behind the v1 translator.
-- [ ] Implement a read-only vertical through Kernel → evidence → outcome with zero provider, filesystem or release mutation.
+- [x] Write RED constructor/serialization tests for every fixed `ExecutionOrder` field, invalid mode/risk/topology, missing authority/scope/hashes, and non-`unbounded_quality_first` posture.
+- [x] Write RED outcome tests for the seven legal statuses, all 22 dispositions, default `claim_eligible=false`, missing evidence, and deterministic canonical hashes.
+- [x] Add RED replay tests: the same order/idempotency key returns the same receipt chain; a changed hash is refused.
+- [x] Implement immutable typed value objects and deterministic serialization; keep legacy readers only behind the v1 translator.
+- [x] Implement a read-only vertical through Kernel → evidence → outcome with zero provider, filesystem or release mutation.
 - [ ] Run focused Kernel unit tests, `AcceptanceGateContractTest`, coverage tests, architecture validation, Pint and PHPStan.
 
 **GREEN acceptance:** a read-only order produces `completed_read_only` only with correlated order/evidence/outcome hashes and 22 dispositions; missing or stale data holds or blocks; replay is deterministic.
