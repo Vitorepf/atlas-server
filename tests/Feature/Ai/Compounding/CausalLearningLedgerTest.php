@@ -7,6 +7,8 @@ namespace Tests\Feature\Ai\Compounding;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Compounding\CausalLearningCandidate;
 use App\Services\Ai\Compounding\CausalLearningGate;
+use App\Services\Ai\Compounding\CausalLearningEvidenceBindingVerifier;
+use App\Services\Ai\Compounding\CausalLearningPromotionService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use Illuminate\Support\Facades\Schema;
@@ -58,5 +60,44 @@ final class CausalLearningLedgerTest extends TestCase
         self::assertSame($first->decisionHash, $second->decisionHash);
         self::assertSame(1, AtlasLedgerEvent::query()->where('event_type', LedgerEventType::LearningProposed->value)->count());
         self::assertSame('learning.adjudicated', AtlasLedgerEvent::query()->firstOrFail()->payload['event_name']);
+    }
+
+    public function test_promotion_resolves_binding_artifacts_from_the_canonical_ledger(): void
+    {
+        $ledger = app(AtlasEvidenceLedger::class);
+        $hashes = [];
+        $bindingRefs = [];
+        foreach (['assignment', 'experiment', 'order', 'run', 'release', 'outcome', 'authority'] as $binding) {
+            $event = $ledger->record(
+                LedgerEventType::LearningProposed,
+                ['artifact_binding' => $binding, 'artifact_nonce' => str_repeat($binding[0], 8)],
+                ['event_id' => 'artifact-'.$binding, 'emitter_stage' => 'test.artifact'],
+            );
+            self::assertNotNull($event);
+            $hashes[$binding] = (string) $event->payload_hash;
+            $bindingRefs[$binding] = ['hash' => $hashes[$binding], 'artifact_id' => 'artifact-'.$binding];
+        }
+
+        $candidate = CausalLearningCandidate::fromArray([
+            'assignment_hash' => $hashes['assignment'], 'experiment_hash' => $hashes['experiment'],
+            'order_hash' => $hashes['order'], 'run_hash' => $hashes['run'], 'release_hash' => $hashes['release'],
+            'outcome_hash' => $hashes['outcome'], 'change_class' => 'routing',
+            'hypothesis' => 'ledger-backed route improves quality', 'baseline' => 'route-v1', 'metric' => 'quality',
+            'window' => '7d', 'effect' => 0.18, 'ci_low' => 0.06, 'ci_high' => 0.30,
+            'confounders' => ['provider_drift' => 'controlled'], 'rollback' => 'route-v1', 'reversible' => true,
+            'assignment_precedes_run' => true, 'real_outcome' => true, 'authority_hash' => $hashes['authority'],
+            'scope' => 'atlas.route', 'expiry' => '2026-08-01T00:00:00Z',
+            'assignment_at' => '2026-07-12T00:00:00Z', 'release_at' => '2026-07-12T00:10:00Z',
+            'run_at' => '2026-07-12T00:20:00Z', 'outcome_at' => '2026-07-12T01:00:00Z',
+            'binding_refs' => $bindingRefs,
+        ]);
+
+        $verdict = (new CausalLearningGate($ledger))->adjudicate($candidate);
+        $binding = (new CausalLearningEvidenceBindingVerifier($ledger))->verify($candidate);
+        self::assertTrue($binding['admitted'], json_encode($binding, JSON_THROW_ON_ERROR));
+        $promotion = (new CausalLearningPromotionService)->promote($candidate, $verdict, 'route-v2');
+
+        self::assertSame('promote_reversible', $verdict->verdict);
+        self::assertSame('promoted', $promotion->status);
     }
 }

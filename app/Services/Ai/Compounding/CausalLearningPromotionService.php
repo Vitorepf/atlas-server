@@ -31,7 +31,7 @@ final class CausalLearningPromotionService
         if (date_create_immutable((string) $candidate->data['expiry']) <= new \DateTimeImmutable('now')) {
             throw new InvalidArgumentException('causal_policy_promotion_expired');
         }
-        $binding = (new CausalLearningEvidenceBindingVerifier)->verify($candidate, $evidenceArtifacts);
+        $binding = $this->bindingVerifier()->verify($candidate, $evidenceArtifacts);
         if (! $binding['admitted']) {
             throw new InvalidArgumentException('causal_evidence_binding_unresolved');
         }
@@ -79,5 +79,19 @@ final class CausalLearningPromotionService
             'claim_eligible' => false,
         ], ['event_id' => $eventId, 'correlation_id' => $promotion->candidateHash, 'scope_type' => 'causal_learning',
             'scope_id' => $promotion->scope, 'emitter_stage' => 'atlas.compounding.causal_promotion']);
+    }
+
+    private function bindingVerifier(): CausalLearningEvidenceBindingVerifier
+    {
+        $ledger = $this->ledger;
+        if ($ledger === null && function_exists('app')) {
+            try {
+                $ledger = app(AtlasEvidenceLedger::class);
+            } catch (\Throwable) {
+                $ledger = null;
+            }
+        }
+
+        return new CausalLearningEvidenceBindingVerifier($ledger);
     }
 }
