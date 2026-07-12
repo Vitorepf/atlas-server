@@ -44,6 +44,7 @@ enum LedgerEventType: string
     case CcrOriginalStored = 'CCR_ORIGINAL_STORED';
     case CcrOriginalRetrieved = 'CCR_ORIGINAL_RETRIEVED';
     case LearningProposed = 'LEARNING_PROPOSED';
+    case UnitFrozen = 'UNIT_FROZEN';
     case InboxActionRecorded = 'INBOX_ACTION_RECORDED';
     case SelfImprovementScheduleObserved = 'SELF_IMPROVEMENT_SCHEDULE_OBSERVED';
     case MemoryDeltaAccepted = 'MEMORY_DELTA_ACCEPTED';
