@@ -67,6 +67,10 @@ class AtlasProviderProjectionService
             'checksum' => $checksum,
             'line_count' => substr_count($content, "\n") + 1,
             'memory_count' => $entries->count() + count($canonicalMemoryLines),
+            'redaction_receipts' => $entries
+                ->map(fn (AtlasMemoryEntry $entry): array => $this->redactionReceipt($entry))
+                ->values()
+                ->all(),
             'lean' => $lean,
             'content' => $content,
         ];
@@ -886,6 +890,35 @@ class AtlasProviderProjectionService
         }
 
         return 'memory:'.substr($hash, 0, 16);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function redactionReceipt(AtlasMemoryEntry $entry): array
+    {
+        $summary = (string) ($this->privacy->providerSummary($entry) ?? '');
+        $body = (string) $this->privacy->providerBody($entry);
+        $verified = data_get($entry->metadata, 'privacy.provider_body_verified') === true
+            || data_get($entry->metadata, 'provider_projection.provider_body_verified') === true;
+        $classGate = $this->privacy->providerDecision($entry);
+
+        return [
+            'schema' => 'atlas.provider_bound_redaction_receipt.v1',
+            'memory_ref' => $this->memoryRef($entry),
+            'redaction_status' => (string) ($entry->redaction_status ?? 'unknown'),
+            'patterns_fired' => (string) ($entry->redaction_status ?? '') === 'redacted' ? ['atlas_security_redaction'] : [],
+            'class_gate' => [
+                'allowed' => (bool) ($classGate['allowed'] ?? false),
+                'privacy_class' => (string) ($classGate['privacy_class'] ?? 'normal'),
+                'reason' => (string) ($classGate['reason'] ?? 'unknown'),
+            ],
+            'verified_by' => match (true) {
+                $verified => 'provider_body_verified',
+                $summary !== '' || $body !== '' => 'redacted_projection_field',
+                default => 'omitted_unverified_raw',
+            },
+        ];
     }
 
     private function classificationLabel(mixed $classification): string

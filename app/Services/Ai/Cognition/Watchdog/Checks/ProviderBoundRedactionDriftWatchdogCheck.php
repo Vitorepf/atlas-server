@@ -1,0 +1,98 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Ai\Cognition\Watchdog\Checks;
+
+use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\AtlasMemoryPrivacyService;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+
+final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWatchdogCheck
+{
+    public function __construct(private AtlasMemoryPrivacyService $privacy) {}
+
+    public function id(): string
+    {
+        return 'maxm06.provider_bound_redaction_drift';
+    }
+
+    public function run(): AtlasWatchdogCheckResult
+    {
+        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+            return AtlasWatchdogCheckResult::skipped([
+                'schema' => 'atlas.provider_bound_redaction_drift.v1',
+                'reason' => 'atlas_memory_entries_missing',
+            ]);
+        }
+
+        $drift = [];
+        AtlasMemoryEntry::query()
+            ->where('redaction_status', 'redacted')
+            ->limit(200)
+            ->get()
+            ->each(function (AtlasMemoryEntry $entry) use (&$drift): void {
+                $signals = $this->driftSignals($entry);
+                if ($signals !== []) {
+                    $drift[] = [
+                        'memory_ref' => $this->memoryRef($entry),
+                        'signals' => $signals,
+                        'verified_by' => data_get($entry->metadata, 'privacy.provider_body_verified') === true
+                            ? 'privacy.provider_body_verified'
+                            : (data_get($entry->metadata, 'provider_projection.provider_body_verified') === true
+                                ? 'provider_projection.provider_body_verified'
+                                : 'none'),
+                    ];
+                }
+            });
+
+        $evidence = [
+            'schema' => 'atlas.provider_bound_redaction_drift.v1',
+            'checked' => min(200, AtlasMemoryEntry::query()->where('redaction_status', 'redacted')->count()),
+            'drift_count' => count($drift),
+            'drift' => $drift,
+        ];
+
+        if ($drift !== []) {
+            return AtlasWatchdogCheckResult::alert($evidence, [
+                'code' => 'provider_bound_redaction_drift',
+                'message' => 'Provider-bound redaction status drift detected.',
+            ]);
+        }
+
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'no_provider_bound_redaction_drift']);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function driftSignals(AtlasMemoryEntry $entry): array
+    {
+        $signals = [];
+        $body = trim((string) $entry->body);
+        $summary = trim((string) ($entry->summary ?? ''));
+        $providerBody = $this->privacy->providerBody($entry);
+        $providerSummary = (string) ($this->privacy->providerSummary($entry) ?? '');
+
+        if ($body !== '' && $providerBody !== '' && str_contains($providerBody, $body)) {
+            $signals[] = 'provider_body_contains_raw_body';
+        }
+        if ($summary !== '' && $providerSummary !== '' && str_contains($providerSummary, $summary)) {
+            $signals[] = 'provider_summary_contains_raw_summary';
+        }
+
+        return $signals;
+    }
+
+    private function memoryRef(AtlasMemoryEntry $entry): string
+    {
+        $hash = trim((string) ($entry->content_hash ?? ''));
+        if ($hash === '') {
+            $hash = hash('sha256', (string) $entry->id);
+        }
+
+        return 'memory:'.substr($hash, 0, 16);
+    }
+}
