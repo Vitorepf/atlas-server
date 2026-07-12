@@ -13,6 +13,8 @@ use Symfony\Component\Process\Process;
  */
 final class QualityFoundryLiveManifestService
 {
+    private const ROLLBACK_EVIDENCE_TEST = 'tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php';
+
     /** @var array<string,list<string>> */
     private const MODE_TESTS = [
         'kernel' => [
@@ -65,7 +67,11 @@ final class QualityFoundryLiveManifestService
         $modes = [];
 
         foreach (self::MODE_TESTS as $mode => $tests) {
-            $modes[$mode] = $this->runMode($mode, $tests, $root);
+            $modes[$mode] = $this->runMode(
+                $mode,
+                array_values(array_unique([...$tests, self::ROLLBACK_EVIDENCE_TEST])),
+                $root,
+            );
         }
 
         return (new QualityFoundryModeReadinessManifestService)->build([
@@ -111,7 +117,10 @@ final class QualityFoundryLiveManifestService
             'test_refs' => $testRefs,
             'kernel_routed' => $exitCode === 0,
             'coverage_percent' => 0,
-            'rollback_exercised' => false,
+            'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+            'evidence' => [
+                'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $tests, true) && $exitCode === 0,
+            ],
             'outcome_writer_active' => false,
             'command' => $receipt['command'],
             'exit_code' => $exitCode,

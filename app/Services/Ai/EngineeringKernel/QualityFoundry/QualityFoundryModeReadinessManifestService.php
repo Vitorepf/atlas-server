@@ -43,6 +43,7 @@ final class QualityFoundryModeReadinessManifestService
                     'output_hash' => isset($receipt['output_hash']) ? (string) $receipt['output_hash'] : null,
                     'duration_ms' => isset($receipt['duration_ms']) ? (int) $receipt['duration_ms'] : null,
                 ],
+                'evidence' => is_array($receipt['evidence'] ?? null) ? $receipt['evidence'] : [],
                 'blockers' => $modeBlockers,
                 'claim_eligible' => false,
             ];

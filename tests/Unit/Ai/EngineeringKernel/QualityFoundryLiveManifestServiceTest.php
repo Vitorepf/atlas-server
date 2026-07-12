@@ -51,4 +51,31 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertSame(1, $manifest['manifests']['kernel']['execution']['exit_code']);
         self::assertNotSame([], $manifest['manifests']['kernel']['receipt_hashes']);
     }
+
+    public function test_successful_canonical_rollback_suite_is_recorded_as_live_rollback_evidence(): void
+    {
+        $commands = [];
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static function (array $command, string $cwd) use (&$commands): array {
+                $commands[] = $command;
+
+                return [
+                    'exit_code' => 0,
+                    'output' => implode(' ', $command),
+                ];
+            },
+        );
+
+        $manifest = $service->build();
+
+        self::assertNotEmpty(array_filter(
+            $commands,
+            static fn (array $command): bool => in_array('tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php', $command, true),
+        ));
+        foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
+            self::assertTrue($manifest['manifests'][$mode]['evidence']['rollback_exercised']);
+            self::assertNotContains('rollback_not_exercised', $manifest['manifests'][$mode]['blockers']);
+        }
+    }
 }
