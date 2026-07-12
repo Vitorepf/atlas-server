@@ -1478,6 +1478,22 @@ final class AtlasTaskServingService
         $allowedFiles = array_values(array_map('strval', (array) ($scope['allowed_files'] ?? [])));
         $preCommit = ($commit['pre_commit'] ?? false) === true;
 
+        if ($this->contextRuntime === null) {
+            return [
+                'ok' => false,
+                'reason' => 'atlas_context_runtime_unavailable',
+                'blockers' => ['context_runtime_required_for_mutation'],
+            ];
+        }
+
+        if (! $preCommit && $this->eliteKernel === null) {
+            return [
+                'ok' => false,
+                'reason' => 'elite_executor_kernel_unavailable',
+                'blockers' => ['elite_kernel_required_for_mutation'],
+            ];
+        }
+
         if ($this->contextRuntime !== null) {
             try {
                 $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($objective, [

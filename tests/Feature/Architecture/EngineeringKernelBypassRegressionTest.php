@@ -98,6 +98,22 @@ final class EngineeringKernelBypassRegressionTest extends TestCase
         );
     }
 
+    public function test_autonomos_task_serving_cannot_certify_mutation_without_shared_kernel(): void
+    {
+        $source = (string) file_get_contents(base_path('app/Services/Ai/SelfConstruction/AtlasTaskServingService.php'));
+
+        $this->assertStringContainsString(
+            "elite_kernel_required_for_mutation",
+            $source,
+            'Autônomos mutation must fail closed when the shared Kernel is unavailable.',
+        );
+        $this->assertStringContainsString(
+            "context_runtime_required_for_mutation",
+            $source,
+            'Autônomos mutation must fail closed when context certification is unavailable.',
+        );
+    }
+
     /**
      * @param  class-string  $class
      * @return list<string>
