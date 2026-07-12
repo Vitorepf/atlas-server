@@ -122,7 +122,7 @@
 - [ ] ESP-04 — pending
 - [ ] ESP-07 — pending
 - [x] MAXJ-02 — landed · `AtlasLearningDistiller` now writes candidate-local `payload.caused_by` behind default-OFF `atlas.ai.credit_assignment.enabled`, reusing `AtlasExternalBrainTaskOutcomeCausalAttributor`; OFF remains byte-identical, ON records `poor_spec_quality` / `good_execution` causes with evidence refs; no falseLearningGate/AEMOR seam touched; tests: `php artisan test tests/Unit/Ai/Compounding/DistillerAuthorAdapterSeamTest.php`
-- [ ] MAXH-04 — pending
+- [x] MAXH-04 — landed · `atlas:memory:consolidation-scan --enforce --json` now auto-applies only high-confidence non-high-risk `supersedes` proposals, persists the canonical relation, sets loser `superseded_by_id` + `valid_until`, emits `reverse_handle=maxh04:<relation_id>`, and holds decision/architecture/policy pairs in `enforce.review_bucket`; observe mode still writes 0 relations; tests: `php artisan test tests/Feature/Ai/AcosMax/Maxh03ConsolidationScannerTest.php`
 - [ ] MAXH-05 — pending
 - [ ] ESP-08 — pending
 - [ ] MULTX-01 (série cheia) — pending

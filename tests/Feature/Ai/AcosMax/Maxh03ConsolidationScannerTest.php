@@ -158,6 +158,67 @@ final class Maxh03ConsolidationScannerTest extends TestCase
         $this->assertSame(0, AtlasMemoryEntryRelation::query()->count());
     }
 
+    public function test_enforce_applies_reversible_non_high_risk_supersedence(): void
+    {
+        $older = $this->memory('runtime timeout policy', [
+            'memory_type' => 'technical_context',
+            'recorded_at' => CarbonImmutable::now()->subDay()->toIso8601String(),
+            'metadata' => ['polarity' => 'affirm'],
+        ]);
+        $newer = $this->memory('runtime timeout policy', [
+            'memory_type' => 'technical_context',
+            'recorded_at' => CarbonImmutable::now()->toIso8601String(),
+            'metadata' => ['polarity' => 'negate'],
+        ]);
+        $scanner = new MemoryConsolidationScanner(new StubMemoryPairwiseCosineScorer([
+            (string) $older->summary => [(string) $newer->id => 0.91],
+            (string) $newer->summary => [(string) $older->id => 0.91],
+        ]));
+
+        $report = $scanner->scan(MemoryConsolidationScanner::MODE_ENFORCE);
+
+        $this->assertSame(1, $report['relations_written']);
+        $this->assertSame(1, data_get($report, 'enforce.applied'));
+        $this->assertSame(0, data_get($report, 'enforce.review_bucket'));
+        $older->refresh();
+        $this->assertSame((string) $newer->id, (string) $older->superseded_by_id);
+        $this->assertNotNull($older->valid_until);
+
+        $handle = (string) data_get($report, 'enforce.applications.0.reverse_handle');
+        $this->assertNotSame('', $handle);
+        $reverted = $scanner->reverseApplication($handle);
+        $this->assertTrue($reverted['ok']);
+        $older->refresh();
+        $this->assertNull($older->superseded_by_id);
+        $this->assertNull($older->valid_until);
+    }
+
+    public function test_enforce_holds_high_risk_supersedence_for_digest_review(): void
+    {
+        $older = $this->memory('architecture contract', [
+            'memory_type' => 'decision',
+            'recorded_at' => CarbonImmutable::now()->subDay()->toIso8601String(),
+            'metadata' => ['polarity' => 'affirm'],
+        ]);
+        $newer = $this->memory('architecture contract', [
+            'memory_type' => 'decision',
+            'recorded_at' => CarbonImmutable::now()->toIso8601String(),
+            'metadata' => ['polarity' => 'negate'],
+        ]);
+        $scanner = new MemoryConsolidationScanner(new StubMemoryPairwiseCosineScorer([
+            (string) $older->summary => [(string) $newer->id => 0.91],
+            (string) $newer->summary => [(string) $older->id => 0.91],
+        ]));
+
+        $report = $scanner->scan(MemoryConsolidationScanner::MODE_ENFORCE);
+
+        $this->assertSame(0, $report['relations_written']);
+        $this->assertSame(0, data_get($report, 'enforce.applied'));
+        $this->assertSame(1, data_get($report, 'enforce.review_bucket'));
+        $older->refresh();
+        $this->assertNull($older->superseded_by_id);
+    }
+
     /**
      * @return list<AtlasMemoryEntry>
      */

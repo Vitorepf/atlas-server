@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
+use App\Models\AtlasMemoryEntryRelation;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
@@ -43,6 +44,8 @@ final class MemoryConsolidationScanner
 
     public const MODE_OBSERVE = 'observe';
 
+    public const MODE_ENFORCE = 'enforce';
+
     /** Hard ceiling on unique pairs evaluated per scan (defensive cap; MAXH-04 adds cluster path). */
     private const MAX_PAIRS_EVALUATED = 4000;
 
@@ -71,9 +74,8 @@ final class MemoryConsolidationScanner
      */
     public function scan(string $mode = self::MODE_OBSERVE): array
     {
-        if ($mode !== self::MODE_OBSERVE) {
-            // MAXH-04 (M4) will add enforce mode; today the scanner is observe-only.
-            throw new \InvalidArgumentException('MAXH-03 scanner only supports observe mode; enforce is MAXH-04.');
+        if (! in_array($mode, [self::MODE_OBSERVE, self::MODE_ENFORCE], true)) {
+            throw new \InvalidArgumentException('unsupported memory consolidation mode.');
         }
 
         $freeze = AtlasMemoryTemporalQualityService::freezePayload();
@@ -181,12 +183,18 @@ final class MemoryConsolidationScanner
         }
         $qualified = ($pairsEvaluated >= $minPairs) && ($nonDegenerateVerbCount >= 2);
 
+        $enforce = $mode === self::MODE_ENFORCE
+            ? $this->enforceProposals($proposals, $now)
+            : ['applied' => 0, 'review_bucket' => 0, 'skipped' => 0, 'applications' => [], 'review_items' => []];
+
         $ledgerPath = $this->appendLedger($proposals, $now, [
             'mode' => $mode,
             'similarity_source' => $similaritySource,
             'pairs_evaluated' => $pairsEvaluated,
             'pairs_surfaced' => $pairsSurfaced,
             'qualified' => $qualified,
+            'relations_written' => (int) $enforce['applied'],
+            'review_bucket' => (int) $enforce['review_bucket'],
         ]);
 
         return [
@@ -205,7 +213,8 @@ final class MemoryConsolidationScanner
             ],
             'verdict_distribution' => $verdictCounts,
             'non_degenerate_verb_count' => $nonDegenerateVerbCount,
-            'relations_written' => 0,
+            'relations_written' => (int) $enforce['applied'],
+            'enforce' => $enforce,
             'ledger_path' => $ledgerPath,
             'proposal_count' => count($proposals),
             'proposals' => $proposals,
@@ -306,9 +315,9 @@ final class MemoryConsolidationScanner
         return [
             'key' => $this->normalizedKey($entry),
             'scope_type' => (string) ($entry->getAttribute('scope_type') ?? ''),
-            'polarity' => 'affirm',
             'recorded_ts' => $this->recordedTimestamp($entry),
             'memory_type' => (string) ($entry->getAttribute('memory_type') ?? ''),
+            'polarity' => (string) data_get($entry->getAttribute('metadata'), 'polarity', 'affirm'),
         ];
     }
 
@@ -474,6 +483,133 @@ final class MemoryConsolidationScanner
         @file_put_contents($path, implode("\n", $lines)."\n", FILE_APPEND | LOCK_EX);
 
         return $path;
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $proposals
+     * @return array{applied:int,review_bucket:int,skipped:int,applications:list<array<string,mixed>>,review_items:list<array<string,mixed>>}
+     */
+    private function enforceProposals(array $proposals, CarbonImmutable $now): array
+    {
+        $applied = [];
+        $review = [];
+        $skipped = 0;
+        $resolver = new AtlasMemoryConflictResolutionService;
+
+        foreach ($proposals as $proposal) {
+            if (($proposal['verdict'] ?? null) !== AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES
+                || ($proposal['confidence_floor_ok'] ?? false) !== true) {
+                $skipped++;
+
+                continue;
+            }
+            if (($proposal['escalate'] ?? false) === true) {
+                $review[] = $proposal + ['held_reason' => 'high_risk_memory_type'];
+
+                continue;
+            }
+
+            $direction = (string) ($proposal['temporal_supersession'] ?? '');
+            $winnerId = $direction === 'a_supersedes_b'
+                ? (string) $proposal['source_id']
+                : ($direction === 'b_supersedes_a' ? (string) $proposal['target_id'] : '');
+            $loserId = $direction === 'a_supersedes_b'
+                ? (string) $proposal['target_id']
+                : ($direction === 'b_supersedes_a' ? (string) $proposal['source_id'] : '');
+            if ($winnerId === '' || $loserId === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $loser = AtlasMemoryEntry::query()->find($loserId);
+            if ($loser === null) {
+                $skipped++;
+
+                continue;
+            }
+            $previous = [
+                'superseded_by_id' => $loser->superseded_by_id,
+                'valid_until' => $loser->valid_until?->toIso8601String(),
+            ];
+
+            $judgment = $resolver->judge($loserId, $winnerId, AtlasMemoryConflictResolutionService::VERDICT_SUPERSEDES, [
+                'actor' => AtlasMemoryConflictResolutionService::ACTOR_ATLAS,
+                'confidence' => (float) ($proposal['confidence'] ?? 0.0),
+                'reason' => 'MAXH-04 consolidation enforce supersedence.',
+                'evidence_refs' => ['pair_hash:'.(string) ($proposal['pair_hash'] ?? '')],
+                'allow_escalation_bypass' => false,
+            ]);
+            if (($judgment['ok'] ?? false) !== true) {
+                $skipped++;
+
+                continue;
+            }
+
+            $relationId = (string) ($judgment['relation_id'] ?? '');
+            AtlasMemoryEntryRelation::query()
+                ->whereKey($relationId)
+                ->update([
+                    'status' => 'resolved',
+                    'metadata' => [
+                        'maxh04' => true,
+                        'previous' => $previous,
+                        'winner_id' => $winnerId,
+                        'loser_id' => $loserId,
+                        'pair_hash' => (string) ($proposal['pair_hash'] ?? ''),
+                    ],
+                ]);
+
+            $loser->forceFill([
+                'superseded_by_id' => $winnerId,
+                'valid_until' => $now,
+            ])->save();
+
+            $handle = 'maxh04:'.$relationId;
+            $applied[] = [
+                'relation_id' => $relationId,
+                'source_memory_entry_id' => $loserId,
+                'target_memory_entry_id' => $winnerId,
+                'reverse_handle' => $handle,
+            ];
+        }
+
+        return [
+            'applied' => count($applied),
+            'review_bucket' => count($review),
+            'skipped' => $skipped,
+            'applications' => $applied,
+            'review_items' => $review,
+        ];
+    }
+
+    /** @return array{ok:bool,reason?:string} */
+    public function reverseApplication(string $handle): array
+    {
+        if (! str_starts_with($handle, 'maxh04:')) {
+            return ['ok' => false, 'reason' => 'invalid_reverse_handle'];
+        }
+        $relationId = substr($handle, strlen('maxh04:'));
+        /** @var AtlasMemoryEntryRelation|null $relation */
+        $relation = AtlasMemoryEntryRelation::query()->find($relationId);
+        if ($relation === null) {
+            return ['ok' => false, 'reason' => 'relation_not_found'];
+        }
+        $metadata = (array) $relation->metadata;
+        $previous = (array) data_get($metadata, 'previous', []);
+        $loserId = (string) data_get($metadata, 'loser_id', $relation->source_memory_entry_id);
+        $loser = AtlasMemoryEntry::query()->find($loserId);
+        if ($loser === null) {
+            return ['ok' => false, 'reason' => 'memory_not_found'];
+        }
+
+        $loser->forceFill([
+            'superseded_by_id' => $previous['superseded_by_id'] ?? null,
+            'valid_until' => $previous['valid_until'] ?? null,
+        ])->save();
+        $relation->forceFill(['status' => 'dismissed'])->save();
+
+        return ['ok' => true];
     }
 
     /**

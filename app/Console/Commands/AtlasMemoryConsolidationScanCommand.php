@@ -12,20 +12,23 @@ use Illuminate\Console\Command;
  *
  *   php artisan atlas:memory:consolidation-scan --observe --json
  *
- * `--observe` is currently the only supported mode (0 relation rows written).
- * MAXH-04 (M4) will add `--enforce` for high-confidence auto-application.
+ * `--observe` remains the default (0 relation rows written). MAXH-04 adds
+ * `--enforce` for high-confidence, reversible auto-application.
  */
 final class AtlasMemoryConsolidationScanCommand extends Command
 {
     protected $signature = 'atlas:memory:consolidation-scan
         {--observe : Observe mode (default). No relation rows are ever persisted.}
+        {--enforce : Enforce high-confidence non-high-risk supersedence proposals.}
         {--json : Print the machine-readable JSON report.}';
 
-    protected $description = 'MAXH-03 — observe-mode memory pair scanner feeding the six conflict kernels.';
+    protected $description = 'MAXH-03/MAXH-04 memory pair scanner and reversible consolidation actuator.';
 
     public function handle(MemoryConsolidationScanner $scanner): int
     {
-        $mode = MemoryConsolidationScanner::MODE_OBSERVE;
+        $mode = (bool) $this->option('enforce')
+            ? MemoryConsolidationScanner::MODE_ENFORCE
+            : MemoryConsolidationScanner::MODE_OBSERVE;
         $report = $scanner->scan($mode);
 
         if ((bool) $this->option('json')) {
