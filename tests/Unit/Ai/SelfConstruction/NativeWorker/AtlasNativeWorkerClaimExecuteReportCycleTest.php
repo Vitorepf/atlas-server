@@ -368,6 +368,45 @@ class AtlasNativeWorkerClaimExecuteReportCycleTest extends TestCase
         @unlink($ledger);
     }
 
+    public function test_real_nonzero_command_reaches_failed_report_without_success(): void
+    {
+        $ledger = sys_get_temp_dir().'/atlas-cycle-command-red-'.bin2hex(random_bytes(4)).'.jsonl';
+        $reportPayload = null;
+        $claim = $this->validClaim();
+        $claim['task_packet']['gates'] = ['php artisan test tests/Unit/FooTest.php'];
+
+        $result = (new AtlasNativeWorkerClaimExecuteReportCycle(
+            evidenceWriter: new AtlasNativeWorkerEvidenceWriter($ledger),
+        ))->run([
+            'dry_run' => false,
+            'claim_callback' => fn () => $claim,
+            'patch_materializer' => fn (): array => [
+                'accepted' => true,
+                'files' => [['path' => 'app/Foo.php']],
+                'diffs' => [['path' => 'app/Foo.php', 'unified_diff' => 'diff']],
+            ],
+            'verification' => ['passed' => true],
+            'command_plan' => [[
+                'name' => 'php artisan test tests/Unit/FooTest.php',
+                'argv' => ['/opt/homebrew/bin/php', '-r', 'exit(7);'],
+                'timeout_seconds' => 5,
+            ]],
+            'report_callback' => function (array $payload) use (&$reportPayload): array {
+                $reportPayload = $payload;
+
+                return ['status' => 'reported'];
+            },
+        ]);
+
+        self::assertSame(AtlasNativeWorkerClaimExecuteReportCycle::OUTCOME_CLASS_COMMAND_FAILED, $result['outcome_class']);
+        self::assertSame('failed', $result['report_outcome']);
+        self::assertNotNull($reportPayload);
+        self::assertSame('failed', $reportPayload['outcome']);
+        self::assertNotSame('success', $reportPayload['outcome']);
+
+        @unlink($ledger);
+    }
+
     public function test_evidence_summary_is_null_before_outcome_mapping(): void
     {
         $r = (new AtlasNativeWorkerClaimExecuteReportCycle)->run([]);
