@@ -96,7 +96,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 - [x] Extend the existing registry to be the sole source of the 22 role definitions.
 - [x] Implement deterministic depth profiles: R0 applicability/minimal evidence; R1 light independent review/local tests; R2 standard review/contracts/integration; R3 multiple verifiers/regression/compatibility/controlled release; R4 security/mutation/property/chaos/rollback; R5 competing candidates, different-family verifiers and disaster drills.
 - [x] Persist selected depth separately from mode, complexity, duration and topology.
-- [ ] Run focused suites plus neighboring Workcell/Engineering Company tests, architecture guard, Pint and PHPStan.
+- [x] Run focused suites plus neighboring Workcell/Engineering Company tests, architecture guard, Pint and PHPStan.
 
 **GREEN acceptance:** all 22 roles appear once, in order, for every mode/risk/topology; only depth changes; duplicate or unknown keys are refused.
 
