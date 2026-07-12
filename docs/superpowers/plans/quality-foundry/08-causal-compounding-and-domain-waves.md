@@ -200,7 +200,7 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 **Allowed files:** ExternalBrain/Compounding/AtlasDecide readers and focused tests; Rivals remains read-only unless an agreed evidence API is missing.
 
-- [ ] Write RED fixtures for model/provider/tool/harness drift, declining calibration, outcome regression, benchmark frontier movement, expired claim and alert storm duplicating tasks.
+- [x] Write RED fixtures for model/provider/tool/harness drift, declining calibration, outcome regression, benchmark frontier movement, expired claim and alert storm duplicating tasks. Evidence: `AtlasExternalBrainCapabilityDriftWorkProposerTest` covers all drift families, expired-claim handling and in-batch duplicate collapse.
 - [x] Compare frozen route/world/claim versions to current facts and real outcomes; distinguish expected drift, unknown and material regression.
 - [x] Generate a benchmark-gap or repair proposal with exact evidence, scope, risk, invalidator and outcome metric through Proposal Arena/Task Fabric.
 - [x] Deduplicate/merge recurring gaps and respect active claims/reservations; never mutate claims or routes directly.

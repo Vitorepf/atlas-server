@@ -126,4 +126,37 @@ final class AtlasExternalBrainCapabilityDriftWorkProposerTest extends TestCase
             array_column($result['proposals'], 'destination'),
         );
     }
+
+    public function test_calibration_decline_and_benchmark_frontier_movement_emit_governed_work(): void
+    {
+        $result = (new AtlasExternalBrainCapabilityDriftWorkProposer)->propose($this->input([
+            'findings' => [
+                $this->finding(['area_id' => 'calibration', 'drift_type' => 'declining_calibration', 'material_regression' => true]),
+                $this->finding(['area_id' => 'frontier', 'drift_type' => 'benchmark_frontier_movement', 'material_regression' => true]),
+            ],
+            'target_paths' => ['calibration' => 'app/Services/Ai/Calibration.php', 'frontier' => 'app/Services/Ai/Frontier.php'],
+        ]));
+
+        self::assertCount(2, $result['proposals']);
+        self::assertSame(['calibration', 'frontier'], array_column($result['proposals'], 'destination') === [] ? [] : array_column($result['findings'], 'area_id'));
+    }
+
+    public function test_expired_claim_does_not_block_repair_but_active_claim_does(): void
+    {
+        $service = new AtlasExternalBrainCapabilityDriftWorkProposer;
+        $expired = $service->propose($this->input(['active_claims' => [['area_id' => 'routing', 'expires_at' => '2020-01-01T00:00:00Z']]]));
+        $active = $service->propose($this->input(['active_claims' => [['area_id' => 'routing', 'expires_at' => '2099-01-01T00:00:00Z']]]));
+
+        self::assertCount(1, $expired['proposals']);
+        self::assertSame('active_claim', $active['findings'][0]['blocked_reason']);
+    }
+
+    public function test_alert_storm_duplicates_collapse_to_one_proposal_per_fingerprint(): void
+    {
+        $finding = $this->finding(['material_regression' => true]);
+        $result = (new AtlasExternalBrainCapabilityDriftWorkProposer)->propose($this->input(['findings' => [$finding, $finding]]));
+
+        self::assertCount(1, $result['proposals']);
+        self::assertSame('duplicate_fingerprint', $result['findings'][1]['blocked_reason']);
+    }
 }

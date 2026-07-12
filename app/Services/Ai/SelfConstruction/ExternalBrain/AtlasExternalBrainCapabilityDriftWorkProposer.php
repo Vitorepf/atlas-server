@@ -64,6 +64,9 @@ final class AtlasExternalBrainCapabilityDriftWorkProposer
 
             $proposal = $this->proposal($finding, $target, $fingerprint, $frozen, $current);
             $proposals[] = $proposal;
+            // Collapse an alert storm within the same observation batch as well as
+            // against persisted proposals; only the first governed response survives.
+            $existing[$fingerprint] = true;
             $findings[] = $row + ['destination' => 'task_fabric_proposal'];
         }
 
@@ -138,10 +141,18 @@ final class AtlasExternalBrainCapabilityDriftWorkProposer
     {
         $set = [];
         foreach ((array) $items as $item) {
-            if (is_array($item) && trim((string) ($item['area_id'] ?? '')) !== '') {
+            if (is_array($item) && $this->claimOrReservationIsActive($item) && trim((string) ($item['area_id'] ?? '')) !== '') {
                 $set[(string) $item['area_id']] = true;
             }
         }
         return $set;
+    }
+
+    private function claimOrReservationIsActive(array $item): bool
+    {
+        $expiresAt = trim((string) ($item['expires_at'] ?? $item['expiry'] ?? ''));
+        if ($expiresAt === '') return true;
+        $expires = date_create_immutable($expiresAt);
+        return $expires === false || $expires > new \DateTimeImmutable('now');
     }
 }
