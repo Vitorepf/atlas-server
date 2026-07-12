@@ -446,6 +446,22 @@ return [
         'embedding_base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'embedding_timeout_seconds' => (int) env('ATLAS_SEMANTIC_EMBEDDING_TIMEOUT_SECONDS', 20),
         'embedding_fallback_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_FALLBACK_ENABLED', true),
+        'embedding_cache_enabled' => (bool) env('ATLAS_SEMANTIC_EMBEDDING_CACHE_ENABLED', true),
+        'embedding_cache_ttl_seconds' => (int) env('ATLAS_SEMANTIC_EMBEDDING_CACHE_TTL_SECONDS', 3600),
+        'semantic_rag_model' => env('ATLAS_SEMANTIC_RAG_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'),
+        'embedding_daemon_enabled' => (bool) env('ATLAS_SEMANTIC_RAG_DAEMON_ENABLED', true),
+        'embedding_daemon_auto_start' => (bool) env('ATLAS_SEMANTIC_RAG_DAEMON_AUTO_START', true),
+        'embedding_daemon_socket_path' => env(
+            'ATLAS_SEMANTIC_RAG_DAEMON_SOCKET',
+            sys_get_temp_dir().'/atlas-semantic-rag-'.substr(sha1(base_path()), 0, 12).'.sock'
+        ),
+        'embedding_daemon_manifest_path' => env(
+            'ATLAS_SEMANTIC_RAG_DAEMON_MANIFEST',
+            storage_path('atlas/semantic-rag-daemon/manifest.json')
+        ),
+        'embedding_daemon_connect_timeout_ms' => (int) env('ATLAS_SEMANTIC_RAG_DAEMON_CONNECT_TIMEOUT_MS', 200),
+        'embedding_daemon_startup_timeout_ms' => (int) env('ATLAS_SEMANTIC_RAG_DAEMON_STARTUP_TIMEOUT_MS', 1000),
+        'embedding_daemon_idle_timeout_seconds' => (int) env('ATLAS_SEMANTIC_RAG_DAEMON_IDLE_TIMEOUT_SECONDS', 300),
         // R1: embed atlas_memory_entries + atlas_verbatim_memories on write and
         // rank recall by real pgvector similarity (pgsql-only; falls back to the
         // lexical path on sqlite / when the embedding engine is unavailable).

@@ -20,8 +20,6 @@ namespace App\Services\Ai\RuntimeBoundary;
  */
 final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
 {
-    use PythonManifestRuntimeMechanics;
-
     private const RUNTIME_ROOT = 'runtimes/python/semantic_rag';
 
     private const MANIFEST_PREFIX = 'atlas-semantic-rag';
@@ -36,6 +34,23 @@ final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
     private const BOUNDARY_REQUIRED_FALSE = ['fabricated_vectors'];
 
     private const BOUNDARY_REFUSAL = 'semantic_rag returned a non-real-embedding boundary receipt — refusing (anti-fake guard).';
+
+    private readonly PythonManifestRuntimeClient $runtime;
+
+    public function __construct(?PythonManifestRuntimeClient $runtime = null)
+    {
+        $this->runtime = $runtime ?? new PythonManifestRuntimeClient(
+            self::RUNTIME_ROOT,
+            self::MANIFEST_PREFIX,
+            self::SETUP_MESSAGE,
+            self::RUNTIME_LABEL,
+        );
+    }
+
+    public function available(): bool
+    {
+        return $this->runtime->available();
+    }
 
     /**
      * Embed texts with the real Python model (for pgvector storage, etc.).
@@ -84,5 +99,38 @@ final class SemanticRagRuntimeClient implements SemanticRetrievalRuntime
             'documents' => array_values($documents),
             'graph_threshold' => $graphThreshold,
         ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    private function run(array $manifest): array
+    {
+        $result = null;
+        if ((bool) config('atlas.semantic_memory.embedding_daemon_enabled', true)) {
+            $result = $this->runtime->runResident(
+                $manifest,
+                (string) config('atlas.semantic_memory.embedding_daemon_socket_path', ''),
+                (string) config('atlas.semantic_memory.embedding_daemon_manifest_path', ''),
+                (bool) config('atlas.semantic_memory.embedding_daemon_auto_start', true),
+                (int) config('atlas.semantic_memory.embedding_daemon_connect_timeout_ms', 200),
+                (int) config('atlas.semantic_memory.embedding_daemon_startup_timeout_ms', 1000),
+                (int) config('atlas.semantic_memory.embedding_daemon_idle_timeout_seconds', 300),
+            );
+        }
+
+        if ($result === null) {
+            $result = $this->runtime->run($manifest);
+        }
+
+        PythonBoundaryReceiptGuard::assertReal(
+            $result,
+            self::BOUNDARY_REQUIRED_TRUE,
+            self::BOUNDARY_REQUIRED_FALSE,
+            self::BOUNDARY_REFUSAL,
+        );
+
+        return $result;
     }
 }

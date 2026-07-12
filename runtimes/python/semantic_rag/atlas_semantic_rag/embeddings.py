@@ -50,6 +50,9 @@ class Embedder(Protocol):
     def embed(self, texts: Sequence[str]) -> np.ndarray: ...
 
 
+_EMBEDDER_CACHE: dict[tuple[str, str | None], Embedder] = {}
+
+
 def _l2_normalise(matrix: np.ndarray) -> np.ndarray:
     matrix = np.asarray(matrix, dtype=np.float32)
     if matrix.ndim == 1:
@@ -112,11 +115,18 @@ def resolve_embedder(prefer_local: bool = True, model: str | None = None) -> Emb
     Order honours sovereignty: local (fastembed) before the API (openai). NEVER
     returns a fake/hash embedder — absence is an explicit failure.
     """
+    cache_key = ("local_first" if prefer_local else "api_first", model)
+    if cache_key in _EMBEDDER_CACHE:
+        return _EMBEDDER_CACHE[cache_key]
+
     order = [FastEmbedEmbedder, OpenAIEmbedder] if prefer_local else [OpenAIEmbedder, FastEmbedEmbedder]
     errors: list[str] = []
     for cls in order:
         try:
-            return cls(model) if model else cls()  # type: ignore[call-arg]
+            embedder = cls(model) if model else cls()  # type: ignore[call-arg]
+            _EMBEDDER_CACHE[cache_key] = embedder
+
+            return embedder
         except NoEmbeddingProviderError as exc:
             errors.append(f"{cls.__name__}: {exc}")
     raise NoEmbeddingProviderError(
