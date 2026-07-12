@@ -1567,6 +1567,7 @@ class AppServiceProvider extends ServiceProvider
             \App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck::class,
+            \App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck::class,
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }
