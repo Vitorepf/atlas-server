@@ -83,6 +83,7 @@ use App\Console\Commands\AtlasCliProvidersCommand;
 use App\Console\Commands\AtlasCliQualityCommand;
 use App\Console\Commands\AtlasCliReleaseCommand;
 use App\Console\Commands\AtlasCliRollbackCommand;
+use App\Console\Commands\AtlasMemoryConcentrationV2Command;
 use App\Console\Commands\AtlasRollbackCascadeCommand;
 use App\Console\Commands\AtlasCliScheduleCommand;
 use App\Console\Commands\AtlasCliSetupCommand;
@@ -364,6 +365,7 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasOperatorProfileContextCommand::class,
         AtlasCliRollbackCommand::class,
         AtlasRollbackCascadeCommand::class,
+        AtlasMemoryConcentrationV2Command::class,
         AtlasCliScheduleCommand::class,
         AtlasCliSetupCommand::class,
         AtlasCliSkillsCommand::class,

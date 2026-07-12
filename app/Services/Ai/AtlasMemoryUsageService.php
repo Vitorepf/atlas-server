@@ -6,8 +6,10 @@ use App\Models\AiContextSnapshot;
 use App\Models\AiTrace;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryUsage;
+use App\Services\Ai\Memory\AtlasMemoryActorTagger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AtlasMemoryUsageService
@@ -51,11 +53,7 @@ class AtlasMemoryUsageService
             }
 
             $registryItem = $registryItems->get($memoryId, []);
-            AtlasMemoryEntryUsage::query()->updateOrCreate([
-                'memory_entry_id' => $entry->id,
-                'trace_id' => $trace->id,
-                'context_snapshot_id' => $snapshot->id,
-            ], [
+            $usagePayload = [
                 'thread_id' => $trace->thread_id,
                 'session_id' => $trace->session_id,
                 'memory_type' => $entry->memory_type,
@@ -75,7 +73,17 @@ class AtlasMemoryUsageService
                     'created_by' => 'ai_context_snapshot_recorder',
                 ],
                 'used_at' => $snapshot->created_at ?: now(),
+            ];
+            $this->attachActor($usagePayload, [
+                'session_id' => $trace->session_id,
+                'created_by' => 'ai_context_snapshot_recorder',
+                'provider' => $trace->provider,
             ]);
+            AtlasMemoryEntryUsage::query()->updateOrCreate([
+                'memory_entry_id' => $entry->id,
+                'trace_id' => $trace->id,
+                'context_snapshot_id' => $snapshot->id,
+            ], $usagePayload);
         });
     }
 
@@ -139,7 +147,7 @@ class AtlasMemoryUsageService
                 $usageMetadata['delivery_surface'] = $deliverySurface;
             }
 
-            AtlasMemoryEntryUsage::query()->create([
+            $recallPayload = [
                 'memory_entry_id' => $entry->id,
                 'trace_id' => $this->uuidOrNull($context['trace_id'] ?? null),
                 'thread_id' => $this->uuidOrNull($context['thread_id'] ?? null),
@@ -161,7 +169,15 @@ class AtlasMemoryUsageService
                 'context_payload_json' => $this->recallPayloadForAudit($item),
                 'metadata' => $usageMetadata,
                 'used_at' => $usedAt,
+            ];
+            $this->attachActor($recallPayload, [
+                'actor' => $metadata['actor'] ?? null,
+                'session_id' => $context['session_id'] ?? null,
+                'created_by' => $createdBy,
+                'source' => $metadata['source'] ?? null,
+                'worker' => $metadata['worker'] ?? null,
             ]);
+            AtlasMemoryEntryUsage::query()->create($recallPayload);
 
             if ($usageSourceType === self::SOURCE_TYPE_MEMORY_RECALL) {
                 $entry->forceFill(['last_used_at' => $usedAt])->save();
@@ -305,5 +321,25 @@ class AtlasMemoryUsageService
     private function uuidOrNull(mixed $value): ?string
     {
         return is_string($value) && Str::isUuid($value) ? $value : null;
+    }
+
+    /**
+     * ASI-12 — stamp `actor` on the usage payload when the column exists.
+     * v1 tables (no `actor` column) stay byte-identical.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $context
+     */
+    private function attachActor(array &$payload, array $context): void
+    {
+        try {
+            if (! Schema::hasColumn('atlas_memory_entry_usages', 'actor')) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $payload['actor'] = (new AtlasMemoryActorTagger)->derive($context);
     }
 }

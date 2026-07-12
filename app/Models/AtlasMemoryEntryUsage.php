@@ -111,6 +111,7 @@ class AtlasMemoryEntryUsage extends Model
         'feedback_comment',
         'feedback_recorded_at',
         'used_at',
+        'actor',
     ];
 
     protected function casts(): array
