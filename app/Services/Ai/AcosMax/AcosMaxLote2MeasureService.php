@@ -379,17 +379,179 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multx06LearningLatency(): array
     {
-        return $this->emptyReport('MULTX-06', 'insufficient_signal', 'no_promoted_lesson_delivery_chain', [
+        $requiredTables = ['ai_run_outcomes', 'ai_rag_feedback_events', 'ai_learning_candidates'];
+        $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
+        $denominatorMin = (int) data_get(self::freezePayload('MULTX-06'), 'thresholds.denominator_min_promoted_lessons', 8);
+
+        if ($missingTables !== []) {
+            return $this->emptyReport('MULTX-06', 'insufficient_signal', 'learning_latency_source_tables_missing', [
+                'measure_id' => self::MULTX06_MEASURE_ID,
+                'denominator_min' => $denominatorMin,
+                'n' => 0,
+                'by_lesson_class' => [],
+                'never_delivered' => 0,
+                'never_cited' => 0,
+                'latency_seconds' => [
+                    'delivery_p50' => null,
+                    'delivery_p95' => null,
+                    'citation_p50' => null,
+                    'citation_p95' => null,
+                ],
+                'missing_tables' => $missingTables,
+            ]);
+        }
+
+        $outcomes = [];
+        foreach (DB::table('ai_run_outcomes')->get() as $outcome) {
+            $outcomes[(string) ($outcome->id ?? '')] = $outcome;
+        }
+
+        $deliveriesByOutcome = [];
+        $citationsByCandidate = [];
+        foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
+            $outcomeId = trim((string) ($row->run_outcome_id ?? ''));
+            if ($outcomeId !== '') {
+                $deliveriesByOutcome[$outcomeId][] = $row;
+            }
+            $candidateId = trim((string) ($row->memory_candidate_id ?? ''));
+            if ($candidateId !== '') {
+                $citationsByCandidate[$candidateId][] = $row;
+            }
+        }
+
+        $rows = [];
+        $deliveryLatencies = [];
+        $citationLatencies = [];
+        $neverDelivered = 0;
+        $neverCited = 0;
+        $byClass = [];
+
+        foreach (DB::table('ai_learning_candidates')->orderBy('created_at')->get() as $candidate) {
+            if (! $this->isPromotedLearningCandidate($candidate)) {
+                continue;
+            }
+
+            $candidateId = (string) ($candidate->id ?? '');
+            $lessonClass = trim((string) ($candidate->memory_type ?? 'unknown')) ?: 'unknown';
+            $outcome = $outcomes[(string) ($candidate->run_outcome_id ?? '')] ?? null;
+            if ($outcome === null) {
+                continue;
+            }
+
+            $delivery = $this->firstContextDelivery($deliveriesByOutcome[(string) $outcome->id] ?? []);
+            $citation = $this->firstSubsequentRecall($citationsByCandidate[$candidateId] ?? [], (string) ($candidate->created_at ?? ''));
+            $deliverySeconds = $delivery === null ? null : $this->secondsBetween((string) ($outcome->created_at ?? ''), (string) ($delivery->created_at ?? ''));
+            $citationSeconds = $citation === null ? null : $this->secondsBetween((string) ($outcome->created_at ?? ''), (string) ($citation->created_at ?? ''));
+
+            if ($deliverySeconds === null) {
+                $neverDelivered++;
+            } else {
+                $deliveryLatencies[] = $deliverySeconds;
+            }
+            if ($citationSeconds === null) {
+                $neverCited++;
+            } else {
+                $citationLatencies[] = $citationSeconds;
+            }
+
+            $byClass[$lessonClass] ??= [
+                'lesson_class' => $lessonClass,
+                'n' => 0,
+                'delivered' => 0,
+                'cited' => 0,
+                'never_delivered' => 0,
+                'never_cited' => 0,
+                'delivery_latencies' => [],
+                'citation_latencies' => [],
+            ];
+            $byClass[$lessonClass]['n']++;
+            if ($deliverySeconds === null) {
+                $byClass[$lessonClass]['never_delivered']++;
+            } else {
+                $byClass[$lessonClass]['delivered']++;
+                $byClass[$lessonClass]['delivery_latencies'][] = $deliverySeconds;
+            }
+            if ($citationSeconds === null) {
+                $byClass[$lessonClass]['never_cited']++;
+            } else {
+                $byClass[$lessonClass]['cited']++;
+                $byClass[$lessonClass]['citation_latencies'][] = $citationSeconds;
+            }
+
+            $rows[] = [
+                'candidate_id' => $candidateId,
+                'outcome_id' => (string) ($outcome->id ?? ''),
+                'lesson_class' => $lessonClass,
+                'delivered' => $deliverySeconds !== null,
+                'cited' => $citationSeconds !== null,
+                'delivery_latency_seconds' => $deliverySeconds,
+                'citation_latency_seconds' => $citationSeconds,
+            ];
+        }
+
+        $n = count($rows);
+        $status = $n >= $denominatorMin ? 'ok' : 'insufficient_signal';
+
+        return [
+            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'slice' => 'MULTX-06',
+            'status' => $status,
+            'reason' => $status === 'ok' ? null : 'promoted_lesson_denominator_below_min',
+            'formula_version' => (string) data_get(self::freezePayload('MULTX-06'), 'formula_version'),
+            'generated_at' => now()->toIso8601String(),
+            'freeze' => self::freezePayload('MULTX-06'),
             'measure_id' => self::MULTX06_MEASURE_ID,
-            'denominator_min' => 8,
-            'n' => 0,
-            'by_lesson_class' => [],
-            'never_delivered' => 0,
+            'denominator_min' => $denominatorMin,
+            'n' => $n,
+            'by_lesson_class' => $this->learningLatencyByClass($byClass),
+            'never_delivered' => $neverDelivered,
+            'never_cited' => $neverCited,
             'latency_seconds' => [
-                'p50' => null,
-                'p95' => null,
+                'delivery_p50' => $this->percentileInt($deliveryLatencies, 0.50),
+                'delivery_p95' => $this->percentileInt($deliveryLatencies, 0.95),
+                'citation_p50' => $this->percentileInt($citationLatencies, 0.50),
+                'citation_p95' => $this->percentileInt($citationLatencies, 0.95),
             ],
-        ]);
+            'rows' => $rows,
+            'claim_policy' => [
+                'read_only' => true,
+                'provider_calls_made' => false,
+                'memory_written' => false,
+                'never_delivered_in_denominator' => true,
+            ],
+        ];
+    }
+
+    private function isPromotedLearningCandidate(object $candidate): bool
+    {
+        return (string) ($candidate->status ?? '') === 'promoted'
+            || (bool) ($candidate->promotion_allowed ?? false) === true;
+    }
+
+    /**
+     * @param  array<string,array<string,mixed>>  $byClass
+     * @return list<array<string,mixed>>
+     */
+    private function learningLatencyByClass(array $byClass): array
+    {
+        ksort($byClass);
+
+        return array_values(array_map(function (array $row): array {
+            return [
+                'lesson_class' => (string) $row['lesson_class'],
+                'n' => (int) $row['n'],
+                'delivered' => (int) $row['delivered'],
+                'cited' => (int) $row['cited'],
+                'never_delivered' => (int) $row['never_delivered'],
+                'never_cited' => (int) $row['never_cited'],
+                'latency_seconds' => [
+                    'delivery_p50' => $this->percentileInt((array) $row['delivery_latencies'], 0.50),
+                    'delivery_p95' => $this->percentileInt((array) $row['delivery_latencies'], 0.95),
+                    'citation_p50' => $this->percentileInt((array) $row['citation_latencies'], 0.50),
+                    'citation_p95' => $this->percentileInt((array) $row['citation_latencies'], 0.95),
+                ],
+            ];
+        }, $byClass));
     }
 
     /** @return array<string,mixed> */
