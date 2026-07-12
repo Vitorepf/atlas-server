@@ -108,6 +108,8 @@ class AtlasMemoryEntry extends Model
         'tags',
         'metadata',
         'content_hash',
+        'embedding_model',
+        'embedded_content_hash',
         'recorded_at',
         'last_used_at',
         'archived_at',

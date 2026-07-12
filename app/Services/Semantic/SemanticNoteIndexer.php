@@ -74,6 +74,8 @@ class SemanticNoteIndexer
         $embeddingVector = $this->embeddings->embedText($textForEmbedding, (bool) $privacy['provider_safe']);
         $embedding = $this->embeddings->vectorLiteral($embeddingVector);
         $embeddingInfo = $this->embeddings->lastInfo();
+        $embeddingModel = EmbeddingProvenance::modelId($embeddingInfo);
+        $embeddedContentHash = EmbeddingProvenance::contentHash($textForEmbedding);
 
         $payload = [
             'note_key' => $noteKey,
@@ -105,10 +107,17 @@ class SemanticNoteIndexer
             ]),
         ];
 
+        if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding_model')) {
+            $payload['embedding_model'] = $embeddingModel;
+        }
+        if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedded_content_hash')) {
+            $payload['embedded_content_hash'] = $embeddedContentHash;
+        }
+
         $created = false;
         $updated = false;
 
-        DB::transaction(function () use (&$existing, $payload, $embedding, &$created, &$updated): void {
+        DB::transaction(function () use (&$existing, $payload, $embedding, $embeddingModel, $embeddedContentHash, &$created, &$updated): void {
             if (! $existing) {
                 $existing = SemanticNote::create($payload);
                 $created = true;
@@ -124,7 +133,19 @@ class SemanticNoteIndexer
             }
 
             if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding')) {
-                DB::update('UPDATE semantic_notes SET embedding = ?::vector WHERE id = ?', [$embedding, $existing->id]);
+                $sets = ['embedding = ?::vector'];
+                $bindings = [$embedding];
+                if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding_model')) {
+                    $sets[] = 'embedding_model = ?';
+                    $bindings[] = $embeddingModel;
+                }
+                if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedded_content_hash')) {
+                    $sets[] = 'embedded_content_hash = ?';
+                    $bindings[] = $embeddedContentHash;
+                }
+                $bindings[] = $existing->id;
+
+                DB::update('UPDATE semantic_notes SET '.implode(', ', $sets).' WHERE id = ?', $bindings);
             }
         });
 
@@ -148,6 +169,13 @@ class SemanticNoteIndexer
         });
 
         return $count;
+    }
+
+    public function embeddedTextForPath(string $path): string
+    {
+        $parsed = $this->parser->parse($this->vault->read($path));
+
+        return $this->textForEmbedding($parsed['frontmatter'], $parsed['body']);
     }
 
     private function noteKey(array $frontmatter, string $path): string

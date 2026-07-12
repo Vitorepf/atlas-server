@@ -6,8 +6,9 @@ namespace App\Services\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Semantic\EmbeddingProvenance;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +45,7 @@ class AtlasMemoryVectorSearchService
      * Cosine similarity of the query against the given memory-entry ids.
      *
      * @param  array<int,string>  $ids
-     * @return array<string,float>  id => similarity (0..1), only rows with a vector
+     * @return array<string,float> id => similarity (0..1), only rows with a vector
      */
     public function scoreEntries(string $query, array $ids): array
     {
@@ -55,7 +56,7 @@ class AtlasMemoryVectorSearchService
      * Cosine similarity of the query against the given verbatim-memory ids.
      *
      * @param  array<int,string>  $ids
-     * @return array<string,float>  id => similarity (0..1), only rows with a vector
+     * @return array<string,float> id => similarity (0..1), only rows with a vector
      */
     public function scoreVerbatims(string $query, array $ids): array
     {
@@ -82,6 +83,7 @@ class AtlasMemoryVectorSearchService
 
         try {
             $vector = $this->embeddings->vectorLiteral($this->embeddings->embedText($query));
+            $model = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
         } catch (Throwable $throwable) {
             // No real query embedding -> no semantic signal. Honest lexical fallback.
             report($throwable);
@@ -90,9 +92,15 @@ class AtlasMemoryVectorSearchService
         }
 
         try {
-            $rows = $builder
+            $builder
                 ->whereIn($table.'.id', $ids)
-                ->whereNotNull('embedding')
+                ->whereNotNull('embedding');
+
+            if (DatabaseTableAvailability::hasColumn($table, 'embedding_model')) {
+                EmbeddingProvenance::scopeCurrentModel($builder, $table, $model);
+            }
+
+            $rows = $builder
                 ->select($table.'.id')
                 ->selectRaw('(1 - (embedding <=> ?::vector)) AS similarity', [$vector])
                 ->get();

@@ -42,9 +42,14 @@ class SemanticSearchService
         }
 
         $vector = $this->embeddings->vectorLiteral($this->embeddings->embedText($query));
+        $model = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
         $builder = SemanticNote::query()
             ->whereNull('deleted_at')
             ->whereNot('status', 'invalid');
+
+        if (DatabaseTableAvailability::hasColumn('semantic_notes', 'embedding_model')) {
+            EmbeddingProvenance::scopeCurrentModel($builder, 'semantic_notes', $model);
+        }
 
         $this->applyFilters($builder, $filters);
 

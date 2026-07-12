@@ -6,6 +6,7 @@ use App\Models\AiAttachmentIndexEntry;
 use App\Models\AiJob;
 use App\Models\AiTrace;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Semantic\EmbeddingProvenance;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -53,10 +54,14 @@ class AiAttachmentIndexService
         if (DB::getDriverName() === 'pgsql') {
             try {
                 $vector = $this->embeddings->vectorLiteral($this->embeddings->embedText($query));
+                $model = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
                 $builder = AiAttachmentIndexEntry::query()
                     ->select('ai_attachment_index_entries.*')
                     ->selectRaw('(1 - (embedding <=> ?::vector)) AS score', [$vector])
                     ->whereNotNull('embedding');
+                if (DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedding_model')) {
+                    EmbeddingProvenance::scopeCurrentModel($builder, 'ai_attachment_index_entries', $model);
+                }
                 if ($threadId) {
                     $builder->where('thread_id', $threadId);
                 }
@@ -171,6 +176,7 @@ class AiAttachmentIndexService
                         'vision_fallback_recommended' => $page['vision_fallback_recommended'] ?? null,
                     ]);
                 }
+
                 continue;
             }
 
@@ -287,9 +293,14 @@ class AiAttachmentIndexService
     {
         $embedding = null;
         $embeddingInfo = null;
+        $embeddingModel = null;
+        $embeddedContentHash = null;
+        $textForEmbedding = ($entry['title'] ?? '')."\n".($entry['excerpt'] ?? '');
         try {
-            $vector = $this->embeddings->embedText(($entry['title'] ?? '')."\n".($entry['excerpt'] ?? ''));
+            $vector = $this->embeddings->embedText($textForEmbedding);
             $embeddingInfo = $this->embeddings->lastInfo();
+            $embeddingModel = EmbeddingProvenance::modelId($embeddingInfo);
+            $embeddedContentHash = EmbeddingProvenance::contentHash($textForEmbedding);
             $embedding = DB::getDriverName() === 'pgsql'
                 ? $this->embeddings->vectorLiteral($vector)
                 : json_encode($vector);
@@ -301,6 +312,13 @@ class AiAttachmentIndexService
             ...((array) ($entry['metadata'] ?? [])),
             'embedding' => $embeddingInfo,
         ];
+
+        if ($embeddingModel !== null && DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedding_model')) {
+            $entry['embedding_model'] = $embeddingModel;
+        }
+        if ($embeddedContentHash !== null && DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedded_content_hash')) {
+            $entry['embedded_content_hash'] = $embeddedContentHash;
+        }
 
         $existing = AiAttachmentIndexEntry::query()
             ->where('content_hash', $entry['content_hash'])
@@ -315,9 +333,29 @@ class AiAttachmentIndexService
 
         if ($embedding !== null) {
             if (DB::getDriverName() === 'pgsql') {
-                DB::update('UPDATE ai_attachment_index_entries SET embedding = ?::vector WHERE id = ?', [$embedding, $existing->id]);
+                $sets = ['embedding = ?::vector'];
+                $bindings = [$embedding];
+                if ($embeddingModel !== null && DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedding_model')) {
+                    $sets[] = 'embedding_model = ?';
+                    $bindings[] = $embeddingModel;
+                }
+                if ($embeddedContentHash !== null && DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedded_content_hash')) {
+                    $sets[] = 'embedded_content_hash = ?';
+                    $bindings[] = $embeddedContentHash;
+                }
+                $bindings[] = $existing->id;
+
+                DB::update('UPDATE ai_attachment_index_entries SET '.implode(', ', $sets).' WHERE id = ?', $bindings);
             } else {
-                $existing->update(['embedding' => $embedding]);
+                $update = ['embedding' => $embedding];
+                if ($embeddingModel !== null && DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedding_model')) {
+                    $update['embedding_model'] = $embeddingModel;
+                }
+                if ($embeddedContentHash !== null && DatabaseTableAvailability::hasColumn('ai_attachment_index_entries', 'embedded_content_hash')) {
+                    $update['embedded_content_hash'] = $embeddedContentHash;
+                }
+
+                $existing->update($update);
             }
         }
     }

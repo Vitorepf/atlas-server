@@ -37,7 +37,7 @@
 - [ ] ELEV-25 — pending
 - [ ] MAXG-01 (completo) — pending
 - [ ] MAXG-02 — pending
-- [ ] MAXA-03 — pending
+- [x] MAXA-03 — landed · embedding provenance columns on 4 vector tables (`embedding_model`, `embedded_content_hash`); indexers stamp provider/model + exact embedded text hash; vector reads exclude known cross-model rows while legacy NULLs survive until backfill; `atlas:memory:embed-backfill --stale --json` reembedded entries=106 verbatim=1 notes=169 attachments=0 skipped=0; psql null-provenance counts=0/0/0/0; tests: `php artisan test tests/Feature/Ai/Memory/AtlasMemoryVectorSearchServiceTest.php tests/Unit/Semantic/EmbeddingProvenanceTest.php`
 - [ ] MAXB-02 — pending (GÊMEO — fecha no landing do MAXG-04; ver plano vi-b)
 - [ ] MAXG-04 — pending
 - [ ] MAXH-01 — pending

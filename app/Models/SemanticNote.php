@@ -30,6 +30,8 @@ class SemanticNote extends Model
         'postgres_refs',
         'content_hash',
         'embedding',
+        'embedding_model',
+        'embedded_content_hash',
         'indexed_at',
         'last_seen_at',
         'last_activated_at',

@@ -7,6 +7,7 @@ namespace App\Services\Ai\Memory;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasVerbatimMemory;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Semantic\EmbeddingProvenance;
 use App\Services\Semantic\EmbeddingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -96,6 +97,8 @@ class AtlasMemorySemanticIndexer
 
         try {
             $vector = $this->embeddings->embedText($text, $allowExternalProvider);
+            $embeddingModel = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
+            $embeddedContentHash = EmbeddingProvenance::contentHash($text);
         } catch (Throwable $throwable) {
             // No real embedding provider available (venv missing + no key). Canon:
             // honest failure, never a hash fake. Leave the column NULL -> lexical.
@@ -109,9 +112,23 @@ class AtlasMemorySemanticIndexer
         }
 
         try {
+            $sets = ['embedding = ?::vector'];
+            $bindings = [$this->embeddings->vectorLiteral($vector)];
+
+            if (DatabaseTableAvailability::hasColumn($table, 'embedding_model')) {
+                $sets[] = 'embedding_model = ?';
+                $bindings[] = $embeddingModel;
+            }
+            if (DatabaseTableAvailability::hasColumn($table, 'embedded_content_hash')) {
+                $sets[] = 'embedded_content_hash = ?';
+                $bindings[] = $embeddedContentHash;
+            }
+
+            $bindings[] = $id;
+
             DB::update(
-                "UPDATE {$table} SET embedding = ?::vector WHERE id = ?",
-                [$this->embeddings->vectorLiteral($vector), $id],
+                "UPDATE {$table} SET ".implode(', ', $sets).' WHERE id = ?',
+                $bindings,
             );
         } catch (Throwable $throwable) {
             report($throwable);
@@ -129,7 +146,15 @@ class AtlasMemorySemanticIndexer
         }
 
         try {
-            DB::update("UPDATE {$table} SET embedding = NULL WHERE id = ?", [$id]);
+            $sets = ['embedding = NULL'];
+            if (DatabaseTableAvailability::hasColumn($table, 'embedding_model')) {
+                $sets[] = 'embedding_model = NULL';
+            }
+            if (DatabaseTableAvailability::hasColumn($table, 'embedded_content_hash')) {
+                $sets[] = 'embedded_content_hash = NULL';
+            }
+
+            DB::update("UPDATE {$table} SET ".implode(', ', $sets).' WHERE id = ?', [$id]);
         } catch (Throwable $throwable) {
             report($throwable);
         }
@@ -145,7 +170,7 @@ class AtlasMemorySemanticIndexer
      * Provider-safe text for an entry: prefer the redacted projection so a
      * sensitive/secret body is never embedded in plaintext.
      */
-    private function entryText(AtlasMemoryEntry $entry): string
+    public function entryText(AtlasMemoryEntry $entry): string
     {
         $title = $this->coalesce($entry->getAttribute('redacted_title'), $entry->title);
         $summary = $this->coalesce($entry->getAttribute('redacted_summary'), $entry->summary);
@@ -154,7 +179,7 @@ class AtlasMemorySemanticIndexer
         return $this->limit(implode("\n", array_filter([$title, $summary, $body])));
     }
 
-    private function verbatimText(AtlasVerbatimMemory $memory): string
+    public function verbatimText(AtlasVerbatimMemory $memory): string
     {
         return $this->limit(implode("\n", array_filter([
             (string) $memory->title,

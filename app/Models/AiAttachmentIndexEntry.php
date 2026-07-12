@@ -25,6 +25,8 @@ class AiAttachmentIndexEntry extends Model
         'metadata',
         'content_hash',
         'embedding',
+        'embedding_model',
+        'embedded_content_hash',
         'indexed_at',
     ];
 

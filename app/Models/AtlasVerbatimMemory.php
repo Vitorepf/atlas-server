@@ -60,6 +60,8 @@ class AtlasVerbatimMemory extends Model
         'external_ai_allowed',
         'redaction_status',
         'content_hash',
+        'embedding_model',
+        'embedded_content_hash',
         'redacted_hash',
         'source_type',
         'source_id',
