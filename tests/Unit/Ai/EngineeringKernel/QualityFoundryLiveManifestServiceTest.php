@@ -62,12 +62,14 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
 
     public function test_successful_autonomos_fixture_records_queue_rotation_restart_and_soak_starts(): void
     {
+        $commands = [];
         $service = new QualityFoundryLiveManifestService(
             basePath: base_path(),
-            runner: static fn (array $command, string $cwd): array => [
-                'exit_code' => 0,
-                'output' => implode(' ', $command).' @ '.$cwd,
-            ],
+            runner: static function (array $command, string $cwd) use (&$commands): array {
+                $commands[] = $command;
+
+                return ['exit_code' => 0, 'output' => implode(' ', $command).' @ '.$cwd];
+            },
         );
 
         $autonomos = $service->build()['manifests']['autonomos'];
@@ -77,6 +79,9 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         self::assertTrue($autonomos['evidence']['restart_replay_exercised']);
         self::assertSame('initiated', $autonomos['evidence']['soak_start_receipts']['24h']['status']);
         self::assertSame('initiated', $autonomos['evidence']['soak_start_receipts']['7d']['status']);
+        self::assertNotEmpty(array_filter($commands, static fn (array $command): bool => in_array('--filter='.QualityFoundryLiveManifestService::AUTONOMOS_READINESS_FILTER, $command, true)));
+        self::assertNotEmpty($autonomos['execution']['shared_command']);
+        self::assertNotContains('--filter='.QualityFoundryLiveManifestService::AUTONOMOS_READINESS_FILTER, $autonomos['execution']['shared_command']);
     }
 
     public function test_all_live_modes_emit_the_same_quality_loss_input_contract(): void
