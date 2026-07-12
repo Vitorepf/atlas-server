@@ -143,10 +143,10 @@ For every packet, attach RED and GREEN focused/neighboring outputs, canonical ev
 
 - [ ] Write RED tests for missing unit/integration/contract/E2E/security/privacy/performance/accessibility/chaos/recovery/replay/static/compatibility/migration/rollback/outcome evidence when the risk/applicability policy requires it.
 - [ ] Write RED tests for stale command results, zero assertions, fixed smoke, lint-as-suite, evidence whose file/spec/order hash differs, and author=verifier/final-certifier.
-- [ ] Add an applicability matrix keyed by role, risk and delivery facts; every skipped evidence type requires the same N/A proof contract.
-- [ ] Bind raw criteria, frozen spec/world snapshot, changed-file hashes, provider/workspace/release receipts, commands/exit codes/timeouts/assertions, repair/replay/regression and role dispositions into one deterministic acceptance hash.
-- [ ] Require builder, verifier and final certifier contexts to be independent; for R4/R5 use different model families when available, otherwise hold with `independent_verifier_unavailable`.
-- [ ] Ensure averages and aggregate scores cannot override any `block`.
+- [x] Add an applicability matrix keyed by role, risk and delivery facts; every skipped evidence type requires the same N/A proof contract.
+- [x] Bind raw criteria, frozen spec/world snapshot, changed-file hashes, provider/workspace/release receipts, commands/exit codes/timeouts/assertions, repair/replay/regression and role dispositions into one deterministic acceptance hash.
+- [x] Require builder, verifier and final certifier contexts to be independent; for R4/R5 use different model families when available, otherwise hold with `independent_verifier_unavailable`.
+- [x] Ensure averages and aggregate scores cannot override any `block`.
 - [ ] Run AcceptanceGate/Workcell/false-green/mutation suites and architecture guards.
 
 **GREEN acceptance:** certification is possible only when every applicable dimension and role passes; one red remains red; author self-certification and unavailable independent verification hold the delivery.
