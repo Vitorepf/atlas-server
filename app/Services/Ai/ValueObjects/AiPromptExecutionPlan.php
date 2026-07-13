@@ -27,6 +27,11 @@ class AiPromptExecutionPlan
             'agents' => self::agents($taskType, $mode, $agent),
             'tools_allowed' => self::tools($taskType, $mode),
             'quality_gates' => self::gates($taskType, $mode, $risk),
+            // Este é o mesmo pipeline cujo ledger é gravado pelo Gateway e
+            // pelo Worker. A surface nativa só pode mostrar N/M porque estas
+            // etapas são declaradas aqui E cada checkpoint é observável no
+            // ai_stream_events; nunca contar tools como se fossem progresso.
+            'steps' => self::steps($taskType, $mode),
             'agent_behavior_contract' => $agentBehavior->toArray(),
             'requires_human_confirmation' => in_array($risk, ['high', 'irreversible'], true),
             'escalation_policy' => 'Escalar para provider alternativo ou Vitor se gate falhar duas vezes.',
@@ -66,6 +71,18 @@ class AiPromptExecutionPlan
         $lines[] = '## Quality Gates';
         foreach ($this->data['quality_gates'] as $gate) {
             $lines[] = '- '.$gate;
+        }
+
+        $steps = (array) ($this->data['steps'] ?? []);
+        if ($steps !== []) {
+            $lines[] = '';
+            $lines[] = '## Etapas verificáveis';
+            foreach ($steps as $step) {
+                if (! is_array($step)) {
+                    continue;
+                }
+                $lines[] = '- '.(string) ($step['title'] ?? $step['checkpoint'] ?? 'etapa');
+            }
         }
 
         $behavior = (array) ($this->data['agent_behavior_contract'] ?? []);
@@ -168,5 +185,31 @@ class AiPromptExecutionPlan
         }
 
         return array_values(array_unique($gates));
+    }
+
+    /**
+     * Contrato público do ledger, não um roteiro imaginado pelo provider.
+     * Os quatro primeiros checkpoints saem em `AiGatewayService` ao enfileirar;
+     * verify/evidence são gravados por `AiWorker` depois de resultado real.
+     *
+     * @return list<array{id:string,checkpoint:string,title:string,source:string}>
+     */
+    private static function steps(string $taskType, string $mode): array
+    {
+        $executionTitle = match (true) {
+            $taskType === 'debug' => 'Executar a correção',
+            $taskType === 'review' || $mode === 'review' => 'Executar a revisão',
+            $taskType === 'research' => 'Executar a pesquisa',
+            default => 'Executar a solicitação',
+        };
+
+        return [
+            ['id' => 'intent', 'checkpoint' => 'intent', 'title' => 'Entender o pedido', 'source' => 'execution_plan'],
+            ['id' => 'context', 'checkpoint' => 'context', 'title' => 'Reunir contexto', 'source' => 'execution_plan'],
+            ['id' => 'plan', 'checkpoint' => 'plan', 'title' => 'Planejar a execução', 'source' => 'execution_plan'],
+            ['id' => 'provider', 'checkpoint' => 'provider', 'title' => $executionTitle, 'source' => 'execution_plan'],
+            ['id' => 'verify', 'checkpoint' => 'verify', 'title' => 'Verificar o resultado', 'source' => 'execution_plan'],
+            ['id' => 'evidence', 'checkpoint' => 'evidence', 'title' => 'Registrar evidências', 'source' => 'execution_plan'],
+        ];
     }
 }

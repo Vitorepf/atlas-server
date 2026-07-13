@@ -54,6 +54,11 @@ class AiHarnessContractsTest extends TestCase
         $this->assertSame('atlas-ai.agent-behavior.v1', data_get($plan, 'agent_behavior_contract.contract_id'));
         $this->assertContains('Surgical Diff Discipline', data_get($plan, 'agent_behavior_contract.principles'));
         $this->assertMatchesRegularExpression('/\A[a-f0-9]{64}\z/', (string) data_get($plan, 'agent_behavior_contract.content_hash'));
+        $this->assertSame(
+            ['intent', 'context', 'plan', 'provider', 'verify', 'evidence'],
+            array_column($plan['steps'], 'checkpoint'),
+        );
+        $this->assertSame('execution_plan', data_get($plan, 'steps.0.source'));
     }
 
     public function test_execution_plan_prompt_renders_agent_behavior_contract(): void
