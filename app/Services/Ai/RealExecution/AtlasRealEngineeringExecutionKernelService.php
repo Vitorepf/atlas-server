@@ -640,7 +640,8 @@ class AtlasRealEngineeringExecutionKernelService
                 return false;
             }
             $raw = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($raw) || $raw !== array_diff_key($evidence, ['raw_artifact' => true])) {
+            // Igualdade canônica, não ===: o receipt volta do jsonb com chaves reordenadas.
+            if (! is_array($raw) || ! hash_equals(RealExecutionHash::make($raw), RealExecutionHash::make(array_diff_key($evidence, ['raw_artifact' => true])))) {
                 return false;
             }
             $current = $this->candidateSurfaceApplicabilityEvidence($case, $role, false);
@@ -1030,7 +1031,8 @@ class AtlasRealEngineeringExecutionKernelService
                 return false;
             }
             $raw = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($raw) || $raw !== array_diff_key($evidence, ['raw_artifact' => true])) {
+            // Igualdade canônica, não ===: o receipt volta do jsonb com chaves reordenadas.
+            if (! is_array($raw) || ! hash_equals(RealExecutionHash::make($raw), RealExecutionHash::make(array_diff_key($evidence, ['raw_artifact' => true])))) {
                 return false;
             }
             $disposition = $this->candidateBackendDisposition($case, $evidence);
@@ -1320,16 +1322,30 @@ class AtlasRealEngineeringExecutionKernelService
                 || ! hash_equals((string) ($artifact['sha256'] ?? ''), (string) hash_file('sha256', $path))
                 || $recoveryPath === false || ! str_starts_with($recoveryPath, $root.'/') || is_link((string) ($recoveryArtifact['path'] ?? ''))
                 || ! hash_equals((string) ($recoveryArtifact['sha256'] ?? ''), (string) hash_file('sha256', $recoveryPath))) {
+                \Illuminate\Support\Facades\Log::warning('candidate_performance_receipt_invalid', ['failed_checks' => ['artifact_paths']]);
+
                 return false;
             }
             $raw = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
             $recoveryRaw = json_decode((string) file_get_contents($recoveryPath), true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($raw) || $raw !== array_diff_key($evidence, ['raw_artifact' => true])
-                || ! is_array($recoveryRaw) || $recoveryRaw !== ($evidence['measurements']['recovery'] ?? null)) {
+            // Igualdade canônica (hash com ksort recursivo), não ===: o receipt
+            // volta do jsonb do Postgres com as chaves reordenadas.
+            if (! is_array($raw)
+                || ! hash_equals(RealExecutionHash::make($raw), RealExecutionHash::make(array_diff_key($evidence, ['raw_artifact' => true])))
+                || ! is_array($recoveryRaw)
+                // Mesmo fallback do write: sem runtime paths o arquivo de recovery
+                // é escrito como ['status' => 'not_applicable'].
+                || ! hash_equals(RealExecutionHash::make($recoveryRaw), RealExecutionHash::make($evidence['measurements']['recovery'] ?? ['status' => 'not_applicable']))) {
+                \Illuminate\Support\Facades\Log::warning('candidate_performance_receipt_invalid', ['failed_checks' => ['artifact_content']]);
+
                 return false;
             }
             $disposition = $this->candidatePerformanceDisposition($case, $evidence);
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            \Illuminate\Support\Facades\Log::warning('candidate_performance_receipt_invalid', [
+                'failed_checks' => ['exception:'.$exception::class.':'.mb_substr($exception->getMessage(), 0, 120)],
+            ]);
+
             return false;
         }
         $refs = ['candidate:'.$case->candidate->candidateHash, 'verification:'.$case->verification->receiptHash,
@@ -1340,15 +1356,28 @@ class AtlasRealEngineeringExecutionKernelService
         $output = $persisted->output;
         $unsigned = array_diff_key($receipt, ['hash' => true]);
 
-        return is_array($output) && $issued !== null && $expires !== null && ! CarbonImmutable::now()->lt($issued) && CarbonImmutable::now()->lt($expires)
-            && ($receipt['purpose'] ?? null) === 'candidate_performance_owner_evidence'
-            && ($receipt['owner_domain'] ?? null) === self::CANDIDATE_PERFORMANCE_OWNER_DOMAIN
-            && ($receipt['binding'] ?? null) === $this->candidateOwnerBinding($case)
-            && ($receipt['evidence_refs'] ?? null) === $refs && ($receipt['output'] ?? null) === $output
-            && ($output['disposition'] ?? null) === $disposition->toArray() && ($output['role_evidence_receipt'] ?? null) === $typed
-            && hash_equals((string) $persisted->role_hash, (string) ($receipt['hash'] ?? ''))
-            && hash_equals((string) ($receipt['hash'] ?? ''), EngineeringCompanyHash::make($unsigned))
-            && $this->candidateOwnerProducerSealValid($unsigned, self::CANDIDATE_PERFORMANCE_OWNER_DOMAIN);
+        $checks = [
+            'output_shape' => is_array($output),
+            'window' => $issued !== null && $expires !== null && ! CarbonImmutable::now()->lt($issued) && CarbonImmutable::now()->lt($expires),
+            'purpose' => ($receipt['purpose'] ?? null) === 'candidate_performance_owner_evidence',
+            'domain' => ($receipt['owner_domain'] ?? null) === self::CANDIDATE_PERFORMANCE_OWNER_DOMAIN,
+            'binding' => ($receipt['binding'] ?? null) === $this->candidateOwnerBinding($case),
+            'evidence_refs' => ($receipt['evidence_refs'] ?? null) === $refs,
+            'output_match' => ($receipt['output'] ?? null) === $output,
+            'disposition' => ($output['disposition'] ?? null) === $disposition->toArray(),
+            'typed_receipt' => ($output['role_evidence_receipt'] ?? null) === $typed,
+            'role_hash' => hash_equals((string) $persisted->role_hash, (string) ($receipt['hash'] ?? '')),
+            'receipt_hash' => hash_equals((string) ($receipt['hash'] ?? ''), EngineeringCompanyHash::make($unsigned)),
+            'producer_seal' => $this->candidateOwnerProducerSealValid($unsigned, self::CANDIDATE_PERFORMANCE_OWNER_DOMAIN),
+        ];
+        $failed = array_keys(array_filter($checks, static fn (bool $ok): bool => ! $ok));
+        if ($failed !== []) {
+            // Sem isto a corte recusa com um rótulo genérico e o diagnóstico
+            // exige mais uma rodada de provider por condição.
+            \Illuminate\Support\Facades\Log::warning('candidate_performance_receipt_invalid', ['failed_checks' => $failed]);
+        }
+
+        return $failed === [];
     }
 
     /** @param array<string,mixed> $evidence */
@@ -1689,7 +1718,8 @@ class AtlasRealEngineeringExecutionKernelService
                 return false;
             }
             $raw = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($raw) || $raw !== array_diff_key($evidence, ['raw_artifact' => true])) {
+            // Igualdade canônica, não ===: o receipt volta do jsonb com chaves reordenadas.
+            if (! is_array($raw) || ! hash_equals(RealExecutionHash::make($raw), RealExecutionHash::make(array_diff_key($evidence, ['raw_artifact' => true])))) {
                 return false;
             }
             $disposition = $this->candidateAppsecPrivacyDisposition($case, $evidence);
@@ -2343,7 +2373,8 @@ class AtlasRealEngineeringExecutionKernelService
                 return false;
             }
             $raw = json_decode((string) file_get_contents($artifactPath), true, 512, JSON_THROW_ON_ERROR);
-            if (! is_array($raw) || $raw !== array_diff_key($evidence, ['raw_artifact' => true])) {
+            // Igualdade canônica, não ===: o receipt volta do jsonb com chaves reordenadas.
+            if (! is_array($raw) || ! hash_equals(RealExecutionHash::make($raw), RealExecutionHash::make(array_diff_key($evidence, ['raw_artifact' => true])))) {
                 return false;
             }
             $disposition = $this->candidateDataDisposition($case, $evidence);

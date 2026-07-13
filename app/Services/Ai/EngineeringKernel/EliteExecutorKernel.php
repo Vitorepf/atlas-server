@@ -421,7 +421,13 @@ final class EliteExecutorKernel
             return VerifiedMutativeCandidate::blocked($order, ['sandbox_exception:'.$e::class], $provider);
         }
         if (($sandbox['applied'] ?? false) !== true || ($sandbox['replayed'] ?? false) === true) {
-            return VerifiedMutativeCandidate::blocked($order, ['sandbox_'.(string) ($sandbox['reason'] ?? 'refused')], $provider);
+            $applyBlockers = array_slice(array_map('strval', (array) data_get($sandbox, 'apply_receipt.blockers', [])), 0, 3);
+
+            return VerifiedMutativeCandidate::blocked(
+                $order,
+                ['sandbox_'.(string) ($sandbox['reason'] ?? 'refused').($applyBlockers !== [] ? ':'.implode('|', $applyBlockers) : '')],
+                $provider,
+            );
         }
         $sandboxRoot = (string) ($sandbox['sandbox_root'] ?? '');
         try {
@@ -927,7 +933,7 @@ final class EliteExecutorKernel
             $engagement = $company->createEngagement('engineering kernel mutative delivery '.$order->deliveryId);
             $cycle = $company->createCycle($engagement);
             $result = $this->executeMutativeCandidate(
-                $order, $engagement, $cycle, app(TaskLaneMergeActuatorAdapter::class),
+                $order, $engagement, $cycle, $this->mutativeActuatorFor($order),
                 app(AtlasTaskPostLandCanarySentinel::class),
             );
             $settled = data_get($result, 'settlement.engineering_outcome');
@@ -961,6 +967,24 @@ final class EliteExecutorKernel
         }
 
         return $outcome;
+    }
+
+    /**
+     * Workspace estrangeiro (worktree descartável) nunca pode receber o
+     * actuator default: ele commitaria na main viva do Atlas (base_path).
+     * Redireciona o repo-root para o workspace do order e aceita somente o
+     * lease dev-scoped emitido pelo próprio Dev adapter.
+     */
+    private function mutativeActuatorFor(ExecutionOrder $order): MergeActuator
+    {
+        if (realpath($order->workspace) === realpath(base_path())) {
+            return app(TaskLaneMergeActuatorAdapter::class);
+        }
+
+        return new TaskLaneMergeActuatorAdapter(new \App\Services\Ai\SelfConstruction\Governance\AtlasTaskMergeActuator(
+            repoRootOverride: $order->workspace,
+            leaseValidator: static fn (string $leaseId, int $fencingToken): bool => str_starts_with($leaseId, 'dev-') && $fencingToken === 1,
+        ));
     }
 
     private function blockedMutativeOutcome(ExecutionOrder $order, ?VerifiedMutativeCandidate $candidate, string $reason): EngineeringOutcome

@@ -30,6 +30,17 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
         $runId = $plan->result->envelope->runId;
         $deliveryId = 'dev-'.$run->runHash;
         $authority = ['kind' => 'atlas_dev_confirmed_run', 'operator_id' => $run->operatorId, 'authority_hash' => $run->authorityHash];
+        // Workspace estrangeiro (worktree descartável, ex. braço atlas_dev do
+        // Rivals): não existe lease de task-lane porque não há main compartilhada
+        // em disputa. O lease dev-scoped abaixo só é aceito pelo actuator
+        // redirecionado para o próprio workspace (nunca pela main viva).
+        if (realpath($intent->workspace) !== realpath(base_path())) {
+            $authority += [
+                'lease_id' => 'dev-'.$run->runHash,
+                'lease_owner' => 'operator:'.$run->operatorId,
+                'fencing_token' => 1,
+            ];
+        }
         $order = [
             'run_hash' => $run->runHash,
             'run_id' => $runId,
@@ -44,7 +55,7 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
             'world_model_snapshot_hash' => $intent->worldModelSnapshotHash,
             'workspace' => $intent->workspace,
             'base_commit' => $this->baseCommit($intent->workspace),
-            'allowed_scope' => $plan->result->miniSpec->allowedFiles !== [] ? $plan->result->miniSpec->allowedFiles : ['README.md'],
+            'allowed_scope' => $this->allowedScope($plan, $intent),
             'forbidden_scope' => $plan->result->miniSpec->forbiddenFiles,
             'authority_envelope' => $authority,
             'decision_receipt' => ['decision_event_id' => 'dev-decision-'.$run->runHash],
@@ -63,6 +74,31 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
         }
 
         return $order;
+    }
+
+    /**
+     * Escopo do order: miniSpec quando existe; senão arquivos citados no goal
+     * que existem no workspace. README.md é só o último recurso — um order com
+     * escopo errado faz o provider "resolver" o arquivo errado.
+     *
+     * @return list<string>
+     */
+    private function allowedScope(DevPlan $plan, DevIntent $intent): array
+    {
+        if ($plan->result->miniSpec->allowedFiles !== []) {
+            return $plan->result->miniSpec->allowedFiles;
+        }
+        $files = [];
+        preg_match_all('/[A-Za-z0-9_.\/-]+\.[A-Za-z0-9]{1,8}/', $intent->rawGoal, $mentioned);
+        foreach (array_unique($mentioned[0] ?? []) as $token) {
+            $relative = ltrim($token, './');
+            if (! str_contains($relative, '..')
+                && is_file(rtrim($intent->workspace, '/').'/'.$relative)) {
+                $files[] = $relative;
+            }
+        }
+
+        return $files !== [] ? array_values($files) : ['README.md'];
     }
 
     private function baseCommit(string $workspace): string

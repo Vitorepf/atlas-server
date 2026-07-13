@@ -145,7 +145,8 @@ final class KernelEvidenceAuthority
             default => EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
         };
         if (! $this->mutativeRoleReceiptValid($persisted, $case, $domain, 'v1')) {
-            throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid');
+            // Sem o papel no erro é impossível saber qual dos 22 receipts recusou.
+            throw new InvalidArgumentException('kernel_mutative_role_receipt_binding_invalid:'.$role);
         }
         $hash = (string) $persisted->role_hash;
 

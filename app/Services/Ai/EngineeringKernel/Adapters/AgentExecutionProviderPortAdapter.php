@@ -95,6 +95,18 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             }
         }
 
+        \Illuminate\Support\Facades\Log::info('provider_patch_plan_decoded', [
+            'provider' => $providerKey,
+            'model' => $model,
+            'allowed_files' => $decoded['patch_plan']['allowed_files'] ?? null,
+            'patches' => array_map(
+                static fn (mixed $p): array => is_array($p)
+                    ? ['path' => $p['path'] ?? null, 'mode' => $p['mode'] ?? null, 'next_bytes' => strlen((string) ($p['next'] ?? ''))]
+                    : ['invalid' => true],
+                (array) ($decoded['patch_plan']['patches'] ?? []),
+            ),
+        ]);
+
         return [
             'status' => 'ok',
             'provider_invoked' => true,
