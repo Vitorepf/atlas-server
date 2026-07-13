@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AiTrace;
 use App\Models\AtlasLiveActivityPushToken;
+use App\Models\AtlasLiveActivityStartToken;
 use App\Models\AiStreamEvent;
 use App\Services\Ai\Mobile\AtlasLiveActivityPushService;
 use Illuminate\Database\Schema\Blueprint;
@@ -25,6 +26,7 @@ class AtlasLiveActivityApiTest extends TestCase
     protected function tearDown(): void
     {
         Schema::dropIfExists('atlas_live_activity_push_tokens');
+        Schema::dropIfExists('atlas_live_activity_start_tokens');
         Schema::dropIfExists('ai_traces');
 
         parent::tearDown();
@@ -170,6 +172,49 @@ class AtlasLiveActivityApiTest extends TestCase
         });
     }
 
+    public function test_it_registers_a_start_token_and_starts_terminal_execution_once(): void
+    {
+        $headers = ['X-Atlas-Token' => 'testing-atlas-token-with-enough-length'];
+        $this->withHeaders($headers)->postJson('/ai/live-activities/start-tokens', [
+            'installation_id' => 'install-1234567890',
+            'push_token' => 'start-token',
+            'environment' => 'sandbox',
+        ])->assertCreated()
+            ->assertJsonPath('registration.installation_id', 'install-1234567890')
+            ->assertJsonMissing(['push_token']);
+
+        $this->assertSame('start-token', AtlasLiveActivityStartToken::query()->firstOrFail()->push_token);
+        $trace = AiTrace::query()->create([
+            'trace_key' => 'terminal:live-activity',
+            'source_type' => 'terminal',
+            'status' => 'running',
+            'operator_input' => 'segredo',
+            'intent' => 'test',
+            'agent_slug' => 'atlas',
+            'metadata' => ['thread_title' => 'Auditar Atlas Native'],
+        ]);
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
+        openssl_pkey_export($key, $privateKey);
+        config()->set('atlas.mobile.live_activities', [
+            'enabled' => true, 'apns_key_id' => 'ABC1234567', 'apns_team_id' => 'W28WF9A5A2',
+            'apns_private_key' => $privateKey, 'topic' => 'com.vitor.atlas.native.push-type.liveactivity',
+            'start_topic' => 'com.vitor.atlas.native.push-type.liveactivity', 'minimum_update_interval_seconds' => 2, 'timeout_seconds' => 8,
+        ]);
+        Http::fake(['https://api.sandbox.push.apple.com/*' => Http::response('', 200)]);
+        $event = new AiStreamEvent(['trace_id' => $trace->id, 'event_type' => 'progress', 'metadata' => ['checkpoint' => 'plan']]);
+
+        $service = app(AtlasLiveActivityPushService::class);
+        $this->assertSame(1, $service->startFor($event));
+        $this->assertSame(0, $service->startFor($event));
+        Http::assertSent(function (HttpRequest $request) use ($trace): bool {
+            return $request->url() === 'https://api.sandbox.push.apple.com/3/device/start-token'
+                && data_get($request->data(), 'aps.event') === 'start'
+                && data_get($request->data(), 'aps.attributes.threadKey') === $trace->id
+                && data_get($request->data(), 'aps.attributes.threadTitle') === 'Auditar Atlas Native'
+                && ! str_contains(json_encode($request->data()), 'segredo');
+        });
+    }
+
     private function createTables(): void
     {
         Schema::create('ai_traces', function (Blueprint $table): void {
@@ -213,6 +258,17 @@ class AtlasLiveActivityApiTest extends TestCase
             $table->timestamp('last_seen_at')->nullable();
             $table->timestamp('last_pushed_at')->nullable();
             $table->boolean('frequent_updates_enabled')->default(false);
+            $table->timestamps();
+        });
+
+        Schema::create('atlas_live_activity_start_tokens', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('installation_id', 128)->unique();
+            $table->text('push_token');
+            $table->string('push_token_hash', 128)->index();
+            $table->string('environment', 16);
+            $table->timestamp('last_seen_at')->nullable();
+            $table->uuid('last_started_trace_id')->nullable()->index();
             $table->timestamps();
         });
     }

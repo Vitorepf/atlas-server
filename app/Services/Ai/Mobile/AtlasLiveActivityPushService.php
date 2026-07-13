@@ -5,6 +5,7 @@ namespace App\Services\Ai\Mobile;
 use App\Models\AiStreamEvent;
 use App\Models\AiTrace;
 use App\Models\AtlasLiveActivityPushToken;
+use App\Models\AtlasLiveActivityStartToken;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -67,6 +68,70 @@ final class AtlasLiveActivityPushService
         }
 
         return $published;
+    }
+
+    /**
+     * Inicia a presença no iPhone quando a missão nasceu fora do app (CLI,
+     * Terminal ou Autônomos). Um chat iniciado pelo próprio iOS já abre sua
+     * activity localmente e não recebe uma duplicada por este caminho.
+     */
+    public function startFor(AiStreamEvent $event): int
+    {
+        if (! $this->isEnabled() || ! $this->shouldProject($event)) {
+            return 0;
+        }
+
+        $trace = AiTrace::query()->find($event->trace_id);
+        if (! $trace || $trace->source_type === 'app'
+            || in_array($trace->status, ['succeeded', 'completed', 'failed', 'cancelled'], true)
+            || AtlasLiveActivityPushToken::query()->where('trace_id', $trace->id)->where('status', 'active')->exists()) {
+            return 0;
+        }
+
+        $started = 0;
+        foreach (AtlasLiveActivityStartToken::query()->get() as $token) {
+            if ($token->last_started_trace_id === $trace->id) {
+                continue;
+            }
+            try {
+                $response = $this->sendStart($token, $this->startPayloadFor($trace, $event));
+                if ($response->successful()) {
+                    $token->update([
+                        'last_seen_at' => now(),
+                        'last_started_trace_id' => $trace->id,
+                    ]);
+                    $started++;
+                }
+            } catch (Throwable) {
+                // Igual à atualização: APNs é projeção; o ledger nunca depende dela.
+            }
+        }
+
+        return $started;
+    }
+
+    /** @return array{aps:array<string,mixed>} */
+    public function startPayloadFor(AiTrace $trace, AiStreamEvent $event): array
+    {
+        return [
+            'aps' => [
+                'timestamp' => now()->getTimestamp(),
+                'event' => 'start',
+                'attributes-type' => 'AtlasTurnAttributes',
+                // A chave é o trace público, para o iOS recuperar o token de
+                // update sem expor prompt, stdout, argumento de tool ou CoT.
+                'attributes' => [
+                    'threadTitle' => $this->threadTitle($trace),
+                    'threadKey' => $trace->id,
+                ],
+                'content-state' => [
+                    'phaseTitle' => $this->phaseTitle($event),
+                    'startedAt' => now()->getTimestamp() - self::APPLE_REFERENCE_EPOCH_OFFSET,
+                    'finished' => false,
+                    'activeSessions' => 1,
+                ],
+            ],
+        ];
     }
 
     /** @return array{aps:array<string,mixed>} */
@@ -165,6 +230,32 @@ final class AtlasLiveActivityPushService
             ->withOptions(['version' => 2.0])
             ->timeout(max(2, (int) config('atlas.mobile.live_activities.timeout_seconds', 8)))
             ->post($host.'/3/device/'.$registration->push_token, $payload);
+    }
+
+    private function sendStart(AtlasLiveActivityStartToken $registration, array $payload): Response
+    {
+        $host = $registration->environment === 'sandbox'
+            ? 'https://api.sandbox.push.apple.com'
+            : 'https://api.push.apple.com';
+        $topic = (string) config('atlas.mobile.live_activities.start_topic', 'com.vitor.atlas.native.push-type.liveactivity');
+
+        return Http::withToken($this->authorizationToken())
+            ->withHeaders([
+                'apns-push-type' => 'liveactivity',
+                'apns-topic' => $topic,
+                'apns-priority' => '10',
+            ])
+            ->withOptions(['version' => 2.0])
+            ->timeout(max(2, (int) config('atlas.mobile.live_activities.timeout_seconds', 8)))
+            ->post($host.'/3/device/'.$registration->push_token, $payload);
+    }
+
+    private function threadTitle(AiTrace $trace): string
+    {
+        $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+        $title = $metadata['thread_title'] ?? null;
+
+        return is_string($title) && trim($title) !== '' ? trim($title) : 'Execução Atlas';
     }
 
     private function authorizationToken(): string

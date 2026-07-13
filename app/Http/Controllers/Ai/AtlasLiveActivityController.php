@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Ai;
 use App\Http\Controllers\Controller;
 use App\Models\AiTrace;
 use App\Models\AtlasLiveActivityPushToken;
+use App\Models\AtlasLiveActivityStartToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,6 +18,33 @@ use Illuminate\Http\Request;
  */
 class AtlasLiveActivityController extends Controller
 {
+    public function storeStartToken(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'installation_id' => ['required', 'string', 'min:16', 'max:128'],
+            'push_token' => ['required', 'string', 'max:1024'],
+            'environment' => ['required', 'in:sandbox,production'],
+        ]);
+
+        $registration = AtlasLiveActivityStartToken::query()->firstOrNew([
+            'installation_id' => $data['installation_id'],
+        ]);
+        $registration->fill([
+            'push_token' => $data['push_token'],
+            'push_token_hash' => hash('sha256', $data['push_token']),
+            'environment' => $data['environment'],
+            'last_seen_at' => now(),
+        ])->save();
+
+        return response()->json([
+            'registration' => [
+                'id' => $registration->id,
+                'installation_id' => $registration->installation_id,
+                'status' => 'active',
+            ],
+        ], $registration->wasRecentlyCreated ? 201 : 200);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([

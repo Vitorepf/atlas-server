@@ -56,7 +56,9 @@ class AiStreamRecorder
         // O stream gravado é a única fonte da Live Activity. A projeção APNs
         // roda depois do commit e falha aberta: jamais pode comprometer o
         // ledger canônico ou o processo do agente.
-        app(AtlasLiveActivityPushService::class)->publish($event);
+        $presence = app(AtlasLiveActivityPushService::class);
+        $presence->startFor($event);
+        $presence->publish($event);
 
         return $event;
     }

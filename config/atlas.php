@@ -896,6 +896,7 @@ return [
             'apns_team_id' => env('ATLAS_LIVE_ACTIVITIES_APNS_TEAM_ID'),
             'apns_private_key' => env('ATLAS_LIVE_ACTIVITIES_APNS_PRIVATE_KEY'),
             'topic' => env('ATLAS_LIVE_ACTIVITIES_APNS_TOPIC', 'com.vitor.atlas.native.push-type.liveactivity'),
+            'start_topic' => env('ATLAS_LIVE_ACTIVITIES_APNS_START_TOPIC', 'com.vitor.atlas.native.push-type.liveactivity'),
             'minimum_update_interval_seconds' => (int) env('ATLAS_LIVE_ACTIVITIES_MIN_UPDATE_INTERVAL_SECONDS', 5),
             'timeout_seconds' => (int) env('ATLAS_LIVE_ACTIVITIES_TIMEOUT_SECONDS', 8),
         ],
