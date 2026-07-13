@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopLearningAppendService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
@@ -571,7 +572,7 @@ return [
         'semantic_rag_model' => env('ATLAS_SEMANTIC_RAG_MODEL', 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'),
         'jina_v3_dual_read_ledger_path' => env(
             'ATLAS_SEMANTIC_JINA_V3_DUAL_READ_LEDGER',
-            storage_path(\App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
+            storage_path(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
         ),
         'embedding_daemon_enabled' => (bool) env('ATLAS_SEMANTIC_RAG_DAEMON_ENABLED', true),
         'embedding_daemon_auto_start' => (bool) env('ATLAS_SEMANTIC_RAG_DAEMON_AUTO_START', true),
@@ -887,6 +888,17 @@ return [
 
     'mobile' => [
         'enabled' => (bool) env('ATLAS_MOBILE_ENABLED', false),
+        'live_activities' => [
+            // Só habilite depois de registrar uma chave APNs no cofre de
+            // segredos. Sem as três credenciais, o serviço é no-op honesto.
+            'enabled' => (bool) env('ATLAS_LIVE_ACTIVITIES_ENABLED', false),
+            'apns_key_id' => env('ATLAS_LIVE_ACTIVITIES_APNS_KEY_ID'),
+            'apns_team_id' => env('ATLAS_LIVE_ACTIVITIES_APNS_TEAM_ID'),
+            'apns_private_key' => env('ATLAS_LIVE_ACTIVITIES_APNS_PRIVATE_KEY'),
+            'topic' => env('ATLAS_LIVE_ACTIVITIES_APNS_TOPIC', 'com.vitor.atlas.native.push-type.liveactivity'),
+            'minimum_update_interval_seconds' => (int) env('ATLAS_LIVE_ACTIVITIES_MIN_UPDATE_INTERVAL_SECONDS', 5),
+            'timeout_seconds' => (int) env('ATLAS_LIVE_ACTIVITIES_TIMEOUT_SECONDS', 8),
+        ],
         'pairing_ttl_minutes' => (int) env('ATLAS_MOBILE_PAIRING_TTL_MINUTES', 60),
         'approval_ttl_minutes' => (int) env('ATLAS_MOBILE_APPROVAL_TTL_MINUTES', 30),
         'max_devices' => (int) env('ATLAS_MOBILE_MAX_DEVICES', 5),

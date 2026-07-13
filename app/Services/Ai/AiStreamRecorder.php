@@ -5,6 +5,7 @@ namespace App\Services\Ai;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
 use App\Models\AiStreamEvent;
+use App\Services\Ai\Mobile\AtlasLiveActivityPushService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,7 +28,7 @@ class AiStreamRecorder
             ? $eventType
             : 'progress';
 
-        return DB::transaction(function () use ($job, $attempt, $eventType, $content, $metadata, $channel): AiStreamEvent {
+        $event = DB::transaction(function () use ($job, $attempt, $eventType, $content, $metadata, $channel): AiStreamEvent {
             if ($job->trace_id) {
                 DB::table('ai_traces')
                     ->where('id', $job->trace_id)
@@ -51,6 +52,13 @@ class AiStreamRecorder
                 'occurred_at' => now(),
             ]);
         });
+
+        // O stream gravado é a única fonte da Live Activity. A projeção APNs
+        // roda depois do commit e falha aberta: jamais pode comprometer o
+        // ledger canônico ou o processo do agente.
+        app(AtlasLiveActivityPushService::class)->publish($event);
+
+        return $event;
     }
 
     public function recordProviderEvent(AiJob $job, ?AiJobAttempt $attempt, array $event): ?AiStreamEvent
