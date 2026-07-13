@@ -115,8 +115,12 @@ file_put_contents($scratch.'/predictions.usage.json', json_encode([
     'finished_at' => $providerReceipt['finished_at'] ?? null,
 ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
+// `python` puro não existe no macOS (Xcode/CLT nunca instalam esse nome) e o
+// exec cego dispara o popup "instalar ferramentas de desenvolvedor" em loop
+// infinito. Resolve pro primeiro interpretador real do PATH.
+$pythonBin = trim((string) shell_exec('command -v python || command -v python3')) ?: 'python3';
 $evaluation = new Process([
-    'python',
+    $pythonBin,
     '-m', 'evaluation.evaluation',
     '--dataset', 'SWE-bench-Live/SWE-bench-Live',
     '--platform', 'linux',
