@@ -80,11 +80,26 @@ class AiStreamRecorderTest extends TestCase
             'content' => 'feito',
             'metadata' => ['source' => 'provider'],
         ]);
+        $tool = $recorder->recordProviderEvent($job, $attempt, [
+            'type' => 'tool',
+            'name' => 'shell',
+            'content' => 'pwd',
+            'channel' => 'activity',
+            'metadata' => ['phase' => 'item.started', 'item_id' => 'tc-1'],
+        ]);
+        $thinking = $recorder->recordProviderEvent($job, $attempt, [
+            'type' => 'thinking',
+            'name' => 'reasoning',
+            'content' => '',
+            'channel' => 'activity',
+        ]);
 
         $this->assertSame(1, $first?->sequence);
         $this->assertSame(2, $second?->sequence);
         $this->assertSame('final', $second?->metadata['name']);
         $this->assertSame('feito', $second?->content);
+        $this->assertSame('tool', $tool?->event_type);
+        $this->assertSame('thinking', $thinking?->event_type);
     }
 
     public function test_sequences_are_global_for_trace_across_multiple_jobs(): void

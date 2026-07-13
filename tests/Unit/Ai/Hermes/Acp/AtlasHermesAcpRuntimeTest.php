@@ -27,7 +27,7 @@ class AtlasHermesAcpRuntimeTest extends TestCase
         $channel = new FakeAcpChannel($lines);
 
         $mission = ['mission_id' => 'm1', 'mission_hash' => 'h1', 'scope' => ['permission_mode' => 'read']];
-        $runtime = new AtlasHermesAcpRuntime();
+        $runtime = new AtlasHermesAcpRuntime;
         $packet = $runtime->run($mission, 'do x', ['inv' => 'fp'], $channel, ['init_timeout' => 5, 'session_timeout' => 5, 'prompt_timeout' => 5]);
 
         $this->assertSame('acp', $packet['transport']);
@@ -51,7 +51,7 @@ class AtlasHermesAcpRuntimeTest extends TestCase
     public function test_transport_failure_returns_fallback_required(): void
     {
         $channel = new FakeAcpChannel([]); // readLine immediately null → initialize never completes
-        $runtime = new AtlasHermesAcpRuntime();
+        $runtime = new AtlasHermesAcpRuntime;
         $r = $runtime->run(['mission_id' => 'm1', 'mission_hash' => 'h1', 'scope' => ['permission_mode' => 'read']], 'x', ['inv' => 'fp'], $channel, ['init_timeout' => 1]);
 
         $this->assertTrue($r['fallback_required']);
@@ -72,7 +72,7 @@ class AtlasHermesAcpRuntimeTest extends TestCase
         ];
         $channel = new FakeAcpChannel($lines);
         $mission = ['mission_id' => 'm2', 'mission_hash' => 'h2', 'scope' => ['permission_mode' => 'write', 'allowed_paths' => ['/work'], 'forbidden_paths' => []]];
-        $runtime = new AtlasHermesAcpRuntime();
+        $runtime = new AtlasHermesAcpRuntime;
         $packet = $runtime->run($mission, 'edit x', ['inv' => 'fp'], $channel, ['init_timeout' => 5, 'session_timeout' => 5, 'prompt_timeout' => 5]);
 
         $this->assertFalse($packet['fallback_required']);
@@ -83,6 +83,39 @@ class AtlasHermesAcpRuntimeTest extends TestCase
         if ($decision === 'allow') {
             $this->assertStringContainsString('"outcome":"selected"', implode("\n", $channel->writes));
         }
+    }
+
+    public function test_streams_structured_thought_and_tool_lifecycle_to_provider_callback(): void
+    {
+        $lines = [
+            json_encode(['jsonrpc' => '2.0', 'id' => 1, 'result' => ['agentInfo' => ['name' => 'h', 'version' => '1'], 'authMethods' => []]]),
+            json_encode(['jsonrpc' => '2.0', 'id' => 2, 'result' => ['sessionId' => 'sess-tools', 'models' => ['availableModels' => []]]]),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'session/update', 'params' => ['update' => ['sessionUpdate' => 'agent_thought_chunk', 'content' => ['type' => 'text', 'text' => 'private reasoning']]]]),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'session/update', 'params' => ['update' => ['sessionUpdate' => 'tool_call', 'toolCallId' => 'tc-1', 'title' => 'terminal: pwd', 'kind' => 'execute', 'status' => 'in_progress']]]),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'session/update', 'params' => ['update' => ['sessionUpdate' => 'tool_call_update', 'toolCallId' => 'tc-1', 'kind' => 'execute', 'status' => 'completed']]]),
+            json_encode(['jsonrpc' => '2.0', 'method' => 'session/update', 'params' => ['update' => ['sessionUpdate' => 'agent_message_chunk', 'content' => ['type' => 'text', 'text' => 'Resposta final limpa.']]]]),
+            json_encode(['jsonrpc' => '2.0', 'id' => 3, 'result' => ['stopReason' => 'end_turn', 'usage' => []]]),
+        ];
+        $events = [];
+        $runtime = new AtlasHermesAcpRuntime;
+
+        $packet = $runtime->run(
+            ['mission_id' => 'm-tools', 'mission_hash' => 'h-tools', 'scope' => ['permission_mode' => 'read']],
+            'inspect',
+            ['inv' => 'fp'],
+            new FakeAcpChannel($lines),
+            ['init_timeout' => 5, 'session_timeout' => 5, 'prompt_timeout' => 5],
+            function (array $event) use (&$events): void {
+                $events[] = $event;
+            },
+        );
+
+        $this->assertSame('Resposta final limpa.', $packet['output']['text']);
+        $this->assertSame(['thinking', 'tool', 'tool', 'token'], array_column($events, 'type'));
+        $this->assertSame('', $events[0]['content']);
+        $this->assertSame('item.started', $events[1]['metadata']['phase']);
+        $this->assertSame('item.completed', $events[2]['metadata']['phase']);
+        $this->assertSame('pwd', $events[2]['content'], 'completion keeps the start detail for stable replay');
     }
 }
 

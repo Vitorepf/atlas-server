@@ -165,4 +165,18 @@ TXT;
         $this->assertStringNotContainsString('toolcodeinterpreter', $clean);
         $this->assertStringContainsString('Resposta boa até aqui.', $clean);
     }
+
+    public function test_blocks_boxed_reasoning_only_output_from_hermes_cli(): void
+    {
+        $raw = "┌─ Reasoning ────────┐\n"
+            ."private model reasoning that must never reach the operator\n"
+            .'└─────────────────┘';
+
+        [$clean, $meta] = app(AtlasFinalResponseSanitizer::class)->sanitize($raw);
+
+        $this->assertTrue($meta['changed']);
+        $this->assertSame('reasoning_frame_blocked', $meta['reason']);
+        $this->assertStringNotContainsString('private model reasoning', $clean);
+        $this->assertStringContainsString('saída interna foi bloqueada', $clean);
+    }
 }

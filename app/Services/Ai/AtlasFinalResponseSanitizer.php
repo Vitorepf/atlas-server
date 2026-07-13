@@ -24,6 +24,13 @@ class AtlasFinalResponseSanitizer
             ]];
         }
 
+        if ($this->hasBoxedReasoningFrame($original)) {
+            return ['Não consegui preparar uma resposta segura para exibição. A saída interna foi bloqueada; reenvie o pedido para gerar uma resposta limpa.', [
+                'changed' => true,
+                'reason' => 'reasoning_frame_blocked',
+            ]];
+        }
+
         if ($this->looksLikeQualityRepairPromptEcho($original)) {
             $clean = $this->stripQualityRepairPromptEcho($original);
             if ($clean !== '') {
@@ -87,6 +94,7 @@ class AtlasFinalResponseSanitizer
             $eventResult = $this->stringValue($event['result'] ?? null);
             if (($event['type'] ?? null) === 'result' && $eventResult !== '') {
                 $result = $eventResult;
+
                 continue;
             }
 
@@ -171,6 +179,11 @@ class AtlasFinalResponseSanitizer
             && str_contains($lower, 'pedido original:')
             && str_contains($lower, 'resposta anterior:')
             && str_contains($lower, 'falhas detectadas:');
+    }
+
+    private function hasBoxedReasoningFrame(string $text): bool
+    {
+        return preg_match('/^[┌╭]\s*[─-]*\s*(reasoning|chain of thought)\b/imu', $text) === 1;
     }
 
     private function stripQualityRepairPromptEcho(string $text): string

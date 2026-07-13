@@ -228,7 +228,7 @@ class HermesCliProvider implements AiProvider
             // below — so memory/schedule/procedure candidate extraction runs
             // identically regardless of transport.
             $processEnv = $this->forgeProviderProcessEnv($job, $managedConfigPath);
-            $result = ($this->hasForgeProviderProcessEnv($job) ? null : $this->maybeRunViaAcp($job, $mission, $prompt, $invocation, $cwd, $managedConfigPath, $provider, $timeout))
+            $result = ($this->hasForgeProviderProcessEnv($job) ? null : $this->maybeRunViaAcp($job, $mission, $prompt, $invocation, $cwd, $managedConfigPath, $provider, $timeout, $onEvent))
                 ?? $this->runProcessStreaming(
                     command: $command,
                     input: '',
@@ -481,7 +481,7 @@ class HermesCliProvider implements AiProvider
             && (bool) config('atlas.ai.hermes.acp_empty_output_fallback', true);
     }
 
-    private function maybeRunViaAcp(AiJob $job, array $mission, string $prompt, array $invocation, string $cwd, ?string $managedConfigPath, array $provider, int $timeout): ?AiProviderResult
+    private function maybeRunViaAcp(AiJob $job, array $mission, string $prompt, array $invocation, string $cwd, ?string $managedConfigPath, array $provider, int $timeout, ?callable $onEvent = null): ?AiProviderResult
     {
         if ($this->executionTransport($job, $provider) !== 'acp') {
             return null;
@@ -506,9 +506,10 @@ class HermesCliProvider implements AiProvider
                 $prompt,
                 $invocation,
                 $options,
+                $onEvent,
             );
         } else {
-            $packet = $this->acpRuntime->run($mission, $prompt, $invocation, new HermesAcpTransport($binary, $cwd, $extraEnv), $options);
+            $packet = $this->acpRuntime->run($mission, $prompt, $invocation, new HermesAcpTransport($binary, $cwd, $extraEnv), $options, $onEvent);
         }
 
         if ((bool) ($packet['fallback_required'] ?? false) === true) {

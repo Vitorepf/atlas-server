@@ -28,18 +28,18 @@ class AtlasHermesAcpRuntime
     use HermesAdapterReceipt;
 
     public function __construct(
-        private readonly HermesAcpProtocol $protocol = new HermesAcpProtocol(),
-        private readonly HermesAcpPermissionGate $permissionGate = new HermesAcpPermissionGate(),
-        private readonly HermesAcpResultMapper $resultMapper = new HermesAcpResultMapper(),
+        private readonly HermesAcpProtocol $protocol = new HermesAcpProtocol,
+        private readonly HermesAcpPermissionGate $permissionGate = new HermesAcpPermissionGate,
+        private readonly HermesAcpResultMapper $resultMapper = new HermesAcpResultMapper,
     ) {}
 
     /**
-     * @param  array<string,mixed>  $mission   atlas.hermes.executive_mission.v1
-     * @param  array<string,mixed>  $invocation cli/runtime fingerprint (hashed into the packet)
-     * @param  array<string,mixed>  $options    cwd, mcp_servers, *_timeout overrides
-     * @return array<string,mixed>  result_packet.v1, or a sealed fallback_required receipt
+     * @param  array<string,mixed>  $mission  atlas.hermes.executive_mission.v1
+     * @param  array<string,mixed>  $invocation  cli/runtime fingerprint (hashed into the packet)
+     * @param  array<string,mixed>  $options  cwd, mcp_servers, *_timeout overrides
+     * @return array<string,mixed> result_packet.v1, or a sealed fallback_required receipt
      */
-    public function run(array $mission, string $prompt, array $invocation, HermesAcpChannel $channel, array $options = []): array
+    public function run(array $mission, string $prompt, array $invocation, HermesAcpChannel $channel, array $options = [], ?callable $onEvent = null): array
     {
         $scope = is_array($mission['scope'] ?? null) ? $mission['scope'] : [];
         $mode = $this->normalizeMode((string) ($scope['permission_mode'] ?? 'read'));
@@ -53,7 +53,7 @@ class AtlasHermesAcpRuntime
                 return $this->fallback('acp_initialize_failed', $mission, $invocation, $permissionReceipts);
             }
 
-            return $this->promptCycle($channel, 2, 3, $mission, $prompt, $invocation, $options, $scope, $mode, $text, $permissionReceipts);
+            return $this->promptCycle($channel, 2, 3, $mission, $prompt, $invocation, $options, $scope, $mode, $text, $permissionReceipts, $onEvent);
         } catch (Throwable $e) {
             return $this->fallback('acp_transport_exception', $mission, $invocation, $permissionReceipts, $text);
         } finally {
@@ -75,9 +75,9 @@ class AtlasHermesAcpRuntime
      * @param  array<string,mixed>  $mission
      * @param  array<string,mixed>  $invocation
      * @param  array<string,mixed>  $options
-     * @return array<string,mixed>  result_packet.v1 or a sealed fallback_required receipt
+     * @return array<string,mixed> result_packet.v1 or a sealed fallback_required receipt
      */
-    public function runPooled(HermesAcpSessionPool $pool, string $key, Closure $factory, array $mission, string $prompt, array $invocation, array $options = []): array
+    public function runPooled(HermesAcpSessionPool $pool, string $key, Closure $factory, array $mission, string $prompt, array $invocation, array $options = [], ?callable $onEvent = null): array
     {
         $scope = is_array($mission['scope'] ?? null) ? $mission['scope'] : [];
         $mode = $this->normalizeMode((string) ($scope['permission_mode'] ?? 'read'));
@@ -97,7 +97,7 @@ class AtlasHermesAcpRuntime
                 $session->initialized = true;
             }
 
-            $packet = $this->promptCycle($session->channel, $session->nextId(), $session->nextId(), $mission, $prompt, $invocation, $options, $scope, $mode, $text, $permissionReceipts);
+            $packet = $this->promptCycle($session->channel, $session->nextId(), $session->nextId(), $mission, $prompt, $invocation, $options, $scope, $mode, $text, $permissionReceipts, $onEvent);
 
             if (($packet['fallback_required'] ?? true) !== false) {
                 $pool->discard($key); // half-consumed/failed session is never reused
@@ -144,12 +144,13 @@ class AtlasHermesAcpRuntime
      * @param  array<int,array<string,mixed>>  $permissionReceipts
      * @return array<string,mixed>
      */
-    private function promptCycle(HermesAcpChannel $channel, int $sessionMsgId, int $promptMsgId, array $mission, string $prompt, array $invocation, array $options, array $scope, string $mode, string &$text, array &$permissionReceipts): array
+    private function promptCycle(HermesAcpChannel $channel, int $sessionMsgId, int $promptMsgId, array $mission, string $prompt, array $invocation, array $options, array $scope, string $mode, string &$text, array &$permissionReceipts, ?callable $onEvent = null): array
     {
         $cwd = $this->resolveCwd($options, $scope);
         $mcpServers = is_array($options['mcp_servers'] ?? null) ? $options['mcp_servers'] : [];
         $sessionBudget = (float) ($options['session_timeout'] ?? 45);
         $promptBudget = (float) ($options['prompt_timeout'] ?? 600);
+        $activeTools = [];
 
         $channel->writeLine($this->protocol->encode($this->protocol->sessionNewRequest($sessionMsgId, $cwd, $mcpServers)));
         $sess = $this->pump($channel, $sessionMsgId, $scope, $mode, $sessionBudget, $text, $permissionReceipts);
@@ -162,7 +163,7 @@ class AtlasHermesAcpRuntime
         }
 
         $channel->writeLine($this->protocol->encode($this->protocol->sessionPromptRequest($promptMsgId, $sessionId, $prompt)));
-        $promptMsg = $this->pump($channel, $promptMsgId, $scope, $mode, $promptBudget, $text, $permissionReceipts);
+        $promptMsg = $this->pump($channel, $promptMsgId, $scope, $mode, $promptBudget, $text, $permissionReceipts, $onEvent, $activeTools);
         if (! $this->isResult($promptMsg)) {
             return $this->fallback('acp_prompt_incomplete', $mission, $invocation, $permissionReceipts, $text, $sessionId);
         }
@@ -171,7 +172,7 @@ class AtlasHermesAcpRuntime
         // notifications AFTER the session/prompt result frame; pump() has already returned
         // by then, so the tail of the assistant text was silently lost ("count to twenty"
         // came back without "twenty"). Drain them briefly before mapping the result.
-        $this->drainTrailingChunks($channel, $text, 0.5);
+        $this->drainTrailingChunks($channel, $text, 0.5, $onEvent, $activeTools);
 
         $packet = $this->resultMapper->map(
             $text,
@@ -194,9 +195,9 @@ class AtlasHermesAcpRuntime
      *
      * @param  array<string,mixed>  $scope
      * @param  array<int,array<string,mixed>>  $permissionReceipts
-     * @return array<string,mixed>|null  the classified result/error frame, or null
+     * @return array<string,mixed>|null the classified result/error frame, or null
      */
-    private function pump(HermesAcpChannel $channel, int $expectId, array $scope, string $mode, float $budget, string &$text, array &$permissionReceipts): ?array
+    private function pump(HermesAcpChannel $channel, int $expectId, array $scope, string $mode, float $budget, string &$text, array &$permissionReceipts, ?callable $onEvent = null, ?array &$activeTools = null): ?array
     {
         $deadline = microtime(true) + max(0.0, $budget);
 
@@ -229,11 +230,13 @@ class AtlasHermesAcpRuntime
                 continue;
             }
 
-            if ($type === 'notification' && $this->protocol->isAgentMessageChunk($msg['message'] ?? [])) {
-                $chunk = $this->protocol->agentMessageChunkText($msg['message'] ?? []);
+            if ($type === 'notification') {
+                $message = $msg['message'] ?? [];
+                $chunk = $this->protocol->agentMessageChunkText($message);
                 if (is_string($chunk)) {
                     $text .= $chunk;
                 }
+                $this->emitProviderEvent($message, $onEvent, $activeTools);
             }
             // other agent_requests, other notifications and noise are ignored.
         }
@@ -247,7 +250,7 @@ class AtlasHermesAcpRuntime
      * the first quiet read. Everything else seen here (stray results, requests) is ignored
      * on purpose — this runs between cycles, when no request is in flight.
      */
-    private function drainTrailingChunks(HermesAcpChannel $channel, string &$text, float $budget): void
+    private function drainTrailingChunks(HermesAcpChannel $channel, string &$text, float $budget, ?callable $onEvent = null, ?array &$activeTools = null): void
     {
         $deadline = microtime(true) + max(0.0, $budget);
         while (microtime(true) < $deadline) {
@@ -256,13 +259,52 @@ class AtlasHermesAcpRuntime
                 return; // quiet — nothing pending
             }
             $msg = $this->protocol->classify($line);
-            if (($msg['type'] ?? null) === 'notification' && $this->protocol->isAgentMessageChunk($msg['message'] ?? [])) {
-                $chunk = $this->protocol->agentMessageChunkText($msg['message'] ?? []);
+            if (($msg['type'] ?? null) === 'notification') {
+                $message = $msg['message'] ?? [];
+                $chunk = $this->protocol->agentMessageChunkText($message);
                 if (is_string($chunk)) {
                     $text .= $chunk;
                 }
+                $this->emitProviderEvent($message, $onEvent, $activeTools);
             }
         }
+    }
+
+    /**
+     * Preserve the safe start detail across a tool completion update. ACP's
+     * completion frame intentionally carries result content, not the original
+     * command/title; Atlas never forwards that raw output to the operator slot.
+     *
+     * @param  array<string,mixed>  $message
+     * @param  array<string,array{name:string,content:string}>|null  $activeTools
+     */
+    private function emitProviderEvent(array $message, ?callable $onEvent, ?array &$activeTools): void
+    {
+        if ($onEvent === null) {
+            return;
+        }
+        $event = $this->protocol->providerEvent($message);
+        if ($event === null) {
+            return;
+        }
+
+        $itemId = $event['metadata']['item_id'] ?? null;
+        $phase = $event['metadata']['phase'] ?? null;
+        if ($event['type'] === 'tool' && is_string($itemId)) {
+            $activeTools ??= [];
+            if ($phase === 'item.started') {
+                $activeTools[$itemId] = [
+                    'name' => $event['name'],
+                    'content' => $event['content'],
+                ];
+            } elseif (isset($activeTools[$itemId])) {
+                $event['name'] = $activeTools[$itemId]['name'];
+                $event['content'] = $activeTools[$itemId]['content'];
+                unset($activeTools[$itemId]);
+            }
+        }
+
+        $onEvent($event);
     }
 
     /**

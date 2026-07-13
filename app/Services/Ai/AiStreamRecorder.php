@@ -23,7 +23,7 @@ class AiStreamRecorder
             return null;
         }
 
-        $eventType = in_array($eventType, ['lifecycle', 'permission', 'progress', 'stdout', 'stderr', 'token', 'response', 'error'], true)
+        $eventType = in_array($eventType, ['lifecycle', 'permission', 'progress', 'stdout', 'stderr', 'token', 'response', 'error', 'tool', 'thinking'], true)
             ? $eventType
             : 'progress';
 

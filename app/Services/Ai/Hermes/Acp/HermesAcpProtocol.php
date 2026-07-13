@@ -129,7 +129,7 @@ final class HermesAcpProtocol
      * transport stays alive.
      *
      * @return array{type:string,id:?int,method:?string,message:?array<string,mixed>}
-     *               type ∈ {result, error, notification, agent_request, noise}
+     *                                                                                type ∈ {result, error, notification, agent_request, noise}
      */
     public function classify(string $line): array
     {
@@ -219,6 +219,122 @@ final class HermesAcpProtocol
         $text = $content['text'] ?? null;
 
         return is_string($text) ? $text : null;
+    }
+
+    /**
+     * Project a structured ACP session update into Atlas's provider-neutral
+     * stream vocabulary. Reasoning content is deliberately discarded: the
+     * operator sees that reasoning is happening, never the private chain.
+     *
+     * @param  array<string,mixed>  $notification
+     * @return array{type:string,name:string,content:string,channel:string,metadata:array<string,mixed>}|null
+     */
+    public function providerEvent(array $notification): ?array
+    {
+        if (($notification['method'] ?? null) !== 'session/update') {
+            return null;
+        }
+
+        $update = $this->dig($notification, 'params', 'update');
+        if (! is_array($update)) {
+            return null;
+        }
+
+        $kind = $update['sessionUpdate'] ?? null;
+        if ($kind === 'agent_thought_chunk') {
+            return [
+                'type' => 'thinking',
+                'name' => 'reasoning',
+                'content' => '',
+                'channel' => 'activity',
+                'metadata' => [
+                    'phase' => 'item.started',
+                    'item_id' => 'acp-reasoning',
+                    'parser' => 'hermes_acp',
+                ],
+            ];
+        }
+
+        if ($kind === 'agent_message_chunk') {
+            $text = $this->agentMessageChunkText($notification);
+
+            return is_string($text) && $text !== '' ? [
+                'type' => 'token',
+                'name' => 'assistant_message',
+                'content' => $text,
+                'channel' => 'assistant',
+                'metadata' => ['parser' => 'hermes_acp'],
+            ] : null;
+        }
+
+        if (! in_array($kind, ['tool_call', 'tool_call_update'], true)) {
+            return null;
+        }
+
+        $itemId = is_string($update['toolCallId'] ?? null) ? trim($update['toolCallId']) : '';
+        if ($itemId === '') {
+            return null;
+        }
+
+        $title = is_string($update['title'] ?? null) ? trim($update['title']) : '';
+        $status = is_string($update['status'] ?? null) ? strtolower(trim($update['status'])) : '';
+        $toolName = $this->canonicalToolName(
+            is_string($update['kind'] ?? null) ? $update['kind'] : '',
+            $title,
+        );
+
+        return [
+            'type' => 'tool',
+            'name' => $toolName,
+            'content' => $this->toolDetail($title, $toolName),
+            'channel' => 'activity',
+            'metadata' => [
+                'phase' => $kind === 'tool_call' ? 'item.started' : 'item.completed',
+                'item_id' => $itemId,
+                'status' => $status !== '' ? $status : ($kind === 'tool_call' ? 'in_progress' : 'completed'),
+                'parser' => 'hermes_acp',
+            ],
+        ];
+    }
+
+    private function canonicalToolName(string $kind, string $title): string
+    {
+        $lower = strtolower($title);
+        if (str_starts_with($lower, 'terminal:') || str_starts_with($lower, 'process ')) {
+            return 'shell';
+        }
+        if (str_starts_with($lower, 'patch ') || str_starts_with($lower, 'write:')) {
+            return 'edit';
+        }
+        if (str_starts_with($lower, 'search:') || str_starts_with($lower, 'web search:')) {
+            return 'search';
+        }
+        if (str_starts_with($lower, 'read:')) {
+            return 'read';
+        }
+
+        return match (strtolower(trim($kind))) {
+            'execute' => 'shell',
+            'edit' => 'edit',
+            'search', 'fetch' => 'search',
+            'read' => 'read',
+            default => 'tool',
+        };
+    }
+
+    private function toolDetail(string $title, string $toolName): string
+    {
+        if ($title === '') {
+            return '';
+        }
+        if ($toolName === 'shell' && str_starts_with(strtolower($title), 'terminal:')) {
+            return trim(substr($title, strlen('terminal:')));
+        }
+        if (str_contains($title, ':')) {
+            return trim(substr($title, strpos($title, ':') + 1));
+        }
+
+        return $title;
     }
 
     /**

@@ -14,7 +14,7 @@ class HermesAcpProtocolTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->protocol = new HermesAcpProtocol();
+        $this->protocol = new HermesAcpProtocol;
     }
 
     // ---------------------------------------------------------------------
@@ -336,6 +336,49 @@ class HermesAcpProtocolTest extends TestCase
         $this->assertFalse($this->protocol->isAgentMessageChunk([]));
         $this->assertNull($this->protocol->agentMessageChunkText([]));
         $this->assertFalse($this->protocol->isAgentMessageChunk(['method' => 'session/update', 'params' => 'not-an-array']));
+    }
+
+    public function test_projects_acp_thought_and_tool_updates_without_exposing_reasoning(): void
+    {
+        $thought = [
+            'method' => 'session/update',
+            'params' => ['update' => [
+                'sessionUpdate' => 'agent_thought_chunk',
+                'content' => ['type' => 'text', 'text' => 'private chain of thought'],
+            ]],
+        ];
+        $started = [
+            'method' => 'session/update',
+            'params' => ['update' => [
+                'sessionUpdate' => 'tool_call',
+                'toolCallId' => 'tc-shell-1',
+                'title' => 'terminal: pwd',
+                'kind' => 'execute',
+                'status' => 'in_progress',
+            ]],
+        ];
+        $completed = [
+            'method' => 'session/update',
+            'params' => ['update' => [
+                'sessionUpdate' => 'tool_call_update',
+                'toolCallId' => 'tc-shell-1',
+                'kind' => 'execute',
+                'status' => 'completed',
+            ]],
+        ];
+
+        $thoughtEvent = $this->protocol->providerEvent($thought);
+        $startEvent = $this->protocol->providerEvent($started);
+        $completeEvent = $this->protocol->providerEvent($completed);
+
+        $this->assertSame('thinking', $thoughtEvent['type']);
+        $this->assertSame('', $thoughtEvent['content']);
+        $this->assertSame('tool', $startEvent['type']);
+        $this->assertSame('shell', $startEvent['name']);
+        $this->assertSame('pwd', $startEvent['content']);
+        $this->assertSame('item.started', $startEvent['metadata']['phase']);
+        $this->assertSame('tc-shell-1', $startEvent['metadata']['item_id']);
+        $this->assertSame('item.completed', $completeEvent['metadata']['phase']);
     }
 
     // ---------------------------------------------------------------------
