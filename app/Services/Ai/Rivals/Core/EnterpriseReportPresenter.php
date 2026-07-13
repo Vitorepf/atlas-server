@@ -369,6 +369,42 @@ final class EnterpriseReportPresenter
             $md .= "\n";
         }
 
+        $md .= "## 6b. Perfil por modelo — onde é bom, onde é fraco, o que o Atlas muda\n\n";
+        $profiles = (array) ($report['model_profiles'] ?? []);
+        if ($profiles === []) {
+            $md .= "_Sem perfil: nenhum modelo com braço bare medido._\n\n";
+        }
+        foreach ($profiles as $profile) {
+            if (! is_array($profile)) {
+                continue;
+            }
+            $md .= '### `'.(string) ($profile['model_id'] ?? '')."`\n\n";
+            $md .= '> '.(string) ($profile['narrative'] ?? '')."\n\n";
+            $md .= "| Faixa | Suítes (success ITT, braço bare) |\n|---|---|\n";
+            $fmtCells = static fn (array $cells): string => $cells === [] ? '—' : implode(' · ', array_map(
+                static fn (array $c): string => '`'.$c['suite_id'].'` '.round(((float) $c['success_rate_itt']) * 100).'%',
+                array_filter($cells, 'is_array'),
+            ));
+            $md .= '| Forte (≥50%) | '.$fmtCells((array) ($profile['strengths'] ?? []))." |\n";
+            $md .= '| Mediano | '.$fmtCells((array) ($profile['middle'] ?? []))." |\n";
+            $md .= '| Fraco (≤20%) | '.$fmtCells((array) ($profile['weaknesses'] ?? []))." |\n\n";
+            $deltas = array_filter((array) ($profile['atlas_deltas'] ?? []), 'is_array');
+            if ($deltas !== []) {
+                $md .= "| Família (uplift) | Suíte | bare | atlas | Δ | Status |\n|---|---|---|---|---|---|\n";
+                foreach ($deltas as $delta) {
+                    $pct = static fn (mixed $v): string => is_numeric($v) ? round(((float) $v) * 100).'%' : 'n/d';
+                    $dpp = is_numeric($delta['delta_intelligence'] ?? null)
+                        ? (($delta['delta_intelligence'] >= 0 ? '+' : '').round(((float) $delta['delta_intelligence']) * 100).'pp')
+                        : 'n/d';
+                    $md .= '| '.(string) ($delta['family'] ?? '').' | `'.(string) ($delta['suite_id'] ?? '').'` | '
+                        .$pct($delta['bare_intelligence'] ?? null).' | '.$pct($delta['atlas_intelligence'] ?? null).' | '
+                        .$dpp.' | '.(string) ($delta['status'] ?? '')
+                        .((($delta['diagnostic_only'] ?? false) === true) ? ' (diagnóstico)' : '')." |\n";
+                }
+                $md .= "\n";
+            }
+        }
+
         $md .= "## 7. Face modelo × modelo / modelo com e sem Atlas\n\n";
         $matrix = (array) ($report['model_matrix'] ?? []);
         if (($matrix['mode'] ?? '') === 'single_model_battery') {

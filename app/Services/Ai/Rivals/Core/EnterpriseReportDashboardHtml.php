@@ -51,6 +51,7 @@ final class EnterpriseReportDashboardHtml
             'model_matrix' => $report['model_matrix'] ?? [],
             'facts' => $report['facts'] ?? ['measured' => [], 'incomplete' => [], 'headline' => null],
             'delivery_inventory' => $report['delivery_inventory'] ?? [],
+            'model_profiles' => $report['model_profiles'] ?? [],
             'model_dissections' => $report['model_dissections'] ?? [
                 'epistemic_contract' => [],
                 'models' => [],
@@ -212,6 +213,10 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 
   <section id="tab-dissect" class="panel">
     <div class="card" style="margin-bottom:12px">
+      <h2>Perfil por modelo — onde é bom, onde é fraco, o que o Atlas muda</h2>
+      <div id="modelProfiles"></div>
+    </div>
+    <div class="card" style="margin-bottom:12px">
       <h2>Dissecção — realidade medida</h2>
       <p class="hint" id="epistemicNote"></p>
       <div id="dissectSummary" class="grid g4"></div>
@@ -273,16 +278,24 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const worse = paired.filter(f => Number(f.delta_intelligence)<0).length;
   const incomplete = (D.uplift_families||[]).filter(f => f.status!=='real_uplift').length;
 
+  // Contagem de vitórias e Δ médio precisam CONCORDAR para a capa tomar lado;
+  // sinais opostos (ex.: 2↑/1↓ mas média −8%) = regressão concentrada, capa neutra.
   let verdictTitle = 'Leitura ainda incompleta';
   let verdictColor = 'var(--warn)';
+  const meanSign = upliftMean==null ? 0 : Math.sign(upliftMean);
+  const countSign = Math.sign(better - worse);
   if (paired.length === 0) {
     verdictTitle = 'Ainda não dá para julgar bare × Atlas';
-  } else if (worse > better) {
+  } else if (countSign < 0 && meanSign <= 0) {
     verdictTitle = 'Nos pares medidos, Atlas está pior no saldo';
     verdictColor = 'var(--bad)';
-  } else if (better > worse) {
+  } else if (countSign > 0 && meanSign >= 0) {
     verdictTitle = 'Nos pares medidos, Atlas está melhor no saldo';
     verdictColor = 'var(--atlas)';
+  } else if (countSign > 0 && meanSign < 0) {
+    verdictTitle = 'Dividido: Atlas ganha em mais famílias, mas uma regressão concentrada puxa o Δ médio para baixo';
+  } else if (countSign < 0 && meanSign > 0) {
+    verdictTitle = 'Dividido: Atlas perde em mais famílias, mas um ganho concentrado puxa o Δ médio para cima';
   } else {
     verdictTitle = 'Nos pares medidos, resultado misto';
   }
@@ -595,6 +608,21 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   <p class="hint" style="margin-top:8px">Intel (ex-env) = intelligence_rate (exclui environment_failure). ITT inclui env. “fato Atlas” exige claim + events + measurement.</p>`;
 
   const j = (v) => JSON.stringify(v ?? null, null, 2);
+  const cellFmt = (cells) => (cells && cells.length)
+    ? cells.map(c=>`<code>${c.suite_id}</code> ${Math.round(c.success_rate_itt*100)}%`).join(' · ')
+    : '—';
+  document.getElementById('modelProfiles').innerHTML = (D.model_profiles||[]).map(p => `
+    <p style="margin:4px 0 10px"><strong><code>${p.model_id}</code></strong></p>
+    <p class="hint">${p.narrative||''}</p>
+    <table style="width:100%"><tbody>
+      <tr><td style="width:130px">Forte (≥50%)</td><td>${cellFmt(p.strengths)}</td></tr>
+      <tr><td>Mediano</td><td>${cellFmt(p.middle)}</td></tr>
+      <tr><td>Fraco (≤20%)</td><td>${cellFmt(p.weaknesses)}</td></tr>
+      <tr><td>Δ Atlas</td><td>${(p.atlas_deltas||[]).filter(f=>f.delta_intelligence!=null).map(f=>
+        `<code>${f.suite_id}</code> ${(f.delta_intelligence>=0?'+':'')}${Math.round(f.delta_intelligence*100)}pp${f.diagnostic_only?' <span class="hint">(diagnóstico)</span>':''}`
+      ).join(' · ') || 'sem par provado'}</td></tr>
+    </tbody></table>
+  `).join('<hr style="border-color:#222">') || '<p class="hint">Sem perfil: nenhum modelo com braço bare medido.</p>';
   const MD = D.model_dissections || {};
   const epi = MD.epistemic_contract || {};
   const comp = MD.completeness || {};

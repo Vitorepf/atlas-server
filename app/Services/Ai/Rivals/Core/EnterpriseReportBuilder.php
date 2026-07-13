@@ -128,7 +128,7 @@ class EnterpriseReportBuilder
             ],
             'delivery_inventory' => array_values($deliveryInventory),
             'suite_rows' => $suiteRows,
-            'model_dissections' => (new EnterpriseModelDissectionBuilder)->build([
+            'model_dissections' => $dissections = (new EnterpriseModelDissectionBuilder)->build([
                 'executive_summary' => [
                     'primary_model' => $primaryModel,
                     'models_observed' => $modelIds,
@@ -136,6 +136,7 @@ class EnterpriseReportBuilder
                 'suite_rows' => $suiteRows,
                 'atlas_uplift' => $atlasUplift,
             ]),
+            'model_profiles' => $this->buildModelProfiles($dissections, $atlasUplift),
             'model_matrix' => $modelMatrix,
             'atlas_uplift' => $atlasUplift,
             'facts' => $facts,
@@ -951,6 +952,105 @@ class EnterpriseReportBuilder
      * @param  list<array<string, mixed>>  $runs
      * @return array<string, mixed>
      */
+    /**
+     * Perfil legível por modelo: onde é forte/fraco no braço bare (por suíte
+     * medida) e o que muda com Atlas (deltas das famílias de uplift). Deriva
+     * SÓ do que foi medido — suíte sem dado fica fora, nunca vira zero.
+     *
+     * @param  array<string,mixed>  $dissections
+     * @param  array<string,mixed>  $atlasUplift
+     * @return list<array<string,mixed>>
+     */
+    private function buildModelProfiles(array $dissections, array $atlasUplift): array
+    {
+        $byModel = [];
+        foreach ((array) ($dissections['models'] ?? []) as $entry) {
+            if (! is_array($entry) || ($entry['present'] ?? false) !== true) {
+                continue;
+            }
+            $byModel[(string) ($entry['model_id'] ?? '')][(string) ($entry['runtime'] ?? '')] = $entry;
+        }
+
+        $profiles = [];
+        foreach ($byModel as $modelId => $runtimes) {
+            $strengths = [];
+            $weaknesses = [];
+            $middle = [];
+            foreach ((array) data_get($runtimes['bare'] ?? [], 'per_suite', []) as $suiteId => $row) {
+                if (! is_array($row) || ($row['present'] ?? false) !== true
+                    || ! is_numeric($row['success_rate_itt'] ?? null)) {
+                    continue;
+                }
+                $rate = (float) $row['success_rate_itt'];
+                $cell = [
+                    'suite_id' => (string) $suiteId,
+                    'success_rate_itt' => $rate,
+                    'status' => (string) ($row['status'] ?? ''),
+                    'category' => $row['category'] ?? null,
+                ];
+                match (true) {
+                    $rate >= 0.5 => $strengths[] = $cell,
+                    $rate <= 0.2 => $weaknesses[] = $cell,
+                    default => $middle[] = $cell,
+                };
+            }
+            usort($strengths, static fn (array $a, array $b): int => $b['success_rate_itt'] <=> $a['success_rate_itt']);
+            usort($weaknesses, static fn (array $a, array $b): int => $a['success_rate_itt'] <=> $b['success_rate_itt']);
+
+            $atlasDeltas = [];
+            foreach ((array) ($atlasUplift['families'] ?? []) as $family) {
+                if (! is_array($family)) {
+                    continue;
+                }
+                $atlasDeltas[] = [
+                    'family' => $family['family'] ?? null,
+                    'suite_id' => $family['suite_id'] ?? null,
+                    'status' => $family['status'] ?? null,
+                    'diagnostic_only' => $family['diagnostic_only'] ?? null,
+                    'bare_intelligence' => $family['bare_intelligence'] ?? null,
+                    'atlas_intelligence' => $family['atlas_intelligence'] ?? null,
+                    'delta_intelligence' => $family['delta_intelligence'] ?? null,
+                ];
+            }
+
+            $fmt = static fn (array $cells): string => implode(', ', array_map(
+                static fn (array $c): string => $c['suite_id'].' ('.round($c['success_rate_itt'] * 100).'%)',
+                $cells,
+            ));
+            $measuredDeltas = array_values(array_filter(
+                $atlasDeltas,
+                static fn (array $f): bool => is_numeric($f['delta_intelligence'] ?? null),
+            ));
+            $deltaText = $measuredDeltas === []
+                ? 'sem par bare×atlas provado ainda'
+                : implode('; ', array_map(
+                    static fn (array $f): string => $f['suite_id'].' '
+                        .(($f['delta_intelligence'] >= 0 ? '+' : '').round($f['delta_intelligence'] * 100).'pp'
+                        .(($f['diagnostic_only'] ?? false) === true ? ' (diagnóstico)' : '')),
+                    $measuredDeltas,
+                ));
+
+            $profiles[] = [
+                'model_id' => $modelId,
+                'runtimes_measured' => array_keys($runtimes),
+                'strengths' => array_slice($strengths, 0, 5),
+                'middle' => $middle,
+                'weaknesses' => array_slice($weaknesses, 0, 5),
+                'atlas_deltas' => $atlasDeltas,
+                'narrative' => sprintf(
+                    '%s bare: forte em %s; mediano em %s; fraco em %s. Com Atlas: %s.',
+                    $modelId,
+                    $strengths !== [] ? $fmt($strengths) : 'nenhuma suíte medida ≥50%',
+                    $middle !== [] ? $fmt($middle) : '—',
+                    $weaknesses !== [] ? $fmt($weaknesses) : 'nenhuma suíte medida ≤20%',
+                    $deltaText,
+                ),
+            ];
+        }
+
+        return $profiles;
+    }
+
     private function upliftFamilyRow(string $family, string $suiteId, array $runs, string $primaryModel = 'verboo_kimi_k2_7'): array
     {
         $candidates = array_values(array_filter(
