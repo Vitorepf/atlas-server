@@ -169,7 +169,7 @@ class AtlasLiveActivityApiTest extends TestCase
                 && data_get($state, 'phaseTitle') === 'Resposta pronta'
                 && data_get($state, 'finished') === true
                 && data_get($request->data(), 'aps.alert.title') === 'Atlas concluiu uma execução'
-                && data_get($request->data(), 'aps.alert.body') === 'Resposta pronta'
+                && data_get($request->data(), 'aps.alert.body') === 'Execução Atlas · Resposta pronta'
                 && ! str_contains(json_encode($request->data()), 'secreto');
         });
     }

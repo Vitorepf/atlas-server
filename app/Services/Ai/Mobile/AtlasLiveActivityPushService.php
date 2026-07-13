@@ -167,7 +167,7 @@ final class AtlasLiveActivityPushService
             // a pessoa recebe o marco; abre o Atlas para ver resposta/provas.
             $aps['alert'] = [
                 'title' => 'Atlas concluiu uma execução',
-                'body' => $this->terminalTitle($event, $registration),
+                'body' => $this->notificationBody($event, $registration),
                 'sound' => 'default',
             ];
         }
@@ -216,6 +216,14 @@ final class AtlasLiveActivityPushService
         return $event->event_type === 'error' || $registration->trace?->status === 'failed'
             ? 'Execução encerrada com atenção'
             : 'Resposta pronta';
+    }
+
+    private function notificationBody(AiStreamEvent $event, AtlasLiveActivityPushToken $registration): string
+    {
+        $trace = AiTrace::query()->find($event->trace_id);
+        $title = $trace ? $this->threadTitle($trace) : 'Atlas';
+
+        return $title.' · '.$this->terminalTitle($event, $registration);
     }
 
     private function isEnabled(): bool
