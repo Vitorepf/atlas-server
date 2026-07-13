@@ -94,7 +94,7 @@ final class AtlasLiveActivityPushService
                 continue;
             }
             try {
-                $response = $this->sendStart($token, $this->startPayloadFor($trace, $event));
+                $response = $this->sendStart($token, $this->startPayloadFor($trace, $event, $token));
                 if ($response->successful()) {
                     $token->update([
                         'last_seen_at' => now(),
@@ -111,7 +111,7 @@ final class AtlasLiveActivityPushService
     }
 
     /** @return array{aps:array<string,mixed>} */
-    public function startPayloadFor(AiTrace $trace, AiStreamEvent $event): array
+    public function startPayloadFor(AiTrace $trace, AiStreamEvent $event, AtlasLiveActivityStartToken $token): array
     {
         return [
             'aps' => [
@@ -128,7 +128,13 @@ final class AtlasLiveActivityPushService
                     'phaseTitle' => $this->phaseTitle($event),
                     'startedAt' => now()->getTimestamp() - self::APPLE_REFERENCE_EPOCH_OFFSET,
                     'finished' => false,
-                    'activeSessions' => 1,
+                    // O token de update da activity recém-iniciada chega logo
+                    // depois; enquanto isso, contamos as sessões já conhecidas
+                    // desta instalação + a que estamos abrindo agora.
+                    'activeSessions' => max(1, AtlasLiveActivityPushToken::query()
+                        ->where('installation_id', $token->installation_id)
+                        ->where('status', 'active')
+                        ->count() + 1),
                 ],
             ],
         ];
@@ -138,13 +144,13 @@ final class AtlasLiveActivityPushService
     public function payloadFor(AtlasLiveActivityPushToken $registration, AiStreamEvent $event, bool $terminal): array
     {
         $startedAt = $registration->started_at ?? now();
-        $activeSessions = max(1, AtlasLiveActivityPushToken::query()
+        $activeSessions = AtlasLiveActivityPushToken::query()
             ->where('installation_id', $registration->installation_id)
             ->where('status', 'active')
-            ->count());
+            ->count();
+        $activeSessions = $terminal ? max(0, $activeSessions - 1) : max(1, $activeSessions);
 
-        return [
-            'aps' => [
+        $aps = [
                 'timestamp' => now()->getTimestamp(),
                 'event' => $terminal ? 'end' : 'update',
                 // CodingKeys implícitas do AtlasTurnAttributes.ContentState.
@@ -155,8 +161,18 @@ final class AtlasLiveActivityPushService
                     'finished' => $terminal,
                     'activeSessions' => $activeSessions,
                 ],
-            ],
         ];
+        if ($terminal) {
+            // Notificação de conclusão é deliberadamente editorial e genérica:
+            // a pessoa recebe o marco; abre o Atlas para ver resposta/provas.
+            $aps['alert'] = [
+                'title' => 'Atlas concluiu uma execução',
+                'body' => $this->terminalTitle($event, $registration),
+                'sound' => 'default',
+            ];
+        }
+
+        return ['aps' => $aps];
     }
 
     private function shouldProject(AiStreamEvent $event): bool
