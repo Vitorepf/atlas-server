@@ -77,6 +77,11 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost:3737
       APP_VERSION: "1.0.0"
+      # php -S é single-request por default: UM SSE stream aberto (mobile,
+      # /ai/interactions/{id}/stream, timeout até 120s) segurava o único worker
+      # e congelava o server inteiro (poll do próprio app inclusive). Workers
+      # múltiplos = streams + polls + creates concorrentes.
+      PHP_CLI_SERVER_WORKERS: "16"
       LOG_CHANNEL: stderr
       LOG_LEVEL: info
       DB_CONNECTION: pgsql
