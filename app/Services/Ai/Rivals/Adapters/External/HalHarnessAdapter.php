@@ -19,11 +19,16 @@ class HalHarnessAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplateForArm(array $binding): string
     {
-        // Atlas Dev uplift uses a dedicated agent package (HAL requires requirements.txt
-        // inside agent_dir). Bare Verboo runs use the stock HAL generalist agent.
-        if (($binding['model_id'] ?? null) === 'verboo_kimi_k2_7'
-            && ($binding['runtime'] ?? null) === 'atlas_dev') {
-            return 'python3 {atlas_root}/scripts/rivals_hal_verboo.py --benchmark {benchmark} --agent_dir {atlas_root}/scripts/rivals_hal_agent --agent_function rivals_hal_atlas_agent.run --agent_name rivals_hal_agent -A model_name={cli_model} --task_ids {task_id} --max_tasks 1 --max_concurrent 1 --run_id {run_name} --results_dir {results_parent}';
+        // Verboo uplift arms use the Atlas HAL agent package (HAL requires
+        // requirements.txt inside agent_dir). Bare uses run_bare → hermes
+        // (avoids stock generalist's SERPAPI hard dependency); atlas_dev uses
+        // run → rivals-atlas-dev-bridge.php.
+        if (($binding['model_id'] ?? null) === 'verboo_kimi_k2_7') {
+            $fn = ($binding['runtime'] ?? null) === 'atlas_dev'
+                ? 'rivals_hal_atlas_agent.run'
+                : 'rivals_hal_atlas_agent.run_bare';
+
+            return 'python3 {atlas_root}/scripts/rivals_hal_verboo.py --benchmark {benchmark} --agent_dir {atlas_root}/scripts/rivals_hal_agent --agent_function '.$fn.' --agent_name rivals_hal_agent -A model_name={cli_model} --task_ids {task_id} --max_tasks 1 --max_concurrent 1 --run_id {run_name} --results_dir {results_parent}';
         }
 
         return parent::commandTemplateForArm($binding);
@@ -53,6 +58,7 @@ class HalHarnessAdapter extends AbstractExternalSuiteAdapter
                 'tokens_in' => (int) ($run['input_tokens'] ?? 0),
                 'tokens_out' => (int) ($run['output_tokens'] ?? 0),
                 'cost_usd' => (float) $run['total_cost_usd'],
+                'field_presence' => (array) ($run['field_presence'] ?? []),
                 'started_at' => $run['started_at'] ?? null,
                 'finished_at' => $run['finished_at'] ?? null,
                 'metadata' => array_filter([

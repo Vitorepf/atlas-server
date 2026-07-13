@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Services\Ai\Rivals\Support\EventsLifecycleContract;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
 use App\Services\Ai\Rivals\Support\UsageCaptureContract;
@@ -397,6 +398,10 @@ class Adjudicator
                 if ((($pack[$field] ?? [])['present'] ?? false) !== true) {
                     $blockers[] = "production_evidence_missing:{$field}";
                 }
+            }
+            $eventsLive = RunPaths::eventsPath($plan->runId());
+            if (! EventsLifecycleContract::isClaimGradeComplete($eventsLive)) {
+                $blockers[] = 'events_incomplete';
             }
             $expectedNative = count($plan->expectedReceiptKeys());
             if (count($pack['native_receipts'] ?? []) < $expectedNative) {

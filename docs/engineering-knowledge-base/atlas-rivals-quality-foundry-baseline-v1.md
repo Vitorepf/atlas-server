@@ -1,8 +1,70 @@
 ---
 id: atlas-rivals-quality-foundry-baseline-v1
+type: engineering_knowledge
 title: Atlas Rivals Quality Foundry baseline v1
 summary: Baseline executado do Packet 7, com owners, hashes, testes e lacunas RED antes da implementação do trial mundial.
-status: active-baseline
+status: active
+category: quality-foundry
+priority: 95
+tags:
+  - atlas
+  - quality-foundry
+  - rivals
+  - evidence
+  - temporal-outcomes
+capabilities:
+  - rivals_world_trial_baseline
+  - quality_foundry_readiness
+  - evidence_boundary
+decisions:
+  - Checklist concluído não equivale a evidência operacional, temporal ou comparativa.
+  - Fixtures herméticos permanecem harness/non-claim até campanha nativa, replay e adjudicação independente.
+  - Ausência de janela observada mantém o estado RED; nenhum receipt iniciado pode ser promovido a elapsed.
+maintenance:
+  - Atualizar este baseline quando o Packet 7 mudar ou quando uma campanha real produzir novo receipt verificável.
+  - Rodar o readiness do Quality Foundry, a bateria Rivals e docs-health após alterações.
+  - Nunca substituir lacunas RED por claims sintéticos ou congelar a dívida documental global.
+related_paths:
+  - docs/superpowers/plans/quality-foundry/07-rivals-world-engineering-trial.md
+  - app/Services/Ai/Rivals/Core/WorldTrialReadiness.php
+  - app/Services/Ai/Rivals/Core/TrialOutcomeReader.php
+  - app/Services/Ai/EngineeringKernel/Quality/QualityFoundryTemporalProjectionRebuilder.php
+  - app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryOperationalEvidenceGate.php
+doc_schema: atlas_canonical_module_doc.v1
+graph_id: atlas-rivals-quality-foundry-baseline-v1
+graph_title: Atlas Rivals Quality Foundry baseline v1
+graph_world: atlas
+graph_layer: module
+graph_kind: policy
+graph_parent: atlas-ai-canonical-architecture-index
+graph_status: active
+graph_source: repo
+owner: quality-foundry
+repo_paths:
+  - docs/engineering-knowledge-base/atlas-rivals-quality-foundry-baseline-v1.md
+  - app/Services/Ai/Rivals/Core/WorldTrialReadiness.php
+  - app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryOperationalEvidenceGate.php
+allowed_changes:
+  - Registrar receipts e outcomes reais com hashes e proveniência verificável.
+forbidden_changes:
+  - Promover fixture hermético, soak iniciado ou checklist verde a claim mundial.
+depends_on:
+  - atlas-canonical-module-doc-v1
+flows_to:
+  - atlas-rivals-world-trial
+unlocks:
+  - quality-foundry-operational-completion
+governs:
+  - rivals-quality-foundry
+evidence:
+  - app/Services/Ai/Rivals/Core/WorldTrialReadiness.php
+  - app/Services/Ai/EngineeringKernel/QualityFoundry/QualityFoundryOperationalEvidenceGate.php
+required_tests:
+  - php artisan test tests/Unit/Ai/EngineeringKernel/QualityFoundryModeReadinessManifestServiceTest.php
+requires_evidence: true
+risk_level: high
+next_actions:
+  - Executar campanhas Rivals nativas preregistradas e anexar outcomes 0h-150d sem claims sintéticos.
 ---
 
 # Atlas Rivals Quality Foundry — baseline executado
@@ -100,3 +162,51 @@ freeze de unidade, hidden-gold/egress, contamination, invalidação pós-unblind
 e pinning de recursos. O primeiro owner de implementação deve ser o contrato de
 criação do run, sem alterar os adapters existentes até que o baseline acima
 esteja revalidado.
+
+## Resumo
+
+Este baseline separa implementação local comprovada de prova operacional mundial.
+
+## Papel no Atlas
+
+É o registro canônico do limite de evidência do Packet 7 e alimenta a decisão de readiness.
+
+## Onde Se Encaixa
+
+Conecta o plano Rivals, o Quality Foundry, o ledger de evidências e os outcomes temporais.
+
+## Contratos
+
+Campanhas devem ser não-sintéticas, livres de contaminação, ITT completas, com poder e exposição exigidos; outcomes ausentes permanecem desconhecidos.
+
+## Fluxo
+
+Preregistration → execução nativa → evidence pack → adjudicação → outcomes 0h–150d → readiness. O caminho é fail-closed.
+
+## Regras para IA
+
+Não tratar checklist, fixture, soak iniciado ou relatório não-claim como prova mundial. Consultar os owners e preservar lacunas RED.
+
+## Escopo de Implementacao
+
+Este documento cobre o baseline e seus limites; não executa campanhas nem emite claims.
+
+## Dependencias
+
+Depende do contrato canônico de documentação, do ledger de evidências, do TrialOutcomeReader e do WorldTrialReadiness.
+
+## Evidencias
+
+Os comandos, hashes, testes e fixtures listados acima são a evidência auditável disponível neste corte.
+
+## Riscos
+
+O principal risco é confundir execução hermética com exposição nativa e janela temporal decorrida.
+
+## Exemplos
+
+Uma fixture com `status=success` sem campanha nativa é `harness/non-claim`, não `world_10x_quality_proven`.
+
+## Proximas Acoes
+
+Executar campanhas reais preregistradas, coletar todas as janelas e rerodar os gates sem alterar a política de honestidade.

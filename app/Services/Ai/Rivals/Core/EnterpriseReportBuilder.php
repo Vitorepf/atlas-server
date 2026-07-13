@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Rivals\Core;
 
 use App\Services\Ai\Rivals\Support\AtomicWriter;
+use App\Services\Ai\Rivals\Support\EventsLifecycleContract;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use App\Services\Ai\Rivals\Support\SchemaContract;
 use RuntimeException;
@@ -57,26 +58,37 @@ class EnterpriseReportBuilder
 
         $modelIds = array_keys($modelsSeen);
         sort($modelIds);
-        $modelMatrix = count($modelIds) <= 1
-            ? [
-                'mode' => 'single_model_battery',
-                'model_id' => $modelIds[0] ?? $primaryModel,
-                'rows' => [],
-            ]
-            : [
-                'mode' => 'model_vs_model',
-                'model_ids' => $modelIds,
-                'rows' => $this->modelMatrixRows($suiteRows, $runs),
-            ];
 
         $atlasUplift = ['families' => []];
         foreach ($upliftFamilies as $family => $suiteId) {
-            $familyRow = $this->upliftFamilyRow((string) $family, (string) $suiteId, $runs);
+            $familyRow = $this->upliftFamilyRow((string) $family, (string) $suiteId, $runs, $primaryModel);
             $atlasUplift['families'][] = $familyRow;
             if ($familyRow['status'] === 'not_run') {
                 $gaps[] = "uplift_not_run:{$family}";
+            } elseif (($familyRow['status'] ?? '') !== 'real_uplift') {
+                $gaps[] = 'uplift_'.$familyRow['status'].':'.$family
+                    .(isset($familyRow['reason']) ? ':'.$familyRow['reason'] : '');
             }
         }
+
+        // Suítes fora de uplift_families são bare-only POR CONSTRUÇÃO (sem bridge
+        // Atlas); declarar explícito em vez de deixar como gap silencioso.
+        $atlasUplift['bare_only_suites'] = array_values(array_map(
+            static fn (string $suiteId): array => [
+                'suite_id' => $suiteId,
+                'status' => 'bare_only',
+                'reason' => 'atlas_runtime_not_supported',
+            ],
+            array_diff((new SuiteRegistry)->externalSuiteIds(), array_values($upliftFamilies)),
+        ));
+
+        $modelMatrix = count($modelIds) >= 2
+            ? [
+                'mode' => 'model_vs_model',
+                'model_ids' => $modelIds,
+                'rows' => $this->modelMatrixRows($suiteRows, $runs),
+            ]
+            : $this->singleModelAtlasFaceMatrix($primaryModel, $suiteRows, $runs, $atlasUplift);
 
         $counts = [
             'ok' => 0,
@@ -88,6 +100,10 @@ class EnterpriseReportBuilder
         foreach ($suiteRows as $row) {
             $counts[$row['status']] = ($counts[$row['status']] ?? 0) + 1;
         }
+
+        $facts = $this->buildMeasuredFacts($primaryModel, $suiteRows, $atlasUplift, $counts);
+
+        $deliveryInventory = EnterpriseSuiteDeliveryCatalog::all();
 
         $report = [
             'schema_version' => SchemaContract::ENTERPRISE_REPORT,
@@ -108,10 +124,21 @@ class EnterpriseReportBuilder
                     $atlasUplift['families'],
                     fn (array $f): bool => ($f['status'] ?? '') === 'real_uplift',
                 )),
+                'narrative' => $facts['headline'] ?? null,
             ],
+            'delivery_inventory' => array_values($deliveryInventory),
             'suite_rows' => $suiteRows,
+            'model_dissections' => (new EnterpriseModelDissectionBuilder)->build([
+                'executive_summary' => [
+                    'primary_model' => $primaryModel,
+                    'models_observed' => $modelIds,
+                ],
+                'suite_rows' => $suiteRows,
+                'atlas_uplift' => $atlasUplift,
+            ]),
             'model_matrix' => $modelMatrix,
             'atlas_uplift' => $atlasUplift,
+            'facts' => $facts,
             'gaps' => array_values(array_unique($gaps)),
             'included_run_ids' => array_values(array_unique($included)),
             'excluded_run_ids' => $excluded,
@@ -127,8 +154,10 @@ class EnterpriseReportBuilder
             RunPaths::enterpriseReportPath(),
             json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION),
         );
-        AtomicWriter::write(RunPaths::enterpriseMarkdownPath(), $this->markdown($report));
+        $presenter = new EnterpriseReportPresenter;
+        AtomicWriter::write(RunPaths::enterpriseMarkdownPath(), $presenter->markdown($report, $runs));
         AtomicWriter::write(RunPaths::enterpriseCsvPath(), $this->csv($report));
+        AtomicWriter::write(RunPaths::enterpriseHtmlPath(), $presenter->html($report, $runs));
 
         return $report;
     }
@@ -210,20 +239,48 @@ class EnterpriseReportBuilder
     /** @return array<string, mixed> */
     private function emptySuiteRow(string $suiteId): array
     {
+        $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId);
+
         return [
             'suite_id' => $suiteId,
             'status' => 'not_run',
             'run_id' => null,
             'success_rate_itt' => null,
+            'intelligence_rate' => null,
             'median_wall_ms' => null,
             'tokens_in_avg' => null,
             'tokens_out_avg' => null,
+            'tokens_per_task' => null,
+            'tokens_per_second' => null,
+            'total_tokens' => null,
+            'cost_per_1k_tokens' => null,
             'cost_per_task' => null,
             'cost_basis' => null,
             'env_failure_rate' => null,
+            'tokens_coverage_incomplete' => false,
+            'events_complete' => false,
+            'is_atlas_fact' => false,
             'missing_fields' => [],
             'pipeline_valid' => false,
             'internal_claim_allowed' => false,
+            'axes' => [
+                'pipeline' => ['ok' => false, 'status' => 'not_run'],
+                'measurement' => ['ok' => false, 'status' => 'not_run', 'missing_fields' => []],
+                'intelligence' => ['rate' => null, 'itt' => null, 'status' => 'not_run'],
+                'claim' => ['internal_ok' => false, 'status' => 'not_run', 'blockers' => []],
+            ],
+            'category' => $delivery['category'],
+            'title' => $delivery['title'],
+            'delivery' => $delivery,
+            'full_metrics' => null,
+            'report_rows' => [],
+            'native_signals' => [],
+            'case_ids' => $delivery['fase_a_case_pack'],
+            'artifacts' => [],
+            'adjudication' => null,
+            'observed_native_metric_keys' => [],
+            'observed_report_metric_keys' => [],
+            'delivery_coverage' => $this->deliveryCoverage($delivery, [], []),
         ];
     }
 
@@ -237,9 +294,28 @@ class EnterpriseReportBuilder
         $report = $meta['report'];
         $pipelineValid = ($adj['pipeline_valid'] ?? false) === true;
         $internalAllowed = ($adj['internal_claim_allowed'] ?? $adj['claim_allowed'] ?? false) === true;
+        $delivery = EnterpriseSuiteDeliveryCatalog::forSuite($suiteId);
 
         $metrics = $this->aggregateReportMetrics(is_array($report) ? $report : []);
         $missing = $metrics['missing_fields'];
+        $reportRows = is_array($report) ? array_values(array_filter(
+            (array) ($report['rows'] ?? []),
+            'is_array',
+        )) : [];
+        $fullMetrics = $this->fullMetricsFromRows($reportRows);
+        $nativeSignals = $this->harvestNativeSignals($suiteId, $runId);
+        $caseIds = $this->caseIdsForRun($runId, $meta, $delivery);
+        $artifacts = $this->runArtifacts($runId);
+        $eventsComplete = $this->eventsCompleteForRun($runId);
+        $measurementStatus = $this->measurementStatus(
+            $missing,
+            (bool) ($metrics['tokens_coverage_incomplete'] ?? false),
+            $suiteId,
+            $runId,
+        );
+        if (($metrics['intelligence_rate'] ?? null) === null) {
+            $metrics['intelligence_rate'] = $this->intelligenceFromReceipts($runId);
+        }
 
         $status = 'failed';
         if (! $pipelineValid && $report === null) {
@@ -250,20 +326,85 @@ class EnterpriseReportBuilder
             $status = 'ok';
         }
 
+        $observedNativeKeys = $this->flattenObservedKeys($nativeSignals);
+        $observedReportKeys = $reportRows === [] ? [] : array_values(array_unique(array_merge(
+            ...array_map(fn (array $row): array => array_keys($row), $reportRows),
+        )));
+
+        $axes = [
+            'pipeline' => [
+                'ok' => $pipelineValid,
+                'status' => $pipelineValid ? 'ok' : ($report === null ? 'blocked' : 'failed'),
+                'blockers' => array_values((array) ($adj['pipeline_blockers'] ?? [])),
+            ],
+            'measurement' => [
+                'ok' => $missing === [] && $measurementStatus !== 'harness_omit',
+                'status' => $measurementStatus,
+                'missing_fields' => $missing,
+            ],
+            'intelligence' => [
+                'rate' => $metrics['intelligence_rate'] ?? null,
+                'itt' => $metrics['success_rate_itt'] ?? null,
+                'status' => ($metrics['intelligence_rate'] ?? null) === null && ($metrics['success_rate_itt'] ?? null) === null
+                    ? 'unknown'
+                    : 'measured',
+            ],
+            'claim' => [
+                'internal_ok' => $internalAllowed,
+                'status' => $internalAllowed ? 'allowed' : 'blocked',
+                'blockers' => array_values((array) ($adj['internal_claim_blockers'] ?? [])),
+            ],
+        ];
+        $isAtlasFact = $pipelineValid
+            && $internalAllowed
+            && $eventsComplete
+            && $missing === []
+            && $measurementStatus !== 'harness_omit';
+
         return [
             'suite_id' => $suiteId,
             'status' => $status,
             'run_id' => $runId,
             'success_rate_itt' => $metrics['success_rate_itt'],
+            'intelligence_rate' => $metrics['intelligence_rate'] ?? null,
             'median_wall_ms' => $metrics['median_wall_ms'],
             'tokens_in_avg' => $metrics['tokens_in_avg'],
             'tokens_out_avg' => $metrics['tokens_out_avg'],
+            'tokens_per_task' => $metrics['tokens_per_task'],
+            'tokens_per_second' => $metrics['tokens_per_second'],
+            'total_tokens' => $metrics['total_tokens'],
+            'cost_per_1k_tokens' => $metrics['cost_per_1k_tokens'],
             'cost_per_task' => $metrics['cost_per_task'],
             'cost_basis' => $metrics['cost_basis'],
             'env_failure_rate' => $metrics['env_failure_rate'],
+            'tokens_coverage_incomplete' => (bool) ($metrics['tokens_coverage_incomplete'] ?? false),
+            'events_complete' => $eventsComplete,
+            'is_atlas_fact' => $isAtlasFact,
             'missing_fields' => $missing,
             'pipeline_valid' => $pipelineValid,
             'internal_claim_allowed' => $internalAllowed,
+            'axes' => $axes,
+            'category' => $delivery['category'],
+            'title' => $delivery['title'],
+            'delivery' => $delivery,
+            'full_metrics' => $fullMetrics,
+            'report_rows' => $reportRows,
+            'native_signals' => $nativeSignals,
+            'case_ids' => $caseIds,
+            'artifacts' => $artifacts,
+            'adjudication' => [
+                'pipeline_valid' => $pipelineValid,
+                'claim_tier' => $adj['claim_tier'] ?? ($report['claim_tier'] ?? null),
+                'internal_claim_allowed' => $internalAllowed,
+                'public_claim_allowed' => ($adj['public_claim_allowed'] ?? false) === true,
+                'pipeline_blockers' => array_values((array) ($adj['pipeline_blockers'] ?? [])),
+                'internal_claim_blockers' => array_values((array) ($adj['internal_claim_blockers'] ?? [])),
+                'not_ready_reasons' => array_values((array) ($adj['not_ready_reasons'] ?? [])),
+                'statistical_analysis' => $adj['statistical_analysis'] ?? ($report['statistical_analysis'] ?? null),
+            ],
+            'observed_native_metric_keys' => $observedNativeKeys,
+            'observed_report_metric_keys' => $observedReportKeys,
+            'delivery_coverage' => $this->deliveryCoverage($delivery, $observedNativeKeys, $observedReportKeys),
         ];
     }
 
@@ -286,9 +427,14 @@ class EnterpriseReportBuilder
         if ($rows === []) {
             return [
                 'success_rate_itt' => null,
+                'intelligence_rate' => null,
                 'median_wall_ms' => null,
                 'tokens_in_avg' => null,
                 'tokens_out_avg' => null,
+                'tokens_per_task' => null,
+                'tokens_per_second' => null,
+                'total_tokens' => null,
+                'cost_per_1k_tokens' => null,
                 'cost_per_task' => null,
                 'cost_basis' => null,
                 'env_failure_rate' => null,
@@ -297,9 +443,14 @@ class EnterpriseReportBuilder
         }
 
         $successRates = [];
+        $intelligenceRates = [];
         $walls = [];
         $tokensIn = [];
         $tokensOut = [];
+        $tokensPerTask = [];
+        $tokensPerSecond = [];
+        $totalTokens = [];
+        $costPer1k = [];
         $costs = [];
         $envRates = [];
         $missing = [];
@@ -312,16 +463,31 @@ class EnterpriseReportBuilder
             if (isset($row['success_rate_itt'])) {
                 $successRates[] = (float) $row['success_rate_itt'];
             }
+            if (($row['intelligence_rate'] ?? null) !== null && is_numeric($row['intelligence_rate'])) {
+                $intelligenceRates[] = (float) $row['intelligence_rate'];
+            }
             if ($row['median_wall_ms'] !== null && $row['median_wall_ms'] !== '') {
                 $walls[] = (float) $row['median_wall_ms'];
             }
-            if ($row['avg_tokens_in'] !== null) {
+            if (($row['avg_tokens_in'] ?? null) !== null) {
                 $tokensIn[] = (float) $row['avg_tokens_in'];
             }
-            if ($row['avg_tokens_out'] !== null) {
+            if (($row['avg_tokens_out'] ?? null) !== null) {
                 $tokensOut[] = (float) $row['avg_tokens_out'];
             }
-            if ($row['cost_per_task'] !== null) {
+            if (($row['tokens_per_task'] ?? null) !== null && is_numeric($row['tokens_per_task'])) {
+                $tokensPerTask[] = (float) $row['tokens_per_task'];
+            }
+            if (($row['tokens_per_second'] ?? null) !== null && is_numeric($row['tokens_per_second'])) {
+                $tokensPerSecond[] = (float) $row['tokens_per_second'];
+            }
+            if (($row['total_tokens'] ?? null) !== null && is_numeric($row['total_tokens'])) {
+                $totalTokens[] = (float) $row['total_tokens'];
+            }
+            if (($row['cost_per_1k_tokens'] ?? null) !== null && is_numeric($row['cost_per_1k_tokens'])) {
+                $costPer1k[] = (float) $row['cost_per_1k_tokens'];
+            }
+            if (($row['cost_per_task'] ?? null) !== null) {
                 $costs[] = (float) $row['cost_per_task'];
             }
             if (isset($row['environment_failure_rate'])) {
@@ -334,16 +500,15 @@ class EnterpriseReportBuilder
             if ($n > 0 && ($in < $n || $out < $n)) {
                 $tokenCoverageIncomplete = true;
             }
-            if ($n > 0 && $in === 0) {
-                $missing[] = 'tokens_in';
-            }
-            if ($n > 0 && $out === 0) {
-                $missing[] = 'tokens_out';
-            }
         }
 
-        if ($tokenCoverageIncomplete) {
+        // Honesty: missing_data only when no measured token averages exist.
+        // Partial coverage (env failures / harness omit on some units) stays visible
+        // via tokens_coverage_* facets — never invent zeros for absent units.
+        if ($tokensIn === []) {
             $missing[] = 'tokens_in';
+        }
+        if ($tokensOut === []) {
             $missing[] = 'tokens_out';
         }
         if ($walls === []) {
@@ -358,15 +523,354 @@ class EnterpriseReportBuilder
                 : 'reported_usd';
         }
 
-        return [
+        return $this->enrichTokenThroughput([
             'success_rate_itt' => $successRates === [] ? null : round(array_sum($successRates) / count($successRates), 4),
+            'intelligence_rate' => $intelligenceRates === [] ? null : round(array_sum($intelligenceRates) / count($intelligenceRates), 4),
             'median_wall_ms' => $walls === [] ? null : $this->median($walls),
             'tokens_in_avg' => $tokensIn === [] ? null : round(array_sum($tokensIn) / count($tokensIn), 2),
             'tokens_out_avg' => $tokensOut === [] ? null : round(array_sum($tokensOut) / count($tokensOut), 2),
+            'tokens_per_task' => $tokensPerTask === [] ? null : round(array_sum($tokensPerTask) / count($tokensPerTask), 4),
+            'tokens_per_second' => $tokensPerSecond === [] ? null : round(array_sum($tokensPerSecond) / count($tokensPerSecond), 4),
+            'total_tokens' => $totalTokens === [] ? null : round(array_sum($totalTokens), 2),
+            'cost_per_1k_tokens' => $costPer1k === [] ? null : round(array_sum($costPer1k) / count($costPer1k), 6),
             'cost_per_task' => $costs === [] ? null : round(array_sum($costs) / count($costs), 6),
             'cost_basis' => $costBasis,
             'env_failure_rate' => $envRates === [] ? null : round(array_sum($envRates) / count($envRates), 4),
+            'tokens_coverage_incomplete' => $tokenCoverageIncomplete,
             'missing_fields' => $missing,
+        ]);
+    }
+
+    /**
+     * Backfill throughput fields from usage + wall when older report rows omit them.
+     *
+     * @param  array<string, mixed>  $metrics
+     * @return array<string, mixed>
+     */
+    private function enrichTokenThroughput(array $metrics): array
+    {
+        $in = isset($metrics['tokens_in_avg']) && is_numeric($metrics['tokens_in_avg'])
+            ? (float) $metrics['tokens_in_avg']
+            : (isset($metrics['avg_tokens_in']) && is_numeric($metrics['avg_tokens_in'])
+                ? (float) $metrics['avg_tokens_in']
+                : null);
+        $out = isset($metrics['tokens_out_avg']) && is_numeric($metrics['tokens_out_avg'])
+            ? (float) $metrics['tokens_out_avg']
+            : (isset($metrics['avg_tokens_out']) && is_numeric($metrics['avg_tokens_out'])
+                ? (float) $metrics['avg_tokens_out']
+                : null);
+        $sum = ($in !== null || $out !== null) ? (float) ($in ?? 0) + (float) ($out ?? 0) : null;
+
+        if (($metrics['total_tokens'] ?? null) === null && $sum !== null) {
+            $totalIn = isset($metrics['total_tokens_in']) && is_numeric($metrics['total_tokens_in'])
+                ? (float) $metrics['total_tokens_in'] : null;
+            $totalOut = isset($metrics['total_tokens_out']) && is_numeric($metrics['total_tokens_out'])
+                ? (float) $metrics['total_tokens_out'] : null;
+            if ($totalIn !== null || $totalOut !== null) {
+                $metrics['total_tokens'] = round((float) ($totalIn ?? 0) + (float) ($totalOut ?? 0), 2);
+            } else {
+                $metrics['total_tokens'] = round($sum, 2);
+            }
+        }
+
+        if (($metrics['tokens_per_task'] ?? null) === null && $sum !== null) {
+            $metrics['tokens_per_task'] = round($sum, 4);
+        }
+        if (($metrics['avg_tokens_per_task'] ?? null) === null && $sum !== null) {
+            $metrics['avg_tokens_per_task'] = round($sum, 4);
+        }
+
+        $wallMs = null;
+        if (isset($metrics['median_wall_ms']) && is_numeric($metrics['median_wall_ms']) && (float) $metrics['median_wall_ms'] > 0) {
+            $wallMs = (float) $metrics['median_wall_ms'];
+        } elseif (isset($metrics['avg_wall_ms']) && is_numeric($metrics['avg_wall_ms']) && (float) $metrics['avg_wall_ms'] > 0) {
+            $wallMs = (float) $metrics['avg_wall_ms'];
+        }
+        if ($wallMs !== null && ($metrics['median_wall_sec'] ?? null) === null) {
+            $metrics['median_wall_sec'] = round($wallMs / 1000.0, 6);
+        }
+
+        if (($metrics['tokens_per_second'] ?? null) === null && $sum !== null && $wallMs !== null && $wallMs > 0) {
+            $metrics['tokens_per_second'] = round($sum / ($wallMs / 1000.0), 4);
+        }
+        if (($metrics['tokens_per_second_aggregate'] ?? null) === null && ($metrics['tokens_per_second'] ?? null) !== null) {
+            $metrics['tokens_per_second_aggregate'] = $metrics['tokens_per_second'];
+        }
+        if (($metrics['tokens_in_per_second'] ?? null) === null && $in !== null && $wallMs !== null && $wallMs > 0) {
+            $metrics['tokens_in_per_second'] = round($in / ($wallMs / 1000.0), 4);
+        }
+        if (($metrics['tokens_out_per_second'] ?? null) === null && $out !== null && $wallMs !== null && $wallMs > 0) {
+            $metrics['tokens_out_per_second'] = round($out / ($wallMs / 1000.0), 4);
+        }
+
+        $totalTok = isset($metrics['total_tokens']) && is_numeric($metrics['total_tokens'])
+            ? (float) $metrics['total_tokens']
+            : $sum;
+        $totalCost = isset($metrics['total_cost_usd']) && is_numeric($metrics['total_cost_usd'])
+            ? (float) $metrics['total_cost_usd']
+            : null;
+        if (($metrics['cost_per_1k_tokens'] ?? null) === null && $totalTok !== null && $totalTok > 0 && $totalCost !== null && $totalCost > 0) {
+            $metrics['cost_per_1k_tokens'] = round(($totalCost / $totalTok) * 1000.0, 6);
+        }
+
+        return $metrics;
+    }
+
+    /**
+     * Face Atlas×modelo para bateria single-model: 1 linha de ranking + per_suite factual.
+     *
+     * @param  list<array<string, mixed>>  $suiteRows
+     * @param  list<array<string, mixed>>  $runs
+     * @param  array<string, mixed>  $atlasUplift
+     * @return array<string, mixed>
+     */
+    private function singleModelAtlasFaceMatrix(
+        string $primaryModel,
+        array $suiteRows,
+        array $runs,
+        array $atlasUplift,
+    ): array {
+        $familyBySuite = [];
+        foreach ((array) ($atlasUplift['families'] ?? []) as $family) {
+            $sid = (string) ($family['suite_id'] ?? '');
+            if ($sid !== '') {
+                $familyBySuite[$sid] = $family;
+            }
+        }
+
+        $perSuite = [];
+        $bareAll = [];
+        $barePaired = [];
+        $atlasPaired = [];
+
+        foreach ($suiteRows as $row) {
+            $suiteId = (string) ($row['suite_id'] ?? '');
+            if ($suiteId === '') {
+                continue;
+            }
+            $scores = $this->armScoresForSuite($suiteId, $primaryModel, $runs);
+            $bare = $scores['bare'] ?? (($row['intelligence_rate'] ?? null) === null
+                ? null
+                : (float) $row['intelligence_rate']);
+            if ($bare === null && ($row['success_rate_itt'] ?? null) !== null
+                && (($row['env_failure_rate'] ?? 0) == 0)) {
+                $bare = (float) $row['success_rate_itt'];
+            }
+            $atlas = $scores['atlas'] ?? null;
+            $family = $familyBySuite[$suiteId] ?? null;
+            $upliftStatus = is_array($family) ? (string) ($family['status'] ?? 'not_run') : 'not_applicable';
+            $comparable = $upliftStatus === 'real_uplift'
+                && $bare !== null
+                && ($family['atlas_intelligence'] ?? $atlas) !== null;
+
+            $atlasShown = null;
+            $delta = null;
+            if ($comparable) {
+                $atlasShown = isset($family['atlas_intelligence'])
+                    ? (float) $family['atlas_intelligence']
+                    : (float) $atlas;
+                $bareForDelta = isset($family['bare_intelligence'])
+                    ? (float) $family['bare_intelligence']
+                    : (float) $bare;
+                $delta = round($atlasShown - $bareForDelta, 4);
+                $barePaired[] = $bareForDelta;
+                $atlasPaired[] = $atlasShown;
+            }
+
+            if ($bare !== null) {
+                $bareAll[] = (float) $bare;
+            }
+
+            $perSuite[] = [
+                'suite_id' => $suiteId,
+                'status' => $row['status'] ?? null,
+                'bare_intelligence' => $bare,
+                'atlas_intelligence' => $comparable ? $atlasShown : null,
+                'delta_intelligence' => $delta,
+                'uplift_status' => $upliftStatus,
+                'comparable' => $comparable,
+                'reason' => $comparable ? null : ($family['reason'] ?? ($upliftStatus === 'not_applicable' ? 'suite_not_in_uplift_families' : $upliftStatus)),
+            ];
+        }
+
+        $avg = static fn (array $vals): ?float => $vals === [] ? null : round(array_sum($vals) / count($vals), 4);
+        $pairsValid = count($barePaired);
+        $pairsTotal = count((array) ($atlasUplift['families'] ?? []));
+
+        $row = [
+            'model_id' => $primaryModel,
+            'rank' => 1,
+            'bare_intelligence' => $avg($bareAll),
+            'bare_suite_count' => count($bareAll),
+            'atlas_intelligence' => $avg($atlasPaired),
+            'bare_on_paired' => $avg($barePaired),
+            'delta_intelligence' => ($avg($barePaired) !== null && $avg($atlasPaired) !== null)
+                ? round((float) $avg($atlasPaired) - (float) $avg($barePaired), 4)
+                : null,
+            'pairs_valid' => $pairsValid,
+            'pairs_total' => $pairsTotal,
+            'pair_coverage' => $pairsTotal > 0 ? "{$pairsValid}/{$pairsTotal}" : '0/0',
+            'per_suite' => $perSuite,
+        ];
+
+        return [
+            'mode' => 'single_model_battery',
+            'model_id' => $primaryModel,
+            'face' => 'model_with_without_atlas',
+            'rows' => [$row],
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $runs
+     * @return array{bare: ?float, atlas: ?float}
+     */
+    private function armScoresForSuite(string $suiteId, string $modelId, array $runs): array
+    {
+        $bare = [];
+        $atlas = [];
+        // Fail-closed on stale pollution: only the best pipeline_valid (else newest) run.
+        $best = $this->bestRunForSuite($suiteId, $runs);
+        $scoped = $best === null ? [] : [$best[1]];
+        // Caller may pass a single preferred run (e.g. upliftFamilyRow) — honor that.
+        if (count($runs) === 1 && (string) ($runs[0]['suite_id'] ?? '') === $suiteId) {
+            $scoped = $runs;
+        }
+        foreach ($scoped as $run) {
+            foreach ((array) (($run['report']['rows'] ?? []) ?: []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $score = null;
+                if (($row['intelligence_rate'] ?? null) !== null && is_numeric($row['intelligence_rate'])) {
+                    $score = (float) $row['intelligence_rate'];
+                } elseif (($row['success_rate_itt'] ?? null) !== null && is_numeric($row['success_rate_itt'])) {
+                    // Legacy rows without intelligence_rate: only use ITT when env rate is zero/absent.
+                    $env = $row['environment_failure_rate'] ?? null;
+                    if ($env === null || (is_numeric($env) && (float) $env === 0.0)) {
+                        $score = (float) $row['success_rate_itt'];
+                    }
+                }
+                if ($score === null) {
+                    continue;
+                }
+                $armId = (string) ($row['arm_id'] ?? '');
+                if ($armId === $modelId.'@bare') {
+                    $bare[] = $score;
+                }
+                if ($armId === $modelId.'@atlas_dev') {
+                    $atlas[] = $score;
+                }
+            }
+            // Receipts fallback when report rows omit intelligence_rate and env polluted ITT.
+            $runId = (string) ($run['run_id'] ?? '');
+            if ($runId !== '' && ($bare === [] || $atlas === [])) {
+                $bareBits = [];
+                $atlasBits = [];
+                foreach (RunReceipt::loadAll($runId) as $receipt) {
+                    if (($receipt->data['failure_class'] ?? null) === FailureClass::ENVIRONMENT) {
+                        continue;
+                    }
+                    $armId = (string) ($receipt->data['arm_id'] ?? '');
+                    $ok = ($receipt->data['status'] ?? null) === 'success' ? 1.0 : 0.0;
+                    if ($armId === $modelId.'@bare') {
+                        $bareBits[] = $ok;
+                    }
+                    if ($armId === $modelId.'@atlas_dev') {
+                        $atlasBits[] = $ok;
+                    }
+                }
+                if ($bare === [] && $bareBits !== []) {
+                    $bare[] = round(array_sum($bareBits) / count($bareBits), 4);
+                }
+                if ($atlas === [] && $atlasBits !== []) {
+                    $atlas[] = round(array_sum($atlasBits) / count($atlasBits), 4);
+                }
+            }
+        }
+
+        return [
+            'bare' => $bare === [] ? null : round(array_sum($bare) / count($bare), 4),
+            'atlas' => $atlas === [] ? null : round(array_sum($atlas) / count($atlas), 4),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $suiteRows
+     * @param  array<string, mixed>  $atlasUplift
+     * @param  array<string, int>  $counts
+     * @return array<string, mixed>
+     */
+    private function buildMeasuredFacts(
+        string $primaryModel,
+        array $suiteRows,
+        array $atlasUplift,
+        array $counts,
+    ): array {
+        $measured = [];
+        $incomplete = [];
+        $better = 0;
+        $worse = 0;
+
+        foreach ((array) ($atlasUplift['families'] ?? []) as $family) {
+            $name = (string) ($family['family'] ?? $family['suite_id'] ?? '?');
+            if (($family['status'] ?? '') === 'real_uplift'
+                && ($family['bare_intelligence'] ?? null) !== null
+                && ($family['atlas_intelligence'] ?? null) !== null) {
+                $delta = (float) ($family['delta_intelligence']
+                    ?? ((float) $family['atlas_intelligence'] - (float) $family['bare_intelligence']));
+                $pct = round($delta * 100, 1);
+                $sign = $pct >= 0 ? '+' : '';
+                $measured[] = "{$name}: sem Atlas "
+                    .round((float) $family['bare_intelligence'] * 100, 1).'% → com Atlas '
+                    .round((float) $family['atlas_intelligence'] * 100, 1)."% ({$sign}{$pct} pp)";
+                if ($delta > 0) {
+                    $better++;
+                } elseif ($delta < 0) {
+                    $worse++;
+                }
+            } else {
+                $reason = (string) ($family['reason'] ?? $family['status'] ?? 'incomplete');
+                $incomplete[] = "{$name}: comparação Atlas ainda inválida ({$reason})";
+            }
+        }
+
+        foreach ($suiteRows as $row) {
+            $status = (string) ($row['status'] ?? '');
+            $suiteId = (string) ($row['suite_id'] ?? '?');
+            if (in_array($status, ['missing_data', 'failed', 'blocked', 'not_run'], true)) {
+                $fields = array_values((array) ($row['missing_fields'] ?? []));
+                $suffix = $fields === [] ? '' : ' ('.implode(',', $fields).')';
+                $incomplete[] = "{$suiteId}: suite status={$status}{$suffix}";
+            } elseif (($row['tokens_coverage_incomplete'] ?? false) === true) {
+                $incomplete[] = "{$suiteId}: tokens medidos com coverage parcial (env/harness omit em algumas units)";
+            }
+        }
+
+        $ready = count(array_filter(
+            (array) ($atlasUplift['families'] ?? []),
+            fn (array $f): bool => ($f['status'] ?? '') === 'real_uplift',
+        ));
+        $total = count((array) ($atlasUplift['families'] ?? []));
+
+        if ($ready === 0) {
+            $headline = "{$primaryModel}: ainda sem pares bare×Atlas válidos ({$ready}/{$total}).";
+        } elseif ($worse > $better) {
+            $headline = "{$primaryModel}: nos {$ready} pares válidos, Atlas piorou mais vezes do que melhorou ({$worse}↓ / {$better}↑).";
+        } elseif ($better > $worse) {
+            $headline = "{$primaryModel}: nos {$ready} pares válidos, Atlas melhorou mais vezes do que piorou ({$better}↑ / {$worse}↓).";
+        } else {
+            $headline = "{$primaryModel}: nos {$ready} pares válidos, resultado misto ({$better}↑ / {$worse}↓).";
+        }
+
+        return [
+            'headline' => $headline,
+            'measured' => array_values(array_unique($measured)),
+            'incomplete' => array_values(array_unique($incomplete)),
+            'pairs_valid' => $ready,
+            'pairs_total' => $total,
+            'suites_ok' => (int) ($counts['ok'] ?? 0),
+            'suites_missing_data' => (int) ($counts['missing_data'] ?? 0),
         ];
     }
 
@@ -378,11 +882,16 @@ class EnterpriseReportBuilder
     private function modelMatrixRows(array $suiteRows, array $runs): array
     {
         $bySuite = [];
-        foreach ($runs as $run) {
-            $suiteId = (string) ($run['suite_id'] ?? '');
-            if ($suiteId === '') {
+        $suiteIds = array_values(array_unique(array_filter(array_map(
+            fn (array $row): string => (string) ($row['suite_id'] ?? ''),
+            $suiteRows,
+        ))));
+        foreach ($suiteIds as $suiteId) {
+            $best = $this->bestRunForSuite($suiteId, $runs);
+            if ($best === null) {
                 continue;
             }
+            $run = $best[1];
             $models = array_values(array_filter(
                 (array) ($run['claim_scope']['models'] ?? []),
                 fn ($model): bool => is_string($model) && $model !== '',
@@ -413,8 +922,13 @@ class EnterpriseReportBuilder
                     continue;
                 }
                 $modelId = explode('@', $armId, 2)[0];
+                $intel = ($row['intelligence_rate'] ?? null);
+                if ($intel === null && (($row['environment_failure_rate'] ?? 0) == 0)) {
+                    $intel = $row['success_rate_itt'] ?? null;
+                }
                 $metrics[$modelId] = [
                     'success_rate_itt' => $row['success_rate_itt'] ?? null,
+                    'intelligence_rate' => $intel,
                     'median_wall_ms' => $row['median_wall_ms'] ?? null,
                     'cost_per_task' => $row['cost_per_task'] ?? null,
                     'tokens_in_avg' => $row['avg_tokens_in'] ?? null,
@@ -437,25 +951,78 @@ class EnterpriseReportBuilder
      * @param  list<array<string, mixed>>  $runs
      * @return array<string, mixed>
      */
-    private function upliftFamilyRow(string $family, string $suiteId, array $runs): array
+    private function upliftFamilyRow(string $family, string $suiteId, array $runs, string $primaryModel = 'verboo_kimi_k2_7'): array
     {
-        foreach ($runs as $run) {
-            if (($run['suite_id'] ?? null) !== $suiteId) {
-                continue;
+        $candidates = array_values(array_filter(
+            $runs,
+            fn (array $run): bool => ($run['suite_id'] ?? null) === $suiteId && is_array($run['uplift'] ?? null),
+        ));
+        usort($candidates, function (array $a, array $b): int {
+            $aValid = (($a['adjudication']['pipeline_valid'] ?? false) === true) ? 1 : 0;
+            $bValid = (($b['adjudication']['pipeline_valid'] ?? false) === true) ? 1 : 0;
+            if ($aValid !== $bValid) {
+                return $bValid <=> $aValid;
             }
+
+            return strcmp((string) $b['run_id'], (string) $a['run_id']);
+        });
+        foreach ($candidates as $run) {
             $uplift = $run['uplift'] ?? null;
             if (! is_array($uplift)) {
                 continue;
             }
             $kind = (string) ($uplift['uplift_kind'] ?? 'unsupported');
             $status = $kind === 'real_uplift' ? 'real_uplift' : (string) ($uplift['uplift_kind'] ?? 'unsupported');
+            $reason = isset($uplift['reason']) ? (string) $uplift['reason'] : null;
+
+            $bareIntel = null;
+            $atlasIntel = null;
+            $delta = null;
+            $deltas = (array) ($uplift['deltas'] ?? []);
+            if ($deltas !== [] && is_array($deltas[0] ?? null)) {
+                $d0 = $deltas[0];
+                if (isset($d0['base']['success_rate']) && is_numeric($d0['base']['success_rate'])) {
+                    $bareIntel = round((float) $d0['base']['success_rate'], 4);
+                }
+                if (isset($d0['atlas']['success_rate']) && is_numeric($d0['atlas']['success_rate'])) {
+                    $atlasIntel = round((float) $d0['atlas']['success_rate'], 4);
+                }
+                if (isset($d0['delta_success_rate']) && is_numeric($d0['delta_success_rate'])) {
+                    $delta = round((float) $d0['delta_success_rate'], 4);
+                }
+            }
+
+            $armScores = $this->armScoresForSuite($suiteId, $primaryModel, [$run]);
+            $bareIntel ??= $armScores['bare'];
+            if ($status === 'real_uplift') {
+                $atlasIntel ??= $armScores['atlas'];
+                if ($delta === null && $bareIntel !== null && $atlasIntel !== null) {
+                    $delta = round($atlasIntel - $bareIntel, 4);
+                }
+            } else {
+                // Unsupported: never publish atlas score as comparable fact (avoids 0% falso).
+                $atlasIntel = null;
+                $delta = null;
+            }
+
+            $excluded = array_values(array_map('strval', (array) ($uplift['excluded_pair_keys'] ?? [])));
+            $provenPairCount = (int) ($uplift['proven_pair_count'] ?? 0);
+            $diagnosticOnly = $status === 'real_uplift' && $excluded !== [];
 
             return [
                 'family' => $family,
                 'suite_id' => $suiteId,
                 'run_id' => $run['run_id'],
                 'status' => $status,
+                'reason' => $reason,
                 'uplift_supported' => (bool) ($uplift['uplift_supported'] ?? false),
+                'comparable' => $status === 'real_uplift' && $bareIntel !== null && $atlasIntel !== null && ! $diagnosticOnly,
+                'diagnostic_only' => $diagnosticOnly,
+                'proven_pair_count' => $provenPairCount,
+                'excluded_pair_keys' => $excluded,
+                'bare_intelligence' => $bareIntel,
+                'atlas_intelligence' => $atlasIntel,
+                'delta_intelligence' => $delta,
                 'internal_claim_allowed' => (bool) ($uplift['internal_claim_allowed'] ?? $uplift['claim_allowed'] ?? false),
                 'stop_the_line' => (bool) ($uplift['stop_the_line'] ?? false),
             ];
@@ -466,10 +1033,484 @@ class EnterpriseReportBuilder
             'suite_id' => $suiteId,
             'run_id' => null,
             'status' => 'not_run',
+            'reason' => 'not_run',
             'uplift_supported' => false,
+            'comparable' => false,
+            'diagnostic_only' => false,
+            'proven_pair_count' => 0,
+            'excluded_pair_keys' => [],
+            'bare_intelligence' => null,
+            'atlas_intelligence' => null,
+            'delta_intelligence' => null,
             'internal_claim_allowed' => false,
             'stop_the_line' => false,
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, mixed>|null
+     */
+    private function fullMetricsFromRows(array $rows): ?array
+    {
+        if ($rows === []) {
+            return null;
+        }
+
+        $pick = static function (array $row, string $key): mixed {
+            return $row[$key] ?? null;
+        };
+
+        $first = $rows[0];
+        $dimensions = [];
+        $failureClasses = [];
+        $wilson = null;
+        $stabilities = [];
+        $p95Walls = [];
+        $avgWalls = [];
+        $tokenCoverages = [];
+        $realities = [];
+        $patchBloats = [];
+
+        foreach ($rows as $row) {
+            if (is_array($row['dimensions'] ?? null)) {
+                foreach ($row['dimensions'] as $dim => $value) {
+                    if (is_numeric($value)) {
+                        $dimensions[(string) $dim][] = (float) $value;
+                    }
+                }
+            }
+            foreach ((array) ($row['failure_classes'] ?? []) as $cls => $count) {
+                $failureClasses[(string) $cls] = ($failureClasses[(string) $cls] ?? 0) + (int) $count;
+            }
+            if ($wilson === null && is_array($row['success_rate_wilson_95'] ?? null)) {
+                $wilson = $row['success_rate_wilson_95'];
+            }
+            if (isset($row['stability']) && is_numeric($row['stability'])) {
+                $stabilities[] = (float) $row['stability'];
+            }
+            if (isset($row['p95_wall_ms']) && is_numeric($row['p95_wall_ms'])) {
+                $p95Walls[] = (float) $row['p95_wall_ms'];
+            }
+            if (isset($row['avg_wall_ms']) && is_numeric($row['avg_wall_ms'])) {
+                $avgWalls[] = (float) $row['avg_wall_ms'];
+            }
+            if (is_array($row['tokens_coverage'] ?? null)) {
+                $tokenCoverages[] = $row['tokens_coverage'];
+            }
+            if (isset($row['reality'])) {
+                $realities[] = $row['reality'];
+            }
+            if (isset($row['avg_patch_bloat']) && is_numeric($row['avg_patch_bloat'])) {
+                $patchBloats[] = (float) $row['avg_patch_bloat'];
+            }
+        }
+
+        $dimMeans = [];
+        foreach ($dimensions as $dim => $values) {
+            $dimMeans[$dim] = round(array_sum($values) / count($values), 6);
+        }
+
+        return $this->enrichTokenThroughput([
+            'task_types' => array_values(array_unique(array_filter(array_map(
+                fn (array $row): string => (string) ($row['task_type'] ?? ''),
+                $rows,
+            )))),
+            'arm_ids' => array_values(array_unique(array_filter(array_map(
+                fn (array $row): string => (string) ($row['arm_id'] ?? ''),
+                $rows,
+            )))),
+            'n' => array_sum(array_map(fn (array $row): int => (int) ($row['n'] ?? 0), $rows)),
+            'planned_attempts' => array_sum(array_map(fn (array $row): int => (int) ($row['planned_attempts'] ?? 0), $rows)),
+            'observed_attempts' => array_sum(array_map(fn (array $row): int => (int) ($row['observed_attempts'] ?? 0), $rows)),
+            'valid_results' => array_sum(array_map(fn (array $row): int => (int) ($row['valid_results'] ?? 0), $rows)),
+            'successes' => array_sum(array_map(fn (array $row): int => (int) ($row['successes'] ?? 0), $rows)),
+            'success_rate_itt' => $this->meanNullable(array_column($rows, 'success_rate_itt')),
+            'success_rate' => $this->meanNullable(array_column($rows, 'success_rate')),
+            'success_rate_valid_results' => $this->meanNullable(array_column($rows, 'success_rate_valid_results')),
+            'success_rate_wilson_95' => $wilson,
+            'environment_failure_rate' => $this->meanNullable(array_column($rows, 'environment_failure_rate')),
+            'failure_classes' => $failureClasses,
+            'total_cost_usd' => $this->sumNullable(array_column($rows, 'total_cost_usd')),
+            'avg_cost_usd' => $this->meanNullable(array_column($rows, 'avg_cost_usd')),
+            'cost_per_task' => $this->meanNullable(array_column($rows, 'cost_per_task')),
+            'median_cost_usd' => $this->meanNullable(array_column($rows, 'median_cost_usd')),
+            'p95_cost_usd' => $this->meanNullable(array_column($rows, 'p95_cost_usd')),
+            'median_cost_ci_95' => $pick($first, 'median_cost_ci_95'),
+            'avg_tokens_in' => $this->meanNullable(array_column($rows, 'avg_tokens_in')),
+            'avg_tokens_out' => $this->meanNullable(array_column($rows, 'avg_tokens_out')),
+            'total_tokens_in' => $this->sumNullable(array_column($rows, 'total_tokens_in')),
+            'total_tokens_out' => $this->sumNullable(array_column($rows, 'total_tokens_out')),
+            'total_tokens' => $this->sumNullable(array_column($rows, 'total_tokens')),
+            'tokens_per_task' => $this->meanNullable(array_column($rows, 'tokens_per_task')),
+            'avg_tokens_per_task' => $this->meanNullable(array_column($rows, 'avg_tokens_per_task')),
+            'tokens_in_per_task' => $this->meanNullable(array_column($rows, 'tokens_in_per_task')),
+            'tokens_out_per_task' => $this->meanNullable(array_column($rows, 'tokens_out_per_task')),
+            'tokens_per_second' => $this->meanNullable(array_column($rows, 'tokens_per_second')),
+            'tokens_per_second_aggregate' => $this->meanNullable(array_column($rows, 'tokens_per_second_aggregate')),
+            'tokens_in_per_second' => $this->meanNullable(array_column($rows, 'tokens_in_per_second')),
+            'tokens_out_per_second' => $this->meanNullable(array_column($rows, 'tokens_out_per_second')),
+            'cost_per_1k_tokens' => $this->meanNullable(array_column($rows, 'cost_per_1k_tokens')),
+            'tokens_coverage' => $tokenCoverages[0] ?? null,
+            'avg_wall_ms' => $avgWalls === [] ? null : round(array_sum($avgWalls) / count($avgWalls), 6),
+            'median_wall_ms' => $this->meanNullable(array_column($rows, 'median_wall_ms')),
+            'median_wall_sec' => $this->meanNullable(array_column($rows, 'median_wall_sec')),
+            'p95_wall_ms' => $p95Walls === [] ? null : round(array_sum($p95Walls) / count($p95Walls), 6),
+            'median_wall_ci_95' => $pick($first, 'median_wall_ci_95'),
+            'stability' => $stabilities === [] ? null : round(array_sum($stabilities) / count($stabilities), 4),
+            'dimensions' => $dimMeans === [] ? null : $dimMeans,
+            'avg_patch_bloat' => $patchBloats === [] ? null : round(array_sum($patchBloats) / count($patchBloats), 6),
+            'reality' => $realities[0] ?? null,
+            'per_arm' => array_map(function (array $row): array {
+                return $this->enrichTokenThroughput([
+                    'task_type' => $row['task_type'] ?? null,
+                    'arm_id' => $row['arm_id'] ?? null,
+                    'success_rate_itt' => $row['success_rate_itt'] ?? null,
+                    'success_rate_wilson_95' => $row['success_rate_wilson_95'] ?? null,
+                    'cost_per_task' => $row['cost_per_task'] ?? null,
+                    'cost_per_1k_tokens' => $row['cost_per_1k_tokens'] ?? null,
+                    'total_cost_usd' => $row['total_cost_usd'] ?? null,
+                    'median_wall_ms' => $row['median_wall_ms'] ?? null,
+                    'median_wall_sec' => $row['median_wall_sec'] ?? null,
+                    'p95_wall_ms' => $row['p95_wall_ms'] ?? null,
+                    'avg_tokens_in' => $row['avg_tokens_in'] ?? null,
+                    'avg_tokens_out' => $row['avg_tokens_out'] ?? null,
+                    'total_tokens_in' => $row['total_tokens_in'] ?? null,
+                    'total_tokens_out' => $row['total_tokens_out'] ?? null,
+                    'total_tokens' => $row['total_tokens'] ?? null,
+                    'tokens_per_task' => $row['tokens_per_task'] ?? null,
+                    'avg_tokens_per_task' => $row['avg_tokens_per_task'] ?? null,
+                    'tokens_in_per_task' => $row['tokens_in_per_task'] ?? null,
+                    'tokens_out_per_task' => $row['tokens_out_per_task'] ?? null,
+                    'tokens_per_second' => $row['tokens_per_second'] ?? null,
+                    'tokens_per_second_aggregate' => $row['tokens_per_second_aggregate'] ?? null,
+                    'tokens_in_per_second' => $row['tokens_in_per_second'] ?? null,
+                    'tokens_out_per_second' => $row['tokens_out_per_second'] ?? null,
+                    'tokens_coverage' => $row['tokens_coverage'] ?? null,
+                    'stability' => $row['stability'] ?? null,
+                    'environment_failure_rate' => $row['environment_failure_rate'] ?? null,
+                    'failure_classes' => $row['failure_classes'] ?? [],
+                    'dimensions' => $row['dimensions'] ?? null,
+                    'n' => $row['n'] ?? null,
+                    'successes' => $row['successes'] ?? null,
+                ]);
+            }, $rows),
+        ]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function harvestNativeSignals(string $suiteId, string $runId): array
+    {
+        $dir = RunPaths::runDir($runId).'/external_results/units';
+        if (! is_dir($dir)) {
+            return [];
+        }
+
+        $out = [];
+        foreach (array_diff(scandir($dir) ?: [], ['.', '..']) as $file) {
+            if (! str_ends_with($file, '.json')) {
+                continue;
+            }
+            $payload = json_decode((string) file_get_contents($dir.'/'.$file), true);
+            if (! is_array($payload)) {
+                continue;
+            }
+            foreach ($this->extractNativeRows($suiteId, $payload) as $row) {
+                $row['_unit_file'] = $file;
+                $out[] = $row;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return list<array<string, mixed>>
+     */
+    private function extractNativeRows(string $suiteId, array $payload): array
+    {
+        return match ($suiteId) {
+            'tau2_bench' => array_map(static function (array $sim): array {
+                $usage = (array) ($sim['usage'] ?? []);
+
+                return [
+                    'simulation_id' => $sim['simulation_id'] ?? null,
+                    'task_id' => $sim['task_id'] ?? null,
+                    'reward' => $sim['reward'] ?? null,
+                    'termination_reason' => $sim['termination_reason'] ?? null,
+                    'duration_sec' => $sim['duration_sec'] ?? null,
+                    'tokens_in' => $usage['input_tokens'] ?? null,
+                    'tokens_out' => $usage['output_tokens'] ?? null,
+                    'cost_usd' => $usage['cost_usd'] ?? null,
+                ];
+            }, array_values(array_filter((array) ($payload['simulations'] ?? []), 'is_array'))),
+            'bfcl' => array_map(static fn (array $row): array => [
+                'case_id' => $row['case_id'] ?? null,
+                'test_category' => $row['test_category'] ?? null,
+                'native_category' => $row['native_category'] ?? null,
+                'accuracy' => $row['accuracy'] ?? null,
+                'status' => $row['status'] ?? null,
+                'duration_sec' => $row['duration_sec'] ?? null,
+                'tokens_in' => $row['tokens_in'] ?? null,
+                'tokens_out' => $row['tokens_out'] ?? null,
+                'cost_usd' => $row['cost_usd'] ?? null,
+                'field_presence' => $row['field_presence'] ?? null,
+            ], array_values(array_filter((array) ($payload['results'] ?? []), 'is_array'))),
+            'terminal_bench' => array_map(static fn (array $ep): array => [
+                'episode_id' => $ep['episode_id'] ?? null,
+                'exit_status' => $ep['exit_status'] ?? null,
+                'failure_mode' => $ep['failure_mode'] ?? null,
+                'duration_sec' => $ep['duration_sec'] ?? null,
+                'input_tokens' => $ep['input_tokens'] ?? null,
+                'output_tokens' => $ep['output_tokens'] ?? null,
+                'cost_usd' => $ep['cost_usd'] ?? null,
+                'field_presence' => $ep['field_presence'] ?? null,
+            ], array_values(array_filter((array) ($payload['episodes'] ?? []), 'is_array'))),
+            'senior_swe_bench' => array_map(static function (array $task) use ($payload): array {
+                return [
+                    'task_id' => $task['task_id'] ?? null,
+                    'task' => $task['task'] ?? null,
+                    'resolved' => $task['resolved'] ?? null,
+                    'exception_info' => $task['exception_info'] ?? null,
+                    'duration_seconds' => $task['duration_seconds'] ?? null,
+                    'usage' => $task['usage'] ?? null,
+                    'verdicts' => $task['verdicts'] ?? null,
+                    'judge_config' => $payload['judge_config'] ?? null,
+                    'coverage' => $payload['coverage'] ?? null,
+                ];
+            }, array_values(array_filter((array) ($payload['tasks'] ?? []), 'is_array'))),
+            'swe_bench_live' => array_map(static fn (array $inst): array => [
+                'instance_id' => $inst['instance_id'] ?? null,
+                'resolved' => $inst['resolved'] ?? null,
+                'eval_status' => $inst['eval_status'] ?? null,
+                'duration_sec' => $inst['duration_sec'] ?? null,
+                'usage' => $inst['usage'] ?? null,
+                'model_name_or_path' => $inst['model_name_or_path'] ?? null,
+            ], array_values(array_filter((array) ($payload['instances'] ?? []), 'is_array'))),
+            'live_code_bench' => array_map(static fn (array $row): array => [
+                'question_id' => $row['question_id'] ?? ($row['native_question_id'] ?? null),
+                'pass@1' => $row['pass@1'] ?? null,
+                'graded_list' => $row['graded_list'] ?? null,
+                'difficulty' => $row['difficulty'] ?? null,
+                'platform' => $row['platform'] ?? null,
+                'contest_id' => $row['contest_id'] ?? null,
+                'usage_capture' => $row['usage_capture'] ?? null,
+                'tokens_in' => $row['tokens_in'] ?? null,
+                'tokens_out' => $row['tokens_out'] ?? null,
+                'duration_sec' => $row['duration_sec'] ?? null,
+            ], array_values(array_filter((array) ($payload['results'] ?? []), 'is_array'))),
+            'inspect_evals' => array_map(static function (array $sample) use ($payload): array {
+                return [
+                    'sample_id' => $sample['id'] ?? null,
+                    'scores' => $sample['scores'] ?? null,
+                    'total_time' => $sample['total_time'] ?? null,
+                    'working_time' => $sample['working_time'] ?? null,
+                    'model_usage' => $sample['model_usage'] ?? null,
+                    'completed' => $sample['completed'] ?? null,
+                    'error' => $sample['error'] ?? null,
+                    'retries' => $sample['retries'] ?? null,
+                    'eval' => $payload['eval'] ?? null,
+                ];
+            }, array_values(array_filter((array) ($payload['samples'] ?? []), 'is_array'))),
+            'hal_harness' => array_map(static fn (array $run): array => [
+                'task_id' => $run['task_id'] ?? null,
+                'success' => $run['success'] ?? null,
+                'total_cost_usd' => $run['total_cost_usd'] ?? null,
+                'latency_sec' => $run['latency_sec'] ?? null,
+                'input_tokens' => $run['input_tokens'] ?? null,
+                'output_tokens' => $run['output_tokens'] ?? null,
+                'field_presence' => $run['field_presence'] ?? null,
+                'runtime_bridge' => $run['runtime_bridge'] ?? null,
+                'model' => $run['model'] ?? null,
+                'agent' => $run['agent'] ?? null,
+            ], array_values(array_filter((array) ($payload['runs'] ?? []), 'is_array'))),
+            'aider_polyglot' => array_map(static fn (array $row): array => [
+                'testcase' => $row['testcase'] ?? null,
+                'language' => $row['language'] ?? null,
+                'tries' => $row['tries'] ?? null,
+                'tests_outcomes' => $row['tests_outcomes'] ?? null,
+                'duration' => $row['duration'] ?? null,
+                'cost' => $row['cost'] ?? null,
+                'sent_tokens' => $row['sent_tokens'] ?? null,
+                'received_tokens' => $row['received_tokens'] ?? null,
+            ], array_values(array_filter((array) ($payload['results'] ?? []), 'is_array'))),
+            'swe_marathon' => array_map(static fn (array $task): array => [
+                'task_id' => $task['task_id'] ?? null,
+                'resolved' => $task['resolved'] ?? null,
+                'exception_info' => $task['exception_info'] ?? null,
+                'duration_seconds' => $task['duration_seconds'] ?? null,
+                'usage' => $task['usage'] ?? null,
+                'agent' => $task['agent'] ?? null,
+                'model' => $task['model'] ?? null,
+            ], array_values(array_filter((array) ($payload['tasks'] ?? []), 'is_array'))),
+            default => [],
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     * @param  array<string, mixed>  $delivery
+     * @return list<string>
+     */
+    private function caseIdsForRun(string $runId, array $meta, array $delivery): array
+    {
+        $planPath = RunPaths::planPath($runId);
+        if (is_file($planPath)) {
+            $plan = json_decode((string) file_get_contents($planPath), true) ?? [];
+            $fromPlan = array_values(array_filter(
+                array_map('strval', (array) ($plan['case_ids'] ?? [])),
+                fn (string $id): bool => $id !== '',
+            ));
+            if ($fromPlan !== []) {
+                return $fromPlan;
+            }
+        }
+        $fromScope = array_values(array_filter(
+            array_map('strval', (array) ($meta['claim_scope']['cases'] ?? [])),
+            fn (string $id): bool => $id !== '',
+        ));
+        if ($fromScope !== []) {
+            return $fromScope;
+        }
+
+        return array_values(array_map('strval', (array) ($delivery['fase_a_case_pack'] ?? [])));
+    }
+
+    /** @return array<string, mixed> */
+    private function runArtifacts(string $runId): array
+    {
+        $dir = RunPaths::runDir($runId);
+        $map = [
+            'report_json' => $dir.'/report.json',
+            'report_md' => $dir.'/report.md',
+            'report_csv' => $dir.'/report.csv',
+            'adjudication_json' => $dir.'/adjudication.json',
+            'evidence_pack_json' => $dir.'/evidence_pack.json',
+            'plan_json' => $dir.'/plan.json',
+            'native_execution_manifest_json' => $dir.'/native_execution_manifest.json',
+            'receipts_jsonl' => $dir.'/receipts.jsonl',
+            'events_jsonl' => RunPaths::eventsPath($runId),
+            'uplift_json' => $dir.'/uplift.json',
+        ];
+        $out = [];
+        foreach ($map as $key => $path) {
+            $out[$key] = [
+                'path' => $path,
+                'present' => is_file($path),
+                'bytes' => is_file($path) ? filesize($path) : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $signals
+     * @return list<string>
+     */
+    private function flattenObservedKeys(array $signals): array
+    {
+        $keys = [];
+        foreach ($signals as $signal) {
+            foreach (array_keys($signal) as $key) {
+                if ($key === '_unit_file') {
+                    continue;
+                }
+                $value = $signal[$key];
+                if ($value === null) {
+                    continue;
+                }
+                $keys[$key] = true;
+                if (is_array($value) && ! array_is_list($value)) {
+                    foreach (array_keys($value) as $child) {
+                        $keys[$key.'.'.$child] = true;
+                    }
+                }
+            }
+        }
+        $list = array_keys($keys);
+        sort($list);
+
+        return $list;
+    }
+
+    /**
+     * @param  array<string, mixed>  $delivery
+     * @param  list<string>  $observedNative
+     * @param  list<string>  $observedReport
+     * @return array<string, mixed>
+     */
+    private function deliveryCoverage(array $delivery, array $observedNative, array $observedReport): array
+    {
+        $expectedNative = array_values(array_map('strval', (array) ($delivery['native_metrics'] ?? [])));
+        $expectedReport = array_values(array_map('strval', (array) ($delivery['atlas_report_metrics'] ?? [])));
+        $nativeHit = [];
+        $nativeMiss = [];
+        foreach ($expectedNative as $metric) {
+            $base = explode('.', $metric, 2)[0];
+            $hit = in_array($metric, $observedNative, true)
+                || in_array($base, $observedNative, true)
+                || ($base !== $metric && str_starts_with($metric, $base.'.') && in_array($base, $observedNative, true))
+                || ($metric === 'verdicts.*' && count(array_filter($observedNative, fn (string $k): bool => str_starts_with($k, 'verdicts'))) > 0)
+                || ($metric === 'scores' && in_array('scores', $observedNative, true));
+            // wildcard / nested tolerance
+            if (! $hit) {
+                foreach ($observedNative as $obs) {
+                    if ($obs === $base || str_starts_with($obs, $base.'.') || str_starts_with($metric, $obs)) {
+                        $hit = true;
+                        break;
+                    }
+                    if (str_ends_with($metric, '.*') && str_starts_with($obs, substr($metric, 0, -1))) {
+                        $hit = true;
+                        break;
+                    }
+                }
+            }
+            if ($hit) {
+                $nativeHit[] = $metric;
+            } else {
+                $nativeMiss[] = $metric;
+            }
+        }
+        $reportHit = array_values(array_intersect($expectedReport, $observedReport));
+        $reportMiss = array_values(array_diff($expectedReport, $observedReport));
+
+        return [
+            'native_expected' => count($expectedNative),
+            'native_observed' => count($nativeHit),
+            'native_missing' => $nativeMiss,
+            'report_expected' => count($expectedReport),
+            'report_observed' => count($reportHit),
+            'report_missing' => $reportMiss,
+            'dimensions_expected' => array_values((array) ($delivery['capability_dimensions'] ?? [])),
+            'uplift_eligible' => (bool) ($delivery['uplift_eligible'] ?? false),
+            'uplift_family' => $delivery['uplift_family'] ?? null,
+        ];
+    }
+
+    /** @param list<mixed> $values */
+    private function meanNullable(array $values): ?float
+    {
+        $nums = array_values(array_filter($values, 'is_numeric'));
+        if ($nums === []) {
+            return null;
+        }
+
+        return round(array_sum(array_map('floatval', $nums)) / count($nums), 6);
+    }
+
+    /** @param list<mixed> $values */
+    private function sumNullable(array $values): ?float
+    {
+        $nums = array_values(array_filter($values, 'is_numeric'));
+        if ($nums === []) {
+            return null;
+        }
+
+        return round(array_sum(array_map('floatval', $nums)), 6);
     }
 
     /** @param list<float> $values */
@@ -486,109 +1527,72 @@ class EnterpriseReportBuilder
     }
 
     /** @param array<string, mixed> $report */
-    private function markdown(array $report): string
-    {
-        $summary = (array) $report['executive_summary'];
-        $md = "# Rivals Fase A — Relatório Empresarial\n\n";
-        $md .= 'claim_allowed: false (agregado nunca é claim)'."\n";
-        $md .= 'provider_binding: '.($summary['provider_binding'] ?? 'hermes+verboo')."\n";
-        $md .= 'primary_model: '.($summary['primary_model'] ?? '')."\n";
-        $md .= 'built_at: '.($report['built_at'] ?? '')."\n";
-        $md .= 'report_hash: '.($report['report_hash'] ?? '')."\n\n";
-
-        $md .= "## Capa executiva\n\n";
-        $md .= '- suites ok: '.($summary['suites_ok'] ?? 0)."\n";
-        $md .= '- suites failed: '.($summary['suites_failed'] ?? 0)."\n";
-        $md .= '- suites missing_data: '.($summary['suites_missing_data'] ?? 0)."\n";
-        $md .= '- suites blocked: '.($summary['suites_blocked'] ?? 0)."\n";
-        $md .= '- suites not_run: '.($summary['suites_not_run'] ?? 0)."\n";
-        $md .= '- uplift families ready: '.($summary['uplift_families_ready'] ?? 0)
-            .'/'.($summary['uplift_families_total'] ?? 0)."\n\n";
-
-        $md .= "## Matriz das 10 suites\n\n";
-        $md .= "| suite | status | success_itt | median_ms | tokens in/out | cost/task | missing |\n";
-        $md .= "|---|---|---|---|---|---|---|\n";
-        foreach ($report['suite_rows'] as $row) {
-            $tokens = (($row['tokens_in_avg'] ?? null) === null && ($row['tokens_out_avg'] ?? null) === null)
-                ? 'n/a'
-                : ($row['tokens_in_avg'] ?? 'n/a').' / '.($row['tokens_out_avg'] ?? 'n/a');
-            $missing = $row['missing_fields'] === [] ? '-' : implode(',', $row['missing_fields']);
-            $md .= '| '.$row['suite_id']
-                .' | '.$row['status']
-                .' | '.($row['success_rate_itt'] ?? 'n/a')
-                .' | '.($row['median_wall_ms'] ?? 'n/a')
-                .' | '.$tokens
-                .' | '.($row['cost_per_task'] ?? 'n/a')
-                .' | '.$missing
-                ." |\n";
-        }
-
-        $md .= "\n## Face modelo × modelo\n\n";
-        $matrix = (array) $report['model_matrix'];
-        $md .= '- mode: '.($matrix['mode'] ?? 'unknown')."\n";
-        if (($matrix['mode'] ?? '') === 'single_model_battery') {
-            $md .= '- model_id: '.($matrix['model_id'] ?? '')."\n";
-        } else {
-            $md .= '- model_ids: '.implode(', ', (array) ($matrix['model_ids'] ?? []))."\n";
-        }
-
-        $md .= "\n## Face Atlas × modelo\n\n";
-        $md .= "| family | suite | status | supported | stop_the_line |\n|---|---|---|---|---|\n";
-        foreach ((array) ($report['atlas_uplift']['families'] ?? []) as $family) {
-            $md .= '| '.($family['family'] ?? '')
-                .' | '.($family['suite_id'] ?? '')
-                .' | '.($family['status'] ?? '')
-                .' | '.((($family['uplift_supported'] ?? false) ? 'true' : 'false'))
-                .' | '.((($family['stop_the_line'] ?? false) ? 'true' : 'false'))
-                ." |\n";
-        }
-
-        $md .= "\n## Gaps\n\n";
-        if ($report['gaps'] === []) {
-            $md .= "- (none)\n";
-        } else {
-            foreach ($report['gaps'] as $gap) {
-                $md .= '- '.$gap."\n";
-            }
-        }
-
-        return $md."\n";
-    }
-
-    /** @param array<string, mixed> $report */
     private function csv(array $report): string
     {
         $handle = fopen('php://temp', 'w+');
         fputcsv($handle, [
             'suite_id',
+            'category',
             'status',
             'run_id',
             'success_rate_itt',
+            'intelligence_rate',
             'median_wall_ms',
+            'p95_wall_ms',
             'tokens_in_avg',
             'tokens_out_avg',
+            'tokens_per_task',
+            'tokens_per_second',
+            'total_tokens',
+            'cost_per_1k_tokens',
             'cost_per_task',
             'cost_basis',
             'env_failure_rate',
+            'stability',
+            'uplift_family',
+            'native_coverage',
+            'report_coverage',
             'pipeline_valid',
             'internal_claim_allowed',
+            'events_complete',
+            'is_atlas_fact',
+            'measurement_status',
             'missing_fields',
+            'case_ids',
         ]);
         foreach ($report['suite_rows'] as $row) {
+            $full = (array) ($row['full_metrics'] ?? []);
+            $cov = (array) ($row['delivery_coverage'] ?? []);
+            $axes = (array) ($row['axes'] ?? []);
             fputcsv($handle, [
                 $row['suite_id'],
+                $row['category'] ?? ($row['delivery']['category'] ?? ''),
                 $row['status'],
                 $row['run_id'],
                 $row['success_rate_itt'],
+                $row['intelligence_rate'] ?? null,
                 $row['median_wall_ms'],
+                $full['p95_wall_ms'] ?? null,
                 $row['tokens_in_avg'],
                 $row['tokens_out_avg'],
+                $row['tokens_per_task'] ?? ($full['tokens_per_task'] ?? null),
+                $row['tokens_per_second'] ?? ($full['tokens_per_second'] ?? null),
+                $row['total_tokens'] ?? ($full['total_tokens'] ?? null),
+                $row['cost_per_1k_tokens'] ?? ($full['cost_per_1k_tokens'] ?? null),
                 $row['cost_per_task'],
                 $row['cost_basis'],
                 $row['env_failure_rate'],
-                $row['pipeline_valid'] ? 'true' : 'false',
-                $row['internal_claim_allowed'] ? 'true' : 'false',
-                implode('|', $row['missing_fields']),
+                $full['stability'] ?? null,
+                $row['delivery']['uplift_family'] ?? null,
+                ($cov['native_observed'] ?? 0).'/'.($cov['native_expected'] ?? 0),
+                ($cov['report_observed'] ?? 0).'/'.($cov['report_expected'] ?? 0),
+                ($row['pipeline_valid'] ?? false) ? 'true' : 'false',
+                ($row['internal_claim_allowed'] ?? false) ? 'true' : 'false',
+                ($row['events_complete'] ?? false) ? 'true' : 'false',
+                ($row['is_atlas_fact'] ?? false) ? 'true' : 'false',
+                $axes['measurement']['status'] ?? '',
+                implode('|', (array) ($row['missing_fields'] ?? [])),
+                implode('|', (array) ($row['case_ids'] ?? [])),
             ]);
         }
         rewind($handle);
@@ -596,6 +1600,82 @@ class EnterpriseReportBuilder
         fclose($handle);
 
         return (string) $csv;
+    }
+
+    private function eventsCompleteForRun(string $runId): bool
+    {
+        return EventsLifecycleContract::isClaimGradeComplete(
+            RunPaths::eventsPath($runId),
+        );
+    }
+
+    /**
+     * @param  list<string>  $missing
+     */
+    private function measurementStatus(array $missing, bool $coverageIncomplete, string $suiteId, ?string $runId = null): string
+    {
+        if ($this->harnessOmitsUsage($suiteId, $runId, $missing)) {
+            return 'harness_omit';
+        }
+        if ($missing === [] && ! $coverageIncomplete) {
+            return 'complete';
+        }
+        if ($missing !== [] && $coverageIncomplete === false) {
+            return 'omitted';
+        }
+        if ($coverageIncomplete) {
+            return 'partial';
+        }
+
+        return $missing === [] ? 'complete' : 'omitted';
+    }
+
+    /**
+     * @param  list<string>  $missing
+     */
+    private function harnessOmitsUsage(string $suiteId, ?string $runId, array $missing): bool
+    {
+        if ($suiteId === 'inspect_evals' && $missing !== []) {
+            return true;
+        }
+        if ($runId === null || $missing === []) {
+            return false;
+        }
+        foreach (RunReceipt::loadAll($runId) as $receipt) {
+            $presence = (array) ($receipt->data['field_presence'] ?? []);
+            foreach (['tokens_in', 'tokens_out', 'cost_usd'] as $field) {
+                $reason = (string) (($presence[$field]['reason'] ?? '') ?: '');
+                if ($reason !== '' && preg_match('/omit|harness_omit|inspect_logs_omit/i', $reason) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Prefer report intelligence_rate; fall back to receipts (excludes environment_failure).
+     */
+    private function intelligenceFromReceipts(string $runId): ?float
+    {
+        $items = RunReceipt::loadAll($runId);
+        if ($items === []) {
+            return null;
+        }
+        $nonEnv = array_values(array_filter(
+            $items,
+            fn (RunReceipt $r): bool => ($r->data['failure_class'] ?? null) !== FailureClass::ENVIRONMENT,
+        ));
+        if ($nonEnv === []) {
+            return null;
+        }
+        $successes = count(array_filter(
+            $nonEnv,
+            fn (RunReceipt $r): bool => ($r->data['status'] ?? null) === 'success',
+        ));
+
+        return round($successes / count($nonEnv), 4);
     }
 
     /** @param array<string, mixed> $payload */

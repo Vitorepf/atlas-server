@@ -1,8 +1,0 @@
-{
-  "case_id": "tb_kernel-config",
-  "native_task_id": "kernel-config",
-  "task_type": "terminal_agent",
-  "title": "tb_kernel-config",
-  "suite_id": "terminal_bench",
-  "source_repo": "terminal_bench"
-}

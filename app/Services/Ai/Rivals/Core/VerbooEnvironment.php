@@ -17,10 +17,20 @@ final class VerbooEnvironment
             getenv(),
             fn (mixed $value): bool => is_string($value),
         );
+        $home = rtrim((string) ($environment['HOME'] ?? getenv('HOME') ?: ''), '/');
+        $pathPrefix = implode(PATH_SEPARATOR, array_filter([
+            $home !== '' ? $home.'/.local/bin' : null,
+            '/opt/homebrew/bin',
+            '/usr/local/bin',
+        ]));
+        $path = $pathPrefix.PATH_SEPARATOR.((string) ($environment['PATH'] ?? getenv('PATH') ?: '/usr/bin:/bin'));
 
         return array_merge($environment, [
+            'PATH' => $path,
             'VERBOO_API_KEY' => $key,
             'OPENAI_API_KEY' => $key,
+            // Harbor verifier.env for some suites (e.g. swe_marathon) requires this name.
+            'ANTHROPIC_API_KEY' => $key,
             'OPENAI_BASE_URL' => self::BASE_URL,
             'OPENAI_API_BASE' => self::BASE_URL,
             'REMOTE_OPENAI_API_KEY' => $key,

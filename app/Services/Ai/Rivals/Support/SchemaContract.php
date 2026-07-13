@@ -92,7 +92,8 @@ class SchemaContract
         ],
         self::ENTERPRISE_REPORT => [
             'schema_version', 'built_at', 'report_hash', 'claim_allowed', 'claim_blockers',
-            'executive_summary', 'suite_rows', 'model_matrix', 'atlas_uplift', 'gaps',
+            'executive_summary', 'delivery_inventory', 'suite_rows', 'model_dissections',
+            'model_matrix', 'atlas_uplift', 'gaps',
             'included_run_ids', 'excluded_run_ids',
         ],
     ];
@@ -168,9 +169,18 @@ class SchemaContract
                 }
             }
         }
-        foreach (['executive_summary', 'model_matrix', 'atlas_uplift', 'gaps', 'claim_blockers', 'included_run_ids', 'excluded_run_ids'] as $field) {
+        foreach (['executive_summary', 'model_matrix', 'atlas_uplift', 'gaps', 'claim_blockers', 'included_run_ids', 'excluded_run_ids', 'delivery_inventory', 'model_dissections'] as $field) {
             if (array_key_exists($field, $payload) && ! is_array($payload[$field])) {
                 $violations[] = "invalid_array:{$field}";
+            }
+        }
+        if (array_key_exists('delivery_inventory', $payload) && is_array($payload['delivery_inventory'])) {
+            $expected = count((array) config('atlas_rivals.benchmarks.repos', []));
+            if ($expected <= 0) {
+                $expected = 10;
+            }
+            if (count($payload['delivery_inventory']) !== $expected) {
+                $violations[] = 'enterprise_delivery_inventory_count:'.count($payload['delivery_inventory']);
             }
         }
 

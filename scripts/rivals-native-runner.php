@@ -169,7 +169,9 @@ try {
             file_put_contents($stderrPath, '', FILE_APPEND);
         }
         $normalizationError = null;
-        if (! $timedOut && $exitCode === 0) {
+        // Normalize on exit 0, and also on non-zero when the suite left agent
+        // artifacts (HAL eval harness can fail after a successful agent turn).
+        if (! $timedOut) {
             try {
                 $normalized = (new NativeResultNormalizer)->normalize(
                     (string) $manifest->data['suite_id'],
@@ -192,12 +194,16 @@ try {
                 );
             }
         }
-        $resultPresent = is_file($resultPath);
+        $resultPresent = is_file($resultPath) && $normalizationError === null
+            && ! str_contains((string) file_get_contents($resultPath), '"_rivals_runner"');
+        // Prefer success when normalization recovered a real unit even if the
+        // native harness exited non-zero (e.g. HAL SWE-bench conda eval flake).
         $status = match (true) {
             $timedOut => 'timeout',
-            $exitCode === 0 && $resultPresent && $normalizationError === null => 'success',
+            $resultPresent => 'success',
             default => 'environment_failure',
         };
+        $exitNonzeroPromoted = $status === 'success' && $exitCode !== 0;
         if (! $resultPresent) {
             file_put_contents($resultPath, json_encode([
                 '_rivals_runner' => [
@@ -219,6 +225,7 @@ try {
             'result_sha256' => hash_file('sha256', $resultPath),
             'status' => $status,
             'exit_code' => $exitCode,
+            'exit_nonzero_promoted' => $exitNonzeroPromoted,
             'started_at' => $startedAt->toIso8601String(),
             'finished_at' => $finishedAt->toIso8601String(),
             'wall_ms' => (int) $startedAt->diffInRealMilliseconds($finishedAt),
@@ -253,7 +260,26 @@ try {
             'status' => $status,
             'exit_code' => $exitCode,
             'result_sha256' => $receipt->data['result_sha256'],
+            'runner_mode' => $receipt->data['runner']['mode'] ?? null,
+            'stdout_sha256' => is_file($stdoutPath) ? hash_file('sha256', $stdoutPath) : null,
+            'stderr_sha256' => is_file($stderrPath) ? hash_file('sha256', $stderrPath) : null,
+            'stdout_bytes' => is_file($stdoutPath) ? filesize($stdoutPath) : null,
+            'stderr_bytes' => is_file($stderrPath) ? filesize($stderrPath) : null,
         ]);
+        if (is_file($stdoutPath) && filesize($stdoutPath) > 0) {
+            EventStream::append($runId, 'provider_stdout_chunk', [
+                'execution_id' => $executionId,
+                'sha256' => hash_file('sha256', $stdoutPath),
+                'bytes' => filesize($stdoutPath),
+            ]);
+        }
+        if (is_file($stderrPath) && filesize($stderrPath) > 0) {
+            EventStream::append($runId, 'provider_stderr_chunk', [
+                'execution_id' => $executionId,
+                'sha256' => hash_file('sha256', $stderrPath),
+                'bytes' => filesize($stderrPath),
+            ]);
+        }
         $summary[] = [
             'execution_id' => $executionId,
             'status' => $status,
@@ -268,7 +294,11 @@ try {
         'manifest_hash' => $manifest->hash(),
         'executions' => $summary,
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL;
-    exit(0);
+    $failed = array_values(array_filter(
+        $summary,
+        static fn (array $row): bool => ! in_array(($row['status'] ?? null), ['success', 'dry_run'], true),
+    ));
+    exit($failed === [] ? 0 : 1);
 } catch (Throwable $e) {
     fwrite(STDERR, json_encode([
         'status' => 'error',

@@ -36,6 +36,8 @@ class RunPlan
                 'php' => PHP_VERSION,
                 'os' => PHP_OS_FAMILY,
                 'hostname' => gethostname() ?: 'unknown',
+                'repo_commit' => trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' rev-parse HEAD 2>/dev/null')) ?: null,
+                'workspace_dirty' => trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' status --porcelain 2>/dev/null')) !== '',
             ],
             'judge_config' => $judgeConfig,
             'claim_tier' => $resolvedTier,
@@ -43,6 +45,9 @@ class RunPlan
             'comparisons' => array_values($comparisons ?? []),
             'created_at' => now()->toIso8601String(),
         ];
+        // Top-level provenance aliases (claim-grade / autopsy); same values as environment.*
+        $data['git_head'] = $data['environment']['repo_commit'];
+        $data['workspace_dirty'] = $data['environment']['workspace_dirty'];
 
         $violations = SchemaContract::validate($data, SchemaContract::RUN_PLAN);
         if ($violations !== []) {

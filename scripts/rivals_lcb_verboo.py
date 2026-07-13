@@ -57,22 +57,27 @@ class TrackingCompletions:
     def create(self, *args, **kwargs):
         started = time.monotonic()
         response = self._completions.create(*args, **kwargs)
-        if usage_file and response.usage is not None:
+        # Prefer env so multiprocess workers still see the path after argv was
+        # consumed by take_option() in the parent process.
+        target = os.environ.get("RIVALS_LCB_USAGE_FILE") or usage_file
+        if target and response.usage is not None:
             current = {
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "api_calls": 0,
                 "duration_sec": 0.0,
             }
-            if os.path.isfile(usage_file):
-                with open(usage_file) as handle:
+            if os.path.isfile(target):
+                with open(target) as handle:
                     current.update(json.load(handle))
             current["input_tokens"] += int(response.usage.prompt_tokens or 0)
             current["output_tokens"] += int(response.usage.completion_tokens or 0)
             current["api_calls"] += 1
             current["duration_sec"] += time.monotonic() - started
-            os.makedirs(os.path.dirname(usage_file), exist_ok=True)
-            with open(usage_file, "w") as handle:
+            parent = os.path.dirname(target)
+            if parent:
+                os.makedirs(parent, exist_ok=True)
+            with open(target, "w") as handle:
                 json.dump(current, handle)
         return response
 

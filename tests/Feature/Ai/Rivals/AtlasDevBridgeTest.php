@@ -62,9 +62,13 @@ class AtlasDevBridgeTest extends TestCase
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
         $payload = json_decode($process->getOutput(), true);
 
-        $this->assertContains('--ai=hermes', $payload['argv']);
-        $this->assertNull($payload['provider']);
         $this->assertSame('hermes', $payload['ai']);
+        $this->assertSame('hermes_cli_oneshot', $payload['execution']);
+        $this->assertNull($payload['provider']);
+        $this->assertSame('hermes', $payload['argv'][0] ?? null);
+        $this->assertContains('-z', $payload['argv']);
+        $this->assertContains('--provider', $payload['argv']);
+        $this->assertContains('verboo', $payload['argv']);
         $this->assertNotContains('--provider=claude_cli', $payload['argv']);
         $this->assertNotContains('--provider=codex_cli', $payload['argv']);
     }

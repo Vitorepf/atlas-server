@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Support;
 
+use App\Services\Ai\Rivals\Core\FailureClass;
 use App\Services\Ai\Rivals\Core\ModelRegistry;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
@@ -89,6 +90,20 @@ final class RuntimeProofAttacher
                     'model' => (string) ($binding['cli_model'] ?? ''),
                     'reason' => 'atlas_dev_runtime_proof_missing_or_invalid',
                 ];
+            EventStream::append($runId, $valid ? 'bridge_proof_attached' : 'bridge_proof_missing', [
+                'case_id' => $receipt['case_id'] ?? null,
+                'arm_id' => $receipt['arm_id'] ?? null,
+                'repetition' => $receipt['repetition'] ?? null,
+                'runtime' => 'atlas_dev',
+                'reason' => $valid ? null : 'atlas_dev_runtime_proof_missing_or_invalid',
+            ]);
+            if (! $valid) {
+                // Missing bridge is an environment/runtime proof failure — not model stupidity.
+                $receipt['failure_class'] = FailureClass::ENVIRONMENT;
+                if (($receipt['status'] ?? null) === 'success') {
+                    $receipt['status'] = 'error';
+                }
+            }
         }
         $receipt['metadata'] = $metadata;
 

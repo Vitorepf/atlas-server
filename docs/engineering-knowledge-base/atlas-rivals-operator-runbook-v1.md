@@ -109,7 +109,63 @@ Schemas internos `atlas.rivals2.*` e env `ATLAS_RIVALS2_*` sao formato preservad
 | `uplift` | bare vs atlas_* (`--model=` obrigatorio; `--strict` falha se unsupported) |
 | `bundle` / `verify-bundle` | Bundle portatil e verificacao read-only |
 | `closure` | Reexecuta gates e gera closure receipt; `--strict` exige 100%; `--verify` detecta edicao |
-| `ledger` | Hash chain (`--verify`) e estado atual (`--verify --semantic`) |
+| `ledger` | Hash chain (`--verify`) e estado atual (`--verify --semantic`); `--repair-semantic` re-append epoch limpo |
+| `autopsy` | Flight recorder: events + receipts + native mode + blockers + uplift exclusions (`--run=`) |
+
+### Contrato de confiança (operador)
+
+Só trate como **fato Atlas** o que passar claim interno + `events_complete` +
+native `execute`. Use `atlas:rivals autopsy --run=<id> --json` antes de
+confiar em qualquer % do enterprise. Battery execute aborta em env sistematico;
+`normalize_only` nunca promove. Ledger com `entry_hash_mismatch` historico →
+quarantine epoch + `--repair-semantic` no epoch atual (nao reescrever bytes).
+
+Claim-grade flags:
+- `--require-clean-worktree` em `plan` / `battery --mode=prepare|execute`
+- `status --run=` reporta `heartbeat_age_seconds` + `stall`
+- Doctor inclui `checks.harbor_preflight` para `senior_swe_bench` / `swe_marathon` / `terminal_bench`
+
+### Claim-grade re-battery (sem `--fast`)
+
+```bash
+# dry (sem spend)
+DRY_RUN=1 scripts/rivals-claim-grade-rebattery.sh bare
+
+# solid bare → uplift (gasto real; worktree limpo)
+scripts/rivals-claim-grade-rebattery.sh bare
+scripts/rivals-claim-grade-rebattery.sh uplift
+```
+
+Critério: `closure --verify` → `authorized=true` **ou** só blockers externos
+documentados (`modal_auth`, Docker/Harbor ausente, etc.). `internal_claim_allowed`
+por run ≠ `fase_a_100_percent_authorized` no closure.
+
+Bloqueadores operacionais típicos antes do solid spend:
+- worktree dirty (use `--require-clean-worktree` / commit ou stash)
+- ledger epoch sujo → `ledger --quarantine-epoch` depois `--repair-semantic --run=`
+- sample_ci_too_wide → aumentar cases×reps (não mentir adequacy)
+
+O dry-run do script (`DRY_RUN=1`) valida prepare+argv sem spend. Solid bare+uplift
+é campanha multi-hora no Mac com Hermes+Verboo.
+
+### BFCL autopsy (produto)
+
+Δ Atlas negativo em BFCL **permanece fato** se for regressão de modelo/solver —
+não cosmética. Dissecção:
+
+```bash
+# ache o run_id bare / atlas_dev no enterprise ou:
+php artisan atlas:rivals autopsy --run=<bfcl_run> --md
+```
+
+Classificar cada unit: (a) bug de infra/bridge/env → patch harness;
+(b) evaluate/score honesto pior com Atlas → manter no report como regressão.
+Nunca apagar Δ negativo para “ficar bonito”.
+
+**Classificação viva (2026-07-12 uplift `20260712_195649_89170b86`):**
+- bare ITT = 100%; atlas_dev ITT = 33.33%; Δ = **−66.67 pp**; `outcome=confirmed_negative`; `stop_the_line=true`.
+- `excluded_pair_keys` vazio → não é gap de proof; é regressão de produto medida.
+- Ação: **não patchar** score; manter fato negativo no enterprise até solver Atlas melhorar.
 
 Loop externo tipico: `import-cases` → `plan` → executar comandos nativos fora do PHP → `import-results` → `verify` → `adjudicate` → `report`.
 

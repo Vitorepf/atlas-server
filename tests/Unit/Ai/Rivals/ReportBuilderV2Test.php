@@ -102,6 +102,12 @@ class ReportBuilderV2Test extends TestCase
         $this->assertSame(3500.0, $row['median_wall_ms']);
         $this->assertEqualsWithDelta(1 / 6, $row['environment_failure_rate'], 0.0001);
         $this->assertSame(5, $row['tokens_coverage']['in']);
+        $this->assertNotNull($row['tokens_per_task']);
+        $this->assertNotNull($row['tokens_per_second']);
+        $this->assertNotNull($row['avg_tokens_per_task']);
+        $this->assertGreaterThan(0.0, (float) $row['tokens_per_second']);
+        // 5 present usage rows: in=(10+20+30+40+50)=150, out=(2+4+6+8+10)=30 → total 180 over 2 cases
+        $this->assertEqualsWithDelta(90.0, (float) $row['tokens_per_task'], 0.0001);
         $this->assertFileExists(RunPaths::reportPath($runId));
         $this->assertFileExists(RunPaths::reportMarkdownPath($runId));
         $this->assertFileExists(RunPaths::reportCsvPath($runId));
@@ -113,8 +119,12 @@ class ReportBuilderV2Test extends TestCase
         $markdown = (string) file_get_contents(RunPaths::reportMarkdownPath($runId));
         $this->assertStringContainsString('## Statistical analysis', $markdown);
         $this->assertStringContainsString('tokens_cov_in/out', $markdown);
+        $this->assertStringContainsString('tokens/task', $markdown);
+        $this->assertStringContainsString('tok/s', $markdown);
         $csv = (string) file_get_contents(RunPaths::reportCsvPath($runId));
         $this->assertStringContainsString('tokens_coverage_in', $csv);
+        $this->assertStringContainsString('tokens_per_task', $csv);
+        $this->assertStringContainsString('tokens_per_second', $csv);
         $this->assertStringContainsString('internal_claim_allowed', $csv);
 
         $all = (new ReportBuilder)->buildAll();

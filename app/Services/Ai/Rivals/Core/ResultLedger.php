@@ -286,4 +286,85 @@ class ResultLedger
     {
         return is_file($path) ? hash_file('sha256', $path) : null;
     }
+
+    /**
+     * Re-bind ledger semantic hashes to on-disk adjudication/report after rebuild.
+     *
+     * @return array<string, mixed>
+     */
+    public function repairSemanticForRun(string $runId): array
+    {
+        $this->supersede($runId, 'ledger_repair_semantic');
+        $adjPath = RunPaths::adjudicationPath($runId);
+        $reportPath = RunPaths::reportPath($runId);
+        $appended = [];
+        if (is_file($adjPath)) {
+            $adj = json_decode((string) file_get_contents($adjPath), true) ?? [];
+            $appended['adjudication'] = $this->append($runId, $adj, ['entry_type' => 'adjudication']);
+        }
+        if (is_file($reportPath)) {
+            $report = json_decode((string) file_get_contents($reportPath), true) ?? [];
+            $appended['report'] = $this->appendReport($runId, $report);
+        }
+        $verify = $this->verifySemantic();
+
+        return [
+            'schema_version' => 'atlas.rivals2.ledger_repair.v1',
+            'run_id' => $runId,
+            'status' => ($verify['verified'] ?? false) ? 'ok' : 'error',
+            'appended' => array_keys($appended),
+            'verify' => $verify,
+        ];
+    }
+
+    /**
+     * Quarantine corrupted ledger chain and start a fresh epoch (does not rewrite bytes).
+     *
+     * @return array<string, mixed>
+     */
+    public function quarantineCorruptEpoch(): array
+    {
+        $path = RunPaths::ledgerPath();
+        if (! is_file($path)) {
+            return [
+                'schema_version' => 'atlas.rivals2.ledger_quarantine.v1',
+                'status' => 'ok',
+                'reason' => 'ledger_absent',
+            ];
+        }
+        $chain = $this->verifyChain();
+        if (($chain['verified'] ?? false) === true) {
+            return [
+                'schema_version' => 'atlas.rivals2.ledger_quarantine.v1',
+                'status' => 'ok',
+                'reason' => 'chain_already_valid',
+                'entries' => $chain['entries'] ?? 0,
+            ];
+        }
+        $stamp = gmdate('Ymd_His');
+        $quarantine = dirname($path).'/ledger.quarantine.'.$stamp.'.jsonl';
+        if (! rename($path, $quarantine)) {
+            throw new RuntimeException('rivals_ledger_quarantine_rename_failed');
+        }
+        file_put_contents($path, '');
+        $meta = [
+            'schema_version' => 'atlas.rivals2.ledger_epoch.v1',
+            'quarantined_at' => now()->toIso8601String(),
+            'quarantine_path' => $quarantine,
+            'failures' => $chain['failures'] ?? [],
+            'previous_entries' => $chain['entries'] ?? 0,
+        ];
+        file_put_contents(
+            dirname($path).'/ledger.epoch.'.$stamp.'.json',
+            json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        );
+
+        return [
+            'schema_version' => 'atlas.rivals2.ledger_quarantine.v1',
+            'status' => 'ok',
+            'quarantine_path' => $quarantine,
+            'new_ledger' => $path,
+            'previous_failures' => $chain['failures'] ?? [],
+        ];
+    }
 }

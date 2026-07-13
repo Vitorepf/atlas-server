@@ -75,10 +75,11 @@ class VerbooHermes(Hermes):
             env=env,
             timeout_sec=10,
         )
+        # --usage-file only works in one-shot (-z) mode, not `hermes chat`.
         run_cmd = (
             'export PATH="$HOME/.local/bin:$PATH" && '
-            "hermes --usage-file /logs/agent/hermes-usage.json --yolo chat "
-            '-q "$HARBOR_INSTRUCTION" -Q '
+            "hermes --usage-file /logs/agent/hermes-usage.json --yolo "
+            '-z "$HARBOR_INSTRUCTION" '
             f"--provider verboo --model {shlex.quote(model)} "
             "2>&1 | stdbuf -oL tee /logs/agent/hermes.txt"
         )

@@ -211,6 +211,34 @@ class NativeResultNormalizerTest extends TestCase
         $this->assertTrue($halUnit['runs'][0]['success']);
         $this->assertSame(0.03, $halUnit['runs'][0]['total_cost_usd']);
 
+        $halMini = $this->entry('django__django-11790', [
+            'benchmark' => 'swebench_verified_mini',
+            'task_id' => 'django__django-11790',
+        ]);
+        $halMini['model_id'] = 'verboo_kimi_k2_7';
+        $halMiniDir = $this->scratch.'/swebench_verified_mini/'.$halMini['normalization']['run_name'];
+        File::ensureDirectoryExists($halMiniDir);
+        $this->writeJson($halMiniDir.'/'.$halMini['normalization']['run_name'].'_UPLOAD.json', [
+            'results' => [
+                'accuracy' => 0.0,
+                'successful_tasks' => [],
+                'failed_tasks' => ['django__django-11790'],
+                'total_cost' => 0.0,
+                'latencies' => [],
+            ],
+            'raw_eval_results' => [
+                'error_ids' => ['django__django-11790'],
+                'resolved_ids' => [],
+            ],
+            'wall_clock_times' => ['django__django-11790' => 2.8],
+            'total_cost' => 0.0,
+            'total_usage' => [],
+        ]);
+        $halMiniUnit = (new NativeResultNormalizer)->normalize('hal_harness', $halMini, $this->root);
+        $this->assertFalse($halMiniUnit['runs'][0]['success']);
+        $this->assertSame(0.0, $halMiniUnit['runs'][0]['total_cost_usd']);
+        $this->assertSame(2.8, $halMiniUnit['runs'][0]['latency_sec']);
+
         $aider = $this->entry('aider_case', ['native_task_id' => 'anagram']);
         $aiderDir = $this->root.'/tmp.benchmarks/2026-'.$aider['normalization']['run_name']
             .'/python/exercises/practice/anagram';

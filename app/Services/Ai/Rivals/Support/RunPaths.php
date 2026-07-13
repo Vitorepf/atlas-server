@@ -49,6 +49,13 @@ class RunPaths
         return self::runDir($runId).'/preregistration.json';
     }
 
+    public static function campaignManifestPath(string $campaignId): string
+    {
+        self::assertIdentifier($campaignId, 'campaign_id');
+
+        return self::root().'/campaigns/'.$campaignId.'.json';
+    }
+
     public static function unitFreezePath(string $runId): string
     {
         return self::runDir($runId).'/frozen_units.json';
@@ -137,6 +144,11 @@ class RunPaths
     public static function enterpriseCsvPath(): string
     {
         return self::enterpriseDir().'/report.csv';
+    }
+
+    public static function enterpriseHtmlPath(): string
+    {
+        return self::enterpriseDir().'/report.html';
     }
 
     public static function eventsPath(string $runId): string

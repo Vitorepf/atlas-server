@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Rivals\Core;
 
+use App\Services\Ai\Rivals\Support\EventStream;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use InvalidArgumentException;
 use RuntimeException;
@@ -30,7 +31,9 @@ class FaseABatteryOrchestrator
         $primary = (string) config('atlas_rivals.fase_a.primary_model', 'verboo_kimi_k2_7');
         $this->assertHermesModel($primary);
 
-        $suites = $mode === 'uplift'
+        // atlas = braço atlas_dev sozinho; só faz sentido nas suítes com bridge
+        // Atlas (uplift_families) — nas demais o plano falha fast pré-spend.
+        $suites = in_array($mode, ['uplift', 'atlas'], true)
             ? array_values(array_unique(array_values((array) config('atlas_rivals.uplift_families', []))))
             : $this->suites->externalSuiteIds();
 
@@ -47,11 +50,23 @@ class FaseABatteryOrchestrator
                 );
             }
             if ($fast) {
+                // Prefer lighter marathon fixtures for pipeline proof.
+                // embedding-eval needs GPU (fails on plain docker); slack-clone is multi-hour.
+                if ($suiteId === 'swe_marathon') {
+                    foreach (['nextjs-vite-rewrite', 'slack-clone', 'embedding-eval'] as $preferred) {
+                        if (in_array($preferred, $cases, true)) {
+                            $cases = [$preferred];
+                            break;
+                        }
+                    }
+                }
                 $cases = array_slice($cases, 0, 1);
             }
-            $arms = $mode === 'uplift'
-                ? ["{$primary}@bare", "{$primary}@atlas_dev"]
-                : ["{$primary}@bare"];
+            $arms = match ($mode) {
+                'uplift' => ["{$primary}@bare", "{$primary}@atlas_dev"],
+                'atlas' => ["{$primary}@atlas_dev"],
+                default => ["{$primary}@bare"],
+            };
             $plans[] = [
                 'suite_id' => $suiteId,
                 'cases' => $cases,
@@ -455,7 +470,7 @@ class FaseABatteryOrchestrator
     private function assertSmokesReady(string $mode): array
     {
         $repos = (new \App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager)->status();
-        $needed = $mode === 'uplift'
+        $needed = in_array($mode, ['uplift', 'atlas'], true)
             ? array_values(array_unique(array_values((array) config('atlas_rivals.uplift_families', []))))
             : (new SuiteRegistry)->externalSuiteIds();
         $byId = [];
@@ -500,6 +515,17 @@ class FaseABatteryOrchestrator
         }
         $cwd = rtrim((string) config('atlas_rivals.benchmarks.root'), '/').'/'.$suiteId;
         $manifest = NativeExecutionManifest::load($runId);
+        EventStream::append($runId, 'battery_started', [
+            'suite_id' => $suiteId,
+            'source' => 'fase_a_battery_execute',
+            'units_dry_run' => $unitsDryRun,
+            'launcher' => [
+                'engine' => getenv('ATLAS_RIVALS_LAUNCHER_ENGINE') ?: 'cli',
+                'pid' => getmypid(),
+                'git_head' => trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' rev-parse HEAD 2>/dev/null')),
+                'dirty' => trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' status --porcelain 2>/dev/null')) !== '',
+            ],
+        ]);
         (new RunStateMachine)->mark($runId, RunStateMachine::NATIVE_RUNNING, [
             'source' => 'fase_a_battery_execute',
             'units_dry_run' => $unitsDryRun,
@@ -507,6 +533,12 @@ class FaseABatteryOrchestrator
 
         $unitResults = [];
         foreach ($manifest->entries() as $entry) {
+            EventStream::append($runId, 'unit_started', [
+                'execution_id' => $entry['execution_id'],
+                'case_id' => $entry['case_id'] ?? null,
+                'arm_id' => $entry['arm_id'] ?? null,
+                'repetition' => $entry['repetition'] ?? null,
+            ]);
             $argv = [
                 PHP_BINARY,
                 base_path('scripts/rivals-native-runner.php'),
@@ -525,11 +557,35 @@ class FaseABatteryOrchestrator
                     'argv' => $argv,
                     'stderr_tail' => '',
                 ];
+                EventStream::append($runId, 'unit_finished', [
+                    'execution_id' => $entry['execution_id'],
+                    'status' => 'dry_run',
+                ]);
 
                 continue;
             }
             $argv[] = '--approve-provider-spend';
-            $unitResults[] = $this->runNativeUnit($argv, $entry['execution_id'], false);
+            EventStream::append($runId, 'unit_heartbeat', [
+                'execution_id' => $entry['execution_id'],
+                'phase' => 'started',
+            ]);
+            $unitResult = $this->runNativeUnit($argv, $entry['execution_id'], false, $runId);
+            $unitResults[] = $unitResult;
+            EventStream::append($runId, 'unit_finished', [
+                'execution_id' => $entry['execution_id'],
+                'status' => $unitResult['status'] ?? null,
+                'execution_status' => $unitResult['execution_status'] ?? null,
+                'runner_mode' => $unitResult['runner_mode'] ?? null,
+            ]);
+            if (($unitResult['runner_mode'] ?? null) === 'normalize_only') {
+                EventStream::append($runId, 'battery_aborted_env', [
+                    'reason' => 'normalize_only',
+                    'execution_id' => $entry['execution_id'],
+                ]);
+                throw new RuntimeException(
+                    "rivals_battery_execute_normalize_only_banned:{$suiteId}:{$entry['execution_id']}"
+                );
+            }
         }
 
         if ($unitsDryRun) {
@@ -551,13 +607,24 @@ class FaseABatteryOrchestrator
             $unitResults,
             fn (array $u): bool => ($u['status'] ?? null) !== 'ok',
         ));
+        // Always attempt finishRunPipeline when any unit produced a result on disk.
+        // Partial failures used to throw before uplift.json / report existed.
+        $pipeline = null;
+        $pipelineError = null;
+        try {
+            $pipeline = $this->finishRunPipeline($runId, $suiteId);
+        } catch (\Throwable $e) {
+            $pipelineError = $e->getMessage();
+        }
         if ($failedUnits !== []) {
             throw new RuntimeException(
                 "rivals_battery_execute_units_failed:{$suiteId}:".count($failedUnits)
+                .($pipelineError !== null ? ':pipeline='.$pipelineError : '')
             );
         }
-
-        $pipeline = $this->finishRunPipeline($runId, $suiteId);
+        if ($pipelineError !== null) {
+            throw new RuntimeException("rivals_battery_execute_pipeline_failed:{$suiteId}:{$pipelineError}");
+        }
 
         return [
             'suite_id' => $suiteId,
@@ -572,17 +639,64 @@ class FaseABatteryOrchestrator
      * @param  list<string>  $argv
      * @return array<string, mixed>
      */
-    private function runNativeUnit(array $argv, string $executionId, bool $unitsDryRun): array
+    private function runNativeUnit(array $argv, string $executionId, bool $unitsDryRun, ?string $runId = null): array
     {
         $process = new \Symfony\Component\Process\Process($argv, base_path());
         $process->setTimeout(null);
-        $process->run();
-        $ok = $process->getExitCode() === 0;
+        $process->start();
+        $lastBeat = time();
+        while ($process->isRunning()) {
+            if ($runId !== null && (time() - $lastBeat) >= 30) {
+                EventStream::append($runId, 'unit_heartbeat', [
+                    'execution_id' => $executionId,
+                    'pid' => $process->getPid(),
+                    'elapsed_s' => time() - $lastBeat,
+                ]);
+                $lastBeat = time();
+            }
+            usleep(250_000);
+        }
+        $exitCode = $process->getExitCode();
+        $stdout = (string) $process->getOutput();
+        $executionStatus = null;
+        $decoded = json_decode($stdout, true);
+        if (is_array($decoded)) {
+            foreach ((array) ($decoded['executions'] ?? []) as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                if ((string) ($row['execution_id'] ?? '') === $executionId) {
+                    $executionStatus = (string) ($row['status'] ?? '');
+                    break;
+                }
+            }
+            if ($executionStatus === null && count((array) ($decoded['executions'] ?? [])) === 1) {
+                $executionStatus = (string) ($decoded['executions'][0]['status'] ?? '');
+            }
+        }
+        // Fall back to on-disk receipt when stdout is empty/truncated. A recovered
+        // unit can write status=success while the harness exit was non-zero; that
+        // must still count as ok so finishRunPipeline (and uplift.json) runs.
+        $receiptStatus = null;
+        $runnerMode = null;
+        foreach (glob(storage_path('atlas/rivals/runs/*/native_execution_receipts/'.$executionId.'.json')) ?: [] as $path) {
+            $receipt = json_decode((string) file_get_contents($path), true);
+            if (is_array($receipt)) {
+                $receiptStatus = (string) ($receipt['status'] ?? '');
+                $runnerMode = (string) (($receipt['runner']['mode'] ?? '') ?: '');
+                break;
+            }
+        }
+        $effectiveStatus = $executionStatus ?: $receiptStatus;
+        $ok = $effectiveStatus === 'success'
+            || ($exitCode === 0 && ($effectiveStatus === null || $effectiveStatus === ''));
 
         return [
             'execution_id' => $executionId,
             'status' => $ok ? 'ok' : 'error',
-            'exit_code' => $process->getExitCode(),
+            'exit_code' => $exitCode,
+            'execution_status' => $effectiveStatus,
+            'runner_mode' => $runnerMode !== '' ? $runnerMode : null,
             'dry_run' => $unitsDryRun,
             'argv' => $argv,
             'stderr_tail' => mb_substr(trim($process->getErrorOutput()), -500),
@@ -594,8 +708,19 @@ class FaseABatteryOrchestrator
      */
     private function finishRunPipeline(string $runId, string $suiteId): array
     {
+        EventStream::append($runId, 'pipeline_stage', ['stage' => 'import_started', 'suite_id' => $suiteId]);
         $adapter = $this->suites->adapterFor($suiteId, allowLegacyAlias: false);
         $states = new RunStateMachine;
+        foreach (NativeExecutionReceipt::loadAll($runId) as $nativeReceipt) {
+            $mode = (string) (($nativeReceipt->data['runner']['mode'] ?? '') ?: '');
+            if ($mode === 'normalize_only') {
+                EventStream::append($runId, 'battery_aborted_env', [
+                    'reason' => 'normalize_only_in_pipeline',
+                    'execution_id' => $nativeReceipt->data['execution_id'] ?? null,
+                ]);
+                throw new RuntimeException('rivals_battery_finish_normalize_only_banned:'.$runId);
+            }
+        }
         $import = (new NativeExecutionBundleImporter)->import(
             $runId,
             $suiteId,
@@ -604,11 +729,35 @@ class FaseABatteryOrchestrator
         $receipts = $adapter->ingestResults(RunPaths::runDir($runId));
         foreach ($receipts as $receipt) {
             $receipt->append();
+            EventStream::append($runId, 'failure_class_assigned', [
+                'case_id' => $receipt->data['case_id'] ?? null,
+                'arm_id' => $receipt->data['arm_id'] ?? null,
+                'failure_class' => $receipt->data['failure_class'] ?? null,
+                'status' => $receipt->data['status'] ?? null,
+            ]);
+        }
+        $envCount = count(array_filter(
+            $receipts,
+            fn ($r): bool => ($r->data['failure_class'] ?? null) === FailureClass::ENVIRONMENT,
+        ));
+        $maxEnvRate = (float) config('atlas_rivals.claim.max_environment_failure_rate', 0.05);
+        $envRate = count($receipts) > 0 ? $envCount / count($receipts) : 0.0;
+        if ($envRate > $maxEnvRate) {
+            EventStream::append($runId, 'battery_aborted_env', [
+                'reason' => 'environment_failure_rate',
+                'rate' => $envRate,
+                'max' => $maxEnvRate,
+                'env_count' => $envCount,
+            ]);
+            throw new RuntimeException(
+                "rivals_battery_abort_environment_failure:{$suiteId}:rate={$envRate}"
+            );
         }
         $states->mark($runId, RunStateMachine::RESULTS_IMPORTED, [
             'receipts' => count($receipts),
             'import' => $import,
         ]);
+        EventStream::append($runId, 'pipeline_stage', ['stage' => 'evidence']);
         (new EvidencePackBuilder)->build($runId);
         $states->mark($runId, RunStateMachine::EVIDENCE_BUILT);
         $verify = (new ReplayVerifier)->verify($runId);
@@ -616,6 +765,7 @@ class FaseABatteryOrchestrator
             throw new RuntimeException('rivals_battery_execute_verify_failed:'.$runId);
         }
         $states->mark($runId, RunStateMachine::VERIFIED, $verify);
+        EventStream::append($runId, 'pipeline_stage', ['stage' => 'adjudicate']);
         $adjudication = (new Adjudicator)->adjudicate($runId);
         $states->mark($runId, RunStateMachine::ADJUDICATED, [
             'pipeline_valid' => (bool) ($adjudication['pipeline_valid'] ?? false),
@@ -628,6 +778,15 @@ class FaseABatteryOrchestrator
         ]);
         (new ResultLedger)->appendReport($runId, $report);
 
+        $uplift = $this->maybeComputeUplift($runId);
+        EventStream::append($runId, 'pipeline_finished', [
+            'suite_id' => $suiteId,
+            'pipeline_valid' => (bool) ($adjudication['pipeline_valid'] ?? false),
+            'internal_claim_allowed' => (bool) ($adjudication['internal_claim_allowed'] ?? false),
+            'uplift_kind' => is_array($uplift) ? ($uplift['uplift_kind'] ?? null) : null,
+        ]);
+        EventStream::append($runId, 'battery_finished', ['suite_id' => $suiteId]);
+
         return [
             'import' => $import,
             'receipts' => count($receipts),
@@ -635,7 +794,41 @@ class FaseABatteryOrchestrator
             'pipeline_valid' => (bool) ($adjudication['pipeline_valid'] ?? false),
             'internal_claim_allowed' => (bool) ($adjudication['internal_claim_allowed'] ?? false),
             'report_hash' => $report['report_hash'] ?? null,
+            'uplift' => $uplift,
         ];
+    }
+
+    /**
+     * When the plan has the same model on bare + atlas_dev, persist uplift.json automatically.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function maybeComputeUplift(string $runId): ?array
+    {
+        try {
+            $plan = RunPlan::load($runId);
+        } catch (\Throwable) {
+            return null;
+        }
+        $byModel = [];
+        foreach ((array) ($plan->data['arms'] ?? []) as $arm) {
+            if (! is_array($arm)) {
+                continue;
+            }
+            $modelId = (string) ($arm['model_id'] ?? '');
+            $runtime = (string) ($arm['runtime'] ?? '');
+            if ($modelId === '' || $runtime === '') {
+                continue;
+            }
+            $byModel[$modelId][$runtime] = true;
+        }
+        foreach ($byModel as $modelId => $runtimes) {
+            if (($runtimes['bare'] ?? false) && ($runtimes['atlas_dev'] ?? false)) {
+                return (new AtlasUpliftRunner)->compare($runId, $modelId);
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -727,7 +920,7 @@ class FaseABatteryOrchestrator
 
     private function assertMode(string $mode): string
     {
-        if (! in_array($mode, ['bare', 'uplift', 'model_matrix'], true)) {
+        if (! in_array($mode, ['bare', 'uplift', 'atlas', 'model_matrix'], true)) {
             throw new InvalidArgumentException("rivals_battery_invalid_mode:{$mode}");
         }
 

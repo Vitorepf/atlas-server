@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Ai\Rivals;
 
-use App\Services\Ai\Rivals\Adapters\External\Tau2BenchAdapter;
+use App\Services\Ai\Rivals\Adapters\External\HarborTerminalBenchAdapter;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\NativeExecutionManifest;
 use App\Services\Ai\Rivals\Core\NativeExecutionReceipt;
@@ -59,6 +59,10 @@ class RuntimeProofAttacherTest extends TestCase
             $entry['expected_result_path'],
         );
         $this->assertFalse(data_get($missing, 'metadata.runtime_bridge.real_provider'));
+        $this->assertSame(
+            \App\Services\Ai\Rivals\Core\FailureClass::ENVIRONMENT,
+            $missing['failure_class'] ?? null,
+        );
 
         File::ensureDirectoryExists((string) data_get($entry, 'normalization.scratch_dir'));
         file_put_contents(
@@ -95,11 +99,12 @@ class RuntimeProofAttacherTest extends TestCase
     /** @return array{RunPlan, NativeExecutionManifest, array<string,mixed>, array<string,mixed>} */
     private function manifest(string $runtime): array
     {
-        $adapter = new Tau2BenchAdapter;
+        // tau2 não tem runtime atlas_dev (fail-fast pré-spend); terminal_bench tem.
+        $adapter = new HarborTerminalBenchAdapter;
         $binding = (new ArmRegistry)->parse('verboo_kimi_k2_7@'.$runtime, $adapter->suiteId());
         $plan = RunPlan::make(
             $adapter->suiteId(),
-            ['airline_task_012'],
+            ['tb_hello'],
             [$binding],
             1,
             ['max_usd' => 0.0, 'max_minutes' => 5],

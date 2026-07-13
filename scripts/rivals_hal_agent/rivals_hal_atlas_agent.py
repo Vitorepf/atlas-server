@@ -23,18 +23,50 @@ def _run(input: dict[str, dict], runtime: str, **kwargs) -> dict:
     root = Path(os.environ["ATLAS_RIVALS_ROOT"])
     with tempfile.TemporaryDirectory(prefix="rivals-hal-atlas-") as temporary:
         workspace = Path(temporary) / task["repo"].split("/")[-1]
-        subprocess.run(
-            ["git", "clone", "--filter=blob:none", "https://github.com/" + task["repo"] + ".git", str(workspace)],
-            check=True,
+        repo_url = "https://github.com/" + task["repo"] + ".git"
+        base_commit = str(task["base_commit"])
+        # Shallow+timeout: full blobless clones of django hang for 10+ minutes on
+        # flaky networks and stall the uplift battery.
+        clone = subprocess.run(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                repo_url,
+                str(workspace),
+            ],
             capture_output=True,
             text=True,
+            timeout=300,
         )
+        if clone.returncode != 0:
+            raise RuntimeError(f"hal_git_clone_failed: {clone.stderr[-500:]}")
+        fetch = subprocess.run(
+            ["git", "fetch", "--depth", "1", "origin", base_commit],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if fetch.returncode != 0:
+            # Fallback: deepen enough to reach the base commit.
+            fetch = subprocess.run(
+                ["git", "fetch", "--filter=blob:none", "origin", base_commit],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                timeout=600,
+            )
+            if fetch.returncode != 0:
+                raise RuntimeError(f"hal_git_fetch_failed: {fetch.stderr[-500:]}")
         subprocess.run(
-            ["git", "checkout", "--detach", task["base_commit"]],
+            ["git", "checkout", "--detach", base_commit],
             cwd=workspace,
             check=True,
             capture_output=True,
             text=True,
+            timeout=120,
         )
         prompt_file = workspace / ".rivals_task.md"
         prompt_file.write_text(

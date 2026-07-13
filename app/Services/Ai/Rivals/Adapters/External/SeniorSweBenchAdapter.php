@@ -49,6 +49,10 @@ class SeniorSweBenchAdapter extends AbstractExternalSuiteAdapter
             $status = isset($task['resolved']) ? ($task['resolved'] ? 'success' : 'failure') : 'error';
             $hasEnvironmentError = is_array($task['exception_info'] ?? null)
                 && $task['exception_info'] !== [];
+            $tokensIn = (int) ($task['usage']['input_tokens'] ?? 0);
+            $tokensOut = (int) ($task['usage']['output_tokens'] ?? 0);
+            $tokensPresent = ($tokensIn + $tokensOut) > 0;
+            $isVerboo = str_contains((string) $model, 'kimi') || str_contains((string) $model, 'verboo');
 
             $receipts[] = [
                 'case_id' => $taskId,
@@ -63,9 +67,37 @@ class SeniorSweBenchAdapter extends AbstractExternalSuiteAdapter
                     default => 'model_failure',
                 },
                 'wall_ms' => (int) round((float) ($task['duration_seconds'] ?? 0) * 1000),
-                'tokens_in' => (int) ($task['usage']['input_tokens'] ?? 0),
-                'tokens_out' => (int) ($task['usage']['output_tokens'] ?? 0),
+                'tokens_in' => $tokensIn,
+                'tokens_out' => $tokensOut,
                 'cost_usd' => (float) ($task['usage']['cost_usd'] ?? 0.0),
+                'field_presence' => [
+                    'tokens_in' => [
+                        'present' => $tokensPresent,
+                        'reason' => $tokensPresent ? null : (
+                            $hasEnvironmentError
+                                ? 'senior_swe_env_failure_before_usage'
+                                : 'senior_swe_hermes_usage_not_reported'
+                        ),
+                    ],
+                    'tokens_out' => [
+                        'present' => $tokensPresent,
+                        'reason' => $tokensPresent ? null : (
+                            $hasEnvironmentError
+                                ? 'senior_swe_env_failure_before_usage'
+                                : 'senior_swe_hermes_usage_not_reported'
+                        ),
+                    ],
+                    'cost_usd' => [
+                        'present' => $isVerboo && $tokensPresent,
+                        'reason' => $isVerboo
+                            ? ($tokensPresent ? 'verboo_subscription_marginal' : 'senior_swe_hermes_usage_not_reported')
+                            : 'senior_swe_native_cost_not_reported',
+                    ],
+                    'wall_ms' => [
+                        'present' => (float) ($task['duration_seconds'] ?? 0) > 0,
+                        'reason' => (float) ($task['duration_seconds'] ?? 0) > 0 ? null : 'senior_swe_duration_missing',
+                    ],
+                ],
                 'started_at' => $task['started_at'] ?? null,
                 'finished_at' => $task['finished_at'] ?? null,
                 'dimensions' => $dimensions,

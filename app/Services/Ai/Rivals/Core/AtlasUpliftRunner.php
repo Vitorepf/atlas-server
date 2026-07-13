@@ -88,40 +88,53 @@ class AtlasUpliftRunner
                 'deltas' => [],
             ]);
         }
+
+        $excluded = [];
         if (! $harnessOnly) {
+            $provenBase = [];
+            $provenAtlas = [];
             foreach ($byArm['base'] as $key => $receipt) {
-                if (data_get($receipt, 'metadata.direct_provider.real_provider') !== true
-                    || data_get($receipt, 'metadata.direct_provider.model') !== data_get(
-                        $byArm['atlas'][$key],
+                $atlasReceipt = $byArm['atlas'][$key] ?? null;
+                $bareOk = data_get($receipt, 'metadata.direct_provider.real_provider') === true;
+                $atlasOk = is_array($atlasReceipt)
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.real_provider') === true
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.single_provider') === true
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.decide_disabled') === true
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.fallback_disabled') === true;
+                $modelMatch = is_array($atlasReceipt)
+                    && data_get($receipt, 'metadata.direct_provider.model') === data_get(
+                        $atlasReceipt,
                         'metadata.runtime_bridge.model',
-                    )) {
-                    return $this->persist($runId, [
-                        'uplift_supported' => false,
-                        'uplift_kind' => 'unsupported',
-                        'reason' => 'bare_runtime_proof_missing',
-                        'model_id' => $modelId,
-                        'claim_allowed' => false,
-                        'claim_blockers' => ["bare_runtime_proof_missing:{$key}"],
-                        'deltas' => [],
-                    ]);
+                    );
+                if ($bareOk && $atlasOk && $modelMatch) {
+                    $provenBase[$key] = $receipt;
+                    $provenAtlas[$key] = $atlasReceipt;
+                    continue;
+                }
+                if (! $bareOk || ! $modelMatch) {
+                    $excluded[] = "bare_runtime_proof_missing:{$key}";
+                }
+                if (! $atlasOk) {
+                    $excluded[] = "atlas_runtime_proof_missing:{$key}";
                 }
             }
-            foreach ($byArm['atlas'] as $key => $receipt) {
-                if (data_get($receipt, 'metadata.runtime_bridge.real_provider') !== true
-                    || data_get($receipt, 'metadata.runtime_bridge.fair_mode.single_provider') !== true
-                    || data_get($receipt, 'metadata.runtime_bridge.fair_mode.decide_disabled') !== true
-                    || data_get($receipt, 'metadata.runtime_bridge.fair_mode.fallback_disabled') !== true) {
-                    return $this->persist($runId, [
-                        'uplift_supported' => false,
-                        'uplift_kind' => 'unsupported',
-                        'reason' => 'atlas_runtime_proof_missing',
-                        'model_id' => $modelId,
-                        'claim_allowed' => false,
-                        'claim_blockers' => ["atlas_runtime_proof_missing:{$key}"],
-                        'deltas' => [],
-                    ]);
-                }
+            if ($provenBase === []) {
+                return $this->persist($runId, [
+                    'uplift_supported' => false,
+                    'uplift_kind' => 'unsupported',
+                    'reason' => ($excluded[0] ?? 'runtime_proof_missing'),
+                    'model_id' => $modelId,
+                    'claim_allowed' => false,
+                    'claim_blockers' => array_values(array_unique($excluded)) ?: ['runtime_proof_missing'],
+                    'deltas' => [],
+                    'excluded_pair_keys' => array_values(array_unique(array_map(
+                        static fn (string $b): string => preg_replace('/^[^:]+:/', '', $b) ?? $b,
+                        $excluded,
+                    ))),
+                ]);
             }
+            $byArm['base'] = $provenBase;
+            $byArm['atlas'] = $provenAtlas;
         }
 
         $baseMetrics = $this->metrics(array_values($byArm['base']));
@@ -197,11 +210,24 @@ class AtlasUpliftRunner
 
         $internalAllowed = ! $harnessOnly
             && ! $stopTheLine
+            && $excluded === []
             && (($adjudication['internal_claim_allowed'] ?? $adjudication['claim_allowed'] ?? false) === true);
+
+        $blockers = $harnessOnly
+            ? ['harness_uplift_not_claimable']
+            : array_values(array_unique(array_merge(
+                $adjudication['internal_claim_blockers']
+                    ?? $adjudication['claim_blockers']
+                    ?? ['adjudication_missing'],
+                $stopTheLine ? ['negative_multiplier_stop_the_line'] : [],
+                $excluded !== [] ? ['uplift_pairs_filtered_to_proven_runtime', 'diagnostic_only'] : [],
+                $excluded,
+            )));
 
         return $this->persist($runId, [
             'uplift_supported' => true,
             'uplift_kind' => $harnessOnly ? 'harness_uplift' : 'real_uplift',
+            'diagnostic_only' => $excluded !== [],
             'model_id' => $modelId,
             'base_runtime' => $baseRuntime,
             'atlas_runtime' => $atlasRuntime,
@@ -211,15 +237,15 @@ class AtlasUpliftRunner
             'public_claim_allowed' => $internalAllowed
                 && (($adjudication['public_claim_allowed'] ?? false) === true),
             'claim_allowed' => $internalAllowed,
-            'claim_blockers' => $harnessOnly
-                ? ['harness_uplift_not_claimable']
-                : array_values(array_unique(array_merge(
-                    $adjudication['internal_claim_blockers']
-                        ?? $adjudication['claim_blockers']
-                        ?? ['adjudication_missing'],
-                    $stopTheLine ? ['negative_multiplier_stop_the_line'] : [],
-                ))),
+            'claim_blockers' => $blockers,
             'claim_scope' => $adjudication['claim_scope'] ?? null,
+            'excluded_pair_keys' => $excluded === [] ? [] : array_values(array_unique(array_map(
+                static function (string $blocker): string {
+                    return preg_replace('/^[^:]+:/', '', $blocker) ?? $blocker;
+                },
+                $excluded,
+            ))),
+            'proven_pair_count' => count($byArm['base']),
         ]);
     }
 

@@ -65,7 +65,8 @@ return [
         'case_packs' => [
             'tau2_bench' => ['airline_task_012', 'airline_task_013', 'airline_task_014'],
             'bfcl' => ['simple', 'multiple', 'parallel'],
-            'terminal_bench' => ['tb_hello', 'tb_fix_git', 'tb_git-bisect'],
+            // git-bisect não existe no dataset terminal-bench-core==0.1.1; git-multibranch é real.
+            'terminal_bench' => ['tb_hello', 'tb_fix_git', 'tb_git-multibranch'],
             'senior_swe_bench' => ['ssb_0007', 'ssb_0021', 'ssb_0033'],
             'swe_bench_live' => ['geopandas__geopandas-3132', 'reata__sqllineage-524', 'conan-io__conan-15377'],
             'live_code_bench' => ['1873_A', '1873_B', '1873_D'],
@@ -182,6 +183,8 @@ return [
                 'aider_polyglot' => 'openai/kimi-k2.7',
                 'swe_marathon' => 'openai/kimi-k2.7',
             ],
+            // Override POR MODELO; vence o native_agent_default do bloco repos
+            // (ex.: terminal_bench default=terminus-2, mas kimi roda via aider).
             'native_agents' => [
                 'terminal_bench' => 'aider',
                 'senior_swe_bench' => 'hermes',

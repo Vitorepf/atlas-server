@@ -116,12 +116,15 @@ final class NativeResultNormalizer
             );
             $evaluate->setTimeout((int) $entry['max_seconds']);
             $evaluate->run();
-            if (! $evaluate->isSuccessful()) {
-                throw new RuntimeException('bfcl_evaluate_failed:'.substr(
-                    $evaluate->getErrorOutput()."\n".$evaluate->getOutput(),
-                    0,
-                    2000,
-                ));
+            $combined = $evaluate->getErrorOutput()."\n".$evaluate->getOutput();
+            // BFCL's leaderboard aggregation calls stdev() and dies on n=1
+            // (--partial-eval / single case). Per-category score is often already
+            // printed; synthesize the score file from that when missing.
+            if ($this->recursiveFiles($scoreDir, '_score.json') === []) {
+                $this->bfclSynthesizeScoreFromEvaluate($combined, $scoreDir, $category, (string) $entry['cli_model']);
+            }
+            if ($this->recursiveFiles($scoreDir, '_score.json') === []) {
+                throw new RuntimeException('bfcl_evaluate_failed:'.substr($combined, 0, 2000));
             }
         }
 
@@ -447,38 +450,77 @@ final class NativeResultNormalizer
         $benchmark = (string) (data_get($entry, 'normalization.case.benchmark')
             ?? $entry['case_id']);
         $runName = (string) data_get($entry, 'normalization.run_name');
-        $upload = $this->json("{$scratch}/{$benchmark}/{$runName}/{$runName}_UPLOAD.json");
         $taskId = (string) (data_get($entry, 'normalization.case.task_id')
             ?? $entry['case_id']);
+        $uploadPath = "{$scratch}/{$benchmark}/{$runName}/{$runName}_UPLOAD.json";
+        $upload = is_file($uploadPath) ? $this->json($uploadPath) : [];
+        // When SWE-bench conda/eval harness dies after a successful agent turn,
+        // recover tokens/wall/bridge from the per-task agent output.json.
+        if ($upload === []) {
+            $upload = $this->halUploadFromAgentOutput($scratch, $benchmark, $runName, $taskId);
+        }
         $raw = (array) data_get($upload, "raw_eval_results.{$taskId}", []);
         $metrics = (array) data_get($upload, "task_metrics.{$taskId}", []);
         $cost = data_get($upload, "task_costs.{$taskId}.total_cost")
             ?? data_get($upload, "results.task_costs.{$taskId}")
             ?? ($metrics['estimated_cost'] ?? null)
-            ?? null;
+            ?? data_get($upload, 'results.total_cost')
+            ?? ($upload['total_cost'] ?? null);
         $latency = data_get($upload, "wall_clock_times.{$taskId}")
             ?? data_get($upload, "results.latencies.{$taskId}.total_time")
-            ?? null;
+            ?? data_get($upload, "results.latencies.{$taskId}");
         if (! is_numeric($cost) || ! is_numeric($latency)) {
             throw new RuntimeException('hal_harness_cost_or_latency_missing:'.$taskId);
         }
+
+        $successful = array_map('strval', (array) data_get($upload, 'results.successful_tasks', []));
+        $failed = array_map('strval', (array) data_get($upload, 'results.failed_tasks', []));
+        $resolved = array_map('strval', (array) data_get($upload, 'raw_eval_results.resolved_ids', []));
+        $errors = array_map('strval', (array) data_get($upload, 'raw_eval_results.error_ids', []));
+        $success = in_array($taskId, $successful, true) || in_array($taskId, $resolved, true)
+            || (float) ($raw['score'] ?? $raw['reward'] ?? 0) > 0;
+        if (in_array($taskId, $failed, true) || in_array($taskId, $errors, true)) {
+            $success = false;
+        }
+
+        $inputTokens = (int) (
+            $metrics['total_input_tokens']
+            ?? data_get($upload, 'total_usage.input_tokens', 0)
+        );
+        $outputTokens = (int) (
+            $metrics['total_output_tokens']
+            ?? data_get($upload, 'total_usage.output_tokens', 0)
+        );
+        $isVerboo = ((new ModelRegistry)->get((string) ($entry['model_id'] ?? ''))['provider'] ?? null)
+            === 'hermes';
 
         return [
             'benchmark' => $benchmark,
             'runs' => [[
                 'task_id' => $entry['case_id'],
                 'trial' => $entry['repetition'],
-                'success' => (float) ($raw['score'] ?? $raw['reward'] ?? 0) > 0,
+                'success' => $success,
                 'total_cost_usd' => (float) $cost,
                 'latency_sec' => (float) $latency,
-                'input_tokens' => (int) (
-                    $metrics['total_input_tokens']
-                    ?? data_get($upload, 'total_usage.input_tokens', 0)
-                ),
-                'output_tokens' => (int) (
-                    $metrics['total_output_tokens']
-                    ?? data_get($upload, 'total_usage.output_tokens', 0)
-                ),
+                'input_tokens' => $inputTokens,
+                'output_tokens' => $outputTokens,
+                'field_presence' => [
+                    'tokens_in' => [
+                        'present' => $inputTokens > 0,
+                        'reason' => $inputTokens > 0 ? null : 'hal_usage_not_reported',
+                    ],
+                    'tokens_out' => [
+                        'present' => $outputTokens > 0,
+                        'reason' => $outputTokens > 0 ? null : 'hal_usage_not_reported',
+                    ],
+                    'cost_usd' => [
+                        'present' => $isVerboo || (float) $cost > 0,
+                        'reason' => $isVerboo
+                            ? 'verboo_subscription_marginal'
+                            : ((float) $cost > 0 ? null : 'hal_cost_zero'),
+                    ],
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                ],
                 'runtime_bridge' => is_array($metrics['runtime_bridge'] ?? null)
                     ? $metrics['runtime_bridge']
                     : null,
@@ -493,10 +535,8 @@ final class NativeResultNormalizer
     private function aider(array $entry, string $root): array
     {
         $runName = (string) data_get($entry, 'normalization.run_name');
-        $files = $this->recursiveFiles(
-            (string) data_get($entry, 'normalization.scratch_dir'),
-            '.aider.results.json',
-        );
+        $scratch = (string) data_get($entry, 'normalization.scratch_dir');
+        $files = $this->recursiveFiles($scratch, '.aider.results.json');
         if ($files === []) {
             $files = array_values(array_filter(
                 $this->recursiveFiles($root.'/tmp.benchmarks', '.aider.results.json'),
@@ -505,12 +545,19 @@ final class NativeResultNormalizer
         }
         $nativeTask = (string) (data_get($entry, 'normalization.case.native_task_id')
             ?? $entry['case_id']);
-        $files = array_values(array_filter(
+        $filtered = array_values(array_filter(
             $files,
             fn (string $path): bool => str_contains($path, '/'.$nativeTask.'/')
-                || basename(dirname($path)) === $nativeTask,
+                || basename(dirname($path)) === $nativeTask
+                // Unit runner writes results at scratch/workspace/.aider.results.json
+                || (str_ends_with(dirname($path), '/workspace') && count($files) === 1),
         ));
-        if (count($files) !== 1) {
+        if (count($filtered) === 1) {
+            $files = $filtered;
+        } elseif (count($files) === 1) {
+            // Honest fallback: single result under this unit scratch is the unit.
+            $files = $files;
+        } else {
             throw new RuntimeException('aider_polyglot_unit_result_cardinality');
         }
         $native = $this->json($files[0]);
@@ -692,6 +739,99 @@ final class NativeResultNormalizer
         };
 
         return (int) round((float) $number * $multiplier);
+    }
+
+    /**
+     * BFCL --partial-eval (n=1) dies in leaderboard stdev after printing accuracy.
+     * Persist the printed per-category score so the unit can still normalize.
+     */
+    private function bfclSynthesizeScoreFromEvaluate(
+        string $combined,
+        string $scoreDir,
+        string $category,
+        string $cliModel,
+    ): void {
+        if (! preg_match('/Accuracy:\s*([0-9]+(?:\.[0-9]+)?)\s*%/u', $combined, $match)) {
+            return;
+        }
+        $accuracy = ((float) $match[1]) / 100.0;
+        $modelDir = preg_replace('/[^A-Za-z0-9._-]+/', '_', $cliModel) ?: 'model';
+        $dir = $scoreDir.'/'.$modelDir.'/non_live';
+        if (! is_dir($dir) && ! mkdir($dir, 0777, true) && ! is_dir($dir)) {
+            throw new RuntimeException('bfcl_score_dir_unwritable:'.$dir);
+        }
+        $path = $dir.'/BFCL_v4_'.$category.'_score.json';
+        file_put_contents($path, json_encode([
+            'accuracy' => $accuracy,
+            'correct_count' => $accuracy >= 1.0 ? 1 : 0,
+            'total_count' => 1,
+            'synthesized_from' => 'bfcl_evaluate_stdout_partial_eval',
+        ], JSON_UNESCAPED_SLASHES)."\n");
+    }
+
+    /**
+     * Build a minimal HAL UPLOAD-shaped payload from agent output.json when the
+     * SWE-bench eval harness never produced *_UPLOAD.json.
+     *
+     * @return array<string, mixed>
+     */
+    private function halUploadFromAgentOutput(
+        string $scratch,
+        string $benchmark,
+        string $runName,
+        string $taskId,
+    ): array {
+        $outputPath = "{$scratch}/{$benchmark}/{$runName}/{$taskId}/output.json";
+        if (! is_file($outputPath)) {
+            return [];
+        }
+        $output = $this->json($outputPath);
+        $payload = (array) ($output[$taskId] ?? []);
+        $metrics = (array) ($payload['metrics'] ?? []);
+        $wallPath = "{$scratch}/{$benchmark}/{$runName}/{$runName}_WALL_CLOCK_TIMES.jsonl";
+        $latency = 0.0;
+        if (is_file($wallPath)) {
+            foreach ($this->jsonLines($wallPath) as $row) {
+                if ((string) ($row['instance_id'] ?? $row['task_id'] ?? '') === $taskId
+                    || array_key_exists($taskId, $row)) {
+                    $latency = (float) ($row[$taskId] ?? $row['total_time'] ?? $row['latency_sec'] ?? 0);
+                    break;
+                }
+                if (is_numeric($row[$taskId] ?? null)) {
+                    $latency = (float) $row[$taskId];
+                    break;
+                }
+            }
+            // HAL wall file is often a single JSON object line: {"task_id": seconds}
+            if ($latency <= 0.0) {
+                $raw = json_decode((string) file_get_contents($wallPath), true);
+                if (is_array($raw) && is_numeric($raw[$taskId] ?? null)) {
+                    $latency = (float) $raw[$taskId];
+                }
+            }
+        }
+        if ($latency <= 0.0 && is_array($metrics['runtime_bridge'] ?? null)) {
+            $latency = ((float) ($metrics['runtime_bridge']['wall_ms'] ?? 0)) / 1000.0;
+        }
+        $cost = (float) ($metrics['estimated_cost'] ?? 0.0);
+
+        return [
+            'task_metrics' => [$taskId => $metrics],
+            'task_costs' => [$taskId => ['total_cost' => $cost]],
+            'wall_clock_times' => [$taskId => $latency],
+            'results' => [
+                'successful_tasks' => [],
+                'failed_tasks' => [$taskId],
+                'latencies' => [$taskId => $latency],
+                'task_costs' => [$taskId => $cost],
+            ],
+            'raw_eval_results' => [
+                'resolved_ids' => [],
+                'error_ids' => [$taskId],
+                $taskId => ['score' => 0, 'eval_harness_error' => 'upload_missing_recovered_from_agent_output'],
+            ],
+            'total_cost' => $cost,
+        ];
     }
 
     /** @return array<string, mixed> */

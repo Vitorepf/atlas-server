@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\Rivals;
 
+use App\Services\Ai\Rivals\Core\CampaignManifest;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use Tests\TestCase;
@@ -30,6 +31,25 @@ class AtlasRivalsCommandTest extends TestCase
     {
         $this->artisan('atlas:rivals doctor --json')
             ->expectsOutputToContain('"status": "ok"')
+            ->assertExitCode(0);
+    }
+
+    public function test_world_readiness_is_read_only_and_exposes_missing_real_provenance(): void
+    {
+        $manifestPath = (new CampaignManifest)->persist('world-readiness-test', [
+            'schema_version' => 'atlas.rivals2.campaign_manifest.v1',
+            'mode' => 'dev',
+            'required_exposure' => 1,
+            'required_outcome_days' => 30,
+            'campaigns' => [
+                ['id' => 'a', 'distinct_units' => 1, 'power' => 0.95, 'outcome_days' => 30, 'synthetic' => true, 'contamination_free' => true, 'itt_complete' => true, 'critical_dimensions' => []],
+                ['id' => 'b', 'distinct_units' => 1, 'power' => 0.95, 'outcome_days' => 30, 'synthetic' => true, 'contamination_free' => true, 'itt_complete' => true, 'critical_dimensions' => []],
+                ['id' => 'c', 'distinct_units' => 1, 'power' => 0.95, 'outcome_days' => 30, 'synthetic' => true, 'contamination_free' => true, 'itt_complete' => true, 'critical_dimensions' => []],
+            ],
+        ]);
+
+        $this->artisan('atlas:rivals world-readiness --file='.$manifestPath.' --json')
+            ->expectsOutputToContain('"status": "blocked"')
             ->assertExitCode(0);
     }
 

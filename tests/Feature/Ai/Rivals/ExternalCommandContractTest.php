@@ -43,7 +43,7 @@ class ExternalCommandContractTest extends TestCase
             'swe_bench_live' => 'php',
             'live_code_bench' => 'python',
             'inspect_evals' => 'inspect',
-            'hal_harness' => 'python',
+            'hal_harness' => 'python3',
             'aider_polyglot' => 'benchmark/benchmark.py',
             'swe_marathon' => 'harbor',
         ];
@@ -114,6 +114,11 @@ class ExternalCommandContractTest extends TestCase
         $this->assertContains('--keywords', $commands['aider_polyglot']);
         $this->assertContains('docker', $commands['swe_marathon']);
         $this->assertContains('--jobs-dir', $commands['swe_marathon']);
+        $this->assertContains('--verifier-env', $commands['swe_marathon']);
+        $this->assertContains(
+            'OPENAI_BASE_URL=https://code.verboo.ai/router/v1',
+            $commands['swe_marathon'],
+        );
     }
 
     public function test_five_uplift_families_use_distinct_bare_and_atlas_solver_paths(): void
@@ -145,6 +150,37 @@ class ExternalCommandContractTest extends TestCase
                 strtolower(implode(' ', $atlas)),
                 "{$family}: Atlas solver absent",
             );
+        }
+    }
+
+    public function test_atlas_dev_arm_fails_fast_on_suites_without_atlas_runtime(): void
+    {
+        $registry = new SuiteRegistry;
+        $upliftSuites = array_values((array) config('atlas_rivals.uplift_families'));
+        foreach ($registry->externalSuiteIds() as $suiteId) {
+            if (in_array($suiteId, $upliftSuites, true)) {
+                continue;
+            }
+            $adapter = $registry->adapterFor($suiteId, allowLegacyAlias: false);
+            $case = $adapter->listCases()[0];
+            $plan = RunPlan::make(
+                $suiteId,
+                [$case['case_id']],
+                [(new ArmRegistry)->parse('verboo_kimi_k2_7@atlas_dev', $suiteId)],
+                1,
+                ['max_usd' => 0.0, 'max_minutes' => 30],
+                42,
+            );
+            try {
+                $adapter->planCommands($plan);
+                $this->fail("{$suiteId}: atlas_dev arm should fail fast pre-spend");
+            } catch (\RuntimeException $e) {
+                $this->assertStringContainsString(
+                    'runtime_unsupported:atlas_dev',
+                    $e->getMessage(),
+                    $suiteId,
+                );
+            }
         }
     }
 }

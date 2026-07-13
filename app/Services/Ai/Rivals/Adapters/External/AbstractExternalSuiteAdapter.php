@@ -137,6 +137,16 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                         '{model}' => (string) $binding['native_model'],
                     ];
                     $template = $this->commandTemplateForArm($binding);
+                    // Fail-fast pré-spend: runtime não-bare numa suíte cujo template é o
+                    // bare puro (sem override nem placeholder {runtime}) rodaria bare
+                    // disfarçado e morreria depois no runtime-proof como env_failure.
+                    if (($binding['runtime'] ?? 'bare') !== 'bare'
+                        && $template === $this->commandTemplate()
+                        && ! str_contains($template, '{runtime}')) {
+                        throw new RuntimeException(
+                            $this->suiteId().'_runtime_unsupported:'.$binding['runtime'],
+                        );
+                    }
                     $argv = array_map(
                         fn (string $token): string => strtr($token, $replacements),
                         str_getcsv($template, ' ', '"', '\\'),
@@ -211,14 +221,17 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                     )) {
                     throw new RuntimeException($this->suiteId().'_native_result_unverified:'.$executionId);
                 }
-                $mapped = $this->receiptsFromNativeFile(
-                    $path,
-                    $rel,
-                    $runId,
-                    $plan,
-                    $bindings,
-                    $models,
-                );
+                $nativePayload = json_decode((string) file_get_contents($path), true);
+                $mapped = (is_array($nativePayload) && isset($nativePayload['_rivals_runner']) && is_array($nativePayload['_rivals_runner']))
+                    ? [$this->receiptFromRunnerStub($entry, $nativePayload['_rivals_runner'], $runId, $plan)]
+                    : $this->receiptsFromNativeFile(
+                        $path,
+                        $rel,
+                        $runId,
+                        $plan,
+                        $bindings,
+                        $models,
+                    );
                 if (count($mapped) !== 1) {
                     throw new RuntimeException($this->suiteId().'_unit_result_cardinality:'.$executionId);
                 }
@@ -248,6 +261,65 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
             $bindings,
             $models,
         );
+    }
+
+    /**
+     * Synthesize an honest environment_failure receipt when the native runner
+     * only left a `_rivals_runner` stub (no harness result JSON).
+     *
+     * @param  array<string, mixed>  $entry
+     * @param  array<string, mixed>  $stub
+     */
+    private function receiptFromRunnerStub(
+        array $entry,
+        array $stub,
+        string $runId,
+        ?RunPlan $plan,
+    ): RunReceipt {
+        $reason = (string) ($stub['reason'] ?? 'native_result_not_created');
+        $status = (string) ($stub['status'] ?? 'environment_failure');
+
+        return RunReceipt::fromArray([
+            'schema_version' => SchemaContract::RUN_RECEIPT,
+            'run_id' => $runId,
+            'case_id' => (string) $entry['case_id'],
+            'task_type' => $this->caseTaskType((string) $entry['case_id']) ?? 'unknown',
+            'arm_id' => (string) $entry['arm_id'],
+            'repetition' => (int) $entry['repetition'],
+            'status' => 'error',
+            'failure_class' => 'environment_failure',
+            'wall_ms' => 0,
+            'tokens_in' => 0,
+            'tokens_out' => 0,
+            'cost_usd' => 0.0,
+            'field_presence' => [
+                'wall_ms' => ['present' => false, 'reason' => $reason],
+                'tokens_in' => ['present' => false, 'reason' => $reason],
+                'tokens_out' => ['present' => false, 'reason' => $reason],
+                'cost_usd' => ['present' => false, 'reason' => $reason],
+            ],
+            'claim_tier' => (string) ($plan?->data['claim_tier'] ?? ClaimTier::PRODUCTION),
+            'artifacts' => [[
+                'path' => (string) ($entry['expected_result_path'] ?? ''),
+                'sha256' => is_string($entry['expected_result_path'] ?? null)
+                    && is_file(RunPaths::runDir($runId).'/'.$entry['expected_result_path'])
+                    ? hash_file('sha256', RunPaths::runDir($runId).'/'.$entry['expected_result_path'])
+                    : hash('sha256', json_encode($stub)),
+            ]],
+            'harness_only' => false,
+            'started_at' => null,
+            'finished_at' => null,
+            'metadata' => [
+                'native' => [
+                    'runner_stub' => true,
+                    'runner_status' => $status,
+                    'runner_reason' => $reason,
+                    'execution_id' => $entry['execution_id'] ?? null,
+                    'source_repo' => $this->suiteId(),
+                ],
+                'plan_run_id' => $plan?->runId(),
+            ],
+        ]);
     }
 
     /**

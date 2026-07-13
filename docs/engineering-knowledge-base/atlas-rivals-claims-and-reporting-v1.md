@@ -23,6 +23,9 @@ decisions:
   - Media global dos adapters e non-claim dashboard only.
   - Relatorio deve expor resolucao, custo, custo/tarefa, tokens, tempo, estabilidade e uplift quando suportado.
   - Relatorio empresarial consolidado Fase A vive em atlas-rivals-phase-a-enterprise-report-v1 (agregado nunca claim).
+  - Fato Atlas = pipeline + measurement + events_complete + native execute + (uplift) bridge 100%; fora disso = nao-fato.
+  - intelligence_rate exclui environment_failure; ITT inclui env e permanece separado/rotulado.
+  - events_incomplete e blocker de claim interno (Adjudicator).
 maintenance:
   - Sincronizar gates com Adjudicator e config atlas_rivals.claim.
 related_paths:
@@ -121,6 +124,21 @@ Claim interno true so com todos:
 13. Native execution receipt `status=success`, `runner.mode=execute` e
     cardinalidade igual ao manifest; fixture/normalize-only nunca promove
 14. Zero `environment_failure`; erro de provider/verifier nao vira model failure
+15. `events.jsonl` vivo completo (`events_incomplete` bloqueia claim)
+16. Rebuild de report/adjudication/evidence exige re-append ledger semantico
+    (epoch atual limpo; historico corrompido vai para quarantine)
+
+### Contrato “Fato Atlas” vs diagnostico
+
+- **Fato Atlas**: passa os gates internos acima + (enterprise) eixos
+  `pipeline|measurement|intelligence|claim` com `claim.internal_ok` e
+  `events_complete`.
+- **Diagnostico / nao-fato**: pipeline_ok sem claim, measurement parcial,
+  uplift `diagnostic_only` / `excluded_pair_keys` por proof, harness_omit.
+- **intelligence_rate**: sucessos / (success + model_failure) — **exclui**
+  `environment_failure`. ITT continua incluindo env e deve ser rotulado.
+- Battery claim-grade **aborta** se `environment_failure_rate` exceder o
+  teto configurado — nao empilha suites “ok + 0%” por env.
 
 ### Preregistration e inferencia
 

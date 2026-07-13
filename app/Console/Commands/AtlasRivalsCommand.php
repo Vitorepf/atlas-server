@@ -22,10 +22,12 @@ use App\Services\Ai\Rivals\Core\Preregistration;
 use App\Services\Ai\Rivals\Core\ReplayVerifier;
 use App\Services\Ai\Rivals\Core\ReportBuilder;
 use App\Services\Ai\Rivals\Core\ResultLedger;
+use App\Services\Ai\Rivals\Core\RunAutopsy;
 use App\Services\Ai\Rivals\Core\RunPlan;
 use App\Services\Ai\Rivals\Core\RunReceipt;
 use App\Services\Ai\Rivals\Core\RunStateMachine;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
+use App\Services\Ai\Rivals\Core\WorldTrialReadiness;
 use App\Services\Ai\Rivals\Support\RunLock;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use Illuminate\Console\Command;
@@ -42,14 +44,14 @@ class AtlasRivalsCommand extends Command
     protected $aliases = ['atlas:rivals2'];
 
     protected $signature = 'atlas:rivals
-        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|report-enterprise|battery|uplift|bundle|verify-bundle|closure|ledger}
+        {action : doctor|benchmarks|benchmark-smoke|models|arms|mine|import-cases|import-results|plan|preflight|status|world-readiness|resume|cancel|run|run-fake|run-bench|verify|adjudicate|report|report-all|report-enterprise|battery|uplift|bundle|verify-bundle|closure|ledger|autopsy}
         {--repo= : (benchmark-smoke) repo_id do registry (vazio = todos)}
         {--model= : (uplift) model_id comparado nos dois runtimes}
         {--base-runtime=bare}
         {--atlas-runtime=atlas_dev}
         {--suite=local_fake}
-        {--mode=bare : (battery) bare|uplift|model_matrix|status|prepare|execute}
-        {--kind=bare : (battery prepare) bare|uplift|model_matrix}
+        {--mode=bare : (battery) bare|uplift|atlas|model_matrix|status|prepare|execute}
+        {--kind=bare : (battery prepare/execute) bare|uplift|atlas|model_matrix}
         {--cases= : (plan) comma-separated case ids; default all imported cases}
         {--limit=5 : (mine) máximo de cases a minerar}
         {--file= : (import-cases/import-results) arquivo ou diretório de origem}
@@ -68,6 +70,10 @@ class AtlasRivalsCommand extends Command
         {--seed=1}
         {--verify : (ledger) verifica a hash chain}
         {--semantic : (ledger) verifica chain + estado semântico atual}
+        {--repair-semantic : (ledger) supersede + re-append adjudication/report do epoch atual}
+        {--quarantine-epoch : (ledger) move chain corrompida para ledger.quarantine.* e inicia epoch limpo}
+        {--md : (autopsy) emite markdown além do json}
+        {--require-clean-worktree : (battery execute / plan) falha se git dirty}
         {--reason= : (cancel) motivo obrigatório}
         {--workspace= : (compat launcher bin/atlas) ignorado — Rivals roda no atlas-server}
         {--json}';
@@ -83,8 +89,8 @@ class AtlasRivalsCommand extends Command
         $batteryMutating = $action === 'battery'
             && in_array($batteryMode, ['prepare', 'execute'], true);
         $mutating = $batteryMutating || ! in_array($action, [
-            'doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status',
-            'verify-bundle', 'report', 'report-all', 'report-enterprise', 'battery',
+            'doctor', 'benchmarks', 'models', 'arms', 'ledger', 'status', 'world-readiness',
+            'verify-bundle', 'report', 'report-all', 'report-enterprise', 'battery', 'autopsy',
         ], true);
         if (! $enabled && $mutating) {
             $payload = [
@@ -110,6 +116,7 @@ class AtlasRivalsCommand extends Command
             'plan' => $this->plan(),
             'preflight' => $this->preflight(),
             'status' => $this->runStatus(),
+            'world-readiness' => $this->worldReadiness(),
             'resume' => $this->resume(),
             'cancel' => $this->cancel(),
             'run-fake' => $this->runFake(),
@@ -170,6 +177,7 @@ class AtlasRivalsCommand extends Command
             'verify-bundle' => $this->verifyBundle(),
             'closure' => $this->closure(),
             'ledger' => $this->ledger(),
+            'autopsy' => $this->autopsy(),
             default => ['status' => 'error', 'error' => "unknown_action:{$action}"],
         };
 
@@ -196,6 +204,8 @@ class AtlasRivalsCommand extends Command
         }
         if ($mode === 'execute') {
             try {
+                $this->assertCleanWorktreeIfRequired();
+
                 return $orchestrator->execute(
                     (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
@@ -212,6 +222,8 @@ class AtlasRivalsCommand extends Command
         }
         if ($mode === 'prepare') {
             try {
+                $this->assertCleanWorktreeIfRequired();
+
                 return $orchestrator->prepare(
                     (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
@@ -259,6 +271,19 @@ class AtlasRivalsCommand extends Command
             'running' => $benchmarks['running'],
             'blocked' => $benchmarks['blocked'],
         ];
+        // Harbor / long-horizon suites: surface smoke state for claim-grade preflight
+        $harborSuites = ['senior_swe_bench', 'swe_marathon', 'terminal_bench'];
+        $harborPreflight = [];
+        foreach ($harborSuites as $repoId) {
+            $repo = collect((array) ($benchmarks['repos'] ?? []))->firstWhere('repo_id', $repoId)
+                ?? collect((array) ($benchmarks['repos'] ?? []))->firstWhere('suite_id', $repoId);
+            $harborPreflight[$repoId] = [
+                'status' => is_array($repo) ? ($repo['status'] ?? 'unknown') : 'missing',
+                'running' => is_array($repo) && ($repo['status'] ?? null) === 'running',
+                'error' => is_array($repo) ? ($repo['error'] ?? null) : 'repo_not_in_benchmark_status',
+            ];
+        }
+        $checks['harbor_preflight'] = $harborPreflight;
         $ok = $checks['config_loaded'] && $checks['storage_writable'] && $checks['ledger_chain']['verified'] && $registryOk;
 
         return [
@@ -338,6 +363,7 @@ class AtlasRivalsCommand extends Command
             $plan = RunPlan::load($runId);
             $stateMachine = new RunStateMachine;
             $state = $stateMachine->current($runId);
+            $heartbeat = $this->eventsHeartbeat($runId);
 
             return [
                 'schema_version' => 'atlas.rivals2.status.v1',
@@ -348,11 +374,120 @@ class AtlasRivalsCommand extends Command
                 'resume_action' => $stateMachine->resumeAction($runId),
                 'receipts_expected' => count($plan->expectedReceiptKeys()),
                 'receipts_observed' => count(RunReceipt::loadAll($runId)),
+                'events_present' => $heartbeat['events_present'],
+                'events_count' => $heartbeat['events_count'],
+                'last_event_type' => $heartbeat['last_event_type'],
+                'last_event_at' => $heartbeat['last_event_at'],
+                'heartbeat_age_seconds' => $heartbeat['heartbeat_age_seconds'],
+                'stall' => $heartbeat['stall'],
                 'latest_ledger_entry' => collect((new ResultLedger)->entries())
                     ->reverse()
                     ->firstWhere('run_id', $runId),
             ];
         });
+    }
+
+    /**
+     * @return array{events_present: bool, events_count: int, last_event_type: ?string, last_event_at: ?string, heartbeat_age_seconds: ?int, stall: bool}
+     */
+    private function eventsHeartbeat(string $runId): array
+    {
+        $path = RunPaths::eventsPath($runId);
+        $out = [
+            'events_present' => is_file($path) && filesize($path) > 0,
+            'events_count' => 0,
+            'last_event_type' => null,
+            'last_event_at' => null,
+            'heartbeat_age_seconds' => null,
+            'stall' => false,
+        ];
+        if (! $out['events_present']) {
+            $out['stall'] = true;
+
+            return $out;
+        }
+        $lastType = null;
+        $lastAt = null;
+        $count = 0;
+        foreach (file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                continue;
+            }
+            $event = json_decode($line, true);
+            if (! is_array($event)) {
+                continue;
+            }
+            $count++;
+            $lastType = is_string($event['event_type'] ?? null) ? $event['event_type'] : $lastType;
+            $lastAt = is_string($event['timestamp'] ?? null) ? $event['timestamp'] : $lastAt;
+        }
+        $out['events_count'] = $count;
+        $out['last_event_type'] = $lastType;
+        $out['last_event_at'] = $lastAt;
+        if (is_string($lastAt) && $lastAt !== '') {
+            $ts = strtotime($lastAt);
+            if ($ts !== false) {
+                $age = max(0, time() - $ts);
+                $out['heartbeat_age_seconds'] = $age;
+                $running = ($this->loadStateLabel($runId) ?? '') === RunStateMachine::NATIVE_RUNNING;
+                // Stall = in-flight run with no event for >15min
+                $out['stall'] = $running && $age > 900;
+            }
+        }
+
+        return $out;
+    }
+
+    private function loadStateLabel(string $runId): ?string
+    {
+        $state = (new RunStateMachine)->current($runId);
+
+        return is_string($state['state'] ?? null) ? $state['state'] : null;
+    }
+
+    private function assertCleanWorktreeIfRequired(): void
+    {
+        if (! (bool) $this->option('require-clean-worktree')) {
+            return;
+        }
+        $dirty = trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' status --porcelain 2>/dev/null'));
+        if ($dirty !== '') {
+            throw new \RuntimeException('rivals_require_clean_worktree_failed');
+        }
+    }
+
+    /** Read-only evaluation of a preregistered campaign manifest. */
+    private function worldReadiness(): array
+    {
+        $path = trim((string) $this->option('file'));
+        if ($path === '' || ! is_file($path)) {
+            return [
+                'schema_version' => 'atlas.rivals2.world_trial_readiness.v1',
+                'status' => 'error',
+                'error' => 'world_readiness_manifest_file_required',
+            ];
+        }
+
+        try {
+            $manifest = (new \App\Services\Ai\Rivals\Core\CampaignManifest)->readFile($path);
+        } catch (\InvalidArgumentException $e) {
+            return [
+                'schema_version' => 'atlas.rivals2.world_trial_readiness.v1',
+                'status' => 'error',
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        $readiness = (new WorldTrialReadiness)->evaluate($manifest);
+
+        return [
+            'schema_version' => 'atlas.rivals2.world_trial_readiness.v1',
+            'status' => $readiness['status'],
+            'manifest_schema' => $manifest['schema_version'] ?? null,
+            'readiness' => $readiness,
+            'claim_issued' => false,
+        ];
     }
 
     private function resume(): array
@@ -706,6 +841,11 @@ class AtlasRivalsCommand extends Command
 
     private function plan(): array
     {
+        try {
+            $this->assertCleanWorktreeIfRequired();
+        } catch (\Throwable $e) {
+            return ['status' => 'error', 'error' => $e->getMessage()];
+        }
         $resolved = $this->resolveSuiteOption(forNewPlan: true);
         if (! ($resolved['ok'] ?? false)) {
             return ['status' => 'error'] + $resolved;
@@ -1013,6 +1153,14 @@ class AtlasRivalsCommand extends Command
     private function ledger(): array
     {
         $ledger = new ResultLedger;
+        if ($this->option('quarantine-epoch')) {
+            return $ledger->quarantineCorruptEpoch();
+        }
+        if ($this->option('repair-semantic')) {
+            return $this->withRun(function (string $runId) use ($ledger): array {
+                return $ledger->repairSemanticForRun($runId);
+            }, lock: true);
+        }
         if ($this->option('verify')) {
             $chain = $this->option('semantic')
                 ? $ledger->verifySemantic()
@@ -1026,6 +1174,19 @@ class AtlasRivalsCommand extends Command
         }
 
         return ['schema_version' => 'atlas.rivals2.ledger.v2', 'status' => 'ok', 'tail' => $ledger->tail()];
+    }
+
+    private function autopsy(): array
+    {
+        return $this->withRun(function (string $runId): array {
+            $autopsy = (new RunAutopsy)->build($runId);
+            $payload = $autopsy + ['status' => ($autopsy['trust']['is_atlas_fact'] ?? false) ? 'ok' : 'diagnostic'];
+            if ($this->option('md')) {
+                $payload['markdown'] = (new RunAutopsy)->toMarkdown($autopsy);
+            }
+
+            return $payload;
+        });
     }
 
     private function withRun(callable $fn, bool $lock = false): array

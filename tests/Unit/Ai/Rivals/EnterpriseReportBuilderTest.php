@@ -3,7 +3,9 @@
 namespace Tests\Unit\Ai\Rivals;
 
 use App\Services\Ai\Rivals\Core\ArmRegistry;
+use App\Services\Ai\Rivals\Core\EnterpriseModelDissectionBuilder;
 use App\Services\Ai\Rivals\Core\EnterpriseReportBuilder;
+use App\Services\Ai\Rivals\Core\EnterpriseSuiteDeliveryCatalog;
 use App\Services\Ai\Rivals\Core\RunPlan;
 use App\Services\Ai\Rivals\Core\RunReceipt;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
@@ -89,12 +91,32 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertFileExists(RunPaths::enterpriseReportPath());
         $this->assertFileExists(RunPaths::enterpriseMarkdownPath());
         $this->assertFileExists(RunPaths::enterpriseCsvPath());
+        $this->assertFileExists(RunPaths::enterpriseHtmlPath());
         $md = file_get_contents(RunPaths::enterpriseMarkdownPath());
-        $this->assertStringContainsString('Rivals Fase A — Relatório Empresarial', $md);
+        $this->assertStringContainsString('Relatório de Capacidades', $md);
         $this->assertStringContainsString('bfcl', $md);
-        $this->assertStringContainsString('claim_allowed: false', $md);
+        $this->assertStringContainsString('claim_allowed', $md);
+        $this->assertStringContainsString('Eixos de capacidade', $md);
+        $this->assertStringContainsString('Como ler este relatório', $md);
+        $this->assertStringContainsString('Leitura suite a suite', $md);
         $csv = file_get_contents(RunPaths::enterpriseCsvPath());
         $this->assertStringContainsString('suite_id', $csv);
+        $html = file_get_contents(RunPaths::enterpriseHtmlPath());
+        $this->assertStringContainsString('claim_allowed = false', $html);
+        $this->assertStringContainsString('chart.js', $html);
+        $this->assertStringContainsString('<canvas id="scatter"', $html);
+        $this->assertStringContainsString('Relatório de Capacidades', $html);
+        $this->assertStringContainsString('lang="pt-BR"', $html);
+        $this->assertStringContainsString('Ranking do modelo', $html);
+        $this->assertStringContainsString('Ranking · com e sem Atlas', $html);
+        $this->assertStringContainsString('Uplift Atlas', $html);
+        $this->assertStringContainsString('Inteligência', $html);
+        $this->assertStringContainsString('Custo / tarefa', $html);
+        $this->assertStringContainsString('Tokens / tarefa', $html);
+        $this->assertStringContainsString('Tokens / s', $html);
+        $this->assertStringContainsString('Tok/tarefa', $html);
+        $this->assertStringContainsString('Sem Atlas', $html);
+        $this->assertStringContainsString('Com Atlas', $html);
         $this->assertSame($report['report_hash'], json_decode(
             (string) file_get_contents(RunPaths::enterpriseReportPath()),
             true,
@@ -114,6 +136,105 @@ class EnterpriseReportBuilderTest extends TestCase
         ));
     }
 
+    public function test_delivery_inventory_and_suite_dossiers_are_complete(): void
+    {
+        $runId = $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true);
+        $unitsDir = RunPaths::runDir($runId).'/external_results/units';
+        mkdir($unitsDir, 0777, true);
+        file_put_contents($unitsDir.'/unit.json', json_encode([
+            'model' => 'kimi',
+            'results' => [[
+                'case_id' => 'simple',
+                'test_category' => 'simple',
+                'native_category' => 'simple',
+                'accuracy' => 1.0,
+                'status' => 'success',
+                'duration_sec' => 1.2,
+                'tokens_in' => 10,
+                'tokens_out' => 5,
+                'cost_usd' => 0.0,
+            ]],
+        ], JSON_UNESCAPED_SLASHES));
+
+        $report = (new EnterpriseReportBuilder)->build();
+        $this->assertCount(10, $report['delivery_inventory']);
+        $this->assertSame(10, count($report['suite_rows']));
+        foreach ($report['suite_rows'] as $row) {
+            $this->assertArrayHasKey('delivery', $row);
+            $this->assertArrayHasKey('native_metrics', $row['delivery']);
+            $this->assertArrayHasKey('delivery_coverage', $row);
+            $this->assertNotEmpty($row['delivery']['atlas_report_metrics']);
+        }
+        $bfcl = collect($report['suite_rows'])->firstWhere('suite_id', 'bfcl');
+        $this->assertNotEmpty($bfcl['native_signals']);
+        $this->assertEqualsWithDelta(1.0, (float) $bfcl['native_signals'][0]['accuracy'], 0.0001);
+        $this->assertNotNull($bfcl['full_metrics']);
+        $this->assertSame(240.0, $bfcl['tokens_per_task']);
+        $this->assertSame(120.0, $bfcl['tokens_per_second']);
+        $this->assertSame(720.0, $bfcl['full_metrics']['total_tokens']);
+        $this->assertContains('accuracy', $bfcl['observed_native_metric_keys']);
+        $this->assertArrayHasKey('report_json', $bfcl['artifacts']);
+        $this->assertTrue($bfcl['artifacts']['report_json']['present']);
+
+        $html = file_get_contents(RunPaths::enterpriseHtmlPath());
+        $this->assertStringContainsString('Dossiês das suites', $html);
+        $this->assertStringContainsString('delivery_inventory', $html);
+        $this->assertStringContainsString('native_signals', $html);
+        $this->assertStringContainsString('tokens_per_task', $html);
+
+        $md = file_get_contents(RunPaths::enterpriseMarkdownPath());
+        $this->assertStringContainsString('Inventário de entrega', $md);
+        $this->assertStringContainsString('Sinais nativos observados', $md);
+        $this->assertStringContainsString('accuracy', $md);
+        $this->assertStringContainsString('tokens/task', $md);
+        $this->assertStringContainsString('tokens/s', $md);
+
+        $csv = file_get_contents(RunPaths::enterpriseCsvPath());
+        $this->assertStringContainsString('tokens_per_task', $csv);
+        $this->assertStringContainsString('tokens_per_second', $csv);
+    }
+
+    public function test_model_dissections_always_pair_bare_and_atlas_with_epistemic_contract(): void
+    {
+        $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true);
+        $report = (new EnterpriseReportBuilder)->build();
+        $this->assertArrayHasKey('model_dissections', $report);
+        $this->assertFalse($report['model_dissections']['completeness']['absolute_knowledge_claim']);
+        $this->assertSame(
+            EnterpriseModelDissectionBuilder::requiredFacets(),
+            $report['model_dissections']['epistemic_contract']['required_facets'],
+        );
+        $models = $report['model_dissections']['models'];
+        $this->assertNotEmpty($models);
+        $runtimes = array_column($models, 'runtime');
+        $this->assertContains('bare', $runtimes);
+        $this->assertContains('atlas_dev', $runtimes);
+        $bare = collect($models)->first(fn (array $m): bool => ($m['runtime'] ?? '') === 'bare' && ($m['present'] ?? false));
+        $this->assertNotNull($bare);
+        $this->assertArrayHasKey('per_suite', $bare);
+        $this->assertCount(10, $bare['per_suite']);
+        $this->assertSame(240.0, $bare['summary']['tokens_per_task_mean']);
+        $this->assertSame(120.0, $bare['summary']['tokens_per_second_mean']);
+        $this->assertContains('tokens_per_task', $bare['measured_facets']);
+        $this->assertContains('tokens_per_second', $bare['measured_facets']);
+        $this->assertNotEmpty($bare['unknowns']);
+        $this->assertStringContainsString('absolute honesty', strtolower($bare['reality_statement']));
+
+        $atlas = collect($models)->first(fn (array $m): bool => ($m['runtime'] ?? '') === 'atlas_dev');
+        $this->assertNotNull($atlas);
+        $this->assertFalse($atlas['present']);
+
+        $html = file_get_contents(RunPaths::enterpriseHtmlPath());
+        $this->assertStringContainsString('Dissecção — realidade medida', $html);
+        $this->assertStringContainsString('epistemic_contract', $html);
+        $this->assertStringContainsString('Tokens/tarefa', $html);
+        $md = file_get_contents(RunPaths::enterpriseMarkdownPath());
+        $this->assertStringContainsString('Dissecção por modelo', $md);
+        $this->assertStringContainsString('absolute_knowledge_claim = false', $md);
+        $this->assertStringContainsString('tok/task=', $md);
+        $this->assertStringContainsString('tok/s=', $md);
+    }
+
     public function test_uplift_section_lists_five_families(): void
     {
         $report = (new EnterpriseReportBuilder)->build();
@@ -125,12 +246,162 @@ class EnterpriseReportBuilderTest extends TestCase
         }
     }
 
+    public function test_trust_contract_exposes_four_axes_and_events_complete(): void
+    {
+        $runId = $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true, internalClaim: true, withEvents: true);
+        $report = (new EnterpriseReportBuilder)->build();
+        $row = collect($report['suite_rows'])->firstWhere('suite_id', 'bfcl');
+        $this->assertTrue($row['events_complete']);
+        $this->assertTrue($row['is_atlas_fact']);
+        $this->assertArrayHasKey('pipeline', $row['axes']);
+        $this->assertArrayHasKey('measurement', $row['axes']);
+        $this->assertArrayHasKey('intelligence', $row['axes']);
+        $this->assertArrayHasKey('claim', $row['axes']);
+        $this->assertTrue($row['axes']['pipeline']['ok']);
+        $this->assertSame('complete', $row['axes']['measurement']['status']);
+        $this->assertSame('allowed', $row['axes']['claim']['status']);
+        $this->assertSame(1.0, $row['intelligence_rate']);
+        $this->assertSame($runId, $row['run_id']);
+
+        $md = file_get_contents(RunPaths::enterpriseMarkdownPath());
+        $this->assertStringContainsString('Eixos de confiança', $md);
+        $this->assertStringContainsString('is_atlas_fact', $md);
+        $html = file_get_contents(RunPaths::enterpriseHtmlPath());
+        $this->assertStringContainsString('fato Atlas', $html);
+        $this->assertStringContainsString('Intel (ex-env)', $html);
+    }
+
+    public function test_events_incomplete_blocks_atlas_fact(): void
+    {
+        $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true, internalClaim: true, withEvents: false);
+        $report = (new EnterpriseReportBuilder)->build();
+        $row = collect($report['suite_rows'])->firstWhere('suite_id', 'bfcl');
+        $this->assertFalse($row['events_complete']);
+        $this->assertFalse($row['is_atlas_fact']);
+        $this->assertSame('ok', $row['status']); // pipeline chip still ok
+    }
+
+    public function test_intelligence_rate_distinct_from_itt_when_seeded(): void
+    {
+        $this->seedSuiteRun(
+            'bfcl',
+            pipelineValid: true,
+            tokensPresent: true,
+            internalClaim: false,
+            withEvents: true,
+            successRateItt: 0.5,
+            intelligenceRate: 1.0,
+        );
+        $report = (new EnterpriseReportBuilder)->build();
+        $row = collect($report['suite_rows'])->firstWhere('suite_id', 'bfcl');
+        $this->assertSame(0.5, $row['success_rate_itt']);
+        $this->assertSame(1.0, $row['intelligence_rate']);
+        $this->assertSame(0.5, $row['axes']['intelligence']['itt']);
+        $this->assertSame(1.0, $row['axes']['intelligence']['rate']);
+    }
+
+    public function test_inspect_evals_missing_tokens_is_harness_omit_not_fact(): void
+    {
+        $this->seedSuiteRun('inspect_evals', pipelineValid: true, tokensPresent: false, internalClaim: true, withEvents: true);
+        $report = (new EnterpriseReportBuilder)->build();
+        $row = collect($report['suite_rows'])->firstWhere('suite_id', 'inspect_evals');
+        $this->assertSame('harness_omit', $row['axes']['measurement']['status']);
+        $this->assertFalse($row['axes']['measurement']['ok']);
+        $this->assertFalse($row['is_atlas_fact']);
+        $this->assertSame('missing_data', $row['status']);
+    }
+
+    public function test_uplift_excluded_pairs_mark_diagnostic_only(): void
+    {
+        $arm = (new ArmRegistry)->parse('verboo_kimi_k2_7@bare', 'bfcl');
+        $plan = RunPlan::make(
+            'bfcl',
+            ['case_a', 'case_b', 'case_c'],
+            [$arm],
+            3,
+            ['max_usd' => 10.0, 'max_minutes' => 30],
+            1,
+        );
+        $runId = $plan->persist();
+        $this->seedEvents($runId);
+        file_put_contents(RunPaths::reportPath($runId), json_encode([
+            'schema_version' => SchemaContract::REPORT,
+            'run_id' => $runId,
+            'rows' => [[
+                'task_type' => 'tool_use_function_calling',
+                'arm_id' => $arm['arm_id'],
+                'success_rate_itt' => 1.0,
+                'intelligence_rate' => 1.0,
+                'median_wall_ms' => 1000.0,
+                'avg_tokens_in' => 100.0,
+                'avg_tokens_out' => 20.0,
+                'cost_per_task' => 0.0,
+                'environment_failure_rate' => 0.0,
+                'tokens_coverage' => ['in' => 3, 'out' => 3, 'n' => 3, 'in_rate' => 1.0, 'out_rate' => 1.0],
+                'stability' => 1.0,
+            ]],
+            'pipeline_valid' => true,
+            'claim_tier' => 'production',
+            'internal_claim_allowed' => false,
+            'public_claim_allowed' => false,
+            'not_ready_reasons' => [],
+            'claim_allowed' => false,
+            'claim_blockers' => [],
+            'claim_scope' => ['suite' => 'bfcl', 'models' => ['verboo_kimi_k2_7'], 'runtimes' => ['bare']],
+            'statistical_analysis' => ['adequate' => true, 'blockers' => [], 'segments' => []],
+            'missing_data_policy' => [],
+            'report_hash' => 'fixture',
+            'built_at' => '2026-07-10T00:00:00Z',
+        ], JSON_UNESCAPED_SLASHES));
+        file_put_contents(RunPaths::adjudicationPath($runId), json_encode([
+            'pipeline_valid' => true,
+            'claim_tier' => 'production',
+            'internal_claim_allowed' => false,
+            'public_claim_allowed' => false,
+            'internal_claim_blockers' => ['diagnostic_only'],
+            'not_ready_reasons' => ['diagnostic_only'],
+            'claim_scope' => ['suite' => 'bfcl', 'models' => ['verboo_kimi_k2_7'], 'runtimes' => ['bare']],
+            'statistical_analysis' => ['adequate' => true, 'blockers' => [], 'segments' => []],
+            'adjudicated_at' => '2026-07-10T00:00:00Z',
+        ], JSON_UNESCAPED_SLASHES));
+        file_put_contents(RunPaths::runDir($runId).'/uplift.json', json_encode([
+            'schema_version' => 'atlas.rivals2.uplift.v1',
+            'uplift_kind' => 'real_uplift',
+            'internal_claim_allowed' => false,
+            'proven_pair_count' => 2,
+            'excluded_pair_keys' => ['case_c@1'],
+            'deltas' => [[
+                'base' => ['success_rate' => 0.5],
+                'atlas' => ['success_rate' => 0.8],
+                'delta_success_rate' => 0.3,
+            ]],
+        ], JSON_UNESCAPED_SLASHES));
+
+        $report = (new EnterpriseReportBuilder)->build();
+        $family = collect($report['atlas_uplift']['families'])->firstWhere('suite_id', 'bfcl');
+        $this->assertNotNull($family);
+        $this->assertSame('real_uplift', $family['status']);
+        $this->assertTrue($family['diagnostic_only']);
+        $this->assertSame(2, $family['proven_pair_count']);
+        $this->assertSame(['case_c@1'], $family['excluded_pair_keys']);
+    }
+
     public function test_single_model_battery_when_only_one_bare_model(): void
     {
         $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true);
         $report = (new EnterpriseReportBuilder)->build();
         $this->assertSame('single_model_battery', $report['model_matrix']['mode']);
         $this->assertNotEmpty($report['model_matrix']['model_id']);
+        $this->assertSame('model_with_without_atlas', $report['model_matrix']['face'] ?? null);
+        $this->assertNotEmpty($report['model_matrix']['rows']);
+        $this->assertArrayHasKey('bare_intelligence', $report['model_matrix']['rows'][0]);
+        $this->assertArrayHasKey('per_suite', $report['model_matrix']['rows'][0]);
+        $this->assertArrayHasKey('facts', $report);
+        $this->assertArrayHasKey('measured', $report['facts']);
+        $this->assertArrayHasKey('incomplete', $report['facts']);
+        $html = file_get_contents(RunPaths::enterpriseHtmlPath());
+        $this->assertStringContainsString('Fatos medidos', $html);
+        $this->assertStringContainsString('Suite a suite', $html);
     }
 
     public function test_model_vs_model_when_two_bare_models_present(): void
@@ -258,12 +529,36 @@ class EnterpriseReportBuilderTest extends TestCase
             'median_wall_ms' => null,
             'tokens_in_avg' => null,
             'tokens_out_avg' => null,
+            'tokens_per_task' => null,
+            'tokens_per_second' => null,
+            'total_tokens' => null,
+            'cost_per_1k_tokens' => null,
             'cost_per_task' => null,
             'cost_basis' => null,
             'env_failure_rate' => null,
             'missing_fields' => [],
             'pipeline_valid' => false,
             'internal_claim_allowed' => false,
+            'delivery' => EnterpriseSuiteDeliveryCatalog::forSuite($id),
+            'full_metrics' => null,
+            'report_rows' => [],
+            'native_signals' => [],
+            'case_ids' => [],
+            'artifacts' => [],
+            'adjudication' => null,
+            'observed_native_metric_keys' => [],
+            'observed_report_metric_keys' => [],
+            'delivery_coverage' => [
+                'native_expected' => 0,
+                'native_observed' => 0,
+                'native_missing' => [],
+                'report_expected' => 0,
+                'report_observed' => 0,
+                'report_missing' => [],
+                'dimensions_expected' => [],
+                'uplift_eligible' => false,
+                'uplift_family' => null,
+            ],
         ], $ids);
 
         return [
@@ -281,7 +576,29 @@ class EnterpriseReportBuilderTest extends TestCase
                 'suites_blocked' => 0,
                 'provider_binding' => 'hermes+verboo',
             ],
+            'delivery_inventory' => array_values(array_map(
+                fn (string $id): array => EnterpriseSuiteDeliveryCatalog::forSuite($id),
+                $ids,
+            )),
             'suite_rows' => $rows,
+            'model_dissections' => [
+                'epistemic_contract' => [
+                    'goal' => 'test',
+                    'forbidden' => [],
+                    'required_facets' => EnterpriseModelDissectionBuilder::requiredFacets(),
+                    'completeness_definition' => 'test',
+                ],
+                'models' => [],
+                'global_unknowns' => [],
+                'completeness' => [
+                    'dissections_total' => 0,
+                    'dissections_present' => 0,
+                    'dissections_complete' => 0,
+                    'mean_completeness_ratio' => 0.0,
+                    'absolute_knowledge_claim' => false,
+                    'absolute_measured_reality_claim' => false,
+                ],
+            ],
             'model_matrix' => ['mode' => 'single_model_battery', 'model_id' => 'verboo_kimi_k2_7', 'rows' => []],
             'atlas_uplift' => ['families' => []],
             'gaps' => [],
@@ -295,6 +612,9 @@ class EnterpriseReportBuilderTest extends TestCase
         bool $pipelineValid,
         bool $tokensPresent,
         bool $internalClaim = false,
+        bool $withEvents = true,
+        ?float $successRateItt = null,
+        ?float $intelligenceRate = null,
     ): string {
         $arm = (new ArmRegistry)->parse('verboo_kimi_k2_7@bare', $suiteId);
         $plan = RunPlan::make(
@@ -343,15 +663,49 @@ class EnterpriseReportBuilderTest extends TestCase
             ])->append();
         }
 
+        $itt = $successRateItt ?? 1.0;
+        $intel = $intelligenceRate ?? $itt;
         $reportRows = [[
             'task_type' => 'tool_use_function_calling',
             'arm_id' => $arm['arm_id'],
-            'success_rate_itt' => 1.0,
+            'n' => 3,
+            'planned_attempts' => 3,
+            'observed_attempts' => 3,
+            'valid_results' => 3,
+            'successes' => 3,
+            'success_rate' => $itt,
+            'success_rate_itt' => $itt,
+            'intelligence_rate' => $intel,
+            'success_rate_valid_results' => $itt,
+            'success_rate_wilson_95' => ['low' => 0.29, 'high' => 1.0, 'width' => 0.71],
             'median_wall_ms' => 2000.0,
+            'avg_wall_ms' => 2000.0,
+            'p95_wall_ms' => 3000.0,
             'avg_tokens_in' => $tokensPresent ? 200.0 : null,
             'avg_tokens_out' => $tokensPresent ? 40.0 : null,
+            'total_tokens_in' => $tokensPresent ? 600.0 : null,
+            'total_tokens_out' => $tokensPresent ? 120.0 : null,
+            'total_tokens' => $tokensPresent ? 720.0 : null,
+            'tokens_per_task' => $tokensPresent ? 240.0 : null,
+            'avg_tokens_per_task' => $tokensPresent ? 240.0 : null,
+            'tokens_in_per_task' => $tokensPresent ? 200.0 : null,
+            'tokens_out_per_task' => $tokensPresent ? 40.0 : null,
+            'tokens_per_second' => $tokensPresent ? 120.0 : null,
+            'tokens_per_second_aggregate' => $tokensPresent ? 120.0 : null,
+            'tokens_in_per_second' => $tokensPresent ? 100.0 : null,
+            'tokens_out_per_second' => $tokensPresent ? 20.0 : null,
+            'median_wall_sec' => 2.0,
+            'cost_per_1k_tokens' => null,
             'cost_per_task' => 0.0,
+            'total_cost_usd' => 0.0,
+            'avg_cost_usd' => 0.0,
+            'median_cost_usd' => 0.0,
+            'p95_cost_usd' => 0.0,
             'environment_failure_rate' => 0.0,
+            'failure_classes' => [],
+            'dimensions' => null,
+            'avg_patch_bloat' => null,
+            'reality' => null,
             'tokens_coverage' => [
                 'in' => $tokensPresent ? 3 : 0,
                 'out' => $tokensPresent ? 3 : 0,
@@ -396,6 +750,33 @@ class EnterpriseReportBuilderTest extends TestCase
             'adjudicated_at' => '2026-07-10T00:00:00Z',
         ], JSON_UNESCAPED_SLASHES));
 
+        if ($withEvents) {
+            $this->seedEvents($runId);
+        }
+
         return $runId;
+    }
+
+    private function seedEvents(string $runId): void
+    {
+        $path = RunPaths::eventsPath($runId);
+        RunPaths::ensureDir(dirname($path));
+        $lines = [
+            ['event_type' => 'battery_started', 'data' => ['suite' => 'fixture']],
+            ['event_type' => 'unit_started', 'data' => ['execution_id' => 'u1']],
+            ['event_type' => 'unit_heartbeat', 'data' => ['execution_id' => 'u1']],
+            ['event_type' => 'unit_finished', 'data' => ['execution_id' => 'u1', 'status' => 'ok']],
+            ['event_type' => 'pipeline_finished', 'data' => []],
+            ['event_type' => 'battery_finished', 'data' => []],
+        ];
+        $buf = '';
+        foreach ($lines as $event) {
+            $buf .= json_encode([
+                'timestamp' => '2026-07-12T00:00:00Z',
+                'event_type' => $event['event_type'],
+                'data' => $event['data'],
+            ], JSON_UNESCAPED_SLASHES).PHP_EOL;
+        }
+        file_put_contents($path, $buf);
     }
 }

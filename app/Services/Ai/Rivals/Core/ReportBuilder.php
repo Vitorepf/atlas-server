@@ -246,6 +246,64 @@ class ReportBuilder
         $wilson = StatisticalPolicy::wilson($successes, $plannedAttempts);
         $environmentFailures = $failureClasses[FailureClass::ENVIRONMENT] ?? 0;
 
+        $nonEnvItems = array_values(array_filter(
+            $items,
+            fn (array $r): bool => ($r['failure_class'] ?? null) !== FailureClass::ENVIRONMENT,
+        ));
+        $intelSuccesses = count(array_filter($nonEnvItems, fn (array $r): bool => $r['status'] === 'success'));
+        $intelN = count($nonEnvItems);
+        $intelligenceRate = $intelN > 0 ? round($intelSuccesses / $intelN, 4) : null;
+
+        $tokensPerSecondSamples = [];
+        $tokensInPerSecondSamples = [];
+        $tokensOutPerSecondSamples = [];
+        $tokensPerTaskSamples = [];
+        foreach ($items as $item) {
+            $presence = (array) ($item['field_presence'] ?? []);
+            $wallOk = (($presence['wall_ms']['present'] ?? true) === true);
+            $inOk = (($presence['tokens_in']['present'] ?? true) === true);
+            $outOk = (($presence['tokens_out']['present'] ?? true) === true);
+            $wallMs = (float) ($item['wall_ms'] ?? 0);
+            $tokIn = $inOk ? (int) ($item['tokens_in'] ?? 0) : null;
+            $tokOut = $outOk ? (int) ($item['tokens_out'] ?? 0) : null;
+            if ($tokIn !== null || $tokOut !== null) {
+                $tokensPerTaskSamples[] = (float) (($tokIn ?? 0) + ($tokOut ?? 0));
+            }
+            if ($wallOk && $wallMs > 0) {
+                $sec = $wallMs / 1000.0;
+                if ($tokIn !== null) {
+                    $tokensInPerSecondSamples[] = $tokIn / $sec;
+                }
+                if ($tokOut !== null) {
+                    $tokensOutPerSecondSamples[] = $tokOut / $sec;
+                }
+                if ($tokIn !== null || $tokOut !== null) {
+                    $tokensPerSecondSamples[] = (($tokIn ?? 0) + ($tokOut ?? 0)) / $sec;
+                }
+            }
+        }
+
+        $totalTokensObserved = $tokenInSum + $tokenOutSum;
+        $tokensPerTask = $plannedCases > 0 && ($tokenInPresent > 0 || $tokenOutPresent > 0)
+            ? round($totalTokensObserved / $plannedCases, 4)
+            : null;
+        $avgTokensPerTask = $tokensPerTaskSamples === []
+            ? null
+            : round(array_sum($tokensPerTaskSamples) / count($tokensPerTaskSamples), 4);
+        $avgTokensPerSecond = $tokensPerSecondSamples === []
+            ? null
+            : round(array_sum($tokensPerSecondSamples) / count($tokensPerSecondSamples), 4);
+        $medianWallSec = ($walls !== [] && ($this->quantile($walls, 0.5) ?? 0) > 0)
+            ? round(((float) $this->quantile($walls, 0.5)) / 1000.0, 6)
+            : null;
+        $totalWallSecObserved = array_sum($walls) / 1000.0;
+        $tokensPerSecondAggregate = ($totalWallSecObserved > 0 && ($tokenInPresent > 0 || $tokenOutPresent > 0))
+            ? round($totalTokensObserved / $totalWallSecObserved, 4)
+            : null;
+        $costPer1kTokens = ($totalTokensObserved > 0 && $totalCost > 0)
+            ? round(($totalCost / $totalTokensObserved) * 1000.0, 6)
+            : null;
+
         return [
             'task_type' => $taskType,
             'arm_id' => $armId,
@@ -257,6 +315,7 @@ class ReportBuilder
             'success_rate' => round($successRate, 4),
             'success_rate_itt' => round($successRate, 4),
             'success_rate_valid_results' => round($conditionalSuccessRate, 4),
+            'intelligence_rate' => $intelligenceRate,
             'success_rate_wilson_95' => $wilson,
             'environment_failure_rate' => $plannedAttempts > 0
                 ? round($environmentFailures / $plannedAttempts, 4)
@@ -267,10 +326,28 @@ class ReportBuilder
             'median_cost_usd' => $this->quantile($costs, 0.5),
             'p95_cost_usd' => $this->quantile($costs, 0.95),
             'median_cost_ci_95' => $this->bootstrapMedianCi($costs, crc32($taskType.'|'.$armId.'|cost')),
+            'cost_per_1k_tokens' => $costPer1kTokens,
             'avg_tokens_in' => $tokenInPresent > 0 ? round($tokenInSum / $tokenInPresent, 2) : null,
             'avg_tokens_out' => $tokenOutPresent > 0 ? round($tokenOutSum / $tokenOutPresent, 2) : null,
             'total_tokens_in' => $tokenInSum,
             'total_tokens_out' => $tokenOutSum,
+            'total_tokens' => $tokenInPresent > 0 || $tokenOutPresent > 0 ? $totalTokensObserved : null,
+            'tokens_per_task' => $tokensPerTask,
+            'avg_tokens_per_task' => $avgTokensPerTask,
+            'tokens_in_per_task' => $plannedCases > 0 && $tokenInPresent > 0
+                ? round($tokenInSum / $plannedCases, 4)
+                : null,
+            'tokens_out_per_task' => $plannedCases > 0 && $tokenOutPresent > 0
+                ? round($tokenOutSum / $plannedCases, 4)
+                : null,
+            'tokens_per_second' => $avgTokensPerSecond,
+            'tokens_per_second_aggregate' => $tokensPerSecondAggregate,
+            'tokens_in_per_second' => $tokensInPerSecondSamples === []
+                ? null
+                : round(array_sum($tokensInPerSecondSamples) / count($tokensInPerSecondSamples), 4),
+            'tokens_out_per_second' => $tokensOutPerSecondSamples === []
+                ? null
+                : round(array_sum($tokensOutPerSecondSamples) / count($tokensOutPerSecondSamples), 4),
             'tokens_coverage' => [
                 'in' => $tokenInPresent,
                 'out' => $tokenOutPresent,
@@ -281,6 +358,7 @@ class ReportBuilder
             'avg_wall_ms' => $n > 0 ? (int) round(array_sum(array_column($items, 'wall_ms')) / $n) : 0,
             'median_wall_ms' => $this->quantile($walls, 0.5),
             'p95_wall_ms' => $this->quantile($walls, 0.95),
+            'median_wall_sec' => $medianWallSec,
             'median_wall_ci_95' => $this->bootstrapMedianCi($walls, crc32($taskType.'|'.$armId.'|wall')),
             'stability' => round(1.0 - sqrt($variance), 4),
             'failure_classes' => $failureClasses,
@@ -468,15 +546,18 @@ class ReportBuilder
             }
         }
 
-        $md .= "\n| task_type | arm | planned | observed | success_itt | Wilson95 | valid_success | cost/task | median_ms | p95_ms | tokens_cov_in/out | env_fail | stability |\n";
-        $md .= "|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
+        $md .= "\n| task_type | arm | planned | observed | success_itt | Wilson95 | valid_success | cost/task | tokens/task | tok/s | median_ms | p95_ms | tokens_cov_in/out | env_fail | stability |\n";
+        $md .= "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n";
         foreach ($report['rows'] as $row) {
             $ci = $row['success_rate_wilson_95'];
             $cov = (array) ($row['tokens_coverage'] ?? []);
             $covLabel = ($cov['in'] ?? 0).'/'.($cov['n'] ?? 0).' · '.($cov['out'] ?? 0).'/'.($cov['n'] ?? 0);
             $md .= "| {$row['task_type']} | {$row['arm_id']} | {$row['planned_attempts']} | {$row['observed_attempts']} | "
                 ."{$row['success_rate_itt']} | [{$ci['low']}, {$ci['high']}] | {$row['success_rate_valid_results']} | "
-                .($row['cost_per_task'] ?? 'n/a').' | '.($row['median_wall_ms'] ?? 'n/a')
+                .($row['cost_per_task'] ?? 'n/a')
+                .' | '.($row['tokens_per_task'] ?? 'n/a')
+                .' | '.($row['tokens_per_second'] ?? 'n/a')
+                .' | '.($row['median_wall_ms'] ?? 'n/a')
                 .' | '.($row['p95_wall_ms'] ?? 'n/a')." | {$covLabel} | {$row['environment_failure_rate']} | {$row['stability']} |\n";
         }
 
@@ -502,8 +583,21 @@ class ReportBuilder
             'ci_high',
             'total_cost_usd',
             'cost_per_task',
+            'cost_per_1k_tokens',
             'median_wall_ms',
+            'median_wall_sec',
             'p95_wall_ms',
+            'avg_tokens_in',
+            'avg_tokens_out',
+            'total_tokens',
+            'tokens_per_task',
+            'avg_tokens_per_task',
+            'tokens_in_per_task',
+            'tokens_out_per_task',
+            'tokens_per_second',
+            'tokens_per_second_aggregate',
+            'tokens_in_per_second',
+            'tokens_out_per_second',
             'tokens_coverage_in',
             'tokens_coverage_out',
             'tokens_coverage_n',
@@ -530,8 +624,21 @@ class ReportBuilder
                 $row['success_rate_wilson_95']['high'],
                 $row['total_cost_usd'],
                 $row['cost_per_task'],
+                $row['cost_per_1k_tokens'] ?? null,
                 $row['median_wall_ms'],
+                $row['median_wall_sec'] ?? null,
                 $row['p95_wall_ms'],
+                $row['avg_tokens_in'] ?? null,
+                $row['avg_tokens_out'] ?? null,
+                $row['total_tokens'] ?? null,
+                $row['tokens_per_task'] ?? null,
+                $row['avg_tokens_per_task'] ?? null,
+                $row['tokens_in_per_task'] ?? null,
+                $row['tokens_out_per_task'] ?? null,
+                $row['tokens_per_second'] ?? null,
+                $row['tokens_per_second_aggregate'] ?? null,
+                $row['tokens_in_per_second'] ?? null,
+                $row['tokens_out_per_second'] ?? null,
                 $cov['in'] ?? null,
                 $cov['out'] ?? null,
                 $cov['n'] ?? null,

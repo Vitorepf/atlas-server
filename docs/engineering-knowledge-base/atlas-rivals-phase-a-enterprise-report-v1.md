@@ -18,6 +18,11 @@ decisions:
   - suite_rows tem sempre N=count(benchmarks.repos) linhas (not_run se faltar run).
   - Tokens/tempo ausentes viram status missing_data, nunca 0/0 silencioso.
   - Provider real da Fase A é Hermes+Verboo (verboo_kimi_k2_7).
+  - single_model_battery emite model_matrix.rows com face model_with_without_atlas (nunca rows vazias).
+  - Atlas score só entra como fato quando uplift status=real_uplift (unsupported ≠ 0%).
+  - facts.measured / facts.incomplete são a leitura humana canônica do consolidado.
+  - Fato Atlas exige 4 eixos (pipeline|measurement|intelligence|claim) + events.jsonl completo; chip ok sozinho nunca é fato.
+  - intelligence_rate exclui environment_failure; ITT permanece rotulado e separado.
 maintenance:
   - Atualizar quando o schema atlas.rivals2.enterprise_report.v1 mudar.
 related_paths:
@@ -83,13 +88,41 @@ Substitui o `report-all` técnico como artefato legível de produto. Claims cont
 
 ### Schema obrigatório
 
-`schema_version`, `built_at`, `report_hash`, `claim_allowed` (**false**), `claim_blockers`, `executive_summary`, `suite_rows` (N=10), `model_matrix`, `atlas_uplift`, `gaps`, `included_run_ids`, `excluded_run_ids`.
+`schema_version`, `built_at`, `report_hash`, `claim_allowed` (**false**), `claim_blockers`, `executive_summary`, `delivery_inventory`, `suite_rows` (N=10), `model_dissections`, `model_matrix`, `atlas_uplift`, `gaps`, `included_run_ids`, `excluded_run_ids`.
 
-### Status por suite
+### Dissecção por modelo (`model_dissections`)
 
-`ok` | `failed` | `blocked` | `missing_data` | `not_run`
+Contrato epistêmico: **absolute honesty about measured reality**, nunca omnisciência.
+`absolute_knowledge_claim` é sempre `false`. Uma dissecção é “completa” só quando cada faceta
+obrigatória está medida com evidência **ou** listada em `unknowns` com razão explícita.
+Sempre emite pares `model@bare` e `model@atlas_dev` (Atlas ausente = `present=false`, não zero).
+
+### Contrato de confiança — “Fato Atlas”
+
+Nada no HTML/JSON consolidado é **fato Atlas benchmark** sem:
+
+1. receipts + native receipts `runner.mode=execute`
+2. `events.jsonl` não-vazio com lifecycle de units (`events_complete=true`)
+3. evidence hash + adjudication
+4. (uplift claimável) bridge proof em 100% dos pares — senão só `diagnostic_only`
+
+Qualquer outra coisa = **diagnóstico / não-fato**. Harness que omite usage → `measurement=harness_omit` (nunca inventar 0 tokens). Env failure nunca se disfarça de “modelo 0%” na coluna de inteligência.
+
+### Status por suite (legado + 4 eixos)
+
+Status legado: `ok` | `failed` | `blocked` | `missing_data` | `not_run`
+
+Cada `suite_row` também emite eixos explícitos:
+
+| Eixo | Significado |
+|---|---|
+| `pipeline` | rodou / blocked (`pipeline_valid`) |
+| `measurement` | tokens/wall completos \| parciais \| `harness_omit` |
+| `intelligence` | taxa só em `success\|model_failure` (`intelligence_rate`; exclui env) |
+| `claim` | `internal_claim_allowed` do run — nunca inferir do chip `ok` |
 
 `missing_data` quando `pipeline_valid` mas tokens/tempo não estão presentes de forma honesta.
+`ok` (legado) = pipeline + measurement mínimos — **não** implica claim nem fato.
 
 ### Faces
 
