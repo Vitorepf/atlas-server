@@ -123,7 +123,13 @@ final class KernelRunExecutor implements RunExecutor
             verificationReceiptHash: self::hashOrNull($verification['hash'] ?? null),
             scopeGuardReceiptHash: self::hashOrNull($hashes['release'] ?? null),
             diffHash: self::hashOrNull($hashes['diff'] ?? null),
-            reasons: $result->reason === null ? null : [$result->reason],
+            reasons: $result->reason === null ? null : array_values(array_filter([
+                $result->reason,
+                // Sem isto o motivo real de um bloqueio de kernel morre dentro
+                // de details e o operador só vê "shared_kernel_execution_failed".
+                is_string($result->details['exception'] ?? null) ? 'exception='.$result->details['exception'] : null,
+                is_string($result->details['reason'] ?? null) ? 'detail='.mb_substr($result->details['reason'], 0, 400) : null,
+            ])),
         );
     }
 

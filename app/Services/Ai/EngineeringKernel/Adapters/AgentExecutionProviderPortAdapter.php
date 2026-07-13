@@ -73,6 +73,13 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
         }
         $decoded = $this->decodeContract((string) ($raw['output'] ?? ''));
         if ($decoded === null) {
+            \Illuminate\Support\Facades\Log::warning('provider_contract_decode_failed', [
+                'provider' => $providerKey,
+                'model' => $model,
+                'output_bytes' => strlen((string) ($raw['output'] ?? '')),
+                'output_tail' => substr((string) ($raw['output'] ?? ''), -600),
+            ]);
+
             return ['status' => 'invalid_provider_contract', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
         $claimAllowed = array_values(array_map('strval', (array) ($request['claim']['allowed_files'] ?? [])));
@@ -107,10 +114,82 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             $trimmed = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', $trimmed) ?? '';
         }
         $decoded = json_decode($trimmed, true);
+        if (is_array($decoded) && is_array($decoded['patch_plan'] ?? null)) {
+            return $decoded;
+        }
 
-        return is_array($decoded)
-            && is_array($decoded['patch_plan'] ?? null)
-            ? $decoded
-            : null;
+        // Providers CLI (hermes) misturam o stream de raciocínio antes da
+        // resposta; o contrato válido é o ÚLTIMO objeto JSON balanceado com
+        // patch_plan. Scanner string-aware, do fim para o começo.
+        foreach (array_reverse(self::balancedJsonObjects($trimmed)) as $candidate) {
+            $decoded = json_decode($candidate, true);
+            if (is_array($decoded) && is_array($decoded['patch_plan'] ?? null)) {
+                return $decoded;
+            }
+        }
+
+        // Último recurso: âncora no próprio contrato. Prosa de raciocínio pode
+        // ter aspas/chaves desbalanceadas que enganam o scanner acima.
+        $anchor = strrpos($trimmed, '"patch_plan"');
+        if ($anchor !== false) {
+            $start = strrpos(substr($trimmed, 0, $anchor), '{');
+            if ($start !== false) {
+                $sub = substr($trimmed, $start);
+                $end = strlen($sub);
+                for ($attempts = 0; $attempts < 500; $attempts++) {
+                    $end = strrpos(substr($sub, 0, $end), '}');
+                    if ($end === false) {
+                        break;
+                    }
+                    $decoded = json_decode(substr($sub, 0, $end + 1), true);
+                    if (is_array($decoded) && is_array($decoded['patch_plan'] ?? null)) {
+                        return $decoded;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** @return list<string> Objetos JSON top-level balanceados encontrados no texto. */
+    private static function balancedJsonObjects(string $text): array
+    {
+        $objects = [];
+        $depth = 0;
+        $start = null;
+        $inString = false;
+        $escaped = false;
+        $len = strlen($text);
+        for ($i = 0; $i < $len; $i++) {
+            $ch = $text[$i];
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ($ch === '\\') {
+                    $escaped = true;
+                } elseif ($ch === '"') {
+                    $inString = false;
+                }
+
+                continue;
+            }
+            if ($ch === '"') {
+                $inString = true;
+            } elseif ($ch === '{') {
+                if ($depth === 0) {
+                    $start = $i;
+                }
+                $depth++;
+            } elseif ($ch === '}' && $depth > 0) {
+                $depth--;
+                if ($depth === 0 && $start !== null) {
+                    $objects[] = substr($text, $start, $i - $start + 1);
+                    $start = null;
+                }
+            }
+        }
+
+        return $objects;
     }
 }

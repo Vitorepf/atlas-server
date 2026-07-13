@@ -440,10 +440,21 @@ class AtlasRealEngineeringExecutionKernelService
         }
         $commands = [];
         foreach ($files as $file) {
-            if (! str_ends_with($file, '.php') || ! is_file($sandbox.'/'.$file) || is_link($sandbox.'/'.$file)) {
+            if (! is_file($sandbox.'/'.$file) || is_link($sandbox.'/'.$file)) {
                 throw new \InvalidArgumentException('hermetic_candidate_file_not_verifiable');
             }
-            $commands[] = [PHP_BINARY, '-l', $file];
+            // Lint mecânico por linguagem; workspaces estrangeiros (Rivals) são
+            // poliglotas. Extensão sem linter conhecido segue só no diff --check.
+            $lint = match (true) {
+                str_ends_with($file, '.php') => [PHP_BINARY, '-l', $file],
+                str_ends_with($file, '.py') => ['python3', '-m', 'py_compile', $file],
+                str_ends_with($file, '.mjs'), str_ends_with($file, '.js') => ['node', '--check', $file],
+                str_ends_with($file, '.json') => [PHP_BINARY, '-r', 'exit(json_validate((string) file_get_contents($argv[1])) ? 0 : 1);', $file],
+                default => null,
+            };
+            if ($lint !== null) {
+                $commands[] = $lint;
+            }
         }
         $commands[] = ['git', 'diff', '--check', '--', ...$files];
         $results = [];
@@ -557,11 +568,15 @@ class AtlasRealEngineeringExecutionKernelService
         if (AiRealExecutionTestRun::query()->where('test_run_id', $verificationRunId)->exists()) {
             throw new \InvalidArgumentException('hermetic_candidate_verification_duplicate');
         }
+        // Behavioral só conta quando o order declarou um profile; sem profile o
+        // piso é a verificação mecânica (mesma regra de mutativeVerificationArtifactsValid).
+        $verificationPassed = $passed
+            && ($behavioralTarget === '' || $behavioral['passed'] === true);
         AiRealExecutionTestRun::query()->create([
-            'test_run_id' => $verificationRunId, 'status' => $passed && $behavioral['passed'] === true ? 'passed' : 'failed',
+            'test_run_id' => $verificationRunId, 'status' => $verificationPassed ? 'passed' : 'failed',
             'selected_tests' => array_map(static fn (array $result): string => (string) $result['command_hash'], $results),
             'impact_reasoning' => ['strategy' => 'candidate_bound_hermetic_verification'],
-            'exit_code' => $passed && $behavioral['passed'] === true ? 0 : 1,
+            'exit_code' => $verificationPassed ? 0 : 1,
             'output_excerpt' => 'candidate_bound_hermetic_verification',
             'evidence_refs' => ['candidate:'.$candidateHash, 'provider:'.$providerReceiptHash],
             'receipt' => $receipt, 'test_hash' => $receipt['hash'],
@@ -2930,7 +2945,13 @@ class AtlasRealEngineeringExecutionKernelService
     /** @param array<string,mixed> $receipt */
     private function mutativeVerificationArtifactsValid(array $receipt): bool
     {
-        if (($receipt['passed'] ?? false) !== true || data_get($receipt, 'behavioral.passed') !== true) {
+        // Oráculo comportamental só existe quando o order DECLARA um
+        // behavioral_profile. Sem profile (dev em workspace estrangeiro, ex.
+        // braço atlas_dev do Rivals), a verificação mecânica + diff bindings
+        // são o piso e o julgamento comportamental fica com o harness externo.
+        $behavioralDeclared = data_get($receipt, 'behavioral.status') !== 'missing';
+        if (($receipt['passed'] ?? false) !== true
+            || ($behavioralDeclared && data_get($receipt, 'behavioral.passed') !== true)) {
             return false;
         }
         $commands = $receipt['commands'] ?? null;
@@ -2941,13 +2962,20 @@ class AtlasRealEngineeringExecutionKernelService
         if ($root === false) {
             return false;
         }
-        foreach ([$receipt['junit_artifact'] ?? null, data_get($receipt, 'behavioral.junit_artifact'), $receipt['diff_artifact'] ?? null] as $artifact) {
+        $artifacts = [$receipt['junit_artifact'] ?? null, $receipt['diff_artifact'] ?? null];
+        if ($behavioralDeclared) {
+            $artifacts[] = data_get($receipt, 'behavioral.junit_artifact');
+        }
+        foreach ($artifacts as $artifact) {
             $path = is_array($artifact) ? (string) ($artifact['path'] ?? '') : '';
             $real = $path !== '' ? realpath($path) : false;
             if ($real === false || ! str_starts_with($real, $root.'/') || is_link($path)
                 || ! hash_equals((string) ($artifact['sha256'] ?? ''), (string) hash_file('sha256', $real))) {
                 return false;
             }
+        }
+        if (! $behavioralDeclared) {
+            return true;
         }
         $runner = (string) data_get($receipt, 'behavioral.runner_path', '');
 

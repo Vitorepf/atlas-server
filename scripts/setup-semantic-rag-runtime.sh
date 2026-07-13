@@ -12,7 +12,7 @@ python3 -m venv .venv
 
 echo "[semantic_rag] installing package + local embedding model deps"
 .venv/bin/pip install -q --disable-pip-version-check --upgrade pip >/dev/null 2>&1 || true
-.venv/bin/pip install -q --disable-pip-version-check -e '.[local]'
+.venv/bin/pip install -q --disable-pip-version-check -e '.[local,test]'
 
 echo "[semantic_rag] warming the local model (downloads BAAI/bge-small once, then offline)"
 .venv/bin/python -c "from atlas_semantic_rag.embeddings import resolve_embedder; e=resolve_embedder(); e.embed(['warmup']); print('  provider:', e.name, 'model:', e.model, 'dim:', e.dim)"

@@ -20,7 +20,7 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
     {
         $order = ($this->orders ?? new EngineeringModeExecutionOrderFactory)->make($this->orderData($run, $plan));
 
-        return $this->kernel->execute($order);
+        return $this->kernel->execute($order, ['task_goal' => $run->intent->rawGoal]);
     }
 
     /** @return array<string,mixed> */

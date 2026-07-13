@@ -35,6 +35,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class EliteExecutorKernel
 {
+    /** @var array<string,mixed> */
+    private array $taskContext = [];
+
     public const SCHEMA_VERSION = 'atlas.elite_executor_kernel.v1';
 
     public function __construct(
@@ -336,6 +339,40 @@ final class EliteExecutorKernel
             && ($payload['evidence_hash'] ?? null) === $request->evidenceHash;
     }
 
+    /**
+     * Prompt real do candidato mutativo: goal + conteúdo dos arquivos em escopo
+     * + contrato JSON explícito. O order só carrega spec_hash — sem isto o
+     * provider recebia um sha256 cru e nunca produzia patch_plan válido.
+     */
+    private function mutativePrompt(ExecutionOrder $order): string
+    {
+        $goal = trim((string) ($this->taskContext['task_goal'] ?? ''));
+        if ($goal === '') {
+            $goal = 'Apply the frozen spec '.$order->specHash.' to the files in scope.';
+        }
+        $files = '';
+        foreach ($order->allowedScope as $path) {
+            $full = rtrim($order->workspace, '/').'/'.$path;
+            $content = is_file($full) ? (string) file_get_contents($full) : '(file does not exist yet)';
+            $chunk = "\n--- {$path} ---\n".mb_substr($content, 0, 8000)."\n";
+            if (mb_strlen($files) + mb_strlen($chunk) > 24000) {
+                $files .= "\n--- (remaining scope files omitted for budget) ---\n";
+                break;
+            }
+            $files .= $chunk;
+        }
+        $allowedJson = json_encode(array_values($order->allowedScope), JSON_UNESCAPED_SLASHES);
+
+        return "# Task\n{$goal}\n\n# Files in scope (current content)\n{$files}\n"
+            ."# Output contract (mandatory)\n"
+            ."You are NOT editing files and need no write permission: you only OUTPUT a JSON "
+            ."plan; Atlas applies it in a hermetic sandbox. Emitting this JSON is always allowed.\n"
+            ."Reply with ONLY this JSON object — no prose, no markdown fences:\n"
+            .'{"patch_plan":{"allowed_files":'.$allowedJson.',"patches":[{"path":"<one of allowed_files>","mode":"create|modify","next":"<the complete new file content>"}]}}'."\n"
+            .'"allowed_files" must be exactly the list above. Every patch path must be one of allowed_files. '
+            .'"next" is the full resulting file content. Do not claim verification.';
+    }
+
     public function prepareMutativeCandidate(ExecutionOrder $order): VerifiedMutativeCandidate
     {
         if (($order->toolPermissions['mutate'] ?? false) !== true) {
@@ -352,7 +389,7 @@ final class EliteExecutorKernel
                 'execute_provider' => true,
                 'provider' => (string) ($order->providerRoute['provider'] ?? ''),
                 'model' => (string) ($order->providerRoute['model'] ?? ''),
-                'prompt' => 'Produce the structured patch_plan for frozen spec '.$order->specHash.'. Do not claim verification.',
+                'prompt' => $this->mutativePrompt($order),
                 'claim' => ['allowed_files' => $order->allowedScope],
             ]);
         } catch (\Throwable $e) {
@@ -545,9 +582,13 @@ final class EliteExecutorKernel
             ];
         }
         if ($candidate->status === 'blocked') {
+            // Sem os blockers específicos o operador só vê o rótulo genérico.
+            $reason = 'candidate_preparation_blocked'
+                .($candidate->blockers !== [] ? ':'.implode('|', array_slice($candidate->blockers, 0, 3)) : '');
+
             return ['status' => 'blocked', 'candidate' => $candidate, 'governance' => null, 'actuation' => [
                 'status' => 'blocked', 'acted' => false, 'release_uncertain' => false,
-                'reason' => 'candidate_preparation_blocked',
+                'reason' => $reason,
             ]];
         }
 
@@ -712,8 +753,10 @@ final class EliteExecutorKernel
         return $this->repairDiagnosis;
     }
 
-    public function execute(ExecutionOrder $order): EngineeringOutcome
+    /** @param array<string,mixed> $taskContext Texto real da tarefa (task_goal) — o order só carrega o spec_hash. */
+    public function execute(ExecutionOrder $order, array $taskContext = []): EngineeringOutcome
     {
+        $this->taskContext = $taskContext;
         $outcome = null;
         if (self::idempotencyLockStrategy((string) DB::connection()->getDriverName()) === 'postgres_advisory_xact_lock') {
             $outcome = DB::transaction(function () use ($order): EngineeringOutcome {
@@ -902,7 +945,11 @@ final class EliteExecutorKernel
                 (string) data_get($result, 'actuation.reason', 'mutative_candidate_blocked'),
             );
         } catch (\Throwable $exception) {
-            $outcome = $this->blockedMutativeOutcome($order, null, 'mutative_execution_exception:'.$exception::class);
+            $outcome = $this->blockedMutativeOutcome(
+                $order,
+                null,
+                'mutative_execution_exception:'.$exception::class.':'.mb_substr($exception->getMessage(), 0, 160),
+            );
         }
         $completed = $this->recordEvent(LedgerEventType::OperationCompleted, $order, [
             'schema_version' => 'atlas.engineering_kernel.execution_receipt.v2',

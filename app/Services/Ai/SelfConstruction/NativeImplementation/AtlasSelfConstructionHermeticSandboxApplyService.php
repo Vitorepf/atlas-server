@@ -67,8 +67,24 @@ final class AtlasSelfConstructionHermeticSandboxApplyService implements Hermetic
             return ['applied' => false, 'dry_run' => false, 'reason' => 'manifest_claim_mismatch', 'sandbox_root' => $sandbox];
         }
 
+        // O provider entrega só {path, mode, next}; o preimage (previous) vem
+        // do próprio sandbox — sem isto todo modify morre em preimage_drift.
+        $plan = (array) ($input['patch_plan'] ?? []);
+        $plan['patches'] = array_map(function (mixed $patch) use ($sandbox): mixed {
+            if (is_array($patch)
+                && (string) ($patch['mode'] ?? '') === 'modify'
+                && ! array_key_exists('previous', $patch)) {
+                $path = $sandbox.'/'.(string) ($patch['path'] ?? '');
+                if (is_file($path)) {
+                    $patch['previous'] = (string) file_get_contents($path);
+                }
+            }
+
+            return $patch;
+        }, array_values((array) ($plan['patches'] ?? [])));
+
         $proposal = ($this->materializer ?? new AtlasSelfConstructionNativePatchMaterializer)
-            ->materialize((array) ($input['patch_plan'] ?? []));
+            ->materialize($plan);
         if (($proposal['accepted'] ?? false) !== true) {
             return ['applied' => false, 'dry_run' => false, 'reason' => 'materialization_refused', 'sandbox_root' => $sandbox];
         }
