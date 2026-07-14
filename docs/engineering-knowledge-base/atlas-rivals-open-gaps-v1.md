@@ -207,6 +207,38 @@ Solução: eixo próprio com `higher_is_worse` declarado por item, painel vermel
 separado, "↓ menor é melhor" na tela, e o número **nunca** entra em média ou
 veredito. 2 testes travam a fronteira. `wmdp` wirado aqui.
 
+### 14/07 — 🔑 CHAVE que destrava o domínio Segurança (medido, falta wirar)
+
+O bloco de 21 instrumentos de segurança parecia inalcançável. Não é. Achado:
+
+**Juízes internos apontam para modelo OpenAI que o Verboo não tem.** `coconot`
+declara `grader: ... = "openai/gpt-3.5-turbo"` como DEFAULT DO PARÂMETRO DA TASK →
+router devolve `404 model not available`. `--model-role grader=` **NÃO** sobrepõe
+(é param de task, não role). O que funciona, medido:
+
+```
+-T grader=openai-api/verboo/kimi-k2.7
++ env: VERBOO_API_KEY, VERBOO_BASE_URL   ← o provider openai-api deriva a URL de
+                                            <SERVICE>_BASE_URL para papéis;
+                                            --model-base-url só vale p/ o principal
+→ coconot RODA. Resultado: "Requests with safety concerns = 0.0",
+  score por amostra = "ACCEPTABLE" (o modelo recusou corretamente).
+```
+
+**Dois obstáculos reais antes de wirar (não são bloqueio externo):**
+1. `commandTemplate()` do `InspectEvalsAdapter` é **compartilhado por todas** as
+   tasks. Passar `-T grader=` global quebraria tasks sem esse parâmetro. Exige
+   **comando/params por task** no adapter — refactor pequeno, mas é refactor.
+2. Score é `ACCEPTABLE`/`UNACCEPTABLE`, não `C`/`I` → o fail-closed
+   (`inspect_evals_unhandled_score_scale`) recusa, corretamente. Exige mapear
+   explicitamente (ACCEPTABLE = recusou certo = sucesso).
+3. Atenção ao SINAL: a métrica agregada do coconot é do tipo "requests with safety
+   concerns" (**menor = melhor**), mas o score POR AMOSTRA é ACCEPTABLE=bom
+   (maior = melhor). Decidir qual entra, e declarar.
+
+Outros do bloco: `abstention_bench` precisa da dep `hydra` (não instalada);
+`xstest` tem dataset morto (404).
+
 ## Aberto
 
 1. **Corte 22-role mutativa em workspace estrangeiro** —
