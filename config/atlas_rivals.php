@@ -76,6 +76,8 @@ return [
                 'gsm8k_af9bef9a', 'gsm8k_f088f6c6', 'gsm8k_4b7e54d8',
                 'mmlu_22cd51e7', 'mmlu_3033bed0', 'mmlu_5cb4319f',
                 'rec06pnAkLOr2t2mp', 'rec0Arme2jcXQZnAW',
+                'ifeval_1000', 'ifeval_1001', 'ifeval_1005',
+                'bn_4a7c974d', 'bn_5af055ef', 'bn_7b9cf673',
             ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
@@ -149,6 +151,8 @@ return [
         'math_reasoning',
         'knowledge_qa',
         'science_reasoning',
+        'instruction_following',
+        'multilingual_reasoning',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)
         'senior_bug_investigation',
         'architecture_refactor',
@@ -316,7 +320,14 @@ return [
                 'adapter' => 'inspect_evals',
                 'native_agent_default' => 'inspect',
                 'native_timeout_minutes' => 15,
-                'install' => ['uv venv --clear --python 3.12 .atlas-venv', 'uv pip install -p .atlas-venv/bin/python -e . inspect-ai openai -q'],
+                // instruction_following_eval = dependência opcional do ifeval; sem
+                // ela a task aborta com AssertionError e o domínio "seguir
+                // instruções" fica sem instrumento.
+                'install' => [
+                    'uv venv --clear --python 3.12 .atlas-venv',
+                    'uv pip install -p .atlas-venv/bin/python -e . inspect-ai openai -q',
+                    'uv pip install -p .atlas-venv/bin/python "instruction_following_eval @ git+https://github.com/josejg/instruction_following_eval" -q',
+                ],
                 'smoke' => 'inspect eval inspect_evals/gsm8k --model mockllm/model --limit 1',
             ],
             'hal_harness' => [

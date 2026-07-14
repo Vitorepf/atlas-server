@@ -139,6 +139,12 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         if (str_contains($task, 'gpqa')) {
             return 'science_reasoning';
         }
+        if (str_contains($task, 'ifeval')) {
+            return 'instruction_following';
+        }
+        if (str_contains($task, 'mgsm')) {
+            return 'multilingual_reasoning';
+        }
 
         return 'coding_patch';
     }

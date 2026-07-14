@@ -69,6 +69,18 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['science_reasoning'],
         ],
+        'instruction_following' => [
+            'label' => 'Seguir instruções',
+            'measures' => 'Obedecer restrições explícitas de formato e conteúdo (tamanho, idioma, seções, proibições).',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['instruction_following'],
+        ],
+        'multilingual' => [
+            'label' => 'Multilíngue',
+            'measures' => 'Resolver o mesmo problema fora do inglês, sem perder capacidade.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['multilingual_reasoning'],
+        ],
     ];
 
     /**
@@ -88,10 +100,10 @@ class EnterpriseReportBuilder
         ['domain' => 'Raciocínio matemático', 'covered' => true, 'note' => 'inspect_evals (gsm8k)'],
         ['domain' => 'Conhecimento factual amplo', 'covered' => true, 'note' => 'inspect_evals (MMLU)'],
         ['domain' => 'Raciocínio científico (pós-graduação)', 'covered' => true, 'note' => 'inspect_evals (GPQA Diamond)'],
+        ['domain' => 'Seguir instruções e restrições de formato', 'covered' => true, 'note' => 'inspect_evals (IFEval)'],
+        ['domain' => 'Multilíngue', 'covered' => true, 'note' => 'inspect_evals (MGSM)'],
         ['domain' => 'Contexto longo (recuperar informação em janelas grandes)', 'covered' => false, 'note' => 'exigiria RULER / needle-in-haystack — não wired'],
-        ['domain' => 'Seguir instruções e restrições de formato', 'covered' => false, 'note' => 'exigiria IFEval — não wired'],
-        ['domain' => 'Factualidade / alucinação', 'covered' => false, 'note' => 'exigiria SimpleQA — não wired'],
-        ['domain' => 'Multilíngue', 'covered' => false, 'note' => 'exigiria MGSM / Flores — não wired'],
+        ['domain' => 'Factualidade / alucinação', 'covered' => false, 'note' => 'SimpleQA existe no inspect mas o juiz exige tool-call e aborta — integração aberta'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'note' => 'exigiria MMMU — não wired'],
         ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'note' => 'nenhum instrumento wired'],
         ['domain' => 'Escrita longa e qualidade de redação', 'covered' => false, 'note' => 'nenhum instrumento wired'],
@@ -119,6 +131,8 @@ class EnterpriseReportBuilder
         'inspect_evals:math_reasoning' => ['label' => 'Raciocínio matemático passo a passo', 'measures' => 'Problemas que exigem cadeia de raciocínio (gsm8k, via Inspect).'],
         'inspect_evals:knowledge_qa' => ['label' => 'Conhecimento factual amplo', 'measures' => 'Perguntas de múltipla escolha em dezenas de áreas (MMLU, via Inspect).'],
         'inspect_evals:science_reasoning' => ['label' => 'Ciência nível pós-graduação', 'measures' => 'Perguntas de biologia/física/química feitas por PhDs, difíceis de buscar (GPQA Diamond, via Inspect).'],
+        'inspect_evals:instruction_following' => ['label' => 'Obedecer restrições de formato', 'measures' => 'Instruções verificáveis por programa: tamanho, idioma, seções, palavras proibidas (IFEval, via Inspect).'],
+        'inspect_evals:multilingual_reasoning' => ['label' => 'Raciocinar fora do inglês', 'measures' => 'Os mesmos problemas de matemática traduzidos para outros idiomas (MGSM, via Inspect).'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];
 

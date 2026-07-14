@@ -1,0 +1,9 @@
+{
+    "case_id": "bn_7b9cf673",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "bn_7b9cf673",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM multil\u00edngue 3",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

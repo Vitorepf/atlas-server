@@ -1,0 +1,9 @@
+{
+    "case_id": "ifeval_1000",
+    "task_ref": "inspect_evals/ifeval",
+    "sample_id": "1000",
+    "task_type": "instruction_following",
+    "title": "IFEval seguir instru\u00e7\u00f5es 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}
