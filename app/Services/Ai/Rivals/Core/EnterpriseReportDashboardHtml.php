@@ -52,6 +52,7 @@ final class EnterpriseReportDashboardHtml
             'facts' => $report['facts'] ?? ['measured' => [], 'incomplete' => [], 'headline' => null],
             'delivery_inventory' => $report['delivery_inventory'] ?? [],
             'model_profiles' => $report['model_profiles'] ?? [],
+            'model_capabilities' => $report['model_capabilities'] ?? ['capabilities' => [], 'efficiency' => []],
             'model_dissections' => $report['model_dissections'] ?? [
                 'epistemic_contract' => [],
                 'models' => [],
@@ -181,6 +182,31 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .dossier{margin-bottom:12px}.dossier pre{background:#090b10;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;max-height:280px;font-size:11px;color:#c9d0dc}
 .kv{display:grid;grid-template-columns:180px 1fr;gap:6px 12px;font-size:13px;margin:10px 0}
 .kv div:nth-child(odd){color:var(--muted)} .miss-list{color:var(--warn);font-size:12px}
+.eff-row{display:flex;flex-wrap:wrap;gap:10px 32px;align-items:baseline;margin-top:6px}
+.eff-row .e{min-width:150px}.eff-row .e .v{font-size:24px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.eff-row .e .l{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-top:2px}
+.cap-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.cap-grid{grid-template-columns:1fr}}
+.cap{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+.cap h3{margin:0 0 2px;font-size:17px;letter-spacing:-.02em}
+.cap .measures{color:var(--muted);font-size:12px;margin:0 0 14px;line-height:1.5}
+.cap .scores{display:flex;align-items:flex-end;gap:20px;margin-bottom:12px}
+.cap .score .n{font-size:40px;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.cap .score.bare .n{color:var(--bare)}.cap .score.atlas .n{color:var(--atlas)}
+.cap .score .lab{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;margin-top:4px}
+.cap .arrow{font-size:22px;color:var(--muted);padding-bottom:14px}
+.cap .delta{font-size:15px;font-weight:750;padding-bottom:18px}
+.cap .bars{height:6px;border-radius:999px;background:#1a1f2b;overflow:hidden;margin:2px 0 10px}
+.cap .bars .fill{height:100%;border-radius:999px}
+.cap .score.bare .n{font-size:40px;font-weight:800;letter-spacing:-.04em;color:var(--bare);font-variant-numeric:tabular-nums}
+.cap .atlas-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 12px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(61,214,140,.05)}
+.cap .atlas-line .tag{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;color:var(--atlas)}
+.cap .atlas-line .pair b.bare{color:var(--bare)}.cap .atlas-line .pair b.atlas{color:var(--atlas)}
+.cap .atlas-line .pair{font-variant-numeric:tabular-nums;font-size:15px}
+.cap .atlas-line .delta{font-weight:750;font-variant-numeric:tabular-nums}
+.cap .foot{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted)}
+.cap .foot b{color:var(--ink);font-weight:650}
+.cap .warn{color:var(--warn);font-size:12px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -191,15 +217,29 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   <div class="meta" id="meta"></div>
   <div class="verdict" id="verdict"></div>
   <div class="tabs">
-    <button class="tab on" data-tab="models">Ranking · com e sem Atlas</button>
+    <button class="tab on" data-tab="caps">Capacidades</button>
+    <button class="tab" data-tab="models">Ranking · com e sem Atlas</button>
     <button class="tab" data-tab="overview">Gráficos</button>
     <button class="tab" data-tab="dissect">Dissecção do modelo</button>
-    <button class="tab" data-tab="suites">Benchmarks</button>
+    <button class="tab" data-tab="suites">Benchmarks (drill-down)</button>
     <button class="tab" data-tab="dossiers">Dossiês das suites</button>
     <button class="tab" data-tab="uplift">Uplift Atlas</button>
   </div>
 
-  <section id="tab-models" class="panel on">
+  <section id="tab-caps" class="panel on">
+    <div class="card" style="margin-bottom:12px">
+      <h2>O que o modelo sabe fazer — não em quais testes</h2>
+      <p class="hint">Os 10 benchmarks são o instrumento; o que importa é a <strong>capacidade</strong> que eles medem. Cada capacidade agrega só as suítes <strong>confiáveis</strong>, ponderadas por tarefa. Para ver por benchmark, use a aba <em>Benchmarks (drill-down)</em>.</p>
+      <div class="eff-row" id="capEfficiency"></div>
+    </div>
+    <div class="cap-grid" id="capCards"></div>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="card"><h2>Mapa de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cada eixo é uma capacidade. Polígono verde além do azul = Atlas amplia.</p><div class="chart sm"><canvas id="capRadar"></canvas></div></div>
+      <div class="card"><h2>Eficiência por capacidade</h2><p class="hint">Tokens por tarefa (menor = mais eficiente). Custo $0 de assinatura não discrimina — a eficiência real está aqui.</p><div class="chart sm"><canvas id="capTokens"></canvas></div></div>
+    </div>
+  </section>
+
+  <section id="tab-models" class="panel">
     <div class="card" style="margin-bottom:12px" id="factsPanel"></div>
     <div class="card">
       <h2>Ranking do modelo — um modelo, duas medições</h2>
@@ -275,6 +315,47 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const stab = v => v==null||v===''?'—':(typeof v==='number'? (Math.round(v*1000)/1000) : String(v));
   const color = (runtime, model) => runtime==='atlas_dev' ? '#3dd68c' : ({verboo_kimi_k2_7:'#f0c14a',verboo_qwen_3_6_27b:'#6cb6ff',hermes_gpt_5_5_codex:'#ff6b6b'}[model]||'#6cb6ff');
   const statusPt = s => ({ok:'ok', missing_data:'dados incompletos', failed:'falhou', blocked:'bloqueado', not_run:'não rodou', unsupported:'não suportado', real_uplift:'uplift real'}[s]||s||'—');
+
+  // === Capacidades (visão principal) ===
+  const MC = D.model_capabilities || {capabilities:[], efficiency:{}};
+  const eff = MC.efficiency || {};
+  document.getElementById('capEfficiency').innerHTML = [
+    ['Tokens por tarefa', num(eff.tokens_per_task_mean), 'média nas suítes confiáveis'],
+    ['Tempo por tarefa', dur(eff.median_wall_ms_mean), 'mediana wall-clock'],
+    ['Custo por tarefa', '$0', 'assinatura Verboo (marginal)'],
+  ].map(([l,v,s])=>`<div class="e"><div class="v">${v}</div><span class="l">${l}</span><div class="hint" style="margin:0">${s}</div></div>`).join('');
+
+  document.getElementById('capCards').innerHTML = (MC.capabilities||[]).map(c => {
+    const bare = c.bare_intelligence==null ? null : Number(c.bare_intelligence)*100;
+    const hasAtlas = c.atlas_intelligence!=null && c.atlas_bare_baseline!=null;
+    const aBefore = hasAtlas ? Number(c.atlas_bare_baseline)*100 : null;
+    const aAfter = hasAtlas ? Number(c.atlas_intelligence)*100 : null;
+    const dv = c.delta_intelligence==null ? null : Math.round(Number(c.delta_intelligence)*1000)/10;
+    const dCls = dv==null?'':(dv>0?'pos':(dv<0?'neg':''));
+    const barBare = bare==null?0:bare;
+    // Atlas em linha própria com SEU baseline pareado — não implica contra o
+    // número grande da capacidade (suítes diferentes).
+    const atlasLine = hasAtlas ? `
+      <div class="atlas-line">
+        <span class="tag">Com Atlas</span>
+        <span class="pair"><b class="bare">${Math.round(aBefore)}%</b> → <b class="atlas">${Math.round(aAfter)}%</b></span>
+        <span class="delta ${dCls}">${dv>=0?'+':''}${dv} pp</span>
+        <span class="hint" style="margin:0">nas ${c.atlas_measured_on} suíte(s) pareada(s)${c.atlas_diagnostic_only?' · diagnóstico':''}</span>
+      </div>` : `<div class="atlas-line"><span class="hint" style="margin:0">Atlas ainda não medido nesta capacidade</span></div>`;
+    return `<div class="cap">
+      <h3>${c.label}</h3>
+      <p class="measures">${c.measures}</p>
+      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">tarefas resolvidas (sem Atlas)</span></div>
+      <div class="bars"><div class="fill" style="width:${barBare}%;background:var(--bare)"></div></div>
+      ${atlasLine}
+      <div class="foot">
+        <span>Confiável em <b>${c.suites_reliable}/${c.suites_total}</b> benchmarks</span>
+        <span>Tokens/tarefa <b>${num(c.tokens_per_task)}</b></span>
+        <span>Tempo/tarefa <b>${dur(c.median_wall_ms)}</b></span>
+      </div>
+      ${(c.unreliable_suites&&c.unreliable_suites.length)?`<div class="warn">⚠ Fora do score (execução incompleta): ${c.unreliable_suites.map(u=>`<code>${u.suite_id}</code>`).join(' ')}</div>`:''}
+    </div>`;
+  }).join('') || '<div class="empty">Sem capacidades medidas ainda.</div>';
 
   document.getElementById('objective').textContent = D.objective;
   document.getElementById('meta').innerHTML =
@@ -477,6 +558,36 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         scales:{x:{title:{display:true,text:'Δ pontos percentuais com Atlas',color:'#8a93a3'},
           ticks:{color:'#8a93a3',callback:v=>(v>=0?'+':'')+v},grid:{color:'#1b2030'}},
           y:{ticks:{color:'#c9d0dc',font:{size:12}},grid:{display:false}}}}
+    });
+  }
+
+  // Charts da aba Capacidades (visão principal).
+  const capList = (MC.capabilities||[]).filter(c => c.bare_intelligence!=null);
+  if (capList.length >= 3 && document.getElementById('capRadar')) {
+    new Chart(document.getElementById('capRadar'), {
+      type:'radar',
+      data:{labels: capList.map(c=>c.label), datasets:[
+        {label:'sem Atlas', data:capList.map(c=>Number(c.bare_intelligence)*100),
+          borderColor:'#6cb6ff', backgroundColor:'#6cb6ff22', pointBackgroundColor:'#6cb6ff', borderWidth:2},
+        {label:'com Atlas', data:capList.map(c=>c.atlas_intelligence==null?null:Number(c.atlas_intelligence)*100),
+          borderColor:'#3dd68c', backgroundColor:'#3dd68c26', pointBackgroundColor:'#3dd68c', borderWidth:2},
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#c9d0dc'}},tooltip:{callbacks:{label:c=>c.raw==null?`${c.dataset.label}: não medido`:`${c.dataset.label}: ${Number(c.raw).toFixed(1)}%`}}},
+        scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#242836'},angleLines:{color:'#242836'},pointLabels:{color:'#c9d0dc',font:{size:12,weight:650}}}}}
+    });
+  }
+  if (document.getElementById('capTokens')) {
+    const tk = (MC.capabilities||[]).filter(c=>c.tokens_per_task!=null);
+    new Chart(document.getElementById('capTokens'), {
+      type:'bar',
+      data:{labels: tk.map(c=>c.label), datasets:[{
+        data: tk.map(c=>c.tokens_per_task),
+        backgroundColor:'#f0c14acc', borderRadius:5, barThickness:18,
+      }]},
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>num(c.raw)+' tokens/tarefa'}}},
+        scales:{x:{title:{display:true,text:'Tokens por tarefa (menor = mais eficiente)',color:'#8a93a3'},ticks:{color:'#8a93a3',callback:v=>num(v)},grid:{color:'#1b2030'}},y:{ticks:{color:'#c9d0dc',font:{size:12}},grid:{display:false}}}}
     });
   }
 

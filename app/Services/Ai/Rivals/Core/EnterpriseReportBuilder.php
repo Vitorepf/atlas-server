@@ -27,6 +27,34 @@ class EnterpriseReportBuilder
         return self::FAMILY_LABELS[(string) $family] ?? (string) $family;
     }
 
+    /**
+     * Capacidades = o que os 10 benchmarks MEDEM (o resultado que importa),
+     * não os benchmarks em si (o instrumento). Cada suíte alimenta uma
+     * capacidade primária; a visão por-benchmark vira drill-down. Fonte única.
+     */
+    public const CAPABILITIES = [
+        'coding' => [
+            'label' => 'Programação',
+            'measures' => 'Escrever e corrigir código em repositórios reais e problemas algorítmicos.',
+            'suites' => ['senior_swe_bench', 'swe_bench_live', 'live_code_bench', 'aider_polyglot', 'terminal_bench'],
+        ],
+        'tool_use' => [
+            'label' => 'Uso de ferramentas',
+            'measures' => 'Chamar funções/ferramentas certas e conduzir diálogo de agente com usuário simulado.',
+            'suites' => ['tau2_bench', 'bfcl'],
+        ],
+        'long_horizon' => [
+            'label' => 'Trabalho de longo prazo',
+            'measures' => 'Tarefas agênticas longas, multi-etapa, mais próximas de trabalho real de engenharia.',
+            'suites' => ['hal_harness', 'swe_marathon'],
+        ],
+        'reasoning' => [
+            'label' => 'Raciocínio',
+            'measures' => 'Resolver problemas que exigem raciocínio passo a passo (ex.: matemática).',
+            'suites' => ['inspect_evals'],
+        ],
+    ];
+
     public function build(): array
     {
         $suiteIds = (new SuiteRegistry)->externalSuiteIds();
@@ -150,6 +178,7 @@ class EnterpriseReportBuilder
                 'suite_rows' => $suiteRows,
                 'atlas_uplift' => $atlasUplift,
             ]),
+            'model_capabilities' => $this->buildCapabilityAggregates($suiteRows, $atlasUplift, $primaryModel),
             'model_profiles' => $this->buildModelProfiles(
                 $dissections,
                 $atlasUplift,
@@ -984,6 +1013,131 @@ class EnterpriseReportBuilder
      * @param  array<string,mixed>  $atlasUplift
      * @return list<array<string,mixed>>
      */
+    /**
+     * Agrega as suítes nas CAPACIDADES que elas medem — a visão principal.
+     * Score bare = média das suítes CONFIÁVEIS da capacidade, ponderada por
+     * unidades atribuíveis ao modelo. Atlas = média das suítes da capacidade
+     * com par bare×Atlas medido. Eficiência (tokens/task, tempo/task) por
+     * capacidade e global. Nada inventado: suíte não confiável fica fora do
+     * score e é listada à parte.
+     *
+     * @param  list<array<string,mixed>>  $suiteRows
+     * @param  array<string,mixed>  $atlasUplift
+     * @return array<string,mixed>
+     */
+    private function buildCapabilityAggregates(array $suiteRows, array $atlasUplift, string $primaryModel): array
+    {
+        $bySuite = [];
+        foreach ($suiteRows as $row) {
+            if (is_array($row) && isset($row['suite_id'])) {
+                $bySuite[(string) $row['suite_id']] = $row;
+            }
+        }
+        // Atlas por suíte (via famílias de uplift): só o que foi realmente medido.
+        $atlasBySuite = [];
+        foreach ((array) ($atlasUplift['families'] ?? []) as $fam) {
+            if (! is_array($fam) || ! isset($fam['suite_id'])) {
+                continue;
+            }
+            if (is_numeric($fam['atlas_intelligence'] ?? null) && is_numeric($fam['bare_intelligence'] ?? null)) {
+                $atlasBySuite[(string) $fam['suite_id']] = [
+                    'atlas' => (float) $fam['atlas_intelligence'],
+                    'bare' => (float) $fam['bare_intelligence'],
+                    'delta' => (float) ($fam['delta_intelligence'] ?? ((float) $fam['atlas_intelligence'] - (float) $fam['bare_intelligence'])),
+                    'diagnostic_only' => ($fam['diagnostic_only'] ?? false) === true,
+                ];
+            }
+        }
+
+        $capabilities = [];
+        $globalTokens = [];
+        $globalWall = [];
+        foreach (self::CAPABILITIES as $capId => $cap) {
+            $bareNum = 0.0;
+            $bareDen = 0.0;
+            $tokens = [];
+            $walls = [];
+            $reliableSuites = [];
+            $unreliableSuites = [];
+            $atlasNum = 0.0;
+            $atlasDen = 0.0;
+            $atlasBareNum = 0.0;
+            $atlasSuites = [];
+            $anyDiagnostic = false;
+
+            foreach ($cap['suites'] as $suiteId) {
+                $row = $bySuite[$suiteId] ?? null;
+                if ($row === null) {
+                    continue;
+                }
+                $ev = (array) ($row['execution_evidence'] ?? []);
+                $weight = (float) ((($ev['blame_summary']['model_failures'] ?? 0) + ($ev['blame_summary']['successes'] ?? 0)) ?: 1);
+                $score = $row['intelligence_rate'] ?? $row['success_rate_itt'] ?? null;
+
+                if (($row['reliable'] ?? true) === true && is_numeric($score)) {
+                    $reliableSuites[] = $suiteId;
+                    $bareNum += (float) $score * $weight;
+                    $bareDen += $weight;
+                    if (is_numeric($row['tokens_per_task'] ?? null)) {
+                        $tokens[] = (float) $row['tokens_per_task'];
+                        $globalTokens[] = (float) $row['tokens_per_task'];
+                    }
+                    if (is_numeric($row['median_wall_ms'] ?? null)) {
+                        $walls[] = (float) $row['median_wall_ms'];
+                        $globalWall[] = (float) $row['median_wall_ms'];
+                    }
+                } elseif (($row['reliable'] ?? true) !== true) {
+                    $unreliableSuites[] = ['suite_id' => $suiteId, 'reason' => $row['unreliable_reason'] ?? null];
+                }
+
+                // Atlas: só suítes desta capacidade com par medido.
+                if (isset($atlasBySuite[$suiteId])) {
+                    $a = $atlasBySuite[$suiteId];
+                    $atlasNum += $a['atlas'] * $weight;
+                    $atlasBareNum += $a['bare'] * $weight;
+                    $atlasDen += $weight;
+                    $atlasSuites[] = $suiteId;
+                    $anyDiagnostic = $anyDiagnostic || $a['diagnostic_only'];
+                }
+            }
+
+            $bareScore = $bareDen > 0 ? round($bareNum / $bareDen, 4) : null;
+            $atlasScore = $atlasDen > 0 ? round($atlasNum / $atlasDen, 4) : null;
+            $atlasBare = $atlasDen > 0 ? round($atlasBareNum / $atlasDen, 4) : null;
+            $delta = ($atlasScore !== null && $atlasBare !== null) ? round($atlasScore - $atlasBare, 4) : null;
+
+            $capabilities[] = [
+                'id' => $capId,
+                'label' => $cap['label'],
+                'measures' => $cap['measures'],
+                'suites_total' => count($cap['suites']),
+                'suites_reliable' => count($reliableSuites),
+                'reliable_suite_ids' => $reliableSuites,
+                'unreliable_suites' => $unreliableSuites,
+                'bare_intelligence' => $bareScore,
+                'atlas_intelligence' => $atlasScore,
+                'atlas_bare_baseline' => $atlasBare,
+                'delta_intelligence' => $delta,
+                'atlas_measured_on' => count($atlasSuites),
+                'atlas_diagnostic_only' => $anyDiagnostic,
+                'tokens_per_task' => $tokens === [] ? null : round(array_sum($tokens) / count($tokens)),
+                'median_wall_ms' => $walls === [] ? null : round(array_sum($walls) / count($walls)),
+            ];
+        }
+
+        return [
+            'model_id' => $primaryModel,
+            'schema' => 'capacidades = o que os benchmarks medem; suíte = instrumento (drill-down)',
+            'capabilities' => $capabilities,
+            'efficiency' => [
+                'tokens_per_task_mean' => $globalTokens === [] ? null : round(array_sum($globalTokens) / count($globalTokens)),
+                'median_wall_ms_mean' => $globalWall === [] ? null : round(array_sum($globalWall) / count($globalWall)),
+                'cost_basis' => 'verboo_subscription_marginal',
+                'note' => 'Custo marginal $0 (assinatura Verboo); eficiência real se lê em tokens/task e tempo/task.',
+            ],
+        ];
+    }
+
     /**
      * @param  list<array<string,mixed>>  $suiteRows
      * @return array<string,array{reliable:bool,reason:?string}>
