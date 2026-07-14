@@ -43,7 +43,33 @@ sem ambiguidade nem perigo de sugerir precisão falsa**. Entregue nesta sessão:
 - **Delta de amostra pequena (<20 tarefas pareadas)** rotulado "tendência, não
   conclusão".
 
-### Investigação Raciocínio (inspect_evals) — lacuna de COMPLETUDE, não de honestidade
+### RESOLVIDO 14/07: Raciocínio nunca falhou — provider errado (root cause + prova ao vivo)
+
+`is_latest_model()` do inspect_ai (`inspect_ai/model/_openai.py`) trata **qualquer
+nome não-OpenAI** como codename de fronteira da OpenAI ("treat any such
+unrecognized name as the latest model") → `is_gpt_5()`=true → `system_role` vira
+`developer` → Verboo devolve **400 unsupported_message_role** → "Task interrupted
+(no samples completed)" → 9/9 environment_failure. **O modelo nunca foi chamado.**
+
+Prova ao vivo (14/07): `openai-api/verboo/kimi-k2.7` → **9/9 accuracy 1.000** nos
+3 casos gsm8k × 3 reps. O relatório dizia "Raciocínio 0%" — o **oposto exato** da
+verdade (100%). Nenhum humano detectaria isso lendo o relatório.
+
+Fix (commit `bdef912e5c`): `native_models.inspect_evals` = `openai-api/verboo/
+kimi-k2.7` (provider p/ endpoint compatível de terceiros, lê `VERBOO_API_KEY` que
+o `VerbooEnvironment` já exporta); removida a gambiarra `-M responses_api=false`;
+novo task_type `math_reasoning` (gsm8k era `coding_patch`/`tool_use_function_
+calling` — punha matemática dentro de Programação); teste trava o provider-lock.
+
+**Pendente**: a medição só entra no relatório num run de bateria (`--mode=bare`);
+o CLI `plan` usa `allowSynthetic=false` e recusa suítes sem repo snapshot — é a
+bateria que passa `allowSynthetic: true`. Não fabricar receipt fora do harness.
+
+**Lição transferível**: apontar um provider nativo (`openai/`) para endpoint
+compatível de terceiros ativa heurísticas de modelo do vendor. Suspeitar sempre
+que uma suíte inteira zerar com env-failure e wall_ms ~1s (modelo nem chamado).
+
+### Investigação Raciocínio (inspect_evals) — histórico da caçada
 
 `Raciocínio` mostra `—` / `não confiável` / n=0 (honesto — não afirma que o modelo
 falha em raciocinar). Fixtures atuais (run 20260709) têm `score=null` sem string de
