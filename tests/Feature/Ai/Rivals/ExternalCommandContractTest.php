@@ -150,7 +150,13 @@ class ExternalCommandContractTest extends TestCase
         $adapter = new InspectEvalsAdapter;
         $method = new \ReflectionMethod($adapter, 'commandTemplate');
         $method->setAccessible(true);
-        $this->assertStringContainsString('--reasoning-tokens', (string) $method->invoke($adapter));
+        $tpl = (string) $method->invoke($adapter);
+        $this->assertStringContainsString('--reasoning-tokens', $tpl);
+        // --max-tokens é o segundo remédio: --reasoning-tokens NÃO alcança cap
+        // hardcoded na Task (winogrande fixa GenerateConfig(max_tokens=64)).
+        // Medido: winogrande 0.250 → 0.875 e truncamentos 8/8 → 0/8. Um 0.250
+        // ABAIXO do acaso (2 opções) é assinatura de artefato, não de modelo ruim.
+        $this->assertStringContainsString('--max-tokens', $tpl);
     }
 
     public function test_five_uplift_families_use_distinct_bare_and_atlas_solver_paths(): void

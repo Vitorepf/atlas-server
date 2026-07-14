@@ -38,15 +38,22 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         // provider compatível de terceiros. `responses_api=false` era gambiarra
         // para o provider `openai`; o openai-api não precisa e não aceita.
         //
-        // --reasoning-tokens DECLARA que o kimi-k2.7 é modelo de raciocínio (ele
-        // emite bloco de reasoning nativamente). Sem isso, tasks não-CoT como
-        // mmlu_0_shot aplicam cap de 16 tokens ("basta para 'ANSWER: B'"): o
-        // raciocínio come o orçamento, o texto sai VAZIO e o scorer lê 0%.
-        // O próprio inspect trata isso — `get_max_tokens()` retorna None "for
-        // reasoning models to avoid truncating thinking tokens" — mas só se o
-        // config declarar. Medido: mmlu_0_shot 0% → 80% só com esta flag; gsm8k
-        // segue 1.000 (sem regressão). Sem a flag mede-se o cap, não o modelo.
-        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
+        // DOIS remédios para a mesma doença: o kimi-k2.7 emite bloco de raciocínio
+        // nativo, e as tasks do inspect capam a saída assumindo modelo que responde
+        // "ANSWER: B" direto. O raciocínio come o orçamento, o texto sai truncado ou
+        // VAZIO, e o scorer registra isso como o MODELO ERRANDO.
+        //
+        // --reasoning-tokens: declara o modelo como reasoning. Cobre tasks que usam
+        //   `get_max_tokens()` (retorna None p/ reasoning models). Medido: mmlu_0_shot
+        //   0% → 80%.
+        // --max-tokens: sobrepõe cap HARDCODED na Task, que a flag acima não alcança
+        //   (ex.: winogrande tem `GenerateConfig(max_tokens=64)` fixo; também
+        //   sosbench, tac, writingbench, theagentcompany). Medido: winogrande
+        //   0.250 → 0.875, truncamentos 8/8 → 0/8. 0.250 estava ABAIXO do acaso
+        //   (2 opções) — sinal clássico de artefato, não de incapacidade.
+        //
+        // gsm8k segue 1.000 com ambas (sem regressão). Sem elas, mede-se o cap.
+        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --max-tokens 2048 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
     }
 
     protected function mapResults(array $native): array
