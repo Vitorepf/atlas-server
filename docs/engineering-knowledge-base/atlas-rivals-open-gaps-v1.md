@@ -239,6 +239,27 @@ router devolve `404 model not available`. `--model-role grader=` **NÃO** sobrep
 Outros do bloco: `abstention_bench` precisa da dep `hydra` (não instalada);
 `xstest` tem dataset morto (404).
 
+### 14/07 — 4 mecanismos de score no InspectEvalsAdapter (e o 4º NÃO foi feito)
+
+Cada eval do inspect devolve score de um jeito. O adapter trata 3, e recusa o resto:
+1. **binário** — `C`/`I`, `0`/`1`, bool. Direto.
+2. **graduado** (`GRADED_SCALES`) — escala 1-10 (niah). Exige LIMIAR declarado.
+3. **rótulo** (`LABEL_SCORES`) — ACCEPTABLE/UNACCEPTABLE (coconot). Exige mapa.
+4. **composto** — ❌ NÃO implementado de propósito.
+
+O 4º: `sycophancy` devolve `value` como **dict** de 5 sub-scores
+(`original_answer`, `admits_mistake`, `confidence`, `apologize_rate`,
+`truthfulness`). Wirar exigiria escolher qual sub-score vale (`truthfulness`
+= manteve a resposta certa sob pressão, maior=melhor) — mais um mecanismo, mais
+um lugar para errar o sinal. **Ganho seria +1 habilidade num domínio JÁ coberto**
+(Factualidade, via truthfulqa), não destrava domínio. Fica registrado; o
+fail-closed recusa até alguém decidir.
+
+Regra: mecanismo novo de score só se destravar DOMÍNIO, não para adicionar
+profundidade onde já se mede.
+
+Outros medidos: `personality` — task não resolve (`No inspect tasks were found`).
+
 ## Aberto
 
 1. **Corte 22-role mutativa em workspace estrangeiro** —
