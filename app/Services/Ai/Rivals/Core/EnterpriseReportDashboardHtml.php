@@ -331,18 +331,20 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     <h2>Como ler este relatório — glossário e método</h2>
     <p class="hint">Toda palavra que pode confundir está explicada aqui. Nenhum número aparece sem lastro.</p>
     <div class="gloss-grid">
-      <div><b>Capacidade</b><span>O que o modelo sabe fazer (programar, usar ferramentas, raciocinar, trabalho longo). É o que importa — o benchmark é só o instrumento que mede.</span></div>
+      <div><b>Domínio × Habilidade</b><span>Domínio é a área (Programação, Conhecimento…). Habilidade é o que um instrumento concreto mede dentro dela (corrigir bug real, editar multi-linguagem…). O número do domínio é a média das habilidades — e a média esconde: dá para ir a 94% numa e zerar noutra. Sempre olhe as habilidades.</span></div>
       <div><b>Sem Atlas / Com Atlas</b><span>O mesmo modelo rodando sozinho ("sem Atlas") e envolvido pelo Atlas ("com Atlas"). Comparação sempre nas MESMAS tarefas.</span></div>
       <div><b>Sucesso (%)</b><span>Fração de tarefas resolvidas corretamente. Conta só tarefas em que o teste realmente rodou — falha de ambiente é excluída do denominador.</span></div>
+      <div><b>Faixa provável (IC 95%)</b><span>O intervalo onde a taxa real deve estar, 95% das vezes (Wilson). "45% (31–60%)" quer dizer: o 45% é o palpite central, mas a amostra só sustenta essa faixa. Quanto menor a amostra, mais larga. Um % sozinho finge precisão que não tem.</span></div>
       <div><b>Δ pp (delta em pontos percentuais)</b><span>Quanto o Atlas mudou o sucesso. +11 pp = onze pontos a mais. Verde melhora, vermelho piora. Sempre comparado no mesmo conjunto de tarefas.</span></div>
+      <div><b>Confirmado × Diagnóstico</b><span>Confirmado = par válido que mede ganho/perda de verdade. Diagnóstico = par sem sinal de uplift (ex.: os dois lados 0% — ninguém resolveu, ou caso excluído). Diagnóstico fica <b>cinza</b>, não conta na contagem nem no saldo, e nunca vira "fato".</span></div>
       <div><b>Confiável / Não confiável</b><span>"Não confiável" quando a execução não terminou ou o ambiente falhou em mais de 30% das tarefas — não julga o modelo, e fica fora do score.</span></div>
-      <div><b>Falha do modelo × do ambiente</b><span>"Modelo" = o modelo errou a tarefa. "Ambiente/fluxo" = o teste não rodou (rede, container, timeout de setup). Cada tarefa tem seu log para provar qual foi.</span></div>
-      <div><b>Diagnóstico</b><span>Comparação com Atlas ainda não confirmada (poucos pares provados). Aparece marcada — não é conclusão, é indício.</span></div>
+      <div><b>Falha do modelo × do ambiente</b><span>"Modelo" = o modelo errou a tarefa. "Ambiente/fluxo" = o teste não rodou (rede, container, role recusada, timeout). Cada tarefa tem seu log para provar qual foi. Confundir os dois é o erro mais caro deste relatório: já mostrou "0%" onde o modelo acertava 100%.</span></div>
       <div><b>Tokens por tarefa</b><span>Quanto o modelo consome por tarefa. Como o custo em dólar é $0 (assinatura), esta é a métrica real de eficiência.</span></div>
-      <div><b>Não medido</b><span>Não rodou ou o dado não existe. Nunca vira 0 — dizemos explicitamente que falta, e por quê.</span></div>
+      <div><b>Não medido</b><span>Não rodou ou o dado não existe. Nunca vira 0 — dizemos explicitamente que falta, e por quê. "0%" significa que o modelo tentou e errou; "não medido" significa que não dá para julgar.</span></div>
+      <div><b>Cobertura</b><span>Quantos domínios da capacidade de uma IA esta bateria alcança. Não são todos: ela mede engenharia de software e uso agêntico de ferramentas, mais alguns domínios via Inspect. O que falta está listado em "Até onde este benchmark enxerga".</span></div>
       <div><b>Prova pública</b><span>Este relatório é medição interna, não certificado público (<code>claim_allowed = false</code>). Um número só vira prova depois de repetição e verificação independentes.</span></div>
     </div>
-    <p class="hint" style="margin-top:14px"><b>Método, em uma frase:</b> cada capacidade é a média das suas suítes confiáveis, ponderada pelo número de tarefas; o ganho com Atlas usa só os pares realmente medidos, com seu próprio ponto de partida. O JSON canônico (<code>report.json</code>) tem cada número com sua origem.</p>
+    <p class="hint" style="margin-top:14px"><b>Método, em uma frase:</b> cada domínio é a média das suas habilidades confiáveis, ponderada pelo número de tarefas; o ganho com Atlas usa só os pares confirmados, com seu próprio ponto de partida. O JSON canônico (<code>report.json</code>) tem cada número com sua origem.</p>
   </div>
 
   <footer id="footer"></footer>
