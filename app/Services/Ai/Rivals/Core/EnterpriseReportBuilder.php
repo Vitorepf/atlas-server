@@ -148,9 +148,10 @@ class EnterpriseReportBuilder
      */
     public const COVERAGE_MAP = [
         // Inventário real (14/07): 138 instrumentos = 9 suítes + inspect_evals, que
-        // é uma BIBLIOTECA com 129 evals. 15 ligados, 118 dormentes — todos já
-        // instalados no repo. `dormant` dimensiona a lacuna: declarar "não coberto"
-        // sem dizer que há 13 instrumentos parados ali subestima o que falta.
+        // é uma BIBLIOTECA com 129 evals. ~20 ligados; o resto dorme instalado no
+        // repo. `dormant` dimensiona a lacuna: declarar "não coberto" sem dizer
+        // que há N instrumentos parados ali subestima o que falta. O total sai de
+        // array_sum(dormant) — não repita o número aqui, ele envelhece.
         ['domain' => 'Engenharia de software (bug real, feature, algoritmo, multi-linguagem, terminal)', 'covered' => true, 'dormant' => 14, 'note' => '7 ligados: senior_swe_bench, swe_bench_live, live_code_bench, aider_polyglot, terminal_bench, swe_marathon, hal_harness · parados: swe_lancer, mle_bench, humaneval, bigcodebench, kernelbench…'],
         ['domain' => 'Uso de ferramentas e diálogo agêntico', 'covered' => true, 'dormant' => 0, 'note' => 'bfcl, tau2_bench'],
         ['domain' => 'Matemática', 'covered' => true, 'dormant' => 3, 'note' => 'ligados: gsm8k, mgsm · parados: aime2024/25/26, math, mathvista'],
@@ -1509,19 +1510,41 @@ class EnterpriseReportBuilder
         // a ferramenta está instalada no repo e nunca foi executada.
         $dormant = array_sum(array_column(self::COVERAGE_MAP, 'dormant'));
 
+        // DERIVADO do mapa, nunca escrito à mão. Esta frase já mentiu: dizia
+        // "raciocínio, cibersegurança, recusa, moral e escrita: ZERO medição"
+        // enquanto o mapa logo abaixo mostrava os cinco medidos. Prosa fixa
+        // envelhece contra o dado que ela resume; texto gerado não tem como.
+        $total = count(self::COVERAGE_MAP);
+        $missing = array_map(
+            static fn (array $d): string => self::shortDomainName($d['domain']),
+            array_values(array_filter(self::COVERAGE_MAP, static fn (array $d): bool => ! $d['covered'])),
+        );
+
         return [
             'skills_measured' => $skillsMeasured,
             'skills_wired' => $skillsWired,
             'domains_covered' => $domainsCovered,
-            'domains_total' => count(self::COVERAGE_MAP),
+            'domains_total' => $total,
             'instruments_dormant' => $dormant,
             'map' => self::COVERAGE_MAP,
-            'scope_note' => 'Esta bateria mede engenharia de software, uso agêntico de ferramentas e '
-                .'alguns domínios via Inspect. Não é um retrato da capacidade geral de uma IA — e a '
-                ."lacuna não é falta de ferramenta: há {$dormant} instrumentos já instalados no repo "
-                .'que nunca rodaram. Raciocínio puro, cibersegurança, segurança/recusa, dissimulação, '
-                .'multimodal, moral e escrita estão com ZERO medição.',
+            'scope_note' => "Esta bateria mede {$domainsCovered} dos {$total} domínios do mapa abaixo"
+                .($missing === [] ? '. ' : '. Sem nenhuma medição: '.implode(', ', $missing).'. ')
+                .'Não é um retrato da capacidade geral de uma IA — e a lacuna não é falta de '
+                ."ferramenta: há {$dormant} instrumentos já instalados no repo que nunca rodaram. "
+                .'Cada domínio abaixo diz quantos são e por que estão parados.',
         ];
+    }
+
+    /**
+     * Nome curto para prosa: o mapa usa rótulos longos com exemplos entre
+     * parênteses ("Raciocínio (leitura, senso comum, multi-etapa)"), úteis na
+     * tabela e ilegíveis dentro de uma frase.
+     */
+    private static function shortDomainName(string $domain): string
+    {
+        $short = trim((string) preg_replace('/\s*\(.*$/u', '', $domain));
+
+        return $short === '' ? $domain : $short;
     }
 
     /**

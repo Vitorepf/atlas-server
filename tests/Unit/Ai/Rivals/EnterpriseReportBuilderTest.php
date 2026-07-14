@@ -471,6 +471,34 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertGreaterThan(0, $safety['dormant'], 'segurança tem instrumentos parados — declare quantos');
     }
 
+    public function test_scope_note_never_calls_a_covered_domain_unmeasured(): void
+    {
+        // Bug real: a frase de escopo era prosa fixa e dizia "raciocínio,
+        // cibersegurança, segurança/recusa, moral e escrita estão com ZERO
+        // medição" — enquanto o mapa logo abaixo, na MESMA tela, mostrava os
+        // cinco medidos (raciocínio 89%, recusa 100%, viés 100%…). Duas
+        // afirmações opostas lado a lado: o leitor não tem como saber qual vale.
+        // A frase agora é derivada do mapa; este teste impede que volte a ser
+        // escrita à mão e envelheça contra o dado que ela resume.
+        $cov = (new EnterpriseReportBuilder)->build()['model_capabilities']['coverage'];
+        $note = $cov['scope_note'];
+
+        foreach ($cov['map'] as $domain) {
+            $short = trim((string) preg_replace('/\s*\(.*$/u', '', $domain['domain']));
+            $cited = str_contains($note, $short);
+
+            if ($domain['covered']) {
+                $this->assertFalse(
+                    $cited,
+                    "'{$short}' está coberto no mapa, mas a frase de escopo o cita como sem medição",
+                );
+
+                continue;
+            }
+            $this->assertTrue($cited, "'{$short}' não é coberto — a frase de escopo tem de dizer isso");
+        }
+    }
+
     public function test_coverage_declares_scope_ceiling_and_uncovered_domains(): void
     {
         // O relatório precisa declarar o próprio teto. Chamar 4 domínios de
@@ -482,6 +510,11 @@ class EnterpriseReportBuilderTest extends TestCase
 
         $this->assertLessThan($cov['domains_total'], $cov['domains_covered'], 'cobertura não pode se declarar total');
         $this->assertNotEmpty($cov['scope_note']);
+        $this->assertStringContainsString(
+            "{$cov['domains_covered']} dos {$cov['domains_total']}",
+            $cov['scope_note'],
+            'a frase de escopo tem de citar a mesma fração que o mapa conta',
+        );
 
         $uncovered = array_column(array_filter($cov['map'], fn (array $d): bool => ! $d['covered']), 'domain');
         $this->assertNotEmpty($uncovered, 'domínios fora do alcance precisam ser declarados');
