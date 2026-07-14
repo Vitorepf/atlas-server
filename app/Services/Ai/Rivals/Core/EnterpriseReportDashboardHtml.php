@@ -140,9 +140,20 @@ final class EnterpriseReportDashboardHtml
 .logo{font-weight:750;letter-spacing:-.03em}.pill{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,107,107,.35);background:rgba(255,107,107,.1);color:#ffb4b4}
 h1{font-size:36px;letter-spacing:-.045em;margin:24px 0 8px} .lede{color:var(--muted);max-width:72ch;margin:0 0 10px}
 .meta{color:var(--muted);font-size:12px;margin-bottom:14px} code{color:#d7dde8}
-.verdict{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 16px;background:linear-gradient(180deg,#12151d,#0e1016)}
-.verdict strong{display:block;font-size:15px;margin-bottom:4px}
-.verdict ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:13px}
+.verdict{border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:0 0 16px;background:linear-gradient(180deg,#12151d,#0e1016)}
+.verdict .title{display:block;font-size:16px;font-weight:750;letter-spacing:-.02em;margin-bottom:12px}
+.verdict-stats{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:baseline}
+.verdict-stats .stat{min-width:120px}
+.verdict-stats .v{font-size:22px;font-weight:750;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.verdict-stats .l{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin-top:2px}
+.verdict .note{margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.6}
+.uplift-strip{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.uplift-strip .row{display:grid;grid-template-columns:minmax(180px,1.2fr) 70px 26px 70px 90px;gap:8px;align-items:center;padding:5px 0;font-size:13px;font-variant-numeric:tabular-nums}
+.uplift-strip .row .name{color:var(--ink)}
+.uplift-strip .row .arrow{color:var(--muted);text-align:center}
+.uplift-strip .row .b{color:var(--bare);text-align:right}.uplift-strip .row .a{color:var(--atlas);text-align:right}
+.uplift-strip .row .d{font-weight:750;text-align:right}
+@media(max-width:640px){.uplift-strip .row{grid-template-columns:1fr 60px 20px 60px 70px}}
 .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 20px}
 .tab{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:8px 14px;cursor:pointer;font-weight:650;font-size:13px}
 .tab.on{color:var(--ink);background:#1a2030;border-color:#36415a}
@@ -302,15 +313,34 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   } else {
     verdictTitle = 'Nos pares medidos, resultado misto';
   }
+  const famLabel = (f) => f.label || f.family || f.suite_id || '';
+  const upliftRows = (D.uplift_families||[])
+    .filter(f => f.bare_intelligence!=null && f.atlas_intelligence!=null)
+    .map(f => {
+      const dv = Number(f.delta_intelligence ?? (f.atlas_intelligence - f.bare_intelligence));
+      const dTxt = (dv>=0?'+':'')+Math.round(dv*1000)/10+' pp';
+      const dCls = dv>0?'pos':(dv<0?'neg':'');
+      return `<div class="row">
+        <span class="name">${famLabel(f)}${f.diagnostic_only?' <span class="hint">· diagnóstico</span>':''}</span>
+        <span class="b">${pct(f.bare_intelligence)}</span>
+        <span class="arrow">→</span>
+        <span class="a">${pct(f.atlas_intelligence)}</span>
+        <span class="d ${dCls}">${dTxt}</span>
+      </div>`;
+    }).join('');
   document.getElementById('verdict').innerHTML =
-    `<strong style="color:${verdictColor}">${verdictTitle}</strong>`+
-    `<ul>
-      <li><strong>${paired.length}</strong> família(s) com par bare×Atlas medido; <strong>${incomplete}</strong> ainda sem comparação válida.</li>
-      <li>Melhorou em <strong>${better}</strong> · piorou em <strong>${worse}</strong>.</li>
-      <li>Δ médio só dos pares: <strong>${upliftMean==null?'—':((upliftMean>=0?'+':'')+pct(upliftMean))}</strong> — não misture com média de todas as suites bare.</li>
-      <li>Custo USD $0 = assinatura Verboo; não use o gráfico custo×inteligência como prova.</li>
-      <li>Pipeline: ok ${D.pipeline.suites_ok}/10 · dados incompletos ${D.pipeline.suites_missing_data} · não rodou ${D.pipeline.suites_not_run}.</li>
-    </ul>`;
+    `<span class="title" style="color:${verdictColor}">${verdictTitle}</span>`+
+    `<div class="verdict-stats">
+      <div class="stat"><span class="v">${paired.length}<span style="color:var(--muted);font-size:14px">/${(D.uplift_families||[]).length}</span></span><span class="l">pares medidos</span></div>
+      <div class="stat"><span class="v"><span class="pos">${better}↑</span> <span class="neg">${worse}↓</span></span><span class="l">melhorou · piorou</span></div>
+      <div class="stat"><span class="v">${upliftMean==null?'—':((upliftMean>=0?'+':'')+pct(upliftMean))}</span><span class="l">Δ médio dos pares</span></div>
+      <div class="stat"><span class="v">${D.pipeline.suites_ok}<span style="color:var(--muted);font-size:14px">/10</span></span><span class="l">pipeline ok</span></div>
+    </div>`+
+    (upliftRows ? `<div class="uplift-strip">
+      <div class="row" style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em"><span>Família</span><span style="text-align:right">sem Atlas</span><span></span><span style="text-align:right">com Atlas</span><span style="text-align:right">Δ</span></div>
+      ${upliftRows}
+    </div>` : '')+
+    `<p class="note">Custo $0 = assinatura Verboo (não discrimina custo). Δ médio usa só os pares bare×Atlas — não misturar com a média geral das suítes.</p>`;
 
   const atlasPairedMean = paired.length
     ? paired.reduce((a,f)=>a+Number(f.atlas_intelligence),0)/paired.length
@@ -761,7 +791,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const d = f.delta_intelligence;
     const cls = d==null?'':(d>=0?'pos':'neg');
     const dt = d==null?'sem par':((d>=0?'+':'')+pct(d));
-    return `<tr><td>${f.family}</td><td>${f.suite_id}</td><td>${statusPt(f.status)}</td>
+    return `<tr><td>${f.label||f.family}</td><td>${f.suite_id}</td><td>${statusPt(f.status)}</td>
       <td>${pct(f.bare_intelligence)}</td><td>${pct(f.atlas_intelligence)}</td>
       <td class="${cls}">${dt}</td>
       <td>${money(f.bare_cost)}</td><td>${money(f.atlas_cost)}</td>
@@ -1225,10 +1255,12 @@ HTML;
 
             $out[] = [
                 'family' => $family['family'] ?? null,
+                'label' => $family['label'] ?? EnterpriseReportBuilder::familyLabel($family['family'] ?? null),
                 'suite_id' => $suiteId,
                 'status' => $status,
                 'reason' => $family['reason'] ?? null,
                 'comparable' => $comparable,
+                'diagnostic_only' => ($family['diagnostic_only'] ?? false) === true,
                 'run_id' => $family['run_id'] ?? null,
                 'bare_intelligence' => $bareIntel,
                 'atlas_intelligence' => $atlasIntel,

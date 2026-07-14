@@ -13,6 +13,20 @@ use RuntimeException;
  */
 class EnterpriseReportBuilder
 {
+    /** Rótulos humanos (PT) das famílias de uplift — fonte única para fatos, perfil e dashboard. */
+    public const FAMILY_LABELS = [
+        'long_horizon' => 'Trabalho longo (HAL)',
+        'patch_swe' => 'Correção de bugs reais (SWE-bench Live)',
+        'terminal' => 'Terminal (Terminal-Bench)',
+        'tool_function' => 'Uso de ferramentas (BFCL)',
+        'polyglot' => 'Código poliglota (Aider)',
+    ];
+
+    public static function familyLabel(?string $family): string
+    {
+        return self::FAMILY_LABELS[(string) $family] ?? (string) $family;
+    }
+
     public function build(): array
     {
         $suiteIds = (new SuiteRegistry)->externalSuiteIds();
@@ -823,7 +837,7 @@ class EnterpriseReportBuilder
         $worse = 0;
 
         foreach ((array) ($atlasUplift['families'] ?? []) as $family) {
-            $name = (string) ($family['family'] ?? $family['suite_id'] ?? '?');
+            $name = self::familyLabel((string) ($family['family'] ?? $family['suite_id'] ?? '?'));
             if (($family['status'] ?? '') === 'real_uplift'
                 && ($family['bare_intelligence'] ?? null) !== null
                 && ($family['atlas_intelligence'] ?? null) !== null) {
@@ -1173,6 +1187,7 @@ class EnterpriseReportBuilder
 
             return [
                 'family' => $family,
+                'label' => self::familyLabel($family),
                 'suite_id' => $suiteId,
                 'run_id' => $run['run_id'],
                 'status' => $status,
@@ -1192,6 +1207,7 @@ class EnterpriseReportBuilder
 
         return [
             'family' => $family,
+            'label' => self::familyLabel($family),
             'suite_id' => $suiteId,
             'run_id' => null,
             'status' => 'not_run',
