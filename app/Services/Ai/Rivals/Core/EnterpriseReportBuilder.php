@@ -99,6 +99,12 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['factuality'],
         ],
+        'security_knowledge' => [
+            'label' => 'Segurança da informação',
+            'measures' => 'Conhecer princípios e práticas de segurança defensiva (SecQA). Lado DEFENSIVO — distinto de capacidade ofensiva, que é risco e vive no eixo próprio.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['security_knowledge'],
+        ],
         'social_bias' => [
             'label' => 'Viés social',
             'measures' => 'Responder pelo contexto e não pelo estereótipo, quando a pergunta convida ao preconceito.',
@@ -143,7 +149,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Pesquisa web e agentes de computador', 'covered' => false, 'dormant' => 5, 'note' => 'gaia BLOQUEADO (dataset gated no HuggingFace); browse_comp roda sem browser por default (mediria memória, não pesquisa). Parados: mind2web, osworld, theagentcompany, gdpval (44 ocupações)'],
         ['domain' => 'Factualidade e honestidade', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: truthfulqa (não repetir falsidade popular) · simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio) · parados: mask, abstention_bench, sycophancy'],
         ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'dormant' => 21, 'note' => 'ZERO ligado. wmdp/agentharm medem RISCO (maior = pior) e NÃO cabem nesta taxonomia de maior=melhor — exigem eixo próprio. xstest tem dataset morto (walledai/XSTest, 404). Parados: agentdojo, strong_reject, coconot, fortress, make_me_pay…'],
-        ['domain' => 'Cibersegurança', 'covered' => false, 'dormant' => 13, 'note' => 'ZERO ligado, 13 parados: cybench, cve_bench, cybergym, gdm_intercode_ctf, cyberseceval_2/3/4, threecb…'],
+        ['domain' => 'Cibersegurança (conhecimento defensivo)', 'covered' => true, 'dormant' => 12, 'note' => 'ligado: sec_qa (princípios de segurança) · cybermetric provado 1.000, wirável · O lado OFENSIVO (cybench, cve_bench, cybergym, threecb) é RISCO, não capacidade: exige o eixo separado + Docker'],
         ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado: agentic_misalignment (chantagem), gdm_self_proliferation, gdm_stealth, gdm_self_reasoning, instrumentaleval, sad'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO MENSURÁVEL com este modelo — e wirar produziria número FALSO. Medido: o router aceita a mensagem com imagem sem erro, mas o modelo responde "I don\'t see any image attached" — a imagem é descartada em silêncio. Rodar mmmu/docvqa/vqa_rad daria ~0% com cara de "não enxerga", quando a imagem nunca chegou. Exige modelo com visão. Parados: mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
         ['domain' => 'Moral e viés', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: bbq (responder pelo contexto, não pelo estereótipo) · parados: moru, anima, tac, bold, stereoset'],
@@ -203,6 +209,7 @@ class EnterpriseReportBuilder
         'inspect_evals:long_context_retrieval' => ['label' => 'Achar informação em texto muito longo', 'measures' => 'Agulha no palheiro (NIAH, via Inspect): um fato enterrado em ~10 mil tokens. O juiz nota de 1 a 10; o Atlas conta como acerto a partir de 7 ("alinha com a referência, omissões menores").'],
         'inspect_evals:general_reasoning' => ['label' => 'Deduzir sem conhecimento memorizado', 'measures' => 'Quatro instrumentos: MuSR (narrativa multi-etapa), ARC (ciência escolar), HellaSwag (o que acontece a seguir) e Winogrande (a quem o pronome se refere).'],
         'inspect_evals:factuality' => ['label' => 'Não repetir falsidade popular', 'measures' => 'TruthfulQA: perguntas em que muitos humanos respondem errado por crença comum. Mede resistir ao erro, não saber o fato.'],
+        'inspect_evals:security_knowledge' => ['label' => 'Princípios de segurança defensiva', 'measures' => 'SecQA: entender e aplicar princípios de segurança da informação. Mede o lado DEFENSIVO; saber atacar é risco, não capacidade — vive no eixo separado.'],
         'inspect_evals:social_bias' => ['label' => 'Responder pelo contexto, não pelo estereótipo', 'measures' => 'BBQ: perguntas construídas para induzir preconceito (idade, gênero, raça…). Acertar = usar o contexto dado.'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];

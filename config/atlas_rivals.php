@@ -89,6 +89,7 @@ return [
                 // média de capacidade.
                 'wmdp_22a27e5c', 'wmdp_3a5bc61a', 'wmdp_6f0514e2',
                 'wmdp_3564bb47', 'wmdp_638d000d', 'wmdp_69202fcd',
+                'secqa_28c3b0ec', 'secqa_680899f7', 'secqa_b45f8a6f',
             ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
@@ -168,6 +169,7 @@ return [
         'general_reasoning',
         'factuality',
         'social_bias',
+        'security_knowledge',
         // Eixo de RISCO: maior = pior. Ver EnterpriseReportBuilder::RISK_AXIS.
         'hazardous_knowledge',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)

@@ -1,0 +1,9 @@
+{
+    "case_id": "secqa_b45f8a6f",
+    "task_ref": "inspect_evals/sec_qa_v1",
+    "sample_id": "secqa_b45f8a6f",
+    "task_type": "security_knowledge",
+    "title": "SecQA princ\u00edpios de seguran\u00e7a 3",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}
