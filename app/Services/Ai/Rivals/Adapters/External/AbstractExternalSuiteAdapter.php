@@ -32,6 +32,22 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
     }
 
     /**
+     * Args extras específicos DESTE caso, anexados após o template base.
+     *
+     * Existe porque um template só não serve para suítes multi-task: no inspect,
+     * cada task tem parâmetros próprios (`-T x=y`) e passá-los globalmente
+     * quebraria as tasks que não os declaram. Default = nenhum.
+     *
+     * @param  array<string, mixed>  $case
+     * @param  array<string, mixed>  $binding
+     * @return list<string>
+     */
+    protected function extraArgsForCase(array $case, array $binding): array
+    {
+        return [];
+    }
+
+    /**
      * Mapeia payload nativo → overrides de receipt. Deve incluir metadata.native
      * com cli_model + native_agent para binding canônico.
      *
@@ -158,6 +174,11 @@ abstract class AbstractExternalSuiteAdapter implements BenchmarkSuiteAdapter
                     if (str_contains($template, '{arm_id}')) {
                         throw new RuntimeException($this->suiteId().'_arm_id_placeholder_forbidden');
                     }
+                    // Args extras POR CASO, depois do fail-fast acima (que compara
+                    // contra o template base de propósito — não pode ser burlado
+                    // por um arg de task). Ex.: o inspect precisa de `-T grader=`
+                    // em tasks cujo juiz aponta para modelo que o router não tem.
+                    $argv = array_merge($argv, $this->extraArgsForCase($case, $binding));
                     $command = implode(' ', array_map('escapeshellarg', $argv));
                     $commands[] = [
                         'case_id' => $caseId,

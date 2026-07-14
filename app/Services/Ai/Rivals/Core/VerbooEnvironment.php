@@ -28,6 +28,11 @@ final class VerbooEnvironment
         return array_merge($environment, [
             'PATH' => $path,
             'VERBOO_API_KEY' => $key,
+            // O provider `openai-api` do inspect deriva a URL de <SERVICE>_BASE_URL
+            // quando o modelo é usado como PAPEL (ex.: juiz via `-T grader=`).
+            // O --model-base-url da CLI só vale para o modelo principal — sem esta
+            // var o juiz morre com "No VERBOO_BASE_URL defined in the environment".
+            'VERBOO_BASE_URL' => self::BASE_URL,
             'OPENAI_API_KEY' => $key,
             // Harbor verifier.env for some suites (e.g. swe_marathon) requires this name.
             'ANTHROPIC_API_KEY' => $key,

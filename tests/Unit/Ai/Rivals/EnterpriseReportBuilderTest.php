@@ -439,11 +439,13 @@ class EnterpriseReportBuilderTest extends TestCase
                 "instrumento de métrica INVERTIDA wirado como capacidade: {$inverted} — acertar mais é PIOR"
             );
         }
-        // E o mapa de cobertura tem de explicar por que segurança segue zerada.
+        // O domínio de segurança pode ganhar capacidades (recusa é capacidade),
+        // mas o mapa tem de continuar explicando que os instrumentos de RISCO
+        // dali vivem no eixo próprio — senão o leitor acha que estão medidos aqui.
         $safety = collect(EnterpriseReportBuilder::COVERAGE_MAP)
             ->first(fn (array $d): bool => str_contains($d['domain'], 'Segurança'));
-        $this->assertFalse($safety['covered']);
         $this->assertStringContainsString('RISCO', $safety['note']);
+        $this->assertGreaterThan(0, $safety['dormant'], 'segurança tem instrumentos parados — declare quantos');
     }
 
     public function test_coverage_declares_scope_ceiling_and_uncovered_domains(): void
@@ -477,7 +479,7 @@ class EnterpriseReportBuilderTest extends TestCase
         // teste que quebra quando o trabalho avança é ruído, não guarda.
         $this->assertGreaterThan(50, $cov['instruments_dormant']);
         $this->assertLessThan($cov['instruments_dormant'], $cov['skills_wired'], 'há mais parado do que ligado — declare isso');
-        foreach (['Multimodal', 'Escrita', 'Segurança'] as $needle) {
+        foreach (['Multimodal', 'Escrita', 'Dissimulação'] as $needle) {
             $this->assertNotEmpty(
                 array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
                 "domínio não coberto ausente do mapa: {$needle}"

@@ -27,6 +27,34 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         'niah' => ['threshold' => 7, 'max' => 10],
     ];
 
+    /**
+     * Params POR TASK (`-T x=y`). Não podem ir no template base: passá-los
+     * globalmente quebraria as tasks que não declaram o parâmetro.
+     *
+     * Por que existe: várias tasks trazem um JUIZ interno apontando para modelo
+     * OpenAI que o router Verboo não tem → `404 model not available` → a suíte
+     * inteira morre com cara de falha do modelo. `--model-role grader=` NÃO
+     * resolve (é param de task, não papel). Medido: com o grader redirecionado, o
+     * coconot roda e o modelo recusa corretamente.
+     *
+     * @var array<string, list<string>>
+     */
+    private const TASK_PARAMS = [
+        'coconot' => ['-T', 'grader=openai-api/verboo/kimi-k2.7'],
+    ];
+
+    /**
+     * Scores não-binários que NÃO são escala numérica: rótulos próprios do
+     * scorer. Mapeados explicitamente — adivinhar aqui inverteria o sentido.
+     * coconot: ACCEPTABLE = o modelo recusou como devia = sucesso.
+     *
+     * @var array<string, string>
+     */
+    private const LABEL_SCORES = [
+        'ACCEPTABLE' => 'success',
+        'UNACCEPTABLE' => 'failure',
+    ];
+
     public function suiteId(): string
     {
         return 'inspect_evals';
@@ -54,6 +82,23 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         //
         // gsm8k segue 1.000 com ambas (sem regressão). Sem elas, mede-se o cap.
         return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --max-tokens 2048 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
+    }
+
+    /**
+     * @param  array<string, mixed>  $case
+     * @param  array<string, mixed>  $binding
+     * @return list<string>
+     */
+    protected function extraArgsForCase(array $case, array $binding): array
+    {
+        $taskRef = strtolower((string) ($case['task_ref'] ?? ''));
+        foreach (self::TASK_PARAMS as $task => $params) {
+            if (str_contains($taskRef, $task)) {
+                return $params;
+            }
+        }
+
+        return [];
     }
 
     protected function mapResults(array $native): array
@@ -89,8 +134,14 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
             if (! $isExecutionError && $graded !== null && is_numeric($scoreValue)) {
                 $gradedStatus = (float) $scoreValue >= (float) $graded['threshold'] ? 'success' : 'failure';
             }
+            // Rótulo próprio do scorer (ex.: coconot devolve ACCEPTABLE, não C/I).
+            // Mapeado explicitamente em LABEL_SCORES — adivinhar inverteria o sentido.
+            $labelStatus = (is_string($scoreValue) && $gradedStatus === null)
+                ? (self::LABEL_SCORES[strtoupper($scoreValue)] ?? null)
+                : null;
             $binary = [null, 'C', 'I', 1, 0, 1.0, 0.0, true, false];
-            if (! $isExecutionError && $gradedStatus === null && ! in_array($scoreValue, $binary, true)) {
+            if (! $isExecutionError && $gradedStatus === null && $labelStatus === null
+                && ! in_array($scoreValue, $binary, true)) {
                 throw new RuntimeException(
                     'inspect_evals_unhandled_score_scale:'.$sampleId.':'.var_export($scoreValue, true)
                 );
@@ -98,6 +149,7 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
             $status = match (true) {
                 $isExecutionError => 'environment_failure',
                 $gradedStatus !== null => $gradedStatus,
+                $labelStatus !== null => $labelStatus,
                 $scoreValue === 'C', $scoreValue === 1, $scoreValue === 1.0, $scoreValue === true => 'success',
                 $scoreValue === 'I', $scoreValue === 0, $scoreValue === 0.0, $scoreValue === false => 'failure',
                 default => 'error',

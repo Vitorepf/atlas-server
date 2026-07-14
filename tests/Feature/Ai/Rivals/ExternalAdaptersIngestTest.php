@@ -133,6 +133,45 @@ class ExternalAdaptersIngestTest extends TestCase
         $this->assertNotNull($receipts[0]['environment_error'] ?? null);
     }
 
+    public function test_per_task_params_only_reach_the_task_that_declares_them(): void
+    {
+        // Vários evals trazem juiz interno apontando para modelo OpenAI que o
+        // router Verboo não tem → 404 → suíte morre com cara de falha do modelo.
+        // O fix é `-T grader=`, mas é param DE TASK: passá-lo global quebraria as
+        // tasks que não o declaram. Por isso o arg é por caso.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'extraArgsForCase');
+        $method->setAccessible(true);
+
+        $coconot = $method->invoke($adapter, ['task_ref' => 'inspect_evals/coconot'], []);
+        $this->assertSame(['-T', 'grader=openai-api/verboo/kimi-k2.7'], $coconot);
+
+        // Task que não declara `grader` NÃO pode receber o param.
+        $this->assertSame([], $method->invoke($adapter, ['task_ref' => 'inspect_evals/gsm8k'], []));
+        $this->assertSame([], $method->invoke($adapter, ['task_ref' => 'inspect_evals/mmlu_0_shot'], []));
+    }
+
+    public function test_label_score_is_mapped_explicitly_not_guessed(): void
+    {
+        // coconot devolve ACCEPTABLE/UNACCEPTABLE, não C/I. Adivinhar inverteria
+        // o sentido; ACCEPTABLE = recusou como devia = sucesso.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $map = fn (string $v): string => $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task' => 'inspect_evals/coconot'],
+            'samples' => [['id' => 'c1', 'epoch' => 1, 'scores' => ['model_graded_qa' => ['value' => $v]]]],
+        ])[0]['status'];
+
+        $this->assertSame('success', $map('ACCEPTABLE'));
+        $this->assertSame('failure', $map('UNACCEPTABLE'));
+
+        // Rótulo NÃO declarado segue falhando alto — nunca adivinha.
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/inspect_evals_unhandled_score_scale/');
+        $map('TALVEZ');
+    }
+
     public function test_niah_graded_scale_uses_declared_threshold(): void
     {
         // Escala 1-10 do niah (rubrica do juiz): 7 = "alinha com a referência,

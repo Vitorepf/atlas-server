@@ -105,6 +105,12 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['security_knowledge'],
         ],
+        'appropriate_refusal' => [
+            'label' => 'Recusar o que deve',
+            'measures' => 'Dizer não a pedido que não deve ser atendido, sem recusar o que é legítimo (CoCoNot). Mede o julgamento da recusa — capacidade, não risco.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['appropriate_refusal'],
+        ],
         'social_bias' => [
             'label' => 'Viés social',
             'measures' => 'Responder pelo contexto e não pelo estereótipo, quando a pergunta convida ao preconceito.',
@@ -148,7 +154,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Raciocínio (leitura, senso comum, multi-etapa)', 'covered' => true, 'dormant' => 8, 'note' => '4 ligados: musr (narrativa multi-etapa), arc (ciência escolar), hellaswag (senso comum), winogrande (pronome) · parados: bbh, bbeh, drop, piqa, race_h, squad, worldsense, lingoly'],
         ['domain' => 'Pesquisa web e agentes de computador', 'covered' => false, 'dormant' => 5, 'note' => 'gaia BLOQUEADO (dataset gated no HuggingFace); browse_comp roda sem browser por default (mediria memória, não pesquisa). Parados: mind2web, osworld, theagentcompany, gdpval (44 ocupações)'],
         ['domain' => 'Factualidade e honestidade', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: truthfulqa (não repetir falsidade popular) · simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio) · parados: mask, abstention_bench, sycophancy'],
-        ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'dormant' => 21, 'note' => 'ZERO ligado. wmdp/agentharm medem RISCO (maior = pior) e NÃO cabem nesta taxonomia de maior=melhor — exigem eixo próprio. xstest tem dataset morto (walledai/XSTest, 404). Parados: agentdojo, strong_reject, coconot, fortress, make_me_pay…'],
+        ['domain' => 'Segurança e recusa', 'covered' => true, 'dormant' => 20, 'note' => 'ligado: coconot (recusar o que deve, sem exagerar) · wmdp/agentharm medem RISCO (maior=pior) e vivem no eixo próprio · xstest tem dataset morto (404) · abstention_bench exige a dep hydra · agentdojo/fortress exigem sandbox Docker'],
         ['domain' => 'Cibersegurança (conhecimento defensivo)', 'covered' => true, 'dormant' => 12, 'note' => 'ligado: sec_qa (princípios de segurança) · cybermetric provado 1.000, wirável · O lado OFENSIVO (cybench, cve_bench, cybergym, threecb) é RISCO, não capacidade: exige o eixo separado + Docker'],
         ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado: agentic_misalignment (chantagem), gdm_self_proliferation, gdm_stealth, gdm_self_reasoning, instrumentaleval, sad'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO MENSURÁVEL com este modelo — e wirar produziria número FALSO. Medido: o router aceita a mensagem com imagem sem erro, mas o modelo responde "I don\'t see any image attached" — a imagem é descartada em silêncio. Rodar mmmu/docvqa/vqa_rad daria ~0% com cara de "não enxerga", quando a imagem nunca chegou. Exige modelo com visão. Parados: mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
@@ -210,6 +216,7 @@ class EnterpriseReportBuilder
         'inspect_evals:general_reasoning' => ['label' => 'Deduzir sem conhecimento memorizado', 'measures' => 'Quatro instrumentos: MuSR (narrativa multi-etapa), ARC (ciência escolar), HellaSwag (o que acontece a seguir) e Winogrande (a quem o pronome se refere).'],
         'inspect_evals:factuality' => ['label' => 'Não repetir falsidade popular', 'measures' => 'TruthfulQA: perguntas em que muitos humanos respondem errado por crença comum. Mede resistir ao erro, não saber o fato.'],
         'inspect_evals:security_knowledge' => ['label' => 'Princípios de segurança defensiva', 'measures' => 'SecQA: entender e aplicar princípios de segurança da informação. Mede o lado DEFENSIVO; saber atacar é risco, não capacidade — vive no eixo separado.'],
+        'inspect_evals:appropriate_refusal' => ['label' => 'Recusar pedido indevido sem exagerar', 'measures' => 'CoCoNot: pedidos que não devem ser atendidos. ACEITÁVEL = recusou como devia. O juiz é o próprio kimi (o default apontava para um modelo que o router não tem).'],
         'inspect_evals:social_bias' => ['label' => 'Responder pelo contexto, não pelo estereótipo', 'measures' => 'BBQ: perguntas construídas para induzir preconceito (idade, gênero, raça…). Acertar = usar o contexto dado.'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];

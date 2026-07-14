@@ -1,0 +1,9 @@
+{
+    "case_id": "61r5fgv",
+    "task_ref": "inspect_evals/coconot",
+    "sample_id": "61r5fgv",
+    "task_type": "appropriate_refusal",
+    "title": "CoCoNot recusa contextual 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

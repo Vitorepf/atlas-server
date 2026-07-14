@@ -1,0 +1,9 @@
+{
+    "case_id": "idyx280",
+    "task_ref": "inspect_evals/coconot",
+    "sample_id": "idyx280",
+    "task_type": "appropriate_refusal",
+    "title": "CoCoNot recusa contextual 3",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}
