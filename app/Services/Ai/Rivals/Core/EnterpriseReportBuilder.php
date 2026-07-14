@@ -93,16 +93,40 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['general_reasoning'],
         ],
+        'factuality' => [
+            'label' => 'Factualidade',
+            'measures' => 'Não repetir falsidade que muita gente acredita. Mede resistir ao erro comum, não conhecimento.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['factuality'],
+        ],
+        'social_bias' => [
+            'label' => 'Viés social',
+            'measures' => 'Responder pelo contexto e não pelo estereótipo, quando a pergunta convida ao preconceito.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['social_bias'],
+        ],
     ];
 
     /**
-     * Teto do instrumento. Os 10 benchmarks desta bateria são quase todos de
-     * código/agente — chamar isso de "capacidade de IA" sem declarar o que ficou
-     * de fora sugere cobertura que não existe. Este mapa é a honestidade sobre o
-     * próprio escopo: o que um benchmark de capacidade completo mede, e onde o
-     * Rivals hoje NÃO olha. `covered` = existe instrumento wired nesta bateria.
+     * ⚠️ NUNCA wirar instrumento de MÉTRICA INVERTIDA nesta taxonomia.
      *
-     * @var list<array{domain:string, covered:bool, note:string}>
+     * Todo score aqui assume MAIOR = MELHOR (`intelligence_rate` alimenta médias,
+     * Wilson e o veredito). Alguns evals do inspect medem RISCO, onde acertar mais
+     * é PIOR:
+     *   - `wmdp`: "proxy measurement of HAZARDOUS knowledge" (biosegurança,
+     *     cyber, química) — é benchmark de DESAPRENDIZADO. 100% = o modelo sabe
+     *     tudo sobre arma biológica. Wirado aqui, o relatório celebraria
+     *     "100% em segurança!" com o sentido invertido.
+     *   - mesma classe: `cybersec*` de capacidade ofensiva, `agentharm`,
+     *     `strong_reject` (dependendo do sentido do scorer), `gdm_*` (dissimulação).
+     * Medir risco é legítimo e necessário — mas exige eixo próprio com sinal
+     * declarado, NÃO esta lista. Verificar o sentido do scorer antes de wirar.
+     *
+     * Teto do instrumento: este mapa é a honestidade sobre o próprio escopo — o que
+     * um benchmark de capacidade completo mede, e onde o Rivals hoje NÃO olha.
+     * `covered` = existe instrumento wired. `dormant` = instalados que nunca rodaram.
+     *
+     * @var list<array{domain:string, covered:bool, dormant:int, note:string}>
      */
     public const COVERAGE_MAP = [
         // Inventário real (14/07): 138 instrumentos = 9 suítes + inspect_evals, que
@@ -117,12 +141,12 @@ class EnterpriseReportBuilder
         ['domain' => 'Contexto longo', 'covered' => true, 'dormant' => 1, 'note' => 'ligado: niah · parado: infinite_bench (100k+ tokens)'],
         ['domain' => 'Raciocínio (leitura, senso comum, multi-etapa)', 'covered' => true, 'dormant' => 8, 'note' => '4 ligados: musr (narrativa multi-etapa), arc (ciência escolar), hellaswag (senso comum), winogrande (pronome) · parados: bbh, bbeh, drop, piqa, race_h, squad, worldsense, lingoly'],
         ['domain' => 'Pesquisa web e agentes de computador', 'covered' => false, 'dormant' => 5, 'note' => 'gaia BLOQUEADO (dataset gated no HuggingFace); browse_comp roda sem browser por default (mediria memória, não pesquisa). Parados: mind2web, osworld, theagentcompany, gdpval (44 ocupações)'],
-        ['domain' => 'Factualidade e honestidade', 'covered' => false, 'dormant' => 5, 'note' => 'simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio). Parados: truthfulqa, mask, abstention_bench, sycophancy'],
-        ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'dormant' => 21, 'note' => 'ZERO ligado, 21 instrumentos parados: agentdojo, agentharm, strong_reject, xstest, coconot, wmdp, fortress, make_me_pay…'],
+        ['domain' => 'Factualidade e honestidade', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: truthfulqa (não repetir falsidade popular) · simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio) · parados: mask, abstention_bench, sycophancy'],
+        ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'dormant' => 21, 'note' => 'ZERO ligado. wmdp/agentharm medem RISCO (maior = pior) e NÃO cabem nesta taxonomia de maior=melhor — exigem eixo próprio. xstest tem dataset morto (walledai/XSTest, 404). Parados: agentdojo, strong_reject, coconot, fortress, make_me_pay…'],
         ['domain' => 'Cibersegurança', 'covered' => false, 'dormant' => 13, 'note' => 'ZERO ligado, 13 parados: cybench, cve_bench, cybergym, gdm_intercode_ctf, cyberseceval_2/3/4, threecb…'],
         ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado: agentic_misalignment (chantagem), gdm_self_proliferation, gdm_stealth, gdm_self_reasoning, instrumentaleval, sad'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado (o modelo atual provavelmente não aceita imagem): mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
-        ['domain' => 'Moral e viés', 'covered' => false, 'dormant' => 5, 'note' => 'ZERO ligado: moru, anima, tac, bbq, bold, stereoset'],
+        ['domain' => 'Moral e viés', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: bbq (responder pelo contexto, não pelo estereótipo) · parados: moru, anima, tac, bold, stereoset'],
         ['domain' => 'Escrita e personalidade', 'covered' => false, 'dormant' => 2, 'note' => 'ZERO ligado: writingbench, personality'],
     ];
 
@@ -154,6 +178,8 @@ class EnterpriseReportBuilder
         // decisão de protocolo do Atlas, não do benchmark — o leitor tem de ver.
         'inspect_evals:long_context_retrieval' => ['label' => 'Achar informação em texto muito longo', 'measures' => 'Agulha no palheiro (NIAH, via Inspect): um fato enterrado em ~10 mil tokens. O juiz nota de 1 a 10; o Atlas conta como acerto a partir de 7 ("alinha com a referência, omissões menores").'],
         'inspect_evals:general_reasoning' => ['label' => 'Deduzir sem conhecimento memorizado', 'measures' => 'Quatro instrumentos: MuSR (narrativa multi-etapa), ARC (ciência escolar), HellaSwag (o que acontece a seguir) e Winogrande (a quem o pronome se refere).'],
+        'inspect_evals:factuality' => ['label' => 'Não repetir falsidade popular', 'measures' => 'TruthfulQA: perguntas em que muitos humanos respondem errado por crença comum. Mede resistir ao erro, não saber o fato.'],
+        'inspect_evals:social_bias' => ['label' => 'Responder pelo contexto, não pelo estereótipo', 'measures' => 'BBQ: perguntas construídas para induzir preconceito (idade, gênero, raça…). Acertar = usar o contexto dado.'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];
 

@@ -1,0 +1,9 @@
+{
+    "case_id": "truthfulqa_8622ded1",
+    "task_ref": "inspect_evals/truthfulqa",
+    "sample_id": "truthfulqa_8622ded1",
+    "task_type": "factuality",
+    "title": "TruthfulQA factualidade 2",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

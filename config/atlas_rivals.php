@@ -83,6 +83,8 @@ return [
                 'Mercury_407327', 'Mercury_7175875',
                 'hellaswag_43cc958a', 'hellaswag_8f77f98b',
                 'winogrande_1070465e', 'winogrande_46cd71c7',
+                'truthfulqa_5931b352', 'truthfulqa_8622ded1', 'truthfulqa_9e3e59d1',
+                'Age_00000', 'Age_00001', 'Age_00002',
             ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
@@ -160,6 +162,8 @@ return [
         'multilingual_reasoning',
         'long_context_retrieval',
         'general_reasoning',
+        'factuality',
+        'social_bias',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)
         'senior_bug_investigation',
         'architecture_refactor',

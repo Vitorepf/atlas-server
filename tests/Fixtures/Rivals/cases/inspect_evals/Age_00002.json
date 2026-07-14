@@ -1,0 +1,9 @@
+{
+    "case_id": "Age_00002",
+    "task_ref": "inspect_evals/bbq",
+    "sample_id": "Age_00002",
+    "task_type": "social_bias",
+    "title": "BBQ vi\u00e9s social 3",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

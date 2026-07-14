@@ -392,6 +392,32 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame(['math_reasoning'], EnterpriseReportBuilder::CAPABILITIES['reasoning']['task_types']);
     }
 
+    public function test_no_inverted_metric_instrument_is_wired_as_capability(): void
+    {
+        // Toda esta taxonomia assume MAIOR = MELHOR (intelligence_rate alimenta
+        // médias, Wilson e veredito). wmdp mede "hazardous knowledge": 100% =
+        // o modelo sabe tudo sobre arma biológica. Wirado aqui, o relatório
+        // celebraria "100% em segurança!" com o sentido invertido. Medir risco
+        // exige eixo próprio com sinal declarado — não esta lista.
+        $wired = [];
+        foreach (EnterpriseReportBuilder::SUB_CAPABILITIES as $key => $sub) {
+            $wired[] = strtolower($key.' '.$sub['label'].' '.$sub['measures']);
+        }
+        $blob = implode(' | ', $wired);
+        foreach (['wmdp', 'agentharm', 'cyberseceval', 'gdm_self_proliferation'] as $inverted) {
+            $this->assertStringNotContainsString(
+                $inverted,
+                $blob,
+                "instrumento de métrica INVERTIDA wirado como capacidade: {$inverted} — acertar mais é PIOR"
+            );
+        }
+        // E o mapa de cobertura tem de explicar por que segurança segue zerada.
+        $safety = collect(EnterpriseReportBuilder::COVERAGE_MAP)
+            ->first(fn (array $d): bool => str_contains($d['domain'], 'Segurança'));
+        $this->assertFalse($safety['covered']);
+        $this->assertStringContainsString('RISCO', $safety['note']);
+    }
+
     public function test_coverage_declares_scope_ceiling_and_uncovered_domains(): void
     {
         // O relatório precisa declarar o próprio teto. Chamar 4 domínios de
@@ -407,18 +433,23 @@ class EnterpriseReportBuilderTest extends TestCase
         $uncovered = array_column(array_filter($cov['map'], fn (array $d): bool => ! $d['covered']), 'domain');
         $this->assertNotEmpty($uncovered, 'domínios fora do alcance precisam ser declarados');
         // O denominador não pode encolher: declarar cobertura contra uma lista curta
-        // dá nota melhor que a real. Estes domínios existem no inventário (138
-        // instrumentos) e têm de aparecer, mesmo que com zero medição.
-        foreach (['Cibersegurança', 'Dissimulação', 'Moral', 'Multimodal'] as $needle) {
+        // dá nota melhor que a real (era 10/14 contra uma lista que nem citava
+        // cibersegurança). Estes domínios existem no inventário de 138 instrumentos
+        // e têm de aparecer no mapa — cobertos ou não.
+        $allDomains = array_column($cov['map'], 'domain');
+        foreach (['Cibersegurança', 'Dissimulação', 'Moral', 'Multimodal', 'Raciocínio', 'Factualidade'] as $needle) {
             $this->assertNotEmpty(
-                array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
-                "domínio real ausente do mapa de cobertura: {$needle}"
+                array_filter($allDomains, fn (string $d): bool => str_contains($d, $needle)),
+                "domínio real ausente do denominador de cobertura: {$needle}"
             );
         }
         // Lacuna dimensionada: "não coberto" sem contar os instrumentos parados
         // faz parecer falta de ferramenta, quando eles já estão instalados.
-        $this->assertGreaterThan(100, $cov['instruments_dormant']);
-        foreach (['Multimodal', 'Factualidade', 'Segurança'] as $needle) {
+        // Limiar folgado de propósito — este número CAI conforme wiramos, e um
+        // teste que quebra quando o trabalho avança é ruído, não guarda.
+        $this->assertGreaterThan(50, $cov['instruments_dormant']);
+        $this->assertLessThan($cov['instruments_dormant'], $cov['skills_wired'], 'há mais parado do que ligado — declare isso');
+        foreach (['Multimodal', 'Escrita', 'Segurança'] as $needle) {
             $this->assertNotEmpty(
                 array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
                 "domínio não coberto ausente do mapa: {$needle}"
