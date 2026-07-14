@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Ai\Rivals;
 
+use App\Services\Ai\Rivals\Adapters\External\InspectEvalsAdapter;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\RunPlan;
 use App\Services\Ai\Rivals\Core\SuiteRegistry;
@@ -137,6 +138,19 @@ class ExternalCommandContractTest extends TestCase
         // O service prefix vira <SERVICE>_API_KEY: precisa casar com o que o
         // VerbooEnvironment exporta (VERBOO_API_KEY).
         $this->assertSame('verboo', explode('/', $model)[1] ?? null);
+    }
+
+    public function test_inspect_declares_reasoning_model_so_non_cot_tasks_are_not_capped(): void
+    {
+        // Segunda regressão silenciosa da mesma família: tasks não-CoT do inspect
+        // (mmlu_0_shot) capam a saída em 16 tokens — "basta para 'ANSWER: B'".
+        // O kimi-k2.7 emite bloco de raciocínio nativo: o raciocínio consome os
+        // 16 tokens, o texto sai VAZIO e o scorer registra 0%. Medido ao vivo:
+        // 0% sem a flag → 80% com ela. Sem declarar, mede-se o cap, não o modelo.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'commandTemplate');
+        $method->setAccessible(true);
+        $this->assertStringContainsString('--reasoning-tokens', (string) $method->invoke($adapter));
     }
 
     public function test_five_uplift_families_use_distinct_bare_and_atlas_solver_paths(): void

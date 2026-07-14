@@ -17,7 +17,16 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         // {cli_model} = openai-api/verboo/kimi-k2.7 (ver config native_models):
         // provider compatível de terceiros. `responses_api=false` era gambiarra
         // para o provider `openai`; o openai-api não precisa e não aceita.
-        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
+        //
+        // --reasoning-tokens DECLARA que o kimi-k2.7 é modelo de raciocínio (ele
+        // emite bloco de reasoning nativamente). Sem isso, tasks não-CoT como
+        // mmlu_0_shot aplicam cap de 16 tokens ("basta para 'ANSWER: B'"): o
+        // raciocínio come o orçamento, o texto sai VAZIO e o scorer lê 0%.
+        // O próprio inspect trata isso — `get_max_tokens()` retorna None "for
+        // reasoning models to avoid truncating thinking tokens" — mas só se o
+        // config declarar. Medido: mmlu_0_shot 0% → 80% só com esta flag; gsm8k
+        // segue 1.000 (sem regressão). Sem a flag mede-se o cap, não o modelo.
+        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
     }
 
     protected function mapResults(array $native): array
