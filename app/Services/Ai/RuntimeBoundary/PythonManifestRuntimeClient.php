@@ -131,6 +131,17 @@ final class PythonManifestRuntimeClient
 
     private function venvPython(): string
     {
+        // Override por env para runtimes cross-plataforma: no container Linux
+        // (atlas-backend) o bind-mount traz o venv do macOS do host, cujo
+        // binário não executa no Linux — available()=false e o context pack
+        // degradava para lexical. ATLAS_PYTHON_VENV_ROOT aponta para um venv
+        // NATIVO do ambiente (ex.: /opt/atlas-python no container). Sem a env
+        // (host/dev), mantém a convenção `<runtime>/.venv/bin/python`.
+        $override = trim((string) env('ATLAS_PYTHON_VENV_ROOT', ''));
+        if ($override !== '') {
+            return rtrim($override, '/').'/'.basename($this->runtimeRoot).'/.venv/bin/python';
+        }
+
         return base_path($this->runtimeRoot.'/.venv/bin/python');
     }
 

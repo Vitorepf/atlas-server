@@ -27,6 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     libreoffice \
     poppler-utils \
+    python3 \
+    python3-venv \
+    python3-pip \
     tesseract-ocr \
     tesseract-ocr-eng \
     tesseract-ocr-osd \
@@ -55,6 +58,17 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
 COPY . .
+
+# semantic_rag: venv Linux NATIVO fora do bind-mount (/app traz o venv do macOS
+# do host no runtime, cujo binário não roda no Linux). Aqui o container ganha
+# embedding vetorial REAL local (fastembed, soberania local-first); o PHP acha
+# via ATLAS_PYTHON_VENV_ROOT=/opt/atlas-python (docker-compose). O warm baixa o
+# modelo no build p/ runtime offline; se a rede do build falhar, não derruba a
+# imagem (primeiro embed em runtime baixa uma vez).
+RUN python3 -m venv /opt/atlas-python/semantic_rag/.venv \
+    && /opt/atlas-python/semantic_rag/.venv/bin/pip install -q --no-cache-dir --upgrade pip \
+    && /opt/atlas-python/semantic_rag/.venv/bin/pip install -q --no-cache-dir "/app/runtimes/python/semantic_rag[local]" \
+    && /opt/atlas-python/semantic_rag/.venv/bin/python -c "from atlas_semantic_rag.embeddings import resolve_embedder; e=resolve_embedder(); e.embed(['warmup']); print('semantic_rag ready:', e.name, e.model, e.dim)" || echo "[semantic_rag] warm adiado para runtime (build sem rede)"
 
 RUN mkdir -p \
     bootstrap/cache \
