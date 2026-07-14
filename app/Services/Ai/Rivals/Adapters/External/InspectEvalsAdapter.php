@@ -55,6 +55,26 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         'UNACCEPTABLE' => 'failure',
     ];
 
+    /**
+     * Scores COMPOSTOS: o scorer devolve um dict de sub-métricas, não um valor.
+     * Escolher qual sub-métrica vale é decisão de PROTOCOLO — mora aqui, com o
+     * porquê, e o texto da sub-capacidade mostra a escolha ao leitor.
+     *
+     * ifeval devolve 5 campos; `prompt_level_strict` é `follow_all_instructions`
+     * no modo estrito — seguiu TODAS as instruções pedidas. É a métrica headline
+     * do IFEval (prompt-level strict accuracy). Os outros campos são contagens
+     * parciais (`inst_level_*`) ou casamento frouxo (`*_loose`), que dariam
+     * crédito por obedecer só parte — não é "seguir instruções".
+     *
+     * Composto não declarado FALHA ALTO (foi o que pegou este caso: o ifeval
+     * derrubou a ingestão da suíte inteira em vez de virar "modelo falhou").
+     *
+     * @var array<string, string>  task => campo booleano que define sucesso
+     */
+    private const COMPOSITE_SCORES = [
+        'ifeval' => 'prompt_level_strict',
+    ];
+
     public function suiteId(): string
     {
         return 'inspect_evals';
@@ -133,6 +153,15 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
             $gradedStatus = null;
             if (! $isExecutionError && $graded !== null && is_numeric($scoreValue)) {
                 $gradedStatus = (float) $scoreValue >= (float) $graded['threshold'] ? 'success' : 'failure';
+            }
+            // Score COMPOSTO (ifeval devolve dict de 5 sub-métricas). O campo que
+            // define sucesso é declarado em COMPOSITE_SCORES — escolher qual vale é
+            // protocolo, não detalhe. Campo ausente = falha alto logo abaixo.
+            if (! $isExecutionError && $gradedStatus === null && is_array($scoreValue)) {
+                $field = $this->compositeFieldFor($native, $sampleId);
+                if ($field !== null && array_key_exists($field, $scoreValue)) {
+                    $gradedStatus = ((bool) $scoreValue[$field]) ? 'success' : 'failure';
+                }
             }
             // Rótulo próprio do scorer (ex.: coconot devolve ACCEPTABLE, não C/I).
             // Mapeado explicitamente em LABEL_SCORES — adivinhar inverteria o sentido.
@@ -214,6 +243,25 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         }
 
         return $receipts;
+    }
+
+    /**
+     * Campo de score composto declarado para a task deste sample, se houver.
+     *
+     * @param  array<string, mixed>  $native
+     */
+    private function compositeFieldFor(array $native, string $sampleId): ?string
+    {
+        $task = strtolower((string) ($native['eval']['task']
+            ?? $native['eval']['task_display_name']
+            ?? $sampleId));
+        foreach (self::COMPOSITE_SCORES as $needle => $field) {
+            if (str_contains($task, $needle) || str_contains(strtolower($sampleId), $needle)) {
+                return $field;
+            }
+        }
+
+        return null;
     }
 
     /**

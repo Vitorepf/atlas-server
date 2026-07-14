@@ -208,7 +208,7 @@ class EnterpriseReportBuilder
         'inspect_evals:math_reasoning' => ['label' => 'Raciocínio matemático passo a passo', 'measures' => 'Problemas que exigem cadeia de raciocínio (gsm8k, via Inspect).'],
         'inspect_evals:knowledge_qa' => ['label' => 'Conhecimento factual amplo', 'measures' => 'Perguntas de múltipla escolha em dezenas de áreas (MMLU, via Inspect).'],
         'inspect_evals:science_reasoning' => ['label' => 'Ciência nível pós-graduação', 'measures' => 'Perguntas de biologia/física/química feitas por PhDs, difíceis de buscar (GPQA Diamond, via Inspect).'],
-        'inspect_evals:instruction_following' => ['label' => 'Obedecer restrições de formato', 'measures' => 'Instruções verificáveis por programa: tamanho, idioma, seções, palavras proibidas (IFEval, via Inspect).'],
+        'inspect_evals:instruction_following' => ['label' => 'Obedecer restrições de formato', 'measures' => 'Instruções verificáveis por programa: tamanho, idioma, seções, palavras proibidas (IFEval, via Inspect). Conta acerto só quando o modelo obedece TODAS as instruções do pedido (prompt_level_strict) — obedecer parte não é seguir instrução.'],
         'inspect_evals:multilingual_reasoning' => ['label' => 'Raciocinar fora do inglês', 'measures' => 'Os mesmos problemas de matemática traduzidos para outros idiomas (MGSM, via Inspect).'],
         // Limiar VISÍVEL: o niah pontua 1-10 e o Rivals é binário. A conversão é
         // decisão de protocolo do Atlas, não do benchmark — o leitor tem de ver.

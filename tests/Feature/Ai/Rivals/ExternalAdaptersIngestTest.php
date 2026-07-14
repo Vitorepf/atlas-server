@@ -151,6 +151,38 @@ class ExternalAdaptersIngestTest extends TestCase
         $this->assertSame([], $method->invoke($adapter, ['task_ref' => 'inspect_evals/mmlu_0_shot'], []));
     }
 
+    public function test_composite_score_uses_declared_field_not_partial_credit(): void
+    {
+        // ifeval devolve dict de 5 sub-métricas. Este composto DERRUBOU a ingestão
+        // da suíte inteira (fail-closed funcionando: melhor abortar que publicar
+        // "modelo falhou"). O campo que vale é prompt_level_strict =
+        // follow_all_instructions — obedecer PARTE das instruções não é seguir
+        // instrução, então inst_level_* e *_loose não servem.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $map = fn (array $v): string => $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task' => 'inspect_evals/ifeval'],
+            'samples' => [['id' => 'ifeval_1', 'epoch' => 1, 'scores' => ['instruction_following' => ['value' => $v]]]],
+        ])[0]['status'];
+
+        $seguiuTudo = ['prompt_level_strict' => true, 'inst_level_strict' => 3, 'num_instructions' => 3];
+        $this->assertSame('success', $map($seguiuTudo));
+
+        // Obedeceu 2 de 3 instruções: NÃO é sucesso — crédito parcial mentiria.
+        $parcial = ['prompt_level_strict' => false, 'inst_level_strict' => 2,
+            'prompt_level_loose' => true, 'num_instructions' => 3];
+        $this->assertSame('failure', $map($parcial), 'crédito parcial não pode virar sucesso');
+
+        // Composto de task NÃO declarada segue falhando alto.
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/inspect_evals_unhandled_score_scale/');
+        $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task' => 'inspect_evals/outro_composto'],
+            'samples' => [['id' => 'x', 'epoch' => 1, 'scores' => ['s' => ['value' => ['a' => true]]]]],
+        ]);
+    }
+
     public function test_label_score_is_mapped_explicitly_not_guessed(): void
     {
         // coconot devolve ACCEPTABLE/UNACCEPTABLE, não C/I. Adivinhar inverteria
