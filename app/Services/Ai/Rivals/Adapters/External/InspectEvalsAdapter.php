@@ -127,10 +127,17 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         if (str_contains($task, 'gaia') || str_contains($sampleId, 'gaia')) {
             return 'tool_use_function_calling';
         }
-        // gsm8k é matemática passo a passo, não código: rotular 'coding_patch'
-        // punha raciocínio dentro da capacidade Programação e mentia sobre a tarefa.
+        // inspect_evals é multi-domínio: cada task mede coisa diferente e o
+        // task_type é o que separa conhecimento de matemática de ciência.
+        // Rotular tudo 'coding_patch' punha tudo dentro de Programação.
         if (str_contains($task, 'gsm8k') || str_contains($sampleId, 'gsm8k')) {
             return 'math_reasoning';
+        }
+        if (str_contains($task, 'mmlu') || str_contains($sampleId, 'mmlu')) {
+            return 'knowledge_qa';
+        }
+        if (str_contains($task, 'gpqa')) {
+            return 'science_reasoning';
         }
 
         return 'coding_patch';

@@ -57,6 +57,18 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['math_reasoning'],
         ],
+        'knowledge' => [
+            'label' => 'Conhecimento',
+            'measures' => 'Responder sobre fatos e conceitos de muitas áreas, sem consultar fonte externa.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['knowledge_qa'],
+        ],
+        'science' => [
+            'label' => 'Ciência',
+            'measures' => 'Raciocínio científico difícil (biologia, física, química) em nível de pós-graduação.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['science_reasoning'],
+        ],
     ];
 
     /**
@@ -74,7 +86,8 @@ class EnterpriseReportBuilder
         ['domain' => 'Trabalho agêntico de longo prazo', 'covered' => true, 'note' => 'hal_harness, swe_marathon'],
         ['domain' => 'Operar terminal / linha de comando', 'covered' => true, 'note' => 'terminal_bench'],
         ['domain' => 'Raciocínio matemático', 'covered' => true, 'note' => 'inspect_evals (gsm8k)'],
-        ['domain' => 'Conhecimento factual amplo e raciocínio científico', 'covered' => false, 'note' => 'exigiria MMLU / GPQA — nenhum instrumento wired'],
+        ['domain' => 'Conhecimento factual amplo', 'covered' => true, 'note' => 'inspect_evals (MMLU)'],
+        ['domain' => 'Raciocínio científico (pós-graduação)', 'covered' => true, 'note' => 'inspect_evals (GPQA Diamond)'],
         ['domain' => 'Contexto longo (recuperar informação em janelas grandes)', 'covered' => false, 'note' => 'exigiria RULER / needle-in-haystack — não wired'],
         ['domain' => 'Seguir instruções e restrições de formato', 'covered' => false, 'note' => 'exigiria IFEval — não wired'],
         ['domain' => 'Factualidade / alucinação', 'covered' => false, 'note' => 'exigiria SimpleQA — não wired'],
@@ -101,7 +114,12 @@ class EnterpriseReportBuilder
         'tau2_bench' => ['label' => 'Conduzir diálogo agêntico com usuário', 'measures' => 'Diálogo multi-turno com usuário simulado e ferramentas (τ²-bench).'],
         'hal_harness' => ['label' => 'Tarefas agênticas longas', 'measures' => 'Horizonte longo multi-etapa (HAL harness), próximo de trabalho real de engenharia.'],
         'swe_marathon' => ['label' => 'Engenharia multi-arquivo de longa duração', 'measures' => 'Mudanças grandes espalhadas por muitos arquivos (SWE-marathon).'],
-        'inspect_evals' => ['label' => 'Raciocínio matemático passo a passo', 'measures' => 'Problemas que exigem cadeia de raciocínio (ex.: gsm8k, via Inspect).'],
+        // Suíte multi-domínio: a chave inclui o task_type, senão mmlu e gpqa
+        // herdariam o rótulo de gsm8k (todos são inspect_evals).
+        'inspect_evals:math_reasoning' => ['label' => 'Raciocínio matemático passo a passo', 'measures' => 'Problemas que exigem cadeia de raciocínio (gsm8k, via Inspect).'],
+        'inspect_evals:knowledge_qa' => ['label' => 'Conhecimento factual amplo', 'measures' => 'Perguntas de múltipla escolha em dezenas de áreas (MMLU, via Inspect).'],
+        'inspect_evals:science_reasoning' => ['label' => 'Ciência nível pós-graduação', 'measures' => 'Perguntas de biologia/física/química feitas por PhDs, difíceis de buscar (GPQA Diamond, via Inspect).'],
+        'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];
 
     public function build(): array
@@ -1197,7 +1215,14 @@ class EnterpriseReportBuilder
                 $subCi = ($subReliable && $subN > 0)
                     ? StatisticalPolicy::wilson((int) round((float) $score * $subN), $subN)
                     : null;
-                $sub = self::SUB_CAPABILITIES[$suiteId] ?? ['label' => $suiteId, 'measures' => ''];
+                // Rótulo por (suíte, task_type) quando a capacidade fatia; senão
+                // mmlu/gpqa/gsm8k herdariam o mesmo nome (todos inspect_evals).
+                $subKey = ($cap['task_types'] ?? null) !== null
+                    ? $suiteId.':'.((array) $cap['task_types'])[0]
+                    : $suiteId;
+                $sub = self::SUB_CAPABILITIES[$subKey]
+                    ?? self::SUB_CAPABILITIES[$suiteId]
+                    ?? ['label' => $suiteId, 'measures' => ''];
                 $subCaps[] = [
                     'suite_id' => $suiteId,
                     'label' => $sub['label'],

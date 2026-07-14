@@ -1,0 +1,9 @@
+{
+    "case_id": "rec06pnAkLOr2t2mp",
+    "task_ref": "inspect_evals/gpqa_diamond",
+    "sample_id": "rec06pnAkLOr2t2mp",
+    "task_type": "science_reasoning",
+    "title": "GPQA Diamond ci\u00eancia 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

@@ -70,7 +70,13 @@ return [
             'senior_swe_bench' => ['ssb_0007', 'ssb_0021', 'ssb_0033'],
             'swe_bench_live' => ['geopandas__geopandas-3132', 'reata__sqllineage-524', 'conan-io__conan-15377'],
             'live_code_bench' => ['1873_A', '1873_B', '1873_D'],
-            'inspect_evals' => ['gsm8k_af9bef9a', 'gsm8k_f088f6c6', 'gsm8k_4b7e54d8'],
+            // Multi-domínio: gsm8k=matemática, mmlu=conhecimento, gpqa=ciência.
+            // Cada um vira capacidade própria via task_type (ver CAPABILITIES).
+            'inspect_evals' => [
+                'gsm8k_af9bef9a', 'gsm8k_f088f6c6', 'gsm8k_4b7e54d8',
+                'mmlu_22cd51e7', 'mmlu_3033bed0', 'mmlu_5cb4319f',
+                'rec06pnAkLOr2t2mp', 'rec0Arme2jcXQZnAW',
+            ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
             'swe_marathon' => ['slack-clone', 'nextjs-vite-rewrite', 'embedding-eval'],
@@ -138,10 +144,11 @@ return [
         'repair_regression_fixing',
         'cost_sensitive_work',
         'local_offline_model_work',
-        // Raciocínio puro (ex.: gsm8k). Sem este tipo, matemática era rotulada
-        // 'coding_patch' ou 'tool_use_function_calling' — as duas mentira sobre
-        // o que a tarefa mede.
+        // Domínios fora de código/agente. Sem estes tipos a taxonomia não tinha
+        // nome para o que a tarefa mede e matemática virava 'coding_patch'.
         'math_reasoning',
+        'knowledge_qa',
+        'science_reasoning',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)
         'senior_bug_investigation',
         'architecture_refactor',
