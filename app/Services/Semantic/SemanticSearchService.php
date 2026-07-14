@@ -41,7 +41,21 @@ class SemanticSearchService
             return collect();
         }
 
-        $vector = $this->embeddings->vectorLiteral($this->embeddings->embedText($query));
+        // A busca vetorial é UMA fonte de contexto entre várias. Se o provedor
+        // de embedding está indisponível NESTE processo (ex.: o HTTP roda no
+        // container Linux, cujo bind-mount vê o venv Mac com symlink quebrado,
+        // enquanto o worker do host tem o runtime real), degradar para a busca
+        // lexical em vez de derrubar a interação inteira. Nenhum vetor é
+        // fabricado — o canon runtime_language_boundary (crc32 aposentado)
+        // continua íntegro: ausência de embedding vira ausência de resultado
+        // vetorial, jamais um vetor falso.
+        try {
+            $vector = $this->embeddings->vectorLiteral($this->embeddings->embedText($query));
+        } catch (\Throwable $embeddingUnavailable) {
+            report($embeddingUnavailable);
+
+            return collect();
+        }
         $model = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
         $builder = SemanticNote::query()
             ->whereNull('deleted_at')
