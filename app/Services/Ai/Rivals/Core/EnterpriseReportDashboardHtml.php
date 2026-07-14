@@ -216,6 +216,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cap .subci{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
 .cap .subn{color:var(--muted);font-size:10.5px;white-space:nowrap}
 .cap .subna{color:var(--muted);font-size:11.5px;font-style:italic}
+.cap .subwhy{color:var(--muted);font-size:11px;line-height:1.45;margin-top:4px;padding-left:8px;border-left:2px solid var(--line)}
 .cap .subbar{height:4px;border-radius:999px;background:#1a1f2b;overflow:hidden;margin-top:4px}
 .cap .subfill{height:100%;border-radius:999px;background:var(--bare);opacity:.75}
 .cap .subfill.na{background:repeating-linear-gradient(90deg,#2a3142,#2a3142 4px,transparent 4px,transparent 8px);width:100%!important;opacity:.5}
@@ -413,11 +414,16 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       const sCi = (sb!=null&&sLo!=null&&sHi!=null)?` <span class="subci">(${sLo}–${sHi}%)</span>`:'';
       const val = s.reliable && sb!=null
         ? `<span class="subval">${sb}%</span>${sCi} <span class="subn">${s.tasks_scored} tf</span>`
-        : `<span class="subna" title="${s.unreliable_reason||'sem dados'}">não medido</span>`;
+        : `<span class="subna">não medido</span>`;
       const w = (s.reliable&&sb!=null)?sb:0;
+      // Motivo visível, não escondido em tooltip: "não medido" sem o porquê deixa
+      // o leitor supondo que o modelo falhou, quando o teste é que quebrou.
+      const why = (!s.reliable && s.unreliable_reason)
+        ? `<div class="subwhy">${s.unreliable_reason}</div>` : '';
       return `<div class="subcap" title="${s.measures}">
         <div class="subhead"><span class="subname">${s.label}</span>${val}</div>
         <div class="subbar"><div class="subfill${s.reliable&&sb!=null?'':' na'}" style="width:${w}%"></div></div>
+        ${why}
       </div>`;
     }).join('');
     return `<div class="cap">

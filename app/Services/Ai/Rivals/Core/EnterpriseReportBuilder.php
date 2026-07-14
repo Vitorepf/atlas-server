@@ -504,6 +504,7 @@ class EnterpriseReportBuilder
             'delivery' => $delivery,
             'reliable' => $executionEvidence['reliable'],
             'unreliable_reason' => $executionEvidence['unreliable_reason'],
+            'unreliable_reason_human' => $executionEvidence['unreliable_reason_human'] ?? null,
             'execution_evidence' => $executionEvidence,
             'full_metrics' => $fullMetrics,
             'report_rows' => $reportRows,
@@ -1183,7 +1184,11 @@ class EnterpriseReportBuilder
                     'bare_ci_high' => $subCi['high'] ?? null,
                     'tasks_scored' => $subN,
                     'reliable' => $subReliable,
-                    'unreliable_reason' => $subReliable ? null : ($row['unreliable_reason'] ?? ($row['status'] ?? 'sem dados')),
+                    'unreliable_reason' => $subReliable
+                        ? null
+                        : ($row['unreliable_reason_human']
+                            ?? $row['unreliable_reason']
+                            ?? ($row['status'] === 'not_run' ? 'Esta suíte não foi executada nesta bateria.' : 'Sem dados registrados.')),
                     'tokens_per_task' => is_numeric($row['tokens_per_task'] ?? null) ? round((float) $row['tokens_per_task']) : null,
                     'median_wall_ms' => is_numeric($row['median_wall_ms'] ?? null) ? round((float) $row['median_wall_ms']) : null,
                 ];
@@ -2256,6 +2261,16 @@ class EnterpriseReportBuilder
             $coverage < $minCoverage => 'model_coverage_'.$coverage.'_below_'.$minCoverage.'_env_or_flow_ate_the_run',
             default => null,
         };
+        // O slug acima é para máquina. O humano precisa da frase: um leitor não
+        // pode ter de decifrar "model_coverage_0.22_below_0.7" para entender que
+        // o teste quebrou e o modelo não está sendo julgado.
+        $reasonHuman = match (true) {
+            $total === 0 => 'Nenhuma tarefa foi registrada — a suíte não chegou a rodar.',
+            $unitsMissing > 0 => "{$unitsMissing} de {$unitsExpected} tarefas não foram registradas — execução incompleta.",
+            $coverage < $minCoverage => "{$envAndFlow} de {$total} tarefas quebraram por erro de ambiente/fluxo (o teste não rodou até o fim), "
+                ."não por erro do modelo. Sobra pouco para julgar: não é falha do modelo, é medição que não aconteceu.",
+            default => null,
+        };
 
         return [
             'units_expected' => $unitsExpected,
@@ -2266,6 +2281,7 @@ class EnterpriseReportBuilder
             'model_coverage' => $coverage,
             'reliable' => $reliable,
             'unreliable_reason' => $reason,
+            'unreliable_reason_human' => $reasonHuman,
             'blame_summary' => [
                 'model_failures' => $classes['model_failure'] + $classes['invalid_result'],
                 'environment_or_flow_failures' => $envAndFlow,
