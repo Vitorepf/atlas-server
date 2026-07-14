@@ -66,6 +66,9 @@ final class EnterpriseReportDashboardHtml
                     'status' => $row['status'] ?? null,
                     'run_id' => $row['run_id'] ?? null,
                     'delivery' => $row['delivery'] ?? null,
+                    'reliable' => $row['reliable'] ?? true,
+                    'unreliable_reason' => $row['unreliable_reason'] ?? null,
+                    'execution_evidence' => $row['execution_evidence'] ?? null,
                     'full_metrics' => $row['full_metrics'] ?? null,
                     'native_signals' => $row['native_signals'] ?? [],
                     'report_rows' => $row['report_rows'] ?? [],
@@ -171,7 +174,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 </head>
 <body>
 <div class="wrap">
-  <div class="nav"><div class="logo">Atlas · Rivals</div><div class="pill">claim_allowed = false · não é prova pública</div></div>
+  <div class="nav"><div class="logo">Atlas · Rivals</div><div style="display:flex;gap:8px;align-items:center"><span class="pill" id="liveBadge" style="display:none"></span><div class="pill">claim_allowed = false · não é prova pública</div></div></div>
   <h1>Relatório de Capacidades</h1>
   <p class="lede" id="objective"></p>
   <div class="meta" id="meta"></div>
@@ -618,10 +621,12 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <tr><td style="width:130px">Forte (≥50%)</td><td>${cellFmt(p.strengths)}</td></tr>
       <tr><td>Mediano</td><td>${cellFmt(p.middle)}</td></tr>
       <tr><td>Fraco (≤20%)</td><td>${cellFmt(p.weaknesses)}</td></tr>
+      <tr><td style="color:var(--warn)">Não confiável</td><td>${(p.unreliable&&p.unreliable.length)?p.unreliable.map(c=>`<code>${c.suite_id}</code> <span class="hint">${(c.unreliable_reason||'').split(':')[0]}</span>`).join(' · '):'—'}</td></tr>
       <tr><td>Δ Atlas</td><td>${(p.atlas_deltas||[]).filter(f=>f.delta_intelligence!=null).map(f=>
         `<code>${f.suite_id}</code> ${(f.delta_intelligence>=0?'+':'')}${Math.round(f.delta_intelligence*100)}pp${f.diagnostic_only?' <span class="hint">(diagnóstico)</span>':''}`
       ).join(' · ') || 'sem par provado'}</td></tr>
     </tbody></table>
+    <p class="hint">"Não confiável" = execução incompleta / falha de ambiente engoliu o run (cobertura do modelo &lt; 70%). Não é fraqueza do modelo — veja os logs por unidade no dossiê da suíte (aba Dossiês).</p>
   `).join('<hr style="border-color:#222">') || '<p class="hint">Sem perfil: nenhum modelo com braço bare medido.</p>';
   const MD = D.model_dissections || {};
   const epi = MD.epistemic_contract || {};
@@ -701,10 +706,33 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const arts = Object.entries(d.artifacts||{}).filter(([,m])=>m&&m.present).map(([k])=>k);
     const missNative = (cov.native_missing||[]).join(', ') || '—';
     const missReport = (cov.report_missing||[]).slice(0,12).join(', ') || '—';
+    const ev = d.execution_evidence || {};
+    const cc = ev.class_counts || {};
+    const relChip = d.reliable === false
+      ? `<span class="chip na" title="${d.unreliable_reason||''}">não confiável · execução</span>`
+      : `<span class="chip atlas">confiável</span>`;
+    const esc = (t) => String(t==null?'':t).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const blameChip = (b) => b==='model' ? '<span class="chip miss">modelo</span>'
+      : (b==='environment_or_flow' ? '<span class="chip na">ambiente/fluxo</span>'
+      : (b==='success' ? '<span class="chip atlas">ok</span>' : '<span class="chip">?</span>'));
+    const unitRows = (ev.units||[]).map(u=>`
+      <tr>
+        <td><code>${esc(u.case_id)}</code> r${esc(u.repetition)}</td>
+        <td>${blameChip(u.blame)}</td>
+        <td>${esc(u.status)}${u.failure_class?` · <span class="hint">${esc(u.failure_class)}</span>`:''}</td>
+        <td>exit ${esc(u.exit_code)}${u.exit_nonzero_promoted?' <span class="hint">(promovido)</span>':''} · ${dur(u.wall_ms)}</td>
+      </tr>
+      ${u.stderr_tail?`<tr><td colspan="4"><details><summary class="hint">stderr (tail) · ${esc((u.stderr_log||'').split('/').pop())}</summary><pre style="max-height:200px;overflow:auto">${esc(u.stderr_tail)}</pre></details></td></tr>`:''}
+    `).join('');
+    const evidenceBlock = ev.units_recorded==null ? '' : `
+      <h2 style="font-size:15px;margin:14px 0 6px">Logs & evidência — falha do modelo vs do teste/ambiente</h2>
+      <p class="hint">Cobertura do modelo <strong>${pct(ev.model_coverage)}</strong> · unidades ${ev.units_recorded||0}${ev.units_missing?` <span style="color:var(--bad)">(${ev.units_missing} não registradas!)</span>`:''} · sucessos ${cc.success||0} · falha do modelo ${(cc.model_failure||0)+(cc.invalid_result||0)} · ambiente/fluxo ${(cc.environment_failure||0)+(cc.timeout||0)}${d.reliable===false?` · <strong style="color:var(--warn)">${esc(d.unreliable_reason)}</strong>`:''}</p>
+      <table style="width:100%"><thead><tr><th>Unidade</th><th>Culpa</th><th>Status</th><th>Exit · wall</th></tr></thead><tbody>${unitRows||'<tr><td colspan=4 class="hint">sem unidades</td></tr>'}</tbody></table>`;
     return `<article class="card dossier">
       <div class="cat">${d.category||''}</div>
       <h2 style="margin:0 0 6px">${d.title||d.suite_id}
         <span class="chip ${d.status==='ok'?'atlas':(d.status==='missing_data'?'miss':'na')}">${statusPt(d.status)}</span>
+        ${relChip}
       </h2>
       <p class="hint">${del.purpose||''}</p>
       <div class="kv">
@@ -719,6 +747,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         <div>Artefatos</div><div>${arts.length?arts.map(a=>`<code>${a}</code>`).join(' '):'—'}</div>
         <div>Run</div><div><code>${d.run_id||'—'}</code></div>
       </div>
+      ${evidenceBlock}
       <h2 style="font-size:15px;margin:14px 0 6px">full_metrics</h2>
       <pre>${j(d.full_metrics)}</pre>
       <h2 style="font-size:15px;margin:14px 0 6px">native_signals</h2>
@@ -755,7 +784,57 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     btn.classList.add('on');
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
     document.getElementById('tab-'+btn.dataset.tab).classList.add('on');
+    try { localStorage.setItem('rivals_tab', btn.dataset.tab); } catch (e) {}
   }));
+
+  // Tela viva: restaura aba/scroll após reload e recarrega sozinha quando o
+  // report.json muda de hash. live_status.json (heartbeat da bateria) vira o
+  // badge no topo. Via file:// o fetch falha → cai num reload periódico.
+  try {
+    const savedTab = localStorage.getItem('rivals_tab');
+    if (savedTab && document.querySelector(`[data-tab="${savedTab}"]`)) {
+      document.querySelector(`[data-tab="${savedTab}"]`).click();
+    }
+    const savedScroll = Number(localStorage.getItem('rivals_scroll') || 0);
+    if (savedScroll > 0) requestAnimationFrame(() => window.scrollTo(0, savedScroll));
+  } catch (e) {}
+  const saveScroll = () => { try { localStorage.setItem('rivals_scroll', String(window.scrollY)); } catch (e) {} };
+  window.addEventListener('scroll', saveScroll, {passive: true});
+
+  const badge = document.getElementById('liveBadge');
+  let fetchWorks = true;
+  async function livePoll() {
+    try {
+      const ls = await fetch('live_status.json', {cache: 'no-store'});
+      if (ls.ok) {
+        const s = await ls.json();
+        const fresh = s.updated_at && (Date.now() - Date.parse(s.updated_at)) < 30*60*1000;
+        if (s.status === 'running' && fresh) {
+          badge.style.display = '';
+          badge.style.color = 'var(--atlas)';
+          badge.textContent = `bateria ${s.kind||''} em andamento · ${s.current_suite||''} (${s.suite_position||''})`;
+        } else {
+          badge.style.display = 'none';
+        }
+      }
+      const rj = await fetch('report.json', {cache: 'no-store'});
+      if (rj.ok) {
+        const fresh = await rj.json();
+        if (fresh.report_hash && D.report_hash && fresh.report_hash !== D.report_hash) {
+          saveScroll();
+          location.reload();
+        }
+      }
+    } catch (e) {
+      if (fetchWorks) {
+        // file:// ou servidor fora: sem como detectar mudança → reload periódico.
+        fetchWorks = false;
+        setInterval(() => { saveScroll(); location.reload(); }, 180000);
+      }
+    }
+  }
+  livePoll();
+  setInterval(livePoll, 30000);
 })();
 </script>
 </body>

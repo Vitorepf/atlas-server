@@ -407,21 +407,42 @@ class FaseABatteryOrchestrator
 
         $suiteResults = [];
         $errors = [];
-        foreach ($prepared['prepared'] as $row) {
-            try {
-                $suiteResults[] = $this->executePreparedSuite($row, $unitsDryRun);
-            } catch (\Throwable $e) {
-                $errors[] = [
-                    'suite_id' => $row['suite_id'] ?? null,
-                    'run_id' => $row['run_id'] ?? null,
-                    'error' => $e->getMessage(),
-                ];
+        $suiteIds = array_values(array_map(
+            static fn (array $row): string => (string) ($row['suite_id'] ?? ''),
+            $prepared['prepared'],
+        ));
+        try {
+            foreach ($prepared['prepared'] as $index => $row) {
+                $this->writeLiveStatus([
+                    'status' => 'running',
+                    'kind' => $mode,
+                    'current_suite' => (string) ($row['suite_id'] ?? ''),
+                    'suite_position' => ($index + 1).'/'.count($suiteIds),
+                    'suites' => $suiteIds,
+                ]);
+                try {
+                    $suiteResults[] = $this->executePreparedSuite($row, $unitsDryRun);
+                } catch (\Throwable $e) {
+                    $errors[] = [
+                        'suite_id' => $row['suite_id'] ?? null,
+                        'run_id' => $row['run_id'] ?? null,
+                        'error' => $e->getMessage(),
+                    ];
+                }
             }
+        } finally {
+            $this->writeLiveStatus(['status' => 'idle', 'kind' => $mode, 'errors' => count($errors)]);
         }
 
         $enterprise = null;
-        if (! $unitsDryRun && $errors === []) {
-            $enterprise = (new EnterpriseReportBuilder)->build();
+        if (! $unitsDryRun) {
+            // Reconsolida mesmo com erros parciais: as suítes que completaram
+            // devem aparecer na tela definitiva; erro fica no envelope.
+            try {
+                $enterprise = (new EnterpriseReportBuilder)->build();
+            } catch (\Throwable $e) {
+                $errors[] = ['suite_id' => null, 'run_id' => null, 'error' => 'enterprise_report_failed: '.$e->getMessage()];
+            }
         }
 
         return [
@@ -450,6 +471,28 @@ class FaseABatteryOrchestrator
                     ? 'fast native units executed — pipeline proof only, claim_allowed=false'
                     : 'native units executed; see suite_results + enterprise_report'),
         ];
+    }
+
+    /**
+     * Heartbeat da bateria ao lado do report enterprise — o dashboard estático
+     * lê live_status.json para mostrar "bateria em andamento". Best-effort:
+     * falha de escrita nunca derruba a bateria.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function writeLiveStatus(array $payload): void
+    {
+        try {
+            $path = dirname(RunPaths::enterpriseReportPath()).'/live_status.json';
+            RunPaths::ensureDir(dirname($path));
+            file_put_contents($path, json_encode($payload + [
+                'schema_version' => 'atlas.rivals2.battery_live_status.v1',
+                'updated_at' => now()->toIso8601String(),
+                'pid' => getmypid(),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        } catch (\Throwable) {
+            // best-effort
+        }
     }
 
     private function assertExecuteAllowed(bool $unitsDryRun): void

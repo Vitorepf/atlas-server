@@ -136,7 +136,11 @@ class EnterpriseReportBuilder
                 'suite_rows' => $suiteRows,
                 'atlas_uplift' => $atlasUplift,
             ]),
-            'model_profiles' => $this->buildModelProfiles($dissections, $atlasUplift),
+            'model_profiles' => $this->buildModelProfiles(
+                $dissections,
+                $atlasUplift,
+                $this->suiteReliabilityMap($suiteRows),
+            ),
             'model_matrix' => $modelMatrix,
             'atlas_uplift' => $atlasUplift,
             'facts' => $facts,
@@ -306,6 +310,8 @@ class EnterpriseReportBuilder
         $fullMetrics = $this->fullMetricsFromRows($reportRows);
         $nativeSignals = $this->harvestNativeSignals($suiteId, $runId);
         $caseIds = $this->caseIdsForRun($runId, $meta, $delivery);
+        $unitsExpected = (int) ($meta['units_expected'] ?? data_get($report, 'units_expected', 0));
+        $executionEvidence = $this->executionEvidenceForRun($runId, $unitsExpected);
         $artifacts = $this->runArtifacts($runId);
         $eventsComplete = $this->eventsCompleteForRun($runId);
         $measurementStatus = $this->measurementStatus(
@@ -388,6 +394,9 @@ class EnterpriseReportBuilder
             'category' => $delivery['category'],
             'title' => $delivery['title'],
             'delivery' => $delivery,
+            'reliable' => $executionEvidence['reliable'],
+            'unreliable_reason' => $executionEvidence['unreliable_reason'],
+            'execution_evidence' => $executionEvidence,
             'full_metrics' => $fullMetrics,
             'report_rows' => $reportRows,
             'native_signals' => $nativeSignals,
@@ -961,8 +970,35 @@ class EnterpriseReportBuilder
      * @param  array<string,mixed>  $atlasUplift
      * @return list<array<string,mixed>>
      */
-    private function buildModelProfiles(array $dissections, array $atlasUplift): array
+    /**
+     * @param  list<array<string,mixed>>  $suiteRows
+     * @return array<string,array{reliable:bool,reason:?string}>
+     */
+    private function suiteReliabilityMap(array $suiteRows): array
     {
+        $map = [];
+        foreach ($suiteRows as $row) {
+            if (! is_array($row) || ! isset($row['suite_id'])) {
+                continue;
+            }
+            $map[(string) $row['suite_id']] = [
+                'reliable' => (bool) ($row['reliable'] ?? true),
+                'reason' => $row['unreliable_reason'] ?? null,
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<string,mixed>  $dissections
+     * @param  array<string,mixed>  $atlasUplift
+     * @param  array<string,array{reliable:bool,reason:?string}>  $reliability
+     * @return list<array<string,mixed>>
+     */
+    private function buildModelProfiles(array $dissections, array $atlasUplift, array $reliability = []): array
+    {
+        $dissections['_suite_reliability'] = $reliability;
         $byModel = [];
         foreach ((array) ($dissections['models'] ?? []) as $entry) {
             if (! is_array($entry) || ($entry['present'] ?? false) !== true) {
@@ -976,18 +1012,35 @@ class EnterpriseReportBuilder
             $strengths = [];
             $weaknesses = [];
             $middle = [];
+            $unreliable = [];
+            // suite_rows carrega reliable/unreliable_reason; per_suite (dissecção)
+            // não — cruzamos por suite_id para não julgar modelo em suíte que não terminou.
+            $reliabilityBySuite = [];
+            foreach ((array) ($dissections['_suite_reliability'] ?? []) as $suiteId => $rel) {
+                $reliabilityBySuite[(string) $suiteId] = $rel;
+            }
             foreach ((array) data_get($runtimes['bare'] ?? [], 'per_suite', []) as $suiteId => $row) {
                 if (! is_array($row) || ($row['present'] ?? false) !== true
                     || ! is_numeric($row['success_rate_itt'] ?? null)) {
                     continue;
                 }
                 $rate = (float) $row['success_rate_itt'];
+                $rel = $reliabilityBySuite[(string) $suiteId] ?? ['reliable' => true, 'reason' => null];
                 $cell = [
                     'suite_id' => (string) $suiteId,
                     'success_rate_itt' => $rate,
                     'status' => (string) ($row['status'] ?? ''),
                     'category' => $row['category'] ?? null,
+                    'reliable' => (bool) ($rel['reliable'] ?? true),
+                    'unreliable_reason' => $rel['reason'] ?? null,
                 ];
+                // Execução incompleta/env-failure alta NÃO é fraqueza do modelo:
+                // vai para um balde à parte, fora de forte/mediano/fraco.
+                if (($rel['reliable'] ?? true) !== true) {
+                    $unreliable[] = $cell;
+
+                    continue;
+                }
                 match (true) {
                     $rate >= 0.5 => $strengths[] = $cell,
                     $rate <= 0.2 => $weaknesses[] = $cell,
@@ -1030,20 +1083,29 @@ class EnterpriseReportBuilder
                     $measuredDeltas,
                 ));
 
+            $unreliableText = $unreliable === []
+                ? ''
+                : ' NÃO CONFIÁVEL (execução incompleta/ambiente, não julga o modelo): '.implode(', ', array_map(
+                    static fn (array $c): string => $c['suite_id'].' ['.($c['unreliable_reason'] ?? 'unreliable').']',
+                    $unreliable,
+                )).'.';
+
             $profiles[] = [
                 'model_id' => $modelId,
                 'runtimes_measured' => array_keys($runtimes),
                 'strengths' => array_slice($strengths, 0, 5),
                 'middle' => $middle,
                 'weaknesses' => array_slice($weaknesses, 0, 5),
+                'unreliable' => $unreliable,
                 'atlas_deltas' => $atlasDeltas,
                 'narrative' => sprintf(
-                    '%s bare: forte em %s; mediano em %s; fraco em %s. Com Atlas: %s.',
+                    '%s bare (só suítes confiáveis): forte em %s; mediano em %s; fraco em %s. Com Atlas: %s.%s',
                     $modelId,
-                    $strengths !== [] ? $fmt($strengths) : 'nenhuma suíte medida ≥50%',
+                    $strengths !== [] ? $fmt($strengths) : 'nenhuma suíte confiável ≥50%',
                     $middle !== [] ? $fmt($middle) : '—',
-                    $weaknesses !== [] ? $fmt($weaknesses) : 'nenhuma suíte medida ≤20%',
+                    $weaknesses !== [] ? $fmt($weaknesses) : 'nenhuma suíte confiável ≤20%',
                     $deltaText,
+                    $unreliableText,
                 ),
             ];
         }
@@ -1752,6 +1814,115 @@ class EnterpriseReportBuilder
         }
 
         return false;
+    }
+
+    /**
+     * Ledger de execução por unidade: a evidência que separa "modelo errou" de
+     * "teste/ambiente falhou ou não terminou". Cada unidade carrega status,
+     * failure_class, exit code, wall_ms e — para as que NÃO deram success — o
+     * tail do stderr do log nativo (o "porquê"). Somado a isso, um veredito de
+     * confiabilidade: env-failure alta ou unidades faltando ⇒ suíte não_confiável
+     * (não conta como fraqueza do modelo).
+     *
+     * @return array<string,mixed>
+     */
+    private function executionEvidenceForRun(string $runId, int $unitsExpected = 0): array
+    {
+        $receipts = RunReceipt::loadAll($runId);
+
+        // exit_code + log tail por unidade nativa, indexado pelo prefixo do
+        // expected_result_path (<case>__<arm>__r<rep>__<hash>.json).
+        $native = [];
+        foreach (NativeExecutionReceipt::loadAll($runId) as $nr) {
+            $file = basename((string) ($nr->data['expected_result_path'] ?? ''));
+            $key = preg_replace('/__[0-9a-f]+\.json$/', '', $file) ?: $file;
+            $logDir = RunPaths::nativeReceiptsDir($runId).'/logs';
+            $stderrPath = $logDir.'/'.($nr->data['execution_id'] ?? '').'.stderr.log';
+            $native[$key] = [
+                'execution_id' => $nr->data['execution_id'] ?? null,
+                'exit_code' => $nr->data['exit_code'] ?? null,
+                'exit_nonzero_promoted' => (bool) ($nr->data['exit_nonzero_promoted'] ?? false),
+                'wall_ms' => $nr->data['wall_ms'] ?? null,
+                'stderr_path' => is_file($stderrPath) ? $stderrPath : null,
+            ];
+        }
+
+        $units = [];
+        $classes = ['success' => 0, 'model_failure' => 0, 'environment_failure' => 0, 'timeout' => 0, 'invalid_result' => 0, 'other' => 0];
+        foreach ($receipts as $r) {
+            $status = (string) ($r->data['status'] ?? '');
+            $failureClass = (string) ($r->data['failure_class'] ?? '');
+            $bucket = match (true) {
+                $status === 'success' => 'success',
+                $failureClass === FailureClass::ENVIRONMENT => 'environment_failure',
+                $failureClass === 'model_failure' => 'model_failure',
+                $failureClass === 'timeout', $status === 'timeout' => 'timeout',
+                $failureClass === 'invalid_result' => 'invalid_result',
+                default => 'other',
+            };
+            $classes[$bucket]++;
+            $key = ($r->data['case_id'] ?? '').'__'.str_replace('@', '_', (string) ($r->data['arm_id'] ?? '')).'__r'.($r->data['repetition'] ?? '');
+            $nat = $native[$key] ?? [];
+            $stderrTail = null;
+            if ($bucket !== 'success' && is_string($nat['stderr_path'] ?? null)) {
+                $raw = (string) file_get_contents($nat['stderr_path']);
+                $stderrTail = mb_substr(rtrim($raw), -800);
+            }
+            $units[] = [
+                'case_id' => $r->data['case_id'] ?? null,
+                'arm_id' => $r->data['arm_id'] ?? null,
+                'repetition' => $r->data['repetition'] ?? null,
+                'status' => $status,
+                'failure_class' => $failureClass ?: null,
+                'blame' => match ($bucket) {
+                    'success' => 'success',
+                    'model_failure', 'invalid_result' => 'model',
+                    'environment_failure', 'timeout' => 'environment_or_flow',
+                    default => 'unknown',
+                },
+                'exit_code' => $nat['exit_code'] ?? null,
+                'exit_nonzero_promoted' => $nat['exit_nonzero_promoted'] ?? false,
+                'wall_ms' => $r->data['wall_ms'] ?? ($nat['wall_ms'] ?? null),
+                'stderr_log' => $nat['stderr_path'] ?? null,
+                'stderr_tail' => $stderrTail,
+            ];
+        }
+
+        $total = count($units);
+        $envAndFlow = $classes['environment_failure'] + $classes['timeout'];
+        $modelAttributable = $classes['success'] + $classes['model_failure'] + $classes['invalid_result'];
+        $unitsMissing = $unitsExpected > 0 ? max(0, $unitsExpected - $total) : 0;
+        $envRate = $total > 0 ? round($envAndFlow / $total, 4) : 0.0;
+        // Confiável = dá para JULGAR O MODELO nesta suíte. O critério é COBERTURA
+        // (fração de unidades com desfecho atribuível ao modelo), não o gate de
+        // claim de 5%: uma suíte 17/18 model_failure é uma fraqueza real do
+        // modelo; uma suíte 7/9 environment_failure é o teste que não rodou.
+        $coverage = $total > 0 ? round($modelAttributable / $total, 4) : 0.0;
+        $minCoverage = (float) config('atlas_rivals.report.min_model_coverage', 0.7);
+        $reliable = $total > 0 && $unitsMissing === 0 && $coverage >= $minCoverage;
+        $reason = match (true) {
+            $total === 0 => 'no_units_recorded',
+            $unitsMissing > 0 => 'units_missing:'.$unitsMissing.'_of_'.$unitsExpected,
+            $coverage < $minCoverage => 'model_coverage_'.$coverage.'_below_'.$minCoverage.'_env_or_flow_ate_the_run',
+            default => null,
+        };
+
+        return [
+            'units_expected' => $unitsExpected,
+            'units_recorded' => $total,
+            'units_missing' => $unitsMissing,
+            'class_counts' => $classes,
+            'environment_or_flow_rate' => $envRate,
+            'model_coverage' => $coverage,
+            'reliable' => $reliable,
+            'unreliable_reason' => $reason,
+            'blame_summary' => [
+                'model_failures' => $classes['model_failure'] + $classes['invalid_result'],
+                'environment_or_flow_failures' => $envAndFlow,
+                'successes' => $classes['success'],
+            ],
+            'units' => $units,
+        ];
     }
 
     /**

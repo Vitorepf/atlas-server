@@ -387,7 +387,15 @@ final class EnterpriseReportPresenter
             ));
             $md .= '| Forte (≥50%) | '.$fmtCells((array) ($profile['strengths'] ?? []))." |\n";
             $md .= '| Mediano | '.$fmtCells((array) ($profile['middle'] ?? []))." |\n";
-            $md .= '| Fraco (≤20%) | '.$fmtCells((array) ($profile['weaknesses'] ?? []))." |\n\n";
+            $md .= '| Fraco (≤20%) | '.$fmtCells((array) ($profile['weaknesses'] ?? []))." |\n";
+            $unrel = array_filter((array) ($profile['unreliable'] ?? []), 'is_array');
+            $md .= '| ⚠ Não confiável (execução) | '.($unrel === [] ? '—' : implode(' · ', array_map(
+                static fn (array $c): string => '`'.$c['suite_id'].'` '.(string) (($c['unreliable_reason'] ?? '')),
+                $unrel,
+            )))." |\n\n";
+            if ($unrel !== []) {
+                $md .= "> ⚠ Suítes acima **não julgam o modelo**: execução incompleta ou falha de ambiente/fluxo engoliu o run (cobertura < 70%). Veja `execution_evidence` no report.json para os logs por unidade.\n\n";
+            }
             $deltas = array_filter((array) ($profile['atlas_deltas'] ?? []), 'is_array');
             if ($deltas !== []) {
                 $md .= "| Família (uplift) | Suíte | bare | atlas | Δ | Status |\n|---|---|---|---|---|---|\n";
