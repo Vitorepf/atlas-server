@@ -181,6 +181,32 @@ Domínio "pesquisa/assistente web" tem instrumento, mas nenhum roda honesto hoje
 
 `assistant_bench`: nome de task não resolveu (`No inspect tasks were found`).
 
+### 14/07 — ⚠️ Multimodal: a imagem é DESCARTADA EM SILÊNCIO (não wirar)
+
+Testado direto contra o router com PNG em `image_url` (data URI):
+
+- A API **aceita** a mensagem multimodal — **nenhum erro 400**.
+- O modelo responde: **"I don't see any image attached to your message."**
+
+Ou seja: o router não recusa, **descarta**. Wirar `mmmu`/`docvqa`/`vqa_rad` faria o
+modelo responder toda pergunta visual às cegas → ~0% → o relatório publicaria
+**"Multimodal: 0%, o modelo não enxerga"** quando a verdade é que a imagem nunca
+chegou. **Sem nenhum erro no log para denunciar** — o pior modo de falha da família.
+
+Multimodal está marcado `NÃO MENSURÁVEL com este modelo` no COVERAGE_MAP, não
+apenas "não wired". Exige modelo com visão.
+
+### 14/07 — EIXO DE RISCO (`RISK_AXIS`): 25% do arsenal tem sinal invertido
+
+34 dos 138 instrumentos medem RISCO (acertar mais = PIOR): `wmdp` (conhecimento
+perigoso), `agentharm`, `cyberseceval*`, `gdm_*` (dissimulação), `strong_reject`…
+Não cabiam em `CAPABILITIES` (média/Wilson/veredito assumem maior=melhor) nem
+podiam ser ignorados (25% do arsenal).
+
+Solução: eixo próprio com `higher_is_worse` declarado por item, painel vermelho
+separado, "↓ menor é melhor" na tela, e o número **nunca** entra em média ou
+veredito. 2 testes travam a fronteira. `wmdp` wirado aqui.
+
 ## Aberto
 
 1. **Corte 22-role mutativa em workspace estrangeiro** —
