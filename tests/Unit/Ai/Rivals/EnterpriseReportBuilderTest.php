@@ -392,6 +392,29 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame(['math_reasoning'], EnterpriseReportBuilder::CAPABILITIES['reasoning']['task_types']);
     }
 
+    public function test_domain_labels_are_distinguishable_from_each_other(): void
+    {
+        // Tinha "Raciocínio" (que media gsm8k = matemática) ao lado de "Raciocínio
+        // geral". O leitor não tem como saber a diferença pelo nome — ambiguidade
+        // exatamente do tipo que este relatório existe para eliminar.
+        $labels = array_column(EnterpriseReportBuilder::CAPABILITIES, 'label');
+        $this->assertSame(array_unique($labels), $labels, 'dois domínios com o mesmo rótulo');
+
+        // Nenhum rótulo pode ser prefixo de outro: "Raciocínio" vs "Raciocínio
+        // geral" lê como se um fosse subconjunto do outro — e não é.
+        foreach ($labels as $a) {
+            foreach ($labels as $b) {
+                if ($a === $b) {
+                    continue;
+                }
+                $this->assertFalse(
+                    str_starts_with($b, $a.' '),
+                    "rótulos ambíguos: \"{$a}\" e \"{$b}\" — um parece subconjunto do outro"
+                );
+            }
+        }
+    }
+
     public function test_risk_axis_is_separate_and_declares_inverted_sign(): void
     {
         // Risco tem eixo próprio: nunca soma com capacidade. "Sabe fazer" +

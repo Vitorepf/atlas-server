@@ -52,8 +52,8 @@ class EnterpriseReportBuilder
         // conhecimento, gpqa ciência). Uma capacidade pode fatiar a suíte por
         // task_type — senão conhecimento seria contado como raciocínio.
         'reasoning' => [
-            'label' => 'Raciocínio',
-            'measures' => 'Resolver problemas que exigem raciocínio passo a passo (ex.: matemática).',
+            'label' => 'Matemática',
+            'measures' => 'Resolver problemas de matemática com cadeia de raciocínio passo a passo.',
             'suites' => ['inspect_evals'],
             'task_types' => ['math_reasoning'],
         ],
@@ -88,7 +88,7 @@ class EnterpriseReportBuilder
             'task_types' => ['long_context_retrieval'],
         ],
         'reasoning_general' => [
-            'label' => 'Raciocínio geral',
+            'label' => 'Raciocínio',
             'measures' => 'Deduzir e encadear sem depender de conhecimento memorizado: narrativa multi-etapa, senso comum, ciência escolar, ambiguidade de pronome.',
             'suites' => ['inspect_evals'],
             'task_types' => ['general_reasoning'],
