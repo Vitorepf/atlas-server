@@ -131,7 +131,7 @@ final class EnterpriseReportDashboardHtml
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Atlas Rivals — Relatório de Capacidades</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+<script>__CHARTJS__</script>
 <style>
 :root{--bg:#05060a;--card:#0e1016;--line:#242836;--ink:#f3f5f8;--muted:#8a93a3;--bare:#6cb6ff;--atlas:#3dd68c;--warn:#f0b429;--bad:#ff6b6b;--chip:#171a22}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 ui-sans-serif,system-ui,-apple-system,sans-serif}
@@ -218,6 +218,10 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     <div class="grid g2" style="margin-top:12px">
       <div class="card"><h2 id="scatterTitle">Inteligência × tempo</h2><p class="hint" id="scatterHint">Quando o custo USD é $0 (assinatura), o eixo X vira tempo — $0 empilhado não diz nada.</p><div class="chart"><canvas id="scatter"></canvas></div></div>
       <div class="card"><h2>Inteligência por suite</h2><p class="hint">Barras lado a lado só quando Atlas rodou naquela suite. Sem barra verde = Atlas ainda não comparável.</p><div class="chart sm"><canvas id="suiteIntel"></canvas></div></div>
+    </div>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="card"><h2>Radar de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cinco famílias de trabalho como eixos. O polígono verde maior que o azul = Atlas amplia a capacidade naquela direção.</p><div class="chart sm"><canvas id="radar"></canvas></div></div>
+      <div class="card"><h2>Onde o Atlas move o ponteiro</h2><p class="hint">Delta de inteligência por família (só pares medidos). Barra para a direita = Atlas melhora.</p><div class="chart sm"><canvas id="deltaBars"></canvas></div></div>
     </div>
     <div class="card" style="margin-top:12px">
       <h2>O que cada eixo significa</h2>
@@ -434,6 +438,47 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       scales:{x:{min:0,max:100,ticks:{color:'#8a93a3',callback:v=>v+'%'},grid:{color:'#1b2030'}},y:{ticks:{color:'#c9d0dc',font:{size:11}},grid:{display:false}}}
     }
   });
+
+  // Radar de capacidades (clássico dos leaderboards): 5 famílias como eixos,
+  // polígonos sem Atlas × com Atlas. Só famílias com valor medido entram.
+  const famRows = (D.uplift_families||[]).filter(f => f.bare_intelligence!=null);
+  if (famRows.length >= 3 && document.getElementById('radar')) {
+    new Chart(document.getElementById('radar'), {
+      type:'radar',
+      data:{
+        labels: famRows.map(f => (f.label||f.family||'').replace(/\s*\(.*\)$/,'')),
+        datasets:[
+          {label:'sem Atlas', data:famRows.map(f=>Number(f.bare_intelligence)*100),
+            borderColor:'#6cb6ff', backgroundColor:'#6cb6ff22', pointBackgroundColor:'#6cb6ff', borderWidth:2},
+          {label:'com Atlas', data:famRows.map(f=>f.atlas_intelligence==null?null:Number(f.atlas_intelligence)*100),
+            borderColor:'#3dd68c', backgroundColor:'#3dd68c26', pointBackgroundColor:'#3dd68c', borderWidth:2},
+        ],
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#c9d0dc'}},tooltip:{callbacks:{label:c=> c.raw==null?`${c.dataset.label}: sem par`:`${c.dataset.label}: ${Number(c.raw).toFixed(1)}%`}}},
+        scales:{r:{min:0,max:100,ticks:{display:false},grid:{color:'#242836'},angleLines:{color:'#242836'},
+          pointLabels:{color:'#c9d0dc',font:{size:12,weight:650}}}}}
+    });
+  }
+  if (document.getElementById('deltaBars')) {
+    const withDelta = famRows.filter(f => f.delta_intelligence!=null);
+    new Chart(document.getElementById('deltaBars'), {
+      type:'bar',
+      data:{
+        labels: withDelta.map(f => (f.label||f.family||'').replace(/\s*\(.*\)$/,'') + (f.diagnostic_only?' (diag.)':'')),
+        datasets:[{
+          data: withDelta.map(f => Math.round(Number(f.delta_intelligence)*1000)/10),
+          backgroundColor: withDelta.map(f => Number(f.delta_intelligence)>=0 ? '#3dd68ccc' : '#ff6b6bcc'),
+          borderRadius:5, barThickness:16,
+        }],
+      },
+      options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`Δ ${c.raw>=0?'+':''}${c.raw} pp`}}},
+        scales:{x:{title:{display:true,text:'Δ pontos percentuais com Atlas',color:'#8a93a3'},
+          ticks:{color:'#8a93a3',callback:v=>(v>=0?'+':'')+v},grid:{color:'#1b2030'}},
+          y:{ticks:{color:'#c9d0dc',font:{size:12}},grid:{display:false}}}}
+    });
+  }
 
   const mean = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
 
@@ -815,6 +860,15 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
     document.getElementById('tab-'+btn.dataset.tab).classList.add('on');
     try { localStorage.setItem('rivals_tab', btn.dataset.tab); } catch (e) {}
+    // Canvas criado dentro de painel oculto fica 0×0 para sempre; ao abrir a
+    // aba, força o Chart.js a medir de novo.
+    requestAnimationFrame(() => {
+      if (typeof Chart === 'undefined') return;
+      document.querySelectorAll('canvas').forEach(cv => {
+        const inst = Chart.getChart(cv);
+        if (inst) { try { inst.resize(); } catch (e) {} }
+      });
+    });
   }));
 
   // Tela viva: restaura aba/scroll após reload e recarrega sozinha quando o
@@ -871,7 +925,11 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 </html>
 HTML;
 
-        return str_replace('__JSON__', $json, $html);
+        // Chart.js vendorizado inline: a tela definitiva abre offline/file://
+        // sem depender de CDN (local-first).
+        $chartJs = (string) @file_get_contents(base_path('resources/js/vendor/chart.umd.min.js'));
+
+        return str_replace(['__JSON__', '__CHARTJS__'], [$json, $chartJs], $html);
     }
 
     /**
