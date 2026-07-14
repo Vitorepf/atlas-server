@@ -215,6 +215,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cap .subval{font-weight:750;font-variant-numeric:tabular-nums;color:var(--bare)}
 .cap .subci{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
 .cap .subn{color:var(--muted);font-size:10.5px;white-space:nowrap}
+.cap .subgm{color:var(--warn);font-size:10.5px;white-space:nowrap;font-weight:650;cursor:help}
 .cap .subna{color:var(--muted);font-size:11.5px;font-style:italic}
 .cap .subwhy{color:var(--muted);font-size:11px;line-height:1.45;margin-top:4px;padding-left:8px;border-left:2px solid var(--line)}
 .cap .subbar{height:4px;border-radius:999px;background:#1a1f2b;overflow:hidden;margin-top:4px}
@@ -428,8 +429,13 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       const sLo = s.bare_ci_low==null?null:Math.round(Number(s.bare_ci_low)*100);
       const sHi = s.bare_ci_high==null?null:Math.round(Number(s.bare_ci_high)*100);
       const sCi = (sb!=null&&sLo!=null&&sHi!=null)?` <span class="subci">(${sLo}–${sHi}%)</span>`:'';
+      // Escala graduada: mostrar a NOTA MÉDIA junto do binário. "0% acima do
+      // limiar" lê como "não sabe fazer" quando a nota média foi 4.2/10 — sabe,
+      // só não chega ao limiar. O binário sozinho mente por omissão.
+      const gm = (s.graded_mean!=null && s.graded_max)
+        ? ` <span class="subgm" title="Nota média do juiz na escala do benchmark. O % ao lado conta só o que passou do limiar declarado.">nota média ${s.graded_mean}/${s.graded_max}</span>` : '';
       const val = s.reliable && sb!=null
-        ? `<span class="subval">${sb}%</span>${sCi} <span class="subn">${s.tasks_scored} tf</span>`
+        ? `<span class="subval">${sb}%</span>${sCi} <span class="subn">${s.tasks_scored} tf</span>${gm}`
         : `<span class="subna">não medido</span>`;
       const w = (s.reliable&&sb!=null)?sb:0;
       // Motivo visível, não escondido em tooltip: "não medido" sem o porquê deixa

@@ -247,6 +247,16 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                     'native_agent' => 'inspect',
                     'source_repo' => 'inspect_evals',
                     'task' => $native['eval']['task'] ?? null,
+                    // Nota BRUTA da escala graduada. O binário acima é o que o
+                    // Rivals consome, mas binarizar joga fora o sinal: "0% acima
+                    // de 7" lê como "não escreve" quando as notas foram 3.6-6.4
+                    // (escreve em nível médio). Guardar a nota deixa o relatório
+                    // mostrar a média junto e desfazer essa leitura.
+                    'graded_score' => ($graded !== null && is_numeric($scoreValue))
+                        ? (float) $scoreValue
+                        : null,
+                    'graded_max' => $graded['max'] ?? null,
+                    'graded_threshold' => $graded['threshold'] ?? null,
                 ]],
             ];
         }

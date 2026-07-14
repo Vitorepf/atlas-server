@@ -1314,8 +1314,12 @@ class EnterpriseReportBuilder
                 // Capacidade que fatia a suíte por task_type (suíte multi-domínio):
                 // usa a evidência daquele domínio, com sua própria confiabilidade —
                 // env-failure de gsm8k não pode reprovar mmlu, e vice-versa.
+                $gradedMean = null;
+                $gradedMax = null;
                 if (($cap['task_types'] ?? null) !== null) {
                     $slice = $this->sliceByTaskTypes($ev, (array) $cap['task_types']);
+                    $gradedMean = $slice['graded_mean'] ?? null;
+                    $gradedMax = $slice['graded_max'] ?? null;
                     // Sem nenhuma unidade do domínio: a habilidade continua
                     // existindo e aparece como NÃO MEDIDA — sumir do card é pior
                     // que dizer "não medido", porque some sem o leitor notar.
@@ -1350,6 +1354,10 @@ class EnterpriseReportBuilder
                     'bare_ci_high' => $subCi['high'] ?? null,
                     'tasks_scored' => $subN,
                     'reliable' => $subReliable,
+                    // Escala graduada: a nota média impede o binário de mentir
+                    // por omissão ("0% acima de 7" ≠ "não sabe fazer").
+                    'graded_mean' => $gradedMean,
+                    'graded_max' => $gradedMax,
                     'unreliable_reason' => $subReliable ? null : $subReason,
                     'tokens_per_task' => is_numeric($row['tokens_per_task'] ?? null) ? round((float) $row['tokens_per_task']) : null,
                     'median_wall_ms' => is_numeric($row['median_wall_ms'] ?? null) ? round((float) $row['median_wall_ms']) : null,
@@ -2436,6 +2444,10 @@ class EnterpriseReportBuilder
                 // + mmlu conhecimento + gpqa ciência); sem isto, capacidade só
                 // pode ser mapeada por suíte e conhecimento viraria "raciocínio".
                 'task_type' => $r->data['task_type'] ?? null,
+                // Nota bruta quando a escala é graduada: o binário sozinho lê
+                // "0% = não sabe" quando as notas foram médias. Ver graded_summary.
+                'graded_score' => $r->data['metadata']['native']['graded_score'] ?? null,
+                'graded_max' => $r->data['metadata']['native']['graded_max'] ?? null,
                 'arm_id' => $r->data['arm_id'] ?? null,
                 'repetition' => $r->data['repetition'] ?? null,
                 'status' => $status,
@@ -2517,6 +2529,20 @@ class EnterpriseReportBuilder
      */
     private function sliceByTaskTypes(array $ev, array $taskTypes): ?array
     {
+        // Nota média da escala graduada: sem ela, "Escrita 0%" lê como "não
+        // escreve" quando as notas foram 3.6-6.4 numa escala 1-10 (escreve em
+        // nível médio, abaixo do limiar). O binário é o veredito; a média é o
+        // que impede o veredito de mentir por omissão.
+        $graded = [];
+        $gradedMax = null;
+        foreach ((array) ($ev['units'] ?? []) as $u) {
+            if (in_array((string) ($u['task_type'] ?? ''), $taskTypes, true)
+                && is_numeric($u['graded_score'] ?? null)) {
+                $graded[] = (float) $u['graded_score'];
+                $gradedMax ??= $u['graded_max'] ?? null;
+            }
+        }
+
         $byType = (array) ($ev['blame_by_task_type'] ?? []);
         $successes = 0;
         $modelFailures = 0;
@@ -2545,6 +2571,8 @@ class EnterpriseReportBuilder
             'tasks_decidable' => $decidable,
             'intelligence_rate' => $decidable > 0 ? round($successes / $decidable, 4) : null,
             'reliable' => $reliable,
+            'graded_mean' => $graded === [] ? null : round(array_sum($graded) / count($graded), 2),
+            'graded_max' => $graded === [] ? null : $gradedMax,
             'unreliable_reason_human' => $reliable ? null : ($total === 0
                 ? 'Nenhuma tarefa registrada para esta habilidade.'
                 : "{$envFailures} de {$total} tarefas quebraram por erro de ambiente/fluxo "
