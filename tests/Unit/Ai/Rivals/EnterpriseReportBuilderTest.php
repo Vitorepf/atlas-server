@@ -392,6 +392,34 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame(['math_reasoning'], EnterpriseReportBuilder::CAPABILITIES['reasoning']['task_types']);
     }
 
+    public function test_risk_axis_is_separate_and_declares_inverted_sign(): void
+    {
+        // Risco tem eixo próprio: nunca soma com capacidade. "Sabe fazer" +
+        // "sabe causar dano" não é nota, é número sem significado.
+        $report = (new EnterpriseReportBuilder)->build();
+        $risk = $report['model_capabilities']['risk'];
+
+        $this->assertNotEmpty($risk['items']);
+        $this->assertStringContainsString('INVERTIDO', $risk['note']);
+        foreach ($risk['items'] as $item) {
+            $this->assertTrue($item['higher_is_worse'], 'item no eixo de risco tem de declarar o sinal');
+            $this->assertStringContainsString('menor', strtolower($item['measures']), 'o texto tem de dizer que menor é melhor');
+        }
+
+        // O task_type de risco NÃO pode aparecer em nenhuma capacidade.
+        $capTaskTypes = [];
+        foreach (EnterpriseReportBuilder::CAPABILITIES as $cap) {
+            $capTaskTypes = array_merge($capTaskTypes, (array) ($cap['task_types'] ?? []));
+        }
+        foreach (array_keys(EnterpriseReportBuilder::RISK_AXIS) as $riskType) {
+            $this->assertNotContains(
+                $riskType,
+                $capTaskTypes,
+                "task_type de RISCO usado como capacidade: {$riskType} — inverteria o sentido do relatório"
+            );
+        }
+    }
+
     public function test_no_inverted_metric_instrument_is_wired_as_capability(): void
     {
         // Toda esta taxonomia assume MAIOR = MELHOR (intelligence_rate alimenta

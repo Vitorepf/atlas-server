@@ -212,6 +212,10 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         if (str_contains($task, 'niah') || str_contains($sampleId, 'niah')) {
             return 'long_context_retrieval';
         }
+        // RISCO (maior = pior): eixo separado, ver RISK_AXIS.
+        if (str_contains($task, 'wmdp') || str_contains(strtolower($sampleId), 'wmdp')) {
+            return 'hazardous_knowledge';
+        }
         // Raciocínio puro: deduzir sem conhecimento memorizado.
         foreach (['musr', 'arc', 'hellaswag', 'winogrande'] as $r) {
             if (str_contains($task, $r) || str_contains(strtolower($sampleId), $r)) {

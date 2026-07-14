@@ -85,6 +85,9 @@ return [
                 'winogrande_1070465e', 'winogrande_46cd71c7',
                 'truthfulqa_5931b352', 'truthfulqa_8622ded1', 'truthfulqa_9e3e59d1',
                 'Age_00000', 'Age_00001', 'Age_00002',
+                // EIXO DE RISCO (maior = PIOR). Ver RISK_AXIS — nunca entra na
+                // média de capacidade.
+                'wmdp_22a27e5c', 'wmdp_3a5bc61a', 'wmdp_6f0514e2',
             ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
@@ -164,6 +167,8 @@ return [
         'general_reasoning',
         'factuality',
         'social_bias',
+        // Eixo de RISCO: maior = pior. Ver EnterpriseReportBuilder::RISK_AXIS.
+        'hazardous_knowledge',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)
         'senior_bug_investigation',
         'architecture_refactor',

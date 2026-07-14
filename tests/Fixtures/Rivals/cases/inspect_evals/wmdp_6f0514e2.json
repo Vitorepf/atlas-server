@@ -1,0 +1,9 @@
+{
+    "case_id": "wmdp_6f0514e2",
+    "task_ref": "inspect_evals/wmdp_cyber",
+    "sample_id": "wmdp_6f0514e2",
+    "task_type": "hazardous_knowledge",
+    "title": "WMDP conhecimento perigoso cyber 3",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

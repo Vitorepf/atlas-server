@@ -220,6 +220,17 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cap .subbar{height:4px;border-radius:999px;background:#1a1f2b;overflow:hidden;margin-top:4px}
 .cap .subfill{height:100%;border-radius:999px;background:var(--bare);opacity:.75}
 .cap .subfill.na{background:repeating-linear-gradient(90deg,#2a3142,#2a3142 4px,transparent 4px,transparent 8px);width:100%!important;opacity:.5}
+/* Eixo de RISCO: vermelho e nunca verde — a cor tem de dizer o sinal. */
+#riskPanel{border-left:3px solid var(--bad)}
+.riskbox{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:12px}
+.riskrow{background:var(--card);padding:11px 14px}
+.riskhead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.risklabel{font-size:13.5px;font-weight:650;color:var(--ink)}
+.riskdir{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--bad);
+ border:1px solid var(--bad);border-radius:2px;padding:1px 5px;cursor:help}
+.riskv{margin-left:auto;font-size:20px;font-weight:800;color:var(--bad);font-variant-numeric:tabular-nums}
+.riskn{color:var(--muted);font-size:10.5px}
+.riskmeas{margin:5px 0 0;font-size:12px;color:var(--muted);line-height:1.5;max-width:78ch}
 .covstats{display:flex;flex-wrap:wrap;gap:8px 22px;margin:10px 0 14px;font-size:12.5px;color:var(--muted)}
 .covstats b{color:var(--ink);font-size:15px;font-variant-numeric:tabular-nums}
 .covmap{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -265,6 +276,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <div class="eff-row" id="capEfficiency"></div>
     </div>
     <div class="cap-grid" id="capCards"></div>
+    <div class="card" id="riskPanel" style="margin-top:12px"></div>
     <div class="card" id="coveragePanel" style="margin-top:12px"></div>
     <div class="grid g2" style="margin-top:12px">
       <div class="card"><h2>Mapa de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cada eixo é um domínio <strong>medido</strong>. Polígono verde além do azul = Atlas amplia. <span id="radarOmitted"></span></p><div class="chart sm"><canvas id="capRadar"></canvas></div></div>
@@ -445,6 +457,28 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       ${smallSample?`<div class="warn" style="color:var(--muted)">ℹ Amostra pequena (${c.tasks_scored} tarefas): use como indicativo, não como número definitivo.</div>`:''}
     </div>`;
   }).join('') || '<div class="empty">Sem capacidades medidas ainda.</div>';
+
+  // EIXO DE RISCO: sinal invertido, painel separado. Nunca soma com capacidade —
+  // "sabe fazer" + "sabe causar dano" não é uma nota, é um número sem sentido.
+  const RISK = MC.risk || null;
+  if (RISK && document.getElementById('riskPanel')) {
+    const items = (RISK.items||[]).map(r => {
+      const v = r.rate==null ? null : Math.round(Number(r.rate)*100);
+      const val = (r.reliable && v!=null)
+        ? `<span class="riskv">${v}%</span> <span class="riskn">${r.tasks_scored} tf</span>`
+        : `<span class="subna">não medido</span>`;
+      const why = (!r.reliable && r.unreliable_reason) ? `<div class="subwhy">${r.unreliable_reason}</div>` : '';
+      return `<div class="riskrow">
+        <div class="riskhead"><span class="risklabel">${r.label}</span>
+          <span class="riskdir" title="Nesta métrica, pontuar mais é PIOR">↓ menor é melhor</span>${val}</div>
+        <p class="riskmeas">${r.measures}</p>${why}
+      </div>`;
+    }).join('');
+    document.getElementById('riskPanel').innerHTML = `
+      <h2>Risco — aqui maior é PIOR</h2>
+      <p class="hint">${RISK.note}</p>
+      <div class="riskbox">${items}</div>`;
+  }
 
   // Escopo declarado: o relatório diz o que NÃO alcança. Sem isto, "capacidades"
   // sugere retrato da IA inteira quando a bateria é código/agente.

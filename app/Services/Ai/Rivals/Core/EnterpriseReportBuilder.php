@@ -151,6 +151,30 @@ class EnterpriseReportBuilder
     ];
 
     /**
+     * EIXO DE RISCO — sinal invertido, separado das capacidades de propósito.
+     *
+     * 25% do arsenal (34 instrumentos) mede RISCO, não habilidade: acertar mais é
+     * PIOR. Não dava para simplesmente ignorá-los (um benchmark completo tem de
+     * olhar risco) nem para misturá-los em CAPABILITIES (a média, o Wilson e o
+     * veredito assumem maior=melhor — "Segurança: 100%" leria como virtude quando
+     * significa "sabe tudo sobre arma biológica").
+     *
+     * Solução: eixo próprio, `higher_is_worse` explícito, painel separado com o
+     * sinal escrito na tela. Aqui NUNCA entra instrumento de maior=melhor.
+     *
+     * @var array<string, array{label:string, measures:string, higher_is_worse:bool}>
+     */
+    public const RISK_AXIS = [
+        'hazardous_knowledge' => [
+            'label' => 'Conhecimento perigoso',
+            'measures' => 'Quanto o modelo sabe de biosegurança, química e cyber que serve para causar dano (WMDP). '
+                .'É um benchmark de DESAPRENDIZADO: quanto MENOR, melhor. 100% significaria que o modelo responde '
+                .'tudo sobre arma biológica — não é uma nota boa.',
+            'higher_is_worse' => true,
+        ],
+    ];
+
+    /**
      * Sub-capacidade = o que cada instrumento realmente mede (task_type real do
      * receipt), com nome humano. Uma capacidade não é uma caixa: é um domínio com
      * várias habilidades distintas medidas por instrumentos diferentes.
@@ -1377,12 +1401,48 @@ class EnterpriseReportBuilder
             // fora do alcance destes 10 benchmarks. Sem isto, "Relatório de
             // Capacidades" sugere cobertura da IA inteira — e é código/agente.
             'coverage' => $this->buildCoverage($capabilities),
+            'risk' => $this->buildRiskAxis($bySuite),
             'efficiency' => [
                 'tokens_per_task_mean' => $globalTokens === [] ? null : round(array_sum($globalTokens) / count($globalTokens)),
                 'median_wall_ms_mean' => $globalWall === [] ? null : round(array_sum($globalWall) / count($globalWall)),
                 'cost_basis' => 'verboo_subscription_marginal',
                 'note' => 'Custo marginal $0 (assinatura Verboo); eficiência real se lê em tokens/task e tempo/task.',
             ],
+        ];
+    }
+
+    /**
+     * Eixo de risco: mesma evidência por task_type das capacidades, mas com o
+     * sinal INVERTIDO e declarado. Nunca entra na média de capacidade.
+     *
+     * @param  array<string, array<string,mixed>>  $bySuite
+     * @return array<string,mixed>
+     */
+    private function buildRiskAxis(array $bySuite): array
+    {
+        $ev = (array) ($bySuite['inspect_evals']['execution_evidence'] ?? []);
+        $items = [];
+        foreach (self::RISK_AXIS as $taskType => $meta) {
+            $slice = $this->sliceByTaskTypes($ev, [$taskType]);
+            $items[] = [
+                'id' => $taskType,
+                'label' => $meta['label'],
+                'measures' => $meta['measures'],
+                'higher_is_worse' => $meta['higher_is_worse'],
+                'rate' => $slice['intelligence_rate'] ?? null,
+                'tasks_scored' => $slice['tasks_decidable'] ?? 0,
+                'reliable' => $slice['reliable'] ?? false,
+                'unreliable_reason' => ($slice['reliable'] ?? false)
+                    ? null
+                    : ($slice['unreliable_reason_human'] ?? 'Esta bateria não registrou nenhuma tarefa deste risco.'),
+            ];
+        }
+
+        return [
+            'items' => $items,
+            'note' => 'Eixo separado porque o sinal é INVERTIDO: aqui MAIOR = PIOR. '
+                .'Estes números nunca entram na média das capacidades nem no veredito do Atlas — '
+                .'somar "sabe fazer" com "sabe causar dano" produziria uma nota sem significado.',
         ];
     }
 
