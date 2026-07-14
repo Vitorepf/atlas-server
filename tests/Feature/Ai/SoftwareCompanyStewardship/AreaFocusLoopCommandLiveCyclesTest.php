@@ -98,17 +98,20 @@ final class AreaFocusLoopCommandLiveCyclesTest extends TestCase
         $this->assertSame('atlas_software_company', $body['portfolio_id']);
         $this->assertTrue($body['read_only']);
 
-        // Composed (not duplicated) cockpit aggregate is embedded verbatim.
+        // A superfície móvel recebe somente o resumo público do cockpit, não
+        // o agregado interno com backlog, diagnósticos ou instruções.
         $this->assertSame('ready', $body['cockpit']['status']);
-        $this->assertSame('atlas.software_company.product_mode_cockpit.v1', $body['cockpit']['schema_version']);
+        $this->assertSame('atlas.autonomos.cockpit_summary.v1', $body['cockpit']['schema_version']);
+        $this->assertSame(['schema_version', 'status'], array_keys($body['cockpit']));
 
         // Run-state mirrors the runner's real path-authority truth from disk.
         $this->assertTrue($body['run_state']['kill_switch']['active']);
         $this->assertFalse($body['run_state']['pause']['active']);
-        $this->assertSame(
-            $this->runner->killSwitchPath(self::AREA, self::FOCUS),
-            $body['run_state']['kill_switch']['path'],
-        );
+        // O runner precisa do caminho interno para operar, mas a projeção
+        // móvel deve carregar apenas o estado. Topologia local não é uma
+        // evidência nem uma ação disponível ao operador.
+        $this->assertArrayNotHasKey('path', $body['run_state']['kill_switch']);
+        $this->assertArrayNotHasKey('path', $body['run_state']['pause']);
         $this->assertSame(
             'atlas.software_company_stewardship.ap790_24h_stewardship_recovery.v1',
             $body['run_state']['stewardship_recovery']['schema_version'],
@@ -185,6 +188,34 @@ final class AreaFocusLoopCommandLiveCyclesTest extends TestCase
         $this->assertSame(1, $body['tail']);
         $this->assertSame(1, $body['returned_count']);
         $this->assertSame([4], array_map(static fn (array $c): int => $c['cycle_index'], $body['cycles']));
+    }
+
+    public function test_cycles_projects_only_the_public_history_fields(): void
+    {
+        $record = $this->cycleRow(7, 'blocked', '-1 hour');
+        $record['cycle_final_status'] = 'blocked';
+        $record['blockers'] = ['quality_gate_failed'];
+        $record['plan_backlog'] = ['prompt' => 'internal execution instruction'];
+        $record['preflight_ref'] = ['report_hash' => 'sha256:internal-diagnostic'];
+        $record['multi_agent_workcell'] = ['worker_trace' => 'internal-only'];
+        $this->seedLedger([$record]);
+
+        $body = $this->decode($this->controller->cycles($this->request(), self::AREA));
+        $cycle = $body['cycles'][0];
+
+        $this->assertSame([
+            'cycle_index', 'outcome', 'cycle_final_status', 'merge_performed', 'merge_hash',
+            'loop_receipt_integrity', 'blockers', 'repaired', 'retried', 'quarantined',
+            'quarantine_reason', 'recorded_at',
+        ], array_keys($cycle));
+        $this->assertSame(7, $cycle['cycle_index']);
+        $this->assertSame('blocked', $cycle['outcome']);
+        $this->assertSame(['quality_gate_failed'], $cycle['blockers']);
+        $this->assertArrayNotHasKey('run_id', $cycle);
+        $this->assertArrayNotHasKey('finding_key', $cycle);
+        $this->assertArrayNotHasKey('plan_backlog', $cycle);
+        $this->assertArrayNotHasKey('preflight_ref', $cycle);
+        $this->assertArrayNotHasKey('multi_agent_workcell', $cycle);
     }
 
     public function test_cycles_tail_is_hard_capped_at_200(): void

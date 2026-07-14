@@ -200,11 +200,24 @@ trait CreatesAiJobChoiceTables
             $table->json('metadata')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('ai_stream_events', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable();
+            $table->uuid('ai_job_id')->nullable();
+            $table->uuid('ai_job_attempt_id')->nullable();
+            $table->unsignedBigInteger('sequence');
+            $table->string('event_type');
+            $table->string('channel')->nullable();
+            $table->text('content')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamp('occurred_at')->nullable();
+        });
     }
 
     protected function dropAiJobChoiceTables(): void
     {
-        foreach (['ai_job_attempts', 'ai_jobs', 'ai_traces', 'ai_context_snapshots', 'ai_provider_handoffs', 'ai_compactions', 'ai_session_states', 'ai_messages', 'ai_sessions', 'ai_threads'] as $table) {
+        foreach (['ai_stream_events', 'ai_job_attempts', 'ai_jobs', 'ai_traces', 'ai_context_snapshots', 'ai_provider_handoffs', 'ai_compactions', 'ai_session_states', 'ai_messages', 'ai_sessions', 'ai_threads'] as $table) {
             Schema::dropIfExists($table);
         }
     }

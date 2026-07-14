@@ -3,6 +3,7 @@
 namespace Tests\Unit\Ai;
 
 use App\Models\AiJob;
+use App\Models\AiStreamEvent;
 use App\Models\AiTrace;
 use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
@@ -213,6 +214,40 @@ class AiProviderChoiceResolverTest extends TestCase
         $receipt = data_get($job->metadata, 'provider_choice_outcome_receipt');
         $this->assertSame('retry_same', $receipt['action']);
         $this->assertSame('queued', $receipt['resulting_status']);
+    }
+
+    public function test_retry_replaces_attention_with_a_recovery_state_on_the_trace(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'retry_same', 'action' => 'retry_same'],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'retry_same');
+
+        $this->assertSame('recovering', data_get($job->trace->refresh()->metadata, 'presentation_state.kind'));
+        $this->assertSame('Execução retomando', data_get($job->trace->refresh()->metadata, 'presentation_state.title'));
+    }
+
+    public function test_resolving_a_choice_persists_the_public_recovery_state_in_the_stream_ledger(): void
+    {
+        $job = $this->makePausedJob([
+            ['id' => 'retry_same', 'action' => 'retry_same'],
+        ]);
+
+        app(AiProviderChoiceResolver::class)->resolve($job, 'retry_same');
+
+        $event = AiStreamEvent::query()
+            ->where('trace_id', $job->trace_id)
+            ->orderByDesc('sequence')
+            ->first();
+
+        $this->assertNotNull($event);
+        $this->assertSame('lifecycle', $event->event_type);
+        $this->assertSame('system', $event->channel);
+        $this->assertSame('recovering', data_get($event->metadata, 'presentation_state.kind'));
+        $this->assertSame('Execução retomando', data_get($event->metadata, 'presentation_state.title'));
+        $this->assertArrayNotHasKey('error_message', $event->metadata);
+        $this->assertArrayNotHasKey('option', $event->metadata);
     }
 
     public function test_receipt_previous_fields_capture_original_job_state(): void

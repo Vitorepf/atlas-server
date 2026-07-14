@@ -81,6 +81,12 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['multilingual_reasoning'],
         ],
+        'long_context' => [
+            'label' => 'Contexto longo',
+            'measures' => 'Achar e usar uma informação específica enterrada num texto muito grande.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['long_context_retrieval'],
+        ],
     ];
 
     /**
@@ -102,7 +108,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Raciocínio científico (pós-graduação)', 'covered' => true, 'note' => 'inspect_evals (GPQA Diamond)'],
         ['domain' => 'Seguir instruções e restrições de formato', 'covered' => true, 'note' => 'inspect_evals (IFEval)'],
         ['domain' => 'Multilíngue', 'covered' => true, 'note' => 'inspect_evals (MGSM)'],
-        ['domain' => 'Contexto longo (recuperar informação em janelas grandes)', 'covered' => false, 'note' => 'exigiria RULER / needle-in-haystack — não wired'],
+        ['domain' => 'Contexto longo (recuperar informação em janelas grandes)', 'covered' => true, 'note' => 'inspect_evals (NIAH, agulha no palheiro)'],
         ['domain' => 'Factualidade / alucinação', 'covered' => false, 'note' => 'SimpleQA existe no inspect mas o juiz exige tool-call e aborta — integração aberta'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'note' => 'exigiria MMMU — não wired'],
         ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'note' => 'nenhum instrumento wired'],
@@ -133,6 +139,9 @@ class EnterpriseReportBuilder
         'inspect_evals:science_reasoning' => ['label' => 'Ciência nível pós-graduação', 'measures' => 'Perguntas de biologia/física/química feitas por PhDs, difíceis de buscar (GPQA Diamond, via Inspect).'],
         'inspect_evals:instruction_following' => ['label' => 'Obedecer restrições de formato', 'measures' => 'Instruções verificáveis por programa: tamanho, idioma, seções, palavras proibidas (IFEval, via Inspect).'],
         'inspect_evals:multilingual_reasoning' => ['label' => 'Raciocinar fora do inglês', 'measures' => 'Os mesmos problemas de matemática traduzidos para outros idiomas (MGSM, via Inspect).'],
+        // Limiar VISÍVEL: o niah pontua 1-10 e o Rivals é binário. A conversão é
+        // decisão de protocolo do Atlas, não do benchmark — o leitor tem de ver.
+        'inspect_evals:long_context_retrieval' => ['label' => 'Achar informação em texto muito longo', 'measures' => 'Agulha no palheiro (NIAH, via Inspect): um fato enterrado em ~10 mil tokens. O juiz nota de 1 a 10; o Atlas conta como acerto a partir de 7 ("alinha com a referência, omissões menores").'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];
 

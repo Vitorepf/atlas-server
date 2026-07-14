@@ -5,11 +5,14 @@ namespace Tests\Unit;
 use App\Http\Controllers\AiJobController;
 use App\Models\AiJob;
 use App\Models\AiJobAttempt;
+use App\Models\AiStreamEvent;
 use App\Models\AiTrace;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\AiExecutionPresentationState;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\AiStreamRecorder;
 use App\Services\Ai\AiWorker;
 use App\Services\Ai\AiWorkerLogger;
 use App\Services\Ai\Cli\AtlasCliQualityService;
@@ -111,7 +114,13 @@ class AiJobControlTest extends TestCase
             'worker_id' => 'worker-2',
         ]);
 
-        app(AiJobController::class)->cancel($processing, app(AuditLogService::class), app(AiCouncilCoordinator::class));
+        app(AiJobController::class)->cancel(
+            $processing,
+            app(AuditLogService::class),
+            app(AiCouncilCoordinator::class),
+            app(AiExecutionPresentationState::class),
+            app(AiStreamRecorder::class),
+        );
 
         $trace->refresh();
         $processing->refresh();
@@ -143,11 +152,46 @@ class AiJobControlTest extends TestCase
             'worker_id' => 'worker-3',
         ]);
 
-        app(AiJobController::class)->cancel($queued, app(AuditLogService::class), app(AiCouncilCoordinator::class));
+        app(AiJobController::class)->cancel(
+            $queued,
+            app(AuditLogService::class),
+            app(AiCouncilCoordinator::class),
+            app(AiExecutionPresentationState::class),
+            app(AiStreamRecorder::class),
+        );
 
         $this->assertSame('cancelled', $trace->refresh()->status);
         $this->assertSame('cancelled', AiJob::query()->where('trace_id', $trace->id)->where('provider', 'claude_cli')->firstOrFail()->status);
         $this->assertSame('cancelled', AiJob::query()->where('trace_id', $trace->id)->where('provider', 'codex_cli')->firstOrFail()->status);
+    }
+
+    public function test_cancel_direct_job_persists_a_public_session_ended_state(): void
+    {
+        $trace = $this->trace(['status' => 'processing']);
+        $job = $this->job($trace, [
+            'status' => 'processing',
+            'reserved_at' => now(),
+            'started_at' => now(),
+            'worker_id' => 'worker-1',
+        ]);
+
+        app(AiJobController::class)->cancel(
+            $job,
+            app(AuditLogService::class),
+            app(AiCouncilCoordinator::class),
+            app(AiExecutionPresentationState::class),
+            app(AiStreamRecorder::class),
+        );
+
+        $this->assertSame('cancelled', $job->refresh()->status);
+        $this->assertSame('cancelled', $trace->refresh()->status);
+        $this->assertSame('failed', data_get($trace->metadata, 'presentation_state.kind'));
+        $this->assertSame('Sessão encerrada', data_get($trace->metadata, 'presentation_state.title'));
+        $this->assertSame('execution_cancelled', data_get(AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->latest('sequence')
+            ->firstOrFail()
+            ->metadata, 'name'));
     }
 
     public function test_worker_attempt_creation_uses_history_when_counter_was_reopened(): void
@@ -405,6 +449,13 @@ class AiJobControlTest extends TestCase
         $this->assertSame('failed', data_get($trace->metadata, 'programming_completion.repair.history.0.status'));
         $this->assertSame('repair_allowed', data_get($trace->metadata, 'programming_repair.kernel_decision.status'));
         $this->assertSame('collect_evidence', data_get($trace->metadata, 'programming_repair.kernel_decision.strategy'));
+        $this->assertSame('replanning', data_get($trace->metadata, 'presentation_state.kind'));
+        $this->assertSame('quality', data_get($trace->metadata, 'presentation_state.checkpoint'));
+        $this->assertSame('execution_replanning', data_get(AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->latest('sequence')
+            ->firstOrFail()
+            ->metadata, 'name'));
         $repairJob = AiJob::query()->where('id', '!=', $job->id)->firstOrFail();
         $this->assertSame('queued', $repairJob->status);
         $this->assertSame('repair prompt 2/3', $repairJob->prompt);
@@ -596,6 +647,12 @@ class AiJobControlTest extends TestCase
         $this->assertSame('tool_contract_blocks_workspace_write', data_get($trace->metadata, 'programming_repair.reason_if_stopped'));
         $this->assertSame('blocked', data_get($trace->metadata, 'programming_completion.status'));
         $this->assertSame('tool_contract_blocks_workspace_write', data_get($trace->metadata, 'programming_completion.repair.reason_if_stopped'));
+        $this->assertSame('failed', data_get($trace->metadata, 'presentation_state.kind'));
+        $this->assertSame('execution_failed', data_get(AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->latest('sequence')
+            ->firstOrFail()
+            ->metadata, 'name'));
         $this->assertSame(0, AiJob::query()->where('id', '!=', $job->id)->count());
     }
 
@@ -842,11 +899,24 @@ class AiJobControlTest extends TestCase
             $table->json('metadata')->nullable();
             $table->timestamps();
         });
+
+        Schema::create('ai_stream_events', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('trace_id')->nullable();
+            $table->uuid('ai_job_id')->nullable();
+            $table->uuid('ai_job_attempt_id')->nullable();
+            $table->unsignedBigInteger('sequence');
+            $table->string('event_type');
+            $table->string('channel')->nullable();
+            $table->text('content')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamp('occurred_at')->nullable();
+        });
     }
 
     private function dropAiJobTables(): void
     {
-        foreach (['ai_job_attempts', 'ai_jobs', 'ai_traces', 'atlas_ledger_events'] as $table) {
+        foreach (['ai_stream_events', 'ai_job_attempts', 'ai_jobs', 'ai_traces', 'atlas_ledger_events'] as $table) {
             Schema::dropIfExists($table);
         }
     }

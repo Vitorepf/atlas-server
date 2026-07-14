@@ -78,6 +78,7 @@ return [
                 'rec06pnAkLOr2t2mp', 'rec0Arme2jcXQZnAW',
                 'ifeval_1000', 'ifeval_1001', 'ifeval_1005',
                 'bn_4a7c974d', 'bn_5af055ef', 'bn_7b9cf673',
+                'niah_1a87940c', 'niah_ca038232',
             ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
@@ -153,6 +154,7 @@ return [
         'science_reasoning',
         'instruction_following',
         'multilingual_reasoning',
+        'long_context_retrieval',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)
         'senior_bug_investigation',
         'architecture_refactor',

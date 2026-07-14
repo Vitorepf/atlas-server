@@ -132,10 +132,12 @@ final class LoopCommandSurfaceTest extends TestCase
         $this->getJson(self::BASE.'/cycles')->assertStatus(401);
         $this->getJson(self::BASE.'/backlog')->assertStatus(401);
         $this->getJson(self::BASE.'/done')->assertStatus(401);
+        $this->getJson(self::BASE.'/transfer/unknown')->assertStatus(401);
         // POSTs: 401 without the header (the body is irrelevant — auth runs first).
         $this->postJson(self::BASE.'/start-run', [])->assertStatus(401);
         $this->postJson(self::BASE.'/operator-decision', [])->assertStatus(401);
         $this->postJson(self::BASE.'/run-control', [])->assertStatus(401);
+        $this->postJson(self::BASE.'/transfer', [])->assertStatus(401);
         $this->postJson(self::BASE.'/directive', [])->assertStatus(401);
     }
 
@@ -191,6 +193,34 @@ final class LoopCommandSurfaceTest extends TestCase
         Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
     }
 
+    public function test_execute_start_run_requires_and_records_an_auditable_reason_over_http(): void
+    {
+        Bus::fake();
+
+        $this->postJson(self::BASE.'/start-run', [
+            'operator_actor' => 'vitor',
+            'mode' => 'execute',
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'operator_reason_required');
+
+        Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+
+        $this->postJson(self::BASE.'/start-run', [
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'janela noturna aprovada',
+            'mode' => 'execute',
+        ], $this->headers)
+            ->assertStatus(202)
+            ->assertJsonPath('execute', true)
+            ->assertJsonPath('operator_reason_recorded', true)
+            ->assertJsonPath('started', false);
+
+        Bus::assertDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class, function (\App\Jobs\SoftwareCompanyLoopRunJob $job): bool {
+            return $job->input['operator_reason'] === 'janela noturna aprovada';
+        });
+    }
+
     public function test_start_run_is_blocked_409_when_a_live_lock_holds_over_http(): void
     {
         Bus::fake();
@@ -205,7 +235,11 @@ final class LoopCommandSurfaceTest extends TestCase
             'lease_ttl_seconds' => 3600,
         ], JSON_UNESCAPED_SLASHES));
 
-        $this->postJson(self::BASE.'/start-run', ['operator_actor' => 'vitor', 'mode' => 'execute'], $this->headers)
+        $this->postJson(self::BASE.'/start-run', [
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'verificar bloqueio do lease ativo',
+            'mode' => 'execute',
+        ], $this->headers)
             ->assertStatus(409)
             ->assertJsonPath('status', 'blocked')
             ->assertJsonPath('reason', 'loop_already_running')
@@ -213,6 +247,52 @@ final class LoopCommandSurfaceTest extends TestCase
 
         // No double-launch while a run is live.
         Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+    }
+
+    public function test_transfer_records_a_durable_request_for_the_actual_lock_holder_over_http(): void
+    {
+        $path = $this->runner()->lockPath(self::AREA, 'dev_forge');
+        File::ensureDirectoryExists(dirname($path));
+        File::put($path, (string) json_encode([
+            'run_id' => 'ap790run_live',
+            'area_id' => self::AREA,
+            'focus' => 'dev_forge',
+            'host' => gethostname() ?: 'unknown',
+            'pid' => getmypid() ?: 0,
+            'acquired_at_epoch' => microtime(true),
+            'lease_ttl_seconds' => 3600,
+        ], JSON_UNESCAPED_SLASHES));
+
+        $response = $this->postJson(self::BASE.'/transfer', [
+            'operator_actor' => 'vitor',
+            'reason' => 'passar a missao ao proximo worker disponivel',
+        ], $this->headers)
+            ->assertStatus(202)
+            ->assertJsonPath('status', 'transfer_requested')
+            ->assertJsonPath('source.run_id', 'ap790run_live')
+            ->assertJsonPath('target.status', 'awaiting_source_release')
+            ->assertJsonPath('target.host', null)
+            ->assertJsonPath('started', false)
+            ->assertJsonPath('transfer_requested', true);
+
+        $handoffId = (string) $response->json('handoff.handoff_id');
+        $this->assertNotSame('', $handoffId);
+        $this->getJson(self::BASE.'/transfer/'.$handoffId, $this->headers)
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'transfer_requested')
+            ->assertJsonPath('handoff.handoff_id', $handoffId)
+            ->assertJsonPath('handoff.target.status', 'awaiting_source_release');
+    }
+
+    public function test_transfer_fails_closed_when_no_live_lock_can_prove_a_source_over_http(): void
+    {
+        $this->postJson(self::BASE.'/transfer', [
+            'operator_actor' => 'vitor',
+            'reason' => 'sem fonte ativa nao ha transferencia honesta',
+        ], $this->headers)
+            ->assertStatus(409)
+            ->assertJsonPath('status', 'blocked')
+            ->assertJsonPath('reason', 'no_live_source_run');
     }
 
     // ----------------------------------------------------------------- (new) done
@@ -247,6 +327,21 @@ final class LoopCommandSurfaceTest extends TestCase
     {
         // Place a real pause signal so run_state reflects TRUE on-disk state through the wire.
         File::put($this->runner()->pausePath(self::AREA, 'dev_forge'), '{"operator_actor":"vitor"}');
+        $lockPath = $this->runner()->lockPath(self::AREA, 'dev_forge');
+        File::ensureDirectoryExists(dirname($lockPath));
+        File::put($lockPath, (string) json_encode([
+            'run_id' => 'ap790run_live',
+            'host' => gethostname() ?: 'unknown',
+            'pid' => getmypid() ?: 0,
+            'acquired_at_epoch' => microtime(true),
+            'lease_ttl_seconds' => 3600,
+            'runtime' => [
+                'environment' => 'testing',
+                'workspace' => 'workspace-label',
+                'repository' => 'atlas-server',
+                'branch' => 'main',
+            ],
+        ], JSON_UNESCAPED_SLASHES));
 
         $response = $this->getJson(self::BASE.'/live', $this->headers)->assertStatus(200);
 
@@ -255,15 +350,17 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertJsonPath('focus', 'dev_forge')
             ->assertJsonPath('portfolio_id', 'atlas_software_company')
             ->assertJsonPath('read_only', true)
-            // The cockpit aggregate is composed in (not duplicated).
-            ->assertJsonPath('cockpit.schema_version', 'atlas.software_company.product_mode_cockpit.v1')
-            // run_state composes the runner's real read/path-only accessors.
+            // O agregado completo fica no owner interno; mobile recebe só o
+            // status público do cockpit.
+            ->assertJsonPath('cockpit.schema_version', 'atlas.autonomos.cockpit_summary.v1')
+            // run_state composes the runner's real state, but never exposes
+            // storage paths to an operator-facing mobile surface.
             ->assertJsonStructure([
                 'cockpit',
                 'run_state' => [
-                    'lock' => ['available', 'held', 'path'],
-                    'kill_switch' => ['active', 'path'],
-                    'pause' => ['active', 'path'],
+                    'lock' => ['available', 'held'],
+                    'kill_switch' => ['active'],
+                    'pause' => ['active'],
                     'stewardship_recovery',
                     'scheduler_backlog',
                 ],
@@ -271,11 +368,16 @@ final class LoopCommandSurfaceTest extends TestCase
                 'generated_at',
             ]);
 
-        // HONESTY: the live surface reflects the TRUE on-disk signal we placed (the pause file the
-        // loop reads with is_file() exists), and the runner's own path is reported, not a claim.
+        // HONESTY: the live surface reflects the TRUE on-disk signal we placed,
+        // without leaking the local path of the signal file.
         $response->assertJsonPath('run_state.pause.active', true)
-            ->assertJsonPath('run_state.kill_switch.active', false)
-            ->assertJsonPath('run_state.pause.path', $this->runner()->pausePath(self::AREA, 'dev_forge'));
+            ->assertJsonPath('run_state.kill_switch.active', false);
+        $this->assertArrayNotHasKey('path', (array) $response->json('run_state.pause'));
+        $this->assertStringNotContainsString($this->tmp, $response->getContent());
+        $response->assertJsonPath('run_state.lock.holder.runtime.environment', 'testing')
+            ->assertJsonPath('run_state.lock.holder.runtime.workspace', 'workspace-label')
+            ->assertJsonPath('run_state.lock.holder.runtime.repository', 'atlas-server')
+            ->assertJsonPath('run_state.lock.holder.runtime.branch', 'main');
 
         $this->assertStringStartsWith('sha256:', (string) $response->json('surface_hash'));
 
@@ -370,7 +472,9 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertJsonPath('provider_invoked', false)
             ->assertJsonPath('mutates_target_repo', false)
             ->assertJsonPath('operator_owned', true)
-            ->assertJsonPath('next_allowed_action', 'release_to_owner_execution_under_operator_review');
+            ->assertJsonPath('next_allowed_action', 'release_to_owner_execution_under_operator_review')
+            ->assertJsonPath('routes_to_owner.owner', 'area_focus_loop')
+            ->assertJsonPath('routes_to_owner.note', 'Operator-initiated execution is routed to Atlas Dev/Forge in a future slice; nothing executes here.');
     }
 
     public function test_operator_decision_high_risk_accept_without_rationale_is_blocked_over_http(): void

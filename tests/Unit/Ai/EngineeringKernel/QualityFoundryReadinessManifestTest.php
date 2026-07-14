@@ -9,15 +9,19 @@ use PHPUnit\Framework\TestCase;
 
 final class QualityFoundryReadinessManifestTest extends TestCase
 {
-    public function test_current_master_plan_is_honestly_blocked_by_open_packet_items(): void
+    public function test_current_master_plan_does_not_claim_completion_from_checklists_alone(): void
     {
         $manifest = (new QualityFoundryReadinessManifest)->build();
 
         self::assertSame(QualityFoundryReadinessManifest::SCHEMA, $manifest['schema']);
         self::assertSame('blocked', $manifest['status']);
         self::assertFalse($manifest['completion_allowed']);
+        self::assertSame('ready', $manifest['checklist_status']);
+        self::assertTrue($manifest['checklist_completion_allowed']);
+        self::assertSame('not_attested', $manifest['operational_evidence_status']);
+        self::assertContains('operational_evidence_not_attested', $manifest['blockers']);
         self::assertSame(8, $manifest['summary']['packet_count']);
-        self::assertGreaterThan(0, $manifest['summary']['open_items']);
+        self::assertSame(0, $manifest['summary']['open_items']);
         self::assertSame(
             $manifest['summary']['open_items'],
             count($manifest['open_items']),

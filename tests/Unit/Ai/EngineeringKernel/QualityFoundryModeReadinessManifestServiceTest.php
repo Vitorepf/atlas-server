@@ -14,7 +14,11 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         $manifest = (new QualityFoundryModeReadinessManifestService)->build($this->input());
 
         self::assertSame('ready', $manifest['status']);
-        self::assertTrue($manifest['completion_allowed']);
+        self::assertFalse($manifest['completion_allowed']);
+        self::assertSame('blocked', $manifest['operational_status']);
+        self::assertContains('hermetic_evidence_only', $manifest['completion_blockers']);
+        self::assertContains('temporal_outcomes_not_elapsed', $manifest['completion_blockers']);
+        self::assertContains('rivals_claim_not_eligible', $manifest['completion_blockers']);
         self::assertSame(['kernel', 'dev', 'forge', 'autonomos'], $manifest['required_modes']);
         self::assertSame([], $manifest['blockers']);
         self::assertSame(4, $manifest['summary']['ready_modes']);
@@ -66,6 +70,69 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertArrayNotHasKey('soak_elapsed', $manifest);
         self::assertArrayNotHasKey('world_leading', $manifest);
         self::assertArrayNotHasKey('world_10x_quality_proven', $manifest);
+    }
+
+    public function test_completion_requires_structured_independent_operational_temporal_and_rivals_evidence(): void
+    {
+        $input = $this->input();
+        $input['operational_evidence'] = [
+            'source' => 'production_runtime_receipt',
+            'status' => 'attested',
+            'production_exposure' => true,
+            'synthetic' => false,
+            'receipt_hash' => hash('sha256', 'production-receipt'),
+        ];
+        $input['temporal_projection'] = [
+            'schema' => 'atlas.quality_foundry.temporal_projection.v1',
+            'temporal_state' => 'complete',
+            'blockers' => [],
+            'projection_hash' => hash('sha256', 'temporal-projection'),
+            'windows' => array_fill_keys(
+                ['0h', '24h', '7d', '30d', '90d', '150d'],
+                ['state' => 'observed'],
+            ),
+        ];
+        $input['rivals_trial'] = [
+            'mode' => 'quality-foundry',
+            'required_exposure' => 1,
+            'required_outcome_days' => 30,
+            'required_critical_dimensions' => ['correctness'],
+            'campaigns' => array_map(
+                static fn (string $id): array => [
+                    'id' => $id,
+                    'distinct_units' => 1,
+                    'power' => 0.95,
+                    'outcome_days' => 30,
+                    'synthetic' => false,
+                    'execution_source' => 'native_runtime',
+                    'real_execution' => true,
+                    'preregistration_hash' => hash('sha256', 'preregistration:'.$id),
+                    'native_receipt_hash' => hash('sha256', 'native:'.$id),
+                    'evidence_pack_hash' => hash('sha256', 'evidence:'.$id),
+                    'outcome_receipt_hash' => hash('sha256', 'outcome:'.$id),
+                    'outcome_windows' => array_fill_keys(
+                        ['0h', '24h', '7d', '30d'],
+                        [
+                            'state' => 'observed',
+                            'source' => 'atlas_outcome_store',
+                            'synthetic' => false,
+                            'observation_hash' => hash('sha256', 'observation:'.$id),
+                        ],
+                    ),
+                    'contamination_free' => true,
+                    'itt_complete' => true,
+                    'critical_dimensions' => ['correctness' => true],
+                ],
+                ['campaign-a', 'campaign-b', 'campaign-c'],
+            ),
+        ];
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertTrue($manifest['completion_allowed']);
+        self::assertSame('ready', $manifest['operational_status']);
+        self::assertSame('attested', $manifest['operational_evidence']['status']);
+        self::assertSame([], $manifest['completion_blockers']);
     }
 
     public function test_missing_mode_canary_crash_wip_or_zero_human_evidence_blocks_readiness(): void
@@ -149,6 +216,28 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
         self::assertContains('autonomos:quality_loss_input_missing', $manifest['blockers']);
     }
 
+    public function test_mutative_surface_coverage_is_100_percent_while_msi_uses_the_canonical_60_percent_floor(): void
+    {
+        $input = $this->input();
+        foreach ($input['modes'] as &$mode) {
+            $mode['mutation_coverage_percent'] = 100;
+            $mode['mutation_score_percent'] = 60.0;
+            $mode['evidence']['mutation_coverage']['total_mutants'] = 10;
+            $mode['evidence']['mutation_coverage']['killed_mutants'] = 6;
+            $mode['evidence']['mutation_coverage']['surviving_mutants'] = 4;
+            $mode['evidence']['mutation_coverage']['mutation_score_percent'] = 60;
+        }
+        unset($mode);
+
+        $manifest = (new QualityFoundryModeReadinessManifestService)->build($input);
+
+        self::assertSame([], array_values(array_filter(
+            $manifest['blockers'],
+            static fn (string $blocker): bool => str_contains($blocker, 'mutation_coverage'),
+        )));
+        self::assertSame(60.0, $manifest['manifests']['kernel']['mutation_score_percent']);
+    }
+
     /** @return array<string,mixed> */
     private function input(): array
     {
@@ -162,6 +251,7 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
             ]],
             'kernel_routed' => true,
             'coverage_percent' => 100,
+            'mutation_coverage_percent' => 100,
             'rollback_exercised' => true,
             'outcome_writer_active' => true,
             'quality_loss_input' => [
@@ -182,6 +272,16 @@ final class QualityFoundryModeReadinessManifestServiceTest extends TestCase
                 'operator_effort' => [
                     'measurement_mode' => 'observed_operator_runs',
                     'run_count' => 1,
+                ],
+                'mutation_coverage' => [
+                    'schema' => 'atlas.quality_foundry.mutation_coverage_evidence.v1',
+                    'status' => 'observed',
+                    'registered_mutation_surfaces' => \App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry::ids(),
+                    'tested_mutation_surfaces' => \App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry::ids(),
+                    'total_mutants' => 6,
+                    'killed_mutants' => 6,
+                    'surviving_mutants' => 0,
+                    'mutation_score_percent' => 100,
                 ],
                 'packet_scales' => [1, 3, 10],
                 'duplicate_effect_proven' => true,

@@ -96,6 +96,29 @@ final class RoutingDecisionEngineTest extends TestCase
         $this->assertSame(RoutingDecision::READ_ONLY_ANSWER, $decision->kind);
     }
 
+    public function test_rivals_runtime_execution_bypasses_hypothesis_discovery_plan_only(): void
+    {
+        $decision = $this->decide(
+            classification: $this->classification(TaskClassification::KIND_PATCH, true),
+            risk: RiskLevelScorer::R2,
+            confidence: CodeDiscoveryManifest::CONFIDENCE_HYPOTHESIS,
+            rivalsRuntimeExecution: true,
+        );
+        $this->assertSame(RoutingDecision::ATLAS_DEV_FAST_PATH, $decision->kind);
+    }
+
+    public function test_rivals_runtime_execution_bypasses_r4_forge_preview(): void
+    {
+        $decision = $this->decide(
+            classification: $this->classification(TaskClassification::KIND_PATCH, true),
+            risk: RiskLevelScorer::R4,
+            confidence: CodeDiscoveryManifest::CONFIDENCE_CONFIRMED_FACT,
+            rivalsRuntimeExecution: true,
+        );
+        $this->assertSame(RoutingDecision::ATLAS_DEV_FAST_PATH, $decision->kind);
+        $this->assertContains('risk_level=R4_rivals_isolated_runtime_execution', $decision->reasons);
+    }
+
     public function test_conceptual_intent_without_workspace_delegates_to_research(): void
     {
         $decision = $this->decide(
@@ -189,8 +212,9 @@ final class RoutingDecisionEngineTest extends TestCase
         string $intentClarity = IntakeNormalizer::CLARITY_HIGH,
         string $intent = 'corrigir o teste falhando em tests/Unit/FooTest.php',
         bool $workspaceResolved = true,
+        bool $rivalsRuntimeExecution = false,
     ): RoutingDecision {
-        $envelope = $this->envelope($intentClarity, $intent, $workspaceResolved);
+        $envelope = $this->envelope($intentClarity, $intent, $workspaceResolved, $rivalsRuntimeExecution);
         $compact = (new SpecComposer)->composeCompactSdd($envelope, $classification, $risk);
         $discovery = $this->discovery($confidence);
 
@@ -211,6 +235,7 @@ final class RoutingDecisionEngineTest extends TestCase
         string $clarity,
         string $intent = 'corrigir o teste falhando em tests/Unit/FooTest.php',
         bool $workspaceResolved = true,
+        bool $rivalsRuntimeExecution = false,
     ): OperationEnvelope {
         return new OperationEnvelope(
             runId: 'dev-test',
@@ -221,14 +246,14 @@ final class RoutingDecisionEngineTest extends TestCase
             gitState: new GitState(headSha: null, dirty: false, untrackedCount: 0, pendingChangesCount: 0),
             rawIntent: $intent,
             normalizedIntent: $intent,
-            userConstraints: [],
+            userConstraints: $rivalsRuntimeExecution ? ['rivals_runtime_execution=true'] : [],
             intentClarityLevel: $clarity,
             dirtyWorktreePolicy: IntakeNormalizer::DIRTY_POLICY_PRESERVE,
             preflight: new Preflight(
                 workspaceResolved: $workspaceResolved,
                 permissionMode: IntakeNormalizer::PERMISSION_WRITE_ALLOWED,
                 writeAllowed: $workspaceResolved,
-                operatorExplicit: false,
+                operatorExplicit: $rivalsRuntimeExecution,
             ),
             envelopeHash: 'deadbeef',
         );

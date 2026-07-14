@@ -86,7 +86,7 @@ final class AreaFocusLoopCommandRunControlTest extends TestCase
         // The file the runner reads now exists, and the post-state is the TRUE on-disk state.
         $this->assertFileExists($pausePath);
         $this->assertTrue($body['pause']['active']);
-        $this->assertSame($pausePath, $body['pause']['path']);
+        $this->assertSame(['active'], array_keys($body['pause']));
         $this->assertFalse($body['kill_switch']['active']);
 
         // The runner itself observes the pause we wrote (non-fake composition).
@@ -132,7 +132,7 @@ final class AreaFocusLoopCommandRunControlTest extends TestCase
         $this->assertSame(200, $kill->getStatusCode());
         $this->assertSame('kill', $killBody['action']);
         $this->assertTrue($killBody['kill_switch']['active']);
-        $this->assertSame($killPath, $killBody['kill_switch']['path']);
+        $this->assertSame(['active'], array_keys($killBody['kill_switch']));
         $this->assertFileExists($killPath);
         // The runner's own kill-switch check honors the file we wrote.
         $this->assertTrue($this->runner->killSwitchStatus(self::AREA, self::FOCUS)['active']);

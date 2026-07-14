@@ -4,6 +4,7 @@ namespace Tests\Feature\Ai;
 
 use App\Models\AiJob;
 use App\Models\AiRouterDecision;
+use App\Models\AiStreamEvent;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\AiWorkerEvent;
@@ -93,11 +94,222 @@ class AiWorkerProviderChoiceTest extends TestCase
         $this->assertNotEmpty(data_get($job->metadata, 'choice_options'));
         $this->assertSame('switch_provider', data_get($job->metadata, 'choice_options.0.id'));
         $this->assertSame('claude_cli', data_get($job->metadata, 'choice_options.0.provider'));
+        $this->assertSame('attention_required', data_get($trace->refresh()->metadata, 'presentation_state.kind'));
+        $this->assertSame('Escolha como continuar', data_get($trace->refresh()->metadata, 'presentation_state.title'));
+
+        $streamEvent = AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->orderByDesc('sequence')
+            ->first();
+        $this->assertNotNull($streamEvent);
+        $this->assertSame('lifecycle', $streamEvent->event_type);
+        $this->assertSame('system', $streamEvent->channel);
+        $this->assertSame('', $streamEvent->content);
+        $this->assertSame('attention_required', data_get($streamEvent->metadata, 'presentation_state.kind'));
+        $this->assertArrayNotHasKey('error_message', $streamEvent->metadata);
 
         $event = AiWorkerEvent::where('event_type', 'provider_choice_required')
             ->where('ai_job_id', $job->id)
             ->first();
         $this->assertNotNull($event);
+    }
+
+    public function test_automatic_gemini_fallback_replaces_the_public_state_with_recovery(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'continue apesar da quota',
+            'status' => 'queued',
+        ]);
+
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'interaction',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'gemini_cli',
+            'model' => 'gemini-3.1-pro-preview',
+            'input_text' => 'continue apesar da quota',
+            'prompt' => 'prompt',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 3,
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: false,
+            output: '',
+            command: ['gemini'],
+            exitCode: 1,
+            durationMs: 100,
+            stdout: '',
+            stderr: 'quota exhausted',
+            errorCode: 'rate_limited',
+            errorMessage: 'quota exhausted',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $job->refresh();
+        $this->assertSame('queued', $job->status);
+        $this->assertSame('claude_cli', $job->provider);
+        $this->assertSame('recovering', data_get($trace->refresh()->metadata, 'presentation_state.kind'));
+
+        $streamEvent = AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->orderByDesc('sequence')
+            ->first();
+        $this->assertNotNull($streamEvent);
+        $this->assertSame('lifecycle', $streamEvent->event_type);
+        $this->assertSame('recovering', data_get($streamEvent->metadata, 'presentation_state.kind'));
+        $this->assertArrayNotHasKey('error_message', $streamEvent->metadata);
+    }
+
+    public function test_stale_processing_recovery_publishes_the_actual_requeue_and_terminal_states(): void
+    {
+        $recoveringTrace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'recupere a sessão interrompida',
+            'status' => 'processing',
+        ]);
+        $failedTrace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'encerre a sessão expirada',
+            'status' => 'processing',
+        ]);
+        $expiredAt = now()->subHours(3);
+
+        $recoveringJob = AiJob::create([
+            'trace_id' => $recoveringTrace->id,
+            'kind' => 'interaction',
+            'status' => 'processing',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'recupere a sessão interrompida',
+            'prompt' => 'prompt',
+            'available_at' => $expiredAt,
+            'started_at' => $expiredAt,
+            'reserved_at' => $expiredAt,
+            'timeout_seconds' => 60,
+            'attempts' => 1,
+            'max_attempts' => 2,
+        ]);
+        $failedJob = AiJob::create([
+            'trace_id' => $failedTrace->id,
+            'kind' => 'interaction',
+            'status' => 'processing',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-5.5',
+            'input_text' => 'encerre a sessão expirada',
+            'prompt' => 'prompt',
+            'available_at' => $expiredAt,
+            'started_at' => $expiredAt,
+            'reserved_at' => $expiredAt,
+            'timeout_seconds' => 60,
+            'attempts' => 1,
+            'max_attempts' => 1,
+        ]);
+
+        $method = (new ReflectionClass(AiWorker::class))->getMethod('recoverStaleProcessingJobs');
+        $method->invoke(app(AiWorker::class), 'worker-recovery-test');
+
+        $this->assertSame('queued', $recoveringJob->refresh()->status);
+        $this->assertSame('recovering', data_get($recoveringTrace->refresh()->metadata, 'presentation_state.kind'));
+        $this->assertSame('failed', $failedJob->refresh()->status);
+        $this->assertSame('failed', data_get($failedTrace->refresh()->metadata, 'presentation_state.kind'));
+
+        $recoveryEvent = AiStreamEvent::query()->where('trace_id', $recoveringTrace->id)->latest('sequence')->first();
+        $failureEvent = AiStreamEvent::query()->where('trace_id', $failedTrace->id)->latest('sequence')->first();
+        $this->assertSame('recovering', data_get($recoveryEvent?->metadata, 'presentation_state.kind'));
+        $this->assertSame('failed', data_get($failureEvent?->metadata, 'presentation_state.kind'));
+        $this->assertArrayNotHasKey('error_message', (array) $recoveryEvent?->metadata);
+        $this->assertArrayNotHasKey('error_message', (array) $failureEvent?->metadata);
+    }
+
+    public function test_stale_council_recovery_only_publishes_terminal_failure_after_the_rollup_ends(): void
+    {
+        $recoveringTrace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'retome o conselho interrompido',
+            'status' => 'processing',
+        ]);
+        $failedTrace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'encerre o conselho expirado',
+            'status' => 'processing',
+        ]);
+        $expiredAt = now()->subHours(3);
+
+        $recoveringJob = AiJob::create([
+            'trace_id' => $recoveringTrace->id,
+            'kind' => 'council',
+            'status' => 'processing',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-test',
+            'input_text' => 'retome o conselho interrompido',
+            'prompt' => 'prompt',
+            'available_at' => $expiredAt,
+            'started_at' => $expiredAt,
+            'reserved_at' => $expiredAt,
+            'timeout_seconds' => 60,
+            'attempts' => 1,
+            'max_attempts' => 2,
+        ]);
+        AiJob::create([
+            'trace_id' => $recoveringTrace->id,
+            'kind' => 'council',
+            'status' => 'succeeded',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-test',
+            'input_text' => 'retome o conselho interrompido',
+            'prompt' => 'prompt',
+            'result_text' => 'leitura preservada',
+            'available_at' => $expiredAt,
+            'started_at' => $expiredAt,
+            'finished_at' => $expiredAt,
+            'max_attempts' => 1,
+        ]);
+        $failedJob = AiJob::create([
+            'trace_id' => $failedTrace->id,
+            'kind' => 'council',
+            'status' => 'processing',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-test',
+            'input_text' => 'encerre o conselho expirado',
+            'prompt' => 'prompt',
+            'available_at' => $expiredAt,
+            'started_at' => $expiredAt,
+            'reserved_at' => $expiredAt,
+            'timeout_seconds' => 60,
+            'attempts' => 1,
+            'max_attempts' => 1,
+        ]);
+
+        $method = (new ReflectionClass(AiWorker::class))->getMethod('recoverStaleProcessingJobs');
+        $method->invoke(app(AiWorker::class), 'worker-council-recovery-test');
+
+        $this->assertSame('queued', $recoveringJob->refresh()->status);
+        $this->assertSame('processing', $recoveringTrace->refresh()->status);
+        $this->assertSame('recovering', data_get($recoveringTrace->metadata, 'presentation_state.kind'));
+        $recoveryEvent = AiStreamEvent::query()->where('trace_id', $recoveringTrace->id)->latest('sequence')->first();
+        $this->assertSame('recovering', data_get($recoveryEvent?->metadata, 'presentation_state.kind'));
+        $this->assertArrayNotHasKey('error_message', (array) $recoveryEvent?->metadata);
+
+        $this->assertSame('failed', $failedJob->refresh()->status);
+        $this->assertSame('failed', $failedTrace->refresh()->status);
+        $this->assertSame('failed', data_get($failedTrace->metadata, 'presentation_state.kind'));
+        $failureEvent = AiStreamEvent::query()->where('trace_id', $failedTrace->id)->latest('sequence')->first();
+        $this->assertSame('failed', data_get($failureEvent?->metadata, 'presentation_state.kind'));
+        $this->assertArrayNotHasKey('error_message', (array) $failureEvent?->metadata);
     }
 
     public function test_pause_does_not_consume_extra_attempts(): void
@@ -180,6 +392,18 @@ class AiWorkerProviderChoiceTest extends TestCase
         $job->refresh();
         $this->assertSame('failed', $job->status);
         $this->assertNotSame('awaiting_user_choice', $job->status);
+        $this->assertSame('failed', data_get($trace->refresh()->metadata, 'presentation_state.kind'));
+        $this->assertSame([], data_get($trace->refresh()->metadata, 'presentation_state.actions'));
+
+        $streamEvent = AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->orderByDesc('sequence')
+            ->first();
+        $this->assertNotNull($streamEvent);
+        $this->assertSame('lifecycle', $streamEvent->event_type);
+        $this->assertSame('execution_failed', data_get($streamEvent->metadata, 'name'));
+        $this->assertSame('failed', data_get($streamEvent->metadata, 'presentation_state.kind'));
+        $this->assertSame('', $streamEvent->content);
     }
 
     public function test_fair_mode_provider_drift_fails_with_explicit_violation(): void
@@ -308,6 +532,119 @@ class AiWorkerProviderChoiceTest extends TestCase
 
         $this->assertSame($fingerprint, data_get($job->refresh()->metadata, 'claude_invocation_fingerprint'));
         $this->assertSame($fingerprint, data_get($trace->refresh()->metadata, 'claude_invocation_fingerprint'));
+        $this->assertSame('completed', data_get($trace->refresh()->metadata, 'presentation_state.kind'));
+        $this->assertSame([], data_get($trace->refresh()->metadata, 'presentation_state.actions'));
+
+        $streamEvent = AiStreamEvent::query()
+            ->where('trace_id', $trace->id)
+            ->orderByDesc('sequence')
+            ->first();
+        $this->assertNotNull($streamEvent);
+        $this->assertSame('lifecycle', $streamEvent->event_type);
+        $this->assertSame('execution_completed', data_get($streamEvent->metadata, 'name'));
+        $this->assertSame('completed', data_get($streamEvent->metadata, 'presentation_state.kind'));
+        $this->assertSame('', $streamEvent->content);
+    }
+
+    public function test_council_completion_publishes_a_public_terminal_state(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'compare os dois resultados',
+            'status' => 'queued',
+        ]);
+        AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'council',
+            'status' => 'succeeded',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-test',
+            'input_text' => 'compare',
+            'prompt' => 'compare',
+            'result_text' => 'leitura Claude',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'started_at' => now()->subSecond(),
+            'finished_at' => now(),
+        ]);
+        $job = AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'council',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-test',
+            'input_text' => 'compare',
+            'prompt' => 'compare',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: true, output: 'leitura Codex', command: ['codex'], exitCode: 0,
+            durationMs: 100, stdout: 'ok', stderr: '',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $this->assertSame('succeeded', $trace->refresh()->status);
+        $this->assertSame('completed', data_get($trace->metadata, 'presentation_state.kind'));
+        $this->assertSame('execution_completed', data_get(AiStreamEvent::query()
+            ->where('trace_id', $trace->id)->latest('sequence')->firstOrFail()->metadata, 'name'));
+        $this->assertSame('succeeded', $job->refresh()->status);
+    }
+
+    public function test_council_terminal_failure_publishes_a_public_terminal_state(): void
+    {
+        $trace = AiTrace::create([
+            'trace_key' => 'tr_'.uniqid(),
+            'agent_slug' => 'orquestrador',
+            'operator_input' => 'compare os dois resultados',
+            'status' => 'queued',
+        ]);
+        AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'council',
+            'status' => 'failed',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'claude_cli',
+            'model' => 'claude-test',
+            'input_text' => 'compare',
+            'prompt' => 'compare',
+            'error_code' => 'provider_exception',
+            'error_message' => 'falha Claude',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+            'started_at' => now()->subSecond(),
+            'finished_at' => now(),
+        ]);
+        AiJob::create([
+            'trace_id' => $trace->id,
+            'kind' => 'council',
+            'status' => 'queued',
+            'agent_slug' => 'orquestrador',
+            'provider' => 'codex_cli',
+            'model' => 'gpt-test',
+            'input_text' => 'compare',
+            'prompt' => 'compare',
+            'available_at' => now()->subSecond(),
+            'max_attempts' => 1,
+        ]);
+
+        $this->mockProviderManagerWith(new AiProviderResult(
+            ok: false, output: '', command: ['codex'], exitCode: 1,
+            durationMs: 100, stdout: '', stderr: 'falha Codex',
+            errorCode: 'provider_exception', errorMessage: 'falha Codex',
+        ));
+
+        app(AiWorker::class)->runNext();
+
+        $this->assertSame('failed', $trace->refresh()->status);
+        $this->assertSame('failed', data_get($trace->metadata, 'presentation_state.kind'));
+        $this->assertSame('execution_failed', data_get(AiStreamEvent::query()
+            ->where('trace_id', $trace->id)->latest('sequence')->firstOrFail()->metadata, 'name'));
     }
 
     public function test_worker_records_kernel_ledger_events_for_successful_provider_execution(): void

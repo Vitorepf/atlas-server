@@ -7,6 +7,26 @@ use RuntimeException;
 /** UK AISI Inspect evals. */
 class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
 {
+    /**
+     * Escalas GRADUADAS conhecidas: task => limiar de sucesso.
+     *
+     * O Rivals pontua unidade a unidade em binário (acertou/errou); estes evals
+     * pontuam 1-10. Converter exige um LIMIAR — decisão de protocolo, não detalhe
+     * de implementação. Por isso mora aqui, explícito, com a rubrica que o
+     * justifica, e aparece no texto da sub-capacidade para o leitor do relatório.
+     *
+     * niah (rubrica do próprio juiz): 1=sem relação · 3=relevância mínima ·
+     * 5=impreciso · 7=alinha com a referência, omissões menores · 10=exato.
+     * Limiar 7 = "recuperou a informação da agulha". <7 = não recuperou.
+     *
+     * Escala não listada aqui FALHA ALTO na ingestão — nunca é adivinhada.
+     *
+     * @var array<string, array{threshold:int, max:int}>
+     */
+    private const GRADED_SCALES = [
+        'niah' => ['threshold' => 7, 'max' => 10],
+    ];
+
     public function suiteId(): string
     {
         return 'inspect_evals';
@@ -52,20 +72,25 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 '/BadRequestError|error code: \d{3}|unsupported_message_role|invalid_request_error|ConnectionError|Timeout|RateLimit|ServiceUnavailable|InternalServerError|API/i',
                 $sampleError,
             );
-            // Score de escala GRADUADA (ex.: niah devolve "10" numa escala 1-10)
-            // não é binário e este adapter não sabe converter. Cair no default
-            // marcaria 'invalid_result', que o blame_summary conta como FALHA DO
-            // MODELO — ou seja, um niah 10/10 (perfeito) viraria "o modelo falhou".
-            // Fail-closed: recusa alto na ingestão em vez de publicar número
-            // invertido. Wirar eval graduado exige decidir o limiar aqui.
+            // Escala GRADUADA (ex.: niah devolve "10" numa escala 1-10). O binário
+            // abaixo não sabe ler isso: cairia em 'invalid_result', que o
+            // blame_summary conta como FALHA DO MODELO — um niah 10/10 (perfeito)
+            // viraria "o modelo falhou". Escala conhecida usa o limiar declarado
+            // em GRADED_SCALES; escala DESCONHECIDA falha alto (nunca adivinha).
+            $graded = $this->gradedScaleFor($native, $sampleId);
+            $gradedStatus = null;
+            if (! $isExecutionError && $graded !== null && is_numeric($scoreValue)) {
+                $gradedStatus = (float) $scoreValue >= (float) $graded['threshold'] ? 'success' : 'failure';
+            }
             $binary = [null, 'C', 'I', 1, 0, 1.0, 0.0, true, false];
-            if (! $isExecutionError && ! in_array($scoreValue, $binary, true)) {
+            if (! $isExecutionError && $gradedStatus === null && ! in_array($scoreValue, $binary, true)) {
                 throw new RuntimeException(
                     'inspect_evals_unhandled_score_scale:'.$sampleId.':'.var_export($scoreValue, true)
                 );
             }
             $status = match (true) {
                 $isExecutionError => 'environment_failure',
+                $gradedStatus !== null => $gradedStatus,
                 $scoreValue === 'C', $scoreValue === 1, $scoreValue === 1.0, $scoreValue === true => 'success',
                 $scoreValue === 'I', $scoreValue === 0, $scoreValue === 0.0, $scoreValue === false => 'failure',
                 default => 'error',
@@ -132,6 +157,26 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         return $receipts;
     }
 
+    /**
+     * Escala graduada declarada para a task deste sample, se houver.
+     *
+     * @param  array<string, mixed>  $native
+     * @return array{threshold:int, max:int}|null
+     */
+    private function gradedScaleFor(array $native, string $sampleId): ?array
+    {
+        $task = strtolower((string) ($native['eval']['task']
+            ?? $native['eval']['task_display_name']
+            ?? $sampleId));
+        foreach (self::GRADED_SCALES as $needle => $scale) {
+            if (str_contains($task, $needle) || str_contains(strtolower($sampleId), $needle)) {
+                return $scale;
+            }
+        }
+
+        return null;
+    }
+
     /** @param array<string, mixed> $native */
     private function inferTaskType(string $sampleId, array $native): string
     {
@@ -156,6 +201,9 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         }
         if (str_contains($task, 'mgsm')) {
             return 'multilingual_reasoning';
+        }
+        if (str_contains($task, 'niah') || str_contains($sampleId, 'niah')) {
+            return 'long_context_retrieval';
         }
 
         return 'coding_patch';

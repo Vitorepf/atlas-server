@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai;
 
 use App\Services\Ai\AtlasAobgBlackboardService;
+use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionGateToken;
 use App\Services\Ai\SelfConstruction\AtlasTaskScopedCommitter;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +95,143 @@ final class AtlasTaskScopedCommitterTest extends TestCase
 
         $this->assertTrue($res['committed'], 'file with non-ASCII path must commit; reason: '.(string) ($res['reason'] ?? 'none'));
         $this->assertContains($filename, $res['files_committed']);
+    }
+
+    public function test_normalizes_scoped_paths_and_rejects_traversal_before_git_effect(): void
+    {
+        $this->writeFile('app/A/Normalized.php', "<?php // normalized\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            [' /app\\A\\Normalized.php ', '../escape.php', '', 'app/A/Normalized.php'],
+            'task-normalize', 'client-normalize', 'normalize scope',
+        );
+
+        $this->assertTrue($res['committed'], json_encode($res));
+        $this->assertSame(['app/A/Normalized.php'], $res['files_committed']);
+        $this->assertStringNotContainsString('escape.php', $this->git(['show', '--name-only', '--pretty=format:', 'HEAD'])['out']);
+    }
+
+    public function test_default_commit_path_acquires_the_canonical_main_merge_lock(): void
+    {
+        $this->writeFile('app/A/Locked.php', "<?php // locked\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            ['app/A/Locked.php'], 'task-lock-default', 'client-lock', 'lock default',
+        );
+
+        $this->assertTrue($res['committed'], json_encode($res));
+        $this->assertFileExists($this->repo.'/.git/'.\App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator::LOCK_BASENAME);
+    }
+
+    public function test_pre_effect_revalidation_failure_has_zero_git_effect(): void
+    {
+        $this->writeFile('app/A/Revalidated.php', "<?php // revalidation\n");
+        $head = trim($this->git(['rev-parse', 'HEAD'])['out']);
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            ['app/A/Revalidated.php'], 'task-revalidate', 'client-revalidate', 'revalidate',
+            preEffectGuard: static fn (): bool => false,
+        );
+
+        $this->assertFalse($res['committed']);
+        $this->assertSame('governed_pre_effect_revalidation_failed', $res['reason']);
+        $this->assertSame($head, trim($this->git(['rev-parse', 'HEAD'])['out']));
+    }
+
+    public function test_commit_message_sanitizes_newlines_and_truncates_long_objectives(): void
+    {
+        $this->writeFile('app/A/Message.php', "<?php // message\n");
+        $objective = "  ".str_repeat('á', 80)."\nnext\rline  ";
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            ['app/A/Message.php'], 'task-message', 'client-message', $objective,
+        );
+
+        $this->assertTrue($res['committed'], json_encode($res));
+        $subject = strtok($this->git(['log', '-1', '--pretty=%s'])['out'], "\n");
+        $this->assertStringNotContainsString("\n", (string) $subject);
+        $this->assertStringNotContainsString("\r", (string) $subject);
+        $this->assertLessThanOrEqual(72, mb_strlen((string) $subject) - mb_strlen('atlas-task task-message: '));
+        $this->assertStringEndsWith('...', (string) $subject);
+    }
+
+    public function test_successful_landing_records_live_outcome_feedback_when_writer_is_bound(): void
+    {
+        $log = sys_get_temp_dir().'/atlas-scoped-feedback-'.bin2hex(random_bytes(5)).'.jsonl';
+        $feedback = new AtlasDecideLiveOutcomeFeedbackService;
+        $feedback->setLogPathForTesting($log);
+        $this->app->instance(AtlasDecideLiveOutcomeFeedbackService::class, $feedback);
+        $this->writeFile('app/A/Feedback.php', "<?php // feedback\n");
+
+        try {
+            $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+                ['app/A/Feedback.php'], 'task-feedback', 'autonomos_worker', 'feedback landing',
+                verification: [
+                    'proof_strength' => 'boot_proven',
+                    'execution_evidence' => [
+                        'commands' => ['php artisan test tests/ExampleTest.php'],
+                        'claimed_status' => 'passed',
+                        'tests_run' => 1,
+                        'assertions_executed' => 1,
+                        'selected_tests' => ['tests/ExampleTest.php'],
+                        'counts_parseable' => true,
+                    ],
+                ],
+            );
+
+            $this->assertTrue($res['committed'], json_encode($res));
+            $this->assertSame('autonomos_landing', data_get($res, 'live_outcome_feedback.role'));
+            $this->assertSame('autonomos_worker', data_get($res, 'live_outcome_feedback.provider'));
+            $this->assertTrue((bool) data_get($res, 'live_outcome_feedback.proven_real'));
+            $this->assertSame('server_verified', data_get($res, 'live_outcome_feedback.verified_basis'));
+            $this->assertSame('task-feedback', data_get($res, 'live_outcome_feedback.certified_receipt_id'));
+            $this->assertSame(1.0, data_get($res, 'live_outcome_feedback.quality_score'));
+            $this->assertFileExists($log);
+        } finally {
+            @unlink($log);
+        }
+    }
+
+    public function test_empty_objective_uses_the_canonical_default_commit_summary(): void
+    {
+        $this->writeFile('app/A/DefaultSummary.php', "<?php // default summary\n");
+
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            ['app/A/DefaultSummary.php'], 'task-default-summary', 'client-default',
+        );
+
+        $this->assertTrue($res['committed'], json_encode($res));
+        $this->assertSame(
+            'atlas-task task-default-summary: resolve task',
+            trim($this->git(['log', '-1', '--pretty=%s'])['out']),
+        );
+    }
+
+    public function test_objective_at_the_summary_boundary_is_not_truncated_but_next_character_is(): void
+    {
+        $exactPath = 'app/A/ExactSummary.php';
+        $this->writeFile($exactPath, "<?php // exact summary\n");
+        $exact = str_repeat('x', 72);
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            [$exactPath], 'task-exact-summary', 'client-exact', $exact,
+        );
+        $this->assertTrue($res['committed'], json_encode($res));
+        $this->assertSame(
+            'atlas-task task-exact-summary: '.$exact,
+            trim($this->git(['log', '-1', '--pretty=%s'])['out']),
+        );
+
+        $nextPath = 'app/A/NextSummary.php';
+        $this->writeFile($nextPath, "<?php // next summary\n");
+        $next = str_repeat('y', 73);
+        $res = (new AtlasTaskScopedCommitter(null, $this->repo))->commitScope(
+            [$nextPath], 'task-next-summary', 'client-next', $next,
+        );
+        $this->assertTrue($res['committed'], json_encode($res));
+        $this->assertSame(
+            'atlas-task task-next-summary: '.str_repeat('y', 69).'...',
+            trim($this->git(['log', '-1', '--pretty=%s'])['out']),
+        );
     }
 
     public function test_nothing_to_commit_in_scope_is_an_honest_noop(): void

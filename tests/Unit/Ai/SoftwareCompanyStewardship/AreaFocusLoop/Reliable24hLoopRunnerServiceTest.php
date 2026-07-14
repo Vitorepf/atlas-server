@@ -83,6 +83,78 @@ final class Reliable24hLoopRunnerServiceTest extends TestCase
         ];
     }
 
+    public function test_live_source_yields_at_a_safe_boundary_and_persists_a_checkpoint_for_a_successor(): void
+    {
+        $service = $this->service();
+        $service->setSessionRunnerForTesting(function (array $input) use ($service): array {
+            $lock = $service->lockStatus('agentic_engineering_os', 'dev_forge');
+            $holder = is_array($lock['holder'] ?? null) ? $lock['holder'] : [];
+            $service->handoff()->request(
+                'agentic_engineering_os',
+                'dev_forge',
+                $holder,
+                'operator-test',
+                'transferir no proximo limite seguro',
+            );
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$this->progressCycle(1)],
+            ];
+        });
+
+        $report = $service->run($this->input([
+            'execute' => false,
+            'dry_run' => true,
+            'max_cycles' => 4,
+        ]));
+
+        $this->assertSame(Reliable24hLoopRunnerService::STATUS_TRANSFER_REQUESTED, $report['status']);
+        $this->assertSame('transfer_requested_by_operator', $report['stop_reason']);
+        $this->assertSame(1, $report['cycles_this_run']);
+        $this->assertArrayHasKey('handoff_id', $report);
+        $this->assertSame('source_released', $report['handoff']['status']);
+        $this->assertSame(1, $report['handoff']['checkpoint']['cycles_total']);
+        $this->assertFalse($service->lockStatus('agentic_engineering_os', 'dev_forge')['held']);
+    }
+
+    public function test_lock_holder_publishes_verified_runtime_placement_without_an_absolute_workspace_path(): void
+    {
+        $service = $this->service();
+        $repoRoot = $this->tmp.'/workspace/atlas-server';
+        $this->initGitRepoWithProbe($repoRoot);
+        $branch = $this->gitOutput($repoRoot, ['git', 'checkout', '-b', 'atlas/test-runtime-placement']);
+        $this->assertSame('', $branch); // checkout writes no stdout on success
+
+        $capturedHolder = null;
+        $service->setSessionRunnerForTesting(function () use ($service, &$capturedHolder): array {
+            $lock = $service->lockStatus('agentic_engineering_os', 'dev_forge');
+            $capturedHolder = $lock['holder'] ?? null;
+
+            return [
+                'schema_version' => AutonomousEvolutionSessionService::REPORT_SCHEMA,
+                'status' => 'completed',
+                'cycles' => [$this->progressCycle(1)],
+            ];
+        });
+
+        $service->run($this->input([
+            'execute' => false,
+            'dry_run' => true,
+            'max_cycles' => 1,
+            'repo_root' => $repoRoot,
+        ]));
+
+        $this->assertIsArray($capturedHolder);
+        $this->assertSame('testing', $capturedHolder['runtime']['environment']);
+        $this->assertSame('workspace', $capturedHolder['runtime']['workspace']);
+        $this->assertSame('atlas-server', $capturedHolder['runtime']['repository']);
+        $this->assertSame('atlas/test-runtime-placement', $capturedHolder['runtime']['branch']);
+        $this->assertArrayNotHasKey('repo_root', $capturedHolder['runtime']);
+        $this->assertStringNotContainsString($repoRoot, json_encode($capturedHolder['runtime']));
+    }
+
     /**
      * @return array<string,mixed>
      */

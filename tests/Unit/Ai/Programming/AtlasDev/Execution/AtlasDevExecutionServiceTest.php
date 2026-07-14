@@ -108,6 +108,7 @@ final class AtlasDevExecutionServiceTest extends TestCase
 
         self::assertSame('blocked', $result->status);
         self::assertSame('dev_plan_blocked', $result->reason);
+        self::assertSame(['blockers' => ['fixture_blocker']], $result->details);
         self::assertSame(0, $calls);
     }
 
@@ -166,6 +167,10 @@ final class AtlasDevExecutionServiceTest extends TestCase
         self::assertSame($first->runHash, $second->runHash);
         self::assertSame($first->planHash, $second->planHash);
         self::assertSame($first->details, $second->details);
+        self::assertSame(RoutingDecision::FORGE_PROMOTION_PREVIEW, data_get($first->details, 'handoff.kind'));
+        self::assertSame(['fixture'], data_get($first->details, 'handoff.reasons'));
+        self::assertSame([], data_get($first->details, 'handoff.blockers'));
+        self::assertNull(data_get($first->details, 'handoff.suggested_flow'));
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($first->details, 'handoff.handoff_hash'));
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', (string) data_get($first->details, 'handoff.idempotency_key'));
         self::assertSame(

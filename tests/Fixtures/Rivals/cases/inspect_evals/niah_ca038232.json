@@ -1,0 +1,9 @@
+{
+    "case_id": "niah_ca038232",
+    "task_ref": "inspect_evals/niah",
+    "sample_id": "niah_ca038232",
+    "task_type": "long_context_retrieval",
+    "title": "NIAH contexto longo 2",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

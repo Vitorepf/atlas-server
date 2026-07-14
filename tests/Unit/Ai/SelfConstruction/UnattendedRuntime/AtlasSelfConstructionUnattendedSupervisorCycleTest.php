@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\UnattendedRuntime;
 
 use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedRecoveryActionPlanner;
+use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedLivenessSnapshotPort;
+use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedRecoveryActionPlannerPort;
 use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedStallClassifier;
+use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedStallClassifierPort;
 use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedSupervisorCycle;
 use Tests\TestCase;
 
@@ -169,6 +172,8 @@ class AtlasSelfConstructionUnattendedSupervisorCycleTest extends TestCase
     {
         $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick($this->baseFacts());
 
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::SCHEMA, $verdict['schema']);
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::SCHEMA, $verdict['schema_version']);
         self::assertArrayHasKey('recovery_receipt_strength', $verdict);
         $rrs = $verdict['recovery_receipt_strength'];
         foreach (['planned_atlas_native_actions', 'missing_callbacks', 'unsafe_stop_blockers', 'applied_receipts_count', 'safe_to_continue'] as $key) {
@@ -299,5 +304,109 @@ class AtlasSelfConstructionUnattendedSupervisorCycleTest extends TestCase
         self::assertGreaterThanOrEqual(1, $rrs['applied_receipts_count']);
         self::assertSame([], $rrs['missing_callbacks']);
         self::assertTrue($rrs['safe_to_continue']);
+    }
+
+    public function test_string_zero_apply_option_is_treated_as_disabled(): void
+    {
+        $called = false;
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle)->tick(
+            $this->baseFacts(['queue' => ['depth' => 0, 'claimable_count' => 0]]),
+            [AtlasSelfConstructionUnattendedRecoveryActionPlanner::ACTION_RUN_REPLENISHER_DRY_RUN => static function () use (&$called): array {
+                $called = true;
+
+                return ['ok' => true];
+            }],
+            ['apply' => '0'],
+        );
+
+        self::assertTrue($verdict['dry_run']);
+        self::assertFalse($called);
+        self::assertSame([], $verdict['applied_actions']);
+    }
+
+    public function test_injected_snapshot_classifier_and_planner_are_used_instead_of_defaults(): void
+    {
+        $facts = $this->baseFacts();
+        $snapshot = $this->createMock(AtlasSelfConstructionUnattendedLivenessSnapshotPort::class);
+        $classifier = $this->createMock(AtlasSelfConstructionUnattendedStallClassifierPort::class);
+        $planner = $this->createMock(AtlasSelfConstructionUnattendedRecoveryActionPlannerPort::class);
+
+        $snapshot->expects(self::once())->method('compose')->with($facts)->willReturn(['snapshot_hash' => 'snapshot-test']);
+        $classifier->expects(self::once())->method('classify')->with(['snapshot_hash' => 'snapshot-test'])->willReturn([
+            'classification' => AtlasSelfConstructionUnattendedStallClassifier::HEALTHY,
+            'classifier_hash' => 'classifier-test',
+        ]);
+        $classifier->expects(self::once())->method('classifyStallAction')->with(['facts' => $facts])->willReturn([
+            'stall_class' => AtlasSelfConstructionUnattendedStallClassifier::STALL_NONE,
+            'safe_to_auto_recover' => true,
+            'evidence_needed' => [],
+        ]);
+        $planner->expects(self::once())->method('plan')->willReturn([
+            'actions' => [],
+            'blocked_actions' => [],
+            'plan_hash' => 'plan-test',
+        ]);
+
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle($snapshot, $classifier, $planner))->tick($facts);
+
+        self::assertSame(AtlasSelfConstructionUnattendedSupervisorCycle::SCHEMA, $verdict['schema']);
+        self::assertSame('snapshot-test', $verdict['snapshot_hash']);
+        self::assertSame('classifier-test', $verdict['classifier_hash']);
+        self::assertSame('plan-test', $verdict['recovery_plan_hash']);
+    }
+
+    public function test_non_atlas_native_planned_action_is_refused_and_reported(): void
+    {
+        $snapshot = $this->createStub(AtlasSelfConstructionUnattendedLivenessSnapshotPort::class);
+        $classifier = $this->createStub(AtlasSelfConstructionUnattendedStallClassifierPort::class);
+        $planner = $this->createStub(AtlasSelfConstructionUnattendedRecoveryActionPlannerPort::class);
+        $snapshot->method('compose')->willReturn(['snapshot_hash' => 's']);
+        $classifier->method('classify')->willReturn(['classification' => AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, 'classifier_hash' => 'c']);
+        $classifier->method('classifyStallAction')->willReturn(['stall_class' => AtlasSelfConstructionUnattendedStallClassifier::STALL_NONE, 'safe_to_auto_recover' => true, 'evidence_needed' => []]);
+        $planner->method('plan')->willReturn([
+            'actions' => [['action' => 'external_action']],
+            'blocked_actions' => [],
+            'plan_hash' => 'p',
+        ]);
+
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle($snapshot, $classifier, $planner))->tick(
+            $this->baseFacts(),
+            ['external_action' => static fn (): array => ['should_not_run' => true]],
+            ['apply' => true],
+        );
+
+        self::assertSame('non_atlas_native_action_refused', $verdict['blocked_actions'][0]['reason']);
+        self::assertSame([], $verdict['applied_actions']);
+    }
+
+    public function test_callback_failure_is_recorded_and_non_array_result_is_normalized(): void
+    {
+        $snapshot = $this->createStub(AtlasSelfConstructionUnattendedLivenessSnapshotPort::class);
+        $classifier = $this->createStub(AtlasSelfConstructionUnattendedStallClassifierPort::class);
+        $planner = $this->createStub(AtlasSelfConstructionUnattendedRecoveryActionPlannerPort::class);
+        $snapshot->method('compose')->willReturn(['snapshot_hash' => 's']);
+        $classifier->method('classify')->willReturn(['classification' => AtlasSelfConstructionUnattendedStallClassifier::HEALTHY, 'classifier_hash' => 'c']);
+        $classifier->method('classifyStallAction')->willReturn(['stall_class' => AtlasSelfConstructionUnattendedStallClassifier::STALL_NONE, 'safe_to_auto_recover' => true, 'evidence_needed' => []]);
+        $planner->method('plan')->willReturn([
+            'actions' => [['action' => 'a', 'atlas_native' => true], ['action' => 'b', 'atlas_native' => true]],
+            'blocked_actions' => [],
+            'plan_hash' => 'p',
+        ]);
+
+        $verdict = (new AtlasSelfConstructionUnattendedSupervisorCycle($snapshot, $classifier, $planner))->tick(
+            $this->baseFacts(),
+            [
+                'a' => static fn (): string => 'scalar-result',
+                'b' => static function (): array {
+                    throw new \RuntimeException('callback-failed');
+                },
+            ],
+            ['apply' => true],
+        );
+
+        self::assertTrue($verdict['applied_actions'][0]['applied']);
+        self::assertNull($verdict['receipts'][0]['result']);
+        self::assertFalse($verdict['applied_actions'][1]['applied']);
+        self::assertSame('callback-failed', $verdict['applied_actions'][1]['error']);
     }
 }

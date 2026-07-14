@@ -82,9 +82,11 @@ final class MutationCorrectnessFixesTest extends TestCase
     }
 
     /**
-     * Defect 1 (BLOCKING): the buildCommand invocation must emit exactly ONE
+     * Defect 1 (BLOCKING): each PHP process boundary must receive exactly ONE
      * `-d pcov.directory=` token even when the scope spans multiple
-     * directories. Multiple entries silently drop all but the last.
+     * directories. The command has one token for the Infection parent and one
+     * for its separate PHPUnit child; neither process may receive per-directory
+     * values or fall back to the host's '.' setting.
      */
     public function test_defect_1_build_command_emits_exactly_one_pcov_directory_token_for_multi_dir_scope(): void
     {
@@ -109,18 +111,18 @@ final class MutationCorrectnessFixesTest extends TestCase
 
         $command = $runner->calls[0]['command'];
 
-        // Count the pcov.directory occurrences on the command line. MUST be 1.
+        // Count the process-boundary pcov.directory occurrences. MUST be 2:
+        // one for Infection and one for its separate PHPUnit child.
         $pcovCount = preg_match_all('/pcov\.directory=/', $command);
         $this->assertSame(
-            1,
+            2,
             $pcovCount,
-            'Defect 1: exactly ONE pcov.directory token on the command '
-            ."(found {$pcovCount}; pcov.directory is single-valued so only "
-            .'the last would be honored)',
+            'Defect 1: exactly one pcov.directory token per PHP process '
+            ."(found {$pcovCount}; no process may fall back to the host setting)",
         );
 
-        // The single pcov.directory is the LCA (app) so pcov instruments
-        // BOTH ModuleA and ModuleB, not just the last.
+        // Both pcov.directory values are the LCA (app) so pcov instruments
+        // BOTH ModuleA and ModuleB at both process boundaries.
         $this->assertMatchesRegularExpression(
             '/pcov\.directory=[^ ]*app\b/',
             $command,

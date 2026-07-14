@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AiThread;
+use App\Models\AiSession;
 use App\Models\AiTrace;
 use App\Services\Ai\Cli\AtlasCliSessionService;
 use App\Services\Ai\Programming\AtlasProgrammingSurfaceCommandBuilder;
@@ -67,6 +68,36 @@ class AtlasCliContinueCommandTest extends TestCase
         $this->assertTrue($payload['ok']);
         $this->assertFalse($payload['resumed']);
         $this->assertSame($this->workspace, $payload['workspace']);
+    }
+
+    public function test_cli_state_opens_an_explicit_mobile_thread_without_creating_a_cli_clone(): void
+    {
+        $thread = AiThread::query()->create([
+            'id' => (string) Str::orderedUuid(),
+            'title' => 'Continuidade do iPhone',
+            'surface' => 'app',
+            'workspace' => $this->workspace,
+            'status' => 'active',
+            'last_message_at' => now(),
+        ]);
+        $session = AiSession::query()->create([
+            'thread_id' => $thread->id,
+            'status' => 'active',
+            'provider_primary' => 'claude_cli',
+        ]);
+
+        $exit = Artisan::call('atlas:cli:state', [
+            '--workspace' => $this->workspace,
+            '--thread' => $thread->id,
+            '--json' => true,
+        ]);
+        $payload = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame(0, $exit);
+        $this->assertTrue($payload['ok']);
+        $this->assertSame($thread->id, data_get($payload, 'thread.id'));
+        $this->assertSame($session->id, data_get($payload, 'session.id'));
+        $this->assertSame(1, AiThread::query()->count());
     }
 
     public function test_continue_dry_run_uses_configured_php_binary_for_resume_command(): void

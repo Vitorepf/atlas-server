@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\AgentGovernance;
 
 use App\Services\Ai\AgentGovernance\AtlasAgentDesiredStateStore;
+use App\Services\Ai\AgentGovernance\AtlasAgentEventLedger;
 use App\Services\Ai\AgentGovernance\AtlasFleetCatalog;
 use App\Services\Ai\AgentGovernance\AtlasFleetMasterSwitch;
 use App\Services\Ai\AgentGovernance\FleetDriver;
@@ -74,6 +75,32 @@ final class AtlasAgentGovernanceApiTest extends TestCase
         $this->assertCount(count(AtlasFleetCatalog::keys()), $res['agents']);
     }
 
+    public function test_task_health_is_a_provider_safe_read_only_projection_for_mobile(): void
+    {
+        $response = $this->getJson('/api/agents/task-health', $this->headers)->assertOk();
+
+        $response->assertJsonPath('schema_version', 'atlas.autonomos.task_health.v1')
+            ->assertJsonPath('provider_safe', true)
+            ->assertJsonStructure([
+                'observed_at',
+                'healthy',
+                'tasks' => [
+                    'claimable', 'servable_now', 'claimed', 'blocked',
+                    'completed', 'recoverable',
+                ],
+                'leases' => ['active', 'matches_claimed'],
+                'incidents' => ['present', 'flags'],
+                'operating' => ['recommended_action', 'queue_pressure'],
+            ]);
+
+        $body = (array) $response->json();
+        $this->assertArrayNotHasKey('interventions', $body);
+        $this->assertArrayNotHasKey('servability', $body);
+        $this->assertArrayNotHasKey('queue_status_distribution', $body);
+        $this->assertStringNotContainsString('task_packet_id', (string) $response->getContent());
+        $this->assertStringNotContainsString('allowed_files', (string) $response->getContent());
+    }
+
     public function test_history_returns_events(): void
     {
         (new AtlasAgentDesiredStateStore())->setOn(AtlasFleetCatalog::LOOP, reason: 'api test');
@@ -81,6 +108,31 @@ final class AtlasAgentGovernanceApiTest extends TestCase
         $res = $this->getJson('/api/agents/history', $this->headers)->assertOk()->json();
         $this->assertNotEmpty($res['events']);
         $this->assertSame(AtlasFleetCatalog::LOOP, $res['events'][0]['agent_key']);
+    }
+
+    public function test_history_omits_internal_event_detail_from_the_mobile_projection(): void
+    {
+        (new AtlasAgentEventLedger())->append(
+            agentKey: AtlasFleetCatalog::LOOP,
+            event: AtlasAgentEventLedger::EVENT_STARTED,
+            reason: 'operator_confirmed',
+            detail: [
+                'prompt' => 'internal provider instruction',
+                'api_key' => 'not-for-mobile',
+                'workspace_path' => '/private/workspace',
+            ],
+        );
+
+        $response = $this->getJson('/api/agents/history', $this->headers)->assertOk();
+        $event = $response->json('events.0');
+
+        $this->assertSame(AtlasFleetCatalog::LOOP, $event['agent_key']);
+        $this->assertSame(AtlasAgentEventLedger::EVENT_STARTED, $event['event']);
+        $this->assertSame('operator_confirmed', $event['reason']);
+        $this->assertArrayNotHasKey('detail', $event);
+        $this->assertStringNotContainsString('internal provider instruction', (string) $response->getContent());
+        $this->assertStringNotContainsString('not-for-mobile', (string) $response->getContent());
+        $this->assertStringNotContainsString('/private/workspace', (string) $response->getContent());
     }
 
     public function test_off_turns_an_agent_desired_off(): void

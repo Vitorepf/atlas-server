@@ -406,7 +406,7 @@ class EnterpriseReportBuilderTest extends TestCase
 
         $uncovered = array_column(array_filter($cov['map'], fn (array $d): bool => ! $d['covered']), 'domain');
         $this->assertNotEmpty($uncovered, 'domínios fora do alcance precisam ser declarados');
-        foreach (['Multimodal', 'Contexto longo', 'Segurança'] as $needle) {
+        foreach (['Multimodal', 'Factualidade', 'Segurança'] as $needle) {
             $this->assertNotEmpty(
                 array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
                 "domínio não coberto ausente do mapa: {$needle}"

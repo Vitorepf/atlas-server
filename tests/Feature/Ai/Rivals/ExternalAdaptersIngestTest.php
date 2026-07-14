@@ -133,6 +133,38 @@ class ExternalAdaptersIngestTest extends TestCase
         $this->assertNotNull($receipts[0]['environment_error'] ?? null);
     }
 
+    public function test_niah_graded_scale_uses_declared_threshold(): void
+    {
+        // Escala 1-10 do niah (rubrica do juiz): 7 = "alinha com a referência,
+        // omissões menores" = achou a agulha; 5 = "impreciso" = não achou.
+        // O limiar é decisão de PROTOCOLO do Atlas (o benchmark reporta a média,
+        // não binário) — travado aqui para não mudar sem alguém decidir.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $map = fn (string $value): string => $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task' => 'inspect_evals/niah'],
+            'samples' => [[
+                'id' => 'niah_x', 'epoch' => 1,
+                'scores' => ['custom_model_graded_qa_with_history_scorer' => ['value' => $value]],
+            ]],
+        ])[0]['status'];
+
+        $this->assertSame('success', $map('10'), '10 = exato → achou a agulha');
+        $this->assertSame('success', $map('7'), '7 = alinha com a referência → achou');
+        $this->assertSame('failure', $map('5'), '5 = impreciso → não achou');
+        $this->assertSame('failure', $map('1'), '1 = sem relação → não achou');
+
+        // E o essencial: acerto perfeito NUNCA pode virar falha do modelo.
+        $receipt = $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task' => 'inspect_evals/niah'],
+            'samples' => [['id' => 'niah_x', 'epoch' => 1,
+                'scores' => ['custom_model_graded_qa_with_history_scorer' => ['value' => '10']]]],
+        ])[0];
+        $this->assertNull($receipt['failure_class']);
+        $this->assertSame('long_context_retrieval', $receipt['task_type']);
+    }
+
     public function test_graded_score_scale_fails_closed_instead_of_blaming_the_model(): void
     {
         // niah devolve "10" numa escala 1-10 (10 = acerto perfeito). O mapeamento
@@ -143,14 +175,16 @@ class ExternalAdaptersIngestTest extends TestCase
         $method = new \ReflectionMethod($adapter, 'mapResults');
         $method->setAccessible(true);
 
+        // Task cuja escala NÃO está declarada em GRADED_SCALES: sem limiar, a
+        // única saída honesta é recusar — não adivinhar o que "7" significa.
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessageMatches('/inspect_evals_unhandled_score_scale/');
         $method->invoke($adapter, [
-            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task_display_name' => 'niah'],
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task' => 'inspect_evals/algum_eval_graduado'],
             'samples' => [[
-                'id' => 'niah_1',
+                'id' => 'x_1',
                 'epoch' => 1,
-                'scores' => ['custom_model_graded_qa_with_history_scorer' => ['value' => '10']],
+                'scores' => ['some_graded_scorer' => ['value' => '7']],
             ]],
         ]);
     }

@@ -103,6 +103,10 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         $this->assertSame(0, $aaeos['autonomy_tier']);
         $this->assertTrue($aaeos['registered']);
         $this->assertFalse($aaeos['run_state']['lock']['held']);
+        $this->assertSame(['repos'], array_keys($aaeos['repo_scope']));
+        $this->assertSame(['atlas-server', 'atlas-desktop'], $aaeos['repo_scope']['repos']);
+        $this->assertStringNotContainsString('allowed_paths', json_encode($aaeos['repo_scope']) ?: '');
+        $this->assertStringNotContainsString('forbidden_paths', json_encode($aaeos['repo_scope']) ?: '');
 
         $factory = $byId['atlas_loop_factory'];
         $this->assertSame('Fábrica do Loop', $factory['area_name']);
@@ -155,6 +159,20 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
             $this->assertSame('merged', $c['outcome']);
             $this->assertTrue($c['merge_performed']);
             $this->assertNotSame('', $c['merge_hash']);
+            $this->assertSame([
+                'cycle_index',
+                'outcome',
+                'cycle_final_status',
+                'merge_performed',
+                'merge_hash',
+                'loop_receipt_integrity',
+                'blockers',
+                'repaired',
+                'retried',
+                'quarantined',
+                'quarantine_reason',
+                'recorded_at',
+            ], array_keys($c));
         }
     }
 
@@ -224,6 +242,30 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         $this->assertArrayHasKey('work_orders', $body);
         $this->assertArrayHasKey('inbox_items', $body);
         $this->assertArrayHasKey('budgets', $body);
+        foreach ($body['findings']['items'] as $finding) {
+            $this->assertSame([
+                'finding_hash', 'title', 'source', 'source_owner', 'gap_kind',
+                'risk_level', 'priority_score', 'route', 'count',
+            ], array_keys($finding));
+        }
+        foreach ($body['work_orders'] as $workOrder) {
+            $this->assertSame([
+                'work_order_id', 'finding_hash', 'title', 'route',
+                'routes_to_owner_service', 'risk_level', 'priority_score',
+                'requires_branch_isolation', 'operator_decision_required',
+                'evidence_required', 'execution_executed', 'status',
+            ], array_keys($workOrder));
+        }
+        foreach ($body['inbox_items'] as $item) {
+            $this->assertSame([
+                'finding_hash', 'title', 'route', 'risk_level',
+                'priority_score', 'decision_required', 'decision_options',
+            ], array_keys($item));
+        }
+        $this->assertSame([
+            'dev_budget', 'forge_budget', 'wip_limit', 'wip_used', 'dev_routed',
+            'forge_routed', 'queued', 'budget_consumed', 'execution_executed',
+        ], array_keys($body['budgets']));
         $this->assertStringStartsWith('sha256:', $body['surface_hash']);
     }
 
@@ -321,6 +363,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         Bus::fake();
         $response = $this->controller->startRun($this->postRequest([
             'operator_actor' => 'vitor',
+            'operator_reason' => 'executar ciclo autorizado de manutenção',
             'mode' => 'execute',
             'max_cycles' => 3,
             'auto_merge' => true,
@@ -349,6 +392,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         Bus::fake();
         $response = $this->controller->startRun($this->postRequest([
             'operator_actor' => 'vitor',
+            'operator_reason' => 'executar bateria limitada por ciclos',
             'mode' => 'execute',
             'run_mode' => 'cycles',
             'cycles' => 5,
@@ -376,6 +420,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         Bus::fake();
         $response = $this->controller->startRun($this->postRequest([
             'operator_actor' => 'vitor',
+            'operator_reason' => 'executar bateria limitada por tempo',
             'mode' => 'execute',
             'run_mode' => 'hours',
             'hours' => 2,
@@ -402,6 +447,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         Bus::fake();
         $response = $this->controller->startRun($this->postRequest([
             'operator_actor' => 'vitor',
+            'operator_reason' => 'parar ao primeiro bloqueio operacional',
             'mode' => 'execute',
             'run_mode' => 'until_blocked',
         ]), self::AREA);
@@ -460,6 +506,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
 
         $response = $this->controller->startRun($this->postRequest([
             'operator_actor' => 'vitor',
+            'operator_reason' => 'confirmar que lease ativo bloqueia execução',
             'mode' => 'execute',
         ]), self::AREA);
 

@@ -39,6 +39,32 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
         }
     }
 
+    public function test_shared_evidence_battery_runs_once_for_all_modes(): void
+    {
+        $commands = [];
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static function (array $command, string $cwd) use (&$commands): array {
+                $commands[] = $command;
+
+                return ['exit_code' => 0, 'output' => implode(' ', $command).' @ '.$cwd];
+            },
+        );
+
+        $service->build();
+
+        $sharedRuns = array_filter($commands, static fn (array $command): bool =>
+            in_array('tests/Feature/Ai/EngineeringKernel/CanonicalCommitActuationTest.php', $command, true)
+            && in_array('tests/Feature/Ai/EngineeringKernel/QualityFoundryExactlyOnceEvidenceTest.php', $command, true)
+            && in_array('tests/Feature/Ai/EngineeringKernel/QualityFoundryExecutionCoverageEvidenceTest.php', $command, true)
+            && ! in_array('--filter='.QualityFoundryLiveManifestService::DEV_READINESS_FILTER, $command, true)
+            && ! in_array('--filter='.QualityFoundryLiveManifestService::FORGE_READINESS_FILTER, $command, true)
+            && ! in_array('--filter='.QualityFoundryLiveManifestService::AUTONOMOS_READINESS_FILTER, $command, true)
+        );
+
+        self::assertCount(1, $sharedRuns);
+    }
+
     public function test_failed_live_test_is_preserved_as_a_receipt_blocker(): void
     {
         $service = new QualityFoundryLiveManifestService(
@@ -213,6 +239,17 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
             'total_events' => 6,
             'coverage_percent' => 100,
         ], JSON_THROW_ON_ERROR);
+        $marker .= ' QUALITY_FOUNDRY_MUTATION_JSON='.json_encode([
+            'schema' => 'atlas.quality_foundry.mutation_coverage_evidence.v1',
+            'status' => 'observed',
+            'registered_mutation_surfaces' => $surfaceIds,
+            'tested_mutation_surfaces' => $surfaceIds,
+            'total_mutants' => 6,
+            'killed_mutants' => 6,
+            'surviving_mutants' => 0,
+            'mutation_score_percent' => 100,
+            'mutation_coverage_percent' => 100,
+        ], JSON_THROW_ON_ERROR);
         $service = new QualityFoundryLiveManifestService(
             basePath: base_path(),
             runner: static function (array $command, string $cwd) use ($marker): array {
@@ -227,8 +264,67 @@ final class QualityFoundryLiveManifestServiceTest extends TestCase
 
         foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
             self::assertSame(100, $manifest['manifests'][$mode]['coverage_percent']);
+            self::assertSame(100, $manifest['manifests'][$mode]['mutation_coverage_percent']);
             self::assertNotContains('coverage_not_complete', $manifest['manifests'][$mode]['blockers']);
+            self::assertNotContains('mutation_coverage_not_complete', $manifest['manifests'][$mode]['blockers']);
             self::assertSame(6, $manifest['manifests'][$mode]['evidence']['coverage']['complete_events']);
+            self::assertSame(6, $manifest['manifests'][$mode]['evidence']['mutation_coverage']['killed_mutants']);
         }
+    }
+
+    public function test_mutation_coverage_is_independent_and_missing_evidence_blocks_every_mode(): void
+    {
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static fn (array $command, string $cwd): array => [
+                'exit_code' => 0,
+                'output' => 'QUALITY_FOUNDRY_COVERAGE_JSON='.json_encode([
+                    'schema' => 'atlas.quality_foundry.coverage_evidence.v1',
+                    'covered_surfaces' => EngineeringExecutionSurfaceRegistry::ids(),
+                    'registered_surfaces' => EngineeringExecutionSurfaceRegistry::ids(),
+                    'complete_events' => 6,
+                    'total_events' => 6,
+                    'coverage_percent' => 100,
+                ], JSON_THROW_ON_ERROR),
+            ],
+        );
+
+        $manifest = $service->build();
+
+        foreach (['kernel', 'dev', 'forge', 'autonomos'] as $mode) {
+            self::assertSame(100, $manifest['manifests'][$mode]['coverage_percent']);
+            self::assertSame(0, $manifest['manifests'][$mode]['mutation_coverage_percent']);
+            self::assertContains('mutation_coverage_not_complete', $manifest['manifests'][$mode]['blockers']);
+            self::assertContains('mutation_coverage_evidence_missing', $manifest['manifests'][$mode]['blockers']);
+        }
+    }
+
+    public function test_real_mutation_runner_receipt_is_carried_into_the_live_manifest(): void
+    {
+        $surfaceIds = EngineeringExecutionSurfaceRegistry::ids();
+        $evidence = [
+            'schema' => 'atlas.quality_foundry.mutation_coverage_evidence.v1',
+            'status' => 'observed',
+            'registered_mutation_surfaces' => $surfaceIds,
+            'tested_mutation_surfaces' => $surfaceIds,
+            'total_mutants' => 45,
+            'killed_mutants' => 45,
+            'surviving_mutants' => 0,
+            'mutation_score_percent' => 100,
+        ];
+        $service = new QualityFoundryLiveManifestService(
+            basePath: base_path(),
+            runner: static fn (array $command, string $cwd): array => [
+                'exit_code' => 0,
+                'output' => '',
+            ],
+            mutationCoverageRunner: static fn (string $root): array => $evidence,
+        );
+
+        $manifest = $service->build(runMutationCoverage: true);
+
+        self::assertSame($evidence, $manifest['mutation_coverage_run']);
+        self::assertSame(100, $manifest['manifests']['kernel']['mutation_coverage_percent']);
+        self::assertNotContains('kernel:mutation_coverage_not_complete', $manifest['blockers']);
     }
 }
