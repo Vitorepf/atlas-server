@@ -104,6 +104,30 @@ Verboo/kimi) NÃO vem da detecção de modelo do inspect: `is_o_series_model` /
 Completar a medição de Raciocínio exige run inspect ao vivo contra Verboo (spend +
 venv + reprodução do erro real) — bloqueado na bateria atual liberar recursos.
 
+### 14/07 — ⚠️ ACHADO DE INFRA (vale além do Rivals): router Verboo quebra em `tool_choice` FORÇADO
+
+Medido direto contra `https://code.verboo.ai/router/v1` com `kimi-k2.7`:
+
+| `tool_choice` | resultado |
+|---|---|
+| `auto` | ✅ `tool_calls` presente, `finish_reason=tool_calls` |
+| ausente | ✅ `tool_calls` presente |
+| **forçado** `{"type":"function","function":{"name":"submit"}}` | ❌ **`tool_calls: null`, `content: ""`, `finish_reason=stop`** |
+
+O modelo **suporta** function calling (BFCL bare = 100%). O router é que devolve
+**resposta vazia sem erro** quando o tool_choice é forçado. Falha silenciosa: quem
+chama interpreta como "o modelo não chamou a ferramenta".
+
+Impacto imediato: bloqueia `simpleqa` (o grader do inspect força
+`tool_choice=submit` → "Grader model did not submit a tool call" → task abortada) →
+domínio **factualidade fica sem instrumento**, declarado no COVERAGE_MAP.
+
+**Impacto potencial fora do Rivals**: qualquer fluxo do Atlas que use forced
+tool_choice contra o router Verboo recebe vazio e pode culpar o modelo. Vale auditar
+os call-sites. NÃO corrigir editando o scorer vendorizado do inspect (mudaria o
+protocolo de avaliação do benchmark); o caminho é grader alternativo ou o router
+suportar forced tool_choice.
+
 ## Aberto
 
 1. **Corte 22-role mutativa em workspace estrangeiro** —
