@@ -138,6 +138,10 @@ return [
         'repair_regression_fixing',
         'cost_sensitive_work',
         'local_offline_model_work',
+        // Raciocínio puro (ex.: gsm8k). Sem este tipo, matemática era rotulada
+        // 'coding_patch' ou 'tool_use_function_calling' — as duas mentira sobre
+        // o que a tarefa mede.
+        'math_reasoning',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)
         'senior_bug_investigation',
         'architecture_refactor',
@@ -178,7 +182,13 @@ return [
                 'senior_swe_bench' => 'openai/kimi-k2.7',
                 'swe_bench_live' => 'kimi-k2.7',
                 'live_code_bench' => 'kimi-k2.7',
-                'inspect_evals' => 'openai/kimi-k2.7',
+                // openai-api/<service>/<model>, NÃO openai/<model>: o provider
+                // `openai` do inspect trata nome desconhecido como codename de
+                // fronteira da OpenAI (is_latest_model) e manda role 'developer',
+                // que o Verboo recusa com 400 — zerava a suíte inteira como se o
+                // modelo não soubesse raciocinar. `openai-api` é o provider para
+                // endpoint compatível de terceiros e lê VERBOO_API_KEY.
+                'inspect_evals' => 'openai-api/verboo/kimi-k2.7',
                 'hal_harness' => 'openai/kimi-k2.7',
                 'aider_polyglot' => 'openai/kimi-k2.7',
                 'swe_marathon' => 'openai/kimi-k2.7',

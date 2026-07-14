@@ -108,6 +108,7 @@ class ExternalCommandContractTest extends TestCase
         $this->assertContains('--evaluate', $commands['live_code_bench']);
         $this->assertContains('--log-dir', $commands['inspect_evals']);
         $this->assertSame('1', $commands['inspect_evals'][array_search('--epochs', $commands['inspect_evals'], true) + 1]);
+        $this->assertNotContains('responses_api=false', $commands['inspect_evals']);
         $this->assertContains('--agent_function', $commands['hal_harness']);
         $this->assertContains('--results_dir', $commands['hal_harness']);
         $this->assertNotContains('--output', $commands['aider_polyglot']);
@@ -119,6 +120,23 @@ class ExternalCommandContractTest extends TestCase
             'OPENAI_BASE_URL=https://code.verboo.ai/router/v1',
             $commands['swe_marathon'],
         );
+    }
+
+    public function test_inspect_uses_openai_compatible_provider_not_openai_for_verboo(): void
+    {
+        // Regressão cara e silenciosa: com `openai/kimi-k2.7`, o is_latest_model()
+        // do inspect trata QUALQUER nome não-OpenAI como codename de fronteira da
+        // OpenAI → manda role 'developer' → Verboo devolve 400 → 9/9 tarefas
+        // morrem → a capacidade Raciocínio inteira some do relatório (e antes
+        // aparecia como "0%", sugerindo que o modelo não sabe raciocinar).
+        // `openai-api/<service>/<model>` é o provider para endpoint compatível
+        // de terceiros e não aplica heurística de modelo OpenAI.
+        $model = (string) config('atlas_rivals.models.verboo_kimi_k2_7.native_models.inspect_evals');
+        $this->assertStringStartsWith('openai-api/', $model);
+        $this->assertStringNotContainsString('openai/kimi', $model);
+        // O service prefix vira <SERVICE>_API_KEY: precisa casar com o que o
+        // VerbooEnvironment exporta (VERBOO_API_KEY).
+        $this->assertSame('verboo', explode('/', $model)[1] ?? null);
     }
 
     public function test_five_uplift_families_use_distinct_bare_and_atlas_solver_paths(): void

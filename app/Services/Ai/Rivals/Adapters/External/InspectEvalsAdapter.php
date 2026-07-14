@@ -14,7 +14,10 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
 
     protected function commandTemplate(): string
     {
-        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 -M responses_api=false --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
+        // {cli_model} = openai-api/verboo/kimi-k2.7 (ver config native_models):
+        // provider compatível de terceiros. `responses_api=false` era gambiarra
+        // para o provider `openai`; o openai-api não precisa e não aceita.
+        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
     }
 
     protected function mapResults(array $native): array
@@ -115,8 +118,12 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         if (str_contains($task, 'gaia') || str_contains($sampleId, 'gaia')) {
             return 'tool_use_function_calling';
         }
+        // gsm8k é matemática passo a passo, não código: rotular 'coding_patch'
+        // punha raciocínio dentro da capacidade Programação e mentia sobre a tarefa.
+        if (str_contains($task, 'gsm8k') || str_contains($sampleId, 'gsm8k')) {
+            return 'math_reasoning';
+        }
 
-        // gsm8k / coding-style inspect tasks map to coding_patch for Rivals taxonomy
         return 'coding_patch';
     }
 }
