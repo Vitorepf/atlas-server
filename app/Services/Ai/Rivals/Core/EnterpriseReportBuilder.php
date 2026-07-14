@@ -99,20 +99,25 @@ class EnterpriseReportBuilder
      * @var list<array{domain:string, covered:bool, note:string}>
      */
     public const COVERAGE_MAP = [
-        ['domain' => 'Engenharia de software (bugs, features, algoritmos, multi-linguagem)', 'covered' => true, 'note' => 'senior_swe_bench, swe_bench_live, live_code_bench, aider_polyglot'],
-        ['domain' => 'Uso de ferramentas / function calling', 'covered' => true, 'note' => 'bfcl, tau2_bench'],
-        ['domain' => 'Trabalho agêntico de longo prazo', 'covered' => true, 'note' => 'hal_harness, swe_marathon'],
-        ['domain' => 'Operar terminal / linha de comando', 'covered' => true, 'note' => 'terminal_bench'],
-        ['domain' => 'Raciocínio matemático', 'covered' => true, 'note' => 'inspect_evals (gsm8k)'],
-        ['domain' => 'Conhecimento factual amplo', 'covered' => true, 'note' => 'inspect_evals (MMLU)'],
-        ['domain' => 'Raciocínio científico (pós-graduação)', 'covered' => true, 'note' => 'inspect_evals (GPQA Diamond)'],
-        ['domain' => 'Seguir instruções e restrições de formato', 'covered' => true, 'note' => 'inspect_evals (IFEval)'],
-        ['domain' => 'Multilíngue', 'covered' => true, 'note' => 'inspect_evals (MGSM)'],
-        ['domain' => 'Contexto longo (recuperar informação em janelas grandes)', 'covered' => true, 'note' => 'inspect_evals (NIAH, agulha no palheiro)'],
-        ['domain' => 'Factualidade / alucinação', 'covered' => false, 'note' => 'SimpleQA existe no inspect mas o juiz exige tool-call e aborta — integração aberta'],
-        ['domain' => 'Multimodal (visão)', 'covered' => false, 'note' => 'exigiria MMMU — não wired'],
-        ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'note' => 'nenhum instrumento wired'],
-        ['domain' => 'Escrita longa e qualidade de redação', 'covered' => false, 'note' => 'nenhum instrumento wired'],
+        // Inventário real (14/07): 138 instrumentos = 9 suítes + inspect_evals, que
+        // é uma BIBLIOTECA com 129 evals. 15 ligados, 118 dormentes — todos já
+        // instalados no repo. `dormant` dimensiona a lacuna: declarar "não coberto"
+        // sem dizer que há 13 instrumentos parados ali subestima o que falta.
+        ['domain' => 'Engenharia de software (bug real, feature, algoritmo, multi-linguagem, terminal)', 'covered' => true, 'dormant' => 14, 'note' => '7 ligados: senior_swe_bench, swe_bench_live, live_code_bench, aider_polyglot, terminal_bench, swe_marathon, hal_harness · parados: swe_lancer, mle_bench, humaneval, bigcodebench, kernelbench…'],
+        ['domain' => 'Uso de ferramentas e diálogo agêntico', 'covered' => true, 'dormant' => 0, 'note' => 'bfcl, tau2_bench'],
+        ['domain' => 'Matemática', 'covered' => true, 'dormant' => 3, 'note' => 'ligados: gsm8k, mgsm · parados: aime2024/25/26, math, mathvista'],
+        ['domain' => 'Conhecimento e ciência', 'covered' => true, 'dormant' => 12, 'note' => 'ligados: mmlu, gpqa · parados: hle, mmlu_pro, agieval, medqa, chembench, livebench…'],
+        ['domain' => 'Seguir instruções', 'covered' => true, 'dormant' => 1, 'note' => 'ligado: ifeval · parado: ifevalcode'],
+        ['domain' => 'Contexto longo', 'covered' => true, 'dormant' => 1, 'note' => 'ligado: niah · parado: infinite_bench (100k+ tokens)'],
+        ['domain' => 'Raciocínio (leitura, senso comum, multi-etapa)', 'covered' => false, 'dormant' => 12, 'note' => 'ZERO ligado. O que hoje chamamos de raciocínio é matemática. Parados: musr, bbh, bbeh, drop, hellaswag, piqa, winogrande, arc, race_h, squad, worldsense, lingoly'],
+        ['domain' => 'Pesquisa web e agentes de computador', 'covered' => false, 'dormant' => 5, 'note' => 'gaia BLOQUEADO (dataset gated no HuggingFace); browse_comp roda sem browser por default (mediria memória, não pesquisa). Parados: mind2web, osworld, theagentcompany, gdpval (44 ocupações)'],
+        ['domain' => 'Factualidade e honestidade', 'covered' => false, 'dormant' => 5, 'note' => 'simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio). Parados: truthfulqa, mask, abstention_bench, sycophancy'],
+        ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'dormant' => 21, 'note' => 'ZERO ligado, 21 instrumentos parados: agentdojo, agentharm, strong_reject, xstest, coconot, wmdp, fortress, make_me_pay…'],
+        ['domain' => 'Cibersegurança', 'covered' => false, 'dormant' => 13, 'note' => 'ZERO ligado, 13 parados: cybench, cve_bench, cybergym, gdm_intercode_ctf, cyberseceval_2/3/4, threecb…'],
+        ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado: agentic_misalignment (chantagem), gdm_self_proliferation, gdm_stealth, gdm_self_reasoning, instrumentaleval, sad'],
+        ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado (o modelo atual provavelmente não aceita imagem): mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
+        ['domain' => 'Moral e viés', 'covered' => false, 'dormant' => 5, 'note' => 'ZERO ligado: moru, anima, tac, bbq, bold, stereoset'],
+        ['domain' => 'Escrita e personalidade', 'covered' => false, 'dormant' => 2, 'note' => 'ZERO ligado: writingbench, personality'],
     ];
 
     /**
@@ -1365,16 +1370,23 @@ class EnterpriseReportBuilder
             }
         }
         $domainsCovered = count(array_filter(self::COVERAGE_MAP, fn (array $d): bool => $d['covered']));
+        // Instrumentos parados = o tamanho REAL da lacuna. Sem este número,
+        // "domínio não coberto" soa como falta de ferramenta — quando na verdade
+        // a ferramenta está instalada no repo e nunca foi executada.
+        $dormant = array_sum(array_column(self::COVERAGE_MAP, 'dormant'));
 
         return [
             'skills_measured' => $skillsMeasured,
             'skills_wired' => $skillsWired,
             'domains_covered' => $domainsCovered,
             'domains_total' => count(self::COVERAGE_MAP),
+            'instruments_dormant' => $dormant,
             'map' => self::COVERAGE_MAP,
-            'scope_note' => 'Esta bateria mede engenharia de software e uso agêntico de ferramentas. '
-                .'Não é um retrato da capacidade geral de uma IA: conhecimento, contexto longo, '
-                .'multimodal, factualidade, multilíngue e segurança não têm instrumento aqui.',
+            'scope_note' => 'Esta bateria mede engenharia de software, uso agêntico de ferramentas e '
+                .'alguns domínios via Inspect. Não é um retrato da capacidade geral de uma IA — e a '
+                ."lacuna não é falta de ferramenta: há {$dormant} instrumentos já instalados no repo "
+                .'que nunca rodaram. Raciocínio puro, cibersegurança, segurança/recusa, dissimulação, '
+                .'multimodal, moral e escrita estão com ZERO medição.',
         ];
     }
 

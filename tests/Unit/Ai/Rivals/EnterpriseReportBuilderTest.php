@@ -406,6 +406,18 @@ class EnterpriseReportBuilderTest extends TestCase
 
         $uncovered = array_column(array_filter($cov['map'], fn (array $d): bool => ! $d['covered']), 'domain');
         $this->assertNotEmpty($uncovered, 'domínios fora do alcance precisam ser declarados');
+        // O denominador não pode encolher: declarar cobertura contra uma lista curta
+        // dá nota melhor que a real. Estes domínios existem no inventário (138
+        // instrumentos) e têm de aparecer, mesmo que com zero medição.
+        foreach (['Cibersegurança', 'Dissimulação', 'Moral', 'Raciocínio'] as $needle) {
+            $this->assertNotEmpty(
+                array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
+                "domínio real ausente do mapa de cobertura: {$needle}"
+            );
+        }
+        // Lacuna dimensionada: "não coberto" sem contar os instrumentos parados
+        // faz parecer falta de ferramenta, quando eles já estão instalados.
+        $this->assertGreaterThan(100, $cov['instruments_dormant']);
         foreach (['Multimodal', 'Factualidade', 'Segurança'] as $needle) {
             $this->assertNotEmpty(
                 array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),

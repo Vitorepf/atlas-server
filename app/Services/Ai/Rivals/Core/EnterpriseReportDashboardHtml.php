@@ -228,6 +228,8 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .covrow.yes .covmark{color:var(--atlas)}
 .covrow.no .covmark{color:var(--muted)}
 .covrow .covdom{color:var(--ink);line-height:1.4}
+.covdorm{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--warn);
+ border:1px solid var(--warn);border-radius:2px;padding:1px 4px;margin-left:4px;white-space:nowrap}
 .covrow.no .covdom{color:var(--muted)}
 .covrow .covnote{color:var(--muted);font-size:11.5px;line-height:1.4}
 @media(max-width:820px){.covrow{grid-template-columns:20px 1fr}.covrow .covnote{grid-column:2}}
@@ -451,7 +453,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const rows = (COV.map||[]).map(d => `
       <div class="covrow ${d.covered?'yes':'no'}">
         <span class="covmark">${d.covered?'✓':'—'}</span>
-        <span class="covdom">${d.domain}</span>
+        <span class="covdom">${d.domain}${d.dormant?` <span class="covdorm">${d.dormant} parados</span>`:''}</span>
         <span class="covnote">${d.note}</span>
       </div>`).join('');
     document.getElementById('coveragePanel').innerHTML = `
@@ -460,6 +462,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <div class="covstats">
         <span><b>${COV.skills_measured}</b>/${COV.skills_wired} habilidades realmente medidas</span>
         <span><b>${COV.domains_covered}</b>/${COV.domains_total} domínios com instrumento</span>
+        ${COV.instruments_dormant?`<span><b>${COV.instruments_dormant}</b> instrumentos instalados que nunca rodaram</span>`:''}
       </div>
       <div class="covmap">${rows}</div>`;
   }
