@@ -33,6 +33,11 @@ class AiCouncilCoordinator
                 'execution_policy' => 'dual_review',
                 'council_status' => $this->statusForCounts($counts),
                 'council_progress' => $counts,
+                // C21: a leitura de CADA membro fica registrada com campos
+                // verificáveis (provider, model, status, hash, latência) —
+                // a casca mostra posição por papel sem raciocínio privado e
+                // sem fabricar "veredito" que o sistema não produz.
+                'council_review' => self::councilReview($jobs->all()),
             ]);
 
             if (($counts['queued'] + $counts['processing']) > 0) {
@@ -102,6 +107,32 @@ class AiCouncilCoordinator
     /**
      * @param  array<int, AiJob>  $jobs
      */
+    /**
+     * C21 — registro público por membro do conselho. Função PURA sobre os
+     * jobs: somente campos reais e provider-safe; divergência aparece como
+     * status distinto entre membros, nunca como um "voto" inventado.
+     *
+     * @param  array<int, AiJob>  $jobs
+     * @return array<int, array<string, mixed>>
+     */
+    public static function councilReview(array $jobs): array
+    {
+        return array_values(array_map(static function (AiJob $job): array {
+            return array_filter([
+                'provider' => $job->provider,
+                'model' => $job->model,
+                'status' => $job->status,
+                'response_hash' => $job->result_text !== null && $job->result_text !== ''
+                    ? hash('sha256', (string) $job->result_text)
+                    : null,
+                'error_code' => $job->error_code,
+                'latency_ms' => $job->started_at !== null && $job->finished_at !== null
+                    ? (int) $job->started_at->diffInMilliseconds($job->finished_at)
+                    : null,
+            ], static fn ($v) => $v !== null);
+        }, $jobs));
+    }
+
     private function combinedResponse(array $jobs): string
     {
         $sections = collect($jobs)->map(function (AiJob $job): string {

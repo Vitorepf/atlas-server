@@ -1741,6 +1741,49 @@ class AiWorker
         return [];
     }
 
+    /**
+     * C18 — mede o diff corrente do workspace da execução (git shortstat vs
+     * HEAD). Só quando existe workspace git de verdade; nunca fabrica número.
+     *
+     * @return array{files_touched:int,lines_added:int,lines_removed:int}|null
+     */
+    private function workspaceDiffStats(AiJob $job): ?array
+    {
+        $workspace = $this->programmingRepairWorkspace($job)
+            ?: data_get($job->payload, 'workspace')
+            ?: data_get($job->payload, 'programming_dispatch.workspace');
+        if (! is_string($workspace) || trim($workspace) === '' || ! is_dir($workspace.'/.git')) {
+            return null;
+        }
+
+        $out = @shell_exec('cd '.escapeshellarg($workspace).' && timeout 3 git diff HEAD --shortstat 2>/dev/null');
+
+        return self::parseGitShortstat((string) $out);
+    }
+
+    /**
+     * Parser PURO do shortstat ("3 files changed, 48 insertions(+), 12 deletions(-)").
+     * Singular/plural e partes ausentes tratados; saída vazia = null (sem mudança
+     * não é "0 inventado" — é ausência de diff, e a UI decide não mostrar).
+     *
+     * @return array{files_touched:int,lines_added:int,lines_removed:int}|null
+     */
+    public static function parseGitShortstat(string $out): ?array
+    {
+        $out = trim($out);
+        if ($out === '' || ! preg_match('/(\d+)\s+files?\s+changed/', $out, $files)) {
+            return null;
+        }
+        preg_match('/(\d+)\s+insertions?\(\+\)/', $out, $ins);
+        preg_match('/(\d+)\s+deletions?\(-\)/', $out, $del);
+
+        return [
+            'files_touched' => (int) $files[1],
+            'lines_added' => (int) ($ins[1] ?? 0),
+            'lines_removed' => (int) ($del[1] ?? 0),
+        ];
+    }
+
     private function programmingRepairWorkspace(AiJob $job): ?string
     {
         $workspace = data_get($job->payload, 'workspace_context.repo_root')
@@ -2214,12 +2257,17 @@ class AiWorker
             // Live Cockpit · verify (provider produziu resposta válida) +
             // evidence (output persistido no AiJob). São os 2 checkpoints
             // finais do pipeline antes do `response` terminal.
-            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_verify_passed', '', [
+            // C18: estatística de diff REAL no checkpoint — medida no workspace
+            // da execução via git shortstat. Sem workspace (chat read-mode) o
+            // campo é ausente: a UI não inventa número, mostra só o passo N/M.
+            $diffStats = $this->workspaceDiffStats($job);
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_verify_passed', '', array_filter([
                 'checkpoint' => 'verify',
                 'outcome' => 'done',
                 'gate_name' => 'provider_output',
                 'duration_ms' => $result->durationMs,
-            ], 'system');
+                'diff_stats' => $diffStats,
+            ], fn ($v) => $v !== null), 'system');
             $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_evidence_appended', '', [
                 'checkpoint' => 'evidence',
                 'outcome' => 'done',
