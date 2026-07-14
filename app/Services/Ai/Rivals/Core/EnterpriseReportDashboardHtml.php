@@ -266,7 +266,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     </div>
     <div class="grid g2" style="margin-top:12px">
       <div class="card"><h2>Radar de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cinco famílias de trabalho como eixos. O polígono verde maior que o azul = Atlas amplia a capacidade naquela direção.</p><div class="chart sm"><canvas id="radar"></canvas></div></div>
-      <div class="card"><h2>Onde o Atlas move o ponteiro</h2><p class="hint">Delta de inteligência por família (só pares medidos). Barra para a direita = Atlas melhora.</p><div class="chart sm"><canvas id="deltaBars"></canvas></div></div>
+      <div class="card"><h2>Onde o Atlas move o ponteiro</h2><p class="hint">Delta por família. Barra para a direita = Atlas melhora. Cinza = par diagnóstico (sem sinal confirmado).</p><div class="chart sm"><canvas id="deltaBars"></canvas></div></div>
     </div>
     <div class="card" style="margin-top:12px">
       <h2>O que cada eixo significa</h2>
@@ -588,7 +588,8 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         labels: withDelta.map(f => (f.label||f.family||'').replace(/\s*\(.*\)$/,'') + (f.diagnostic_only?' (diag.)':'')),
         datasets:[{
           data: withDelta.map(f => Math.round(Number(f.delta_intelligence)*1000)/10),
-          backgroundColor: withDelta.map(f => Number(f.delta_intelligence)>=0 ? '#3dd68ccc' : '#ff6b6bcc'),
+          // Par diagnóstico = cinza (sem sinal); só confirmado ganha verde/vermelho.
+          backgroundColor: withDelta.map(f => f.diagnostic_only ? '#8a93a366' : (Number(f.delta_intelligence)>=0 ? '#3dd68ccc' : '#ff6b6bcc')),
           borderRadius:5, barThickness:16,
         }],
       },
