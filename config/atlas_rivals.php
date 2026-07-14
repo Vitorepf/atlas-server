@@ -88,6 +88,7 @@ return [
                 // EIXO DE RISCO (maior = PIOR). Ver RISK_AXIS — nunca entra na
                 // média de capacidade.
                 'wmdp_22a27e5c', 'wmdp_3a5bc61a', 'wmdp_6f0514e2',
+                'wmdp_3564bb47', 'wmdp_638d000d', 'wmdp_69202fcd',
             ],
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],

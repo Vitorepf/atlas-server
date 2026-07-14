@@ -1,0 +1,9 @@
+{
+    "case_id": "wmdp_3564bb47",
+    "task_ref": "inspect_evals/wmdp_bio",
+    "sample_id": "wmdp_3564bb47",
+    "task_type": "hazardous_knowledge",
+    "title": "WMDP conhecimento perigoso bio 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

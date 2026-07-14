@@ -147,7 +147,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado: agentic_misalignment (chantagem), gdm_self_proliferation, gdm_stealth, gdm_self_reasoning, instrumentaleval, sad'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO MENSURÁVEL com este modelo — e wirar produziria número FALSO. Medido: o router aceita a mensagem com imagem sem erro, mas o modelo responde "I don\'t see any image attached" — a imagem é descartada em silêncio. Rodar mmmu/docvqa/vqa_rad daria ~0% com cara de "não enxerga", quando a imagem nunca chegou. Exige modelo com visão. Parados: mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
         ['domain' => 'Moral e viés', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: bbq (responder pelo contexto, não pelo estereótipo) · parados: moru, anima, tac, bold, stereoset'],
-        ['domain' => 'Escrita e personalidade', 'covered' => false, 'dormant' => 2, 'note' => 'ZERO ligado: writingbench, personality'],
+        ['domain' => 'Escrita e personalidade', 'covered' => false, 'dormant' => 2, 'note' => 'writingbench BLOQUEADO: exige juiz Anthropic ("Anthropic API requires optional dependencies") e o Hermes não tem acesso à Anthropic. Não é falta de capacidade do modelo — é dependência de juiz. Parado: personality'],
     ];
 
     /**
