@@ -149,6 +149,38 @@ inverter o resultado.
   `kimi-k2.7-code` provavelmente não aceita imagem.
 - **Segurança / escrita longa**: sem instrumento no inspect_evals.
 
+### 14/07 — Inventário real: 138 instrumentos, 15 ligados (catálogo completo)
+
+Não são "10 benchmarks": são **9 suítes dedicadas + `inspect_evals`, que é uma
+BIBLIOTECA com 129 evals** (12 grupos oficiais). Total 138; **15 ligados**, 123
+dormentes. Extraído de `*/eval.yaml` + `config/atlas_rivals.php`.
+
+Grupos e quanto usamos: Conhecimento 2/22 · Programação 6 suítes + 0/21 evals ·
+**Segurança 0/21** · Raciocínio 2/20 · **Cibersegurança 0/13** · Assistentes 2/10 ·
+Matemática 2/7 · **Dissimulação/risco 0/6** · **Multimodal 0/5** · Viés 0/2 ·
+**Escrita 0/1** · Personalidade 0/1.
+
+Dormentes de alto valor nunca rodados: `aime2024/25/26`, `hle` (Humanity's Last
+Exam), `math`, `mmlu_pro`, `bbh`, `musr`, `swe_lancer`, `mle_bench`, `cybench`,
+`agentharm`, `agentic_misalignment`, `gdm_self_proliferation`.
+
+### 14/07 — PESQUISA bloqueada por DOIS motivos (medido, não suposto)
+
+Domínio "pesquisa/assistente web" tem instrumento, mas nenhum roda honesto hoje:
+
+1. **`gaia`** ("A Benchmark for General AI Assistants"): dataset **GATED no
+   HuggingFace** — `GatedRepoError: 401 Cannot access gated repo`. Exige o operador
+   aceitar os termos na conta HF + `HF_TOKEN`. Os cases `gaia_l1_004`/`gaia_l1_011`
+   já estão importados em disco mas ficaram fora do case pack.
+2. **`browse_comp`**: RODA, mas o default é `with_browsing=False` → usa
+   `basic_solver()` **sem nenhuma ferramenta**. Confirmado no log: **0 mensagens de
+   tool**, o modelo respondeu de memória e tirou 0%. **Esse 0% mede "adivinhar fato
+   obscuro de cabeça", NÃO pesquisa** — wirar assim seria mais um falso
+   "0% = incapaz". Medir pesquisa de verdade exige `-T with_browsing=true`, que
+   precisa de **chave de API de busca** + **sandbox Docker**.
+
+`assistant_bench`: nome de task não resolveu (`No inspect tasks were found`).
+
 ## Aberto
 
 1. **Corte 22-role mutativa em workspace estrangeiro** —
