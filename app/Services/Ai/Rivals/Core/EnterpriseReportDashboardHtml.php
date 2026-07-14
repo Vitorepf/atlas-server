@@ -354,7 +354,9 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const aBefore = hasAtlas ? Number(c.atlas_bare_baseline)*100 : null;
     const aAfter = hasAtlas ? Number(c.atlas_intelligence)*100 : null;
     const dv = c.delta_intelligence==null ? null : Math.round(Number(c.delta_intelligence)*1000)/10;
-    const dCls = dv==null?'':(dv>0?'pos':(dv<0?'neg':''));
+    // Par diagnóstico não é ganho/perda confirmado — nunca colorir de verde/vermelho.
+    // Só delta confirmado (não-diagnóstico) recebe cor de veredito.
+    const dCls = (dv==null||c.atlas_diagnostic_only)?'':(dv>0?'pos':(dv<0?'neg':''));
     const barBare = bare==null?0:bare;
     // Atlas em linha própria com SEU baseline pareado — não implica contra o
     // número grande da capacidade (suítes diferentes).
@@ -366,7 +368,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         <span class="tag">Com Atlas</span>
         <span class="pair"><b class="bare">${Math.round(aBefore)}%</b> → <b class="atlas">${Math.round(aAfter)}%</b></span>
         <span class="delta ${dCls}">${dv>=0?'+':''}${dv} pp</span>
-        <span class="hint" style="margin:0">base ${c.tasks_atlas_paired||0} tarefa${c.tasks_atlas_paired==1?'':'s'} em ${c.atlas_measured_on} suíte(s)${c.atlas_diagnostic_only?' · diagnóstico':''}${atlasSmall?' · tendência, não conclusão (amostra pequena)':''}</span>
+        <span class="hint" style="margin:0">base ${c.tasks_atlas_paired||0} tarefa${c.tasks_atlas_paired==1?'':'s'} em ${c.atlas_measured_on} suíte(s)${c.atlas_diagnostic_only?' · diagnóstico (não é ganho confirmado)':''}${atlasSmall?' · tendência, não conclusão (amostra pequena)':''}</span>
       </div>` : `<div class="atlas-line"><span class="hint" style="margin:0">Atlas ainda não medido nesta capacidade</span></div>`;
     // Amostra pequena: um número de poucas tarefas não é conclusivo. Avisa.
     const smallSample = bare!=null && c.tasks_scored>0 && c.tasks_scored < 12;
