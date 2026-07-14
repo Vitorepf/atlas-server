@@ -48,10 +48,14 @@ class EnterpriseReportBuilder
             'measures' => 'Tarefas agênticas longas, multi-etapa, mais próximas de trabalho real de engenharia.',
             'suites' => ['hal_harness', 'swe_marathon'],
         ],
+        // inspect_evals abrange domínios distintos (gsm8k matemática, mmlu
+        // conhecimento, gpqa ciência). Uma capacidade pode fatiar a suíte por
+        // task_type — senão conhecimento seria contado como raciocínio.
         'reasoning' => [
             'label' => 'Raciocínio',
             'measures' => 'Resolver problemas que exigem raciocínio passo a passo (ex.: matemática).',
             'suites' => ['inspect_evals'],
+            'task_types' => ['math_reasoning'],
         ],
     ];
 
@@ -1165,12 +1169,31 @@ class EnterpriseReportBuilder
                 $ev = (array) ($row['execution_evidence'] ?? []);
                 $blame = (array) ($ev['blame_summary'] ?? []);
                 $subN = (int) (($blame['model_failures'] ?? 0) + ($blame['successes'] ?? 0));
-                $weight = (float) ($subN ?: 1);
                 $score = $row['intelligence_rate'] ?? $row['success_rate_itt'] ?? null;
+                $rowReliable = ($row['reliable'] ?? true) === true;
+                $subReason = $row['unreliable_reason_human']
+                    ?? $row['unreliable_reason']
+                    ?? (($row['status'] ?? '') === 'not_run' ? 'Esta suíte não foi executada nesta bateria.' : 'Sem dados registrados.');
+
+                // Capacidade que fatia a suíte por task_type (suíte multi-domínio):
+                // usa a evidência daquele domínio, com sua própria confiabilidade —
+                // env-failure de gsm8k não pode reprovar mmlu, e vice-versa.
+                if (($cap['task_types'] ?? null) !== null) {
+                    $slice = $this->sliceByTaskTypes($ev, (array) $cap['task_types']);
+                    // Sem nenhuma unidade do domínio: a habilidade continua
+                    // existindo e aparece como NÃO MEDIDA — sumir do card é pior
+                    // que dizer "não medido", porque some sem o leitor notar.
+                    $subN = $slice['tasks_decidable'] ?? 0;
+                    $score = $slice['intelligence_rate'] ?? null;
+                    $rowReliable = $slice['reliable'] ?? false;
+                    $subReason = $slice['unreliable_reason_human']
+                        ?? 'Esta bateria não registrou nenhuma tarefa desta habilidade.';
+                }
+                $weight = (float) ($subN ?: 1);
 
                 // Sub-capacidade: o instrumento como habilidade nomeada própria,
                 // com seu score, faixa Wilson e amostra — não some no agregado.
-                $subReliable = ($row['reliable'] ?? true) === true && is_numeric($score);
+                $subReliable = $rowReliable && is_numeric($score);
                 $subCi = ($subReliable && $subN > 0)
                     ? StatisticalPolicy::wilson((int) round((float) $score * $subN), $subN)
                     : null;
@@ -1184,16 +1207,14 @@ class EnterpriseReportBuilder
                     'bare_ci_high' => $subCi['high'] ?? null,
                     'tasks_scored' => $subN,
                     'reliable' => $subReliable,
-                    'unreliable_reason' => $subReliable
-                        ? null
-                        : ($row['unreliable_reason_human']
-                            ?? $row['unreliable_reason']
-                            ?? ($row['status'] === 'not_run' ? 'Esta suíte não foi executada nesta bateria.' : 'Sem dados registrados.')),
+                    'unreliable_reason' => $subReliable ? null : $subReason,
                     'tokens_per_task' => is_numeric($row['tokens_per_task'] ?? null) ? round((float) $row['tokens_per_task']) : null,
                     'median_wall_ms' => is_numeric($row['median_wall_ms'] ?? null) ? round((float) $row['median_wall_ms']) : null,
                 ];
 
-                if (($row['reliable'] ?? true) === true && is_numeric($score)) {
+                // $rowReliable/$score já refletem a fatia por task_type quando a
+                // capacidade define uma — o agregado tem de usar a mesma base.
+                if ($subReliable) {
                     $reliableSuites[] = $suiteId;
                     $bareNum += (float) $score * $weight;
                     $bareDen += $weight;
@@ -1205,7 +1226,7 @@ class EnterpriseReportBuilder
                         $walls[] = (float) $row['median_wall_ms'];
                         $globalWall[] = (float) $row['median_wall_ms'];
                     }
-                } elseif (($row['reliable'] ?? true) !== true) {
+                } else {
                     $unreliableSuites[] = ['suite_id' => $suiteId, 'reason' => $row['unreliable_reason'] ?? null];
                 }
 
@@ -2224,6 +2245,11 @@ class EnterpriseReportBuilder
             $classes[$bucket]++;
             $units[] = [
                 'case_id' => $r->data['case_id'] ?? null,
+                // task_type é o que a unidade REALMENTE mede. Uma suíte pode
+                // abranger domínios distintos (inspect_evals = gsm8k matemática
+                // + mmlu conhecimento + gpqa ciência); sem isto, capacidade só
+                // pode ser mapeada por suíte e conhecimento viraria "raciocínio".
+                'task_type' => $r->data['task_type'] ?? null,
                 'arm_id' => $r->data['arm_id'] ?? null,
                 'repetition' => $r->data['repetition'] ?? null,
                 'status' => $status,
@@ -2287,8 +2313,102 @@ class EnterpriseReportBuilder
                 'environment_or_flow_failures' => $envAndFlow,
                 'successes' => $classes['success'],
             ],
+            // Mesmo cálculo do agregado, fatiado por task_type: permite tratar
+            // cada domínio de uma suíte multi-domínio como capacidade própria,
+            // com sua confiabilidade (env-failure de um não contamina o outro).
+            'blame_by_task_type' => $this->blameByTaskType($units, $minCoverage),
             'units' => $units,
         ];
+    }
+
+    /**
+     * Agrega a evidência dos task_types pedidos numa fatia única (mesma conta do
+     * agregado da suíte, restrita ao domínio). null = a suíte não mede nenhum.
+     *
+     * @param  array<string,mixed>  $ev
+     * @param  list<string>  $taskTypes
+     * @return array<string,mixed>|null
+     */
+    private function sliceByTaskTypes(array $ev, array $taskTypes): ?array
+    {
+        $byType = (array) ($ev['blame_by_task_type'] ?? []);
+        $successes = 0;
+        $modelFailures = 0;
+        $envFailures = 0;
+        $found = false;
+        foreach ($taskTypes as $taskType) {
+            $g = $byType[$taskType] ?? null;
+            if (! is_array($g)) {
+                continue;
+            }
+            $found = true;
+            $successes += (int) ($g['successes'] ?? 0);
+            $modelFailures += (int) ($g['model_failures'] ?? 0);
+            $envFailures += (int) ($g['environment_or_flow_failures'] ?? 0);
+        }
+        if (! $found) {
+            return null;
+        }
+        $decidable = $successes + $modelFailures;
+        $total = $decidable + $envFailures;
+        $coverage = $total > 0 ? round($decidable / $total, 4) : 0.0;
+        $minCoverage = (float) config('atlas_rivals.report.min_model_coverage', 0.7);
+        $reliable = $total > 0 && $coverage >= $minCoverage;
+
+        return [
+            'tasks_decidable' => $decidable,
+            'intelligence_rate' => $decidable > 0 ? round($successes / $decidable, 4) : null,
+            'reliable' => $reliable,
+            'unreliable_reason_human' => $reliable ? null : ($total === 0
+                ? 'Nenhuma tarefa registrada para esta habilidade.'
+                : "{$envFailures} de {$total} tarefas quebraram por erro de ambiente/fluxo "
+                    .'(o teste não rodou até o fim), não por erro do modelo.'),
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $units
+     * @return array<string, array<string,mixed>>
+     */
+    private function blameByTaskType(array $units, float $minCoverage): array
+    {
+        $groups = [];
+        foreach ($units as $unit) {
+            $taskType = (string) ($unit['task_type'] ?? '');
+            if ($taskType === '') {
+                continue;
+            }
+            $groups[$taskType] ??= ['successes' => 0, 'model_failures' => 0, 'environment_or_flow_failures' => 0];
+            match ((string) ($unit['blame'] ?? '')) {
+                'success' => $groups[$taskType]['successes']++,
+                'model' => $groups[$taskType]['model_failures']++,
+                'environment_or_flow' => $groups[$taskType]['environment_or_flow_failures']++,
+                default => null,
+            };
+        }
+
+        $out = [];
+        foreach ($groups as $taskType => $g) {
+            $decidable = $g['successes'] + $g['model_failures'];
+            $total = $decidable + $g['environment_or_flow_failures'];
+            $coverage = $total > 0 ? round($decidable / $total, 4) : 0.0;
+            $reliable = $total > 0 && $coverage >= $minCoverage;
+            $out[$taskType] = [
+                'successes' => $g['successes'],
+                'model_failures' => $g['model_failures'],
+                'environment_or_flow_failures' => $g['environment_or_flow_failures'],
+                'tasks_decidable' => $decidable,
+                'model_coverage' => $coverage,
+                'reliable' => $reliable,
+                'intelligence_rate' => $decidable > 0 ? round($g['successes'] / $decidable, 4) : null,
+                'unreliable_reason_human' => $reliable ? null : ($total === 0
+                    ? 'Nenhuma tarefa registrada para esta habilidade.'
+                    : "{$g['environment_or_flow_failures']} de {$total} tarefas quebraram por erro de ambiente/fluxo "
+                        .'(o teste não rodou até o fim), não por erro do modelo.'),
+            ];
+        }
+
+        return $out;
     }
 
     /**

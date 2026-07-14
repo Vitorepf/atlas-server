@@ -358,6 +358,40 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertNotEmpty($notRun['unreliable_reason']);
     }
 
+    public function test_capability_slices_multi_domain_suite_by_task_type(): void
+    {
+        // inspect_evals abrange domínios distintos (gsm8k matemática, mmlu
+        // conhecimento, gpqa ciência). Sem fatiar por task_type, conhecimento
+        // seria contado como Raciocínio. A capacidade Raciocínio só pode somar
+        // unidades math_reasoning — e uma habilidade sem unidade daquele domínio
+        // aparece como NÃO MEDIDA, nunca some do card.
+        $builder = new EnterpriseReportBuilder;
+        $method = new \ReflectionMethod($builder, 'sliceByTaskTypes');
+        $method->setAccessible(true);
+
+        $ev = ['blame_by_task_type' => [
+            'math_reasoning' => ['successes' => 8, 'model_failures' => 2, 'environment_or_flow_failures' => 0],
+            'knowledge_qa' => ['successes' => 0, 'model_failures' => 0, 'environment_or_flow_failures' => 9],
+        ]];
+
+        $math = $method->invoke($builder, $ev, ['math_reasoning']);
+        $this->assertSame(0.8, $math['intelligence_rate'], 'não pode misturar outro domínio');
+        $this->assertSame(10, $math['tasks_decidable']);
+        $this->assertTrue($math['reliable']);
+
+        // Domínio irmão quebrado por ambiente não contamina nem é julgado.
+        $knowledge = $method->invoke($builder, $ev, ['knowledge_qa']);
+        $this->assertFalse($knowledge['reliable']);
+        $this->assertNull($knowledge['intelligence_rate']);
+        $this->assertStringContainsString('ambiente', $knowledge['unreliable_reason_human']);
+
+        // Domínio sem nenhuma unidade registrada = null (vira "não medido").
+        $this->assertNull($method->invoke($builder, $ev, ['multimodal_vision']));
+
+        // A capacidade Raciocínio declara a fatia.
+        $this->assertSame(['math_reasoning'], EnterpriseReportBuilder::CAPABILITIES['reasoning']['task_types']);
+    }
+
     public function test_coverage_declares_scope_ceiling_and_uncovered_domains(): void
     {
         // O relatório precisa declarar o próprio teto. Chamar 4 domínios de
