@@ -2030,20 +2030,34 @@ class EnterpriseReportBuilder
                 $failureClass === 'invalid_result' => 'invalid_result',
                 default => 'other',
             };
-            $classes[$bucket]++;
             $key = ($r->data['case_id'] ?? '').'__'.str_replace('@', '_', (string) ($r->data['arm_id'] ?? '')).'__r'.($r->data['repetition'] ?? '');
             $nat = $native[$key] ?? [];
             $stderrTail = null;
+            $raw = '';
             if ($bucket !== 'success' && is_string($nat['stderr_path'] ?? null)) {
                 $raw = (string) file_get_contents($nat['stderr_path']);
                 $stderrTail = mb_substr(rtrim($raw), -800);
             }
+            // Rede de segurança cross-adapter: se o log mostra erro de API/infra
+            // (400, role incompatível, timeout, conexão), a tarefa NÃO foi o
+            // modelo errando — reclassifica para ambiente/fluxo mesmo que o
+            // adapter tenha marcado model_failure. Impede "0% de raciocínio"
+            // quando a verdade é a API recusando a chamada.
+            $reclassified = null;
+            if (in_array($bucket, ['model_failure', 'invalid_result', 'other'], true)
+                && $raw !== ''
+                && preg_match('/BadRequestError|error code: 4\d\d|unsupported_message_role|invalid_request_error|does not support|ConnectionError|ReadTimeout|RateLimitError|ServiceUnavailable|InternalServerError|502 Bad Gateway|503 Service/i', $raw) === 1) {
+                $reclassified = $bucket;
+                $bucket = 'environment_failure';
+            }
+            $classes[$bucket]++;
             $units[] = [
                 'case_id' => $r->data['case_id'] ?? null,
                 'arm_id' => $r->data['arm_id'] ?? null,
                 'repetition' => $r->data['repetition'] ?? null,
                 'status' => $status,
-                'failure_class' => $failureClass ?: null,
+                'failure_class' => $bucket === 'environment_failure' ? FailureClass::ENVIRONMENT : ($failureClass ?: null),
+                'reclassified_from' => $reclassified,
                 'blame' => match ($bucket) {
                     'success' => 'success',
                     'model_failure', 'invalid_result' => 'model',

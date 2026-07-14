@@ -111,6 +111,28 @@ class ExternalAdaptersIngestTest extends TestCase
         }
     }
 
+    public function test_inspect_api_error_is_environment_failure_not_model_failure(): void
+    {
+        // Contrato de confiança: um erro de API (role incompatível, 400) NÃO
+        // pode virar "modelo errou a tarefa" — senão o relatório sugere que o
+        // modelo não sabe raciocinar quando na verdade a chamada foi recusada.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'eval' => ['model' => 'openai/kimi-k2.7', 'task_display_name' => 'gsm8k'],
+            'samples' => [[
+                'id' => 'gsm8k_x1',
+                'epoch' => 1,
+                'score' => ['value' => null],
+                'error' => "RuntimeError('BadRequestError: Error code: 400 - Model 'kimi-k2.7-code' does not support messages with role 'developer'. unsupported_message_role')",
+            ]],
+        ]);
+        $this->assertSame('error', $receipts[0]['status']);
+        $this->assertSame('environment_failure', $receipts[0]['failure_class']);
+        $this->assertNotNull($receipts[0]['environment_error'] ?? null);
+    }
+
     public function test_bfcl_is_not_tau2_json(): void
     {
         $receipts = $this->ingestAndAssertCommon(new BfclAdapter);

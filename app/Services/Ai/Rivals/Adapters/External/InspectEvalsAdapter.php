@@ -32,7 +32,16 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 ?? $sample['scores']['match']['value']
                 ?? $sample['scores'][array_key_first((array) ($sample['scores'] ?? []))]['value']
                 ?? null;
+            // Erro de execução no sample (API 400, role incompatível, timeout,
+            // conexão) NÃO é o modelo errando a tarefa — é falha de ambiente/fluxo.
+            // Sem isto, gsm8k com "developer role unsupported" virava "raciocínio 0%".
+            $sampleError = trim((string) ($sample['error'] ?? ''));
+            $isExecutionError = $sampleError !== '' && (bool) preg_match(
+                '/BadRequestError|error code: \d{3}|unsupported_message_role|invalid_request_error|ConnectionError|Timeout|RateLimit|ServiceUnavailable|InternalServerError|API/i',
+                $sampleError,
+            );
             $status = match (true) {
+                $isExecutionError => 'environment_failure',
                 $scoreValue === 'C', $scoreValue === 1, $scoreValue === 1.0, $scoreValue === true => 'success',
                 $scoreValue === 'I', $scoreValue === 0, $scoreValue === 0.0, $scoreValue === false => 'failure',
                 default => 'error',
@@ -56,8 +65,14 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 'task_type' => $taskType,
                 'arm_id' => $model.'@bare',
                 'repetition' => (int) ($sample['epoch'] ?? $sample['repetition'] ?? 1),
-                'status' => $status,
-                'failure_class' => $status === 'success' ? null : ($status === 'error' ? 'invalid_result' : 'model_failure'),
+                'status' => $status === 'environment_failure' ? 'error' : $status,
+                'failure_class' => match ($status) {
+                    'success' => null,
+                    'environment_failure' => 'environment_failure',
+                    'error' => 'invalid_result',
+                    default => 'model_failure',
+                },
+                'environment_error' => $isExecutionError ? mb_substr($sampleError, 0, 240) : null,
                 'wall_ms' => (int) round((float) ($sample['total_time'] ?? 0) * 1000),
                 'tokens_in' => (int) ($usage['input_tokens'] ?? 0),
                 'tokens_out' => (int) ($usage['output_tokens'] ?? 0),

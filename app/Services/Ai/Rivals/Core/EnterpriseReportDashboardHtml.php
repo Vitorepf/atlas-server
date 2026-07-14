@@ -207,6 +207,11 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cap .foot{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted)}
 .cap .foot b{color:var(--ink);font-weight:650}
 .cap .warn{color:var(--warn);font-size:12px;margin-top:8px}
+.glossary .gloss-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin-top:8px}
+@media(max-width:820px){.glossary .gloss-grid{grid-template-columns:1fr}}
+.glossary .gloss-grid > div{font-size:13px}
+.glossary .gloss-grid b{color:var(--ink);display:block;margin-bottom:2px}
+.glossary .gloss-grid span{color:var(--muted);line-height:1.5}
 </style>
 </head>
 <body>
@@ -243,7 +248,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     <div class="card" style="margin-bottom:12px" id="factsPanel"></div>
     <div class="card">
       <h2>Ranking do modelo — um modelo, duas medições</h2>
-      <p class="hint">Cada <strong>modelo</strong> é uma linha só. Colunas: capacidade <span class="chip bare">sem Atlas</span> e <span class="chip atlas">com Atlas</span> nos mesmos testes válidos. Nunca ranqueia bare contra atlas_dev como se fossem modelos diferentes.</p>
+      <p class="hint">Cada <strong>modelo</strong> é uma linha só. Colunas: capacidade <span class="chip bare">sem Atlas</span> e <span class="chip atlas">com Atlas</span> nos mesmos testes válidos. Nunca compara o modelo sozinho com o modelo+Atlas como se fossem modelos diferentes.</p>
       <div id="modelMatrix"></div>
     </div>
     <div class="card" style="margin-top:12px">
@@ -275,7 +280,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <div id="modelProfiles"></div>
     </div>
     <div class="card" style="margin-bottom:12px">
-      <h2>Dissecção — realidade medida</h2>
+      <h2>Dissecção — tudo que foi medido, faceta por faceta</h2>
       <p class="hint" id="epistemicNote"></p>
       <div id="dissectSummary" class="grid g4"></div>
     </div>
@@ -295,6 +300,24 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   <section id="tab-uplift" class="panel">
     <div class="card" id="upliftPanel"></div>
   </section>
+
+  <div class="card glossary" style="margin-top:16px">
+    <h2>Como ler este relatório — glossário e método</h2>
+    <p class="hint">Toda palavra que pode confundir está explicada aqui. Nenhum número aparece sem lastro.</p>
+    <div class="gloss-grid">
+      <div><b>Capacidade</b><span>O que o modelo sabe fazer (programar, usar ferramentas, raciocinar, trabalho longo). É o que importa — o benchmark é só o instrumento que mede.</span></div>
+      <div><b>Sem Atlas / Com Atlas</b><span>O mesmo modelo rodando sozinho ("sem Atlas") e envolvido pelo Atlas ("com Atlas"). Comparação sempre nas MESMAS tarefas.</span></div>
+      <div><b>Sucesso (%)</b><span>Fração de tarefas resolvidas corretamente. Conta só tarefas em que o teste realmente rodou — falha de ambiente é excluída do denominador.</span></div>
+      <div><b>Δ pp (delta em pontos percentuais)</b><span>Quanto o Atlas mudou o sucesso. +11 pp = onze pontos a mais. Verde melhora, vermelho piora. Sempre comparado no mesmo conjunto de tarefas.</span></div>
+      <div><b>Confiável / Não confiável</b><span>"Não confiável" quando a execução não terminou ou o ambiente falhou em mais de 30% das tarefas — não julga o modelo, e fica fora do score.</span></div>
+      <div><b>Falha do modelo × do ambiente</b><span>"Modelo" = o modelo errou a tarefa. "Ambiente/fluxo" = o teste não rodou (rede, container, timeout de setup). Cada tarefa tem seu log para provar qual foi.</span></div>
+      <div><b>Diagnóstico</b><span>Comparação com Atlas ainda não confirmada (poucos pares provados). Aparece marcada — não é conclusão, é indício.</span></div>
+      <div><b>Tokens por tarefa</b><span>Quanto o modelo consome por tarefa. Como o custo em dólar é $0 (assinatura), esta é a métrica real de eficiência.</span></div>
+      <div><b>Não medido</b><span>Não rodou ou o dado não existe. Nunca vira 0 — dizemos explicitamente que falta, e por quê.</span></div>
+      <div><b>Prova pública</b><span>Este relatório é medição interna, não certificado público (<code>claim_allowed = false</code>). Um número só vira prova depois de repetição e verificação independentes.</span></div>
+    </div>
+    <p class="hint" style="margin-top:14px"><b>Método, em uma frase:</b> cada capacidade é a média das suas suítes confiáveis, ponderada pelo número de tarefas; o ganho com Atlas usa só os pares realmente medidos, com seu próprio ponto de partida. O JSON canônico (<code>report.json</code>) tem cada número com sua origem.</p>
+  </div>
 
   <footer id="footer"></footer>
 </div>
@@ -425,7 +448,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <div class="row" style="color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em"><span>Família</span><span style="text-align:right">sem Atlas</span><span></span><span style="text-align:right">com Atlas</span><span style="text-align:right">Δ</span></div>
       ${upliftRows}
     </div>` : '')+
-    `<p class="note">Custo $0 = assinatura Verboo (não discrimina custo). Δ médio usa só os pares bare×Atlas — não misturar com a média geral das suítes.</p>`;
+    `<p class="note">Custo $0 = assinatura (não discrimina). O Δ médio usa só os pares realmente medidos — não confundir com a média geral das capacidades.</p>`;
 
   const atlasPairedMean = paired.length
     ? paired.reduce((a,f)=>a+Number(f.atlas_intelligence),0)/paired.length
@@ -765,10 +788,10 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     return `<tr>
       <td><strong>${title}</strong><div class="hint">${s.suite_id}</div></td>
       <td><span class="chip ${s.status==='ok'?'atlas':(s.status==='missing_data'?'miss':'na')}">${statusPt(s.status)}</span>
-        ${s.is_atlas_fact?'<div class="hint">fato Atlas</div>':'<div class="hint">diagnóstico</div>'}
+        ${s.is_atlas_fact?'<div class="hint">confirmado</div>':'<div class="hint">indício (não confirmado)</div>'}
       </td>
       <td>${pct(s.intelligence_rate)}
-        <div class="hint">ITT ${pct(s.bare_intelligence)} (inclui env)</div>
+        <div class="hint">bruto ${pct(s.bare_intelligence)} (inclui falha de ambiente)</div>
       </td>
       <td>${pct(s.bare_intelligence)}
         <div style="height:6px;background:#1b2030;border-radius:4px;margin-top:4px;overflow:hidden">
@@ -792,9 +815,9 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   }).join('') || `<tr><td colspan="8" class="hint">Sem suites.</td></tr>`;
 
   document.getElementById('suiteCompare').innerHTML = `<table><thead><tr>
-    <th>Suite</th><th>Pipeline</th><th>Intel (ex-env)</th><th>Sem Atlas (ITT)</th><th>Com Atlas</th><th>Δ</th><th>Events / eixos</th><th>Comparação</th>
+    <th>Benchmark</th><th>Execução</th><th>Sucesso (tarefas válidas)</th><th>Sucesso bruto</th><th>Com Atlas</th><th>Δ</th><th>Rastro</th><th>Comparação</th>
   </tr></thead><tbody>${suiteCmpRows}</tbody></table>
-  <p class="hint" style="margin-top:8px">Intel (ex-env) = intelligence_rate (exclui environment_failure). ITT inclui env. “fato Atlas” exige claim + events + measurement.</p>`;
+  <p class="hint" style="margin-top:8px">Sucesso (tarefas válidas) exclui as tarefas onde o ambiente falhou. Sucesso bruto inclui tudo. "Confirmado" exige repetição verificada + rastro completo.</p>`;
 
   const j = (v) => JSON.stringify(v ?? null, null, 2);
   const cellFmt = (cells) => (cells && cells.length)
@@ -840,7 +863,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <td>${row.missing_fields&&row.missing_fields.length?row.missing_fields.join(', '):(row.unknown_reason||'—')}</td>
     </tr>`).join('');
     return `<article class="card dossier">
-      <h2 style="margin:0 0 6px">${m.model_id} <span class="chip ${m.runtime==='atlas_dev'?'atlas':'bare'}">${m.runtime}</span>
+      <h2 style="margin:0 0 6px">${m.model_id} <span class="chip ${m.runtime==='atlas_dev'?'atlas':'bare'}">${m.runtime==='atlas_dev'?'com Atlas':'sem Atlas'}</span>
         ${m.present?'':'<span class="chip miss">não rodou</span>'}
         <span class="chip">${Math.round((m.completeness_ratio||0)*100)}%</span>
       </h2>
@@ -859,7 +882,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <h2 style="font-size:15px;margin:12px 0 6px">Desconhecidos (explícitos)</h2>
       <ul>${unk}</ul>
       <h2 style="font-size:15px;margin:12px 0 6px">Por suite (10)</h2>
-      <table><thead><tr><th>Suite</th><th>Status</th><th>Intel</th><th>Custo</th><th>Tok/tarefa</th><th>Tok/s</th><th>Velocidade</th><th>Lacuna</th></tr></thead>
+      <table><thead><tr><th>Suite</th><th>Status</th><th>Sucesso</th><th>Custo</th><th>Tok/tarefa</th><th>Tok/s</th><th>Velocidade</th><th>Lacuna</th></tr></thead>
       <tbody>${suiteRows}</tbody></table>
       <h2 style="font-size:15px;margin:12px 0 6px">JSON completo</h2>
       <pre>${j(m)}</pre>
@@ -869,7 +892,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   document.getElementById('suiteCards').innerHTML = D.suites.map(s => {
     const lb = (s.leaderboard||[]).map((r,i)=>`<tr>
       <td>${i+1}</td>
-      <td>${r.model_id} <span class="chip ${r.runtime==='atlas_dev'?'atlas':'bare'}">${r.runtime}</span>
+      <td>${r.model_id} <span class="chip ${r.runtime==='atlas_dev'?'atlas':'bare'}">${r.runtime==='atlas_dev'?'com Atlas':'sem Atlas'}</span>
         ${r.present?'':'<span class="chip miss">não rodou</span>'}</td>
       <td>${pct(r.intelligence)}</td>
       <td>${money(r.cost_per_task)}</td>
@@ -878,7 +901,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     return `<article class="card"><div class="cat">${s.category}</div>
       <h2 style="font-size:20px;margin:0 0 4px">${s.title}</h2>
       <p class="hint">${s.blurb}</p>
-      <table><thead><tr><th>#</th><th>Modelo</th><th>Intel</th><th>Custo</th><th>Velocidade</th></tr></thead>
+      <table><thead><tr><th>#</th><th>Modelo</th><th>Sucesso</th><th>Custo</th><th>Velocidade</th></tr></thead>
       <tbody>${lb||'<tr><td colspan="5" class="hint">Sem linhas</td></tr>'}</tbody></table>
       <div class="hint" style="margin-top:8px">status <span class="chip ${s.status==='ok'?'atlas':(s.status==='missing_data'?'miss':'na')}">${statusPt(s.status)}</span>
       · run <code>${s.run_id||'—'}</code></div></article>`;
@@ -913,7 +936,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const evidenceBlock = ev.units_recorded==null ? '' : `
       <h2 style="font-size:15px;margin:14px 0 6px">Logs & evidência — falha do modelo vs do teste/ambiente</h2>
       <p class="hint">Cobertura do modelo <strong>${pct(ev.model_coverage)}</strong> · unidades ${ev.units_recorded||0}${ev.units_missing?` <span style="color:var(--bad)">(${ev.units_missing} não registradas!)</span>`:''} · sucessos ${cc.success||0} · falha do modelo ${(cc.model_failure||0)+(cc.invalid_result||0)} · ambiente/fluxo ${(cc.environment_failure||0)+(cc.timeout||0)}${d.reliable===false?` · <strong style="color:var(--warn)">${esc(d.unreliable_reason)}</strong>`:''}</p>
-      <table style="width:100%"><thead><tr><th>Unidade</th><th>Culpa</th><th>Status</th><th>Exit · wall</th></tr></thead><tbody>${unitRows||'<tr><td colspan=4 class="hint">sem unidades</td></tr>'}</tbody></table>`;
+      <table style="width:100%"><thead><tr><th>Unidade</th><th>Culpa</th><th>Status</th><th>Saída · duração</th></tr></thead><tbody>${unitRows||'<tr><td colspan=4 class="hint">sem unidades</td></tr>'}</tbody></table>`;
     return `<article class="card dossier">
       <div class="cat">${d.category||''}</div>
       <h2 style="margin:0 0 6px">${d.title||d.suite_id}
@@ -934,11 +957,11 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         <div>Run</div><div><code>${d.run_id||'—'}</code></div>
       </div>
       ${evidenceBlock}
-      <h2 style="font-size:15px;margin:14px 0 6px">full_metrics</h2>
+      <h2 style="font-size:15px;margin:14px 0 6px">Métricas completas (full_metrics)</h2>
       <pre>${j(d.full_metrics)}</pre>
-      <h2 style="font-size:15px;margin:14px 0 6px">native_signals</h2>
+      <h2 style="font-size:15px;margin:14px 0 6px">Sinais do benchmark nativo (native_signals)</h2>
       <pre>${j(d.native_signals)}</pre>
-      <h2 style="font-size:15px;margin:14px 0 6px">report_rows</h2>
+      <h2 style="font-size:15px;margin:14px 0 6px">Linhas do relatório por tarefa (report_rows)</h2>
       <pre>${j(d.report_rows)}</pre>
     </article>`;
   }).join('') || `<div class="empty">Sem dossiês.</div>`;
@@ -954,10 +977,10 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <td><code>${f.run_id||'—'}</code></td></tr>`;
   }).join('');
   document.getElementById('upliftPanel').innerHTML = `
-    <h2>Uplift Atlas (bare → atlas_dev)</h2>
+    <h2>Ganho com Atlas — mesmas tarefas, sem e com</h2>
     <p class="hint">Mesmo modelo, mesmos casos/orçamento; só muda o runtime. Δ só conta quando os dois braços existem na mesma suite.</p>
     <table style="margin-top:12px"><thead><tr>
-      <th>Família</th><th>Suite</th><th>Status</th><th>Intel bare</th><th>Intel Atlas</th><th>Δ intel</th>
+      <th>Família</th><th>Suite</th><th>Status</th><th>Sucesso sem Atlas</th><th>Sucesso com Atlas</th><th>Δ intel</th>
       <th>Custo bare</th><th>Custo Atlas</th><th>Run</th>
     </tr></thead><tbody>${fam||'<tr><td colspan="9" class="hint">Nenhuma família uplift.</td></tr>'}</tbody></table>`;
 

@@ -225,7 +225,7 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertFalse($atlas['present']);
 
         $html = file_get_contents(RunPaths::enterpriseHtmlPath());
-        $this->assertStringContainsString('Dissecção — realidade medida', $html);
+        $this->assertStringContainsString('Dissecção — tudo que foi medido', $html);
         $this->assertStringContainsString('epistemic_contract', $html);
         $this->assertStringContainsString('Tokens/tarefa', $html);
         $md = file_get_contents(RunPaths::enterpriseMarkdownPath());
@@ -267,8 +267,10 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertStringContainsString('Eixos de confiança', $md);
         $this->assertStringContainsString('is_atlas_fact', $md);
         $html = file_get_contents(RunPaths::enterpriseHtmlPath());
-        $this->assertStringContainsString('fato Atlas', $html);
-        $this->assertStringContainsString('Intel (ex-env)', $html);
+        // Rótulos humanos (sem jargão) — a tela não pode mostrar termos ambíguos.
+        $this->assertStringContainsString('confirmado', $html);
+        $this->assertStringContainsString('Sucesso (tarefas válidas)', $html);
+        $this->assertStringContainsString('Como ler este relatório', $html);
     }
 
     public function test_events_incomplete_blocks_atlas_fact(): void
