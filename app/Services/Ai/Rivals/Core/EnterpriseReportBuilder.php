@@ -56,6 +56,31 @@ class EnterpriseReportBuilder
     ];
 
     /**
+     * Teto do instrumento. Os 10 benchmarks desta bateria são quase todos de
+     * código/agente — chamar isso de "capacidade de IA" sem declarar o que ficou
+     * de fora sugere cobertura que não existe. Este mapa é a honestidade sobre o
+     * próprio escopo: o que um benchmark de capacidade completo mede, e onde o
+     * Rivals hoje NÃO olha. `covered` = existe instrumento wired nesta bateria.
+     *
+     * @var list<array{domain:string, covered:bool, note:string}>
+     */
+    public const COVERAGE_MAP = [
+        ['domain' => 'Engenharia de software (bugs, features, algoritmos, multi-linguagem)', 'covered' => true, 'note' => 'senior_swe_bench, swe_bench_live, live_code_bench, aider_polyglot'],
+        ['domain' => 'Uso de ferramentas / function calling', 'covered' => true, 'note' => 'bfcl, tau2_bench'],
+        ['domain' => 'Trabalho agêntico de longo prazo', 'covered' => true, 'note' => 'hal_harness, swe_marathon'],
+        ['domain' => 'Operar terminal / linha de comando', 'covered' => true, 'note' => 'terminal_bench'],
+        ['domain' => 'Raciocínio matemático', 'covered' => true, 'note' => 'inspect_evals (gsm8k)'],
+        ['domain' => 'Conhecimento factual amplo e raciocínio científico', 'covered' => false, 'note' => 'exigiria MMLU / GPQA — nenhum instrumento wired'],
+        ['domain' => 'Contexto longo (recuperar informação em janelas grandes)', 'covered' => false, 'note' => 'exigiria RULER / needle-in-haystack — não wired'],
+        ['domain' => 'Seguir instruções e restrições de formato', 'covered' => false, 'note' => 'exigiria IFEval — não wired'],
+        ['domain' => 'Factualidade / alucinação', 'covered' => false, 'note' => 'exigiria SimpleQA — não wired'],
+        ['domain' => 'Multilíngue', 'covered' => false, 'note' => 'exigiria MGSM / Flores — não wired'],
+        ['domain' => 'Multimodal (visão)', 'covered' => false, 'note' => 'exigiria MMMU — não wired'],
+        ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'note' => 'nenhum instrumento wired'],
+        ['domain' => 'Escrita longa e qualidade de redação', 'covered' => false, 'note' => 'nenhum instrumento wired'],
+    ];
+
+    /**
      * Sub-capacidade = o que cada instrumento realmente mede (task_type real do
      * receipt), com nome humano. Uma capacidade não é uma caixa: é um domínio com
      * várias habilidades distintas medidas por instrumentos diferentes.
@@ -1235,12 +1260,47 @@ class EnterpriseReportBuilder
             'model_id' => $primaryModel,
             'schema' => 'capacidades = o que os benchmarks medem; suíte = instrumento (drill-down)',
             'capabilities' => $capabilities,
+            // Escopo declarado: quantas habilidades a bateria realmente mediu vs
+            // quantas tem instrumento, e quais domínios de capacidade de IA estão
+            // fora do alcance destes 10 benchmarks. Sem isto, "Relatório de
+            // Capacidades" sugere cobertura da IA inteira — e é código/agente.
+            'coverage' => $this->buildCoverage($capabilities),
             'efficiency' => [
                 'tokens_per_task_mean' => $globalTokens === [] ? null : round(array_sum($globalTokens) / count($globalTokens)),
                 'median_wall_ms_mean' => $globalWall === [] ? null : round(array_sum($globalWall) / count($globalWall)),
                 'cost_basis' => 'verboo_subscription_marginal',
                 'note' => 'Custo marginal $0 (assinatura Verboo); eficiência real se lê em tokens/task e tempo/task.',
             ],
+        ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $capabilities
+     * @return array<string,mixed>
+     */
+    private function buildCoverage(array $capabilities): array
+    {
+        $skillsWired = 0;
+        $skillsMeasured = 0;
+        foreach ($capabilities as $cap) {
+            foreach ((array) ($cap['sub_capabilities'] ?? []) as $sub) {
+                $skillsWired++;
+                if (($sub['reliable'] ?? false) === true) {
+                    $skillsMeasured++;
+                }
+            }
+        }
+        $domainsCovered = count(array_filter(self::COVERAGE_MAP, fn (array $d): bool => $d['covered']));
+
+        return [
+            'skills_measured' => $skillsMeasured,
+            'skills_wired' => $skillsWired,
+            'domains_covered' => $domainsCovered,
+            'domains_total' => count(self::COVERAGE_MAP),
+            'map' => self::COVERAGE_MAP,
+            'scope_note' => 'Esta bateria mede engenharia de software e uso agêntico de ferramentas. '
+                .'Não é um retrato da capacidade geral de uma IA: conhecimento, contexto longo, '
+                .'multimodal, factualidade, multilíngue e segurança não têm instrumento aqui.',
         ];
     }
 

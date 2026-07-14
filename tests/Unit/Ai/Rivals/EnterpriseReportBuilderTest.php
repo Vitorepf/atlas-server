@@ -358,6 +358,30 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertNotEmpty($notRun['unreliable_reason']);
     }
 
+    public function test_coverage_declares_scope_ceiling_and_uncovered_domains(): void
+    {
+        // O relatório precisa declarar o próprio teto. Chamar 4 domínios de
+        // código/agente de "capacidades" sugere retrato da IA inteira — os
+        // domínios sem instrumento (conhecimento, contexto longo, multimodal,
+        // segurança…) têm de aparecer como NÃO cobertos, não sumir.
+        $report = (new EnterpriseReportBuilder)->build();
+        $cov = $report['model_capabilities']['coverage'];
+
+        $this->assertLessThan($cov['domains_total'], $cov['domains_covered'], 'cobertura não pode se declarar total');
+        $this->assertNotEmpty($cov['scope_note']);
+
+        $uncovered = array_column(array_filter($cov['map'], fn (array $d): bool => ! $d['covered']), 'domain');
+        $this->assertNotEmpty($uncovered, 'domínios fora do alcance precisam ser declarados');
+        foreach (['Multimodal', 'Contexto longo', 'Segurança'] as $needle) {
+            $this->assertNotEmpty(
+                array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
+                "domínio não coberto ausente do mapa: {$needle}"
+            );
+        }
+        // Habilidades medidas nunca podem exceder as que têm instrumento.
+        $this->assertLessThanOrEqual($cov['skills_wired'], $cov['skills_measured']);
+    }
+
     public function test_headline_is_split_when_count_favors_atlas_but_magnitude_does_not(): void
     {
         // A armadilha: 2↑/1↓ parece vitória do Atlas, mas a única regressão

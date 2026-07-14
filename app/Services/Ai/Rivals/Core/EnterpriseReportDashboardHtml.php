@@ -219,6 +219,17 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cap .subbar{height:4px;border-radius:999px;background:#1a1f2b;overflow:hidden;margin-top:4px}
 .cap .subfill{height:100%;border-radius:999px;background:var(--bare);opacity:.75}
 .cap .subfill.na{background:repeating-linear-gradient(90deg,#2a3142,#2a3142 4px,transparent 4px,transparent 8px);width:100%!important;opacity:.5}
+.covstats{display:flex;flex-wrap:wrap;gap:8px 22px;margin:10px 0 14px;font-size:12.5px;color:var(--muted)}
+.covstats b{color:var(--ink);font-size:15px;font-variant-numeric:tabular-nums}
+.covmap{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.covrow{display:grid;grid-template-columns:24px minmax(0,1.1fr) minmax(0,1fr);gap:10px;align-items:baseline;background:var(--card);padding:8px 12px;font-size:12.5px}
+.covrow .covmark{font-weight:800;text-align:center}
+.covrow.yes .covmark{color:var(--atlas)}
+.covrow.no .covmark{color:var(--muted)}
+.covrow .covdom{color:var(--ink);line-height:1.4}
+.covrow.no .covdom{color:var(--muted)}
+.covrow .covnote{color:var(--muted);font-size:11.5px;line-height:1.4}
+@media(max-width:820px){.covrow{grid-template-columns:20px 1fr}.covrow .covnote{grid-column:2}}
 .cap .warn{color:var(--warn);font-size:12px;margin-top:8px}
 .glossary .gloss-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin-top:8px}
 @media(max-width:820px){.glossary .gloss-grid{grid-template-columns:1fr}}
@@ -247,10 +258,11 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   <section id="tab-caps" class="panel on">
     <div class="card" style="margin-bottom:12px">
       <h2>O que o modelo sabe fazer — não em quais testes</h2>
-      <p class="hint">Os 10 benchmarks são o instrumento; o que importa é a <strong>capacidade</strong> que eles medem. Cada capacidade agrega só as suítes <strong>confiáveis</strong>, ponderadas por tarefa. Para ver por benchmark, use a aba <em>Benchmarks (drill-down)</em>.</p>
+      <p class="hint">Os 10 benchmarks são o instrumento; o que importa é a <strong>capacidade</strong> que eles medem. Cada domínio abaixo abre nas <strong>habilidades</strong> que o compõem — a média do domínio esconde que o modelo pode ir bem numa e zerar noutra. Só suítes <strong>confiáveis</strong> entram na média, ponderadas por tarefa. <strong>Escopo:</strong> esta bateria mede engenharia de software e uso agêntico de ferramentas — não é retrato da capacidade geral de uma IA (ver <em>Até onde este benchmark enxerga</em>).</p>
       <div class="eff-row" id="capEfficiency"></div>
     </div>
     <div class="cap-grid" id="capCards"></div>
+    <div class="card" id="coveragePanel" style="margin-top:12px"></div>
     <div class="grid g2" style="margin-top:12px">
       <div class="card"><h2>Mapa de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cada eixo é uma capacidade. Polígono verde além do azul = Atlas amplia.</p><div class="chart sm"><canvas id="capRadar"></canvas></div></div>
       <div class="card"><h2>Eficiência por capacidade</h2><p class="hint">Tokens por tarefa (menor = mais eficiente). Custo $0 de assinatura não discrimina — a eficiência real está aqui.</p><div class="chart sm"><canvas id="capTokens"></canvas></div></div>
@@ -423,6 +435,26 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       ${smallSample?`<div class="warn" style="color:var(--muted)">ℹ Amostra pequena (${c.tasks_scored} tarefas): use como indicativo, não como número definitivo.</div>`:''}
     </div>`;
   }).join('') || '<div class="empty">Sem capacidades medidas ainda.</div>';
+
+  // Escopo declarado: o relatório diz o que NÃO alcança. Sem isto, "capacidades"
+  // sugere retrato da IA inteira quando a bateria é código/agente.
+  const COV = MC.coverage || null;
+  if (COV && document.getElementById('coveragePanel')) {
+    const rows = (COV.map||[]).map(d => `
+      <div class="covrow ${d.covered?'yes':'no'}">
+        <span class="covmark">${d.covered?'✓':'—'}</span>
+        <span class="covdom">${d.domain}</span>
+        <span class="covnote">${d.note}</span>
+      </div>`).join('');
+    document.getElementById('coveragePanel').innerHTML = `
+      <h2>Até onde este benchmark enxerga</h2>
+      <p class="hint">${COV.scope_note}</p>
+      <div class="covstats">
+        <span><b>${COV.skills_measured}</b>/${COV.skills_wired} habilidades realmente medidas</span>
+        <span><b>${COV.domains_covered}</b>/${COV.domains_total} domínios com instrumento</span>
+      </div>
+      <div class="covmap">${rows}</div>`;
+  }
 
   document.getElementById('objective').textContent = D.objective;
   document.getElementById('meta').innerHTML =
