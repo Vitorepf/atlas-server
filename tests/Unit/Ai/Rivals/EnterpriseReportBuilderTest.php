@@ -300,6 +300,16 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame(1.0, $row['intelligence_rate']);
         $this->assertSame(0.5, $row['axes']['intelligence']['itt']);
         $this->assertSame(1.0, $row['axes']['intelligence']['rate']);
+
+        // Capacidade "Uso de ferramentas" (bfcl) deve carregar faixa de confiança
+        // 95% que envolve o ponto e é larga em amostra pequena — nunca deixar o
+        // número cru fingir precisão que a amostra não tem.
+        $cap = collect($report['model_capabilities']['capabilities'])
+            ->firstWhere('id', 'tool_use');
+        $this->assertNotNull($cap['bare_ci_low'], 'capacidade sem faixa de confiança');
+        $this->assertLessThanOrEqual($cap['bare_intelligence'], $cap['bare_ci_low']);
+        $this->assertGreaterThanOrEqual($cap['bare_intelligence'], $cap['bare_ci_high']);
+        $this->assertGreaterThan($cap['bare_ci_low'], $cap['bare_ci_high']);
     }
 
     public function test_inspect_evals_missing_tokens_is_harness_omit_not_fact(): void

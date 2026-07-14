@@ -358,19 +358,28 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const barBare = bare==null?0:bare;
     // Atlas em linha própria com SEU baseline pareado — não implica contra o
     // número grande da capacidade (suítes diferentes).
+    // Delta de poucas tarefas é tendência, não veredito: um -66 pp de 9 tarefas
+    // tem margem enorme. Sem esse aviso, o pp grande finge precisão que não tem.
+    const atlasSmall = hasAtlas && c.tasks_atlas_paired>0 && c.tasks_atlas_paired < 20;
     const atlasLine = hasAtlas ? `
       <div class="atlas-line">
         <span class="tag">Com Atlas</span>
         <span class="pair"><b class="bare">${Math.round(aBefore)}%</b> → <b class="atlas">${Math.round(aAfter)}%</b></span>
         <span class="delta ${dCls}">${dv>=0?'+':''}${dv} pp</span>
-        <span class="hint" style="margin:0">base ${c.tasks_atlas_paired||0} tarefa${c.tasks_atlas_paired==1?'':'s'} em ${c.atlas_measured_on} suíte(s)${c.atlas_diagnostic_only?' · diagnóstico':''}</span>
+        <span class="hint" style="margin:0">base ${c.tasks_atlas_paired||0} tarefa${c.tasks_atlas_paired==1?'':'s'} em ${c.atlas_measured_on} suíte(s)${c.atlas_diagnostic_only?' · diagnóstico':''}${atlasSmall?' · tendência, não conclusão (amostra pequena)':''}</span>
       </div>` : `<div class="atlas-line"><span class="hint" style="margin:0">Atlas ainda não medido nesta capacidade</span></div>`;
     // Amostra pequena: um número de poucas tarefas não é conclusivo. Avisa.
     const smallSample = bare!=null && c.tasks_scored>0 && c.tasks_scored < 12;
+    // Faixa de confiança 95% (Wilson): o intervalo onde a taxa real deve cair.
+    // Mostra a incerteza do número em vez de fingir precisão de ponto único.
+    const ciLo = c.bare_ci_low==null?null:Math.round(Number(c.bare_ci_low)*100);
+    const ciHi = c.bare_ci_high==null?null:Math.round(Number(c.bare_ci_high)*100);
+    const ciLine = (bare!=null&&ciLo!=null&&ciHi!=null)
+      ? `<span class="lab" style="display:inline" title="Faixa de confiança 95% (Wilson): a taxa real cai aqui em 95% das vezes. Quanto menor a amostra, mais larga a faixa.">· faixa provável ${ciLo}–${ciHi}%</span>` : '';
     return `<div class="cap">
       <h3>${c.label}</h3>
       <p class="measures">${c.measures}</p>
-      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">tarefas resolvidas (sem Atlas)${c.tasks_scored?` · base ${c.tasks_scored} tarefa${c.tasks_scored==1?'':'s'}`:''}</span></div>
+      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">tarefas resolvidas (sem Atlas)${c.tasks_scored?` · base ${c.tasks_scored} tarefa${c.tasks_scored==1?'':'s'}`:''}</span> ${ciLine}</div>
       <div class="bars"><div class="fill" style="width:${barBare}%;background:var(--bare)"></div></div>
       ${atlasLine}
       <div class="foot">

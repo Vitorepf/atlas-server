@@ -1125,6 +1125,13 @@ class EnterpriseReportBuilder
             $atlasScore = $atlasDen > 0 ? round($atlasNum / $atlasDen, 4) : null;
             $atlasBare = $atlasDen > 0 ? round($atlasBareNum / $atlasDen, 4) : null;
             $delta = ($atlasScore !== null && $atlasBare !== null) ? round($atlasScore - $atlasBare, 4) : null;
+            // Intervalo de confiança 95% (Wilson) sobre a amostra agregada: um "45%"
+            // de 40 tarefas tem margem menor que de 12. Sem a banda, o número cru
+            // sugere precisão que a amostra não tem. n = tarefas pontuadas.
+            $bareN = (int) round($bareDen);
+            $bareCi = ($bareScore !== null && $bareN > 0)
+                ? StatisticalPolicy::wilson((int) round($bareScore * $bareN), $bareN)
+                : null;
 
             $capabilities[] = [
                 'id' => $capId,
@@ -1139,6 +1146,8 @@ class EnterpriseReportBuilder
                 'tasks_scored' => (int) round($bareDen),
                 'tasks_atlas_paired' => (int) round($atlasDen),
                 'bare_intelligence' => $bareScore,
+                'bare_ci_low' => $bareCi['low'] ?? null,
+                'bare_ci_high' => $bareCi['high'] ?? null,
                 'atlas_intelligence' => $atlasScore,
                 'atlas_bare_baseline' => $atlasBare,
                 'delta_intelligence' => $delta,
