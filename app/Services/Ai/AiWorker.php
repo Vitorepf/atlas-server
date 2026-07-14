@@ -102,6 +102,7 @@ class AiWorker
         private readonly AuditLogService $audit,
         private readonly JobResultInboxEmitter $jobResults,
         private readonly AiProviderChoiceBuilder $choices,
+        private readonly AiExecutionPresentationState $presentationStates,
         private readonly AiRuntimeBudgetService $budgets,
         private readonly AtlasAiRuntimeSettings $runtimeSettings,
         private readonly FairClaudePolicy $fairClaude,
@@ -1042,8 +1043,9 @@ class AiWorker
 
     private function recoverStaleProcessingJobs(string $workerId): void
     {
-        $councilTraceIds = DB::transaction(function () use ($workerId): array {
-            $traceIds = [];
+        $councilRecoveries = DB::transaction(function () use ($workerId): array {
+            /** @var array<string, array{job_id:int,requeued:bool,final_failure:bool}> $recoveries */
+            $recoveries = [];
 
             $query = AiJob::query()
                 ->where('status', 'processing')
@@ -1065,6 +1067,9 @@ class AiWorker
                 }
 
                 $finalFailure = $job->attempts >= $job->max_attempts;
+                $presentationState = $finalFailure
+                    ? $this->presentationStates->failed(trace: $job->trace)
+                    : $this->presentationStates->staleWorkerRecovery(trace: $job->trace);
                 $metadata = array_merge($job->metadata ?? [], [
                     'last_recovered_at' => now()->toJSON(),
                     'last_recovery_worker_id' => $workerId,
@@ -1087,7 +1092,14 @@ class AiWorker
 
                 if ($this->isCouncilJob($job)) {
                     if ($job->trace_id) {
-                        $traceIds[] = $job->trace_id;
+                        $recovery = $recoveries[$job->trace_id] ?? [
+                            'job_id' => $job->id,
+                            'requeued' => false,
+                            'final_failure' => false,
+                        ];
+                        $recovery['requeued'] = $recovery['requeued'] || ! $finalFailure;
+                        $recovery['final_failure'] = $recovery['final_failure'] || $finalFailure;
+                        $recoveries[$job->trace_id] = $recovery;
                     }
                 } else {
                     $job->trace?->update([
@@ -1096,8 +1108,18 @@ class AiWorker
                         'metadata' => array_merge($job->trace->metadata ?? [], [
                             'last_error_code' => 'worker_timeout',
                             'last_error_message' => $job->error_message,
+                            'presentation_state' => $presentationState,
                         ]),
                     ]);
+                    $this->emitStreamEvent(
+                        $job,
+                        null,
+                        'lifecycle',
+                        $finalFailure ? 'execution_failed' : 'execution_recovering',
+                        '',
+                        ['presentation_state' => $presentationState],
+                        'system',
+                    );
                 }
 
                 $this->logger->event(
@@ -1116,13 +1138,43 @@ class AiWorker
                 );
             }
 
-            return array_values(array_unique($traceIds));
+            return $recoveries;
         });
 
-        foreach ($councilTraceIds as $traceId) {
+        foreach ($councilRecoveries as $traceId => $recovery) {
             $trace = AiTrace::query()->find($traceId);
-            if ($trace) {
-                $this->council->sync($trace);
+            if (! $trace) {
+                continue;
+            }
+
+            $synced = $this->council->sync($trace);
+            // Council is an aggregate. A stale member may fail while another
+            // member is still active, so only publish a terminal state after
+            // the aggregate itself is terminal. A real requeue is safe to
+            // show immediately because the trace remains processing.
+            $presentationState = $synced->status === 'failed' && $recovery['final_failure']
+                ? $this->presentationStates->failed(trace: $synced)
+                : ($recovery['requeued'] ? $this->presentationStates->staleWorkerRecovery(trace: $synced) : null);
+            if (! $presentationState) {
+                continue;
+            }
+
+            $synced->update([
+                'metadata' => array_merge($synced->metadata ?? [], [
+                    'presentation_state' => $presentationState,
+                ]),
+            ]);
+            $job = AiJob::query()->find($recovery['job_id']);
+            if ($job) {
+                $this->emitStreamEvent(
+                    $job,
+                    null,
+                    'lifecycle',
+                    $presentationState['kind'] === 'failed' ? 'execution_failed' : 'execution_recovering',
+                    '',
+                    ['presentation_state' => $presentationState],
+                    'system',
+                );
             }
         }
     }
@@ -1500,6 +1552,12 @@ class AiWorker
                 'next_iteration' => $currentIteration + 1,
                 'kernel_decision' => $kernelRepairDecision?->toArray(),
             ], $attempt->provider, $responseHash);
+            $replanningPresentationState = $this->presentationStates->replanning(
+                currentIteration: $currentIteration,
+                nextIteration: $currentIteration + 1,
+                maxIterations: $maxIterations,
+                trace: $job->trace,
+            );
 
             $job->trace?->update([
                 'status' => 'queued',
@@ -1509,8 +1567,26 @@ class AiWorker
                 'response_text' => $result->output,
                 'latency_ms' => $result->durationMs,
                 'completed_at' => null,
-                'metadata' => array_merge($job->trace->metadata ?? [], $metadata),
+                'metadata' => array_merge($job->trace->metadata ?? [], $metadata, [
+                    'presentation_state' => $replanningPresentationState,
+                    // C19: replanejamento HONESTO — a versão corrente do plano é
+                    // arquivada em plan_revisions[] antes da nova iteração; nada
+                    // é sobrescrito em silêncio. Mesmo padrão do fluxo dev
+                    // (metadata_json.plan_revisions); a casca pode então mostrar
+                    // "v1 arquivado · comparar versões" com dado real.
+                    'plan_revisions' => self::planRevisionsAfterReplan(
+                        $job->trace->metadata ?? [],
+                        $currentIteration,
+                        'quality_gate_requested_repair',
+                        now()->toIso8601String(),
+                    ),
+                ]),
             ]);
+            if ($job->trace) {
+                $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_replanning', '', [
+                    'presentation_state' => $replanningPresentationState,
+                ], 'system');
+            }
 
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
@@ -1541,6 +1617,7 @@ class AiWorker
                 'reason_if_stopped' => $reasonIfStopped,
                 'kernel_decision' => $kernelRepairDecision?->toArray(),
             ], $attempt->provider, $responseHash, blocked: true);
+            $failedPresentationState = $this->presentationStates->failed(trace: $job->trace);
 
             $job->trace?->update([
                 'status' => 'failed',
@@ -1550,8 +1627,15 @@ class AiWorker
                 'response_text' => $result->output,
                 'latency_ms' => $result->durationMs,
                 'completed_at' => now(),
-                'metadata' => array_merge($job->trace->metadata ?? [], $metadata),
+                'metadata' => array_merge($job->trace->metadata ?? [], $metadata, [
+                    'presentation_state' => $failedPresentationState,
+                ]),
             ]);
+            if ($job->trace) {
+                $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_failed', '', [
+                    'presentation_state' => $failedPresentationState,
+                ], 'system');
+            }
 
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
@@ -1793,6 +1877,39 @@ class AiWorker
      * @param  array<string,mixed>  $repairUpdates
      * @return array<string,mixed>
      */
+    /**
+     * C19 — histórico de plano no replanejamento. Função PURA sobre o metadata:
+     * se existe um execution_plan corrente, ele entra como a próxima revisão em
+     * plan_revisions[] (revision, iteration, reason, archived_at, execution_plan).
+     * Sem plano corrente, o histórico anterior passa intocado — nunca uma
+     * revisão vazia fabricada. Cap de 10 revisões (as mais recentes vencem).
+     *
+     * @param  array<string,mixed>  $metadata
+     * @return array<int,array<string,mixed>>
+     */
+    public static function planRevisionsAfterReplan(
+        array $metadata,
+        int $iteration,
+        string $reason,
+        string $archivedAt,
+    ): array {
+        $revisions = array_values((array) ($metadata['plan_revisions'] ?? []));
+        $currentPlan = $metadata['execution_plan'] ?? null;
+        if (! is_array($currentPlan) || $currentPlan === []) {
+            return $revisions;
+        }
+
+        $revisions[] = [
+            'revision' => count($revisions) + 1,
+            'iteration' => $iteration,
+            'reason' => $reason,
+            'archived_at' => $archivedAt,
+            'execution_plan' => $currentPlan,
+        ];
+
+        return array_slice($revisions, -10);
+    }
+
     private function nativeProgrammingRepairMetadata(
         AiJob $job,
         array $repair,
@@ -2151,6 +2268,16 @@ class AiWorker
             if ($this->isCouncilJob($job)) {
                 $synced = $this->council->sync($job->trace()->firstOrFail());
                 if ($synced->status === 'succeeded' && $synced->response_text) {
+                    $completedPresentationState = $this->presentationStates->completed(trace: $synced);
+                    $synced->update([
+                        'metadata' => array_merge($synced->metadata ?? [], [
+                            'presentation_state' => $completedPresentationState,
+                        ]),
+                    ]);
+                    $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_completed', '', [
+                        'presentation_state' => $completedPresentationState,
+                    ], 'system');
+                    $synced->refresh();
                     $this->conversation->recordAssistantMessage($synced, $synced->response_text, [
                         'source' => 'ai_council_coordinator',
                         'execution_policy' => 'dual_review',
@@ -2218,6 +2345,7 @@ class AiWorker
                 }
             }
 
+            $completedPresentationState = $this->presentationStates->completed(trace: $job->trace);
             $job->trace?->update([
                 'status' => 'succeeded',
                 'provider' => $attempt->provider,
@@ -2226,8 +2354,17 @@ class AiWorker
                 'response_text' => $result->output,
                 'latency_ms' => $result->durationMs,
                 'completed_at' => now(),
-                'metadata' => array_merge($job->trace->metadata ?? [], $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash)),
+                'metadata' => array_merge(
+                    $job->trace->metadata ?? [],
+                    $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash),
+                    ['presentation_state' => $completedPresentationState],
+                ),
             ]);
+            if ($job->trace) {
+                $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_completed', '', [
+                    'presentation_state' => $completedPresentationState,
+                ], 'system');
+            }
 
             $trace = $job->trace?->refresh();
             if ($trace?->response_text) {
@@ -2326,6 +2463,16 @@ class AiWorker
         if ($this->isCouncilJob($job)) {
             $synced = $this->council->sync($job->trace()->firstOrFail());
             if ($finalFailure && $synced->status === 'failed') {
+                $failedPresentationState = $this->presentationStates->failed(trace: $synced);
+                $synced->update([
+                    'metadata' => array_merge($synced->metadata ?? [], [
+                        'presentation_state' => $failedPresentationState,
+                    ]),
+                ]);
+                $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_failed', '', [
+                    'presentation_state' => $failedPresentationState,
+                ], 'system');
+                $synced->refresh();
                 // evaluateQuality on terminal failure so that traces with non-empty response
                 // (e.g. provider returned text before erroring out) get classified by the
                 // heuristic evaluator. The evaluator's internal gate skips empty responses.
@@ -2398,6 +2545,7 @@ class AiWorker
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
 
+        $failedPresentationState = $finalFailure ? $this->presentationStates->failed(trace: $job->trace) : null;
         $job->trace?->update([
             'status' => $finalFailure ? 'failed' : 'queued',
             'provider' => $attempt->provider,
@@ -2407,8 +2555,15 @@ class AiWorker
             'metadata' => array_merge($job->trace->metadata ?? [], [
                 'last_error_code' => $result->errorCode,
                 'last_error_message' => $result->errorMessage,
-            ], $result->metadata, $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode)),
+            ], $result->metadata, $this->programmingDispatchUpdate($job, $finalFailure ? 'blocked' : 'retrying', $attempt->provider, null, $result->errorCode), $failedPresentationState ? [
+                'presentation_state' => $failedPresentationState,
+            ] : []),
         ]);
+        if ($finalFailure && $job->trace && $failedPresentationState) {
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_failed', '', [
+                'presentation_state' => $failedPresentationState,
+            ], 'system');
+        }
 
         if ($finalFailure && $job->trace) {
             $failedTrace = $job->trace->refresh();
@@ -3400,6 +3555,7 @@ TEXT);
     private function fallbackGeminiToClaude(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
     {
         $fallbackProvider = 'claude_cli';
+        $presentationState = $this->presentationStates->automaticProviderFallback(trace: $job->trace);
         $metadata = array_merge($job->metadata ?? [], [
             'gemini_fallback_attempted' => true,
             'fallback_state' => 'queued',
@@ -3446,8 +3602,15 @@ TEXT);
                 'provider_fallback' => $payload['provider_fallback'],
                 'last_error_code' => $result->errorCode,
                 'last_error_message' => $result->errorMessage,
+                'presentation_state' => $presentationState,
             ]),
         ])->save();
+
+        if ($job->trace) {
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_recovering', '', [
+                'presentation_state' => $presentationState,
+            ], 'system');
+        }
 
         $this->logger->event(
             eventType: 'provider_fallback_requeued',
@@ -3542,6 +3705,13 @@ TEXT);
             'reset_hint' => data_get($result->metadata, 'reset_hint'),
             'choice_options' => $options,
         ]);
+        $presentationState = $this->presentationStates->providerChoice(
+            errorCode: (string) $result->errorCode,
+            options: $options,
+            resetAt: is_string($resetAtIso) ? $resetAtIso : null,
+            trace: $job->trace,
+        );
+        $metadata['presentation_state'] = $presentationState;
 
         $attempt->update([
             'status' => 'failed',
@@ -3565,18 +3735,24 @@ TEXT);
             'error_message' => $result->errorMessage,
             'metadata' => $metadata,
         ]);
+        if ($job->trace) {
+            $traceMetadata = array_merge($job->trace->metadata ?? [], [
+                'presentation_state' => $presentationState,
+            ]);
+            $job->trace->update([
+                'status' => 'awaiting_user_choice',
+                'metadata' => $traceMetadata,
+            ]);
+        }
 
         $this->emitStreamEvent(
             $job,
             $attempt,
-            'provider_choice',
+            'lifecycle',
             'provider_choice_required',
-            $result->errorMessage ?: $result->errorCode,
+            '',
             [
-                'error_code' => $result->errorCode,
-                'options' => $options,
-                'provider_reset_at' => $resetAtIso,
-                'reset_hint' => data_get($result->metadata, 'reset_hint'),
+                'presentation_state' => $presentationState,
             ],
             'system',
             null,
