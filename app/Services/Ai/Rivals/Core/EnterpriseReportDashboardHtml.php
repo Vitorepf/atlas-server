@@ -363,12 +363,14 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         <span class="tag">Com Atlas</span>
         <span class="pair"><b class="bare">${Math.round(aBefore)}%</b> → <b class="atlas">${Math.round(aAfter)}%</b></span>
         <span class="delta ${dCls}">${dv>=0?'+':''}${dv} pp</span>
-        <span class="hint" style="margin:0">nas ${c.atlas_measured_on} suíte(s) pareada(s)${c.atlas_diagnostic_only?' · diagnóstico':''}</span>
+        <span class="hint" style="margin:0">base ${c.tasks_atlas_paired||0} tarefa${c.tasks_atlas_paired==1?'':'s'} em ${c.atlas_measured_on} suíte(s)${c.atlas_diagnostic_only?' · diagnóstico':''}</span>
       </div>` : `<div class="atlas-line"><span class="hint" style="margin:0">Atlas ainda não medido nesta capacidade</span></div>`;
+    // Amostra pequena: um número de poucas tarefas não é conclusivo. Avisa.
+    const smallSample = bare!=null && c.tasks_scored>0 && c.tasks_scored < 12;
     return `<div class="cap">
       <h3>${c.label}</h3>
       <p class="measures">${c.measures}</p>
-      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">tarefas resolvidas (sem Atlas)</span></div>
+      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">tarefas resolvidas (sem Atlas)${c.tasks_scored?` · base ${c.tasks_scored} tarefa${c.tasks_scored==1?'':'s'}`:''}</span></div>
       <div class="bars"><div class="fill" style="width:${barBare}%;background:var(--bare)"></div></div>
       ${atlasLine}
       <div class="foot">
@@ -376,6 +378,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         <span>Tokens/tarefa <b>${num(c.tokens_per_task)}</b></span>
         <span>Tempo/tarefa <b>${dur(c.median_wall_ms)}</b></span>
       </div>
+      ${smallSample?`<div class="warn" style="color:var(--muted)">ℹ Amostra pequena (${c.tasks_scored} tarefas): use como indicativo, não como número definitivo.</div>`:''}
       ${(c.unreliable_suites&&c.unreliable_suites.length)?`<div class="warn">⚠ Fora do score (execução incompleta): ${c.unreliable_suites.map(u=>`<code>${u.suite_id}</code>`).join(' ')}</div>`:''}
     </div>`;
   }).join('') || '<div class="empty">Sem capacidades medidas ainda.</div>';

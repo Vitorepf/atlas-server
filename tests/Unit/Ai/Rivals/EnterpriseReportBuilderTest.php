@@ -388,6 +388,20 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame(['case_c@1'], $family['excluded_pair_keys']);
     }
 
+    public function test_atlas_only_run_is_not_the_bare_source(): void
+    {
+        // Contrato de confiança: um run só de atlas_dev (bateria Atlas viva)
+        // não pode ser fonte do score "sem Atlas" — senão bare sairia de dados
+        // com Atlas.
+        $builder = new EnterpriseReportBuilder;
+        $m = new \ReflectionMethod($builder, 'runHasBareArm');
+        $m->setAccessible(true);
+        $atlasOnly = ['report' => ['rows' => [['arm_id' => 'verboo_kimi_k2_7@atlas_dev']]]];
+        $withBare = ['report' => ['rows' => [['arm_id' => 'verboo_kimi_k2_7@bare']]]];
+        $this->assertFalse($m->invoke($builder, $atlasOnly));
+        $this->assertTrue($m->invoke($builder, $withBare));
+    }
+
     public function test_single_model_battery_when_only_one_bare_model(): void
     {
         $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true);

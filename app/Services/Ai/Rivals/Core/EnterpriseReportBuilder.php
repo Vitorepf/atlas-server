@@ -269,7 +269,15 @@ class EnterpriseReportBuilder
         if ($candidates === []) {
             return null;
         }
+        // A linha da suíte é a medição do modelo SOZINHO (bare). Um run só de
+        // atlas_dev (ex.: bateria Atlas rodando agora) não pode virar a fonte
+        // bare — senão "sem Atlas" sairia de dados com Atlas.
         usort($candidates, function (array $a, array $b): int {
+            $aBare = $this->runHasBareArm($a) ? 1 : 0;
+            $bBare = $this->runHasBareArm($b) ? 1 : 0;
+            if ($aBare !== $bBare) {
+                return $bBare <=> $aBare;
+            }
             $aValid = (($a['adjudication']['pipeline_valid'] ?? false) === true) ? 1 : 0;
             $bValid = (($b['adjudication']['pipeline_valid'] ?? false) === true) ? 1 : 0;
             if ($aValid !== $bValid) {
@@ -282,6 +290,18 @@ class EnterpriseReportBuilder
         $best = $candidates[0];
 
         return [(string) $best['run_id'], $best];
+    }
+
+    /** Um run tem braço bare quando alguma linha do report é @bare. */
+    private function runHasBareArm(array $run): bool
+    {
+        foreach ((array) data_get($run, 'report.rows', []) as $row) {
+            if (is_array($row) && str_ends_with((string) ($row['arm_id'] ?? ''), '@bare')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, mixed> */
@@ -1114,6 +1134,10 @@ class EnterpriseReportBuilder
                 'suites_reliable' => count($reliableSuites),
                 'reliable_suite_ids' => $reliableSuites,
                 'unreliable_suites' => $unreliableSuites,
+                // Tamanho da amostra: quantas tarefas realmente entraram no score.
+                // Sem isto, 56% de 9 tarefas parece igual a 56% de 500.
+                'tasks_scored' => (int) round($bareDen),
+                'tasks_atlas_paired' => (int) round($atlasDen),
                 'bare_intelligence' => $bareScore,
                 'atlas_intelligence' => $atlasScore,
                 'atlas_bare_baseline' => $atlasBare,
