@@ -884,6 +884,7 @@ class EnterpriseReportBuilder
         $incomplete = [];
         $better = 0;
         $worse = 0;
+        $deltaSum = 0.0;
 
         foreach ((array) ($atlasUplift['families'] ?? []) as $family) {
             $name = self::familyLabel((string) ($family['family'] ?? $family['suite_id'] ?? '?'));
@@ -897,6 +898,7 @@ class EnterpriseReportBuilder
                 $measured[] = "{$name}: sem Atlas "
                     .round((float) $family['bare_intelligence'] * 100, 1).'% → com Atlas '
                     .round((float) $family['atlas_intelligence'] * 100, 1)."% ({$sign}{$pct} pp)";
+                $deltaSum += $delta;
                 if ($delta > 0) {
                     $better++;
                 } elseif ($delta < 0) {
@@ -926,14 +928,25 @@ class EnterpriseReportBuilder
         ));
         $total = count((array) ($atlasUplift['families'] ?? []));
 
+        // Contagem e magnitude precisam concordar para tomar um lado — senão o
+        // relatório mente por spin. 2↑/1↓ com saldo médio NEGATIVO (uma regressão
+        // grande concentrada) não é "melhorou mais vezes": é dividido. Mesma
+        // lógica da capa. O saldo médio (pp) é o árbitro do sinal.
+        $meanPp = $ready > 0 ? round(($deltaSum / $ready) * 100, 1) : 0.0;
+        $countSign = $better <=> $worse;
+        $meanSign = $meanPp <=> 0.0;
+        $tally = "{$better}↑ / {$worse}↓, saldo médio ".($meanPp >= 0 ? '+' : '')."{$meanPp} pp";
         if ($ready === 0) {
             $headline = "{$primaryModel}: ainda sem pares bare×Atlas válidos ({$ready}/{$total}).";
-        } elseif ($worse > $better) {
-            $headline = "{$primaryModel}: nos {$ready} pares válidos, Atlas piorou mais vezes do que melhorou ({$worse}↓ / {$better}↑).";
-        } elseif ($better > $worse) {
-            $headline = "{$primaryModel}: nos {$ready} pares válidos, Atlas melhorou mais vezes do que piorou ({$better}↑ / {$worse}↓).";
+        } elseif ($countSign !== 0 && $countSign === $meanSign) {
+            $verb = $meanSign > 0 ? 'melhorou' : 'piorou';
+            $headline = "{$primaryModel}: nos {$ready} pares válidos, Atlas {$verb} em contagem e em saldo médio ({$tally}).";
+        } elseif ($countSign > 0 && $meanSign < 0) {
+            $headline = "{$primaryModel}: dividido — Atlas melhorou em mais famílias, mas uma regressão concentrada deixa o saldo médio negativo ({$tally}).";
+        } elseif ($countSign < 0 && $meanSign > 0) {
+            $headline = "{$primaryModel}: dividido — Atlas piorou em mais famílias, mas um ganho concentrado deixa o saldo médio positivo ({$tally}).";
         } else {
-            $headline = "{$primaryModel}: nos {$ready} pares válidos, resultado misto ({$better}↑ / {$worse}↓).";
+            $headline = "{$primaryModel}: resultado misto, sem lado definido ({$tally}).";
         }
 
         return [

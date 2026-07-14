@@ -323,6 +323,32 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame('missing_data', $row['status']);
     }
 
+    public function test_headline_is_split_when_count_favors_atlas_but_magnitude_does_not(): void
+    {
+        // A armadilha: 2↑/1↓ parece vitória do Atlas, mas a única regressão
+        // (-66.7pp) supera as duas melhoras. Liderar com "melhorou mais vezes"
+        // mentiria por spin — contagem e magnitude precisam concordar.
+        $builder = new EnterpriseReportBuilder;
+        $method = new \ReflectionMethod($builder, 'buildMeasuredFacts');
+        $method->setAccessible(true);
+        $fam = fn (string $id, float $bare, float $atlas): array => [
+            'family' => $id, 'suite_id' => $id, 'status' => 'real_uplift',
+            'bare_intelligence' => $bare, 'atlas_intelligence' => $atlas,
+            'delta_intelligence' => round($atlas - $bare, 4),
+        ];
+        $facts = $method->invoke($builder, 'kimi', [], ['families' => [
+            $fam('long_horizon', 0.444, 0.556),  // +11.1pp
+            $fam('polyglot', 0.857, 1.0),         // +14.3pp
+            $fam('tool_function', 1.0, 0.333),    // -66.7pp — domina
+        ]], []);
+
+        $this->assertStringContainsString('dividido', $facts['headline']);
+        $this->assertStringContainsString('saldo médio', $facts['headline']);
+        $this->assertStringNotContainsString('melhorou mais vezes', $facts['headline']);
+        // Saldo médio negativo visível no headline (sinal é o árbitro).
+        $this->assertStringContainsString('-13.7 pp', $facts['headline']);
+    }
+
     public function test_uplift_excluded_pairs_mark_diagnostic_only(): void
     {
         $arm = (new ArmRegistry)->parse('verboo_kimi_k2_7@bare', 'bfcl');
