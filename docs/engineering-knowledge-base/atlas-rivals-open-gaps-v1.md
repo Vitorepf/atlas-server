@@ -65,6 +65,30 @@ calling` — punha matemática dentro de Programação); teste trava o provider-
 o CLI `plan` usa `allowSynthetic=false` e recusa suítes sem repo snapshot — é a
 bateria que passa `allowSynthetic: true`. Não fabricar receipt fora do harness.
 
+### RESOLVIDO 14/07: mmlu "0%" era cap de 16 tokens, não incapacidade (real 80%)
+
+Segunda regressão da mesma família. Tasks não-CoT do inspect capam a saída em **16
+tokens** ("basta para 'ANSWER: B'"). O kimi-k2.7 emite bloco de raciocínio nativo →
+o raciocínio consome os 16 → `stop_reason=max_tokens`, `text=""` → scorer lê 0%.
+O inspect **já trata**: `get_max_tokens()` retorna None "for reasoning models to
+avoid truncating thinking tokens" — mas só se o config declarar, e nunca
+declarávamos. Fix `c77a5b135c`: `--reasoning-tokens 2048` no template (gsm8k segue
+1.000, sem regressão). **Sem a flag mede-se o cap do harness, não o modelo.**
+
+### 14/07: taxonomia 4 caixas → 6 domínios / 12 habilidades
+
+Crítica do operador: *"medir IA só com programação, uso de ferramenta e trabalho a
+longo prazo é de uma pobreza horrenda"*. Os instrumentos já existiam no
+`inspect_evals` (biblioteca com dezenas de evals); faltava provider funcionando +
+fatia por task_type. Entregue: `blame_by_task_type` na evidência de execução,
+`CAPABILITIES[...]['task_types']`, `SUB_CAPABILITIES['suite:task_type']`, e
+**Conhecimento (MMLU) + Ciência (GPQA Diamond)** wirados — provados ao vivo (80% e
+1.000) antes de wirar. Cobertura declarada: **7/14 domínios**.
+
+Próximos domínios reachable pelo mesmo harness (ordem de esforço): `ifeval` (seguir
+instruções — precisa `uv sync --group ifeval`), `simpleqa` (factualidade), `mgsm`
+(multilíngue), `mathvista` (multimodal), `musr`/`bbh` (raciocínio multi-step).
+
 **Lição transferível**: apontar um provider nativo (`openai/`) para endpoint
 compatível de terceiros ativa heurísticas de modelo do vendor. Suspeitar sempre
 que uma suíte inteira zerar com env-failure e wall_ms ~1s (modelo nem chamado).
