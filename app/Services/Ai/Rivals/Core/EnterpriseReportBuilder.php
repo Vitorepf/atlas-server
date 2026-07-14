@@ -111,6 +111,12 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['appropriate_refusal'],
         ],
+        'long_form_writing' => [
+            'label' => 'Escrita',
+            'measures' => 'Escrever texto longo de qualidade em tarefas variadas, julgado por rubrica.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['long_form_writing'],
+        ],
         'social_bias' => [
             'label' => 'Viés social',
             'measures' => 'Responder pelo contexto e não pelo estereótipo, quando a pergunta convida ao preconceito.',
@@ -159,7 +165,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO wirar sem resolver o FALSO SEGURO. Medido: agentic_misalignment roda (grader_model redirecionado), mas o cenário é longo e o modelo estoura o teto de tokens NO MEIO DO RACIOCÍNIO → resposta vazia → o juiz lê "transcript is empty" → harmful=0.0 → publica "SEGURO". Silêncio virando atestado de segurança é pior que falso 0% de capacidade: você AGE confiando nele. Exige orçamento de tokens muito maior + guarda que trate resposta vazia como NÃO MEDIDO, nunca como seguro. sad/instrumentaleval nem estão no _registry.py do inspect. gdm_* exigem setup próprio.'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO MENSURÁVEL com este modelo — e wirar produziria número FALSO. Medido: o router aceita a mensagem com imagem sem erro, mas o modelo responde "I don\'t see any image attached" — a imagem é descartada em silêncio. Rodar mmmu/docvqa/vqa_rad daria ~0% com cara de "não enxerga", quando a imagem nunca chegou. Exige modelo com visão. Parados: mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
         ['domain' => 'Moral e viés', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: bbq (responder pelo contexto, não pelo estereótipo) · parados: moru, anima, tac, bold, stereoset'],
-        ['domain' => 'Escrita e personalidade', 'covered' => false, 'dormant' => 2, 'note' => 'writingbench BLOQUEADO: exige juiz Anthropic ("Anthropic API requires optional dependencies") e o Hermes não tem acesso à Anthropic. Não é falta de capacidade do modelo — é dependência de juiz. Parado: personality'],
+        ['domain' => 'Escrita', 'covered' => true, 'dormant' => 1, 'note' => 'ligado: writingbench (juiz redirecionado p/ kimi — o default era anthropic/claude-3-5-haiku, que o Hermes não acessa; era DEFAULT DE PARÂMETRO, não bloqueio). Parado: personality (task não resolve no runner)'],
     ];
 
     /**
@@ -229,6 +235,7 @@ class EnterpriseReportBuilder
         'inspect_evals:factuality' => ['label' => 'Não repetir falsidade popular', 'measures' => 'TruthfulQA: perguntas em que muitos humanos respondem errado por crença comum. Mede resistir ao erro, não saber o fato.'],
         'inspect_evals:security_knowledge' => ['label' => 'Princípios de segurança defensiva', 'measures' => 'SecQA: entender e aplicar princípios de segurança da informação. Mede o lado DEFENSIVO; saber atacar é risco, não capacidade — vive no eixo separado.'],
         'inspect_evals:appropriate_refusal' => ['label' => 'Recusar pedido indevido sem exagerar', 'measures' => 'CoCoNot: pedidos que não devem ser atendidos. ACEITÁVEL = recusou como devia. O juiz é o próprio kimi (o default apontava para um modelo que o router não tem).'],
+        'inspect_evals:long_form_writing' => ['label' => 'Escrever texto longo com qualidade', 'measures' => 'WritingBench: o juiz nota de 1 a 10 por rubrica. O Atlas conta como acerto a partir de 7 — a própria rubrica diz que 5-6 é "o que a maioria dos modelos alcança", então 7+ significa acima da média, não apenas aceitável.'],
         'inspect_evals:social_bias' => ['label' => 'Responder pelo contexto, não pelo estereótipo', 'measures' => 'BBQ: perguntas construídas para induzir preconceito (idade, gênero, raça…). Acertar = usar o contexto dado.'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];

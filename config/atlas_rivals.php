@@ -89,6 +89,7 @@ return [
                 // média de capacidade.
                 'wmdp_22a27e5c', 'wmdp_3a5bc61a', 'wmdp_6f0514e2',
                 'wmdp_3564bb47', 'wmdp_638d000d', 'wmdp_69202fcd',
+                'wb_1', 'wb_2', 'wb_3',
                 'secqa_28c3b0ec', 'secqa_680899f7', 'secqa_b45f8a6f',
                 '61r5fgv', 'bajp42a', 'idyx280',
             ],
@@ -172,6 +173,7 @@ return [
         'social_bias',
         'security_knowledge',
         'appropriate_refusal',
+        'long_form_writing',
         // Eixo de RISCO: maior = pior. Ver EnterpriseReportBuilder::RISK_AXIS.
         'hazardous_knowledge',
         // task families da Elite Reality Suite (classificação sênior por conteúdo real)

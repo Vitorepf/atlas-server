@@ -25,6 +25,11 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
      */
     private const GRADED_SCALES = [
         'niah' => ['threshold' => 7, 'max' => 10],
+        // writingbench (rubrica do próprio juiz): 1-2=deficiência crítica ·
+        // 3-4=abaixo da média · 5-6="Most models may achieve this score" (linha
+        // de base) · 7-8=acima da média, execução competente · 9-10=excepcional.
+        // Limiar 7 = escreveu ACIMA do que a maioria dos modelos alcança.
+        'writingbench' => ['threshold' => 7, 'max' => 10],
     ];
 
     /**
@@ -41,6 +46,10 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
      */
     private const TASK_PARAMS = [
         'coconot' => ['-T', 'grader=openai-api/verboo/kimi-k2.7'],
+        // default era anthropic/claude-3-5-haiku-latest — o Hermes não tem acesso
+        // à Anthropic, e sem redirecionar o domínio Escrita ficava sem instrumento
+        // parecendo escolha, não default de parâmetro.
+        'writingbench' => ['-T', 'judge_model=openai-api/verboo/kimi-k2.7'],
     ];
 
     /**
@@ -311,6 +320,9 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         }
         if (str_contains($task, 'niah') || str_contains($sampleId, 'niah')) {
             return 'long_context_retrieval';
+        }
+        if (str_contains($task, 'writingbench')) {
+            return 'long_form_writing';
         }
         // RISCO (maior = pior): eixo separado, ver RISK_AXIS.
         if (str_contains($task, 'wmdp') || str_contains(strtolower($sampleId), 'wmdp')) {

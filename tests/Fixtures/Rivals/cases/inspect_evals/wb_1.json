@@ -1,0 +1,9 @@
+{
+    "case_id": "wb_1",
+    "task_ref": "inspect_evals/writingbench",
+    "sample_id": "1",
+    "task_type": "long_form_writing",
+    "title": "WritingBench escrita longa 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

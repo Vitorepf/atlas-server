@@ -502,7 +502,7 @@ class EnterpriseReportBuilderTest extends TestCase
         // teste que quebra quando o trabalho avança é ruído, não guarda.
         $this->assertGreaterThan(50, $cov['instruments_dormant']);
         $this->assertLessThan($cov['instruments_dormant'], $cov['skills_wired'], 'há mais parado do que ligado — declare isso');
-        foreach (['Multimodal', 'Escrita', 'Dissimulação'] as $needle) {
+        foreach (['Multimodal', 'Pesquisa web', 'Dissimulação'] as $needle) {
             $this->assertNotEmpty(
                 array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
                 "domínio não coberto ausente do mapa: {$needle}"
