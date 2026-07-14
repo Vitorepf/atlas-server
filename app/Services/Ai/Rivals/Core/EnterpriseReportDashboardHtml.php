@@ -265,8 +265,8 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     <div class="cap-grid" id="capCards"></div>
     <div class="card" id="coveragePanel" style="margin-top:12px"></div>
     <div class="grid g2" style="margin-top:12px">
-      <div class="card"><h2>Mapa de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cada eixo é uma capacidade. Polígono verde além do azul = Atlas amplia.</p><div class="chart sm"><canvas id="capRadar"></canvas></div></div>
-      <div class="card"><h2>Eficiência por capacidade</h2><p class="hint">Tokens por tarefa (menor = mais eficiente). Custo $0 de assinatura não discrimina — a eficiência real está aqui.</p><div class="chart sm"><canvas id="capTokens"></canvas></div></div>
+      <div class="card"><h2>Mapa de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cada eixo é um domínio <strong>medido</strong>. Polígono verde além do azul = Atlas amplia. <span id="radarOmitted"></span></p><div class="chart sm"><canvas id="capRadar"></canvas></div></div>
+      <div class="card"><h2>Eficiência por capacidade</h2><p class="hint">Tokens por tarefa (menor = mais eficiente). Custo $0 de assinatura não discrimina — a eficiência real está aqui. <span id="tokensOmitted"></span></p><div class="chart sm"><canvas id="capTokens"></canvas></div></div>
     </div>
   </section>
 
@@ -673,6 +673,19 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 
   // Charts da aba Capacidades (visão principal).
   const capList = (MC.capabilities||[]).filter(c => c.bare_intelligence!=null);
+  // Um gráfico que plota só o que foi medido precisa DIZER o que ficou de fora:
+  // um radar de 3 eixos chamado "mapa de capacidades" sugere que são 3 e pronto.
+  const omitted = (MC.capabilities||[]).filter(c => c.bare_intelligence==null).map(c=>c.label);
+  const omitNote = omitted.length
+    ? `<strong>${omitted.length} domínio(s) fora do gráfico</strong> por não terem medição: ${omitted.join(', ')}.`
+    : '';
+  const radarNote = document.getElementById('radarOmitted');
+  if (radarNote) radarNote.innerHTML = omitNote;
+  const tkOmitted = (MC.capabilities||[]).filter(c => c.tokens_per_task==null).map(c=>c.label);
+  const tokensNote = document.getElementById('tokensOmitted');
+  if (tokensNote && tkOmitted.length) {
+    tokensNote.innerHTML = `<strong>${tkOmitted.length} domínio(s) fora do gráfico</strong> por não terem medição: ${tkOmitted.join(', ')}.`;
+  }
   if (capList.length >= 3 && document.getElementById('capRadar')) {
     new Chart(document.getElementById('capRadar'), {
       type:'radar',
