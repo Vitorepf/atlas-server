@@ -206,11 +206,20 @@ class AtlasRivalsCommand extends Command
             try {
                 $this->assertCleanWorktreeIfRequired();
 
+                // --suite=a,b executa só essas (default local_fake = todas).
+                // A bateria roda sequencial; sem isto uma suíte de segundos espera
+                // horas atrás das de ~23min/tarefa, por ordem e não por necessidade.
+                $only = (string) ($this->option('suite') ?: '');
+                $onlySuites = ($only === '' || $only === 'local_fake')
+                    ? []
+                    : array_values(array_filter(array_map('trim', explode(',', $only))));
+
                 return $orchestrator->execute(
                     (string) ($this->option('kind') ?: 'bare'),
                     (bool) $this->option('approve-provider-spend'),
                     (bool) $this->option('dry-run'),
                     $fast,
+                    $onlySuites,
                 );
             } catch (\Throwable $e) {
                 return [

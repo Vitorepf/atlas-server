@@ -373,11 +373,20 @@ class FaseABatteryOrchestrator
      *
      * @return array<string, mixed>
      */
+    /**
+     * @param  list<string>  $onlySuites  Executa só estas suítes (vazio = todas).
+     *                                    A bateria roda SEQUENCIAL e as suítes de
+     *                                    engenharia levam ~23min POR TAREFA — uma
+     *                                    suíte rápida (inspect_evals: segundos, e
+     *                                    carrega 11 domínios) ficava horas na fila
+     *                                    atrás delas por ordem, não por necessidade.
+     */
     public function execute(
         string $mode = 'bare',
         bool $approveProviderSpend = false,
         bool $unitsDryRun = false,
         bool $fast = false,
+        array $onlySuites = [],
     ): array {
         $this->assertExecuteAllowed($unitsDryRun);
 
@@ -405,14 +414,28 @@ class FaseABatteryOrchestrator
             ];
         }
 
+        // Filtro de suíte: aplicado DEPOIS do prepare, que segue planejando as 10
+        // (o gate de smoke e o plano continuam íntegros — o filtro só escolhe o
+        // que EXECUTA, nunca afrouxa validação).
+        $preparedRows = $prepared['prepared'];
+        if ($onlySuites !== []) {
+            $preparedRows = array_values(array_filter(
+                $preparedRows,
+                static fn (array $row): bool => in_array((string) ($row['suite_id'] ?? ''), $onlySuites, true),
+            ));
+            if ($preparedRows === []) {
+                throw new RuntimeException('rivals_battery_execute_unknown_suite:'.implode(',', $onlySuites));
+            }
+        }
+
         $suiteResults = [];
         $errors = [];
         $suiteIds = array_values(array_map(
             static fn (array $row): string => (string) ($row['suite_id'] ?? ''),
-            $prepared['prepared'],
+            $preparedRows,
         ));
         try {
-            foreach ($prepared['prepared'] as $index => $row) {
+            foreach ($preparedRows as $index => $row) {
                 $this->writeLiveStatus([
                     'status' => 'running',
                     'kind' => $mode,
