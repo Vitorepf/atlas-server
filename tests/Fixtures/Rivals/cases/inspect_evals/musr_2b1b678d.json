@@ -1,0 +1,9 @@
+{
+    "case_id": "musr_2b1b678d",
+    "task_ref": "inspect_evals/musr",
+    "sample_id": "musr_2b1b678d",
+    "task_type": "general_reasoning",
+    "title": "MuSR racioc\u00ednio multi-etapa 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

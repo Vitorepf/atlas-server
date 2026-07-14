@@ -1,0 +1,9 @@
+{
+    "case_id": "hellaswag_43cc958a",
+    "task_ref": "inspect_evals/hellaswag",
+    "sample_id": "hellaswag_43cc958a",
+    "task_type": "general_reasoning",
+    "title": "HellaSwag senso comum 1",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

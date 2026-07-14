@@ -409,7 +409,7 @@ class EnterpriseReportBuilderTest extends TestCase
         // O denominador não pode encolher: declarar cobertura contra uma lista curta
         // dá nota melhor que a real. Estes domínios existem no inventário (138
         // instrumentos) e têm de aparecer, mesmo que com zero medição.
-        foreach (['Cibersegurança', 'Dissimulação', 'Moral', 'Raciocínio'] as $needle) {
+        foreach (['Cibersegurança', 'Dissimulação', 'Moral', 'Multimodal'] as $needle) {
             $this->assertNotEmpty(
                 array_filter($uncovered, fn (string $d): bool => str_contains($d, $needle)),
                 "domínio real ausente do mapa de cobertura: {$needle}"

@@ -1,0 +1,9 @@
+{
+    "case_id": "winogrande_46cd71c7",
+    "task_ref": "inspect_evals/winogrande",
+    "sample_id": "winogrande_46cd71c7",
+    "task_type": "general_reasoning",
+    "title": "Winogrande pronome 2",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

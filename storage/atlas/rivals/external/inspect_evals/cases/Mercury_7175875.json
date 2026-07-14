@@ -1,0 +1,9 @@
+{
+    "case_id": "Mercury_7175875",
+    "task_ref": "inspect_evals/arc_challenge",
+    "sample_id": "Mercury_7175875",
+    "task_type": "general_reasoning",
+    "title": "ARC ci\u00eancia escolar 2",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

@@ -87,6 +87,12 @@ class EnterpriseReportBuilder
             'suites' => ['inspect_evals'],
             'task_types' => ['long_context_retrieval'],
         ],
+        'reasoning_general' => [
+            'label' => 'Raciocínio geral',
+            'measures' => 'Deduzir e encadear sem depender de conhecimento memorizado: narrativa multi-etapa, senso comum, ciência escolar, ambiguidade de pronome.',
+            'suites' => ['inspect_evals'],
+            'task_types' => ['general_reasoning'],
+        ],
     ];
 
     /**
@@ -109,7 +115,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Conhecimento e ciência', 'covered' => true, 'dormant' => 12, 'note' => 'ligados: mmlu, gpqa · parados: hle, mmlu_pro, agieval, medqa, chembench, livebench…'],
         ['domain' => 'Seguir instruções', 'covered' => true, 'dormant' => 1, 'note' => 'ligado: ifeval · parado: ifevalcode'],
         ['domain' => 'Contexto longo', 'covered' => true, 'dormant' => 1, 'note' => 'ligado: niah · parado: infinite_bench (100k+ tokens)'],
-        ['domain' => 'Raciocínio (leitura, senso comum, multi-etapa)', 'covered' => false, 'dormant' => 12, 'note' => 'ZERO ligado. O que hoje chamamos de raciocínio é matemática. Parados: musr, bbh, bbeh, drop, hellaswag, piqa, winogrande, arc, race_h, squad, worldsense, lingoly'],
+        ['domain' => 'Raciocínio (leitura, senso comum, multi-etapa)', 'covered' => true, 'dormant' => 8, 'note' => '4 ligados: musr (narrativa multi-etapa), arc (ciência escolar), hellaswag (senso comum), winogrande (pronome) · parados: bbh, bbeh, drop, piqa, race_h, squad, worldsense, lingoly'],
         ['domain' => 'Pesquisa web e agentes de computador', 'covered' => false, 'dormant' => 5, 'note' => 'gaia BLOQUEADO (dataset gated no HuggingFace); browse_comp roda sem browser por default (mediria memória, não pesquisa). Parados: mind2web, osworld, theagentcompany, gdpval (44 ocupações)'],
         ['domain' => 'Factualidade e honestidade', 'covered' => false, 'dormant' => 5, 'note' => 'simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio). Parados: truthfulqa, mask, abstention_bench, sycophancy'],
         ['domain' => 'Segurança, recusa e robustez adversarial', 'covered' => false, 'dormant' => 21, 'note' => 'ZERO ligado, 21 instrumentos parados: agentdojo, agentharm, strong_reject, xstest, coconot, wmdp, fortress, make_me_pay…'],
@@ -147,6 +153,7 @@ class EnterpriseReportBuilder
         // Limiar VISÍVEL: o niah pontua 1-10 e o Rivals é binário. A conversão é
         // decisão de protocolo do Atlas, não do benchmark — o leitor tem de ver.
         'inspect_evals:long_context_retrieval' => ['label' => 'Achar informação em texto muito longo', 'measures' => 'Agulha no palheiro (NIAH, via Inspect): um fato enterrado em ~10 mil tokens. O juiz nota de 1 a 10; o Atlas conta como acerto a partir de 7 ("alinha com a referência, omissões menores").'],
+        'inspect_evals:general_reasoning' => ['label' => 'Deduzir sem conhecimento memorizado', 'measures' => 'Quatro instrumentos: MuSR (narrativa multi-etapa), ARC (ciência escolar), HellaSwag (o que acontece a seguir) e Winogrande (a quem o pronome se refere).'],
         'inspect_evals' => ['label' => 'Avaliações Inspect', 'measures' => 'Tasks do harness Inspect.'],
     ];
 
