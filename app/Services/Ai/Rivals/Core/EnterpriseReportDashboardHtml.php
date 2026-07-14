@@ -403,8 +403,10 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const bare = D.models.find(m => m.model_id===primary && m.runtime==='bare') || D.models.find(m => m.runtime==='bare');
   const atlas = bare ? D.models.find(m => m.model_id===bare.model_id && m.runtime==='atlas_dev') : null;
 
-  // Δ Atlas só de famílias com uplift real (mesma suite, comparação válida)
-  const paired = (D.uplift_families||[]).filter(f => f.status==='real_uplift' && f.delta_intelligence!=null);
+  // Δ Atlas só de famílias com uplift real E confirmado (não-diagnóstico):
+  // par diagnóstico (ex.: ambos 0%) não é sinal de uplift, não pode entrar no
+  // saldo nem na contagem. A tira abaixo ainda lista todos com marca · diagnóstico.
+  const paired = (D.uplift_families||[]).filter(f => f.status==='real_uplift' && f.delta_intelligence!=null && !f.diagnostic_only);
   const upliftMean = paired.length
     ? paired.reduce((a,f)=>a+Number(f.delta_intelligence),0)/paired.length
     : null;
@@ -451,9 +453,9 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   document.getElementById('verdict').innerHTML =
     `<span class="title" style="color:${verdictColor}">${verdictTitle}</span>`+
     `<div class="verdict-stats">
-      <div class="stat"><span class="v">${paired.length}<span style="color:var(--muted);font-size:14px">/${(D.uplift_families||[]).length}</span></span><span class="l">pares medidos</span></div>
+      <div class="stat"><span class="v">${paired.length}<span style="color:var(--muted);font-size:14px">/${(D.uplift_families||[]).length}</span></span><span class="l">pares confirmados</span></div>
       <div class="stat"><span class="v"><span class="pos">${better}↑</span> <span class="neg">${worse}↓</span></span><span class="l">melhorou · piorou</span></div>
-      <div class="stat"><span class="v">${upliftMean==null?'—':((upliftMean>=0?'+':'')+pct(upliftMean))}</span><span class="l">Δ médio dos pares</span></div>
+      <div class="stat"><span class="v">${upliftMean==null?'—':((upliftMean>=0?'+':'')+pct(upliftMean))}</span><span class="l">Δ médio (confirmados)</span></div>
       <div class="stat"><span class="v">${D.pipeline.suites_ok}<span style="color:var(--muted);font-size:14px">/10</span></span><span class="l">pipeline ok</span></div>
     </div>`+
     (upliftRows ? `<div class="uplift-strip">
@@ -709,12 +711,17 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     <p class="hint" style="margin:0 0 10px">${facts.headline || 'Sem headline factual ainda.'}</p>
     <div class="grid g2">
       <div>
-        <div class="kpi-label">Confirmado</div>
+        <div class="kpi-label">Confirmado (pares reais)</div>
         <ul style="margin:8px 0 0;padding-left:18px;font-size:13px">${
           (facts.measured||[]).length
-            ? (facts.measured||[]).map(x=>`<li class="pos">${x}</li>`).join('')
-            : '<li class="hint">Nenhum par bare×Atlas válido ainda.</li>'
+            ? (facts.measured||[]).map(x=>`<li class="${x.includes('(-')?'neg':'pos'}">${x}</li>`).join('')
+            : '<li class="hint">Nenhum par bare×Atlas confirmado ainda.</li>'
         }</ul>
+        ${(facts.diagnostic||[]).length?`
+        <div class="kpi-label" style="margin-top:12px">Só diagnóstico — não conta como fato</div>
+        <ul style="margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--muted)" title="Par diagnóstico: ambos os lados 0% (ninguém resolveu) ou caso excluído. Serve para investigar, nunca como sinal de que o Atlas melhora ou piora.">${
+          (facts.diagnostic||[]).map(x=>`<li>${x}</li>`).join('')
+        }</ul>`:''}
       </div>
       <div>
         <div class="kpi-label">Ainda incompleto</div>

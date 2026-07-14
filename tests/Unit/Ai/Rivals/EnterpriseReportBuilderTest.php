@@ -336,10 +336,13 @@ class EnterpriseReportBuilderTest extends TestCase
             'bare_intelligence' => $bare, 'atlas_intelligence' => $atlas,
             'delta_intelligence' => round($atlas - $bare, 4),
         ];
+        $diag = fn (string $id, float $bare, float $atlas): array
+            => $fam($id, $bare, $atlas) + ['diagnostic_only' => true];
         $facts = $method->invoke($builder, 'kimi', [], ['families' => [
-            $fam('long_horizon', 0.444, 0.556),  // +11.1pp
-            $fam('polyglot', 0.857, 1.0),         // +14.3pp
-            $fam('tool_function', 1.0, 0.333),    // -66.7pp — domina
+            $fam('long_horizon', 0.444, 0.556),  // +11.1pp confirmado
+            $fam('polyglot', 0.857, 1.0),         // +14.3pp confirmado
+            $fam('tool_function', 1.0, 0.333),    // -66.7pp confirmado — domina
+            $diag('patch_swe', 0.0, 0.0),         // 0→0 diagnóstico: NÃO conta
         ]], []);
 
         $this->assertStringContainsString('dividido', $facts['headline']);
@@ -347,6 +350,11 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertStringNotContainsString('melhorou mais vezes', $facts['headline']);
         // Saldo médio negativo visível no headline (sinal é o árbitro).
         $this->assertStringContainsString('-13.7 pp', $facts['headline']);
+        // Par diagnóstico fica fora do veredito: 3 confirmados, 1 diagnóstico.
+        $this->assertSame(3, $facts['pairs_valid']);
+        $this->assertSame(1, $facts['pairs_diagnostic']);
+        $this->assertCount(3, $facts['measured']);
+        $this->assertCount(1, $facts['diagnostic']);
     }
 
     public function test_uplift_excluded_pairs_mark_diagnostic_only(): void

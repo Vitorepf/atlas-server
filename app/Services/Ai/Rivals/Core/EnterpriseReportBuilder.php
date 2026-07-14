@@ -881,6 +881,7 @@ class EnterpriseReportBuilder
         array $counts,
     ): array {
         $measured = [];
+        $diagnostic = [];
         $incomplete = [];
         $better = 0;
         $worse = 0;
@@ -895,9 +896,18 @@ class EnterpriseReportBuilder
                     ?? ((float) $family['atlas_intelligence'] - (float) $family['bare_intelligence']));
                 $pct = round($delta * 100, 1);
                 $sign = $pct >= 0 ? '+' : '';
-                $measured[] = "{$name}: sem Atlas "
+                $line = "{$name}: sem Atlas "
                     .round((float) $family['bare_intelligence'] * 100, 1).'% → com Atlas '
                     .round((float) $family['atlas_intelligence'] * 100, 1)."% ({$sign}{$pct} pp)";
+                // Par diagnóstico (ex.: ambos 0% = ninguém resolveu, ou exclusão de
+                // caso) NÃO é fato confirmado de uplift — não pode entrar na contagem
+                // nem no saldo, senão infla/dilui o veredito com ruído sem sinal.
+                if (($family['diagnostic_only'] ?? false) === true) {
+                    $diagnostic[] = $line.' · diagnóstico (sem sinal de uplift)';
+
+                    continue;
+                }
+                $measured[] = $line;
                 $deltaSum += $delta;
                 if ($delta > 0) {
                     $better++;
@@ -922,25 +932,25 @@ class EnterpriseReportBuilder
             }
         }
 
-        $ready = count(array_filter(
-            (array) ($atlasUplift['families'] ?? []),
-            fn (array $f): bool => ($f['status'] ?? '') === 'real_uplift',
-        ));
         $total = count((array) ($atlasUplift['families'] ?? []));
+        // Só pares confirmados (não-diagnósticos) formam o veredito. Diagnósticos
+        // ficam num balde à parte — contam presença, nunca sinal de uplift.
+        $confirmed = count($measured);
 
         // Contagem e magnitude precisam concordar para tomar um lado — senão o
         // relatório mente por spin. 2↑/1↓ com saldo médio NEGATIVO (uma regressão
         // grande concentrada) não é "melhorou mais vezes": é dividido. Mesma
         // lógica da capa. O saldo médio (pp) é o árbitro do sinal.
-        $meanPp = $ready > 0 ? round(($deltaSum / $ready) * 100, 1) : 0.0;
+        $meanPp = $confirmed > 0 ? round(($deltaSum / $confirmed) * 100, 1) : 0.0;
         $countSign = $better <=> $worse;
         $meanSign = $meanPp <=> 0.0;
         $tally = "{$better}↑ / {$worse}↓, saldo médio ".($meanPp >= 0 ? '+' : '')."{$meanPp} pp";
-        if ($ready === 0) {
-            $headline = "{$primaryModel}: ainda sem pares bare×Atlas válidos ({$ready}/{$total}).";
+        if ($confirmed === 0) {
+            $diagNote = $diagnostic === [] ? '' : ' ('.count($diagnostic).' par(es) só diagnóstico)';
+            $headline = "{$primaryModel}: ainda sem pares bare×Atlas confirmados{$diagNote}.";
         } elseif ($countSign !== 0 && $countSign === $meanSign) {
             $verb = $meanSign > 0 ? 'melhorou' : 'piorou';
-            $headline = "{$primaryModel}: nos {$ready} pares válidos, Atlas {$verb} em contagem e em saldo médio ({$tally}).";
+            $headline = "{$primaryModel}: nos {$confirmed} pares confirmados, Atlas {$verb} em contagem e em saldo médio ({$tally}).";
         } elseif ($countSign > 0 && $meanSign < 0) {
             $headline = "{$primaryModel}: dividido — Atlas melhorou em mais famílias, mas uma regressão concentrada deixa o saldo médio negativo ({$tally}).";
         } elseif ($countSign < 0 && $meanSign > 0) {
@@ -952,8 +962,10 @@ class EnterpriseReportBuilder
         return [
             'headline' => $headline,
             'measured' => array_values(array_unique($measured)),
+            'diagnostic' => array_values(array_unique($diagnostic)),
             'incomplete' => array_values(array_unique($incomplete)),
-            'pairs_valid' => $ready,
+            'pairs_valid' => $confirmed,
+            'pairs_diagnostic' => count($diagnostic),
             'pairs_total' => $total,
             'suites_ok' => (int) ($counts['ok'] ?? 0),
             'suites_missing_data' => (int) ($counts['missing_data'] ?? 0),
