@@ -347,7 +347,11 @@ return [
                 'install' => [
                     'uv venv --clear --python 3.12 .atlas-venv',
                     'uv pip install -p .atlas-venv/bin/python -e . inspect-ai openai -q',
+                    // Deps OPCIONAIS de evals específicos. Sem elas a task aborta
+                    // com ModuleNotFoundError/AssertionError e o domínio inteiro
+                    // fica sem instrumento — parecendo escolha, não acidente.
                     'uv pip install -p .atlas-venv/bin/python "instruction_following_eval @ git+https://github.com/josejg/instruction_following_eval" -q',
+                    'uv pip install -p .atlas-venv/bin/python hydra-core loguru -q',
                 ],
                 'smoke' => 'inspect eval inspect_evals/gsm8k --model mockllm/model --limit 1',
             ],
