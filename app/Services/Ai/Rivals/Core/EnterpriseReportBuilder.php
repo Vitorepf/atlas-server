@@ -55,6 +55,26 @@ class EnterpriseReportBuilder
         ],
     ];
 
+    /**
+     * Sub-capacidade = o que cada instrumento realmente mede (task_type real do
+     * receipt), com nome humano. Uma capacidade não é uma caixa: é um domínio com
+     * várias habilidades distintas medidas por instrumentos diferentes.
+     *
+     * @var array<string, array{label:string, measures:string}>
+     */
+    public const SUB_CAPABILITIES = [
+        'swe_bench_live' => ['label' => 'Corrigir bugs em repositórios reais', 'measures' => 'Patch que faz a suíte de testes de um repo vivo voltar a passar (repair/regression em issues reais).'],
+        'senior_swe_bench' => ['label' => 'Investigar bugs e implementar features sub-especificadas', 'measures' => 'Repos maduros: bug_investigation + feature_under_specified, com juízes de correção, validação, rubrica, gosto e prática.'],
+        'live_code_bench' => ['label' => 'Resolver problemas algorítmicos', 'measures' => 'Desafios de programação competitiva/algorítmica verificados por testes.'],
+        'aider_polyglot' => ['label' => 'Editar código em várias linguagens', 'measures' => 'Exercícios de edição multi-linguagem aplicados via diff (estilo Aider).'],
+        'terminal_bench' => ['label' => 'Operar terminal e linha de comando', 'measures' => 'Tarefas resolvidas por um agente no terminal: CLI, arquivos, processos.'],
+        'bfcl' => ['label' => 'Chamar funções e ferramentas', 'measures' => 'Function calling: chamadas simples, múltiplas e paralelas com aridade e argumentos corretos.'],
+        'tau2_bench' => ['label' => 'Conduzir diálogo agêntico com usuário', 'measures' => 'Diálogo multi-turno com usuário simulado e ferramentas (τ²-bench).'],
+        'hal_harness' => ['label' => 'Tarefas agênticas longas', 'measures' => 'Horizonte longo multi-etapa (HAL harness), próximo de trabalho real de engenharia.'],
+        'swe_marathon' => ['label' => 'Engenharia multi-arquivo de longa duração', 'measures' => 'Mudanças grandes espalhadas por muitos arquivos (SWE-marathon).'],
+        'inspect_evals' => ['label' => 'Raciocínio matemático passo a passo', 'measures' => 'Problemas que exigem cadeia de raciocínio (ex.: gsm8k, via Inspect).'],
+    ];
+
     public function build(): array
     {
         $suiteIds = (new SuiteRegistry)->externalSuiteIds();
@@ -1109,6 +1129,7 @@ class EnterpriseReportBuilder
             $atlasBareNum = 0.0;
             $atlasSuites = [];
             $anyDiagnostic = false;
+            $subCaps = [];
 
             foreach ($cap['suites'] as $suiteId) {
                 $row = $bySuite[$suiteId] ?? null;
@@ -1116,8 +1137,31 @@ class EnterpriseReportBuilder
                     continue;
                 }
                 $ev = (array) ($row['execution_evidence'] ?? []);
-                $weight = (float) ((($ev['blame_summary']['model_failures'] ?? 0) + ($ev['blame_summary']['successes'] ?? 0)) ?: 1);
+                $blame = (array) ($ev['blame_summary'] ?? []);
+                $subN = (int) (($blame['model_failures'] ?? 0) + ($blame['successes'] ?? 0));
+                $weight = (float) ($subN ?: 1);
                 $score = $row['intelligence_rate'] ?? $row['success_rate_itt'] ?? null;
+
+                // Sub-capacidade: o instrumento como habilidade nomeada própria,
+                // com seu score, faixa Wilson e amostra — não some no agregado.
+                $subReliable = ($row['reliable'] ?? true) === true && is_numeric($score);
+                $subCi = ($subReliable && $subN > 0)
+                    ? StatisticalPolicy::wilson((int) round((float) $score * $subN), $subN)
+                    : null;
+                $sub = self::SUB_CAPABILITIES[$suiteId] ?? ['label' => $suiteId, 'measures' => ''];
+                $subCaps[] = [
+                    'suite_id' => $suiteId,
+                    'label' => $sub['label'],
+                    'measures' => $sub['measures'],
+                    'bare_intelligence' => $subReliable ? round((float) $score, 4) : null,
+                    'bare_ci_low' => $subCi['low'] ?? null,
+                    'bare_ci_high' => $subCi['high'] ?? null,
+                    'tasks_scored' => $subN,
+                    'reliable' => $subReliable,
+                    'unreliable_reason' => $subReliable ? null : ($row['unreliable_reason'] ?? ($row['status'] ?? 'sem dados')),
+                    'tokens_per_task' => is_numeric($row['tokens_per_task'] ?? null) ? round((float) $row['tokens_per_task']) : null,
+                    'median_wall_ms' => is_numeric($row['median_wall_ms'] ?? null) ? round((float) $row['median_wall_ms']) : null,
+                ];
 
                 if (($row['reliable'] ?? true) === true && is_numeric($score)) {
                     $reliableSuites[] = $suiteId;
@@ -1180,6 +1224,10 @@ class EnterpriseReportBuilder
                 'atlas_diagnostic_only' => $anyDiagnostic,
                 'tokens_per_task' => $tokens === [] ? null : round(array_sum($tokens) / count($tokens)),
                 'median_wall_ms' => $walls === [] ? null : round(array_sum($walls) / count($walls)),
+                // Sub-capacidades: as habilidades distintas dentro do domínio, cada
+                // uma um instrumento real. É aqui que "Programação" deixa de ser
+                // uma caixa e vira corrigir-bug + feature + algoritmo + terminal…
+                'sub_capabilities' => $subCaps,
             ];
         }
 

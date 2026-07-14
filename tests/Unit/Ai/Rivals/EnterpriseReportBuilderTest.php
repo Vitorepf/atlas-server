@@ -323,6 +323,41 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertSame('missing_data', $row['status']);
     }
 
+    public function test_capability_exposes_named_sub_capabilities_per_instrument(): void
+    {
+        // Uma capacidade não é uma caixa: é um domínio com habilidades distintas.
+        // "Programação" precisa mostrar corrigir-bug, algoritmo, terminal etc. —
+        // achatar tudo num % único esconde que o modelo vai bem num e zera noutro.
+        $this->seedSuiteRun('bfcl', pipelineValid: true, tokensPresent: true, internalClaim: false, withEvents: true, successRateItt: 0.5, intelligenceRate: 0.5);
+        $report = (new EnterpriseReportBuilder)->build();
+
+        $coding = collect($report['model_capabilities']['capabilities'])->firstWhere('id', 'coding');
+        $this->assertCount(5, $coding['sub_capabilities'], 'Programação deve expor 5 habilidades');
+        $this->assertSame(
+            ['senior_swe_bench', 'swe_bench_live', 'live_code_bench', 'aider_polyglot', 'terminal_bench'],
+            array_column($coding['sub_capabilities'], 'suite_id')
+        );
+        foreach ($coding['sub_capabilities'] as $sub) {
+            $this->assertNotSame($sub['suite_id'], $sub['label'], 'sub-capacidade precisa de nome humano');
+            $this->assertNotEmpty($sub['measures']);
+        }
+
+        // Suíte medida vira sub-capacidade com score + faixa Wilson própria.
+        $tool = collect($report['model_capabilities']['capabilities'])->firstWhere('id', 'tool_use');
+        $bfcl = collect($tool['sub_capabilities'])->firstWhere('suite_id', 'bfcl');
+        $this->assertTrue($bfcl['reliable']);
+        $this->assertSame(0.5, $bfcl['bare_intelligence']);
+        $this->assertNotNull($bfcl['bare_ci_low']);
+        $this->assertLessThanOrEqual($bfcl['bare_intelligence'], $bfcl['bare_ci_low']);
+        $this->assertGreaterThanOrEqual($bfcl['bare_intelligence'], $bfcl['bare_ci_high']);
+
+        // Suíte não medida diz o porquê, nunca 0%.
+        $notRun = collect($tool['sub_capabilities'])->firstWhere('suite_id', 'tau2_bench');
+        $this->assertFalse($notRun['reliable']);
+        $this->assertNull($notRun['bare_intelligence']);
+        $this->assertNotEmpty($notRun['unreliable_reason']);
+    }
+
     public function test_headline_is_split_when_count_favors_atlas_but_magnitude_does_not(): void
     {
         // A armadilha: 2↑/1↓ parece vitória do Atlas, mas a única regressão

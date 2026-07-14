@@ -206,6 +206,19 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
 .cap .atlas-line .delta{font-weight:750;font-variant-numeric:tabular-nums}
 .cap .foot{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted)}
 .cap .foot b{color:var(--ink);font-weight:650}
+.cap .subcaps{margin:4px 0 12px;border-top:1px solid var(--line);padding-top:10px}
+.cap .subcaps-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:750;margin-bottom:8px}
+.cap .subcap{margin-bottom:9px}
+.cap .subcap:last-child{margin-bottom:2px}
+.cap .subhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:12.5px}
+.cap .subname{color:var(--ink);font-weight:600;line-height:1.35}
+.cap .subval{font-weight:750;font-variant-numeric:tabular-nums;color:var(--bare)}
+.cap .subci{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.cap .subn{color:var(--muted);font-size:10.5px;white-space:nowrap}
+.cap .subna{color:var(--muted);font-size:11.5px;font-style:italic}
+.cap .subbar{height:4px;border-radius:999px;background:#1a1f2b;overflow:hidden;margin-top:4px}
+.cap .subfill{height:100%;border-radius:999px;background:var(--bare);opacity:.75}
+.cap .subfill.na{background:repeating-linear-gradient(90deg,#2a3142,#2a3142 4px,transparent 4px,transparent 8px);width:100%!important;opacity:.5}
 .cap .warn{color:var(--warn);font-size:12px;margin-top:8px}
 .glossary .gloss-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin-top:8px}
 @media(max-width:820px){.glossary .gloss-grid{grid-template-columns:1fr}}
@@ -378,19 +391,36 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     const ciHi = c.bare_ci_high==null?null:Math.round(Number(c.bare_ci_high)*100);
     const ciLine = (bare!=null&&ciLo!=null&&ciHi!=null)
       ? `<span class="lab" style="display:inline" title="Faixa de confiança 95% (Wilson): a taxa real cai aqui em 95% das vezes. Quanto menor a amostra, mais larga a faixa.">· faixa provável ${ciLo}–${ciHi}%</span>` : '';
+    // Sub-capacidades: as habilidades distintas dentro do domínio. Cada uma é um
+    // instrumento real com score próprio — "Programação" vira corrigir-bug +
+    // feature + algoritmo + terminal, não uma caixa única.
+    const subRows = (c.sub_capabilities||[]).map(s => {
+      const sb = s.bare_intelligence==null ? null : Math.round(Number(s.bare_intelligence)*100);
+      const sLo = s.bare_ci_low==null?null:Math.round(Number(s.bare_ci_low)*100);
+      const sHi = s.bare_ci_high==null?null:Math.round(Number(s.bare_ci_high)*100);
+      const sCi = (sb!=null&&sLo!=null&&sHi!=null)?` <span class="subci">(${sLo}–${sHi}%)</span>`:'';
+      const val = s.reliable && sb!=null
+        ? `<span class="subval">${sb}%</span>${sCi} <span class="subn">${s.tasks_scored} tf</span>`
+        : `<span class="subna" title="${s.unreliable_reason||'sem dados'}">não medido</span>`;
+      const w = (s.reliable&&sb!=null)?sb:0;
+      return `<div class="subcap" title="${s.measures}">
+        <div class="subhead"><span class="subname">${s.label}</span>${val}</div>
+        <div class="subbar"><div class="subfill${s.reliable&&sb!=null?'':' na'}" style="width:${w}%"></div></div>
+      </div>`;
+    }).join('');
     return `<div class="cap">
       <h3>${c.label}</h3>
       <p class="measures">${c.measures}</p>
-      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">tarefas resolvidas (sem Atlas)${c.tasks_scored?` · base ${c.tasks_scored} tarefa${c.tasks_scored==1?'':'s'}`:''}</span> ${ciLine}</div>
+      <div class="score bare" style="margin-bottom:6px"><span class="n">${bare==null?'—':Math.round(bare)+'%'}</span> <span class="lab" style="display:inline">média do domínio (sem Atlas)${c.tasks_scored?` · base ${c.tasks_scored} tarefa${c.tasks_scored==1?'':'s'}`:''}</span> ${ciLine}</div>
       <div class="bars"><div class="fill" style="width:${barBare}%;background:var(--bare)"></div></div>
       ${atlasLine}
+      ${subRows?`<div class="subcaps"><div class="subcaps-h">Habilidades medidas neste domínio</div>${subRows}</div>`:''}
       <div class="foot">
-        <span>Confiável em <b>${c.suites_reliable}/${c.suites_total}</b> benchmarks</span>
+        <span>Confiável em <b>${c.suites_reliable}/${c.suites_total}</b> habilidades</span>
         <span>Tokens/tarefa <b>${num(c.tokens_per_task)}</b></span>
         <span>Tempo/tarefa <b>${dur(c.median_wall_ms)}</b></span>
       </div>
       ${smallSample?`<div class="warn" style="color:var(--muted)">ℹ Amostra pequena (${c.tasks_scored} tarefas): use como indicativo, não como número definitivo.</div>`:''}
-      ${(c.unreliable_suites&&c.unreliable_suites.length)?`<div class="warn">⚠ Fora do score (execução incompleta): ${c.unreliable_suites.map(u=>`<code>${u.suite_id}</code>`).join(' ')}</div>`:''}
     </div>`;
   }).join('') || '<div class="empty">Sem capacidades medidas ainda.</div>';
 
