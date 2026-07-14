@@ -128,6 +128,27 @@ os call-sites. NÃO corrigir editando o scorer vendorizado do inspect (mudaria o
 protocolo de avaliação do benchmark); o caminho é grader alternativo ou o router
 suportar forced tool_choice.
 
+### 14/07 — 🔴 Bomba latente: score GRADUADO virava "falha do modelo" (fail-closed)
+
+Achado ao provar o `niah` (contexto longo, FUNCIONA: achou a agulha em 10k tokens).
+O niah devolve `"value": "10"` numa escala **1-10** (10 = perfeito). O mapeamento do
+`InspectEvalsAdapter` é binário (`C/I`, `0/1`) → `"10"` caía no `default =>
+'invalid_result'` → e `blame_summary` soma `invalid_result` em **model_failures**.
+Ou seja: **acerto perfeito publicado como o modelo falhando.**
+
+Mesma família dos outros bugs do dia. Pegaria QUALQUER eval graduado wirado depois.
+Fix `739b18c7d6`: recusa alto na ingestão (`inspect_evals_unhandled_score_scale`).
+**Wirar eval graduado exige decidir o limiar explicitamente** — não deixar o default
+inverter o resultado.
+
+### Domínios provados mas NÃO wirados (precisam de trabalho, não são "impossíveis")
+
+- **Contexto longo (`niah`)**: PROVADO rodando (haystack 9.906 tokens, acerto). Falta
+  decidir a conversão da escala 1-10 → taxa 0-1 e então wirar.
+- **Multimodal (`mathvista`/`mmmu`/`vstar_bench`/`zerobench`)**: não testados; o
+  `kimi-k2.7-code` provavelmente não aceita imagem.
+- **Segurança / escrita longa**: sem instrumento no inspect_evals.
+
 ## Aberto
 
 1. **Corte 22-role mutativa em workspace estrangeiro** —
