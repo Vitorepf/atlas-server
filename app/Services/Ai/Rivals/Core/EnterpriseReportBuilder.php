@@ -156,7 +156,7 @@ class EnterpriseReportBuilder
         ['domain' => 'Factualidade e honestidade', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: truthfulqa (não repetir falsidade popular) · simpleqa BLOQUEADO (juiz exige tool_choice forçado; router Verboo devolve vazio) · parados: mask, abstention_bench, sycophancy'],
         ['domain' => 'Segurança e recusa', 'covered' => true, 'dormant' => 20, 'note' => 'ligado: coconot (recusar o que deve, sem exagerar) · wmdp/agentharm medem RISCO (maior=pior) e vivem no eixo próprio · xstest tem dataset morto (404) · abstention_bench exige a dep hydra · agentdojo/fortress exigem sandbox Docker'],
         ['domain' => 'Cibersegurança (conhecimento defensivo)', 'covered' => true, 'dormant' => 12, 'note' => 'ligado: sec_qa (princípios de segurança) · cybermetric provado 1.000, wirável · O lado OFENSIVO (cybench, cve_bench, cybergym, threecb) é RISCO, não capacidade: exige o eixo separado + Docker'],
-        ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'ZERO ligado: agentic_misalignment (chantagem), gdm_self_proliferation, gdm_stealth, gdm_self_reasoning, instrumentaleval, sad'],
+        ['domain' => 'Dissimulação e risco existencial', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO wirar sem resolver o FALSO SEGURO. Medido: agentic_misalignment roda (grader_model redirecionado), mas o cenário é longo e o modelo estoura o teto de tokens NO MEIO DO RACIOCÍNIO → resposta vazia → o juiz lê "transcript is empty" → harmful=0.0 → publica "SEGURO". Silêncio virando atestado de segurança é pior que falso 0% de capacidade: você AGE confiando nele. Exige orçamento de tokens muito maior + guarda que trate resposta vazia como NÃO MEDIDO, nunca como seguro. sad/instrumentaleval nem estão no _registry.py do inspect. gdm_* exigem setup próprio.'],
         ['domain' => 'Multimodal (visão)', 'covered' => false, 'dormant' => 6, 'note' => 'NÃO MENSURÁVEL com este modelo — e wirar produziria número FALSO. Medido: o router aceita a mensagem com imagem sem erro, mas o modelo responde "I don\'t see any image attached" — a imagem é descartada em silêncio. Rodar mmmu/docvqa/vqa_rad daria ~0% com cara de "não enxerga", quando a imagem nunca chegou. Exige modelo com visão. Parados: mmmu, docvqa, mmiu, vqa_rad, vstar_bench, zerobench'],
         ['domain' => 'Moral e viés', 'covered' => true, 'dormant' => 4, 'note' => 'ligado: bbq (responder pelo contexto, não pelo estereótipo) · parados: moru, anima, tac, bold, stereoset'],
         ['domain' => 'Escrita e personalidade', 'covered' => false, 'dormant' => 2, 'note' => 'writingbench BLOQUEADO: exige juiz Anthropic ("Anthropic API requires optional dependencies") e o Hermes não tem acesso à Anthropic. Não é falta de capacidade do modelo — é dependência de juiz. Parado: personality'],
@@ -173,6 +173,18 @@ class EnterpriseReportBuilder
      *
      * Solução: eixo próprio, `higher_is_worse` explícito, painel separado com o
      * sinal escrito na tela. Aqui NUNCA entra instrumento de maior=melhor.
+     *
+     * ⚠️ FALSO SEGURO — a armadilha específica deste eixo. Num eixo de risco,
+     * "não mediu" e "não tem risco" produzem o MESMO 0%. Medido no
+     * agentic_misalignment: o cenário é longo, o modelo estourou o teto de tokens
+     * no meio do raciocínio, respondeu vazio, e o juiz leu "transcript is empty"
+     * → harmful=0.0 → "SEGURO". Silêncio virou atestado.
+     *
+     * Isto é PIOR que o falso "0% de capacidade": um falso "0% de risco" faz o
+     * operador AGIR confiando. Antes de wirar risco novo: garantir orçamento de
+     * tokens suficiente para o cenário E que resposta vazia caia em NÃO MEDIDO
+     * (env/flow failure), nunca em "sem risco". O `reliable` do slice já separa
+     * os dois — mas só se a unidade for classificada como falha de ambiente.
      *
      * @var array<string, array{label:string, measures:string, higher_is_worse:bool}>
      */
