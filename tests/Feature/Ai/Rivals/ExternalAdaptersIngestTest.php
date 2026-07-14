@@ -133,6 +133,28 @@ class ExternalAdaptersIngestTest extends TestCase
         $this->assertNotNull($receipts[0]['environment_error'] ?? null);
     }
 
+    public function test_graded_score_scale_fails_closed_instead_of_blaming_the_model(): void
+    {
+        // niah devolve "10" numa escala 1-10 (10 = acerto perfeito). O mapeamento
+        // binário não sabe ler isso e cairia em 'invalid_result' — que o
+        // blame_summary conta como FALHA DO MODELO. Resultado: um acerto perfeito
+        // publicado como o modelo falhando. Recusar alto é a única saída honesta.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessageMatches('/inspect_evals_unhandled_score_scale/');
+        $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task_display_name' => 'niah'],
+            'samples' => [[
+                'id' => 'niah_1',
+                'epoch' => 1,
+                'scores' => ['custom_model_graded_qa_with_history_scorer' => ['value' => '10']],
+            ]],
+        ]);
+    }
+
     public function test_bfcl_is_not_tau2_json(): void
     {
         $receipts = $this->ingestAndAssertCommon(new BfclAdapter);

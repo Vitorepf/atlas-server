@@ -52,6 +52,18 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 '/BadRequestError|error code: \d{3}|unsupported_message_role|invalid_request_error|ConnectionError|Timeout|RateLimit|ServiceUnavailable|InternalServerError|API/i',
                 $sampleError,
             );
+            // Score de escala GRADUADA (ex.: niah devolve "10" numa escala 1-10)
+            // não é binário e este adapter não sabe converter. Cair no default
+            // marcaria 'invalid_result', que o blame_summary conta como FALHA DO
+            // MODELO — ou seja, um niah 10/10 (perfeito) viraria "o modelo falhou".
+            // Fail-closed: recusa alto na ingestão em vez de publicar número
+            // invertido. Wirar eval graduado exige decidir o limiar aqui.
+            $binary = [null, 'C', 'I', 1, 0, 1.0, 0.0, true, false];
+            if (! $isExecutionError && ! in_array($scoreValue, $binary, true)) {
+                throw new RuntimeException(
+                    'inspect_evals_unhandled_score_scale:'.$sampleId.':'.var_export($scoreValue, true)
+                );
+            }
             $status = match (true) {
                 $isExecutionError => 'environment_failure',
                 $scoreValue === 'C', $scoreValue === 1, $scoreValue === 1.0, $scoreValue === true => 'success',
