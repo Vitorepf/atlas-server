@@ -141,7 +141,35 @@ final class EnterpriseReportDashboardHtml
 <title>Atlas Rivals — Relatório de Capacidades</title>
 <script>__CHARTJS__</script>
 <style>
-:root{--bg:#05060a;--card:#0e1016;--line:#242836;--ink:#f3f5f8;--muted:#8a93a3;--bare:#6cb6ff;--atlas:#3dd68c;--warn:#f0b429;--bad:#ff6b6b;--chip:#171a22}
+:root{--bg:#05060a;--card:#0e1016;--line:#242836;--ink:#f3f5f8;--muted:#8a93a3;--bare:#6cb6ff;--atlas:#3dd68c;--warn:#f0b429;--bad:#ff6b6b;--chip:#171a22;
+/* COR = VEREDITO. NUNCA IDENTIDADE.
+   --atlas (verde) carregava dois sentidos opostos no mesmo componente: o BRAÇO
+   ("com Atlas") e o RESULTADO ("melhorou"). Quando o Atlas piora, a tela
+   renderizava o número dele em VERDE colado num delta VERMELHO — o mesmo fato,
+   duas cores contraditórias, a 8px de distância. E implicava, de graça, que
+   Atlas=bom por definição.
+   O braço já é identificado por POSIÇÃO em toda a tela (esquerda = sem Atlas,
+   direita = com Atlas). Isso basta. A cor fica exclusiva do veredito.
+   Os tons são escolhidos por separação de LUMINÂNCIA, não de matiz: sob
+   deuteranopia o par antigo (#3dd68c / #ff6b6b) tinha 1,23:1 entre si — os dois
+   viravam o mesmo caqui, e TODO veredito do relatório era a mesma cor para um
+   daltônico. Ainda assim a cor nunca é o único canal: a régua dá posição e o
+   sinal +/- dá direção. */
+--melhor:#6ee7b7;--pior:#e5484d;--sem-sinal:#8a93a3}
+/* A RÉGUA DO ZERO — a incerteza vira a FORMA do elemento, não nota de rodapé.
+   Faixa larga = pouca evidência, automático. Faixa tocando a linha do zero =
+   não dá para afirmar, óbvio sem legenda. Sem isto a tela imprimia "+33 pp" em
+   verde-negrito sobre um intervalo [-3,+65] — afirmando ganho onde não há
+   sinal. Com 9 tarefas por braço só se afirma acima de 44 pp. */
+.regua{position:relative;height:14px;min-width:120px;background:linear-gradient(var(--line),var(--line)) 50%/1px 100% no-repeat}
+.faixa{position:absolute;top:4px;height:6px;border-radius:3px;background:var(--sem-sinal);opacity:.55}
+.faixa.melhor{background:var(--melhor);opacity:1}
+.faixa.pior{background:var(--pior);opacity:1}
+.obs{position:absolute;top:1px;width:2px;height:12px;background:var(--ink)}
+.dgroup td{padding-top:18px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.sk-nome{font-weight:600}
+.sk-fatia{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.sk-ci{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;display:block}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 ui-sans-serif,system-ui,-apple-system,sans-serif}
 .wrap{max-width:1180px;margin:0 auto;padding:0 24px 72px}
 .nav{display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid var(--line)}
@@ -296,7 +324,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   <section id="tab-skills" class="panel">
     <div class="card" style="margin-bottom:12px">
       <h2>Toda habilidade medida, uma por linha</h2>
-      <p class="hint">A aba <strong>Capacidades</strong> mostra a média do domínio. Aqui está o que existe <strong>por baixo</strong> dela: cada linha é uma habilidade que um instrumento mede de verdade, com o nome que o próprio benchmark dá à pergunta — não um rótulo nosso. <strong>Verde</strong> = com Atlas foi melhor; <strong>vermelho</strong> = com Atlas foi pior; <strong>cinza</strong> = não há braço Atlas nessa habilidade, então não há o que comparar. Cinza nunca é elogio: é lacuna.</p>
+      <p class="hint">Cada linha é uma habilidade que um instrumento mede de verdade, agrupada pelo domínio a que pertence e ordenada da maior ajuda para a maior piora. A barra mostra <strong>a faixa provável da diferença</strong>: quando ela toca a linha do zero, os dois resultados seguem possíveis e a linha fica <strong>cinza</strong> — não há sinal, e a tela não escolhe um lado que a amostra não sustenta. <strong>Verde</strong> e <strong>vermelho</strong> só aparecem quando a faixa inteira fica de um lado do zero. Barra larga é pouca evidência. Cinza nunca é elogio nem condenação: é lacuna declarada.</p>
       <div class="covstats" id="skillStats"></div>
       <div id="skillArmNote"></div>
     </div>
@@ -532,28 +560,61 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   const SK = D.skills || {rows:[]};
   if (document.getElementById('skillTable')) {
     const pct = v => v === null || v === undefined ? '—' : Math.round(v*100)+'%';
-    const VERD = {
-      atlas_melhor:   ['pos', 'com Atlas foi melhor'],
-      atlas_pior:     ['neg', 'com Atlas foi PIOR'],
-      empate:         ['',    'empate'],
-      atlas_nao_medido:['',   'sem braço Atlas — nada a comparar'],
-      sem_medicao:    ['',    'não medido'],
+    const pp  = v => (v > 0 ? '+' : '') + Math.round(v*100);
+    // Motivo em palavra quando não há número. "—" sozinho o leitor confunde com
+    // zero, e zero é um veredito que a ausência de dado não autoriza.
+    const SEM = {
+      atlas_nao_medido: 'sem braço Atlas — nada a comparar',
+      sem_medicao:      'não medido',
     };
-    const rows = (SK.rows||[]).map(r => {
-      const [cls, label] = VERD[r.verdict] || ['', r.verdict];
-      // Delta só existe com os dois braços. Sem par, a célula diz o motivo em
-      // palavra — "—" sozinho o leitor confunde com zero.
-      const delta = r.delta === null || r.delta === undefined
-        ? `<span class="hint">${label}</span>`
-        : `<b class="${cls}">${r.delta > 0 ? '+' : ''}${Math.round(r.delta*100)} pp</b>`;
-      return `<tr>
-        <td><code>${r.skill}</code></td>
-        <td>${pct(r.bare)} <span class="subci">n=${r.bare_n}</span></td>
-        <td>${pct(r.atlas)} <span class="subci">n=${r.atlas_n}</span></td>
-        <td>${delta}</td></tr>`;
-    }).join('');
+    // A régua: escala fixa de -100 a +100 pp. A faixa é o intervalo de 95% da
+    // diferença; o traço é o valor observado. Só ganha cor quando o intervalo
+    // INTEIRO fica de um lado do zero — `conclusive`, vindo do recibo.
+    const regua = r => {
+      if (r.delta_ci_low === null || r.delta_ci_low === undefined) return '';
+      const lo = Math.max(-1, r.delta_ci_low), hi = Math.min(1, r.delta_ci_high);
+      const cls = !r.conclusive ? '' : (lo > 0 ? 'melhor' : 'pior');
+      return `<div class="regua">
+        <div class="faixa ${cls}" style="left:${(lo+1)/2*100}%;width:${Math.max((hi-lo)/2*100,1.5)}%"></div>
+        <div class="obs" style="left:${(r.delta+1)/2*100}%"></div>
+      </div>`;
+    };
+    // Ganho no topo, perda no fim — mas SEM quebrar o agrupamento: ordenar tudo
+    // por delta espalha as linhas de um mesmo domínio e o cabeçalho reaparece
+    // ("Programação" saía 4x). Então ordena-se DENTRO do domínio, e os domínios
+    // entre si pela melhor linha de cada um. O olho varre de cima (onde o Atlas
+    // mais ajuda) para baixo (onde mais atrapalha), e cada domínio aparece uma
+    // vez só.
+    const peso = r => (r.conclusive ? 1000 : 0) + ((r.delta ?? -9) * 100);
+    const grupos = new Map();
+    for (const r of (SK.rows||[])) {
+      const dl = r.domain_label || 'Sem domínio';
+      if (! grupos.has(dl)) grupos.set(dl, []);
+      grupos.get(dl).push(r);
+    }
+    const ordenados = [...grupos.entries()]
+      .map(([dl, rs]) => [dl, rs.sort((a,b) => peso(b) - peso(a))])
+      .sort((a,b) => peso(b[1][0]) - peso(a[1][0]));
+    let rows = '';
+    for (const [dl, rs] of ordenados) {
+      rows += `<tr class="dgroup"><td colspan="4">${dl} · ${rs.length}</td></tr>`;
+      for (const r of rs) {
+      const fatia = r.skill !== r.label ? `<span class="sk-fatia">${r.skill} · ${r.instrument}</span>` : '';
+      const dcell = (r.delta === null || r.delta === undefined)
+        ? `<span class="hint">${SEM[r.verdict] || r.verdict}</span>`
+        : `<b style="color:var(--${r.conclusive ? (r.delta>0?'melhor':'pior') : 'sem-sinal'})">${pp(r.delta)} pp</b>
+           ${r.delta_ci_low !== null && r.delta_ci_low !== undefined
+              ? `<span class="sk-ci">${pp(r.delta_ci_low)} a ${pp(r.delta_ci_high)}${r.conclusive ? '' : ' · inclui o zero'}</span>` : ''}`;
+      rows += `<tr>
+        <td><span class="sk-nome">${r.label || r.skill}</span>${fatia}</td>
+        <td>${pct(r.bare)} <span class="subci">${r.bare_n} tarefas</span></td>
+        <td>${pct(r.atlas)} <span class="subci">${r.atlas_n} tarefas</span></td>
+        <td>${regua(r)}${dcell}</td></tr>`;
+      }
+    }
     document.getElementById('skillTable').innerHTML = (SK.rows||[]).length
-      ? `<table><thead><tr><th>Habilidade</th><th>Modelo sozinho</th><th>Modelo + Atlas</th><th>Diferença</th></tr></thead><tbody>${rows}</tbody></table>`
+      ? `<table><thead><tr><th>Habilidade</th><th>sem Atlas</th><th>com Atlas</th>
+           <th>pior &#8592; 0 &#8594; melhor</th></tr></thead><tbody>${rows}</tbody></table>`
       : `<div class="empty">Nenhuma habilidade medida ainda. Execute a bateria.</div>`;
     const inst = Object.entries(SK.by_instrument||{})
       .map(([k,v]) => `${k}: ${v}`).join(' · ');
