@@ -12,12 +12,21 @@ use PHPUnit\Framework\TestCase;
  */
 final class AtlasCodeReposServiceTest extends TestCase
 {
+    /** @return string diretório temporário que se parece com um repo git */
+    private function fakeRepo(): string
+    {
+        $path = sys_get_temp_dir().'/atlas-code-'.uniqid();
+        mkdir($path.'/.git', 0o777, true);
+
+        return $path;
+    }
+
     public function test_healthy_repo_says_nothing_beyond_its_name(): void
     {
         $service = new AtlasCodeReposService();
 
         $repo = $service->projectRepo(
-            ['slug' => 'atlas-native', 'name' => 'Atlas Native', 'repo_root' => sys_get_temp_dir()],
+            ['slug' => 'atlas-native', 'name' => 'Atlas Native', 'repo_root' => $this->fakeRepo()],
             [],
         );
 
@@ -33,7 +42,7 @@ final class AtlasCodeReposServiceTest extends TestCase
         $service = new AtlasCodeReposService();
 
         $repo = $service->projectRepo(
-            ['slug' => 'blackink-app', 'name' => 'Blackink', 'repo_root' => sys_get_temp_dir()],
+            ['slug' => 'blackink-app', 'name' => 'Blackink', 'repo_root' => $this->fakeRepo()],
             [
                 ['rule_id' => 'main_only', 'target' => 'hotfix-rapido'],
                 ['rule_id' => 'main_only', 'target' => 'wip'],
@@ -59,12 +68,27 @@ final class AtlasCodeReposServiceTest extends TestCase
         self::assertArrayNotHasKey('violations', $repo);
     }
 
+    public function test_folder_without_git_is_not_a_repository(): void
+    {
+        $service = new AtlasCodeReposService();
+
+        // O perfil guarda-chuva do workspace é uma pasta real, mas não um repo:
+        // dizer que está "saudável" seria juízo sobre o que não foi lido.
+        $repo = $service->projectRepo(
+            ['slug' => 'atlas', 'repo_root' => sys_get_temp_dir()],
+            [],
+        );
+
+        self::assertFalse($repo['readable']);
+        self::assertSame('not_a_git_repository', $repo['unreadable_reason']);
+    }
+
     public function test_scanner_silence_is_not_health(): void
     {
         $service = new AtlasCodeReposService();
 
         $repo = $service->projectRepo(
-            ['slug' => 'atlas-server', 'repo_root' => sys_get_temp_dir()],
+            ['slug' => 'atlas-server', 'repo_root' => $this->fakeRepo()],
             null,
         );
 

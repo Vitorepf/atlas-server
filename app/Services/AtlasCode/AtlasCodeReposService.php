@@ -38,7 +38,10 @@ final class AtlasCodeReposService
     {
         $slug = trim((string) ($profile['slug'] ?? ''));
         $path = trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? ''));
-        $readable = $path !== '' && is_dir($path);
+        // Diretório legível não basta: sem .git não há topologia para julgar
+        // (o perfil guarda-chuva do workspace é uma pasta, não um repo).
+        $isDirectory = $path !== '' && is_dir($path);
+        $readable = $isDirectory && (is_dir($path.'/.git') || is_file($path.'/.git'));
 
         $repo = [
             'slug' => $slug,
@@ -48,7 +51,11 @@ final class AtlasCodeReposService
 
         if (! $readable) {
             // Estado honesto: sem leitura não há juízo sobre saúde.
-            $repo['unreadable_reason'] = $path === '' ? 'repository_path_missing' : 'repository_path_unreadable';
+            $repo['unreadable_reason'] = match (true) {
+                $path === '' => 'repository_path_missing',
+                $isDirectory => 'not_a_git_repository',
+                default => 'repository_path_unreadable',
+            };
 
             return $repo;
         }
