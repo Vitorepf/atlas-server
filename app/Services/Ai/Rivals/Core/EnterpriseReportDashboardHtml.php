@@ -600,6 +600,15 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       rows += `<tr class="dgroup"><td colspan="4">${dl} · ${rs.length}</td></tr>`;
       for (const r of rs) {
       const fatia = r.skill !== r.label ? `<span class="sk-fatia">${r.skill} · ${r.instrument}</span>` : '';
+      // O TETO É DO TESTE, NÃO DO ATLAS — e o teto é do `n`, não do instrumento.
+      // Com 9 tarefas, uma habilidade em 66% já não consegue mostrar ganho
+      // nenhum (o máximo é 33 pp e só se afirma acima de 44). Sem dizer isto, a
+      // linha cinza parece "o Atlas não ajudou" quando a verdade é "este teste
+      // não consegue mostrar ajuda". Como repetição é grátis, a saída é rodar
+      // mais — e isso é acionável, ao contrário de um cinza mudo.
+      const teto = r.gain_undemonstrable
+        ? `<span class="sk-fatia">teto do teste: nem 100% provaria ganho com ${r.bare_n} tarefas — rode mais</span>`
+        : '';
       const dcell = (r.delta === null || r.delta === undefined)
         ? `<span class="hint">${SEM[r.verdict] || r.verdict}</span>`
         : `<b style="color:var(--${r.conclusive ? (r.delta>0?'melhor':'pior') : 'sem-sinal'})">${pp(r.delta)} pp</b>
@@ -607,7 +616,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
               ? `<span class="sk-ci">${pp(r.delta_ci_low)} a ${pp(r.delta_ci_high)}${r.conclusive ? '' : ' · inclui o zero'}</span>` : ''}`;
       rows += `<tr>
         <td><span class="sk-nome">${r.label || r.skill}</span>${fatia}</td>
-        <td>${pct(r.bare)} <span class="subci">${r.bare_n} tarefas</span></td>
+        <td>${pct(r.bare)} <span class="subci">${r.bare_n} tarefas</span>${teto}</td>
         <td>${pct(r.atlas)} <span class="subci">${r.atlas_n} tarefas</span></td>
         <td>${regua(r)}${dcell}</td></tr>`;
       }

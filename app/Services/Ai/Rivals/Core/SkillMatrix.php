@@ -113,6 +113,23 @@ final class SkillMatrix
             // A capacidade é declarada por SUÍTE (`inspect_evals`), não pelo
             // instrumento fino (`mmlu_0_shot`) — este é a fatia, e vira
             // qualificador da linha, não o nome dela.
+            // TETO DO INSTRUMENTO — o limite é o teste, não o Atlas.
+            //
+            // Se o modelo sozinho já faz 89% em 9 tarefas, o ganho máximo é 11 pp
+            // — e com 9 tarefas só se afirma acima de 44 pp. Ali NENHUM ganho é
+            // demonstrável, nem por um Atlas perfeito. Pintar essa linha de cinza
+            // sem dizer isso deixa parecer que o Atlas não ajudou, quando na
+            // verdade o instrumento não consegue mostrar ajuda nenhuma.
+            //
+            // Exato, não por limiar chutado: simula o melhor caso possível (o
+            // Atlas acerta TUDO) e pergunta se o intervalo separaria do zero. Se
+            // nem assim, o teto é do teste.
+            $gainUndemonstrable = null;
+            if ($bare !== null && $t['bare'] !== []) {
+                $nb = count($t['bare']);
+                $best = StatisticalPolicy::newcombeDiff($nb, $nb, (int) array_sum($t['bare']), $nb);
+                $gainUndemonstrable = ! ($best['ci_low'] > 0.0);
+            }
             $place = $this->placeOf($suiteId !== '' ? $suiteId : $t['instrument'], $t['task_type']);
             $rows[] = [
                 'skill' => $skill,
@@ -134,6 +151,8 @@ final class SkillMatrix
                 // campos diferentes de propósito: a tela colore por conclusive,
                 // o fato continua registrado no verdict.
                 'conclusive' => $ci !== null && ($ci['ci_low'] > 0.0 || $ci['ci_high'] < 0.0),
+                // Nem um Atlas perfeito provaria ganho aqui: o teto é do teste.
+                'gain_undemonstrable' => $gainUndemonstrable,
                 'verdict' => $this->verdict($bare, $atlas),
             ];
         }
