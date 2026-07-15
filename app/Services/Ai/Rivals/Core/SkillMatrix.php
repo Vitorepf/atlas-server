@@ -88,6 +88,7 @@ final class SkillMatrix
             $tally[$key] ??= [
                 'instrument' => $skill['instrument'],
                 'axis' => $skill['axis'],
+                'task_type' => (string) ($receipt->data['task_type'] ?? ''),
                 'bare' => [],
                 'atlas' => [],
             ];
@@ -109,8 +110,16 @@ final class SkillMatrix
                     (int) array_sum($t['atlas']), count($t['atlas']),
                     (int) array_sum($t['bare']), count($t['bare']),
                 );
+            // A capacidade é declarada por SUÍTE (`inspect_evals`), não pelo
+            // instrumento fino (`mmlu_0_shot`) — este é a fatia, e vira
+            // qualificador da linha, não o nome dela.
+            $place = $this->placeOf($suiteId !== '' ? $suiteId : $t['instrument'], $t['task_type']);
             $rows[] = [
                 'skill' => $skill,
+                // O nome que o operador lê. O slug segue em `skill` para auditar.
+                'label' => $place['label'],
+                'domain' => $place['domain'],
+                'domain_label' => $place['domain_label'],
                 'instrument' => $t['instrument'],
                 'axis' => $t['axis'],
                 'bare' => $bare,
@@ -131,6 +140,44 @@ final class SkillMatrix
         usort($rows, static fn (array $a, array $b): int => $a['skill'] <=> $b['skill']);
 
         return $rows;
+    }
+
+    /**
+     * Onde a habilidade mora e como ela se chama em português.
+     *
+     * A tela imprimia o slug cru (`bbq:Age`, `mmlu_0_shot:college_physics`) e
+     * `domain: null` nas 30 linhas — o operador precisava de legenda para 28
+     * delas, e nada agrupava. O mapa não precisa de taxonomia nova: o recibo já
+     * traz `task_type`, que é a MESMA chave que CAPABILITIES usa em
+     * `task_types`, e SUB_CAPABILITIES já tem o rótulo humano escrito.
+     *
+     * Derivar em vez de listar à mão é o mesmo motivo do docblock lá em cima:
+     * lista escrita à mão envelhece contra o dado que ela resume.
+     *
+     * @return array{domain:?string,domain_label:string,label:string}
+     */
+    private function placeOf(string $suiteId, string $taskType): array
+    {
+        foreach (EnterpriseReportBuilder::CAPABILITIES as $id => $cap) {
+            if (! in_array($suiteId, (array) ($cap['suites'] ?? []), true)) {
+                continue;
+            }
+            // Capacidade fatiada por task_type (12 das 15) só reivindica a
+            // habilidade se o tipo bater; as outras 3 são da suíte inteira.
+            $hasTypes = isset($cap['task_types']);
+            if ($hasTypes && ! in_array($taskType, (array) $cap['task_types'], true)) {
+                continue;
+            }
+            $subKey = $hasTypes ? $suiteId.':'.$taskType : $suiteId;
+
+            return [
+                'domain' => $id,
+                'domain_label' => (string) ($cap['label'] ?? $id),
+                'label' => (string) (EnterpriseReportBuilder::SUB_CAPABILITIES[$subKey]['label'] ?? $suiteId),
+            ];
+        }
+
+        return ['domain' => null, 'domain_label' => 'Sem domínio', 'label' => $suiteId];
     }
 
     /**

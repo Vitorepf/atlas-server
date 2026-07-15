@@ -178,6 +178,32 @@ class SkillMatrixTest extends TestCase
         $this->assertGreaterThan(0.0, $row['delta_ci_low'], 'o intervalo inteiro fica acima do zero');
     }
 
+    public function test_skill_gets_portuguese_name_and_domain_derived_from_the_data(): void
+    {
+        // A tela imprimia o slug cru (`bbq:Age`) e `domain: null` nas 30 linhas:
+        // 28 exigiam legenda e nada agrupava. O mapa não precisa de taxonomia
+        // nova — o recibo já traz `task_type`, que é a MESMA chave de
+        // CAPABILITIES.task_types, e SUB_CAPABILITIES já tem o rótulo humano.
+        // Derivar em vez de listar à mão: lista escrita à mão envelhece contra o
+        // dado que ela resume.
+        file_put_contents(
+            RunPaths::nativeManifestPath($this->runId),
+            (string) json_encode(['suite_id' => 'inspect_evals']),
+        );
+        $this->unit('bbq', 'Age_00000', ['category' => 'Age'], 'bare');
+        $this->receipts([
+            ['case_id' => 'Age_00000', 'arm_id' => 'm@bare', 'status' => 'success', 'task_type' => 'social_bias'],
+        ]);
+
+        $row = (new SkillMatrix)->forRun($this->runId)[0];
+
+        $this->assertSame('Viés social', $row['domain_label']);
+        $this->assertSame('social_bias', $row['domain']);
+        $this->assertSame('Responder pelo contexto, não pelo estereótipo', $row['label']);
+        // O slug continua, para auditar; ele só deixa de ser o que o humano lê.
+        $this->assertSame('bbq:Age', $row['skill']);
+    }
+
     /** @param array<string,mixed> $metadata */
     private function unit(string $instrument, string $caseId, array $metadata, string $arm): void
     {
