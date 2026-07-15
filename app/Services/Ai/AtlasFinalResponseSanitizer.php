@@ -25,6 +25,25 @@ class AtlasFinalResponseSanitizer
         }
 
         if ($this->hasBoxedReasoningFrame($original)) {
+            // Moldura FECHADA (┌─ Reasoning … └───┘) é raciocínio delimitado: dá
+            // para arrancar e ficar com a resposta. Bloquear tudo aqui jogava
+            // fora o veredito junto com o pensamento — e o modelo que pensa em
+            // voz alta ANTES de responder perdia a resposta inteira. Foi o que
+            // matou as 12 revisões de commit do Atlas Código (15/07) e as 9
+            // respostas do Hermes nas duas semanas anteriores.
+            //
+            // É a mesma disciplina que `stripLeakedModelMarkup` já aplica
+            // logo abaixo: strip do par fechado, bloqueio só do não fechado.
+            $withoutFrame = $this->stripBoxedReasoningFrames($original);
+            if ($withoutFrame !== null && trim($withoutFrame) !== '') {
+                return [trim($withoutFrame), [
+                    'changed' => true,
+                    'reason' => 'reasoning_frame_stripped',
+                ]];
+            }
+
+            // Moldura ABERTA (sem fecho) ou nada além dela: não dá para saber
+            // onde o pensamento termina. Aí sim, bloqueia — fail-closed.
             return ['Não consegui preparar uma resposta segura para exibição. A saída interna foi bloqueada; reenvie o pedido para gerar uma resposta limpa.', [
                 'changed' => true,
                 'reason' => 'reasoning_frame_blocked',
@@ -184,6 +203,44 @@ class AtlasFinalResponseSanitizer
     private function hasBoxedReasoningFrame(string $text): bool
     {
         return preg_match('/^[┌╭]\s*[─-]*\s*(reasoning|chain of thought)\b/imu', $text) === 1;
+    }
+
+    /**
+     * Arranca as molduras de raciocínio FECHADAS e devolve o que sobrou.
+     *
+     * `null` = há moldura aberta (sem fecho). Sem o fecho não há como saber
+     * onde o pensamento termina e a resposta começa — e chutar aí é pior que
+     * bloquear.
+     *
+     * O modelo desenha:
+     *
+     *     ┌─ Reasoning ─────────┐
+     *      … pensamento …
+     *     └─────────────────────┘
+     *     o veredito de verdade
+     *
+     * Bloquear o conjunto inteiro (comportamento anterior) tratava a resposta
+     * como cúmplice do pensamento. O leak é a moldura; o veredito é a entrega.
+     */
+    private function stripBoxedReasoningFrames(string $text): ?string
+    {
+        // Par fechado: da abertura até a primeira linha de fecho (└…┘ / ╰…╯).
+        $stripped = (string) preg_replace(
+            '/^[┌╭][^\n]*(?:reasoning|chain of thought)[^\n]*\n.*?^[└╰][^\n]*$/imsu',
+            '',
+            $text
+        );
+
+        // Sobrou abertura sem fecho: não dá para delimitar o pensamento.
+        if ($this->hasBoxedReasoningFrame($stripped)) {
+            return null;
+        }
+
+        // Linhas soltas de moldura (o desenho da caixa sem conteúdo) não são
+        // resposta: saem também, senão "sobra" texto que é só borda.
+        $stripped = (string) preg_replace('/^[┌└├╭╰│][^\n]*$/mu', '', $stripped);
+
+        return $stripped;
     }
 
     private function stripQualityRepairPromptEcho(string $text): string
