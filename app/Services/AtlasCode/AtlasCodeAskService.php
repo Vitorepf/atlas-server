@@ -456,7 +456,29 @@ final class AtlasCodeAskService
         $commits = $this->parseCommits($lines);
 
         if ($commits === []) {
-            return $this->shape(true, "nenhum commit tocou em \u{201C}{$term}\u{201D}.", source: self::SOURCE_GRAPH);
+            // Beco sem saída é o pior serviço: "nenhum commit tocou em pílula"
+            // está tecnicamente certo (nenhum ARQUIVO se chama pílula) e é
+            // inútil — há seis commits falando dela. O operador perguntou pelo
+            // ASSUNTO; o caminho era só o palpite dele de onde procurar.
+            //
+            // Também cobre o abismo de idioma: ele pergunta "conversação" e o
+            // arquivo se chama `Conversation`.
+            $byMessage = $this->parseCommits($this->git($path, [
+                'git', 'log', '--all', '-i', '-E',
+                '--grep='.$this->accentTolerantPattern($term),
+                '--format=%H%x1f%an%x1f%at%x1f%s',
+            ]));
+
+            if ($byMessage === []) {
+                return $this->shape(true, "nenhum commit tocou em \u{201C}{$term}\u{201D}.", source: self::SOURCE_GRAPH);
+            }
+
+            return $this->shape(
+                true,
+                $this->phraseSubjectOnly($term, $byMessage),
+                commits: array_column($byMessage, 'hash'),
+                source: self::SOURCE_GRAPH,
+            );
         }
 
         $work = $this->parseWork($this->git($path, [
@@ -540,6 +562,24 @@ final class AtlasCodeAskService
      * Cada vogal vira o par sem-acento/com-acento. O resto é escapado: o termo
      * é do operador, e um `.` ou `*` que ele digitou é literal, não curinga.
      */
+    /**
+     * Nenhum arquivo com esse nome — mas o assunto existe.
+     *
+     * A frase separa as duas coisas que o operador precisa distinguir: "não
+     * existe" e "existe com outro nome". Ele perguntou pelo ASSUNTO; o caminho
+     * era só o palpite dele de onde procurar, e o Atlas não morre no palpite.
+     *
+     * @param  array<int, array{hash:string, author_name:string, authored_at:int, message:string}>  $commits
+     */
+    public function phraseSubjectOnly(string $term, array $commits, ?int $now = null): string
+    {
+        $count = count($commits);
+        $noun = $count === 1 ? 'commit fala' : 'commits falam';
+        $last = self::ago(max(array_column($commits, 'authored_at')), $now ?? time());
+
+        return "nenhum arquivo com \u{201C}{$term}\u{201D} no nome — mas {$count} {$noun} disso. O último há {$last}.";
+    }
+
     public function accentTolerantPattern(string $term): string
     {
         $variants = [

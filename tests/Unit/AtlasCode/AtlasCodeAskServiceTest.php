@@ -160,6 +160,38 @@ final class AtlasCodeAskServiceTest extends TestCase
         self::assertStringContainsString('O último há 10 minutos', $phrase);
     }
 
+    public function test_no_file_by_that_name_is_not_the_end_of_the_answer(): void
+    {
+        // "nenhum commit tocou em pílula" está tecnicamente CERTO (nenhum
+        // arquivo se chama pílula) e é inútil: há sete commits falando dela.
+        // O operador perguntou pelo ASSUNTO; o caminho era só o palpite dele de
+        // onde procurar, e o Atlas não pode morrer no palpite dele.
+        //
+        // A frase distingue as duas coisas que ele precisa separar: "não
+        // existe" e "existe com outro nome".
+        $now = 1_784_100_000;
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'V', 'authored_at' => $now - 3600, 'message' => 'feat: a pílula responde'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'V', 'authored_at' => $now - 7200, 'message' => 'fix: a pílula'],
+        ];
+
+        self::assertSame(
+            'nenhum arquivo com “pilula” no nome — mas 2 commits falam disso. O último há 1 hora.',
+            $this->ask->phraseSubjectOnly('pilula', $commits, $now)
+        );
+    }
+
+    public function test_the_subject_fallback_speaks_singular_too(): void
+    {
+        $now = 1_784_100_000;
+        $one = [['hash' => str_repeat('a', 40), 'author_name' => 'V', 'authored_at' => $now - 86400, 'message' => 'x']];
+
+        self::assertSame(
+            'nenhum arquivo com “metal” no nome — mas 1 commit fala disso. O último há 1 dia.',
+            $this->ask->phraseSubjectOnly('metal', $one, $now)
+        );
+    }
+
     public function test_relative_time_speaks_short_portuguese(): void
     {
         $now = 1_784_100_000;
