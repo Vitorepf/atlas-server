@@ -128,6 +128,49 @@ final class AtlasCodeAskServiceTest extends TestCase
         );
     }
 
+    public function test_who_touched_answers_what_the_question_really_wants(): void
+    {
+        // "Vitor Freire (9 commits)" no repositório do próprio Vitor informa
+        // que ele existe. O que ele quer saber: o arquivo é quente? cresceu ou
+        // encolheu? mexeram agora ou faz meses?
+        $now = 1_784_100_000;
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'Vitor Freire', 'authored_at' => $now - 7200, 'message' => 'x'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'Vitor Freire', 'authored_at' => $now - 90000, 'message' => 'y'],
+        ];
+        $work = ['files' => 1, 'additions' => 1204, 'deletions' => 380, 'top' => []];
+
+        self::assertSame(
+            '2 commits tocaram “atlascodeview.swift”: +1204 −380. O último há 2h.',
+            $this->ask->phraseWhoTouched('atlascodeview.swift', $commits, $work, $now)
+        );
+    }
+
+    public function test_who_touched_names_the_hands_only_when_there_is_more_than_one(): void
+    {
+        $now = 1_784_100_000;
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'Vitor Freire', 'authored_at' => $now - 600, 'message' => 'x'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'forge', 'authored_at' => $now - 3600, 'message' => 'y'],
+        ];
+
+        $phrase = $this->ask->phraseWhoTouched('worker', $commits, null, $now);
+
+        self::assertStringContainsString('1 de Vitor Freire, 1 de forge', $phrase);
+        self::assertStringContainsString('O último há 10min', $phrase);
+    }
+
+    public function test_relative_time_speaks_short_portuguese(): void
+    {
+        $now = 1_784_100_000;
+
+        self::assertSame('1min', AtlasCodeAskService::ago($now - 5, $now));
+        self::assertSame('30min', AtlasCodeAskService::ago($now - 1800, $now));
+        self::assertSame('5h', AtlasCodeAskService::ago($now - 18000, $now));
+        self::assertSame('3d', AtlasCodeAskService::ago($now - 3 * 86400, $now));
+        self::assertSame('2 meses', AtlasCodeAskService::ago($now - 60 * 86400, $now));
+    }
+
     public function test_healthy_repository_is_quiet_not_celebrated(): void
     {
         self::assertSame('nada fora do lugar neste repositório.', $this->ask->phraseProblems([]));

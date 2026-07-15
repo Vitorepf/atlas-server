@@ -416,24 +416,75 @@ final class AtlasCodeAskService
             return $this->shape(true, "nenhum commit tocou em \u{201C}{$term}\u{201D}.", source: self::SOURCE_GRAPH);
         }
 
-        $byAuthor = [];
-        foreach ($commits as $commit) {
-            $name = trim($commit['author_name']) !== '' ? $commit['author_name'] : 'sem autor';
-            $byAuthor[$name] = ($byAuthor[$name] ?? 0) + 1;
-        }
-        arsort($byAuthor);
-
-        $parts = [];
-        foreach ($byAuthor as $name => $total) {
-            $parts[] = $total === 1 ? "{$name} (1 commit)" : "{$name} ({$total} commits)";
-        }
+        $work = $this->parseWork($this->git($path, [
+            'git', 'log', '--all', '--format=', '--numstat', '-M', '--', ':(icase)*'.$term.'*',
+        ]));
 
         return $this->shape(
             true,
-            "em \u{201C}{$term}\u{201D}: ".implode(', ', $parts).'.',
+            $this->phraseWhoTouched($term, $commits, $work),
             commits: array_column($commits, 'hash'),
             source: self::SOURCE_GRAPH,
         );
+    }
+
+    /**
+     * "quem mexeu em X?" — e o que essa pergunta REALMENTE quer saber.
+     *
+     * A primeira versão respondia "Vitor Freire (9 commits)". No repositório
+     * do próprio Vitor, isso informa que ele existe. É o mesmo enchimento que
+     * a frase do dia tinha, com outra roupa.
+     *
+     * O que ele quer quando pergunta isso: esse arquivo é quente? mexeram
+     * agora ou faz meses? cresceu ou encolheu? O nome só importa quando há
+     * mais de uma mão — aí sim vira notícia.
+     *
+     * @param  array<int, array{hash:string, author_name:string, authored_at:int, message:string}>  $commits
+     * @param  array{files:int, additions:int, deletions:int, top:array<int,array{path:string,touches:int}>}|null  $work
+     */
+    public function phraseWhoTouched(string $term, array $commits, ?array $work = null, ?int $now = null): string
+    {
+        $count = count($commits);
+        $noun = $count === 1 ? 'commit tocou' : 'commits tocaram';
+        $phrase = "{$count} {$noun} \u{201C}{$term}\u{201D}";
+
+        $hands = [];
+        foreach ($commits as $commit) {
+            $name = trim($commit['author_name']) !== '' ? $commit['author_name'] : 'sem autor';
+            $hands[$name] = ($hands[$name] ?? 0) + 1;
+        }
+        // Mão única não é notícia: ele já sabe que foi ele.
+        if (count($hands) > 1) {
+            arsort($hands);
+            $parts = [];
+            foreach (array_slice($hands, 0, 3, true) as $name => $total) {
+                $parts[] = "{$total} de {$name}";
+            }
+            $phrase .= ' — '.implode(', ', $parts).(count($hands) > 3 ? ', entre outros' : '');
+        }
+
+        if ($work !== null && ($work['additions'] + $work['deletions']) > 0) {
+            $phrase .= ": +{$work['additions']} \u{2212}{$work['deletions']}";
+        }
+
+        // Quente ou frio: o último toque é metade da pergunta.
+        $newest = max(array_column($commits, 'authored_at'));
+        $phrase .= '. O último há '.AtlasCodeAskService::ago($newest, $now ?? time());
+
+        return $phrase.'.';
+    }
+
+    /** Tempo humano e curto — o mesmo vocabulário do grafo. */
+    public static function ago(int $epoch, int $now): string
+    {
+        $seconds = max(0, $now - $epoch);
+
+        return match (true) {
+            $seconds < 3600 => max(1, intdiv($seconds, 60)).'min',
+            $seconds < 86_400 => intdiv($seconds, 3600).'h',
+            $seconds < 2_592_000 => intdiv($seconds, 86_400).'d',
+            default => intdiv($seconds, 2_592_000).' meses',
+        };
     }
 
     /**
