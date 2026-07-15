@@ -112,7 +112,22 @@ final class AtlasCodeAskService
     /**
      * @param  array<int, array{hash:string, author_name:string, authored_at:int, message:string}>  $commits
      */
-    public function phraseChanges(array $commits, string $window): string
+    /**
+     * A frase do dia — e o que ela DEVE responder.
+     *
+     * A primeira versão dizia "32 commits hoje — 32 de Vitor Freire.": um
+     * `git log` com fonte serifada. O operador não abre o Atlas para contar
+     * commits nem para descobrir que ele mesmo os fez; ele abre para saber O
+     * QUE mudou. Contagem de assinatura, num repositório de um homem só, é
+     * ruído com cara de dado.
+     *
+     * Agora a frase carrega o TRABALHO: quantos arquivos, quanto entrou e
+     * saiu, e onde o esforço se concentrou. Tudo fato do git — nada inferido.
+     *
+     * @param  array<int, array{hash:string, author_name:string, authored_at:int, message:string}>  $commits
+     * @param  array{files:int, additions:int, deletions:int, top:array<int,array{path:string,touches:int}>}|null  $work
+     */
+    public function phraseChanges(array $commits, string $window, ?array $work = null): string
     {
         $when = match ($window) {
             AtlasCodeQuestionRouter::WINDOW_YESTERDAY => 'ontem',
@@ -127,22 +142,84 @@ final class AtlasCodeAskService
 
         $count = count($commits);
         $noun = $count === 1 ? 'commit' : 'commits';
+        $phrase = "{$count} {$noun} {$when}";
 
-        // Quem trabalhou é fato do git, não inferência: contamos assinaturas.
+        // Quantas mãos: só vale dizer quando há MAIS DE UMA. "32 de Vitor
+        // Freire" no repositório do próprio Vitor não informa nada.
         $byAuthor = [];
         foreach ($commits as $commit) {
             $name = trim($commit['author_name']) !== '' ? $commit['author_name'] : 'sem autor';
             $byAuthor[$name] = ($byAuthor[$name] ?? 0) + 1;
         }
-        arsort($byAuthor);
-
-        $who = [];
-        foreach (array_slice($byAuthor, 0, 3, true) as $name => $total) {
-            $who[] = "{$total} de {$name}";
+        if (count($byAuthor) > 1) {
+            arsort($byAuthor);
+            $who = [];
+            foreach (array_slice($byAuthor, 0, 3, true) as $name => $total) {
+                $who[] = "{$total} de {$name}";
+            }
+            $phrase .= ' — '.implode(', ', $who).(count($byAuthor) > 3 ? ', entre outros' : '');
         }
-        $tail = count($byAuthor) > 3 ? ', entre outros' : '';
 
-        return "{$count} {$noun} {$when} — ".implode(', ', $who).$tail.'.';
+        if ($work === null || ($work['files'] ?? 0) === 0) {
+            return $phrase.'.';
+        }
+
+        // O tamanho do trabalho, não o tamanho da lista.
+        $fileNoun = $work['files'] === 1 ? 'arquivo' : 'arquivos';
+        $phrase .= ": {$work['files']} {$fileNoun}, +{$work['additions']} \u{2212}{$work['deletions']}";
+
+        // Onde o esforço se concentrou — o que um humano perguntaria em seguida.
+        $top = $work['top'][0] ?? null;
+        if (is_array($top) && ($top['touches'] ?? 0) > 1) {
+            $name = basename((string) $top['path']);
+            $phrase .= ". O mais mexido: {$name} ({$top['touches']}×)";
+        }
+
+        return $phrase.'.';
+    }
+
+    /**
+     * O trabalho da janela, medido no git: arquivos distintos, linhas, e onde
+     * o esforço bateu mais.
+     *
+     * Puro sobre a saída do `--numstat`, para o teste ler o que o operador lê.
+     *
+     * @return array{files:int, additions:int, deletions:int, top:array<int,array{path:string,touches:int}>}
+     */
+    public function parseWork(string $numstat): array
+    {
+        $touches = [];
+        $additions = 0;
+        $deletions = 0;
+
+        foreach (preg_split('/\r?\n/', trim($numstat)) ?: [] as $line) {
+            $parts = explode("\t", trim($line));
+            if (count($parts) < 3 || trim($parts[2]) === '') {
+                continue;
+            }
+            // '-' é binário: o git não mediu linha, e nós não inventamos zero.
+            if ($parts[0] !== '-') {
+                $additions += (int) $parts[0];
+            }
+            if ($parts[1] !== '-') {
+                $deletions += (int) $parts[1];
+            }
+            $path = trim($parts[2]);
+            $touches[$path] = ($touches[$path] ?? 0) + 1;
+        }
+
+        arsort($touches);
+        $top = [];
+        foreach (array_slice($touches, 0, 3, true) as $path => $count) {
+            $top[] = ['path' => $path, 'touches' => $count];
+        }
+
+        return [
+            'files' => count($touches),
+            'additions' => $additions,
+            'deletions' => $deletions,
+            'top' => $top,
+        ];
     }
 
     /**
@@ -256,9 +333,18 @@ final class AtlasCodeAskService
         // O filtro do git é por data de commit; a janela é por data de autoria.
         $commits = array_values(array_filter($commits, static fn (array $c): bool => $c['authored_at'] >= $since));
 
+        // O trabalho da janela, não só a contagem dela. Uma chamada a mais no
+        // git compra a diferença entre "32 commits" e "32 commits: 47
+        // arquivos, +2104 −890, o mais mexido foi X".
+        $work = $commits === []
+            ? null
+            : $this->parseWork($this->git($path, [
+                'git', 'log', '--all', '--since=@'.$since, '--format=', '--numstat', '-M',
+            ]));
+
         return $this->shape(
             true,
-            $this->phraseChanges($commits, $window),
+            $this->phraseChanges($commits, $window, $work),
             commits: array_column($commits, 'hash'),
             source: self::SOURCE_GRAPH,
         );

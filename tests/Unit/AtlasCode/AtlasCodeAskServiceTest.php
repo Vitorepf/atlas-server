@@ -21,7 +21,7 @@ final class AtlasCodeAskServiceTest extends TestCase
         $this->ask = new AtlasCodeAskService();
     }
 
-    public function test_changes_phrase_counts_signatures_it_actually_read(): void
+    public function test_changes_phrase_counts_signatures_only_when_there_is_more_than_one_hand(): void
     {
         $commits = [
             ['hash' => str_repeat('a', 40), 'author_name' => 'Vitor Freire', 'authored_at' => 100, 'message' => 'x'],
@@ -39,11 +39,73 @@ final class AtlasCodeAskServiceTest extends TestCase
         );
     }
 
+    public function test_a_single_hand_is_not_news_and_does_not_pad_the_answer(): void
+    {
+        // A frase original era "32 commits hoje — 32 de Vitor Freire.", no
+        // repositório do próprio Vitor. Contagem de assinatura com um autor só
+        // é ruído com cara de dado: ele já sabe que foi ele.
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'Vitor Freire', 'authored_at' => 100, 'message' => 'x'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'Vitor Freire', 'authored_at' => 90, 'message' => 'y'],
+        ];
+
+        self::assertSame('2 commits hoje.', $this->ask->phraseChanges($commits, 'today'));
+    }
+
+    public function test_the_phrase_carries_the_work_not_only_the_count(): void
+    {
+        // O que o operador quer saber ao abrir o app: o que mudou — não quantas
+        // vezes alguém apertou commit.
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'Vitor Freire', 'authored_at' => 100, 'message' => 'x'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'Vitor Freire', 'authored_at' => 90, 'message' => 'y'],
+        ];
+        $work = [
+            'files' => 47,
+            'additions' => 2104,
+            'deletions' => 890,
+            'top' => [['path' => 'App/Atlas/AtlasCodeView.swift', 'touches' => 9]],
+        ];
+
+        self::assertSame(
+            '2 commits hoje: 47 arquivos, +2104 −890. O mais mexido: AtlasCodeView.swift (9×).',
+            $this->ask->phraseChanges($commits, 'today', $work)
+        );
+    }
+
+    public function test_a_file_touched_once_is_not_a_concentration_of_effort(): void
+    {
+        // "O mais mexido: X (1×)" seria ruído: com um toque, não há concentração.
+        $commits = [['hash' => str_repeat('a', 40), 'author_name' => 'V', 'authored_at' => 100, 'message' => 'x']];
+        $work = ['files' => 3, 'additions' => 10, 'deletions' => 2, 'top' => [['path' => 'a.swift', 'touches' => 1]]];
+
+        self::assertSame('1 commit hoje: 3 arquivos, +10 −2.', $this->ask->phraseChanges($commits, 'today', $work));
+    }
+
+    public function test_work_parsing_counts_distinct_files_and_never_invents_binary_lines(): void
+    {
+        $numstat = implode("\n", [
+            "7\t6\tApp/Atlas/AtlasCodeView.swift",
+            "271\t168\tApp/Atlas/AtlasCodeRadarView.swift",
+            "-\t-\tApp/Assets/icon.png",
+            "12\t3\tApp/Atlas/AtlasCodeView.swift",
+        ]);
+
+        $work = $this->ask->parseWork($numstat);
+
+        // 3 arquivos distintos, e o binário conta como arquivo sem somar linha.
+        self::assertSame(3, $work['files']);
+        self::assertSame(290, $work['additions']);
+        self::assertSame(177, $work['deletions']);
+        // Tocado em dois commits = onde o esforço bateu.
+        self::assertSame(['path' => 'App/Atlas/AtlasCodeView.swift', 'touches' => 2], $work['top'][0]);
+    }
+
     public function test_changes_phrase_speaks_portuguese_in_the_singular(): void
     {
         $one = [['hash' => str_repeat('a', 40), 'author_name' => 'Vitor Freire', 'authored_at' => 100, 'message' => 'x']];
 
-        self::assertSame('1 commit ontem — 1 de Vitor Freire.', $this->ask->phraseChanges($one, 'yesterday'));
+        self::assertSame('1 commit ontem.', $this->ask->phraseChanges($one, 'yesterday'));
     }
 
     public function test_no_commits_is_said_not_dressed_up(): void
