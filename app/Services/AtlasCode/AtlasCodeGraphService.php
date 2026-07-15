@@ -38,17 +38,20 @@ final class AtlasCodeGraphService
      *   author_name:string,
      *   author_email:string,
      *   authored_at:int,
-     *   refs:array<int,string>
+     *   refs:array<int,string>,
+     *   message:string
      * }
      */
     public function parseLogLine(string $line): array
     {
-        $parts = explode('|', trim($line), 6);
-        if (count($parts) !== 6 || trim($parts[0]) === '') {
+        // The subject is last on purpose: commit messages may contain '|', so
+        // the bounded explode keeps them intact instead of truncating them.
+        $parts = explode('|', rtrim($line, "\r\n"), 7);
+        if (count($parts) !== 7 || trim($parts[0]) === '') {
             throw new InvalidArgumentException('invalid_git_log_line');
         }
 
-        [$hash, $parents, $authorName, $authorEmail, $authoredAt, $refs] = $parts;
+        [$hash, $parents, $authorName, $authorEmail, $authoredAt, $refs, $message] = $parts;
         $timestamp = filter_var(trim($authoredAt), FILTER_VALIDATE_INT);
         if ($timestamp === false) {
             throw new InvalidArgumentException('invalid_git_author_timestamp');
@@ -61,6 +64,7 @@ final class AtlasCodeGraphService
             'author_email' => trim($authorEmail),
             'authored_at' => (int) $timestamp,
             'refs' => $this->splitCommaList($refs),
+            'message' => trim($message),
         ];
     }
 
@@ -126,7 +130,7 @@ final class AtlasCodeGraphService
 
         $log = $this->run($path, [
             'git', 'log', '--all', '--topo-order', '--parents',
-            '--format=%H|%P|%an|%ae|%at|%D',
+            '--format=%H|%P|%an|%ae|%at|%D|%s',
         ]);
         $nodes = [];
         foreach (preg_split('/\r?\n/', trim($log)) ?: [] as $line) {

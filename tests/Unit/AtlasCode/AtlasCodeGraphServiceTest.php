@@ -15,7 +15,7 @@ final class AtlasCodeGraphServiceTest extends TestCase
         $service = new AtlasCodeGraphService();
 
         $node = $service->parseLogLine(
-            "9a06fd4c56|4b2b61f974 7c1e8d2a90|Vitor Freire|vitor@example.test|1784316000|HEAD -> main, origin/main",
+            "9a06fd4c56|4b2b61f974 7c1e8d2a90|Vitor Freire|vitor@example.test|1784316000|HEAD -> main, origin/main|feat(brain): council_review por membro",
         );
 
         self::assertSame('9a06fd4c56', $node['hash']);
@@ -24,6 +24,31 @@ final class AtlasCodeGraphServiceTest extends TestCase
         self::assertSame('vitor@example.test', $node['author_email']);
         self::assertSame(1784316000, $node['authored_at']);
         self::assertSame(['HEAD -> main', 'origin/main'], $node['refs']);
+        self::assertSame('feat(brain): council_review por membro', $node['message']);
+    }
+
+    /**
+     * The commit subject is the headline of the graph screen: it must survive
+     * verbatim even when it contains the field separator.
+     */
+    public function test_message_with_pipe_survives_intact(): void
+    {
+        $service = new AtlasCodeGraphService();
+
+        $node = $service->parseLogLine(
+            "abc123|def456|Fable|fable@example.test|1784316000||fix(ui): pipe | dentro da mensagem",
+        );
+
+        self::assertSame('fix(ui): pipe | dentro da mensagem', $node['message']);
+        self::assertSame([], $node['refs']);
+    }
+
+    public function test_line_without_message_is_rejected_not_faked(): void
+    {
+        $service = new AtlasCodeGraphService();
+
+        $this->expectExceptionMessage('invalid_git_log_line');
+        $service->parseLogLine('abc123|def456|Fable|fable@example.test|1784316000|main');
     }
 
     public function test_parses_worktree_porcelain_without_exposing_git_metadata(): void
