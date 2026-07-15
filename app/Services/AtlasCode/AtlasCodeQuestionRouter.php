@@ -39,6 +39,9 @@ final class AtlasCodeQuestionRouter
     /** "revise os commits de hoje" — trabalho agêntico, não pergunta. */
     public const INTENT_REVIEW_BATCH = 'review_batch';
 
+    /** "qual arquivo mais mexe?" — onde o esforço se concentra. */
+    public const INTENT_HOTTEST = 'hottest';
+
     /** Nem toda pergunta é filtro. Esta vai para o cérebro. */
     public const INTENT_UNKNOWN = 'unknown';
 
@@ -88,6 +91,12 @@ final class AtlasCodeQuestionRouter
         // As intenções de JANELA (`changes`, `review_batch`) compartilham o
         // formato do alvo: de quando, e quais. As de TERMO (`who_touched`,
         // `find`) não têm hash e por isso não carregam a chave.
+        // Antes de `changes`: "o que mais muda?" contém "muda", mas não é a
+        // pergunta do dia — é sobre concentração de esforço.
+        if ($this->asksHottest($text)) {
+            return $this->shape(self::INTENT_HOTTEST, window: $this->extractWindow($text) ?? self::WINDOW_MONTH);
+        }
+
         if ($this->mentionsChange($text)) {
             return $this->shape(self::INTENT_CHANGES, window: $this->extractWindow($text) ?? self::WINDOW_TODAY, hashes: []);
         }
@@ -205,11 +214,36 @@ final class AtlasCodeQuestionRouter
         return preg_match('/\b(faz|faca|fazer|manda|quero)\b.{0,12}\brevisao\b/u', $text) === 1;
     }
 
+    /**
+     * "qual arquivo mais mexe?" — onde o esforço se concentra.
+     *
+     * O Atlas JÁ calculava isso (o `top` do trabalho da janela) e não tinha
+     * porta: a pergunta caía no cérebro e voltava "não tenho fonte boa". Dado
+     * pronto sem porta é pior que dado ausente.
+     */
+    private function asksHottest(string $text): bool
+    {
+        foreach ([
+            'mais mexe', 'mais mexido', 'mais mexidos', 'mais tocado', 'mais toca',
+            'mais muda', 'mais mudado', 'mais alterado', 'onde mais', 'mais quente',
+            'arquivo mais', 'arquivos mais',
+        ] as $needle) {
+            if (str_contains($text, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function mentionsProblem(string $text): bool
     {
         foreach ([
             'problema', 'errado', 'excecao', 'violacao', 'violando', 'fora da main',
             'tudo bem', 'tudo certo', 'quebrad', 'sujo', 'pendencia', 'esta ok', 'ta ok',
+            // "o que falta pra main ficar limpa?" é a MESMA pergunta com outra
+            // roupa: ele quer a lista de exceções.
+            'ficar limpa', 'ficar limpo', 'falta pra main', 'falta para main', 'limpar a main',
         ] as $needle) {
             if (str_contains($text, $needle)) {
                 return true;
@@ -224,6 +258,9 @@ final class AtlasCodeQuestionRouter
         foreach ([
             'que mudou', 'que aconteceu', 'que rolou', 'que foi feito', 'novidade',
             'que teve', 'mudancas', 'mudanca', 'o que houve', 'andamento',
+            // Como ele pergunta de verdade — a contagem É a pergunta do dia.
+            'quantos commit', 'quantas mudanc', 'quanto commitei', 'quanto trabalhei',
+            'que fiz', 'que eu fiz', 'que fizemos',
         ] as $needle) {
             if (str_contains($text, $needle)) {
                 return true;

@@ -73,6 +73,7 @@ final class AtlasCodeAskService
             AtlasCodeQuestionRouter::INTENT_WHY_BRANCH => $this->answerWhyBranch($located['slug'], $located['path']),
             AtlasCodeQuestionRouter::INTENT_WHO_TOUCHED => $this->answerWhoTouched($located['path'], $route['term']),
             AtlasCodeQuestionRouter::INTENT_FIND => $this->answerFind($located['path'], $route['term']),
+            AtlasCodeQuestionRouter::INTENT_HOTTEST => $this->answerHottest($located['path'], (string) $route['window'], $now, $timezone),
             // Não é filtro do grafo: é pergunta de julgamento. Vai ao cérebro.
             default => $this->consultBrain($asked, $located['path']),
         };
@@ -580,6 +581,46 @@ final class AtlasCodeAskService
         return "nenhum arquivo com \u{201C}{$term}\u{201D} no nome — mas {$count} {$noun} disso. O último há {$last}.";
     }
 
+    /**
+     * Onde o esforço se concentrou — em português, com o que sustenta.
+     *
+     * Não devolve só um nome: um arquivo campeão sem contexto é trivia. O que
+     * responde é o pódio + quanto ele pesa no todo, porque isso diz se há um
+     * gargalo ou se o trabalho está espalhado.
+     *
+     * @param  array{files:int, additions:int, deletions:int, top:array<int,array{path:string,touches:int}>}  $work
+     */
+    public function phraseHottest(array $work, string $window): string
+    {
+        $when = match ($window) {
+            AtlasCodeQuestionRouter::WINDOW_TODAY => 'hoje',
+            AtlasCodeQuestionRouter::WINDOW_YESTERDAY => 'ontem',
+            AtlasCodeQuestionRouter::WINDOW_WEEK => 'nos últimos 7 dias',
+            default => 'nos últimos 30 dias',
+        };
+
+        $top = $work['top'] ?? [];
+        if ($top === []) {
+            return "nenhum arquivo foi tocado {$when}.";
+        }
+
+        // Um toque não é concentração: é só o único arquivo que existe ali.
+        if (($top[0]['touches'] ?? 0) < 2) {
+            return "{$when}, nenhum arquivo foi mexido mais de uma vez — o trabalho não se concentrou.";
+        }
+
+        $parts = [];
+        foreach (array_slice($top, 0, 3) as $item) {
+            if (($item['touches'] ?? 0) < 2) {
+                continue;
+            }
+            $parts[] = basename((string) $item['path']).' ('.$item['touches'].'×)';
+        }
+
+        return "{$when}, o esforço bateu em: ".implode(', ', $parts)
+            .'. De '.$work['files'].' arquivos tocados no total.';
+    }
+
     public function accentTolerantPattern(string $term): string
     {
         $variants = [
@@ -739,6 +780,29 @@ final class AtlasCodeAskService
             true,
             "{$count} {$noun} em revisão — um agente por commit, ao vivo no grafo.",
             commits: $hashes,
+            source: self::SOURCE_GRAPH,
+        );
+    }
+
+    /**
+     * "qual arquivo mais mexe?" — onde o esforço se concentra.
+     *
+     * O dado já existia (o `top` do trabalho da janela) e não tinha porta: a
+     * pergunta caía no cérebro e voltava "não tenho fonte boa". Dado pronto sem
+     * porta é pior que dado ausente — o Atlas sabia e não sabia que sabia.
+     *
+     * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string}
+     */
+    private function answerHottest(string $path, string $window, int $now, ?string $timezone): array
+    {
+        $since = $this->windowStart($window, $now, $timezone);
+        $work = $this->parseWork($this->git($path, [
+            'git', 'log', '--all', '--since=@'.$since, '--format=', '--numstat', '-M',
+        ]));
+
+        return $this->shape(
+            true,
+            $this->phraseHottest($work, $window),
             source: self::SOURCE_GRAPH,
         );
     }
