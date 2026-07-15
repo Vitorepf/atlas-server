@@ -411,32 +411,27 @@ final class AtlasCodeAskService
         }
 
         $review = $this->review ?? new AtlasCodeReviewService();
-        $started = $review->start($slug, array_column($commits, 'hash'));
-        $reviews = (array) ($started['reviews'] ?? []);
+        $hashes = $review->boundedHashes(array_column($commits, 'hash'));
 
-        // Motor desligado é DITO na hora, não descoberto depois de olhar um
-        // cartão girando para sempre.
-        $failed = array_values(array_filter($reviews, static fn (array $r): bool => ($r['state'] ?? '') === 'failed'));
-        if ($failed !== [] && count($failed) === count($reviews)) {
-            return $this->shape(
-                false,
-                (string) ($failed[0]['note'] ?? 'não consegui acionar os agentes.'),
-                source: self::SOURCE_GRAPH,
-            );
-        }
+        // O DESPACHO É ASSÍNCRONO, e não é otimização: enfileirar 12 agentes
+        // em linha (cada um com leitura de diff + decisão de roteador) estourou
+        // os 30s do PHP e devolveu 500 na cara do operador. Ele não espera o
+        // despacho — ele vê o grafo mudar. O estado real de cada commit vem do
+        // /code/review, que lê o que existe: `idle` enquanto ninguém pegou,
+        // depois queued → running → done. Ausência continua dita, e nenhum
+        // cartão gira para sempre fingindo trabalho.
+        $slugForDispatch = $slug;
+        dispatch(function () use ($slugForDispatch, $hashes, $review): void {
+            $review->start($slugForDispatch, $hashes);
+        })->afterResponse();
 
-        $working = count($reviews) - count($failed);
-        $noun = $working === 1 ? 'commit' : 'commits';
-        $answer = "{$working} {$noun} em revisão — um agente por commit, ao vivo no grafo.";
-        if ($failed !== []) {
-            // Corte silencioso nunca: quem ficou de fora aparece.
-            $answer .= ' '.count($failed).' não entrou.';
-        }
+        $count = count($hashes);
+        $noun = $count === 1 ? 'commit' : 'commits';
 
         return $this->shape(
             true,
-            $answer,
-            commits: array_column($reviews, 'hash'),
+            "{$count} {$noun} em revisão — um agente por commit, ao vivo no grafo.",
+            commits: $hashes,
             source: self::SOURCE_GRAPH,
         );
     }
