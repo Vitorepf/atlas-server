@@ -285,6 +285,23 @@ final class AtlasCodeReviewService
                     'source_type' => 'system',
                     'agent' => 'atlas-code-review',
                     'intent' => 'code_review',
+                    // O MOTOR É DO ATLAS DECIDE — e continua sendo.
+                    //
+                    // Tentei fixar `codex_cli` aqui (23 respostas limpas e 0
+                    // bloqueadas em 14 dias, contra 9 bloqueadas do hermes) por
+                    // `options['provider']` E por `payload.operator_requested_
+                    // provider`. O Decide ignorou as duas: ele é dono da
+                    // topologia por canon, e está certo. Config que não faz
+                    // nada seria pior que ausência — parece que resolve.
+                    //
+                    // Enquanto o Decide mandar esta rota para o hermes_cli, o
+                    // veredito morre no guarda: o hermes abre `┌─ Reasoning ┐`,
+                    // escreve o pensamento e NUNCA fecha a moldura (verificado:
+                    // zero `└` na saída). Sem o fecho, bloquear é a decisão
+                    // certa. O conserto é declarar a política no Atlas Decide
+                    // (revisão de commit → motor que responde sem raciocinar em
+                    // voz alta) ou impedir o hermes de imprimir a moldura nesta
+                    // rota — nenhum dos dois se faz de passagem daqui.
                     'payload' => [
                         'atlas_code' => ['repo' => $repo, 'commit_hash' => $hash],
                         // MODO READ, e isto é o ponto: revisar é LER e opinar —
