@@ -77,6 +77,7 @@ use App\Http\Controllers\AtlasCodeHealController;
 use App\Http\Controllers\AtlasCodePreflightController;
 use App\Http\Controllers\AtlasCodeProvenanceController;
 use App\Http\Controllers\AtlasCodeAskController;
+use App\Http\Controllers\AtlasCodeReviewController;
 use App\Http\Controllers\AtlasCodeViolationController;
 use App\Http\Controllers\AtlasCodeWeekController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
@@ -273,6 +274,9 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/code/week', AtlasCodeWeekController::class);
     // H6 pílula · pergunta em linguagem humana sobre o grafo (read-only).
     Route::post('/code/ask', AtlasCodeAskController::class);
+    // H6 · estado dos agentes que revisam, por commit (read-only; quem manda
+    // revisar é a pílula, porque mandar é uma frase, não um botão).
+    Route::get('/code/review', AtlasCodeReviewController::class);
 
     // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
     // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the

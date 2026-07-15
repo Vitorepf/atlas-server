@@ -44,7 +44,7 @@ final class AtlasCodeQuestionRouterTest extends TestCase
     public function test_asks_what_changed_and_reads_the_window(): void
     {
         self::assertSame(
-            ['intent' => 'changes', 'window' => 'today', 'term' => null],
+            ['intent' => 'changes', 'window' => 'today', 'term' => null, 'hashes' => []],
             $this->router->route('o que mudou hoje?')
         );
         self::assertSame('yesterday', $this->router->route('o que mudou ontem?')['window']);
@@ -123,8 +123,8 @@ final class AtlasCodeQuestionRouterTest extends TestCase
         $suggestions = [
             'o que mudou hoje?',
             'tem algum problema?',
+            'revise os commits de hoje',
             'por que essa branch existe?',
-            'o que mudou essa semana?',
         ];
 
         foreach ($suggestions as $suggestion) {
@@ -134,6 +134,39 @@ final class AtlasCodeQuestionRouterTest extends TestCase
                 "a pílula sugere mas não sabe responder: {$suggestion}"
             );
         }
+    }
+
+    public function test_ordering_a_review_is_not_asking_what_changed(): void
+    {
+        // "revise o que mudou hoje" contém "que mudou" — mas é ORDEM, não
+        // pergunta. Quem manda revisar quer agentes trabalhando, não uma lista.
+        foreach ([
+            'revise os commits de hoje',
+            'revisa o que mudou hoje',
+            'revise tudo que mudou hoje',
+            'faz uma revisão dos commits',
+            'analisa os commits de hoje',
+        ] as $order) {
+            self::assertSame(
+                AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH,
+                $this->router->route($order)['intent'],
+                "deveria mandar revisar: {$order}"
+            );
+        }
+
+        // A janela é a mesma gramática de tempo.
+        self::assertSame('week', $this->router->route('revise os commits da semana')['window']);
+        self::assertSame('today', $this->router->route('revise os commits')['window']);
+    }
+
+    public function test_asking_about_a_review_is_not_ordering_one(): void
+    {
+        // "o que a revisão achou?" é pergunta sobre resultado — mandar 6
+        // agentes trabalharem por causa dela seria obedecer o que ninguém pediu.
+        self::assertNotSame(
+            AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH,
+            $this->router->route('o que a revisão achou?')['intent']
+        );
     }
 
     public function test_normalization_makes_accent_and_case_irrelevant(): void

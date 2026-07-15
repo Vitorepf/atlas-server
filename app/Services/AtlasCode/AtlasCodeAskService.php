@@ -44,6 +44,7 @@ final class AtlasCodeAskService
         private readonly ?AtlasCodeViolationService $violations = null,
         private readonly int $timeoutSeconds = 20,
         private readonly ?AtlasCodeBrainService $brain = null,
+        private readonly ?AtlasCodeReviewService $review = null,
     ) {}
 
     /**
@@ -68,6 +69,7 @@ final class AtlasCodeAskService
         $result = match ($route['intent']) {
             AtlasCodeQuestionRouter::INTENT_PROBLEMS => $this->answerProblems($located['slug']),
             AtlasCodeQuestionRouter::INTENT_CHANGES => $this->answerChanges($located['path'], (string) $route['window'], $now, $timezone),
+            AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH => $this->startReview($located['slug'], $located['path'], (string) $route['window'], $now, $timezone),
             AtlasCodeQuestionRouter::INTENT_WHY_BRANCH => $this->answerWhyBranch($located['slug'], $located['path']),
             AtlasCodeQuestionRouter::INTENT_WHO_TOUCHED => $this->answerWhoTouched($located['path'], $route['term']),
             AtlasCodeQuestionRouter::INTENT_FIND => $this->answerFind($located['path'], $route['term']),
@@ -374,6 +376,67 @@ final class AtlasCodeAskService
             true,
             "{$count} {$noun} de \u{201C}{$term}\u{201D}. O mais recente: \u{201C}{$newest}\u{201D}",
             commits: array_column($commits, 'hash'),
+            source: self::SOURCE_GRAPH,
+        );
+    }
+
+    /**
+     * A 2ª natureza: o operador MANDA revisar, e N agentes vão trabalhar.
+     *
+     * A resposta não descreve o trabalho — ela ancora os commits, e cada linha
+     * do grafo passa a ter estado próprio, mudando ao vivo. A interface É a
+     * resposta.
+     *
+     * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string}
+     */
+    private function startReview(string $slug, string $path, string $window, int $now, ?string $timezone): array
+    {
+        $since = $this->windowStart($window, $now, $timezone);
+        $commits = array_values(array_filter(
+            $this->parseCommits($this->git($path, [
+                'git', 'log', '--all', '--since=@'.$since, '--format=%H%x1f%an%x1f%at%x1f%s',
+            ])),
+            static fn (array $commit): bool => $commit['authored_at'] >= $since,
+        ));
+
+        $when = match ($window) {
+            AtlasCodeQuestionRouter::WINDOW_YESTERDAY => 'ontem',
+            AtlasCodeQuestionRouter::WINDOW_WEEK => 'nos últimos 7 dias',
+            AtlasCodeQuestionRouter::WINDOW_MONTH => 'nos últimos 30 dias',
+            default => 'hoje',
+        };
+
+        if ($commits === []) {
+            return $this->shape(true, "não há commit {$when} para revisar.", source: self::SOURCE_GRAPH);
+        }
+
+        $review = $this->review ?? new AtlasCodeReviewService();
+        $started = $review->start($slug, array_column($commits, 'hash'));
+        $reviews = (array) ($started['reviews'] ?? []);
+
+        // Motor desligado é DITO na hora, não descoberto depois de olhar um
+        // cartão girando para sempre.
+        $failed = array_values(array_filter($reviews, static fn (array $r): bool => ($r['state'] ?? '') === 'failed'));
+        if ($failed !== [] && count($failed) === count($reviews)) {
+            return $this->shape(
+                false,
+                (string) ($failed[0]['note'] ?? 'não consegui acionar os agentes.'),
+                source: self::SOURCE_GRAPH,
+            );
+        }
+
+        $working = count($reviews) - count($failed);
+        $noun = $working === 1 ? 'commit' : 'commits';
+        $answer = "{$working} {$noun} em revisão — um agente por commit, ao vivo no grafo.";
+        if ($failed !== []) {
+            // Corte silencioso nunca: quem ficou de fora aparece.
+            $answer .= ' '.count($failed).' não entrou.';
+        }
+
+        return $this->shape(
+            true,
+            $answer,
+            commits: array_column($reviews, 'hash'),
             source: self::SOURCE_GRAPH,
         );
     }

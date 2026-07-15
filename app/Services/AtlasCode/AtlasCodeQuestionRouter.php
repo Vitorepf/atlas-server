@@ -36,6 +36,9 @@ final class AtlasCodeQuestionRouter
 
     public const INTENT_FIND = 'find';
 
+    /** "revise os commits de hoje" — trabalho agêntico, não pergunta. */
+    public const INTENT_REVIEW_BATCH = 'review_batch';
+
     /** Nem toda pergunta é filtro. Esta vai para o cérebro. */
     public const INTENT_UNKNOWN = 'unknown';
 
@@ -64,6 +67,16 @@ final class AtlasCodeQuestionRouter
             return $this->shape(self::INTENT_WHY_BRANCH);
         }
 
+        // Antes de `changes`: "revise o que mudou hoje" é ORDEM, não pergunta.
+        if ($this->ordersReview($text)) {
+            $hashes = $this->extractHashes($text);
+
+            // Alvo explícito vence janela: quem cita hash não quer "hoje".
+            return $hashes !== []
+                ? $this->shape(self::INTENT_REVIEW_BATCH, hashes: $hashes)
+                : $this->shape(self::INTENT_REVIEW_BATCH, window: $this->extractWindow($text) ?? self::WINDOW_TODAY, hashes: []);
+        }
+
         if ($this->mentionsProblem($text)) {
             return $this->shape(self::INTENT_PROBLEMS);
         }
@@ -72,8 +85,11 @@ final class AtlasCodeQuestionRouter
             return $this->shape(self::INTENT_WHO_TOUCHED, term: $term);
         }
 
+        // As intenções de JANELA (`changes`, `review_batch`) compartilham o
+        // formato do alvo: de quando, e quais. As de TERMO (`who_touched`,
+        // `find`) não têm hash e por isso não carregam a chave.
         if ($this->mentionsChange($text)) {
-            return $this->shape(self::INTENT_CHANGES, window: $this->extractWindow($text) ?? self::WINDOW_TODAY);
+            return $this->shape(self::INTENT_CHANGES, window: $this->extractWindow($text) ?? self::WINDOW_TODAY, hashes: []);
         }
 
         if (($term = $this->extractFind($text)) !== false) {
@@ -84,11 +100,39 @@ final class AtlasCodeQuestionRouter
     }
 
     /**
-     * @return array{intent:string, window:?string, term:?string}
+     * O alvo de uma intenção é `term` (quem/o quê) OU `window`+`hashes` (de
+     * quando / quais). `hashes` só aparece onde faz sentido: "quem mexeu no
+     * worker?" não tem hash, e uma chave vazia ali seria ruído no contrato.
+     *
+     * @param  array<int,string>|null  $hashes
+     * @return array{intent:string, window:?string, term:?string, hashes?:array<int,string>}
      */
-    private function shape(string $intent, ?string $window = null, ?string $term = null): array
+    private function shape(string $intent, ?string $window = null, ?string $term = null, ?array $hashes = null): array
     {
-        return ['intent' => $intent, 'window' => $window, 'term' => $term];
+        $shape = ['intent' => $intent, 'window' => $window, 'term' => $term];
+        if ($hashes !== null) {
+            $shape['hashes'] = $hashes;
+        }
+
+        return $shape;
+    }
+
+    /**
+     * Hashes citados na frase: "revise f76c8be e 9bb7645".
+     *
+     * A armadilha: português e inglês têm palavras inteiras feitas de letras
+     * hex — `decade`, `deadbeef`, `facade`, `beadface`. Um `[0-9a-f]{6,}`
+     * ingênuo transformaria prosa em alvo e mandaria agentes revisarem o nada,
+     * queimando motor. Duas exigências matam isso: 7+ caracteres (o abbrev
+     * padrão do git) E pelo menos um DÍGITO — palavra de gente quase nunca tem.
+     *
+     * @return array<int,string>
+     */
+    private function extractHashes(string $text): array
+    {
+        preg_match_all('/\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b/u', $text, $matches);
+
+        return array_values(array_unique($matches[0] ?? []));
     }
 
     /**
@@ -135,6 +179,30 @@ final class AtlasCodeQuestionRouter
         }
 
         return false;
+    }
+
+    /**
+     * Manda revisar — imperativo do operador, não curiosidade.
+     *
+     * "revisa" e "revise" cobrem como ele fala de verdade; "revisão" cobre o
+     * substantivo ("faz uma revisão dos commits"). Fica fora de propósito quem
+     * só MENCIONA revisão ("o que a revisão achou?"), que é pergunta sobre
+     * resultado — e essa é a natureza de perguntar, não a de mandar fazer.
+     */
+    private function ordersReview(string $text): bool
+    {
+        // Fronteira de palavra é obrigatória: `revisao` CONTÉM `revisa`, e sem
+        // \b a pergunta "o que a revisão achou?" disparava seis agentes — o
+        // Atlas obedecendo uma ordem que ninguém deu, queimando motor.
+        if (preg_match('/\brevis(e|a|ar|em)\b/u', $text) === 1) {
+            return true;
+        }
+        if (preg_match('/\banalis(a|e)\b\s+(os\s+)?commits?\b/u', $text) === 1) {
+            return true;
+        }
+
+        // O substantivo só vale como ordem quando alguém MANDA fazer uma.
+        return preg_match('/\b(faz|faca|fazer|manda|quero)\b.{0,12}\brevisao\b/u', $text) === 1;
     }
 
     private function mentionsProblem(string $text): bool
