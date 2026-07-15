@@ -141,7 +141,7 @@ final class AtlasCodeAskServiceTest extends TestCase
         $work = ['files' => 1, 'additions' => 1204, 'deletions' => 380, 'top' => []];
 
         self::assertSame(
-            '2 commits tocaram “atlascodeview.swift”: +1204 −380. O último há 2h.',
+            '2 commits tocaram “atlascodeview.swift”: +1204 −380. O último há 2 horas.',
             $this->ask->phraseWhoTouched('atlascodeview.swift', $commits, $work, $now)
         );
     }
@@ -157,18 +157,66 @@ final class AtlasCodeAskServiceTest extends TestCase
         $phrase = $this->ask->phraseWhoTouched('worker', $commits, null, $now);
 
         self::assertStringContainsString('1 de Vitor Freire, 1 de forge', $phrase);
-        self::assertStringContainsString('O último há 10min', $phrase);
+        self::assertStringContainsString('O último há 10 minutos', $phrase);
     }
 
     public function test_relative_time_speaks_short_portuguese(): void
     {
         $now = 1_784_100_000;
 
-        self::assertSame('1min', AtlasCodeAskService::ago($now - 5, $now));
-        self::assertSame('30min', AtlasCodeAskService::ago($now - 1800, $now));
-        self::assertSame('5h', AtlasCodeAskService::ago($now - 18000, $now));
-        self::assertSame('3d', AtlasCodeAskService::ago($now - 3 * 86400, $now));
+        // PROSA, não vocabulário de gráfico: isto vive dentro de uma frase.
+        // "há 22d" é compacto para caber ao lado de um nó; "há 22 dias" é
+        // português. E o singular é dito — nunca "1 dias".
+        self::assertSame('1 minuto', AtlasCodeAskService::ago($now - 5, $now));
+        self::assertSame('30 minutos', AtlasCodeAskService::ago($now - 1800, $now));
+        self::assertSame('1 hora', AtlasCodeAskService::ago($now - 3600, $now));
+        self::assertSame('5 horas', AtlasCodeAskService::ago($now - 18000, $now));
+        self::assertSame('1 dia', AtlasCodeAskService::ago($now - 86400, $now));
+        self::assertSame('3 dias', AtlasCodeAskService::ago($now - 3 * 86400, $now));
+        self::assertSame('1 mês', AtlasCodeAskService::ago($now - 31 * 86400, $now));
         self::assertSame('2 meses', AtlasCodeAskService::ago($now - 60 * 86400, $now));
+    }
+
+    public function test_the_exception_says_how_old_it_is_because_that_is_what_changes_the_decision(): void
+    {
+        // "23 exceções" é um número. "A mais antiga há 22 dias" é urgência — é
+        // o que faz o operador agir ou dormir tranquilo. O `since` sempre
+        // esteve na violação e era jogado fora.
+        $now = (new \DateTimeImmutable('2026-07-15 12:00:00', new \DateTimeZone('UTC')))->getTimestamp();
+        $violations = [
+            ['rule_id' => 'main_only', 'target' => 'obra-17', 'since' => '2026-06-23T12:00:00Z'],
+            ['rule_id' => 'main_only', 'target' => 'obra-18', 'since' => '2026-07-14T12:00:00Z'],
+        ];
+
+        self::assertSame(
+            '2 exceções: 2 obras fora da main. A mais antiga há 22 dias.',
+            $this->ask->phraseProblems($violations, 'main', $now)
+        );
+    }
+
+    public function test_an_exception_without_a_date_never_becomes_zero_days(): void
+    {
+        // O operador já foi enganado por número sem sentido na tela. "Há 0
+        // dias" numa violação que ninguém datou seria exatamente isso: um
+        // número que parece medida e não é.
+        $violations = [['rule_id' => 'orphan_branch', 'target' => 'x']];
+
+        self::assertSame(
+            '1 exceção: 1 branch que nunca voltou.',
+            $this->ask->phraseProblems($violations, 'main')
+        );
+        self::assertNull($this->ask->oldestViolation($violations));
+    }
+
+    public function test_a_date_in_the_future_is_refused_instead_of_read_backwards(): void
+    {
+        // Relógio torto não vira "há -3 dias" nem "agora": é descartado.
+        $now = (new \DateTimeImmutable('2026-07-15 12:00:00', new \DateTimeZone('UTC')))->getTimestamp();
+
+        self::assertNull($this->ask->oldestViolation(
+            [['rule_id' => 'main_only', 'since' => '2027-01-01T00:00:00Z']],
+            $now
+        ));
     }
 
     public function test_healthy_repository_is_quiet_not_celebrated(): void

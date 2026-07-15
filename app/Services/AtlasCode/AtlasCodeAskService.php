@@ -67,7 +67,7 @@ final class AtlasCodeAskService
         $now ??= time();
 
         $result = match ($route['intent']) {
-            AtlasCodeQuestionRouter::INTENT_PROBLEMS => $this->answerProblems($located['slug']),
+            AtlasCodeQuestionRouter::INTENT_PROBLEMS => $this->answerProblems($located['slug'], $now),
             AtlasCodeQuestionRouter::INTENT_CHANGES => $this->answerChanges($located['path'], (string) $route['window'], $now, $timezone),
             AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH => $this->startReview($located['slug'], $located['path'], (string) $route['window'], $now, $timezone),
             AtlasCodeQuestionRouter::INTENT_WHY_BRANCH => $this->answerWhyBranch($located['slug'], $located['path']),
@@ -228,7 +228,7 @@ final class AtlasCodeAskService
      *                         "fora da main" onde a trunk é `production` é
      *                         mentira — e o operador tem repositórios assim.
      */
-    public function phraseProblems(array $violations, string $trunk = 'main'): string
+    public function phraseProblems(array $violations, string $trunk = 'main', ?int $now = null): string
     {
         if ($violations === []) {
             // Saudável é silêncio: o texto diz o fato, sem festa.
@@ -249,8 +249,46 @@ final class AtlasCodeAskService
 
         $count = count($violations);
         $noun = $count === 1 ? 'exceção' : 'exceções';
+        $phrase = "{$count} {$noun}: ".implode(', ', $parts).'.';
 
-        return "{$count} {$noun}: ".implode(', ', $parts).'.';
+        // A IDADE é o que muda o que ele faz. "23 exceções" é um número; "a
+        // mais antiga há 22 dias" é urgência. O Atlas já sabia — o `since` vem
+        // em cada violação e era jogado fora.
+        $oldest = $this->oldestViolation($violations, $now);
+        if ($oldest !== null) {
+            $phrase .= ' A mais antiga há '.$oldest.'.';
+        }
+
+        return $phrase;
+    }
+
+    /**
+     * Há quanto tempo a exceção mais velha está aberta — em português curto.
+     *
+     * `null` quando NENHUMA violação traz data. Ausência de medida não vira
+     * "há 0 dias": o operador já foi enganado uma vez por número sem sentido
+     * na tela, e um "22" que ninguém sabe de onde veio é pior que silêncio.
+     *
+     * @param  array<int, array<string,mixed>>  $violations
+     */
+    public function oldestViolation(array $violations, ?int $now = null): ?string
+    {
+        $now ??= time();
+        $oldest = null;
+
+        foreach ($violations as $violation) {
+            $since = $violation['since'] ?? null;
+            if (! is_string($since) || trim($since) === '') {
+                continue;
+            }
+            $epoch = strtotime($since);
+            if ($epoch === false || $epoch > $now) {
+                continue;
+            }
+            $oldest = $oldest === null ? $epoch : min($oldest, $epoch);
+        }
+
+        return $oldest === null ? null : self::ago($oldest, $now);
     }
 
     /**
@@ -283,7 +321,7 @@ final class AtlasCodeAskService
     /**
      * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string}
      */
-    private function answerProblems(string $slug): array
+    private function answerProblems(string $slug, ?int $now = null): array
     {
         try {
             $captured = ($this->violations ?? new AtlasCodeViolationService())->capture($slug);
@@ -308,12 +346,17 @@ final class AtlasCodeAskService
                 'kind' => 'rule',
                 'ref' => $rule,
                 'canon' => isset($violation['rule_canon_ref']) ? (string) $violation['rule_canon_ref'] : null,
+                // UM exemplo concreto por regra: "18 obras" é estatística;
+                // "obra-17, entre elas" é uma coisa que ele pode ir olhar.
+                'target' => isset($violation['target']) && trim((string) $violation['target']) !== ''
+                    ? (string) $violation['target']
+                    : null,
             ], static fn (mixed $value): bool => $value !== null);
         }
 
         return $this->shape(
             true,
-            $this->phraseProblems($violations, (string) ($captured['trunk'] ?? 'main')),
+            $this->phraseProblems($violations, (string) ($captured['trunk'] ?? 'main'), $now),
             evidence: $evidence,
             source: self::SOURCE_RULES,
         );
@@ -474,17 +517,30 @@ final class AtlasCodeAskService
         return $phrase.'.';
     }
 
-    /** Tempo humano e curto — o mesmo vocabulário do grafo. */
+    /**
+     * Tempo em PROSA, porque isto vive dentro de uma frase.
+     *
+     * "há 22d" é vocabulário de gráfico — compacto, mono, feito para caber numa
+     * linha apertada ao lado de um nó. Numa frase, "há 22 dias". A régua é a
+     * mesma que já vale para a tela: máquina embaixo do vidro, português em
+     * cima. E o singular é dito: "1 dia", nunca "1 dias".
+     */
     public static function ago(int $epoch, int $now): string
     {
         $seconds = max(0, $now - $epoch);
 
-        return match (true) {
-            $seconds < 3600 => max(1, intdiv($seconds, 60)).'min',
-            $seconds < 86_400 => intdiv($seconds, 3600).'h',
-            $seconds < 2_592_000 => intdiv($seconds, 86_400).'d',
-            default => intdiv($seconds, 2_592_000).' meses',
+        [$value, $unit] = match (true) {
+            $seconds < 3600 => [max(1, intdiv($seconds, 60)), 'minuto'],
+            $seconds < 86_400 => [intdiv($seconds, 3600), 'hora'],
+            $seconds < 2_592_000 => [intdiv($seconds, 86_400), 'dia'],
+            default => [intdiv($seconds, 2_592_000), 'mês'],
         };
+
+        if ($value === 1) {
+            return '1 '.$unit;
+        }
+
+        return $value.' '.($unit === 'mês' ? 'meses' : $unit.'s');
     }
 
     /**
