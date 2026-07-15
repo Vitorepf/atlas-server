@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\AtlasCode;
 
 use App\Services\AtlasCode\AtlasCodeGraphService;
+use App\Services\AtlasCode\AtlasCodeProvenanceService;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasCodeGraphServiceTest extends TestCase
@@ -46,5 +47,37 @@ final class AtlasCodeGraphServiceTest extends TestCase
                 'head' => '683af18',
             ],
         ], $worktrees);
+    }
+
+    public function test_maps_known_author_and_keeps_unknown_authorship_explicit(): void
+    {
+        $service = new AtlasCodeProvenanceService(agentMap: [
+            'operator@example.test' => 'voce',
+        ]);
+
+        self::assertSame('voce', $service->agentForAuthor('Operator@Example.Test'));
+        self::assertSame('autonomo:desconhecido', $service->agentForAuthor('unknown@example.test'));
+    }
+
+    public function test_projects_only_explicit_operator_quote_and_gate_fields(): void
+    {
+        $service = new AtlasCodeProvenanceService();
+
+        self::assertSame([
+            'commit_hash' => 'abcdef1234567',
+            'trace_id' => 'trace-real',
+            'operator_quote' => 'frase real',
+            'obra' => ['C23'],
+            'gates' => ['ledger'],
+        ], $service->projectLedgerPayload([
+            'provenance' => [
+                'commit_hash' => 'abcdef1234567',
+                'operator_quote' => 'frase real',
+                'obra' => ['C23'],
+                'gates' => ['ledger'],
+            ],
+        ], 'trace-real'));
+
+        self::assertNull($service->projectLedgerPayload(['message' => 'não é quote'], null)['operator_quote']);
     }
 }

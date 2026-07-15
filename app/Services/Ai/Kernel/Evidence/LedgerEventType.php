@@ -132,4 +132,6 @@ enum LedgerEventType: string
     case OperationFailed = 'OPERATION_FAILED';
     case OperationBlocked = 'OPERATION_BLOCKED';
     case OperationNeedsReview = 'OPERATION_NEEDS_REVIEW';
+    case CodeProvenanceRecorded = 'CODE_PROVENANCE_RECORDED';
+    case CodeProvenanceCorrected = 'CODE_PROVENANCE_CORRECTED';
 }

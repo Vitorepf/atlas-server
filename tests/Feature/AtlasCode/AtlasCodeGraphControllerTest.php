@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\AtlasCode;
 
 use App\Services\AtlasCode\AtlasCodeGraphService;
+use App\Services\AtlasCode\AtlasCodeProvenanceService;
 use Tests\TestCase;
 
 final class AtlasCodeGraphControllerTest extends TestCase
@@ -41,5 +42,33 @@ final class AtlasCodeGraphControllerTest extends TestCase
         ])->getJson('/api/code/graph?repo=not-registered')
             ->assertNotFound()
             ->assertJsonPath('error', 'repository_profile_not_found');
+    }
+
+    public function test_returns_real_commit_identity_without_inventing_provenance(): void
+    {
+        $response = $this->withHeaders([
+            'Accept' => 'application/json',
+            'X-Atlas-Token' => 'testing-atlas-token-with-enough-length',
+        ])->getJson('/api/code/provenance/b43e907daa?repo=atlas-server');
+
+        $response->assertOk()
+            ->assertJsonPath('schema_version', AtlasCodeProvenanceService::SCHEMA_VERSION)
+            ->assertJsonPath('repo', 'atlas-server')
+            ->assertJsonPath('agent', 'voce')
+            ->assertJsonMissingPath('trace_id')
+            ->assertJsonMissingPath('operator_quote')
+            ->assertJsonStructure([
+                'schema_version', 'repo', 'hash', 'commit_message', 'author_name',
+                'author_email', 'authored_at', 'agent',
+            ]);
+    }
+
+    public function test_rejects_malformed_commit_hash(): void
+    {
+        $this->withHeaders([
+            'Accept' => 'application/json',
+            'X-Atlas-Token' => 'testing-atlas-token-with-enough-length',
+        ])->getJson('/api/code/provenance/not-a-hash?repo=atlas-server')
+            ->assertNotFound();
     }
 }

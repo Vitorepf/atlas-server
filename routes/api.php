@@ -71,6 +71,7 @@ use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
 use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
 use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
 use App\Http\Controllers\AtlasCodeGraphController;
+use App\Http\Controllers\AtlasCodeProvenanceController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
 use App\Http\Controllers\AtlasCodeObraCommandCenterController;
 use App\Http\Controllers\AtlasCodeObservedSessionController;
@@ -251,6 +252,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
 
     // Atlas Código C22 · local-first, read-only Git topology for the native app.
     Route::get('/code/graph', AtlasCodeGraphController::class);
+    Route::get('/code/provenance/{hash}', AtlasCodeProvenanceController::class)
+        ->where('hash', '[0-9a-fA-F]{7,64}');
 
     // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
     // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the
@@ -258,6 +261,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/agents/active', [AtlasAgentGovernanceController::class, 'active']);
     Route::get('/agents/status', [AtlasAgentGovernanceController::class, 'status']);
     Route::get('/agents/history', [AtlasAgentGovernanceController::class, 'history']);
+    Route::get('/agents/task-health', [AtlasAgentGovernanceController::class, 'taskHealth']);
     Route::post('/agents/off-all', [AtlasAgentGovernanceController::class, 'offAll']);
     Route::post('/agents/{key}/off', [AtlasAgentGovernanceController::class, 'off']);
     Route::get('/inbox', [InboxController::class, 'index']);
@@ -555,6 +559,10 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/interactions/atlas-dev/runs/{runId}', ShowController::class)
         ->where('runId', '[A-Za-z0-9._-]{1,128}')
         ->name('atlas-dev.runs.show');
+    Route::get('/ai/interactions/{trace}/change-review', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'show']);
+    Route::post('/ai/interactions/{trace}/change-review/action', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'action']);
+    Route::post('/ai/interactions/{trace}/change-review/file-action', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'fileAction']);
+    Route::get('/ai/interactions/{trace}/change-review/patches/{patch}/diff', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'diff']);
     Route::get('/ai/interactions/{trace}/flow-status', [AiInteractionController::class, 'flowStatus']);
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/content', [AiInteractionController::class, 'attachmentContent']);
@@ -601,6 +609,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/threads/{thread}/messages', [AiThreadController::class, 'messages']);
     Route::post('/ai/threads/{thread}/compact', [AiThreadController::class, 'compact']);
     Route::post('/ai/threads/{thread}/switch-provider', [AiThreadController::class, 'switchProvider']);
+    Route::post('/ai/threads/{thread}/handoff-surface', [AiThreadController::class, 'handoffSurface']);
     Route::get('/ai/threads/{thread}/snapshots', [AiThreadController::class, 'snapshots']);
     Route::get('/ai/threads/{thread}', [AiThreadController::class, 'show']);
     Route::patch('/ai/threads/{thread}', [AiThreadController::class, 'update']);
@@ -942,7 +951,9 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     Route::get('/loop/{area}/cycles', [AreaFocusLoopCommandController::class, 'cycles']);
     Route::get('/loop/{area}/backlog', [AreaFocusLoopCommandController::class, 'backlog']);
     Route::get('/loop/{area}/done', [AreaFocusLoopCommandController::class, 'done']);
+    Route::get('/loop/{area}/transfer/{handoffId}', [AreaFocusLoopCommandController::class, 'transferStatus']);
     Route::post('/loop/{area}/start-run', [AreaFocusLoopCommandController::class, 'startRun']);
+    Route::post('/loop/{area}/transfer', [AreaFocusLoopCommandController::class, 'transfer']);
     Route::post('/loop/{area}/operator-decision', [AreaFocusLoopCommandController::class, 'operatorDecision']);
     Route::post('/loop/{area}/run-control', [AreaFocusLoopCommandController::class, 'runControl']);
     Route::post('/loop/{area}/directive', [AreaFocusLoopCommandController::class, 'directive']);
