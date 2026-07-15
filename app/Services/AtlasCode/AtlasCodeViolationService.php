@@ -107,7 +107,8 @@ final class AtlasCodeViolationService
             throw new InvalidArgumentException('repository_path_missing_or_unreadable');
         }
 
-        $mainBranch = trim($this->run($path, ['git', 'branch', '--show-current'])) ?: 'main';
+        $currentBranch = trim($this->run($path, ['git', 'branch', '--show-current'])) ?: 'HEAD';
+        $mainBranch = 'main';
         $mainHead = trim($this->run($path, ['git', 'rev-parse', $mainBranch]));
         $branches = [];
         foreach (preg_split('/\r?\n/', trim($this->run($path, [
@@ -130,7 +131,7 @@ final class AtlasCodeViolationService
         $worktrees = (new AtlasCodeGraphService())->parseWorktrees($this->run($path, ['git', 'worktree', 'list', '--porcelain']));
         $facts = [
             'main_branch' => $mainBranch,
-            'current_branch' => $mainBranch,
+            'current_branch' => $currentBranch,
             'main_head' => $mainHead,
             'branches' => $branches,
             'worktrees' => $worktrees,
