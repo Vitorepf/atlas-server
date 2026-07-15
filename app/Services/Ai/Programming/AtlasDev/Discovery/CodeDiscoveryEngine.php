@@ -389,7 +389,26 @@ final class CodeDiscoveryEngine
         }
 
         if ($this->rg->isAvailable()) {
-            $rgHits = $this->rg->search($workspace, $symbol, ['*.php', '*.ts', '*.tsx', '*.js', '*.jsx']);
+            // A SEGUNDA METADE DA CEGUEIRA. O regex de caminhos (lá em cima) lê
+            // nomes de arquivo CITADOS no texto; este glob confirma SÍMBOLOS no
+            // workspace. Os dois estavam limitados ao stack da casa, e consertar
+            // só um não adianta: a issue real quase nunca cita arquivo — cita
+            // símbolo ("Make GeoDataFrame._to_geo public...").
+            //
+            // Com o glob antigo, `GeoDataFrame` em geopandas/*.py era invisível
+            // (o rg era instruído a nem olhar .py), a descoberta devolvia
+            // likely_files VAZIO, allowed_files VAZIO, e o pipeline não tinha o
+            // que patchar: provider_calls=0, needs_review em 1 segundo. Sem erro,
+            // sem blocker — o Atlas simplesmente não trabalhava.
+            //
+            // Mesma lista do regex de caminhos: um lugar só decidiria melhor, mas
+            // as duas formas são diferentes (extensão vs glob) e vivem em camadas
+            // diferentes; manter a lista igual é o contrato.
+            $rgHits = $this->rg->search($workspace, $symbol, [
+                '*.php', '*.ts', '*.tsx', '*.js', '*.jsx',
+                '*.py', '*.go', '*.rs', '*.java', '*.rb', '*.kt', '*.swift',
+                '*.cs', '*.scala', '*.c', '*.h', '*.cc', '*.cpp', '*.hpp', '*.sh',
+            ]);
             foreach ($rgHits as $rgHit) {
                 $absolute = $this->resolveAbsolute($workspace, (string) $rgHit['file']);
                 if ($absolute === null || ! is_file($absolute)) {

@@ -1399,9 +1399,30 @@ class SpecComposer
         ], true);
     }
 
+    /**
+     * Runtime isolado do Rivals — MESMO predicado do RoutingDecisionEngine:167.
+     *
+     * As duas cópias discordavam, e a discordância matava a medição em silêncio:
+     * o roteamento aceitava ['atlas_forge_rivals', 'atlas_cli_dev'] e liberava o
+     * R4 para o fast path; esta aceitava só o Forge. O bridge chama
+     * `atlas:cli:dev` (superfície atlas_cli_dev), então passava na rota e
+     * emperrava aqui — e o efeito era invisível: MAX_FILES_BY_RISK[R4] = 0, ou
+     * seja, teto de ZERO arquivo alterável, pipeline sem nada a fazer,
+     * `provider_calls: 0`, `needs_review` em 1 segundo. Nenhum erro, nenhum
+     * blocker, nenhum log: o Atlas simplesmente não trabalhava.
+     *
+     * Toda issue real de SWE-bench é R4 — logo o braço "com Atlas" jamais
+     * chegaria a chamar o modelo em nenhuma delas.
+     *
+     * O comentário do roteamento já declarava a intenção: "Bridge invokes
+     * atlas:cli:dev (surface atlas_cli_dev). Forge rivals path uses
+     * atlas_forge_rivals. Both are valid when the operator opts in." Esta cópia
+     * ficou para trás. Mantê-las em concordância é obrigatório: as duas guardam
+     * a mesma decisão de governança em pontos diferentes do pipeline.
+     */
     private function allowsRivalsIsolatedRuntimeExecution(OperationEnvelope $envelope): bool
     {
-        if ($envelope->surfaceId !== 'atlas_forge_rivals') {
+        if (! in_array($envelope->surfaceId, ['atlas_forge_rivals', 'atlas_cli_dev'], true)) {
             return false;
         }
         if (! $envelope->preflight->operatorExplicit) {
