@@ -1,0 +1,188 @@
+<?php
+
+namespace App\Services\Ai\Rivals\Core;
+
+use App\Services\Ai\Rivals\Support\RunPaths;
+
+/**
+ * A lista fina: o que cada instrumento mede POR DENTRO.
+ *
+ * O relatório publica "Multilíngue 94%" tendo medido só bengali, e "Viés social
+ * 100%" tendo medido só idade — nunca raça, gênero ou religião. O rótulo promete
+ * o domínio; a amostra cobriu uma fatia. Um número assim não está errado, está
+ * AMBÍGUO: sugere uma precisão que a medição não tem.
+ *
+ * Aqui a habilidade é o par (instrumento, discriminador do sample), e o
+ * discriminador vem do METADATA do próprio sample. Só o NOME do eixo é
+ * declarado abaixo; os VALORES são o que o dado disser. Lista escrita à mão
+ * envelhece contra o dado que ela resume — foi assim que a frase de escopo
+ * passou a dizer "ZERO medição" sobre cinco domínios medidos.
+ *
+ * Não pontua nada: reusa o recibo, que é a autoridade canônica de status
+ * (inclusive o environment_failure de resposta cortada). Re-pontuar aqui criaria
+ * uma segunda verdade capaz de divergir da primeira.
+ */
+final class SkillMatrix
+{
+    /**
+     * Qual campo do metadata separa habilidades DENTRO de um instrumento.
+     *
+     * Instrumento ausente = o próprio instrumento é a habilidade (musr,
+     * winogrande, truthfulqa e afins não fatiam). Ausente ≠ esquecido: o default
+     * é a habilidade grossa, nunca inventar um eixo que o dado não tem.
+     *
+     * @var array<string,string>
+     */
+    private const SKILL_AXIS = [
+        'mmlu_0_shot' => 'subject',
+        'bbq' => 'category',
+        'coconot' => 'category',
+        'gpqa_diamond' => 'high_level_domain',
+        'mgsm' => 'language',
+        'writingbench' => 'domain1',
+        'ifeval' => 'instruction_id_list',
+    ];
+
+    /**
+     * Habilidades observadas no run, cada uma com os dois braços lado a lado.
+     *
+     * @return list<array{skill:string,instrument:string,axis:?string,bare:?float,
+     *     bare_n:int,atlas:?float,atlas_n:int,delta:?float,verdict:string}>
+     */
+    public function forRun(string $runId): array
+    {
+        $skillByCase = $this->skillByCase($runId);
+        if ($skillByCase === []) {
+            return [];
+        }
+
+        /** @var array<string,array{instrument:string,axis:?string,bare:list<float>,atlas:list<float>}> $tally */
+        $tally = [];
+        foreach (RunReceipt::loadAll($runId) as $receipt) {
+            $caseId = (string) ($receipt->data['case_id'] ?? '');
+            $skill = $skillByCase[$caseId] ?? null;
+            if ($skill === null) {
+                continue;
+            }
+            // Falha de ambiente NÃO é nota do modelo: é medição que não houve.
+            // Contá-la como 0 publicaria "incapaz" sobre o que ninguém mediu —
+            // o mesmo erro do falso-seguro, só que na direção da capacidade.
+            if (($receipt->data['failure_class'] ?? null) === FailureClass::ENVIRONMENT) {
+                continue;
+            }
+            $arm = str_ends_with((string) ($receipt->data['arm_id'] ?? ''), '@atlas_dev') ? 'atlas' : 'bare';
+            $key = $skill['skill'];
+            $tally[$key] ??= [
+                'instrument' => $skill['instrument'],
+                'axis' => $skill['axis'],
+                'bare' => [],
+                'atlas' => [],
+            ];
+            $tally[$key][$arm][] = ($receipt->data['status'] ?? null) === 'success' ? 1.0 : 0.0;
+        }
+
+        $rows = [];
+        foreach ($tally as $skill => $t) {
+            $bare = $t['bare'] === [] ? null : round(array_sum($t['bare']) / count($t['bare']), 4);
+            $atlas = $t['atlas'] === [] ? null : round(array_sum($t['atlas']) / count($t['atlas']), 4);
+            $rows[] = [
+                'skill' => $skill,
+                'instrument' => $t['instrument'],
+                'axis' => $t['axis'],
+                'bare' => $bare,
+                'bare_n' => count($t['bare']),
+                'atlas' => $atlas,
+                'atlas_n' => count($t['atlas']),
+                'delta' => $bare === null || $atlas === null ? null : round($atlas - $bare, 4),
+                'verdict' => $this->verdict($bare, $atlas),
+            ];
+        }
+        usort($rows, static fn (array $a, array $b): int => $a['skill'] <=> $b['skill']);
+
+        return $rows;
+    }
+
+    /**
+     * Verde/vermelho SÓ quando os dois braços existem e o Atlas foi provado
+     * real. Sem braço Atlas o veredito é "não medido" — jamais verde por
+     * omissão. Célula sem cor é lacuna declarada, não elogio silencioso.
+     */
+    private function verdict(?float $bare, ?float $atlas): string
+    {
+        return match (true) {
+            $bare === null => 'sem_medicao',
+            $atlas === null => 'atlas_nao_medido',
+            $atlas > $bare => 'atlas_melhor',
+            $atlas < $bare => 'atlas_pior',
+            default => 'empate',
+        };
+    }
+
+    /**
+     * case_id → habilidade, lido do metadata do sample na própria unidade.
+     *
+     * Cada caso roda com `--sample-id`, então caso ↔ sample ↔ habilidade. O
+     * metadata é o que o benchmark declara sobre a própria pergunta; é a única
+     * fonte que não envelhece quando o pacote de casos muda.
+     *
+     * @return array<string,array{skill:string,instrument:string,axis:?string}>
+     */
+    private function skillByCase(string $runId): array
+    {
+        $dir = RunPaths::nativeResultsDir($runId);
+        if (! is_dir($dir)) {
+            return [];
+        }
+
+        $out = [];
+        foreach (array_diff(scandir($dir) ?: [], ['.', '..']) as $file) {
+            if (! str_ends_with((string) $file, '.json')) {
+                continue;
+            }
+            $payload = json_decode((string) file_get_contents($dir.'/'.$file), true);
+            if (! is_array($payload) || ! isset($payload['samples']) || ! is_array($payload['samples'])) {
+                continue;
+            }
+            $instrument = (string) data_get($payload, 'eval.task_display_name', '');
+            if ($instrument === '') {
+                continue;
+            }
+            $axis = self::SKILL_AXIS[$instrument] ?? null;
+            foreach ($payload['samples'] as $sample) {
+                $caseId = (string) ($sample['id'] ?? '');
+                if ($caseId === '') {
+                    continue;
+                }
+                $out[$caseId] = [
+                    'skill' => $this->skillName($instrument, $axis, (array) ($sample['metadata'] ?? [])),
+                    'instrument' => $instrument,
+                    'axis' => $axis,
+                ];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string,mixed>  $metadata
+     */
+    private function skillName(string $instrument, ?string $axis, array $metadata): string
+    {
+        if ($axis === null) {
+            return $instrument;
+        }
+        $value = $metadata[$axis] ?? null;
+        // ifeval traz uma LISTA de instruções por sample ("detectable_format:
+        // json", "length_constraints:…"). A habilidade é a família antes do
+        // dois-pontos; a primeira basta para nomear, e o eixo fica declarado.
+        if (is_array($value)) {
+            $value = $value === [] ? null : explode(':', (string) reset($value))[0];
+        }
+        $value = is_scalar($value) ? trim((string) $value) : '';
+
+        // Eixo declarado mas ausente no sample = o instrumento mudou de forma.
+        // Nomear "instrumento:" com valor vazio esconderia isso; o sufixo grita.
+        return $value === '' ? $instrument.':(sem '.$axis.')' : $instrument.':'.$value;
+    }
+}
