@@ -50,7 +50,21 @@ class AtlasDevAgent(BaseAgent):
                 self._run(["git", "config", "user.email", "rivals@atlas.local"], workspace)
                 self._run(["git", "config", "user.name", "Atlas Rivals"], workspace)
                 self._run(["git", "add", "."], workspace)
-                self._run(["git", "commit", "-qm", "task baseline"], workspace)
+                # --allow-empty: `git commit` sai 1 com "nothing to commit" quando
+                # a árvore está vazia, e tarefa de CRIAÇÃO começa vazia — é o caso
+                # do `hello-world`. Sem isto o agente morre no setup, antes de o
+                # Atlas existir, e a unidade vira environment_failure.
+                #
+                # A assimetria é o que denuncia: o braço bare
+                # (rivals_tb_verboo_agent.py) não faz baseline nenhum — zero git.
+                # Este passo existe SÓ no braço Atlas, logo só o braço Atlas
+                # quebrava. Toda tarefa de criação do terminal_bench era perdida
+                # de um lado só, e o relatório lia isso como falha de ambiente.
+                #
+                # O baseline vazio é legítimo e é o ponto: ele existe para o
+                # `git diff` posterior ter contra o que comparar. Numa árvore
+                # vazia, o commit vazio É a base correta.
+                self._run(["git", "commit", "-qm", "task baseline", "--allow-empty"], workspace)
             prompt_file = workspace / ".rivals_task.md"
             prompt_file.write_text(instruction)
             process = subprocess.run(
