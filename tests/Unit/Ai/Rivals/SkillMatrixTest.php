@@ -136,6 +136,38 @@ class SkillMatrixTest extends TestCase
         $this->assertSame('empate', $row['verdict'], 'sem o par excluído, Atlas não é pior');
     }
 
+    public function test_arms_are_compared_on_the_same_units_never_on_different_sets(): void
+    {
+        // O braço Atlas morre em unidades que o bare atravessa — medido no
+        // terminal_bench: das 3 tarefas, só a trivial (`tb_hello`) produziu
+        // recibo com Atlas; nas outras duas ele recusa. Sem interseção, a
+        // habilidade sairia com bare=3 casos contra atlas=1, e o delta compararia
+        // o Atlas na tarefa FÁCIL contra o bare nas três, incluindo as difíceis.
+        //
+        // O viés é grande e é A FAVOR do Atlas: as unidades que sobrevivem no
+        // braço Atlas são, por construção, as mais fáceis. Publicar isso seria
+        // inventar um multiplicador a partir da própria fragilidade do Atlas.
+        $this->unit('tb', 'facil', [], 'bare');
+        $this->unit('tb', 'dificil_1', [], 'bare');
+        $this->unit('tb', 'dificil_2', [], 'bare');
+        $this->receipts([
+            // O bare atravessa as três: acerta a fácil, erra as duas difíceis.
+            ['case_id' => 'facil', 'arm_id' => 'm@bare', 'status' => 'success'],
+            ['case_id' => 'dificil_1', 'arm_id' => 'm@bare', 'status' => 'failure'],
+            ['case_id' => 'dificil_2', 'arm_id' => 'm@bare', 'status' => 'failure'],
+            // O Atlas só chegou na fácil, e acertou.
+            ['case_id' => 'facil', 'arm_id' => 'm@atlas_dev', 'status' => 'success'],
+        ]);
+
+        $row = (new SkillMatrix)->forRun($this->runId)[0];
+
+        $this->assertSame(1, $row['bare_n'], 'o bare tem de ser restrito às unidades que o Atlas também correu');
+        $this->assertSame(1, $row['atlas_n']);
+        $this->assertSame(1.0, $row['bare'], 'na unidade comum o bare acertou');
+        $this->assertSame(0.0, $row['delta'], 'empate na mesma amostra — NÃO +67pp inventado pelo conjunto');
+        $this->assertFalse($row['conclusive']);
+    }
+
     public function test_delta_without_signal_is_not_conclusive(): void
     {
         // 6/9 contra 9/9 é "+33 pp" — e o intervalo é [-3, +65], que contém o

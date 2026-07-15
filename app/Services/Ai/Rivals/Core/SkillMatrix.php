@@ -92,7 +92,33 @@ final class SkillMatrix
                 'bare' => [],
                 'atlas' => [],
             ];
-            $tally[$key][$arm][] = ($receipt->data['status'] ?? null) === 'success' ? 1.0 : 0.0;
+            // Guardado POR UNIDADE (caso|repetição), não empilhado: sem a chave
+            // não há como saber se os dois braços viram a mesma coisa — e sem
+            // isso a comparação é entre conjuntos diferentes.
+            $tally[$key][$arm][$caseId.'|'.($receipt->data['repetition'] ?? '')]
+                = ($receipt->data['status'] ?? null) === 'success' ? 1.0 : 0.0;
+        }
+
+        // MESMA AMOSTRA NOS DOIS BRAÇOS — senão o delta compara conjuntos, não
+        // braços.
+        //
+        // O braço Atlas morre em unidades que o bare atravessa (medido: das 3
+        // tarefas do terminal_bench, só `tb_hello` produziu recibo com Atlas; as
+        // outras duas o Atlas recusa). Sem esta interseção, a habilidade sairia
+        // com bare=9 (3 casos) contra atlas=3 (1 caso) — e o número compararia o
+        // Atlas na tarefa TRIVIAL contra o bare nas três, incluindo as difíceis.
+        // O viés é grande e é a favor do Atlas: as unidades que sobrevivem no
+        // braço Atlas são, por construção, as mais fáceis.
+        //
+        // Só se aplica quando o braço Atlas EXISTE: habilidade medida só no bare
+        // continua reportada sozinha (é lacuna declarada, não comparação).
+        foreach ($tally as $key => $t) {
+            if ($t['atlas'] === []) {
+                continue;
+            }
+            $comuns = array_intersect_key($t['bare'], $t['atlas']);
+            $tally[$key]['bare'] = $comuns;
+            $tally[$key]['atlas'] = array_intersect_key($t['atlas'], $comuns);
         }
 
         $rows = [];
