@@ -7,6 +7,7 @@ namespace App\Services\AtlasCode;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Symfony\Component\Process\Process;
@@ -61,8 +62,13 @@ final class AtlasCodeHealService
             'mode' => $policy['mode'],
             'violations' => $scan['violations'],
             'plan' => $scan['plan'],
-            'step_receipts' => [],
+            'step_receipts' => $policy['mode'] === 'observe' ? $this->recentReceiptsForRepo($repo) : [],
         ];
+
+        $recentReceipts = (array) $base['step_receipts'];
+        if ($recentReceipts !== []) {
+            $base['heal_id'] = (string) ($recentReceipts[0]['heal_id'] ?? '');
+        }
 
         if ($policy['mode'] === 'observe') {
             return $base;
@@ -100,10 +106,10 @@ final class AtlasCodeHealService
             if (! in_array($action, self::ALLOWED_ACTIONS, true)) {
                 throw new InvalidArgumentException('heal_action_not_allowed');
             }
-            $receipts[] = $this->executeStep($path, $healId, (int) $index + 1, $action, (string) ($selected['rule_id'] ?? ''), (string) ($selected['target'] ?? ''));
+            $receipts[] = $this->executeStep($path, $repo, $healId, (int) $index + 1, $action, (string) ($selected['rule_id'] ?? ''), (string) ($selected['target'] ?? ''));
         }
 
-        return $base + ['heal_id' => $healId, 'step_receipts' => $receipts];
+        return array_merge($base, ['heal_id' => $healId, 'step_receipts' => $receipts]);
     }
 
     /** @return array<string,mixed> */
@@ -114,21 +120,26 @@ final class AtlasCodeHealService
             throw new InvalidArgumentException('heal_id_required');
         }
         $events = $this->ledger->eventsForCorrelation('atlas-code:heal:'.$healId, 200);
-        $receipt = null;
+        $receipts = [];
         foreach (array_reverse($events) as $event) {
-            $payload = $event instanceof AtlasLedgerEvent ? (array) $event->payload : [];
-            if (($payload['schema_version'] ?? null) === self::RECEIPT_SCHEMA_VERSION && ($payload['status'] ?? null) === 'completed') {
-                $receipt = $payload;
-                break;
+            $payload = $event instanceof AtlasLedgerEvent
+                ? (array) $event->payload
+                : (is_array($event) ? (array) ($event['payload'] ?? []) : []);
+            if (($payload['schema_version'] ?? null) === self::RECEIPT_SCHEMA_VERSION
+                && ($payload['status'] ?? null) === 'completed'
+                && ! str_starts_with((string) ($payload['action'] ?? ''), 'undo:')) {
+                $receipts[] = $payload;
             }
         }
-        if (! is_array($receipt)) {
+        if ($receipts === []) {
             throw new InvalidArgumentException('heal_receipt_not_found');
         }
 
-        $expires = strtotime((string) ($receipt['undo_expires_at'] ?? ''));
-        if ($expires === false || $expires < time()) {
-            throw new InvalidArgumentException('heal_undo_expired');
+        foreach ($receipts as $receipt) {
+            $expires = strtotime((string) ($receipt['undo_expires_at'] ?? ''));
+            if ($expires === false || $expires < time()) {
+                throw new InvalidArgumentException('heal_undo_expired');
+            }
         }
         $profile = (new AtlasCodeWorkspaceProfileService())->findByReference($repo);
         $path = is_array($profile) ? trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? '')) : '';
@@ -136,15 +147,18 @@ final class AtlasCodeHealService
             throw new InvalidArgumentException('repository_path_missing_or_unreadable');
         }
 
-        $undoRef = (array) ($receipt['undo_ref'] ?? []);
-        $action = (string) ($receipt['action'] ?? '');
-        $result = match ($action) {
-            'delete_branch' => $this->run($path, ['git', 'branch', (string) ($undoRef['branch'] ?? ''), (string) ($undoRef['head'] ?? '')]),
-            'merge_ff', 'cherry_pick_to_main' => $this->resetMain($path, (string) ($undoRef['main_head'] ?? '')),
-            'stash_quarantine' => $this->run($path, ['git', 'stash', 'pop']),
-            'cite_rule_to_agent' => 'guardrail_receipt_only',
-            default => throw new InvalidArgumentException('heal_action_not_allowed'),
-        };
+        $results = [];
+        foreach ($receipts as $receipt) {
+            $undoRef = (array) ($receipt['undo_ref'] ?? []);
+            $action = (string) ($receipt['action'] ?? '');
+            $results[] = match ($action) {
+                'delete_branch' => $this->run($path, ['git', 'branch', (string) ($undoRef['branch'] ?? ''), (string) ($undoRef['head'] ?? '')]),
+                'merge_ff', 'cherry_pick_to_main' => $this->resetMain($path, (string) ($undoRef['main_head'] ?? '')),
+                'stash_quarantine' => $this->run($path, ['git', 'stash', 'pop']),
+                'cite_rule_to_agent' => 'guardrail_receipt_only',
+                default => throw new InvalidArgumentException('heal_action_not_allowed'),
+            };
+        }
 
         $payload = [
             'schema_version' => self::RECEIPT_SCHEMA_VERSION,
@@ -152,12 +166,12 @@ final class AtlasCodeHealService
             'heal_id' => $healId,
             'repo' => $repo,
             'step' => 'undo',
-            'action' => 'undo:'.$action,
+            'action' => 'undo:heal',
             'started_at' => gmdate('c'),
             'finished_at' => gmdate('c'),
             'status' => 'completed',
-            'result' => trim($result) !== '' ? trim($result) : 'undone',
-            'undo_ref' => $undoRef,
+            'result' => 'restored '.count($receipts).' step(s): '.implode(' | ', array_map('trim', $results)),
+            'undo_ref' => ['restored_steps' => (string) count($receipts), 'state' => 'byte_for_byte'],
             'undo_expires_at' => gmdate('c', time() + self::UNDO_DAYS * 86400),
         ];
         $this->record($healId, $payload);
@@ -166,7 +180,7 @@ final class AtlasCodeHealService
     }
 
     /** @return array<string,mixed> */
-    private function executeStep(string $cwd, string $healId, int $step, string $action, string $ruleId, string $target): array
+    private function executeStep(string $cwd, string $repo, string $healId, int $step, string $action, string $ruleId, string $target): array
     {
         $startedAt = gmdate('c');
         $undoRef = ['action' => $action];
@@ -182,6 +196,7 @@ final class AtlasCodeHealService
             $payload = [
                 'schema_version' => self::RECEIPT_SCHEMA_VERSION,
                 'source' => 'atlas_code_heal',
+                'repo' => $repo,
                 'heal_id' => $healId,
                 'step' => $step,
                 'action' => $action,
@@ -198,6 +213,7 @@ final class AtlasCodeHealService
             $payload = [
                 'schema_version' => self::RECEIPT_SCHEMA_VERSION,
                 'source' => 'atlas_code_heal',
+                'repo' => $repo,
                 'heal_id' => $healId,
                 'step' => $step,
                 'action' => $action,
@@ -214,6 +230,38 @@ final class AtlasCodeHealService
         $this->record($healId, $payload);
 
         return $payload;
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    private function recentReceiptsForRepo(string $repo): array
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return [];
+        }
+
+        $payloads = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('event_id')
+            ->limit(100)
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => (array) ($event->payload ?? []))
+            ->all();
+
+        $undone = [];
+        foreach ($payloads as $payload) {
+            if (($payload['schema_version'] ?? null) === self::RECEIPT_SCHEMA_VERSION
+                && str_starts_with((string) ($payload['action'] ?? ''), 'undo:')
+                && isset($payload['heal_id'])) {
+                $undone[(string) $payload['heal_id']] = true;
+            }
+        }
+
+        return array_values(array_filter($payloads, fn (array $payload): bool => ($payload['schema_version'] ?? null) === self::RECEIPT_SCHEMA_VERSION
+            && ($payload['status'] ?? null) === 'completed'
+            && ($payload['repo'] ?? null) === $repo
+            && ! str_starts_with((string) ($payload['action'] ?? ''), 'undo:')
+            && ! isset($undone[(string) ($payload['heal_id'] ?? '')])));
     }
 
     /** @param array<string,mixed> $undoRef */

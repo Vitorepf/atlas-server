@@ -124,6 +124,13 @@ final class AtlasCodeWorkspaceProfileService
             ? trim($workspace)
             : $this->defaultSlug();
 
+        // Ephemeral sandboxes are intentionally path-scoped and never enter
+        // the persisted profile list. This gives the E3/E4 proof harness a
+        // real app/API path without granting arbitrary filesystem access.
+        if (str_starts_with($needle, 'sandbox:')) {
+            return $this->sandboxProfile(substr($needle, strlen('sandbox:')));
+        }
+
         $direct = $this->findBySlug($needle) ?? $this->findByPath($needle);
         if ($direct !== null) {
             return $direct;
@@ -443,5 +450,30 @@ final class AtlasCodeWorkspaceProfileService
         }
 
         return rtrim(realpath($path) ?: $path, DIRECTORY_SEPARATOR);
+    }
+
+    /** @return array<string,mixed>|null */
+    private function sandboxProfile(string $path): ?array
+    {
+        $normalized = $this->normalizePath($path);
+        $temporaryRoot = rtrim(realpath(sys_get_temp_dir()) ?: sys_get_temp_dir(), DIRECTORY_SEPARATOR);
+        if ($normalized === null
+            || $temporaryRoot === ''
+            || ! str_starts_with($normalized, $temporaryRoot.DIRECTORY_SEPARATOR)
+            || ! is_dir($normalized)
+            || (! is_dir($normalized.DIRECTORY_SEPARATOR.'.git') && ! is_file($normalized.DIRECTORY_SEPARATOR.'.git'))) {
+            return null;
+        }
+
+        return $this->shape([
+            'id' => 'sandbox:'.basename($normalized),
+            'slug' => basename($normalized),
+            'name' => 'Atlas Código Sandbox',
+            'kind' => 'sandbox',
+            'workspace_path' => $normalized,
+            'repo_root' => $normalized,
+            'source' => 'runtime_sandbox',
+            'status' => 'active',
+        ]);
     }
 }
