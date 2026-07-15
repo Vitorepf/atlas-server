@@ -70,6 +70,7 @@ use App\Http\Controllers\AtlasCodeForgeReviewController;
 use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
 use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
 use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
+use App\Http\Controllers\AtlasCodeGraphController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
 use App\Http\Controllers\AtlasCodeObraCommandCenterController;
 use App\Http\Controllers\AtlasCodeObservedSessionController;
@@ -247,6 +248,9 @@ Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): v
 
 Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::apiResource('domains', AtlasDomainController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    // Atlas Código C22 · local-first, read-only Git topology for the native app.
+    Route::get('/code/graph', AtlasCodeGraphController::class);
 
     // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
     // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the
