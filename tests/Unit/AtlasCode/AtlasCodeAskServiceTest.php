@@ -192,6 +192,72 @@ final class AtlasCodeAskServiceTest extends TestCase
         );
     }
 
+    public function test_standing_on_the_trunk_is_not_the_end_of_the_branch_question(): void
+    {
+        // "não há branch para explicar aqui" enquanto o Atlas acusa 4 branches
+        // órfãs na resposta ao lado. Estar na trunk é a posição NORMAL dele; a
+        // pergunta é sobre as OUTRAS.
+        //
+        // E a frase separa dívida de trabalho: a mais velha não voltou; a mais
+        // nova é um agente rodando agora — branch nova não é dívida.
+        $now = 1_784_100_000;
+        $others = [
+            ['name' => 'atlas/loop/run', 'at' => $now - 22 * 86400],
+            ['name' => 'claude/dazzling-napier', 'at' => $now - 4 * 3600],
+        ];
+
+        self::assertSame(
+            'você está na main. Fora dela existem 2 branches — a mais velha é atlas/loop/run, há 22 dias; '
+                .'a mais nova, claude/dazzling-napier, nasceu há 4 horas.',
+            $this->ask->phraseOtherBranches('main', $others, $now)
+        );
+    }
+
+    public function test_only_the_trunk_is_the_truth_not_a_dead_end(): void
+    {
+        self::assertSame(
+            'você está na production, e não existe outra branch neste repositório.',
+            $this->ask->phraseOtherBranches('production', [])
+        );
+    }
+
+    public function test_an_old_branch_alone_is_debt_without_the_new_branch_noise(): void
+    {
+        // Com uma só, "a mais nova" seria a mesma coisa dita duas vezes.
+        $now = 1_784_100_000;
+        $one = [['name' => 'atlas/loop/run', 'at' => $now - 22 * 86400]];
+
+        self::assertSame(
+            'você está na main. Fora dela existem 1 branch — a mais velha é atlas/loop/run, há 22 dias.',
+            $this->ask->phraseOtherBranches('main', $one, $now)
+        );
+    }
+
+    public function test_branch_parsing_survives_a_pipe_in_the_name_and_skips_the_trunk(): void
+    {
+        // `for-each-ref` NÃO conhece `%x1f` (só o `git log` conhece): o formato
+        // saía literal e o parse voltava vazio — o Atlas dizia "não existe
+        // branch" num repo com 20. Por isso o separador é `|`, com a DATA na
+        // frente: nome de branch pode conter `|`, e assim ele é o resto.
+        $output = implode("\n", [
+            '1782192952|atlas/loop/run',
+            '1784100000|main',
+            '1783555542|claude/clever-joliot',
+            'lixo sem separador',
+            '1783555999|feature|com|pipe',
+        ]);
+
+        $branches = $this->ask->parseBranches($output, 'main');
+
+        // A trunk sai; o lixo sai; o nome com pipe sobrevive inteiro.
+        self::assertSame(
+            ['atlas/loop/run', 'claude/clever-joliot', 'feature|com|pipe'],
+            array_column($branches, 'name')
+        );
+        // Da mais velha para a mais nova: a primeira é a que não voltou.
+        self::assertSame(1782192952, $branches[0]['at']);
+    }
+
     public function test_relative_time_speaks_short_portuguese(): void
     {
         $now = 1_784_100_000;

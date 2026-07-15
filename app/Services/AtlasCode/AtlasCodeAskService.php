@@ -405,9 +405,23 @@ final class AtlasCodeAskService
         $trunk = (new AtlasCodeTrunkResolver())->resolve($path);
 
         if ($current === '' || $current === $trunk) {
+            // Beco sem saída de novo: "não há branch para explicar" enquanto o
+            // próprio Atlas acusa 4 branches fora da main na resposta de
+            // problemas. Ele não perguntou "explique a branch em que estou" —
+            // perguntou POR QUE existem branches. Estar na trunk é a posição
+            // normal dele; a pergunta é sobre as outras.
+            // A DATA vem primeiro de propósito: `for-each-ref` não conhece
+            // `%x1f` (só o `git log` conhece — medido: o formato sai literal e o
+            // parse volta vazio), então o separador é `|`, como no resto da
+            // casa. E nome de branch PODE conter `|`: com a data na frente, o
+            // nome é o resto da linha e sobrevive inteiro.
+            $others = $this->parseBranches($this->git($path, [
+                'git', 'for-each-ref', '--format=%(committerdate:unix)|%(refname:short)', 'refs/heads',
+            ]), $trunk);
+
             return $this->shape(
                 true,
-                "você está na {$trunk} — não há branch para explicar aqui.",
+                $this->phraseOtherBranches($trunk, $others),
                 source: self::SOURCE_GRAPH,
             );
         }
@@ -619,6 +633,71 @@ final class AtlasCodeAskService
 
         return "{$when}, o esforço bateu em: ".implode(', ', $parts)
             .'. De '.$work['files'].' arquivos tocados no total.';
+    }
+
+    /**
+     * As branches que existem fora da trunk, da mais velha para a mais nova.
+     *
+     * Puro sobre `for-each-ref`: o teste lê o que o operador lê.
+     *
+     * @return array<int, array{name:string, at:int}>
+     */
+    public function parseBranches(string $output, string $trunk): array
+    {
+        $branches = [];
+        foreach (preg_split('/\r?\n/', trim($output)) ?: [] as $line) {
+            // Data primeiro, nome depois: o nome é o RESTO, e nome de branch
+            // pode conter `|`.
+            $parts = explode('|', trim($line), 2);
+            if (count($parts) !== 2) {
+                continue;
+            }
+            $at = filter_var(trim($parts[0]), FILTER_VALIDATE_INT);
+            $name = trim($parts[1]);
+            if ($at === false || $name === '' || $name === $trunk) {
+                continue;
+            }
+            $branches[] = ['name' => $name, 'at' => (int) $at];
+        }
+
+        usort($branches, static fn (array $a, array $b): int => $a['at'] <=> $b['at']);
+
+        return $branches;
+    }
+
+    /**
+     * "por que essa branch existe?" quando ele está NA trunk.
+     *
+     * A pergunta é sobre as OUTRAS: estar na trunk é a posição normal dele.
+     * Responder "não há branch para explicar" enquanto o Atlas acusa 4
+     * branches fora da main é o mesmo beco sem saída de antes, com outra roupa.
+     *
+     * @param  array<int, array{name:string, at:int}>  $others
+     */
+    public function phraseOtherBranches(string $trunk, array $others, ?int $now = null): string
+    {
+        if ($others === []) {
+            // Aí sim: só a trunk existe. O silêncio é a verdade.
+            return "você está na {$trunk}, e não existe outra branch neste repositório.";
+        }
+
+        $now ??= time();
+        $count = count($others);
+        $noun = $count === 1 ? 'branch' : 'branches';
+        $oldest = $others[0];
+
+        $phrase = "você está na {$trunk}. Fora dela existem {$count} {$noun}";
+
+        // A mais velha é a que importa: ela é a que não voltou.
+        $phrase .= ' — a mais velha é '.$oldest['name'].', há '.self::ago($oldest['at'], $now);
+
+        // Quem nasceu agora não é dívida: é trabalho acontecendo.
+        $newest = $others[$count - 1];
+        if ($count > 1 && ($now - $newest['at']) < 86_400) {
+            $phrase .= '; a mais nova, '.$newest['name'].', nasceu há '.self::ago($newest['at'], $now);
+        }
+
+        return $phrase.'.';
     }
 
     public function accentTolerantPattern(string $term): string
