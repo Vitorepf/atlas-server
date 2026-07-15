@@ -256,13 +256,46 @@ final class CodeDiscoveryEngine
     {
         $haystack = $intent;
         foreach ($userConstraints as $constraint) {
-            if (is_string($constraint)) {
-                $haystack .= "\n".$constraint;
+            if (! is_string($constraint)) {
+                continue;
             }
+            // Em constraint `chave=valor`, a CHAVE é metadado de transporte — não
+            // é conteúdo da tarefa e não existe no workspace. O VALOR pode ser
+            // conteúdo (`allowed_file=app/Foo.php` carrega caminho de verdade),
+            // então só a chave sai.
+            //
+            // Sem esta separação as flags do próprio comando viravam símbolos a
+            // caçar: `composer_model=`, `decide_disabled=`, `fallback_disabled=`,
+            // `single_provider=` casam todas no regex de snake_case abaixo. A
+            // descoberta procurava por uma função chamada `decide_disabled` no
+            // repo, não achava (é flag, não código), e devolvia likely_files
+            // VAZIO — do que o scope guard corretamente concluía
+            // `blocked_unbounded_change`: mexer no que não se conhece.
+            //
+            // Efeito medido: `atlas:cli:dev --model=X` (qualquer um, o
+            // `composer_model=` entra sempre que se passa --model) não completava
+            // NENHUMA tarefa mutativa. Com o pacote de flags do bridge de
+            // medição, 100% das unidades bloqueavam — e o braço "com Atlas" do
+            // relatório nunca teve como produzir número.
+            $haystack .= "\n".(str_contains($constraint, '=')
+                ? substr($constraint, strpos($constraint, '=') + 1)
+                : $constraint);
         }
 
         $paths = [];
-        if (preg_match_all('@(?<![\w./])([A-Za-z0-9_./-]+\.(?:php|ts|tsx|js|jsx|html|css|md|blade\.php))@u', $haystack, $matches) > 0) {
+        // O allowlist era php|ts|tsx|js|jsx|html|css|md — exatamente o stack do
+        // atlas-server, a casa onde o Dev nasceu. Fora dela ele era CEGO: um
+        // `test_calc.py` ou `main.go` no intent não casava como caminho, a
+        // descoberta devolvia likely_files VAZIO, e o scope guard concluía
+        // `blocked_unbounded_change` — corretamente, porque mexer no que não se
+        // conhece é o que ele existe para impedir.
+        //
+        // O Dev não estava falhando nessas tarefas: estava cego. Medido: das
+        // suítes de engenharia, swe_bench_live e hal_harness são Python (django),
+        // aider_polyglot é poliglota, terminal_bench é shell/Python — o Dev não
+        // enxergava UM arquivo de quase nenhuma delas, e o braço "com Atlas"
+        // bloqueava em 100% das unidades.
+        if (preg_match_all('@(?<![\w./])([A-Za-z0-9_./-]+\.(?:php|ts|tsx|js|jsx|html|css|md|blade\.php|py|go|rs|java|rb|kt|swift|cs|scala|c|h|cc|cpp|hpp|sh|sql|yml|yaml|json|toml))@u', $haystack, $matches) > 0) {
             foreach ($matches[1] as $hit) {
                 $paths[] = trim($hit);
             }
