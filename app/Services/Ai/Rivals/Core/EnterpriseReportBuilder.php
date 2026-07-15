@@ -371,6 +371,14 @@ class EnterpriseReportBuilder
                 $this->suiteReliabilityMap($suiteRows),
             ),
             'model_matrix' => $modelMatrix,
+            // Os runs de uplift entram junto: o braço Atlas vive NELES, não nos
+            // runs bare mais novos que o resto do relatório usa. Sem eles a aba
+            // diria "0 habilidades com os dois braços" enquanto a aba Uplift
+            // mostra 5 famílias com par real — duas verdades na mesma tela.
+            'skills' => $this->buildSkills(array_merge($included, array_values(array_filter(array_map(
+                static fn (array $f): ?string => is_string($f['run_id'] ?? null) ? $f['run_id'] : null,
+                (array) ($atlasUplift['families'] ?? []),
+            ))))),
             'atlas_uplift' => $atlasUplift,
             'facts' => $facts,
             'gaps' => array_values(array_unique($gaps)),
@@ -1492,6 +1500,50 @@ class EnterpriseReportBuilder
      * @param  list<array<string,mixed>>  $capabilities
      * @return array<string,mixed>
      */
+    /**
+     * A lista fina, unida sobre os runs que ESTE relatório usou.
+     *
+     * Nasce dos mesmos runs das outras abas de propósito: skills lidas de runs
+     * que o relatório excluiu mostrariam habilidade que o veredito não conta —
+     * duas verdades na mesma tela, o defeito que o operador proibiu.
+     *
+     * Conta também quantas habilidades cada instrumento revelou, que é o
+     * denominador honesto: "mmlu 3" avisa que 3 matérias foram medidas, não as
+     * 57 que o MMLU tem.
+     *
+     * @param  list<string>  $runIds
+     * @return array{rows:list<array<string,mixed>>, total:int, with_atlas:int, by_instrument:array<string,int>}
+     */
+    private function buildSkills(array $runIds): array
+    {
+        $matrix = new SkillMatrix;
+        $rows = [];
+        foreach (array_unique($runIds) as $runId) {
+            foreach ($matrix->forRun($runId) as $row) {
+                $rows[$row['skill']] = $row;
+            }
+        }
+        ksort($rows);
+
+        $byInstrument = [];
+        foreach ($rows as $row) {
+            $byInstrument[$row['instrument']] = ($byInstrument[$row['instrument']] ?? 0) + 1;
+        }
+        ksort($byInstrument);
+
+        return [
+            'rows' => array_values($rows),
+            'total' => count($rows),
+            // Quantas dá para pintar de verde/vermelho: sem os dois braços a
+            // comparação não existe, e a aba tem de dizer isso em número.
+            'with_atlas' => count(array_filter(
+                $rows,
+                static fn (array $r): bool => $r['atlas'] !== null,
+            )),
+            'by_instrument' => $byInstrument,
+        ];
+    }
+
     private function buildCoverage(array $capabilities): array
     {
         $skillsWired = 0;

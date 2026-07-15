@@ -52,16 +52,29 @@ final class SkillMatrix
     public function forRun(string $runId): array
     {
         $skillByCase = $this->skillByCase($runId);
-        if ($skillByCase === []) {
-            return [];
-        }
+        $suiteId = (string) data_get(
+            json_decode((string) @file_get_contents(RunPaths::nativeManifestPath($runId)), true) ?: [],
+            'suite_id',
+            '',
+        );
+
+        $excludedPairs = $this->excludedPairs($runId);
 
         /** @var array<string,array{instrument:string,axis:?string,bare:list<float>,atlas:list<float>}> $tally */
         $tally = [];
         foreach (RunReceipt::loadAll($runId) as $receipt) {
             $caseId = (string) ($receipt->data['case_id'] ?? '');
-            $skill = $skillByCase[$caseId] ?? null;
+            $skill = $skillByCase[$caseId] ?? $this->skillFromTaskType($suiteId, $receipt->data);
             if ($skill === null) {
+                continue;
+            }
+            // Par que o uplift recusou por FALTA DE PROVA de que o Atlas rodou
+            // mesmo. Contá-lo aqui atribuiria ao Atlas uma unidade que ninguém
+            // provou ser Atlas — e foi assim que esta aba chegou a dizer
+            // "terminal_bench: Atlas 50pp PIOR" sobre o tb_hello, que o uplift
+            // tinha excluído. Excluir dos DOIS braços mantém a comparação no
+            // mesmo conjunto e a aba idêntica ao uplift, por construção.
+            if (isset($excludedPairs[$caseId.'|'.($receipt->data['repetition'] ?? '')])) {
                 continue;
             }
             // Falha de ambiente NÃO é nota do modelo: é medição que não houve.
@@ -116,6 +129,65 @@ final class SkillMatrix
             $atlas < $bare => 'atlas_pior',
             default => 'empate',
         };
+    }
+
+    /**
+     * Pares que o uplift do run recusou, no formato `case_id|repetição`.
+     *
+     * O uplift só aceita par com prova de bridge real (runtime_bridge.
+     * real_provider). Reusar a decisão dele é deliberado: re-derivar a prova
+     * aqui criaria uma segunda autoridade sobre "isto é Atlas?", livre para
+     * divergir da primeira. Run sem uplift.json não exclui nada — e também não
+     * tem braço Atlas para comparar.
+     *
+     * @return array<string,true>
+     */
+    private function excludedPairs(string $runId): array
+    {
+        $uplift = json_decode(
+            (string) @file_get_contents(RunPaths::runDir($runId).'/uplift.json'),
+            true,
+        );
+        if (! is_array($uplift)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ((array) ($uplift['excluded_pair_keys'] ?? []) as $key) {
+            $out[(string) $key] = true;
+        }
+
+        return $out;
+    }
+
+    /**
+     * Habilidade das suítes que não são de pergunta-e-resposta.
+     *
+     * Só o inspect entrega samples com metadata; as suítes de código (polyglot,
+     * terminal, swe_live, hal, bfcl) entregam patch e log. Sem este caminho a aba
+     * mostraria "0 habilidades com os dois braços" — enquanto o resto do
+     * relatório mostra uplift real em 5 famílias. Duas verdades na mesma tela é
+     * o defeito que esta aba existe para não cometer.
+     *
+     * O eixo é o task_type do recibo (coding_patch, bug_investigation,
+     * feature_under_specified, long_horizon_engineering…), qualificado pela
+     * suíte: coding_patch sozinho fundiria polyglot com swe_live num número só.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @return array{skill:string,instrument:string,axis:?string}|null
+     */
+    private function skillFromTaskType(string $suiteId, array $receipt): ?array
+    {
+        $taskType = (string) ($receipt['task_type'] ?? '');
+        if ($suiteId === '' || $taskType === '') {
+            return null;
+        }
+
+        return [
+            'skill' => $suiteId.':'.$taskType,
+            'instrument' => $suiteId,
+            'axis' => 'task_type',
+        ];
     }
 
     /**

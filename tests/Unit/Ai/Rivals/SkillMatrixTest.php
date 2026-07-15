@@ -107,6 +107,35 @@ class SkillMatrixTest extends TestCase
         $this->assertSame(-1.0, $row['delta']);
     }
 
+    public function test_pair_without_proof_of_atlas_is_not_blamed_on_atlas(): void
+    {
+        // Bug REAL, meu, pego na conferência contra a aba Uplift: esta matriz
+        // dizia "terminal_bench: Atlas 50pp PIOR" contando a falha do tb_hello
+        // como falha do Atlas — enquanto o uplift tinha excluído tb_hello por
+        // FALTA DE PROVA de que o Atlas rodou naquela unidade. Culpar o Atlas
+        // por unidade não provada como Atlas é o mesmo defeito de atribuição que
+        // o resto do relatório recusa; a aba tem de herdar a recusa, não
+        // re-julgar. Excluir dos dois braços mantém o mesmo conjunto.
+        $this->unit('tb', 'sem_prova', [], 'bare');
+        $this->unit('tb', 'provado', [], 'bare');
+        $this->receipts([
+            ['case_id' => 'sem_prova', 'arm_id' => 'm@bare', 'status' => 'success'],
+            ['case_id' => 'sem_prova', 'arm_id' => 'm@atlas_dev', 'status' => 'failure'],
+            ['case_id' => 'provado', 'arm_id' => 'm@bare', 'status' => 'failure'],
+            ['case_id' => 'provado', 'arm_id' => 'm@atlas_dev', 'status' => 'failure'],
+        ]);
+        file_put_contents(
+            RunPaths::runDir($this->runId).'/uplift.json',
+            (string) json_encode(['excluded_pair_keys' => ['sem_prova|1']]),
+        );
+
+        $row = (new SkillMatrix)->forRun($this->runId)[0];
+
+        $this->assertSame(1, $row['bare_n'], 'o par sem prova sai dos DOIS braços');
+        $this->assertSame(1, $row['atlas_n']);
+        $this->assertSame('empate', $row['verdict'], 'sem o par excluído, Atlas não é pior');
+    }
+
     /** @param array<string,mixed> $metadata */
     private function unit(string $instrument, string $caseId, array $metadata, string $arm): void
     {

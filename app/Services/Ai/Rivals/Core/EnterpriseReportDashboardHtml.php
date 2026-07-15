@@ -49,6 +49,7 @@ final class EnterpriseReportDashboardHtml
             'suites' => $board['suites'],
             'uplift_families' => $board['uplift_families'],
             'model_matrix' => $report['model_matrix'] ?? [],
+            'skills' => $report['skills'] ?? ['rows' => [], 'total' => 0, 'with_atlas' => 0, 'by_instrument' => []],
             'facts' => $report['facts'] ?? ['measured' => [], 'incomplete' => [], 'headline' => null],
             'delivery_inventory' => $report['delivery_inventory'] ?? [],
             'model_profiles' => $report['model_profiles'] ?? [],
@@ -262,6 +263,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
   <div class="verdict" id="verdict"></div>
   <div class="tabs">
     <button class="tab on" data-tab="caps">Capacidades</button>
+    <button class="tab" data-tab="skills">Habilidades (lista completa)</button>
     <button class="tab" data-tab="models">Ranking · com e sem Atlas</button>
     <button class="tab" data-tab="overview">Gráficos</button>
     <button class="tab" data-tab="dissect">Dissecção do modelo</button>
@@ -282,6 +284,17 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     <div class="grid g2" style="margin-top:12px">
       <div class="card"><h2>Mapa de capacidades — sem Atlas × com Atlas</h2><p class="hint">Cada eixo é um domínio <strong>medido</strong>. Polígono verde além do azul = Atlas amplia. <span id="radarOmitted"></span></p><div class="chart sm"><canvas id="capRadar"></canvas></div></div>
       <div class="card"><h2>Eficiência por capacidade</h2><p class="hint">Tokens por tarefa (menor = mais eficiente). Custo $0 de assinatura não discrimina — a eficiência real está aqui. <span id="tokensOmitted"></span></p><div class="chart sm"><canvas id="capTokens"></canvas></div></div>
+    </div>
+  </section>
+
+  <section id="tab-skills" class="panel">
+    <div class="card" style="margin-bottom:12px">
+      <h2>Toda habilidade medida, uma por linha</h2>
+      <p class="hint">A aba <strong>Capacidades</strong> mostra a média do domínio. Aqui está o que existe <strong>por baixo</strong> dela: cada linha é uma habilidade que um instrumento mede de verdade, com o nome que o próprio benchmark dá à pergunta — não um rótulo nosso. <strong>Verde</strong> = com Atlas foi melhor; <strong>vermelho</strong> = com Atlas foi pior; <strong>cinza</strong> = não há braço Atlas nessa habilidade, então não há o que comparar. Cinza nunca é elogio: é lacuna.</p>
+      <div class="covstats" id="skillStats"></div>
+    </div>
+    <div class="card">
+      <div id="skillTable"></div>
     </div>
   </section>
 
@@ -505,6 +518,42 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         ${COV.instruments_dormant?`<span><b>${COV.instruments_dormant}</b> instrumentos instalados que nunca rodaram</span>`:''}
       </div>
       <div class="covmap">${rows}</div>`;
+  }
+
+  // Habilidades: a lista fina. Uma linha por habilidade que um instrumento
+  // mede DE VERDADE — nome vindo do metadata do benchmark, não rótulo nosso.
+  const SK = D.skills || {rows:[]};
+  if (document.getElementById('skillTable')) {
+    const pct = v => v === null || v === undefined ? '—' : Math.round(v*100)+'%';
+    const VERD = {
+      atlas_melhor:   ['pos', 'com Atlas foi melhor'],
+      atlas_pior:     ['neg', 'com Atlas foi PIOR'],
+      empate:         ['',    'empate'],
+      atlas_nao_medido:['',   'sem braço Atlas — nada a comparar'],
+      sem_medicao:    ['',    'não medido'],
+    };
+    const rows = (SK.rows||[]).map(r => {
+      const [cls, label] = VERD[r.verdict] || ['', r.verdict];
+      // Delta só existe com os dois braços. Sem par, a célula diz o motivo em
+      // palavra — "—" sozinho o leitor confunde com zero.
+      const delta = r.delta === null || r.delta === undefined
+        ? `<span class="hint">${label}</span>`
+        : `<b class="${cls}">${r.delta > 0 ? '+' : ''}${Math.round(r.delta*100)} pp</b>`;
+      return `<tr>
+        <td><code>${r.skill}</code></td>
+        <td>${pct(r.bare)} <span class="subci">n=${r.bare_n}</span></td>
+        <td>${pct(r.atlas)} <span class="subci">n=${r.atlas_n}</span></td>
+        <td>${delta}</td></tr>`;
+    }).join('');
+    document.getElementById('skillTable').innerHTML = (SK.rows||[]).length
+      ? `<table><thead><tr><th>Habilidade</th><th>Modelo sozinho</th><th>Modelo + Atlas</th><th>Diferença</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<div class="empty">Nenhuma habilidade medida ainda. Execute a bateria.</div>`;
+    const inst = Object.entries(SK.by_instrument||{})
+      .map(([k,v]) => `${k}: ${v}`).join(' · ');
+    document.getElementById('skillStats').innerHTML = `
+      <span><b>${SK.total||0}</b> habilidades medidas</span>
+      <span><b>${SK.with_atlas||0}</b> com os dois braços (as únicas que podem ficar verdes ou vermelhas)</span>
+      ${inst ? `<span class="hint" style="flex-basis:100%">Por instrumento — ${inst}</span>` : ''}`;
   }
 
   document.getElementById('objective').textContent = D.objective;
