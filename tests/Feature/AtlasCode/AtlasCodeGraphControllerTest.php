@@ -6,6 +6,7 @@ namespace Tests\Feature\AtlasCode;
 
 use App\Services\AtlasCode\AtlasCodeGraphService;
 use App\Services\AtlasCode\AtlasCodeProvenanceService;
+use App\Services\AtlasCode\AtlasCodeViolationService;
 use Tests\TestCase;
 
 final class AtlasCodeGraphControllerTest extends TestCase
@@ -70,5 +71,16 @@ final class AtlasCodeGraphControllerTest extends TestCase
             'X-Atlas-Token' => 'testing-atlas-token-with-enough-length',
         ])->getJson('/api/code/provenance/not-a-hash?repo=atlas-server')
             ->assertNotFound();
+    }
+
+    public function test_returns_real_rules_projection_with_plan(): void
+    {
+        $this->withHeaders([
+            'Accept' => 'application/json',
+            'X-Atlas-Token' => 'testing-atlas-token-with-enough-length',
+        ])->getJson('/api/code/violations?repo=atlas-server')
+            ->assertOk()
+            ->assertJsonPath('schema_version', AtlasCodeViolationService::SCHEMA_VERSION)
+            ->assertJsonStructure(['schema_version', 'repo', 'generated_at', 'violations', 'plan']);
     }
 }
