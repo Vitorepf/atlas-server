@@ -155,11 +155,24 @@ if ($useHermesOnesHot) {
         'provider' => 'hermes_cli',
         'ai' => 'hermes',
         'execution' => 'hermes_cli_oneshot',
+        // ⚠️ O ATLAS NÃO RODA NESTE CAMINHO. `hermes -z` é o Hermes CLI puro:
+        // nenhum artisan, nenhuma memória do Atlas, nenhum Decide, nenhuma
+        // governança. O "Atlas" aqui é um worktree isolado mais um prefixo de
+        // prompt. Declarar false é o ponto: o uplift EXIGE atlas_runtime===true,
+        // então este braço vira "não medido" em vez de virar um delta rotulado
+        // "com Atlas" que na verdade compara harness de agente.
+        //
+        // Os campos fair_mode abaixo descrevem comportamento do ATLAS (Decide
+        // desligado, sem fallback). Com o Atlas fora do laço eles não têm sujeito
+        // — eram hardcoded `true` e o portão do uplift conferia esse `true` fixo,
+        // escrito pelo próprio medido sobre si. Um gate que lê a autodeclaração
+        // do medido não é gate.
+        'atlas_runtime' => false,
         'fair_mode' => [
             'single_provider' => $providerLockVerified,
-            'decide_disabled' => true,
-            'fallback_disabled' => true,
-            'deterministic_fast_path_disabled' => true,
+            'decide_disabled' => false,
+            'fallback_disabled' => false,
+            'deterministic_fast_path_disabled' => false,
         ],
         'provider_call' => [
             'provider' => 'hermes_cli',
@@ -250,6 +263,10 @@ $receipt = [
     'provider' => $actualProvider !== '' ? $actualProvider : $provider,
     'ai' => $ai,
     'execution' => 'atlas_cli_dev_efficient',
+    // Aqui o Atlas roda de verdade: `artisan atlas:cli:dev` com as flags de
+    // fair-mode. Vale o mesmo teste do provider-lock — sem chamada de provider
+    // provada, o Atlas ter sido invocado não basta.
+    'atlas_runtime' => $providerLockVerified,
     'fair_mode' => [
         'single_provider' => $providerLockVerified,
         'decide_disabled' => $providerLockVerified,

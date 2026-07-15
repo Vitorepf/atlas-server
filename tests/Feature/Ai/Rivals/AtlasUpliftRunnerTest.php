@@ -157,6 +157,8 @@ class AtlasUpliftRunnerTest extends TestCase
                         'metadata' => $runtime === 'atlas_dev'
                             ? [
                                 'runtime_bridge' => [
+                                    // Braço Atlas de verdade: o Atlas rodou.
+                                    'atlas_runtime' => true,
                                     'real_provider' => true,
                                     'model' => 'claude-sonnet-5',
                                     'fair_mode' => [
@@ -192,5 +194,88 @@ class AtlasUpliftRunnerTest extends TestCase
         $this->assertSame(6, $uplift['deltas'][0]['pairs']);
         $this->assertCount(6, $uplift['deltas'][0]['pair_keys']);
         $this->assertArrayHasKey('delta_success_rate_ci_95', $uplift['deltas'][0]);
+    }
+
+    public function test_arm_that_never_ran_atlas_is_refused_however_it_labels_itself(): void
+    {
+        // ⚠️ O DEFEITO CENTRAL do relatório, medido 15/07: para o modelo primário
+        // (provider=hermes) o braço "atlas_dev" executava `hermes -z` — Hermes CLI
+        // puro, sem artisan, sem memória do Atlas, sem Decide. 107 recibos assim,
+        // ZERO com atlas_cli_dev_efficient. O delta publicado como "com Atlas"
+        // comparava harness de agente (hermes vs o harness nativo do benchmark),
+        // não a contribuição do Atlas.
+        //
+        // O portão não pegou porque conferia campos que o próprio bridge escrevia
+        // hardcoded `true` — a autodeclaração do medido sobre si. Este teste fixa
+        // a regra: quem não rodou o Atlas é RECUSADO por mais que se rotule de
+        // Atlas. Recusar = "não medido", que é a verdade; publicar delta seria
+        // inventar uma resposta para a única pergunta que o relatório existe para
+        // responder.
+        $registry = new ArmRegistry;
+        $plan = RunPlan::make(
+            'atlas_bench',
+            ['c1'],
+            [$registry->parse('claude_sonnet_5@bare'), $registry->parse('claude_sonnet_5@atlas_dev')],
+            1,
+            ['max_usd' => 10.0, 'max_minutes' => 30],
+            1,
+        );
+        $runId = $plan->persist();
+        foreach (['bare', 'atlas_dev'] as $runtime) {
+            RunReceipt::fromArray([
+                'schema_version' => SchemaContract::RUN_RECEIPT,
+                'run_id' => $runId,
+                'case_id' => 'c1',
+                'task_type' => 'coding_patch',
+                'arm_id' => 'claude_sonnet_5@'.$runtime,
+                'repetition' => 1,
+                'status' => 'success',
+                'failure_class' => null,
+                'wall_ms' => 1000,
+                'tokens_in' => 10,
+                'tokens_out' => 2,
+                'cost_usd' => 0.1,
+                'field_presence' => [
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                    'tokens_in' => ['present' => true, 'reason' => null],
+                    'tokens_out' => ['present' => true, 'reason' => null],
+                    'cost_usd' => ['present' => true, 'reason' => null],
+                ],
+                'claim_tier' => 'production',
+                'harness_only' => false,
+                'artifacts' => [],
+                'started_at' => null,
+                'finished_at' => null,
+                'metadata' => $runtime === 'atlas_dev'
+                    ? [
+                        // A forma REAL do recibo do bypass: tudo verde, menos o
+                        // fato de o Atlas ter rodado.
+                        'runtime_bridge' => [
+                            'atlas_runtime' => false,
+                            'execution' => 'hermes_cli_oneshot',
+                            'real_provider' => true,
+                            'model' => 'claude-sonnet-5',
+                            'fair_mode' => [
+                                'single_provider' => true,
+                                'decide_disabled' => true,
+                                'fallback_disabled' => true,
+                            ],
+                        ],
+                    ]
+                    : ['direct_provider' => ['real_provider' => true, 'model' => 'claude-sonnet-5']],
+            ])->append();
+        }
+        file_put_contents(RunPaths::adjudicationPath($runId), json_encode([
+            'internal_claim_allowed' => true,
+            'public_claim_allowed' => false,
+            'internal_claim_blockers' => [],
+            'claim_scope' => ['suite' => 'atlas_bench'],
+        ]));
+
+        $uplift = (new AtlasUpliftRunner)->compare($runId, 'claude_sonnet_5');
+
+        $this->assertFalse($uplift['uplift_supported'], 'braço sem Atlas não sustenta uplift do Atlas');
+        $this->assertSame([], $uplift['deltas'], 'nenhum delta pode ser publicado sobre um Atlas que não rodou');
+        $this->assertFalse($uplift['claim_allowed']);
     }
 }

@@ -96,7 +96,20 @@ class AtlasUpliftRunner
             foreach ($byArm['base'] as $key => $receipt) {
                 $atlasReceipt = $byArm['atlas'][$key] ?? null;
                 $bareOk = data_get($receipt, 'metadata.direct_provider.real_provider') === true;
+                // ⚠️ O ATLAS RODOU? Esta linha é a diferença entre medir o Atlas e
+                // medir outra coisa com o nome dele. Sem ela o portão aceitava o
+                // braço `hermes_cli_oneshot` — Hermes CLI puro, sem artisan, sem
+                // memória, sem Decide — e o relatório publicava o delta como
+                // "com Atlas". Era comparação de HARNESS DE AGENTE (hermes vs o
+                // harness nativo do benchmark), não a contribuição do Atlas:
+                // 107 recibos assim, em todas as datas medidas.
+                //
+                // Os outros campos não salvavam porque o bridge os escrevia
+                // hardcoded `true`: o portão conferia a autodeclaração do próprio
+                // medido. `atlas_runtime` é derivado do caminho REALMENTE
+                // executado, então não pode ser afirmado por quem não rodou.
                 $atlasOk = is_array($atlasReceipt)
+                    && data_get($atlasReceipt, 'metadata.runtime_bridge.atlas_runtime') === true
                     && data_get($atlasReceipt, 'metadata.runtime_bridge.real_provider') === true
                     && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.single_provider') === true
                     && data_get($atlasReceipt, 'metadata.runtime_bridge.fair_mode.decide_disabled') === true
