@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\AtlasCode;
 
 use App\Services\Ai\AtlasOpenBrainService;
+use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Throwable;
 
 /**
@@ -49,7 +50,10 @@ final class AtlasCodeBrainService
 
     private const MAX_SOURCES = 3;
 
-    public function __construct(private readonly ?AtlasOpenBrainService $brain = null) {}
+    public function __construct(
+        private readonly ?AtlasOpenBrainService $brain = null,
+        private readonly ?EngineeringKnowledgeBaseService $knowledge = null,
+    ) {}
 
     /**
      * @return array{answered:bool, answer:string, evidence:array<int,array<string,string>>, source:string}
@@ -67,7 +71,11 @@ final class AtlasCodeBrainService
             ];
         }
 
-        $relevant = $this->aboveFloor($refs);
+        // As duas metades do cérebro, somadas: o índice semântico (vault) e o
+        // canon de engenharia (825 docs ativos). Até 15/07/2026 o pack só via a
+        // primeira — por construção, o Atlas era cego para os documentos que
+        // governam o próprio código.
+        $relevant = array_merge($this->aboveFloor($refs), $this->canonRefs($question));
 
         if ($relevant === []) {
             return [
@@ -127,6 +135,48 @@ final class AtlasCodeBrainService
         }
 
         return 'fonte sem título';
+    }
+
+    /**
+     * O canon de engenharia — a metade do cérebro que o pack não enxergava.
+     *
+     * @return array<int, array<string,mixed>>
+     */
+    private function canonRefs(string $question): array
+    {
+        try {
+            $found = ($this->knowledge ?? app(EngineeringKnowledgeBaseService::class))->search($question, 3);
+        } catch (Throwable) {
+            // KB indisponível não derruba a pergunta nem vira invenção: o que o
+            // índice semântico achou continua valendo.
+            return [];
+        }
+
+        return $this->withinMarginOfTheBest($found);
+    }
+
+    /**
+     * Só o que sustenta a afirmação fica.
+     *
+     * Medido: "por que existe a regra da main?" traz o canon certo a 0.883 e um
+     * backlog que cita as três palavras de passagem a 0.600. Listar os dois faz
+     * a frase dizer "o cérebro conhece 2 fontes" — dando ao segundo o mesmo
+     * peso do primeiro. Fonte fraca ao lado da forte não soma: dilui.
+     *
+     * @param  array<int, array<string,mixed>>  $refs  Já ordenados por score.
+     * @return array<int, array<string,mixed>>
+     */
+    public function withinMarginOfTheBest(array $refs, float $margin = 0.7): array
+    {
+        $best = (float) ($refs[0]['score'] ?? 0);
+        if ($best <= 0.0) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $refs,
+            static fn (array $ref): bool => (float) ($ref['score'] ?? 0) >= $best * $margin
+        ));
     }
 
     /**

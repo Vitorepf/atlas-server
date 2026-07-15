@@ -66,6 +66,34 @@ final class AtlasCodeBrainServiceTest extends TestCase
         self::assertSame([], $this->brain->aboveFloor($refs));
     }
 
+    public function test_a_weak_source_never_shares_billing_with_a_strong_one(): void
+    {
+        // Caso medido: "por que existe a regra da main?" traz o canon certo a
+        // 0.883 e um backlog que cita as três palavras de passagem a 0.600.
+        // Citar os dois faz a frase dizer "conhece 2 fontes" — e dá ao segundo
+        // o mesmo peso do primeiro.
+        $refs = [
+            ['title' => 'Atlas — Branch local main ONLY', 'score' => 0.883],
+            ['title' => 'AAEOS Reliability Backlog', 'score' => 0.600],
+            ['title' => 'Outro qualquer', 'score' => 0.41],
+        ];
+
+        $kept = $this->brain->withinMarginOfTheBest($refs);
+
+        self::assertSame(['Atlas — Branch local main ONLY'], array_column($kept, 'title'));
+    }
+
+    public function test_sources_of_equal_strength_all_stay(): void
+    {
+        // A margem corta fraco, não corta plural: duas fontes boas são duas.
+        $refs = [
+            ['title' => 'primeira', 'score' => 0.9],
+            ['title' => 'segunda', 'score' => 0.85],
+        ];
+
+        self::assertCount(2, $this->brain->withinMarginOfTheBest($refs));
+    }
+
     public function test_the_label_falls_back_through_real_fields_never_to_a_guess(): void
     {
         self::assertSame('Título', $this->brain->label(['title' => 'Título', 'path' => 'x.md']));

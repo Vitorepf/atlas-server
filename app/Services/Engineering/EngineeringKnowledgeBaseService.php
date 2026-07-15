@@ -195,6 +195,128 @@ class EngineeringKnowledgeBaseService
      * @param  array<string,mixed>  $context
      * @return array<int,array<string,mixed>>
      */
+    /**
+     * Busca por RELEVÂNCIA — a que faltava.
+     *
+     * `contextRefs()` não compara texto nenhum: ordena por categoria,
+     * prioridade e data. É por isso que perguntar "por que existe a regra de
+     * trabalhar só na main?" devolvia "Codex Review Chain Contract" — o item de
+     * maior prioridade — enquanto `atlas-local-main-only-rule`, indexado e
+     * pronto, nunca aparecia. Ali as palavras da pergunta são IGNORADAS.
+     *
+     * Aqui elas decidem. Léxico, local, instantâneo, auditável — sem provider e
+     * sem embedding. Quando o índice semântico cobrir a KB, isto é o piso
+     * barato e o vetor é o teto; os dois somam.
+     *
+     * @return array<int, array<string,mixed>>
+     */
+    public function search(string $question, int $limit = 5): array
+    {
+        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
+            return [];
+        }
+
+        $search = new EngineeringKnowledgeSearch();
+        $terms = $search->terms($question);
+        if ($terms === []) {
+            return [];
+        }
+
+        // Pré-filtro no banco: só os itens que citam ALGUM termo chegam ao
+        // ranking. Carregar 972 docs para pontuar em PHP seria varrer o corpus
+        // inteiro a cada pergunta.
+        //
+        // A fronteira de palavra (`\y` no Postgres) é obrigatória e não é
+        // detalhe: com `ILIKE '%main%'`, `domain` casa — e foi assim que a
+        // pergunta sobre a regra da main devolveu `atlas-ai-core-vs-domain`.
+        $query = AtlasEngineeringKnowledgeItem::query()->active();
+        $query->where(function ($outer) use ($terms, $search): void {
+            foreach ($terms as $term) {
+                // O MESMO recorte do ranking: o pré-filtro não pode ser mais
+                // estrito que o scorer, ou corta o doc certo antes de alguém
+                // pontuá-lo. Curto = palavra exata; longo = radical.
+                $pattern = $search->postgresPattern($term);
+                $outer->orWhere(function ($inner) use ($pattern): void {
+                    $inner->where('slug', '~*', $pattern)
+                        ->orWhere('title', '~*', $pattern)
+                        ->orWhere('canonical_path', '~*', $pattern)
+                        ->orWhere('summary', '~*', $pattern)
+                        ->orWhere('body_excerpt', '~*', $pattern);
+                });
+            }
+        });
+
+        // SEM `limit()` aqui, e isto não é descuido.
+        //
+        // O `WHERE` já é o limite: só docs que citam algum termo entram. Um
+        // `limit(200)` sem ORDER BY — que é o que estava aqui — deixa o
+        // Postgres escolher 200 arbitrários entre os ~300 que casam, e foi
+        // exatamente assim que `atlas-local-main-only-rule` sumiu da resposta:
+        // ele pontuaria 0.78 e lideraria, mas caía fora antes de alguém
+        // pontuá-lo. Corte silencioso é a mentira mais barata que existe.
+        //
+        // O corpus é o canon do próprio repositório (825 docs ativos hoje):
+        // cabe na memória sem drama. Se um dia virar dezenas de milhares, o
+        // caminho é índice de verdade (tsvector), não voltar a truncar no
+        // escuro.
+        $candidates = $query->get()->map(fn (AtlasEngineeringKnowledgeItem $item): array => [
+            'type' => 'atlas_engineering_knowledge_item',
+            'id' => $item->id,
+            'slug' => $item->slug,
+            'title' => $item->title,
+            'category' => $item->category,
+            'canonical_path' => $item->canonical_path,
+            'summary' => $item->summary,
+            'body_excerpt' => $item->body_excerpt,
+            'path' => $item->canonical_path,
+        ])->values()->all();
+
+        // A raridade tem de ser medida contra o CORPUS INTEIRO, nunca contra os
+        // candidatos: candidato é, por definição, quem contém os termos. Medindo
+        // ali dentro, `main` parece estar "em tudo", perde todo o peso e é
+        // descartada — foi assim que a pergunta sobre a regra da main devolveu
+        // três docs aleatórios empatados.
+        return $search->rank(
+            $candidates,
+            $question,
+            $limit,
+            $this->documentFrequencyAcrossCorpus($search, $terms),
+            $this->corpusSize(),
+        );
+    }
+
+    /**
+     * Em quantos docs do corpus INTEIRO cada termo aparece. Uma contagem por
+     * termo (poucas), no banco, em vez de arrastar 972 docs para o PHP.
+     *
+     * @param  array<int,string>  $terms
+     * @return array<string,int>
+     */
+    private function documentFrequencyAcrossCorpus(EngineeringKnowledgeSearch $search, array $terms): array
+    {
+        $frequency = [];
+        foreach ($terms as $term) {
+            $pattern = $search->postgresPattern($term);
+            $frequency[$term] = AtlasEngineeringKnowledgeItem::query()
+                ->active()
+                ->where(function ($inner) use ($pattern): void {
+                    $inner->where('slug', '~*', $pattern)
+                        ->orWhere('title', '~*', $pattern)
+                        ->orWhere('canonical_path', '~*', $pattern)
+                        ->orWhere('summary', '~*', $pattern)
+                        ->orWhere('body_excerpt', '~*', $pattern);
+                })
+                ->count();
+        }
+
+        return $frequency;
+    }
+
+    private function corpusSize(): int
+    {
+        return max(1, AtlasEngineeringKnowledgeItem::query()->active()->count());
+    }
+
     public function contextRefs(array $context = [], int $limit = 8): array
     {
         if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
