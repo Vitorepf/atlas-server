@@ -29,6 +29,59 @@ class DifficultyCalibrator
     }
 
     /**
+     * A MESMA régua, com o denominador que a torna verdadeira.
+     *
+     * `bandFor()` decide pela estimativa pontual, e sem o n isso é um dado. Um
+     * instrumento cuja dificuldade REAL é 30% — exatamente a banda que o
+     * operador quer — cai, com n=9 e só por sorte, em CINCO bandas: too_easy
+     * 27%, elite_valid 27%, borderline 27%, hard 16%, frontier 4%.
+     *
+     * A prova viva está no próprio relatório: `gpqa_diamond:Physics` (3/3) sai
+     * `too_easy` com Wilson95 [43,9%, 100%]; `gpqa_diamond:Chemistry` (0/3) sai
+     * `frontier` com [0%, 56,1%]. MESMO instrumento, MESMO modelo, vereditos
+     * opostos — e os intervalos se sobrepõem em 12 pontos.
+     *
+     * Aposentar uma suíte é decisão cara e quase irreversível. Tomá-la no cara
+     * ou coroa é pior que não tomá-la: por isso `unknown` quando o intervalo
+     * cruza a fronteira da banda. `unknown` não é omissão — é o único veredito
+     * honesto sobre uma amostra que não decide, e ele diz o que fazer: dar n.
+     *
+     * @param  int  $successes  acertos do braço bare
+     * @param  int  $n  tentativas do braço bare
+     */
+    public function bandForCounts(int $successes, int $n): string
+    {
+        if ($n <= 0) {
+            return 'unknown';
+        }
+        $interval = StatisticalPolicy::wilson($successes, $n);
+        $low = $this->bandFor($interval['low']);
+        $high = $this->bandFor($interval['high']);
+
+        // Intervalo inteiro dentro de uma banda = a amostra decide. Cruzou a
+        // fronteira = ela não decide, e fingir que decide é o defeito.
+        return $low === $high ? $low : 'unknown';
+    }
+
+    /**
+     * Quanto n falta para a suíte poder ser ACUSADA de fácil demais.
+     *
+     * Lei de ingresso: para PROVAR bare abaixo do teto t, é preciso
+     * `n >= z²(1-t)/t`. Sem isso o degrau não pode ser declarado — o n é o
+     * bilhete de entrada, não um detalhe. Devolve o n mínimo para que uma
+     * observação de ZERO acerto prove que a suíte está abaixo de `$ceiling`.
+     */
+    public function entryN(float $ceiling): int
+    {
+        if ($ceiling <= 0.0 || $ceiling >= 1.0) {
+            return 0;
+        }
+        $z2 = 1.959963984540054 ** 2;
+
+        return (int) ceil($z2 * (1.0 - $ceiling) / $ceiling);
+    }
+
+    /**
      * @param  array<int, array>  $rows  linhas do report (task_type, arm_id, success_rate)
      * @return array{suite_band: ?string, baseline: ?array, row_bands: array<string,string>, flags: list<string>}
      */

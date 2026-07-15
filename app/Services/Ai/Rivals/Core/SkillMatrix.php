@@ -153,6 +153,18 @@ final class SkillMatrix
                 'conclusive' => $ci !== null && ($ci['ci_low'] > 0.0 || $ci['ci_high'] < 0.0),
                 // Nem um Atlas perfeito provaria ganho aqui: o teto é do teste.
                 'gain_undemonstrable' => $gainUndemonstrable,
+                // A régua de dificuldade do operador (02/07), finalmente ligada.
+                // Ela estava escrita em config/atlas_rivals.php:104 e implementada
+                // no DifficultyCalibrator — e o relatório nunca a chamou uma única
+                // vez (`grep -c DifficultyCalibrator EnterpriseReportBuilder` = 0),
+                // publicando 13 linhas em 100% sem acusar nenhuma.
+                //
+                // Chamada com os CONTADORES, não com a taxa: sem o n a banda é um
+                // dado de 5 faces (um instrumento de 30% real cai em too_easy,
+                // elite_valid, borderline, hard OU frontier, só por sorte).
+                'difficulty_band' => $bare === null
+                    ? 'unknown'
+                    : (new DifficultyCalibrator)->bandForCounts((int) array_sum($t['bare']), count($t['bare'])),
                 'verdict' => $this->verdict($bare, $atlas),
             ];
         }

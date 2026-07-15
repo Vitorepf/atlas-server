@@ -19,8 +19,32 @@ if ($workspace === false || $promptFile === false || $model === ''
     exit(2);
 }
 $usagePath = $workspace.'/.rivals_hermes_usage.json';
+// O BRAÇO DE CONTROLE ESTAVA CONTAMINADO — e contaminação no controle é pior
+// que no tratamento, porque ela ESCONDE o efeito em vez de inventá-lo.
+//
+// Do `hermes --help`, verbatim sobre o `-z`: "Tools, memory, rules, and
+// AGENTS.md in the CWD are loaded as normal". Ou seja, a coluna que o relatório
+// chama de "modelo sozinho" vinha sendo: kimi + laço agêntico + MEMÓRIA do
+// Hermes + RULES do operador. Memória que acumula ENTRE runs e rules escritas
+// pelo operador não são o modelo: são outro wrapper, e um que deriva no tempo.
+//
+// O contrato da medição é "a ÚNICA diferença entre os braços é o Atlas". Com o
+// controle carregando memória e regras, a diferença medida era Atlas-menos-
+// Hermes-acumulado — e quanto mais o operador usasse o Hermes, MENOR o M
+// aparente do Atlas. O efeito some sem ninguém ver.
+//
+// As TOOLS ficam de propósito: bare = kimi num harness agêntico genérico. Um
+// controle sem tools (API de completion crua) inflaria o M do Atlas de graça, e
+// aí o 50x viria da comparação, não do Atlas. Isto torna a barra MAIS dura, que
+// é o lado certo de errar.
+//
+// Verificado antes de aplicar: as duas flags existem no hermes e NÃO derrubam a
+// chave do verboo (a key_env sobrevive ao --ignore-user-config; testado com
+// prompt real, exit 0 nos dois).
 $argv = [
     'hermes',
+    '--ignore-user-config',
+    '--ignore-rules',
     '-z', trim((string) file_get_contents($promptFile)),
     '--provider', 'verboo',
     '-m', $model,
