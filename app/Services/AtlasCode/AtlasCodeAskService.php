@@ -43,6 +43,7 @@ final class AtlasCodeAskService
         private readonly ?AtlasCodeRepoLocator $locator = null,
         private readonly ?AtlasCodeViolationService $violations = null,
         private readonly int $timeoutSeconds = 20,
+        private readonly ?AtlasCodeBrainService $brain = null,
     ) {}
 
     /**
@@ -70,7 +71,8 @@ final class AtlasCodeAskService
             AtlasCodeQuestionRouter::INTENT_WHY_BRANCH => $this->answerWhyBranch($located['slug'], $located['path']),
             AtlasCodeQuestionRouter::INTENT_WHO_TOUCHED => $this->answerWhoTouched($located['path'], $route['term']),
             AtlasCodeQuestionRouter::INTENT_FIND => $this->answerFind($located['path'], $route['term']),
-            default => $this->admitUnknown(),
+            // Não é filtro do grafo: é pergunta de julgamento. Vai ao cérebro.
+            default => $this->consultBrain($asked, $located['path']),
         };
 
         $response = [
@@ -377,16 +379,20 @@ final class AtlasCodeAskService
     }
 
     /**
+     * A pergunta que não é filtro sobe para o ACOS: é onde git, ledger, canon
+     * e decisão se cruzam — a camada que nenhum cliente de git alcança.
+     *
      * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string}
      */
-    private function admitUnknown(): array
+    private function consultBrain(string $question, string $path): array
     {
-        // Esta pergunta não é filtro: exige cruzar canon, decisão e julgamento.
-        // Enquanto o cérebro não estiver ligado aqui, a ausência é DITA.
+        $consulted = ($this->brain ?? new AtlasCodeBrainService())->consult($question, $path);
+
         return $this->shape(
-            false,
-            'essa pergunta não é um filtro do grafo — ela precisa do cérebro, que ainda não responde por aqui.',
-            source: self::SOURCE_GRAPH,
+            $consulted['answered'],
+            $consulted['answer'],
+            evidence: $consulted['evidence'],
+            source: $consulted['source'],
         );
     }
 
