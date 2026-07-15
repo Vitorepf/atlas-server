@@ -144,11 +144,12 @@ services:
       - .:/app
       - atlas-storage:/var/atlas/storage
       - ../AtlasVault:/atlas-vault
-      # Atlas Código · a frota do operador, SOMENTE LEITURA, montada no MESMO
-      # caminho do Mac para que os perfis (paths absolutos) batam sem tradução.
-      # Ver e julgar (E1-E3) não escreve; curar repo de terceiro (E4) exige
-      # decisão do operador — :ro é o default seguro.
-      - ..:/Users/vitorepf/develop/Atlas:ro
+      # Atlas Código · o workspace do operador, SOMENTE LEITURA, montado no
+      # MESMO caminho do Mac (os perfis guardam paths absolutos). Monta
+      # `develop` inteiro: os repos vivem em pastas (Atlas/, blackink/), e a
+      # descoberta precisa enxergar a árvore. Ver/julgar não escreve; curar
+      # repo de terceiro exige decisão do operador — :ro é o default seguro.
+      - ../..:/Users/vitorepf/develop:ro
       # Anonymous volume isola bootstrap/cache do bind mount do host.
       # Sem isso, config:cache/route:cache geram arquivos com DB_HOST=db
       # (válido só dentro do Docker) que vazam pro Mac e quebram artisan
@@ -235,11 +236,12 @@ services:
       - .:/app
       - atlas-storage:/var/atlas/storage
       - ../AtlasVault:/atlas-vault
-      # Atlas Código · a frota do operador, SOMENTE LEITURA, montada no MESMO
-      # caminho do Mac para que os perfis (paths absolutos) batam sem tradução.
-      # Ver e julgar (E1-E3) não escreve; curar repo de terceiro (E4) exige
-      # decisão do operador — :ro é o default seguro.
-      - ..:/Users/vitorepf/develop/Atlas:ro
+      # Atlas Código · o workspace do operador, SOMENTE LEITURA, montado no
+      # MESMO caminho do Mac (os perfis guardam paths absolutos). Monta
+      # `develop` inteiro: os repos vivem em pastas (Atlas/, blackink/), e a
+      # descoberta precisa enxergar a árvore. Ver/julgar não escreve; curar
+      # repo de terceiro exige decisão do operador — :ro é o default seguro.
+      - ../..:/Users/vitorepf/develop:ro
       - /app/bootstrap/cache
     depends_on:
       db:
@@ -292,11 +294,12 @@ services:
       - .:/app
       - atlas-storage:/var/atlas/storage
       - ../AtlasVault:/atlas-vault
-      # Atlas Código · a frota do operador, SOMENTE LEITURA, montada no MESMO
-      # caminho do Mac para que os perfis (paths absolutos) batam sem tradução.
-      # Ver e julgar (E1-E3) não escreve; curar repo de terceiro (E4) exige
-      # decisão do operador — :ro é o default seguro.
-      - ..:/Users/vitorepf/develop/Atlas:ro
+      # Atlas Código · o workspace do operador, SOMENTE LEITURA, montado no
+      # MESMO caminho do Mac (os perfis guardam paths absolutos). Monta
+      # `develop` inteiro: os repos vivem em pastas (Atlas/, blackink/), e a
+      # descoberta precisa enxergar a árvore. Ver/julgar não escreve; curar
+      # repo de terceiro exige decisão do operador — :ro é o default seguro.
+      - ../..:/Users/vitorepf/develop:ro
       - /app/bootstrap/cache
     depends_on:
       db:
