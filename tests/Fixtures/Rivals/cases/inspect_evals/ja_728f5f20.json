@@ -1,0 +1,12 @@
+{
+    "case_id": "ja_728f5f20",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "ja_728f5f20",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em japonês",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"ja\"]"
+    }
+}

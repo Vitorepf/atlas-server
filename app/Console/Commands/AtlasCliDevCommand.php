@@ -870,11 +870,21 @@ class AtlasCliDevCommand extends Command
         }
 
         $model = $this->efficientStringOption('model');
+        $rivalsRuntimeExecution = filter_var(
+            env('ATLAS_RIVALS_RUNTIME_EXECUTION', false),
+            FILTER_VALIDATE_BOOLEAN
+        );
         $userConstraints = array_values(array_filter([
             $model !== null ? 'composer_model='.$model : null,
             $this->option('single-provider') ? 'single_provider=true' : null,
             $this->option('no-decide') ? 'decide_disabled=true' : null,
             $this->option('fallback-disabled') ? 'fallback_disabled=true' : null,
+            // Rivals atlas_dev bridge: disposable worktrees must execute, not
+            // plan-only on discovery hypothesis / R4 forge preview.
+            $rivalsRuntimeExecution ? 'rivals_runtime_execution=true' : null,
+            $rivalsRuntimeExecution || (bool) $this->option('operator')
+                ? 'operator_explicit=true'
+                : null,
         ]));
         $input = [
             'workspace' => $workspace,

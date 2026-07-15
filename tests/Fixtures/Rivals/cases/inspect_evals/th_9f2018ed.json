@@ -1,0 +1,12 @@
+{
+    "case_id": "th_9f2018ed",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "th_9f2018ed",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em tailandês",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"th\"]"
+    }
+}

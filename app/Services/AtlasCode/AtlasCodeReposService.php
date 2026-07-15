@@ -69,13 +69,64 @@ final class AtlasCodeReposService
         // Saudável = silêncio: a chave só existe quando há exceção.
         if ($violations !== []) {
             $repo['violations'] = count($violations);
-            $repo['rules'] = array_values(array_unique(array_map(
-                static fn (array $violation): string => (string) ($violation['rule_id'] ?? 'unknown'),
-                $violations,
-            )));
+            // Agrupado por regra: a tela precisa contar a HISTÓRIA ("17 obras
+            // nunca voltaram à main"), não listar ids de regra soltos.
+            $repo['issues'] = $this->groupIssues($violations);
         }
 
         return $repo;
+    }
+
+    /**
+     * Agrupa por regra e mede a idade real do caso mais antigo. Só o que foi
+     * medido aparece: sem `since` legível, nenhuma idade é inventada.
+     *
+     * @param  array<int,array<string,mixed>>  $violations
+     * @return array<int, array<string,mixed>>
+     */
+    public function groupIssues(array $violations, ?int $now = null): array
+    {
+        $now ??= time();
+        $byRule = [];
+        foreach ($violations as $violation) {
+            $rule = (string) ($violation['rule_id'] ?? 'unknown');
+            $byRule[$rule] ??= ['rule_id' => $rule, 'count' => 0, 'severity' => 'medium', 'oldest_days' => null];
+            $byRule[$rule]['count']++;
+
+            $severity = (string) ($violation['severity'] ?? 'medium');
+            if ($severity === 'high') {
+                $byRule[$rule]['severity'] = 'high';
+            }
+
+            $since = $violation['since'] ?? null;
+            if (is_string($since) && $since !== '') {
+                $timestamp = strtotime($since);
+                if ($timestamp !== false) {
+                    $days = (int) floor(($now - $timestamp) / 86400);
+                    $current = $byRule[$rule]['oldest_days'];
+                    if ($current === null || $days > $current) {
+                        $byRule[$rule]['oldest_days'] = max(0, $days);
+                    }
+                }
+            }
+        }
+
+        // O caso mais grave e mais numeroso primeiro: a tela lê de cima.
+        $issues = array_values($byRule);
+        usort($issues, static function (array $a, array $b): int {
+            $weight = static fn (array $i): int => $i['severity'] === 'high' ? 0 : 1;
+
+            return [$weight($a), -$a['count']] <=> [$weight($b), -$b['count']];
+        });
+
+        return array_map(static function (array $issue): array {
+            // Ausência é ausência: `oldest_days` só existe se foi medido.
+            if ($issue['oldest_days'] === null) {
+                unset($issue['oldest_days']);
+            }
+
+            return $issue;
+        }, $issues);
     }
 
     /**

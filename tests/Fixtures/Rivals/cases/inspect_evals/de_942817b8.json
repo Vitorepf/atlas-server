@@ -1,0 +1,12 @@
+{
+    "case_id": "de_942817b8",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "de_942817b8",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em alemão",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"de\"]"
+    }
+}

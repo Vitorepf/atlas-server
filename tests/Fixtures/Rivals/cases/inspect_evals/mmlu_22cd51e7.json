@@ -3,7 +3,7 @@
     "task_ref": "inspect_evals/mmlu_0_shot",
     "sample_id": "mmlu_22cd51e7",
     "task_type": "knowledge_qa",
-    "title": "MMLU conhecimento 1",
+    "title": "MMLU conhecimento — conceptual_physics",
     "suite_id": "inspect_evals",
     "source_repo": "inspect_evals"
 }

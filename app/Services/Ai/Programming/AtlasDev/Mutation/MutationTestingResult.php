@@ -90,6 +90,7 @@ final class MutationTestingResult
         public readonly ?float $realMsi = null,
         public readonly ?array $rawCounts = null,
         public readonly ?array $perFileStats = null,
+        public readonly ?string $reportPath = null,
     ) {}
 
     public static function skipped(string $reason): self
@@ -105,7 +106,14 @@ final class MutationTestingResult
         );
     }
 
-    public static function failed(string $reason): self
+    public static function failed(
+        string $reason,
+        ?string $summaryPath = null,
+        ?MutationScope $scope = null,
+        ?array $rawCounts = null,
+        ?array $perFileStats = null,
+        ?string $reportPath = null,
+    ): self
     {
         return new self(
             skipped: false,
@@ -113,8 +121,11 @@ final class MutationTestingResult
             failed: true,
             failureReason: $reason,
             msi: null,
-            summaryPath: null,
-            scope: null,
+            summaryPath: $summaryPath,
+            scope: $scope,
+            rawCounts: $rawCounts,
+            perFileStats: $perFileStats,
+            reportPath: $reportPath,
         );
     }
 
@@ -129,6 +140,7 @@ final class MutationTestingResult
         ?float $realMsi = null,
         ?array $rawCounts = null,
         ?array $perFileStats = null,
+        ?string $reportPath = null,
     ): self {
         return new self(
             skipped: false,
@@ -141,6 +153,7 @@ final class MutationTestingResult
             realMsi: $realMsi,
             rawCounts: $rawCounts,
             perFileStats: $perFileStats,
+            reportPath: $reportPath,
         );
     }
 }

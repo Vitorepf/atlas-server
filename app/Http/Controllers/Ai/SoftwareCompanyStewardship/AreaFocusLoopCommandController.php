@@ -76,6 +76,8 @@ final class AreaFocusLoopCommandController extends Controller
 
     public const START_RUN_SCHEMA = 'atlas.software_company_stewardship.loop_command_start_run.v1';
 
+    public const TRANSFER_SCHEMA = 'atlas.software_company_stewardship.loop_command_transfer.v1';
+
     /** Default scope profile the runner selects with (matches the CLI default). */
     private const DEFAULT_SCOPE_PROFILE = 'factory_max';
 
@@ -136,6 +138,7 @@ final class AreaFocusLoopCommandController extends Controller
             ]),
             'scheduler_backlog' => $this->loopRunner->continuous24hSchedulerBacklogObservability($area, $focus),
         ];
+        $runState = $this->publicRuntimeSurface($runState);
 
         $body = $this->finalize([
             'schema_version' => self::LIVE_SCHEMA,
@@ -143,7 +146,7 @@ final class AreaFocusLoopCommandController extends Controller
             'focus' => $focus,
             'portfolio_id' => $portfolio,
             'read_only' => true,
-            'cockpit' => $cockpit,
+            'cockpit' => $this->publicCockpitSummary($cockpit),
             'run_state' => $runState,
         ]);
 
@@ -183,7 +186,13 @@ final class AreaFocusLoopCommandController extends Controller
             'returned_count' => count($records),
             'tail' => $tail,
             'hours' => $hours,
-            'cycles' => array_values($records),
+            // O ledger é um artefato interno append-only. A rota móvel expõe
+            // somente sua projeção histórica segura, nunca referências de
+            // diagnóstico, backlog de plano, IDs de run ou payloads do worker.
+            'cycles' => array_values(array_map(
+                fn (array $record): array => $this->publicCycleRecord($record),
+                $records,
+            )),
         ]);
 
         return $this->respond($request, $body);
@@ -219,11 +228,18 @@ final class AreaFocusLoopCommandController extends Controller
                 'registered' => true,
                 'objective' => (string) ($contract['objective'] ?? ''),
                 'owned_systems' => array_values(array_filter((array) ($contract['owned_systems'] ?? []), 'is_string')),
-                'repo_scope' => is_array($contract['repo_scope'] ?? null) ? $contract['repo_scope'] : [],
+                // O contrato canônico inclui paths permitidos/proibidos para
+                // o runner. A superfície móvel só precisa dos repositórios
+                // nomeados, nunca da topologia ou policy de filesystem.
+                'repo_scope' => [
+                    'repos' => $this->publicRepositoryNames(data_get($contract, 'repo_scope.repos', [])),
+                ],
                 'stop_conditions' => array_values(array_filter((array) ($contract['stop_conditions'] ?? []), 'is_string')),
                 // Thin live snapshot so the picker reflects which area already runs (no full /live).
                 'run_state' => [
-                    'lock' => $this->loopRunner->lockStatus($areaId, $focus),
+                    'lock' => $this->publicRuntimeSurface([
+                        'lock' => $this->loopRunner->lockStatus($areaId, $focus),
+                    ])['lock'],
                 ],
             ];
         }
@@ -378,7 +394,13 @@ final class AreaFocusLoopCommandController extends Controller
             'returned' => count($page),
             'offset' => $offset,
             'limit' => $limit,
-            'delivered' => $page,
+            // `done` é outro recorte do mesmo ledger interno de `cycles`.
+            // A tela móvel recebe a mesma projeção pública, não IDs, refs de
+            // finding ou qualquer payload de execução do worker.
+            'delivered' => array_values(array_map(
+                fn (array $record): array => $this->publicCycleRecord($record),
+                $page,
+            )),
         ]);
 
         return $this->respond($request, $body);
@@ -401,12 +423,19 @@ final class AreaFocusLoopCommandController extends Controller
         $actor = trim((string) ($input['operator_actor'] ?? ''));
         $focus = $this->focusFrom($input['focus'] ?? null);
         $mode = strtolower(trim((string) ($input['mode'] ?? 'dry_run')));
+        $operatorReason = trim((string) ($input['operator_reason'] ?? ''));
 
         if ($actor === '') {
             return $this->blocked('operator_actor_required', 'operator_actor is required (a run must be operator-owned).');
         }
         if (! in_array($mode, self::START_RUN_MODES, true)) {
             return $this->blocked('invalid_mode', 'mode must be one of '.implode(', ', self::START_RUN_MODES).' (execute is the destructive real path and must be explicit).');
+        }
+        if ($mode === 'execute' && $operatorReason === '') {
+            return $this->blocked('operator_reason_required', 'operator_reason is required when mode=execute so the governed launch is auditable.');
+        }
+        if (mb_strlen($operatorReason) > 1000) {
+            return $this->blocked('operator_reason_too_long', 'operator_reason may not exceed 1000 characters.');
         }
 
         // Area must be registered (the registry is the authority on what may run). Mirror the
@@ -498,6 +527,7 @@ final class AreaFocusLoopCommandController extends Controller
             'model' => $model,
             'repo_root' => trim((string) ($input['repo_root'] ?? '')),
             'actor' => $actor,
+            'operator_reason' => $operatorReason !== '' ? $operatorReason : null,
             'execute' => $execute,
             'auto_merge' => $autoMerge,
             'dry_run' => ! $execute,
@@ -537,6 +567,7 @@ final class AreaFocusLoopCommandController extends Controller
             'execute' => $execute,
             'requires_worker' => true,
             'operator_actor' => $actor,
+            'operator_reason_recorded' => $operatorReason !== '',
             'input_echo' => [
                 'run_mode' => $runMode !== '' ? $runMode : null,
                 'continue_on_blocked' => $continueOnBlocked,
@@ -557,6 +588,96 @@ final class AreaFocusLoopCommandController extends Controller
                 .'Poll /live; run_state.lock.held flips true only when the worker picks it up.',
             'generated_at' => $this->nowAtom(),
         ], 202);
+    }
+
+    /**
+     * POST transfer — request a durable, safe-boundary handoff of the CURRENT lock holder.
+     *
+     * This never selects a host or reports a new worker as started. The source runner must
+     * release the lock at an iteration boundary; only a later successor lock can claim it.
+     */
+    public function transfer(Request $request, string $area): JsonResponse
+    {
+        $input = $this->body($request);
+        $focus = $this->focusFrom($input['focus'] ?? null);
+        $actor = trim((string) ($input['operator_actor'] ?? ''));
+        $reason = trim((string) ($input['reason'] ?? ''));
+
+        if ($actor === '') {
+            return $this->blocked('operator_actor_required', 'operator_actor is required (the handoff must be operator-owned).');
+        }
+        if ($reason === '') {
+            return $this->blocked('transfer_reason_required', 'reason is required so the handoff remains auditable.');
+        }
+        if (mb_strlen($reason) > 1000) {
+            return $this->blocked('transfer_reason_too_long', 'reason may not exceed 1000 characters.');
+        }
+        if (! $this->areaRegistry->isRegistered($area)) {
+            return response()->json(['error' => ['code' => 'unknown_area', 'message' => "Area '{$area}' is not registered for the loop."]], 404);
+        }
+
+        $lock = $this->loopRunner->lockStatus($area, $focus);
+        $holder = is_array($lock['holder'] ?? null) ? $lock['holder'] : null;
+        if (($lock['held'] ?? false) !== true || $holder === null || trim((string) ($holder['run_id'] ?? '')) === '') {
+            return response()->json([
+                'schema_version' => self::TRANSFER_SCHEMA,
+                'status' => 'blocked',
+                'reason' => 'no_live_source_run',
+                'area_id' => $area,
+                'focus' => $focus,
+                'detail' => 'No live lock holder can prove a source mission to transfer.',
+            ], 409);
+        }
+
+        try {
+            $record = $this->loopRunner->handoff()->request($area, $focus, $holder, $actor, $reason);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'schema_version' => self::TRANSFER_SCHEMA,
+                'status' => 'blocked',
+                'reason' => 'transfer_already_active',
+                'area_id' => $area,
+                'focus' => $focus,
+                'detail' => $e->getMessage(),
+            ], 409);
+        }
+        $public = $this->loopRunner->handoff()->publicRecord((string) $record['handoff_id']) ?? [];
+
+        return response()->json([
+            'schema_version' => self::TRANSFER_SCHEMA,
+            'status' => 'transfer_requested',
+            'transfer_requested' => true,
+            'started' => false,
+            'area_id' => $area,
+            'focus' => $focus,
+            'handoff' => $public,
+            'source' => $public['source'] ?? [],
+            'target' => $public['target'] ?? [],
+            'note' => 'The current worker must release at a safe boundary. A successor remains unassigned until a queue worker acquires the same mission lock.',
+        ], 202);
+    }
+
+    /** GET transfer receipt — a live read of the durable handoff state, never an optimistic projection. */
+    public function transferStatus(string $area, string $handoffId): JsonResponse
+    {
+        $record = $this->loopRunner->handoff()->publicRecord($handoffId);
+        if ($record === null || (string) ($record['area_id'] ?? '') !== $area) {
+            return response()->json([
+                'schema_version' => self::TRANSFER_SCHEMA,
+                'status' => 'blocked',
+                'reason' => 'unknown_handoff',
+                'area_id' => $area,
+            ], 404);
+        }
+
+        return response()->json([
+            'schema_version' => self::TRANSFER_SCHEMA,
+            'status' => (string) ($record['status'] ?? 'unknown'),
+            'area_id' => $area,
+            'focus' => (string) ($record['focus'] ?? ''),
+            'handoff' => $record,
+            'started' => (string) ($record['status'] ?? '') === 'target_claimed',
+        ]);
     }
 
     /**
@@ -627,6 +748,11 @@ final class AreaFocusLoopCommandController extends Controller
             'clear-kill' => $this->deleteSignal($killPath),
         };
 
+        $signals = $this->publicRuntimeSurface([
+            'kill_switch' => $this->loopRunner->killSwitchStatus($area, $focus),
+            'pause' => $this->loopRunner->pauseStatus($area, $focus),
+        ]);
+
         return response()->json([
             'schema_version' => self::RUN_CONTROL_SCHEMA,
             'area_id' => $area,
@@ -635,8 +761,8 @@ final class AreaFocusLoopCommandController extends Controller
             'operator_actor' => $actor,
             'applied' => true,
             // TRUE post-state, re-read from disk after the write.
-            'kill_switch' => $this->loopRunner->killSwitchStatus($area, $focus),
-            'pause' => $this->loopRunner->pauseStatus($area, $focus),
+            'kill_switch' => $signals['kill_switch'],
+            'pause' => $signals['pause'],
             'note' => 'Loop honors signal on next iteration boundary (<=5s mid-sleep via responsiveSleep).',
             'generated_at' => $this->nowAtom(),
         ], 200);
@@ -772,6 +898,125 @@ final class AreaFocusLoopCommandController extends Controller
             ->format(DateTimeInterface::ATOM);
 
         return $payload;
+    }
+
+    /**
+     * The runner needs filesystem paths internally to honor signals and read the
+     * ledger. The mobile command surface only needs the resulting state; paths
+     * would expose local topology without enabling any operator action.
+     *
+     * @param array<string,mixed> $surface
+     * @return array<string,mixed>
+     */
+    private function publicRuntimeSurface(array $surface): array
+    {
+        foreach ($surface as $key => $value) {
+            if (in_array($key, ['path', 'ledger_path'], true)) {
+                unset($surface[$key]);
+
+                continue;
+            }
+            if (is_array($value)) {
+                $surface[$key] = $this->publicRuntimeSurface($value);
+            }
+        }
+
+        return $surface;
+    }
+
+    /**
+     * O Product Mode cockpit completo é um read model interno, rico em filas e
+     * diagnósticos. O Command Center móvel só precisa saber se essa projeção
+     * está disponível; qualquer detalhe futuro exige contrato público próprio.
+     *
+     * @param array<string,mixed> $cockpit
+     * @return array{schema_version:string,status:string}
+     */
+    private function publicCockpitSummary(array $cockpit): array
+    {
+        return [
+            'schema_version' => 'atlas.autonomos.cockpit_summary.v1',
+            'status' => $this->publicCycleCode($cockpit['status'] ?? null) ?: 'unknown',
+        ];
+    }
+
+    /**
+     * Projeção allow-list para o histórico visível de ciclos. O ledger pode
+     * conter refs diagnósticas, backlog e identificadores de execução; esses
+     * campos pertencem à auditoria interna, não ao iPhone.
+     *
+     * @param array<string,mixed> $record
+     * @return array<string,mixed>
+     */
+    private function publicCycleRecord(array $record): array
+    {
+        return [
+            'cycle_index' => max(0, (int) ($record['cycle_index'] ?? 0)),
+            'outcome' => $this->publicCycleCode($record['outcome'] ?? null),
+            'cycle_final_status' => $this->publicCycleCode($record['cycle_final_status'] ?? null),
+            'merge_performed' => (bool) ($record['merge_performed'] ?? false),
+            'merge_hash' => $this->publicMergeHash($record['merge_hash'] ?? null),
+            'loop_receipt_integrity' => $this->publicCycleCode($record['loop_receipt_integrity'] ?? null),
+            'blockers' => $this->publicCycleCodes($record['blockers'] ?? null),
+            'repaired' => (bool) ($record['repaired'] ?? false),
+            'retried' => (bool) ($record['retried'] ?? false),
+            'quarantined' => (bool) ($record['quarantined'] ?? false),
+            'quarantine_reason' => $this->publicCycleCode($record['quarantine_reason'] ?? null),
+            'recorded_at' => $this->publicCycleTimestamp($record['recorded_at'] ?? null),
+        ];
+    }
+
+    private function publicCycleCode(mixed $value): string
+    {
+        $value = is_string($value) ? trim($value) : '';
+
+        return preg_match('/^[a-z0-9][a-z0-9_:-]{0,119}$/i', $value) === 1 ? $value : '';
+    }
+
+    /** @return list<string> */
+    private function publicRepositoryNames(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (mixed $name): string => $this->publicCycleCode($name),
+            $value,
+        )));
+    }
+
+    /** @return list<string> */
+    private function publicCycleCodes(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn (mixed $code): string => $this->publicCycleCode($code),
+            $value,
+        )));
+    }
+
+    private function publicMergeHash(mixed $value): string
+    {
+        $value = is_string($value) ? trim($value) : '';
+
+        return preg_match('/^(?:sha256:)?[a-f0-9]{7,128}$/i', $value) === 1 ? $value : '';
+    }
+
+    private function publicCycleTimestamp(mixed $value): string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return '';
+        }
+
+        try {
+            return (new DateTimeImmutable($value))->format(DateTimeInterface::ATOM);
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /**

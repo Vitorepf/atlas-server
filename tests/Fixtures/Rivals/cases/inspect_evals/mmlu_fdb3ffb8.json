@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_fdb3ffb8",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_fdb3ffb8",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — elementary_mathematics",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Resources\AiJobResource;
 use App\Models\AiJob;
 use App\Services\Ai\AiCouncilCoordinator;
+use App\Services\Ai\AiExecutionPresentationState;
 use App\Services\Ai\AiProviderChoiceException;
 use App\Services\Ai\AiProviderChoiceResolver;
+use App\Services\Ai\AiStreamRecorder;
 use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,7 +92,13 @@ class AiJobController extends Controller
         ]);
     }
 
-    public function cancel(AiJob $job, AuditLogService $audit, AiCouncilCoordinator $council): JsonResponse
+    public function cancel(
+        AiJob $job,
+        AuditLogService $audit,
+        AiCouncilCoordinator $council,
+        AiExecutionPresentationState $presentationStates,
+        AiStreamRecorder $stream,
+    ): JsonResponse
     {
         if (in_array($job->status, ['succeeded', 'failed', 'cancelled'], true)) {
             return response()->json([
@@ -118,10 +126,20 @@ class AiJobController extends Controller
         if ($this->isCouncilJob($job) && $job->trace) {
             $council->sync($job->trace);
         } else {
+            $presentationState = $presentationStates->cancelled(trace: $job->trace);
             $job->trace?->update([
                 'status' => 'cancelled',
                 'completed_at' => now(),
+                'metadata' => array_merge($job->trace->metadata ?? [], [
+                    'presentation_state' => $presentationState,
+                ]),
             ]);
+            if ($job->trace) {
+                $stream->record($job, null, 'lifecycle', '', [
+                    'name' => 'execution_cancelled',
+                    'presentation_state' => $presentationState,
+                ], 'system');
+            }
         }
 
         $audit->record('ai_job_cancelled', [

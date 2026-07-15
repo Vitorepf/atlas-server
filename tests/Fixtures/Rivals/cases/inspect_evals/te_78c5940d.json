@@ -1,0 +1,12 @@
+{
+    "case_id": "te_78c5940d",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "te_78c5940d",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em telugo",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"te\"]"
+    }
+}

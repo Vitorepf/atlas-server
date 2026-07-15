@@ -16,6 +16,8 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
  */
 final class QualityFoundryTemporalProjectionRebuilder
 {
+    public const SCHEMA = 'atlas.quality_foundry.temporal_projection.v1';
+
     /**
      * @param  list<array<string,mixed>>  $events
      * @return array<string,mixed>
@@ -124,7 +126,7 @@ final class QualityFoundryTemporalProjectionRebuilder
             : array_all($windows, static fn (array $window): bool => $window['state'] === 'observed');
         $temporalState = $blockers !== [] ? 'blocked' : ($allObserved ? 'complete' : 'pending');
         $result = [
-            'schema' => 'atlas.quality_foundry.temporal_projection.v1',
+            'schema' => self::SCHEMA,
             'outcome' => $outcome,
             'windows' => $windows,
             'temporal_state' => $temporalState,

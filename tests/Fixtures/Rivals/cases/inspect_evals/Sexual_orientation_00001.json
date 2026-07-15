@@ -1,0 +1,12 @@
+{
+    "case_id": "Sexual_orientation_00001",
+    "task_ref": "inspect_evals/bbq",
+    "sample_id": "Sexual_orientation_00001",
+    "task_type": "social_bias",
+    "title": "BBQ viés social — Sexual_orientation",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "subsets": "Sexual_orientation"
+    }
+}

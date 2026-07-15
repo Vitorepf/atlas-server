@@ -1,0 +1,12 @@
+{
+    "case_id": "Race_ethnicity_00000",
+    "task_ref": "inspect_evals/bbq",
+    "sample_id": "Race_ethnicity_00000",
+    "task_type": "social_bias",
+    "title": "BBQ viés social — Race_ethnicity",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "subsets": "Race_ethnicity"
+    }
+}

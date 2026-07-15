@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_d8d74cc9",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_d8d74cc9",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — astronomy",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

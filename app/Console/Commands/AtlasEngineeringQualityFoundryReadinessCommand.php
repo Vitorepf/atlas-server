@@ -10,13 +10,20 @@ use Illuminate\Console\Command;
 final class AtlasEngineeringQualityFoundryReadinessCommand extends Command
 {
     protected $signature = 'atlas:engineering:quality-foundry-readiness
+        {--evidence= : JSON evidence bundle produced by independent runtime owners}
         {--json : Machine-readable JSON}';
 
     protected $description = 'Read-only checklist manifest for the Atlas Quality Foundry master plan.';
 
     public function handle(QualityFoundryReadinessManifest $manifest): int
     {
-        $payload = $manifest->build();
+        $evidence = [];
+        $path = $this->option('evidence');
+        if (is_string($path) && trim($path) !== '' && is_file($path)) {
+            $decoded = json_decode((string) file_get_contents($path), true);
+            $evidence = is_array($decoded) ? $decoded : [];
+        }
+        $payload = $manifest->build($evidence);
 
         if ((bool) $this->option('json')) {
             $this->line(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

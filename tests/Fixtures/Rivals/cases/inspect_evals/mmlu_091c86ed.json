@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_091c86ed",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_091c86ed",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — human_aging",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

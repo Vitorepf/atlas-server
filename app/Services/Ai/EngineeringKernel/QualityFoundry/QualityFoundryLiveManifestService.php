@@ -60,9 +60,13 @@ final class QualityFoundryLiveManifestService
     /** @var callable(array<int,string>,string):array{exit_code:int,output:string} */
     private $runner;
 
+    /** @var callable(string):array<string,mixed>|null */
+    private $mutationCoverageRunner;
+
     public function __construct(
         private readonly ?string $basePath = null,
         ?callable $runner = null,
+        ?callable $mutationCoverageRunner = null,
     ) {
         $this->runner = $runner ?? function (array $command, string $cwd): array {
             $process = new Process(
@@ -80,19 +84,28 @@ final class QualityFoundryLiveManifestService
                 'output' => trim($process->getOutput()."\n".$process->getErrorOutput()),
             ];
         };
+        $this->mutationCoverageRunner = $mutationCoverageRunner;
     }
 
     /** @return array<string,mixed> */
-    public function build(): array
+    public function build(bool $runMutationCoverage = false, ?string $mutationSurface = null): array
     {
         $root = $this->basePath ?? base_path();
         $modes = [];
+        $sharedEvidence = $this->runSharedEvidence($root);
+        $mutationCoverageEvidence = $runMutationCoverage
+            ? ($this->mutationCoverageRunner !== null
+                ? ($this->mutationCoverageRunner)($root)
+                : (new QualityFoundryMutationCoverageRunner($root))->run('quality-foundry-live-mutation', $mutationSurface))
+            : [];
 
         foreach (self::MODE_TESTS as $mode => $tests) {
             $modes[$mode] = $this->runMode(
                 $mode,
                 $tests,
                 $root,
+                $sharedEvidence,
+                $mutationCoverageEvidence,
                 $mode === 'dev'
                     ? self::DEV_READINESS_FILTER
                     : ($mode === 'forge'
@@ -107,6 +120,7 @@ final class QualityFoundryLiveManifestService
             'modes' => $modes,
             'mode_parity' => ($parityEvidence['parity'] ?? false) === true,
             'mode_parity_evidence' => $parityEvidence,
+            'mutation_coverage_run' => $mutationCoverageEvidence,
             'idempotency' => [
                 'provider_invocations' => $this->allModesEvidencePass($modes, 'exactly_once_provider'),
                 'mutations' => $this->allModesEvidencePass($modes, 'exactly_once_mutation'),
@@ -181,7 +195,7 @@ final class QualityFoundryLiveManifestService
     }
 
     /** @param list<string> $tests @return array<string,mixed> */
-    private function runMode(string $mode, array $tests, string $root, ?string $filter = null): array
+    private function runMode(string $mode, array $tests, string $root, array $sharedEvidence, array $mutationCoverageEvidence = [], ?string $filter = null): array
     {
         $startedAt = microtime(true);
         $allTests = array_values(array_unique([...$tests, ...self::SHARED_EVIDENCE_TESTS]));
@@ -198,19 +212,15 @@ final class QualityFoundryLiveManifestService
         if ($filter !== null) {
             $command[] = '--filter='.$filter;
         }
-        $results = [];
-        $sharedCommand = null;
-        if ($filter !== null) {
-            $results[] = ($this->runner)($command, $root);
-            $sharedCommand = array_merge([PHP_BINARY, 'artisan', 'test'], self::SHARED_EVIDENCE_TESTS);
-            $results[] = ($this->runner)($sharedCommand, $root);
-        } else {
-            $command = array_merge([PHP_BINARY, 'artisan', 'test'], $allTests);
-            $results = [($this->runner)($command, $root)];
-        }
+        $modeResult = ($this->runner)($command, $root);
+        $sharedCommand = $sharedEvidence['command'];
+        $results = [$modeResult, $sharedEvidence];
         $output = implode("\n", array_map(static fn (array $result): string => (string) ($result['output'] ?? ''), $results));
         $exitCode = max(array_map(static fn (array $result): int => (int) ($result['exit_code'] ?? 1), $results));
         $coverageEvidence = $this->coverageEvidenceFromOutput($output);
+        $mutationCoverageEvidence = $mutationCoverageEvidence !== []
+            ? $mutationCoverageEvidence
+            : $this->mutationCoverageEvidenceFromOutput($output);
         $receipt = [
             'schema' => 'atlas.quality_foundry.live_test_receipt.v1',
             'mode' => $mode,
@@ -231,6 +241,8 @@ final class QualityFoundryLiveManifestService
             'test_refs' => $testRefs,
             'kernel_routed' => $exitCode === 0,
             'coverage_percent' => $coverageEvidence['coverage_percent'] ?? 0,
+            'mutation_coverage_percent' => $this->mutationSurfaceCoveragePercent($mutationCoverageEvidence),
+            'mutation_score_percent' => (float) ($mutationCoverageEvidence['mutation_score_percent'] ?? 0),
             'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
             'evidence' => [
                 'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
@@ -283,6 +295,7 @@ final class QualityFoundryLiveManifestService
                     ? ['measurement_mode' => 'observed_operator_runs', 'run_count' => 1]
                     : [],
                 'coverage' => $coverageEvidence,
+                'mutation_coverage' => $mutationCoverageEvidence,
             ],
             // The canonical rollback suite asserts provisional and terminal
             // outcome events through AtlasEvidenceLedger. This is test-path
@@ -293,6 +306,19 @@ final class QualityFoundryLiveManifestService
             'exit_code' => $exitCode,
             'output_hash' => $receipt['output_hash'],
             'duration_ms' => $receipt['duration_ms'],
+        ];
+    }
+
+    /** @return array{command:list<string>,exit_code:int,output:string} */
+    private function runSharedEvidence(string $root): array
+    {
+        $command = array_merge([PHP_BINARY, 'artisan', 'test'], self::SHARED_EVIDENCE_TESTS);
+        $result = ($this->runner)($command, $root);
+
+        return [
+            'command' => $command,
+            'exit_code' => (int) ($result['exit_code'] ?? 1),
+            'output' => (string) ($result['output'] ?? ''),
         ];
     }
 
@@ -312,7 +338,7 @@ final class QualityFoundryLiveManifestService
     /** @return array<string,mixed> */
     private function coverageEvidenceFromOutput(string $output): array
     {
-        if (preg_match('/QUALITY_FOUNDRY_COVERAGE_JSON=(\{[^\r\n]*\})/', $output, $matches) !== 1) {
+        if (preg_match('/QUALITY_FOUNDRY_COVERAGE_JSON=(\{[^{}\r\n]*\})/', $output, $matches) !== 1) {
             return [];
         }
 
@@ -343,5 +369,60 @@ final class QualityFoundryLiveManifestService
             'complete_events' => $complete,
             'coverage_percent' => $percent,
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private function mutationCoverageEvidenceFromOutput(string $output): array
+    {
+        if (preg_match('/QUALITY_FOUNDRY_MUTATION_JSON=(\{[^{}\r\n]*\})/', $output, $matches) !== 1) {
+            return [];
+        }
+
+        $evidence = json_decode($matches[1], true);
+        if (! is_array($evidence) || ($evidence['schema'] ?? null) !== 'atlas.quality_foundry.mutation_coverage_evidence.v1') {
+            return [];
+        }
+
+        $registered = array_values(array_unique(array_map('strval', (array) ($evidence['registered_mutation_surfaces'] ?? []))));
+        $tested = array_values(array_unique(array_map('strval', (array) ($evidence['tested_mutation_surfaces'] ?? []))));
+        $canonical = EngineeringExecutionSurfaceRegistry::ids();
+        sort($registered, SORT_STRING);
+        sort($tested, SORT_STRING);
+        sort($canonical, SORT_STRING);
+        $total = (int) ($evidence['total_mutants'] ?? 0);
+        $killed = (int) ($evidence['killed_mutants'] ?? -1);
+        $surviving = (int) ($evidence['surviving_mutants'] ?? -1);
+        $percent = (float) ($evidence['mutation_score_percent'] ?? -1);
+        $coveragePercent = (int) ($evidence['mutation_coverage_percent'] ?? 0);
+        if (($evidence['status'] ?? null) !== 'observed'
+            || $registered !== $canonical || $tested !== $canonical || $total <= 0
+            || $killed < 0 || $killed > $total || $surviving !== $total - $killed
+            || $percent < 0 || $percent > 100 || $coveragePercent !== 100) {
+            return [];
+        }
+
+        return [
+            'schema' => (string) $evidence['schema'],
+            'status' => 'observed',
+            'registered_mutation_surfaces' => $registered,
+            'tested_mutation_surfaces' => $tested,
+            'total_mutants' => $total,
+            'killed_mutants' => $killed,
+            'surviving_mutants' => $surviving,
+            'mutation_score_percent' => $percent,
+            'mutation_coverage_percent' => $coveragePercent,
+            'mutation_score_floor_percent' => (int) ($evidence['mutation_score_floor_percent'] ?? 60),
+        ];
+    }
+
+    /** @param array<string,mixed> $evidence */
+    private function mutationSurfaceCoveragePercent(array $evidence): int
+    {
+        $canonical = EngineeringExecutionSurfaceRegistry::ids();
+        sort($canonical, SORT_STRING);
+        $tested = array_values(array_unique(array_map('strval', (array) ($evidence['tested_mutation_surfaces'] ?? []))));
+        sort($tested, SORT_STRING);
+
+        return ($evidence['status'] ?? null) === 'observed' && $tested === $canonical ? 100 : 0;
     }
 }

@@ -1,0 +1,12 @@
+{
+    "case_id": "Physical_appearance_00001",
+    "task_ref": "inspect_evals/bbq",
+    "sample_id": "Physical_appearance_00001",
+    "task_type": "social_bias",
+    "title": "BBQ viés social — Physical_appearance",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "subsets": "Physical_appearance"
+    }
+}

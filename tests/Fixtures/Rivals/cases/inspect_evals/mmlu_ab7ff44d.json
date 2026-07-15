@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_ab7ff44d",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_ab7ff44d",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — security_studies",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

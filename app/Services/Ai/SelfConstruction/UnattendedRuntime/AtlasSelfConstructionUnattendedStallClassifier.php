@@ -26,7 +26,7 @@ namespace App\Services\Ai\SelfConstruction\UnattendedRuntime;
  * Severity enum: 'none', 'low', 'medium', 'high', 'critical'.
  * Recovery_needed is true for any classification other than 'healthy'.
  */
-final class AtlasSelfConstructionUnattendedStallClassifier
+final class AtlasSelfConstructionUnattendedStallClassifier implements AtlasSelfConstructionUnattendedStallClassifierPort
 {
     public const SCHEMA = 'atlas.self_construction.unattended_stall_classifier.v1';
 

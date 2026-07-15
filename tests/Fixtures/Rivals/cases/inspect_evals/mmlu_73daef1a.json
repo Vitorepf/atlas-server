@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_73daef1a",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_73daef1a",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — college_chemistry",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

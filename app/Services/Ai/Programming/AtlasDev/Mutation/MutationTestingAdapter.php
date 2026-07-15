@@ -222,18 +222,33 @@ final class MutationTestingAdapter
         if (! $outcome->ok()) {
             return MutationTestingResult::failed(
                 $this->describeFailure($outcome),
+                summaryPath: $outcome->summaryPath,
+                scope: $scope,
+                rawCounts: $this->extractRawCounts($outcome->summaryPayload),
+                perFileStats: $outcome->perFileStats,
+                reportPath: $outcome->reportPath,
             );
         }
         if ($outcome->indicatesMissingCoverageDriver()) {
             return MutationTestingResult::failed(
                 'e3: infection reported a missing coverage driver (pcov/xdebug). '
                 .'The gate cannot read a real driver-backed MSI; failing honestly.',
+                summaryPath: $outcome->summaryPath,
+                scope: $scope,
+                rawCounts: $this->extractRawCounts($outcome->summaryPayload),
+                perFileStats: $outcome->perFileStats,
+                reportPath: $outcome->reportPath,
             );
         }
         if ($outcome->summaryMsi === null) {
             return MutationTestingResult::failed(
                 'e3: infection completed but no MSI could be parsed from its summary JSON ('
                 .$summaryPath.'). Refusing to fabricate a score.',
+                summaryPath: $summaryPath,
+                scope: $scope,
+                rawCounts: $this->extractRawCounts($outcome->summaryPayload),
+                perFileStats: $outcome->perFileStats,
+                reportPath: $outcome->reportPath,
             );
         }
 
@@ -259,6 +274,11 @@ final class MutationTestingAdapter
             return MutationTestingResult::failed(
                 'e3: infection reported an MSI but the raw summary stats could not '
                 .'back it (refusing to fabricate a score).',
+                summaryPath: $summaryPath,
+                scope: $scope,
+                rawCounts: $rawCounts,
+                perFileStats: $outcome->perFileStats,
+                reportPath: $outcome->reportPath,
             );
         }
 
@@ -286,6 +306,7 @@ final class MutationTestingAdapter
             realMsi: $realMsi,
             rawCounts: $rawCounts,
             perFileStats: $perFileStats,
+            reportPath: $outcome->reportPath,
         );
     }
 
@@ -392,12 +413,11 @@ final class MutationTestingAdapter
      *     junit artifacts). The per-run config also resolves the config-
      *     relative path issue: phpUnit.configDir = "." (the per-run config's
      *     own directory's parent is the repo root).
-     *   - --filter=<src1.php,src2.php> (mutation scope = touched source only)
-     *   - --initial-tests-php-options with a SINGLE -d pcov.directory=<LCA>
-     *     (coverage instrumentation scope = lowest common ancestor of every
-     *     scoped source dir; pcov.directory is single-valued so a SINGLE LCA
-     *     entry spans the whole scope — never one per dir, which would drop
-     *     all but the last, m3-e3 scrutiny Defect 1)
+     *   - --filter=<absolute-src1.php,absolute-src2.php> (mutation scope = touched source only)
+     *   - the Infection PHP process and PHPUnit's initial-test process each
+     *     receive one -d pcov.directory=<absolute-LCA>. CLI ini settings do
+     *     not cross a subprocess boundary, so both boundaries must be fixed;
+     *     neither may fall back to the host's '.' setting.
      *   - --test-framework-options scoping PHPUnit to the touched test files
      *   - --logger-summary-json=<summaryPath> (real reported MSI source)
      *   - --logger-json=<reportPath> (full mutation report for per-file MSI,
@@ -414,7 +434,19 @@ final class MutationTestingAdapter
      */
     private function buildCommand(string $runId, MutationScope $scope, string $summaryPath, string $reportPath): string
     {
-        $php = '/opt/homebrew/bin/php';
+        $pcovDirectory = $scope->pcovDirectories()[0] ?? '';
+        $absolutePcovDirectory = $pcovDirectory === ''
+            ? ''
+            : rtrim($this->repoRoot, '/').'/'.$pcovDirectory;
+        // The full JSON report is required for per-file anti-dilution
+        // accounting. Infection 0.33 can exceed the host's 128M CLI limit
+        // while serializing a few hundred mutants, so raise only this
+        // isolated verification subprocess instead of changing the project
+        // runtime limit.
+        $php = '/opt/homebrew/bin/php -d memory_limit=1G'
+            .($absolutePcovDirectory !== ''
+                ? ' -d pcov.directory='.escapeshellarg($absolutePcovDirectory)
+                : '');
         $infection = $this->repoRoot.'/vendor/bin/infection';
         $perRunConfig = $this->writePerRunConfig($runId);
 
@@ -425,7 +457,14 @@ final class MutationTestingAdapter
             '--no-progress',
             '--configuration='.escapeshellarg($perRunConfig),
             // VAL-E3-001: mutation scope = touched source only.
-            '--filter='.escapeshellarg(implode(',', $scope->sourceFiles)),
+            // Infection's PlainFilter matches the real paths emitted by its
+            // Finder. Relative repo paths silently produce an empty source
+            // population, so convert the already validated repo-relative
+            // scope to absolute paths at the process boundary.
+            '--filter='.escapeshellarg(implode(',', array_map(
+                fn (string $path): string => rtrim($this->repoRoot, '/').'/'.$path,
+                $scope->sourceFiles,
+            ))),
             // VAL-E3-007: read the REAL reported MSI from the summary JSON.
             '--logger-summary-json='.escapeshellarg($summaryPath),
             // VAL-E3-013: o report JSON completo (per-file MSI) vai via
@@ -434,23 +473,13 @@ final class MutationTestingAdapter
             // TODO run desde a escrita; achado da matriz real 03/07).
         ];
 
-        // VAL-E3-011 + VAL-E3-001 + m3-e3 Defect 1: scope pcov coverage
-        // instrumentation to the SINGLE lowest common ancestor directory of
-        // every scoped source file. pcov.directory is a single-valued ini
-        // directive, so MutationScope::pcovDirectories() returns exactly ONE
-        // directory (the LCA) — emitting multiple entries would silently
-        // drop every dir except the last. The LCA is always an app/ subtree
-        // (never the bare repo root '.', which would instrument the full
-        // ~3592-file tree at ~40s+ unscoped baseline). The MUTATED set stays
-        // narrowed to the exact touched source via --filter above, so the
-        // wider instrumentation does not widen what infection mutates.
-        $phpOptions = [];
-        foreach ($scope->pcovDirectories() as $dir) {
-            $phpOptions[] = '-d';
-            $phpOptions[] = 'pcov.directory='.escapeshellarg($dir);
-        }
-        if ($phpOptions !== []) {
-            $parts[] = '--initial-tests-php-options='.escapeshellarg(implode(' ', $phpOptions));
+        // VAL-E3-011 + m3-e3 Defect 1: the initial PHPUnit process is a
+        // separate PHP process and does not inherit the parent's CLI ini
+        // settings. Pass the same absolute LCA explicitly at this boundary.
+        if ($pcovDirectory !== '') {
+            $parts[] = '--initial-tests-php-options='.escapeshellarg(
+                '-d pcov.directory='.escapeshellarg($absolutePcovDirectory),
+            );
         }
 
         // VAL-E3-001: scope PHPUnit's initial coverage run to the touched
@@ -511,7 +540,16 @@ final class MutationTestingAdapter
             // ABSOLUTE path: PHPUnit's configDir is the repo root.
             'phpUnit' => ['configDir' => $repoRoot],
             'tmpDir' => $tmpDir,
+            // Keep one worker: the scoped PCOV coverage process is
+            // deterministic and parallel Infection workers can lose the
+            // per-run coverage binding, yielding false all-skipped reports.
             'threads' => 1,
+            // The canonical Quality Foundry batteries combine several
+            // feature suites. Infection's default per-mutant timeout is 10s,
+            // which turns a valid but heavier suite into SKIPPED mutants and
+            // makes the receipt unevaluable. This is isolated to the
+            // mutation subprocess; it does not change Atlas runtime timeouts.
+            'timeout' => 60,
             // VAL-E3-013: report JSON completo per-run (infection 0.33 só
             // aceita json log via config; a flag CLI --logger-json não existe).
             'logs' => ['json' => $this->reportPath($runId)],

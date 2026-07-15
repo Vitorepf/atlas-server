@@ -14,6 +14,7 @@ use App\Services\Ai\AiCompactionService;
 use App\Services\Ai\AiProviderHandoffService;
 use App\Services\Ai\AiSessionManager;
 use App\Services\Ai\AiSessionStateService;
+use App\Services\Ai\AiSurfaceHandoffService;
 use App\Services\Ai\AiThreadDeletionService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceConversationFusionService;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
@@ -374,6 +375,21 @@ class AiThreadController extends Controller
 
         return response()->json([
             'handoff' => (new AiProviderHandoffResource($handoff))->resolve(),
+        ]);
+    }
+
+    public function handoffSurface(Request $request, AiThread $thread, AiSessionManager $sessions, AiSurfaceHandoffService $handoffs): JsonResponse
+    {
+        $data = $request->validate([
+            'to_surface' => ['required', 'string', 'in:atlas_mobile,atlas_desktop,atlas_terminal'],
+        ]);
+
+        $session = $thread->activeSession()->first()
+            ?: $sessions->ensureActive($thread, $thread->last_provider, $thread->title, ['payload' => ['app_surface' => $thread->surface]]);
+        $handoff = $handoffs->record($thread, $session, $data['to_surface']);
+
+        return response()->json([
+            'handoff' => $handoffs->publicReceipt($handoff),
         ]);
     }
 

@@ -1,0 +1,12 @@
+{
+    "case_id": "en_4b7e54d8",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "en_4b7e54d8",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em inglês",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"en\"]"
+    }
+}

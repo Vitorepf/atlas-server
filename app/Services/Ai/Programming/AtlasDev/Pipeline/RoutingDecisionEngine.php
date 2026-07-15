@@ -139,9 +139,12 @@ class RoutingDecisionEngine
         // hypothesis (não há o que confirmar no disco), e o escopo explícito
         // do operador É a confirmação (lote real 03/07: "crie X.php e o teste"
         // com allowed_files nomeando os 2 alvos era demovido a read-only).
+        // Rivals isolated runtime (atlas_dev bridge) also bypasses: SWE/HAL
+        // worktrees are disposable and discovery cannot confirm upstream files.
         if ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_HYPOTHESIS
             && $classification->writeImplied
-            && ! $this->hasExplicitAllowedFilesConstraint($envelope)) {
+            && ! $this->hasExplicitAllowedFilesConstraint($envelope)
+            && ! $this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
             $reasons[] = 'discovery_hypothesis_with_write_implied';
 
             return new RoutingDecision(
@@ -163,7 +166,9 @@ class RoutingDecisionEngine
 
     private function allowsRivalsIsolatedRuntimeExecution(OperationEnvelope $envelope): bool
     {
-        if ($envelope->surfaceId !== 'atlas_forge_rivals') {
+        // Bridge invokes atlas:cli:dev (surface atlas_cli_dev). Forge rivals
+        // path uses atlas_forge_rivals. Both are valid when the operator opts in.
+        if (! in_array($envelope->surfaceId, ['atlas_forge_rivals', 'atlas_cli_dev'], true)) {
             return false;
         }
         if (! $envelope->preflight->operatorExplicit) {

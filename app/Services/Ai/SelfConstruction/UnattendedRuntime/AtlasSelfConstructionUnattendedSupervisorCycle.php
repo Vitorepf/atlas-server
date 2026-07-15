@@ -43,9 +43,9 @@ final class AtlasSelfConstructionUnattendedSupervisorCycle
     ];
 
     public function __construct(
-        private readonly ?AtlasSelfConstructionUnattendedLivenessSnapshot $snapshotComposer = null,
-        private readonly ?AtlasSelfConstructionUnattendedStallClassifier $classifier = null,
-        private readonly ?AtlasSelfConstructionUnattendedRecoveryActionPlanner $planner = null,
+        private readonly ?AtlasSelfConstructionUnattendedLivenessSnapshotPort $snapshotComposer = null,
+        private readonly ?AtlasSelfConstructionUnattendedStallClassifierPort $classifier = null,
+        private readonly ?AtlasSelfConstructionUnattendedRecoveryActionPlannerPort $planner = null,
     ) {}
 
     /**

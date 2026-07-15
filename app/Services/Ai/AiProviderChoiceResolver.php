@@ -11,6 +11,8 @@ class AiProviderChoiceResolver
     public function __construct(
         private readonly AuditLogService $audit,
         private readonly FairClaudePolicy $fairClaude,
+        private readonly AiStreamRecorder $stream,
+        private readonly AiExecutionPresentationState $presentationStates,
     ) {}
 
     /**
@@ -85,6 +87,32 @@ class AiProviderChoiceResolver
             ])),
             default => $job->update(['metadata' => array_merge($baseMetadata, ['provider_choice_state' => 'resolved'])]),
         };
+
+        $resolvedJob = $job->refresh();
+        $trace = $resolvedJob->trace;
+        $presentationState = $this->presentationStates->providerChoiceResolved(
+            action: $action,
+            resultingStatus: $resultingStatus,
+            availableAt: $action === 'wait' ? $resolvedJob->available_at?->toIso8601String() : null,
+            trace: $trace,
+        );
+        if ($trace) {
+            $trace->update([
+                'status' => $resultingStatus,
+                'completed_at' => in_array($resultingStatus, ['failed', 'cancelled'], true) ? now() : null,
+                'metadata' => array_merge($trace->metadata ?? [], [
+                    'presentation_state' => $presentationState,
+                ]),
+            ]);
+        }
+        $this->stream->record(
+            $resolvedJob,
+            null,
+            'lifecycle',
+            '',
+            ['presentation_state' => $presentationState],
+            'system',
+        );
 
         $privacy = data_get($job->payload, 'privacy', data_get($job->metadata, 'privacy'));
 

@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_bc2aa023",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_bc2aa023",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — world_religions",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

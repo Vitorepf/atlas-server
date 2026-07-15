@@ -15,7 +15,7 @@ namespace App\Services\Ai\SelfConstruction\UnattendedRuntime;
  * verification, merge. Missing required sources are reported in `missing_sources` rather than
  * pretending readiness.
  */
-final class AtlasSelfConstructionUnattendedLivenessSnapshot
+final class AtlasSelfConstructionUnattendedLivenessSnapshot implements AtlasSelfConstructionUnattendedLivenessSnapshotPort
 {
     public const SCHEMA = 'atlas.self_construction.unattended_liveness_snapshot.v1';
 

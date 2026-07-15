@@ -1,0 +1,12 @@
+{
+    "case_id": "ru_6e4a3078",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "ru_6e4a3078",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em russo",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"ru\"]"
+    }
+}

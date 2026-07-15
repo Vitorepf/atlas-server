@@ -1,0 +1,12 @@
+{
+    "case_id": "Disability_status_00002",
+    "task_ref": "inspect_evals/bbq",
+    "sample_id": "Disability_status_00002",
+    "task_type": "social_bias",
+    "title": "BBQ viés social — Disability_status",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "subsets": "Disability_status"
+    }
+}

@@ -1,0 +1,12 @@
+{
+    "case_id": "Gender_identity_00002",
+    "task_ref": "inspect_evals/bbq",
+    "sample_id": "Gender_identity_00002",
+    "task_type": "social_bias",
+    "title": "BBQ viés social — Gender_identity",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "subsets": "Gender_identity"
+    }
+}

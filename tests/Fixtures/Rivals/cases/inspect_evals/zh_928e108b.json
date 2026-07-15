@@ -1,0 +1,12 @@
+{
+    "case_id": "zh_928e108b",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "zh_928e108b",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em chinês",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"zh\"]"
+    }
+}

@@ -139,14 +139,30 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
      */
     protected function extraArgsForCase(array $case, array $binding): array
     {
+        $args = [];
         $taskRef = strtolower((string) ($case['task_ref'] ?? ''));
         foreach (self::TASK_PARAMS as $task => $params) {
             if (str_contains($taskRef, $task)) {
-                return $params;
+                $args = $params;
+                break;
             }
         }
 
-        return [];
+        // Params DO CASO: como o instrumento fatia o próprio dataset.
+        //
+        // Sem isto o pacote só alcançava a PRIMEIRA fatia: `--limit` corta os N
+        // primeiros samples e o dataset do bbq vem ordenado por categoria, então
+        // "viés social" media só IDADE — nunca raça, gênero, religião ou
+        // orientação, que são 10 das 11 categorias que o instrumento tem. O
+        // rótulo prometia o domínio e a medição cobria 1/11, sem o pacote ter
+        // como pedir o resto. Agora o caso declara sua fatia
+        // (ex.: subsets=Religion → sample_id Religion_00000).
+        foreach ((array) ($case['task_params'] ?? []) as $key => $value) {
+            $args[] = '-T';
+            $args[] = $key.'='.$value;
+        }
+
+        return $args;
     }
 
     protected function mapResults(array $native): array

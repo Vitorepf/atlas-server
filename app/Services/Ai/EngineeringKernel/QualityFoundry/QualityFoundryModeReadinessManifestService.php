@@ -16,6 +16,7 @@ use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
 final class QualityFoundryModeReadinessManifestService
 {
     public const SCHEMA = 'atlas.quality_foundry.mode_readiness_manifest.v1';
+    private const MUTATION_SCORE_FLOOR_PERCENT = 60;
 
     /** @var list<string> */
     private const MODES = ['kernel', 'dev', 'forge', 'autonomos'];
@@ -23,6 +24,7 @@ final class QualityFoundryModeReadinessManifestService
     /** @param array<string,mixed> $input @return array<string,mixed> */
     public function build(array $input): array
     {
+        $operationalEvidence = (new QualityFoundryOperationalEvidenceGate)->evaluate($input);
         $manifests = [];
         $blockers = [];
 
@@ -47,6 +49,8 @@ final class QualityFoundryModeReadinessManifestService
                 ],
                 'evidence' => is_array($receipt['evidence'] ?? null) ? $receipt['evidence'] : [],
                 'coverage_percent' => (int) ($receipt['coverage_percent'] ?? 0),
+                'mutation_coverage_percent' => (int) ($receipt['mutation_coverage_percent'] ?? 0),
+                'mutation_score_percent' => (float) ($receipt['mutation_score_percent'] ?? 0),
                 'blockers' => $modeBlockers,
                 'claim_eligible' => false,
             ];
@@ -86,13 +90,38 @@ final class QualityFoundryModeReadinessManifestService
             $blockers[] = 'mode_parity_missing';
         }
 
+        // Mode receipts prove that the machinery can execute the required
+        // tests. They do not prove production exposure, elapsed outcome
+        // windows, or comparative superiority. Those facts must arrive from
+        // independent runtime owners and cannot be synthesized here.
+        $completionBlockers = $operationalEvidence['blockers'];
+        // Keep the public, stable blocker vocabulary while exposing the
+        // detailed evidence reasons alongside it.
+        if (($operationalEvidence['operational_evidence_attested'] ?? false) !== true) {
+            $completionBlockers[] = 'hermetic_evidence_only';
+        }
+        if (($operationalEvidence['temporal_outcomes_complete'] ?? false) !== true) {
+            $completionBlockers[] = 'temporal_outcomes_not_elapsed';
+        }
+        if (($operationalEvidence['rivals_claim_eligible'] ?? false) !== true) {
+            $completionBlockers[] = 'rivals_claim_not_eligible';
+        }
+        $completionBlockers = array_values(array_unique($completionBlockers));
+        $modeReady = $blockers === [] && $readyModes === count(self::MODES);
+
         $payload = [
             'schema' => self::SCHEMA,
             'status' => $ready ? 'ready' : 'blocked',
-            'completion_allowed' => $ready,
+            'operational_status' => $modeReady && $completionBlockers === [] ? 'ready' : 'blocked',
+            'completion_allowed' => $modeReady && $completionBlockers === [],
             'required_modes' => self::MODES,
             'manifests' => $manifests,
             'blockers' => array_values(array_unique($blockers)),
+            'completion_blockers' => $completionBlockers,
+            'operational_evidence' => $operationalEvidence,
+            'mutation_coverage_run' => is_array($input['mutation_coverage_run'] ?? null)
+                ? $input['mutation_coverage_run']
+                : null,
             'summary' => [
                 'required_modes' => count(self::MODES),
                 'ready_modes' => $readyModes,
@@ -152,6 +181,38 @@ final class QualityFoundryModeReadinessManifestService
         }
         if ((int) ($receipt['coverage_percent'] ?? 0) !== 100) {
             $blockers[] = 'coverage_not_complete';
+        }
+        $mutationCoverage = is_array(($receipt['evidence'] ?? [])['mutation_coverage'] ?? null)
+            ? $receipt['evidence']['mutation_coverage']
+            : [];
+        if (($mutationCoverage['status'] ?? null) !== 'observed') {
+            $blockers[] = 'mutation_coverage_receipt_not_observed';
+        }
+        $registeredMutationSurfaces = array_values(array_unique(array_map('strval', (array) ($mutationCoverage['registered_mutation_surfaces'] ?? []))));
+        $testedMutationSurfaces = array_values(array_unique(array_map('strval', (array) ($mutationCoverage['tested_mutation_surfaces'] ?? []))));
+        sort($registeredMutationSurfaces, SORT_STRING);
+        sort($testedMutationSurfaces, SORT_STRING);
+        $canonicalMutationSurfaces = [
+            'atlas_autonomos.commit_governance',
+            'atlas_autonomos.native_worker',
+            'atlas_autonomos.task_serving',
+            'atlas_dev.pipeline_run_executor',
+            'atlas_forge.work_packet_execution_cycle',
+            'engineering_kernel.merge_actuator',
+        ];
+        if ($registeredMutationSurfaces !== $canonicalMutationSurfaces
+            || $testedMutationSurfaces !== $canonicalMutationSurfaces) {
+            $blockers[] = 'mutation_surface_matrix_incomplete';
+        }
+        if ((int) ($receipt['mutation_coverage_percent'] ?? 0) !== 100) {
+            $blockers[] = 'mutation_coverage_not_complete';
+        }
+        if (($mutationCoverage['schema'] ?? null) !== 'atlas.quality_foundry.mutation_coverage_evidence.v1'
+            || (int) ($mutationCoverage['total_mutants'] ?? 0) <= 0
+            || (int) ($mutationCoverage['killed_mutants'] ?? -1) < 0
+            || (int) ($mutationCoverage['surviving_mutants'] ?? -1) !== (int) ($mutationCoverage['total_mutants'] ?? 0) - (int) ($mutationCoverage['killed_mutants'] ?? 0)
+            || (float) ($mutationCoverage['mutation_score_percent'] ?? -1) < self::MUTATION_SCORE_FLOOR_PERCENT) {
+            $blockers[] = 'mutation_coverage_evidence_missing';
         }
 
         $qualityLoss = is_array($receipt['quality_loss_input'] ?? null) ? $receipt['quality_loss_input'] : [];

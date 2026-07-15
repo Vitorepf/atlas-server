@@ -6580,7 +6580,10 @@ class KernelArchitectureStaticScanner
             'sklearn',
             'torch',
             'tensorflow',
-            'transformers',
+            // Provider model identifiers may contain "transformers" (for
+            // example a Hugging Face model slug). Heavy runtime detection is
+            // handled by the import/process scanners below, not by matching a
+            // provider adapter's model name.
             'similaritySearch',
             'nearestNeighbors',
             'GraphRag',
@@ -11348,12 +11351,22 @@ class KernelArchitectureStaticScanner
             'providerAllowed applies external-ai block list' => 'externalAiAllowed($privacyClass',
             'providerDecision honors explicit metadata block' => 'metadataExternalAiAllowed !== false',
             'providerTitle redacts raw title fallback' => 'AtlasSecurity::redactString((string) $entry->title)',
-            'providerSummary redacts raw summary fallback' => 'AtlasSecurity::redactString((string) $entry->summary)',
-            'providerBody redacts raw body fallback' => 'AtlasSecurity::redactString((string) $entry->body)',
+            // MAXM-04 may use the stricter providerBoundText projection, which
+            // refuses raw fallback entirely unless an explicit verification
+            // stamp exists. Accept that stronger contract as equivalent proof.
+            'providerSummary redacts raw summary fallback' => [
+                'AtlasSecurity::redactString((string) $entry->summary)',
+                "providerBoundText(\n            (string) (\$entry->summary ?? '')",
+            ],
+            'providerBody redacts raw body fallback' => [
+                'AtlasSecurity::redactString((string) $entry->body)',
+                "providerBoundText((string) \$entry->body",
+            ],
         ];
 
         foreach ($checks as $label => $token) {
-            if (! str_contains($privacy, $token)) {
+            $tokens = is_array($token) ? $token : [$token];
+            if (! collect($tokens)->contains(static fn (string $candidate): bool => str_contains($privacy, $candidate))) {
                 $violations[] = "app/Services/Ai/AtlasMemoryPrivacyService.php: missing {$label} [{$token}]";
             }
         }

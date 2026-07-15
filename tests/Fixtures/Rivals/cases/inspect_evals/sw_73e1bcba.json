@@ -1,0 +1,12 @@
+{
+    "case_id": "sw_73e1bcba",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "sw_73e1bcba",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em suaíli",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"sw\"]"
+    }
+}

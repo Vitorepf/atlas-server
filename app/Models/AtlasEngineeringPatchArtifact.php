@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AtlasEngineeringPatchArtifact extends Model
 {
@@ -46,5 +47,12 @@ class AtlasEngineeringPatchArtifact extends Model
     public function attempt(): BelongsTo
     {
         return $this->belongsTo(AtlasEngineeringRunAttempt::class, 'attempt_id');
+    }
+
+    public function fileReviewDecisions(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringFileReviewDecision::class, 'patch_artifact_id')
+            ->latest('decided_at')
+            ->latest('updated_at');
     }
 }

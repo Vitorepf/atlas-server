@@ -26,6 +26,9 @@ use Symfony\Component\Process\Process;
  */
 final class SymfonyMutationCommandRunner implements MutationCommandRunner
 {
+    /** @param array<string,string> $environment */
+    public function __construct(private readonly array $environment = []) {}
+
     public function run(string $command, string $workspace, int $timeoutSeconds): MutationCommandOutcome
     {
         if (! is_dir($workspace)) {
@@ -45,7 +48,10 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
         $process = Process::fromShellCommandline(
             command: $command,
             cwd: $workspace,
-            env: AtlasDevProcessEnvironment::verificationCommandEnv(),
+            env: array_merge(
+                AtlasDevProcessEnvironment::verificationCommandEnv(),
+                $this->environment,
+            ),
             input: null,
             timeout: max(1, $timeoutSeconds),
         );
@@ -80,7 +86,8 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
         // mutator.originalFilePath) AND a ready-made PerFileMutationStats list
         // (so a consumer that only wants the typed breakdown does not have to
         // re-parse the report).
-        $reportPath = $this->extractReportPath($command);
+        $reportPath = $this->extractReportPath($command)
+            ?? $this->extractReportPathFromConfiguration($command);
         $reportPayload = $reportPath !== null && is_file($reportPath)
             ? $this->decodeSummary($reportPath)
             : null;
@@ -137,6 +144,30 @@ final class SymfonyMutationCommandRunner implements MutationCommandRunner
         }
 
         return $value;
+    }
+
+    /**
+     * Infection 0.33 reads the JSON logger path from the per-run config; it
+     * does not accept a --logger-json CLI flag. Resolve that configured path
+     * so the summary and full mutation population are correlated to one run.
+     */
+    private function extractReportPathFromConfiguration(string $command): ?string
+    {
+        if (preg_match('/--configuration=([^\s]+)/', $command, $m) !== 1) {
+            return null;
+        }
+        $path = (string) $m[1];
+        if (strlen($path) >= 2 && ($path[0] === "'" || $path[0] === '"')) {
+            $path = trim($path, "'\"");
+        }
+        $raw = @file_get_contents($path);
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+        $config = json_decode($raw, true);
+        $report = is_array($config) ? data_get($config, 'logs.json') : null;
+
+        return is_string($report) && trim($report) !== '' ? $report : null;
     }
 
     /**

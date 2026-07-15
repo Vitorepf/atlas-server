@@ -87,6 +87,23 @@ final class SoftwareCompanyLoopRunJob implements ShouldQueue
         // The runner is the single owner of selection/execution/merge + the exclusive
         // lock, crash recovery, budgets and the append-only ledger. A STATUS_LOCK_HELD
         // return is a clean no-op (another worker already holds the area/focus lock).
-        $runner->run($this->input);
+        $report = $runner->run($this->input);
+        $handoffId = trim((string) ($report['handoff_id'] ?? ''));
+        if (($report['status'] ?? '') !== Reliable24hLoopRunnerService::STATUS_TRANSFER_REQUESTED || $handoffId === '') {
+            return;
+        }
+
+        // The source has already released its exclusive lock. Persist "enqueued" before
+        // dispatch so a fast worker can claim the receipt; if dispatch throws, correct the
+        // durable state rather than leaving a fabricated target behind.
+        if ($runner->handoff()->markSuccessorEnqueued($handoffId, (string) ($report['run_id'] ?? '')) === null) {
+            return;
+        }
+        try {
+            self::dispatch(array_merge($this->input, ['handoff_id' => $handoffId]), $this->areaId, $this->focus);
+        } catch (\Throwable $e) {
+            $runner->handoff()->markDispatchFailed($handoffId, (string) ($report['run_id'] ?? ''));
+            throw $e;
+        }
     }
 }

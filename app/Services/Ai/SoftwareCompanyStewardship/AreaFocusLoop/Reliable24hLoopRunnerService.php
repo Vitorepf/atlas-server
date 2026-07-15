@@ -57,6 +57,9 @@ final class Reliable24hLoopRunnerService
 
     public const STATUS_PAUSED = 'stopped_pause';
 
+    /** The lock holder released the same mission at an iteration boundary for a queued successor. */
+    public const STATUS_TRANSFER_REQUESTED = 'stopped_transfer_requested';
+
     public const STATUS_BUDGET = 'stopped_budget';
 
     public const STATUS_BLOCKED_STOP = 'stopped_on_blocked';
@@ -242,6 +245,8 @@ final class Reliable24hLoopRunnerService
     /** @var null|callable(int,string):bool */
     private $processKiller = null;
 
+    private ?Reliable24hLoopHandoffService $handoffService = null;
+
     public function __construct(
         private readonly AutonomousEvolutionSessionService $session,
         private readonly AreaFocusBranchSandboxMaterializer $materializer,
@@ -331,6 +336,11 @@ final class Reliable24hLoopRunnerService
     public function pausePath(string $areaId, string $focus): string
     {
         return $this->storageDir().DIRECTORY_SEPARATOR.$this->key($areaId, $focus).'.pause';
+    }
+
+    public function handoff(): Reliable24hLoopHandoffService
+    {
+        return $this->handoffService ??= new Reliable24hLoopHandoffService($this);
     }
 
     /**
@@ -583,12 +593,26 @@ final class Reliable24hLoopRunnerService
         }
 
         // 2. Exclusive lock per area/focus.
-        $lock = $this->acquireLock($areaId, $focus, $runId, $leaseTtl);
+        $lock = $this->acquireLock($areaId, $focus, $runId, $leaseTtl, $input);
         if ($lock['acquired'] !== true) {
             return $this->report($areaId, $focus, $runId, self::STATUS_LOCK_HELD, 'lock_held_by_'.(string) ($lock['holder']['run_id'] ?? 'unknown'), [], $budgets, $execute, $dryRun, $lock['holder'] ?? null, 0, 0, 0);
         }
 
+        $handoffId = trim((string) ($input['handoff_id'] ?? ''));
+
         try {
+            if ($handoffId !== '') {
+                $claimed = $this->handoff()->claimTarget(
+                    $handoffId,
+                    $areaId,
+                    $focus,
+                    $runId,
+                    gethostname() ?: 'unknown',
+                );
+                if ($claimed === null) {
+                    return $this->report($areaId, $focus, $runId, self::STATUS_LOCK_HELD, 'handoff_not_claimable', [], $budgets, $execute, $dryRun, null, 0, 0, 0);
+                }
+            }
             $this->reapLoopSandboxProcesses($input, $execute, $areaId);
 
             // 3. Crash recovery: resume cumulative counters and seen findings from the ledger.
@@ -628,6 +652,7 @@ final class Reliable24hLoopRunnerService
             $startedAt = $this->time();
             $status = $execute ? self::STATUS_COMPLETED : self::STATUS_DRY_RUN;
             $stopReason = 'budget_or_no_more_work';
+            $releasedHandoffId = null;
 
             $this->sweepMergedCleanSandboxes($input, $execute, $areaId);
 
@@ -649,6 +674,22 @@ final class Reliable24hLoopRunnerService
                     $status = self::STATUS_PAUSED;
                     $stopReason = 'pause_file_present';
                     break;
+                }
+                if ($handoff = $this->handoff()->requestForSource($areaId, $focus, $runId)) {
+                    $released = $this->handoff()->markSourceReleased((string) $handoff['handoff_id'], $runId, [
+                        'cycles_total' => $cycleIndex,
+                        'cycles_this_run' => $cyclesThisRun,
+                        'merges_total' => $mergesTotal,
+                        'blocked_in_row' => $blockedInRow,
+                        'last_cycle' => $cycleReports === [] ? null : $cycleReports[array_key_last($cycleReports)],
+                        'recorded_at' => AreaFocusUtcClock::atomNow(),
+                    ]);
+                    if ($released !== null) {
+                        $releasedHandoffId = (string) $released['handoff_id'];
+                        $status = self::STATUS_TRANSFER_REQUESTED;
+                        $stopReason = 'transfer_requested_by_operator';
+                        break;
+                    }
                 }
 
                 // Budget checks before spending a cycle.
@@ -937,7 +978,7 @@ final class Reliable24hLoopRunnerService
             // run starts. Best-effort, merged+clean only, never destructive.
             $this->sweepMergedCleanSandboxes($input, $execute, $areaId);
 
-            return $this->report(
+            $report = $this->report(
                 $areaId, $focus, $runId, $status, $stopReason, $cycleReports, $budgets, $execute, $dryRun,
                 null, $cyclesThisRun, $mergesTotal, $blockedInRow,
                 resumedFrom: (int) $resume['last_cycle_index'],
@@ -945,6 +986,12 @@ final class Reliable24hLoopRunnerService
                 seenFindingCount: count($seenFindingKeys),
                 stewardshipRecovery: $stewardshipRecovery->toArray(),
             );
+            if ($releasedHandoffId !== null) {
+                $report['handoff_id'] = $releasedHandoffId;
+                $report['handoff'] = $this->handoff()->publicRecord($releasedHandoffId);
+            }
+
+            return $report;
         } finally {
             $this->reapLoopSandboxProcesses($input, $execute, $areaId);
             $this->releaseLock($areaId, $focus, $runId);
@@ -2583,7 +2630,7 @@ final class Reliable24hLoopRunnerService
     /**
      * @return array{acquired:bool,holder?:array<string,mixed>}
      */
-    private function acquireLock(string $areaId, string $focus, string $runId, int $leaseTtl): array
+    private function acquireLock(string $areaId, string $focus, string $runId, int $leaseTtl, array $input = []): array
     {
         $path = $this->lockPath($areaId, $focus);
         File::ensureDirectoryExists(dirname($path));
@@ -2609,10 +2656,58 @@ final class Reliable24hLoopRunnerService
             'acquired_at' => AreaFocusUtcClock::atomNow(),
             'acquired_at_epoch' => $this->time(),
             'lease_ttl_seconds' => $leaseTtl,
+            // Public placement is intentionally label-only. The runner's absolute
+            // repo_root can contain a user path and is never serialized into a
+            // lock/HTTP surface; branch stays null when Git cannot prove it.
+            'runtime' => $this->runtimePlacement($this->repoRootFromInput($input)),
         ];
         File::put($path, json_encode($lock, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return ['acquired' => true, 'holder' => $lock];
+    }
+
+    /**
+     * @return array{environment:?string,workspace:?string,repository:?string,branch:?string}
+     */
+    private function runtimePlacement(string $repoRoot): array
+    {
+        $repoRoot = rtrim(trim($repoRoot), DIRECTORY_SEPARATOR);
+        $repository = $repoRoot !== '' ? basename($repoRoot) : null;
+        $parent = $repoRoot !== '' ? dirname($repoRoot) : '';
+        $workspace = $parent !== '' && $parent !== '.' && $parent !== DIRECTORY_SEPARATOR
+            ? basename($parent)
+            : null;
+        $environment = null;
+        if (function_exists('app')) {
+            try {
+                $environment = app()->environment();
+            } catch (Throwable) {
+                // Degrade honestly to the process environment below.
+            }
+        }
+        if (! is_string($environment) || trim($environment) === '') {
+            $environment = trim((string) (getenv('APP_ENV') ?: '')) ?: null;
+        }
+
+        $branch = null;
+        if ($repoRoot !== '' && is_dir($repoRoot)) {
+            try {
+                $process = new Process(['git', 'branch', '--show-current'], $repoRoot);
+                $process->setTimeout(10);
+                $process->run();
+                $candidate = trim($process->getOutput());
+                $branch = $process->isSuccessful() && $candidate !== '' ? $candidate : null;
+            } catch (Throwable) {
+                // A non-git or degraded runtime has no provable branch.
+            }
+        }
+
+        return [
+            'environment' => $environment,
+            'workspace' => $workspace,
+            'repository' => $repository,
+            'branch' => $branch,
+        ];
     }
 
     /** @param array<string,mixed> $lock */

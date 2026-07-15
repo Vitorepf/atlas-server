@@ -108,6 +108,13 @@ class AtlasEngineeringRun extends Model
             ->latest('created_at');
     }
 
+    public function fileReviewDecisions(): HasMany
+    {
+        return $this->hasMany(AtlasEngineeringFileReviewDecision::class, 'engineering_run_id')
+            ->latest('decided_at')
+            ->latest('updated_at');
+    }
+
     public function benchmarkResults(): HasMany
     {
         return $this->hasMany(AtlasEngineeringBenchmarkResult::class, 'engineering_run_id')

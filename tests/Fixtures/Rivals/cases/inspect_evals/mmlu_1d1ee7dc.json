@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_1d1ee7dc",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_1d1ee7dc",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — virology",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

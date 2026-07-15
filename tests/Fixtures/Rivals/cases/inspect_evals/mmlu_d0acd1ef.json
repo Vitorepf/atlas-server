@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_d0acd1ef",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_d0acd1ef",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — high_school_us_history",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

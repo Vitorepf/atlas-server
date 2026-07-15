@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_c0723cdd",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_c0723cdd",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — high_school_biology",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

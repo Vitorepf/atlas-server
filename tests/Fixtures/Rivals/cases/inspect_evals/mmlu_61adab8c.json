@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_61adab8c",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_61adab8c",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — computer_security",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

@@ -1,0 +1,9 @@
+{
+    "case_id": "mmlu_807059c6",
+    "task_ref": "inspect_evals/mmlu_0_shot",
+    "sample_id": "mmlu_807059c6",
+    "task_type": "knowledge_qa",
+    "title": "MMLU conhecimento — professional_law",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals"
+}

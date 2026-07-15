@@ -1,0 +1,12 @@
+{
+    "case_id": "fr_aa82575e",
+    "task_ref": "inspect_evals/mgsm",
+    "sample_id": "fr_aa82575e",
+    "task_type": "multilingual_reasoning",
+    "title": "MGSM matemática em francês",
+    "suite_id": "inspect_evals",
+    "source_repo": "inspect_evals",
+    "task_params": {
+        "languages": "[\"fr\"]"
+    }
+}

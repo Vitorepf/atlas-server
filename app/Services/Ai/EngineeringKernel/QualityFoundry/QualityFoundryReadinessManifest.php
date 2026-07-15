@@ -30,7 +30,8 @@ final class QualityFoundryReadinessManifest
     ];
 
     /** @return array<string,mixed> */
-    public function build(): array
+    /** @param array<string,mixed>|null $operationalInput */
+    public function build(?array $operationalInput = null): array
     {
         $plans = [];
         $openItems = [];
@@ -117,19 +118,36 @@ final class QualityFoundryReadinessManifest
             ];
         }
 
-        $blockers = [];
+        $checklistBlockers = [];
         if ($missingFiles !== []) {
-            $blockers[] = 'master_plan_files_missing';
+            $checklistBlockers[] = 'master_plan_files_missing';
         }
         if ($openItems !== []) {
-            $blockers[] = 'master_plan_checklist_open';
+            $checklistBlockers[] = 'master_plan_checklist_open';
         }
+
+        // A markdown checklist proves only that implementation tasks were
+        // recorded as done. Independent evidence is accepted only through
+        // the same fail-closed operational gate used by the mode manifest.
+        // With no input, the gate remains blocked by design.
+        $operationalEvidence = (new QualityFoundryOperationalEvidenceGate)->evaluate($operationalInput ?? []);
+        $operationalEvidenceStatus = ($operationalEvidence['operational_evidence_attested'] ?? false) === true
+            ? 'attested'
+            : 'not_attested';
+        $completionBlockers = array_values(array_unique([
+            ...$checklistBlockers,
+            ...array_values(array_map('strval', (array) ($operationalEvidence['blockers'] ?? []))),
+        ]));
 
         $payload = [
             'schema' => self::SCHEMA,
-            'status' => $blockers === [] ? 'ready' : 'blocked',
-            'completion_allowed' => $blockers === [],
-            'blockers' => $blockers,
+            'status' => $completionBlockers === [] ? 'ready' : 'blocked',
+            'completion_allowed' => $completionBlockers === [],
+            'checklist_status' => $checklistBlockers === [] ? 'ready' : 'blocked',
+            'checklist_completion_allowed' => $checklistBlockers === [],
+            'operational_evidence_status' => $operationalEvidenceStatus,
+            'operational_evidence' => $operationalEvidence,
+            'blockers' => $completionBlockers,
             'missing_files' => $missingFiles,
             'summary' => [
                 'plan_count' => count(self::PLAN_FILES),

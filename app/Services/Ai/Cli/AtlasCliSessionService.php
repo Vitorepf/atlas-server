@@ -369,7 +369,6 @@ class AtlasCliSessionService
         if ($threadId) {
             return AiThread::query()
                 ->whereKey($threadId)
-                ->where('surface', 'atlas_cli')
                 ->first();
         }
 

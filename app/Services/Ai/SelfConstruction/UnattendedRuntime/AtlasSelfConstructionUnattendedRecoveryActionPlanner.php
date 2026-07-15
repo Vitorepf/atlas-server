@@ -20,7 +20,7 @@ namespace App\Services\Ai\SelfConstruction\UnattendedRuntime;
  *
  * `requires_emergency_override` is true only for unsafe_stop classifications.
  */
-final class AtlasSelfConstructionUnattendedRecoveryActionPlanner
+final class AtlasSelfConstructionUnattendedRecoveryActionPlanner implements AtlasSelfConstructionUnattendedRecoveryActionPlannerPort
 {
     public const SCHEMA = 'atlas.self_construction.unattended_recovery_action_plan.v1';
 
