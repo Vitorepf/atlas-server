@@ -1,9 +1,9 @@
 {
-    "case_id": "mmlu_5cb4319f",
-    "task_ref": "inspect_evals/mmlu_0_shot",
-    "sample_id": "mmlu_5cb4319f",
-    "task_type": "knowledge_qa",
-    "title": "MMLU conhecimento 3",
-    "suite_id": "inspect_evals",
-    "source_repo": "inspect_evals"
+ "case_id": "mmlu_5cb4319f",
+ "task_ref": "inspect_evals/mmlu_0_shot",
+ "sample_id": "mmlu_5cb4319f",
+ "task_type": "knowledge_qa",
+ "title": "MMLU conhecimento — miscellaneous",
+ "suite_id": "inspect_evals",
+ "source_repo": "inspect_evals"
 }

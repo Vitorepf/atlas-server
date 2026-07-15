@@ -1,9 +1,9 @@
 {
-    "case_id": "mmlu_3033bed0",
-    "task_ref": "inspect_evals/mmlu_0_shot",
-    "sample_id": "mmlu_3033bed0",
-    "task_type": "knowledge_qa",
-    "title": "MMLU conhecimento 2",
-    "suite_id": "inspect_evals",
-    "source_repo": "inspect_evals"
+ "case_id": "mmlu_3033bed0",
+ "task_ref": "inspect_evals/mmlu_0_shot",
+ "sample_id": "mmlu_3033bed0",
+ "task_type": "knowledge_qa",
+ "title": "MMLU conhecimento — college_physics",
+ "suite_id": "inspect_evals",
+ "source_repo": "inspect_evals"
 }

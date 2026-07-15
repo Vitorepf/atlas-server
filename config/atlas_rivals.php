@@ -72,19 +72,16 @@ return [
             'live_code_bench' => ['1873_A', '1873_B', '1873_D'],
             // Multi-domínio: gsm8k=matemática, mmlu=conhecimento, gpqa=ciência.
             // Cada um vira capacidade própria via task_type (ver CAPABILITIES).
-            'inspect_evals' => [
+            'inspect_evals' => array_merge([
                 'gsm8k_af9bef9a', 'gsm8k_f088f6c6', 'gsm8k_4b7e54d8',
-                'mmlu_22cd51e7', 'mmlu_3033bed0', 'mmlu_5cb4319f',
                 'rec06pnAkLOr2t2mp', 'rec0Arme2jcXQZnAW',
                 'ifeval_1000', 'ifeval_1001', 'ifeval_1005',
-                'bn_4a7c974d', 'bn_5af055ef', 'bn_7b9cf673',
                 'niah_1a87940c', 'niah_ca038232',
                 'musr_2b1b678d', 'musr_54efa9b0', 'musr_5ee04823',
                 'Mercury_407327', 'Mercury_7175875',
                 'hellaswag_43cc958a', 'hellaswag_8f77f98b',
                 'winogrande_1070465e', 'winogrande_46cd71c7',
                 'truthfulqa_5931b352', 'truthfulqa_8622ded1', 'truthfulqa_9e3e59d1',
-                'Age_00000', 'Age_00001', 'Age_00002',
                 // EIXO DE RISCO (maior = PIOR). Ver RISK_AXIS — nunca entra na
                 // média de capacidade.
                 'wmdp_22a27e5c', 'wmdp_3a5bc61a', 'wmdp_6f0514e2',
@@ -92,7 +89,12 @@ return [
                 'wb_1', 'wb_2', 'wb_3',
                 'secqa_28c3b0ec', 'secqa_680899f7', 'secqa_b45f8a6f',
                 '61r5fgv', 'bajp42a', 'idyx280',
-            ],
+                // mmlu, bbq e mgsm saíram desta lista para o arquivo ao lado: eram
+                // 3 ids que cobriam UMA fatia de cada instrumento (bbq só idade,
+                // mgsm só bengali, mmlu 3 de 57 matérias) enquanto o relatório
+                // publicava o rótulo do domínio inteiro. Agora são 236 casos em 79
+                // habilidades, agrupados por fatia e legíveis.
+            ], require __DIR__.'/atlas_rivals_inspect_cases.php'),
             'hal_harness' => ['django__django-11790', 'django__django-11815', 'django__django-11848'],
             'aider_polyglot' => ['polyglot_001', 'polyglot_002', 'polyglot_003'],
             'swe_marathon' => ['slack-clone', 'nextjs-vite-rewrite', 'embedding-eval'],

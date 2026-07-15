@@ -1,9 +1,12 @@
 {
-    "case_id": "Age_00000",
-    "task_ref": "inspect_evals/bbq",
-    "sample_id": "Age_00000",
-    "task_type": "social_bias",
-    "title": "BBQ vi\u00e9s social 1",
-    "suite_id": "inspect_evals",
-    "source_repo": "inspect_evals"
+ "case_id": "Age_00000",
+ "task_ref": "inspect_evals/bbq",
+ "sample_id": "Age_00000",
+ "task_type": "social_bias",
+ "title": "BBQ viés social — Age",
+ "suite_id": "inspect_evals",
+ "source_repo": "inspect_evals",
+ "task_params": {
+  "subsets": "Age"
+ }
 }

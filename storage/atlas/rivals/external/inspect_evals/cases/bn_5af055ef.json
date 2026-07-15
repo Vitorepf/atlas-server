@@ -1,9 +1,12 @@
 {
-    "case_id": "bn_5af055ef",
-    "task_ref": "inspect_evals/mgsm",
-    "sample_id": "bn_5af055ef",
-    "task_type": "multilingual_reasoning",
-    "title": "MGSM multil\u00edngue 2",
-    "suite_id": "inspect_evals",
-    "source_repo": "inspect_evals"
+ "case_id": "bn_5af055ef",
+ "task_ref": "inspect_evals/mgsm",
+ "sample_id": "bn_5af055ef",
+ "task_type": "multilingual_reasoning",
+ "title": "MGSM matemática em bengali",
+ "suite_id": "inspect_evals",
+ "source_repo": "inspect_evals",
+ "task_params": {
+  "languages": "[\"bn\"]"
+ }
 }
