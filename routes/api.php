@@ -76,6 +76,7 @@ use App\Http\Controllers\AtlasCodeReposController;
 use App\Http\Controllers\AtlasCodeHealController;
 use App\Http\Controllers\AtlasCodePreflightController;
 use App\Http\Controllers\AtlasCodeProvenanceController;
+use App\Http\Controllers\AtlasCodeAskController;
 use App\Http\Controllers\AtlasCodeViolationController;
 use App\Http\Controllers\AtlasCodeWeekController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
@@ -270,6 +271,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
         ->where('hash', '[0-9a-fA-F]{7,64}');
     Route::get('/code/violations', AtlasCodeViolationController::class);
     Route::get('/code/week', AtlasCodeWeekController::class);
+    // H6 pílula · pergunta em linguagem humana sobre o grafo (read-only).
+    Route::post('/code/ask', AtlasCodeAskController::class);
 
     // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
     // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the

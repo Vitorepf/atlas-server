@@ -97,15 +97,9 @@ final class AtlasCodeViolationService
     /** @return array<string,mixed> */
     public function capture(string $repo): array
     {
-        $profiles = new AtlasCodeWorkspaceProfileService();
-        $profile = $profiles->findByReference($repo);
-        if (! is_array($profile)) {
-            throw new InvalidArgumentException('repository_profile_not_found');
-        }
-        $path = trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? ''));
-        if ($path === '' || ! is_dir($path)) {
-            throw new InvalidArgumentException('repository_path_missing_or_unreadable');
-        }
+        // Mesma frota do radar, do grafo e da folha: a lei vale para todos os
+        // repositórios que o app mostra, não só para os registrados.
+        $path = (new AtlasCodeRepoLocator())->locate($repo)['path'];
 
         $currentBranch = trim($this->run($path, ['git', 'branch', '--show-current'])) ?: 'HEAD';
         $mainBranch = 'main';
