@@ -71,8 +71,11 @@ use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
 use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
 use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
 use App\Http\Controllers\AtlasCodeGraphController;
+use App\Http\Controllers\AtlasCodeHealController;
+use App\Http\Controllers\AtlasCodePreflightController;
 use App\Http\Controllers\AtlasCodeProvenanceController;
 use App\Http\Controllers\AtlasCodeViolationController;
+use App\Http\Controllers\AtlasCodeWeekController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
 use App\Http\Controllers\AtlasCodeObraCommandCenterController;
 use App\Http\Controllers\AtlasCodeObservedSessionController;
@@ -253,9 +256,14 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
 
     // Atlas Código C22 · local-first, read-only Git topology for the native app.
     Route::get('/code/graph', AtlasCodeGraphController::class);
+    Route::match(['get', 'post'], '/code/preflight', AtlasCodePreflightController::class);
+    Route::match(['get', 'post'], '/code/heals/tick', [AtlasCodeHealController::class, 'tick']);
+    Route::post('/code/heals/{healId}/undo', [AtlasCodeHealController::class, 'undo'])
+        ->where('healId', '[0-9A-Z]{20,32}');
     Route::get('/code/provenance/{hash}', AtlasCodeProvenanceController::class)
         ->where('hash', '[0-9a-fA-F]{7,64}');
     Route::get('/code/violations', AtlasCodeViolationController::class);
+    Route::get('/code/week', AtlasCodeWeekController::class);
 
     // AGENT GOVERNANCE — the fleet visibility + DESLIGAR surface the mobile/desktop apps poll. Read endpoints
     // (active/status/history) never start/stop anything; the only writes turn agents OFF (per-agent or the
