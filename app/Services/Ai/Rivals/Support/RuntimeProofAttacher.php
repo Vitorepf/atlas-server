@@ -72,6 +72,30 @@ final class RuntimeProofAttacher
                 : (is_array($entry)
                     ? $this->atlasProof((string) data_get($entry, 'normalization.scratch_dir'))
                     : null);
+            // TOKEN NÃO É PROVA DE QUE O ATLAS RODOU — é telemetria.
+            //
+            // Isto exigia `usage.present === true`, e o efeito era apagar o braço
+            // inteiro: os caminhos de run BLOQUEADO do Atlas Dev gravam
+            // `tokens_in => null` cravado (PipelineRunExecutor:4116 e :4259,
+            // KernelRunExecutor:118 — todos `completionState: 'blocked'`). Como
+            // bloqueado é exatamente o que acontece quando o Atlas ERRA ou RECUSA
+            // a tarefa, toda derrota do Atlas caía aqui, virava
+            // environment_failure e sumia do denominador. O braço só conseguia
+            // registrar acerto: 100% por construção.
+            //
+            // A assimetria é o que denuncia: o braço bare é `hermes -z`, que
+            // reporta usage e passa sempre. Ou seja, o portão reprovava só o lado
+            // que ele deveria medir.
+            //
+            // E ele nunca protegeu contra a fraude real: quando a coluna "com
+            // Atlas" rodava `hermes -z` disfarçado, o usage vinha presente e o
+            // portão aprovava alegremente. Não pega fraude; só apaga derrota.
+            //
+            // A prova de runtime que vale é a de baixo, e ela é derivada do que o
+            // `atlas:cli:dev --json` de fato devolveu: provider hermes_cli, o
+            // modelo pedido, e uma chamada de provider que aconteceu. O usage
+            // segue gravado como dado — com `present: false` quando faltar, que é
+            // telemetria ausente, não execução ausente.
             $valid = is_array($proof)
                 && ($proof['status'] ?? null) === 'passed'
                 && ($proof['real_provider'] ?? false) === true
@@ -79,8 +103,7 @@ final class RuntimeProofAttacher
                 && ($proof['model'] ?? null) === ($binding['cli_model'] ?? null)
                 && data_get($proof, 'fair_mode.single_provider') === true
                 && data_get($proof, 'fair_mode.decide_disabled') === true
-                && data_get($proof, 'fair_mode.fallback_disabled') === true
-                && data_get($proof, 'usage.present') === true;
+                && data_get($proof, 'fair_mode.fallback_disabled') === true;
             $metadata['runtime_bridge'] = $valid
                 ? $proof
                 : [
