@@ -54,7 +54,26 @@ $provider = match ($modelSpec['provider'] ?? null) {
     default => null,
 };
 $ai = ($modelSpec['provider'] ?? null) === 'hermes' ? 'hermes' : null;
-$useHermesOnesHot = $ai === 'hermes';
+
+// ⚠️ ERA `$useHermesOnesHot = $ai === 'hermes'`, e o modelo primário do relatório
+// (verboo_kimi_k2_7) TEM provider=hermes — então o braço "com Atlas" caía sempre
+// no atalho `hermes -z`: Hermes CLI puro, sem artisan, sem Atlas no laço.
+// 107 recibos com execution=hermes_cli_oneshot e ZERO com atlas_cli_dev_efficient
+// em toda a história de runs: a coluna "com Atlas" nunca mediu o Atlas.
+//
+// Rodar COM ATLAS = rodar o Atlas Dev (`atlas:cli:dev`), que é o que o
+// $cliDevArgv abaixo sempre fez e nunca foi escolhido. O roteador do Dev
+// executa em worktree de benchmark: tem bypass próprio para este bridge
+// (RoutingDecisionEngine::allowsRivalsIsolatedRuntimeExecution, ligado por
+// ATLAS_RIVALS_RUNTIME_EXECUTION que este script já exporta) — verificado ao
+// vivo: routing=atlas_dev_fast_path, is_executable=true.
+//
+// Mantido só como escape explícito do operador, nunca por dedução do provider:
+// foi a dedução silenciosa que trocou a medição sem ninguém ver.
+$useHermesOnesHot = filter_var(
+    getenv('ATLAS_RIVALS_BRIDGE_HERMES_ONESHOT') ?: false,
+    FILTER_VALIDATE_BOOLEAN,
+);
 
 $prompt = trim((string) file_get_contents($promptFile));
 $atlasPrompt = "# Atlas Dev (rivals atlas_dev arm)\n"

@@ -48,8 +48,27 @@ class AtlasDevBridgeTest extends TestCase
         $this->assertContains('--provider=claude_cli', $payload['argv']);
     }
 
-    public function test_bridge_routes_verboo_kimi_through_hermes_without_provider_fallback(): void
+    public function test_bridge_runs_atlas_dev_for_kimi_never_bare_hermes(): void
     {
+        // ⚠️ Este teste AFIRMAVA O BUG. Ele se chamava
+        // "routes_verboo_kimi_through_hermes_without_provider_fallback" e fixava
+        // `execution === 'hermes_cli_oneshot'` + `argv[0] === 'hermes'` como
+        // contrato — era ele que mantinha o bypass vivo e verde.
+        //
+        // O que ele queria era legítimo: impedir que kimi caísse em claude_cli.
+        // A solução escolhida foi pular o Atlas INTEIRO — e aí o braço "com
+        // Atlas" virou `hermes -z`, Hermes CLI puro, sem artisan no laço. 107
+        // recibos com execution=hermes_cli_oneshot, ZERO com
+        // atlas_cli_dev_efficient: a coluna "com Atlas" do relatório nunca mediu
+        // o Atlas, e o delta comparava harness de agente.
+        //
+        // Rodar COM ATLAS = rodar o Atlas Dev. `hermes -z` é o músculo sozinho;
+        // `atlas:cli:dev --ai=hermes` é o Atlas orquestrando o mesmo músculo,
+        // com contexto, scope guard e verificação na frente. Só o segundo
+        // responde "o que o Atlas ADICIONA a este modelo".
+        //
+        // O anti-fallback continua garantido abaixo, agora sem pagar o preço de
+        // não medir nada.
         $process = new Process([
             PHP_BINARY,
             base_path('scripts/rivals-atlas-dev-bridge.php'),
@@ -58,6 +77,37 @@ class AtlasDevBridgeTest extends TestCase
             '--model=kimi-k2.7',
             '--dry-run',
         ], base_path());
+        $process->run();
+        $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
+        $payload = json_decode($process->getOutput(), true);
+
+        $this->assertSame('atlas_cli_dev_efficient', $payload['execution'], 'o braço Atlas tem de rodar o Atlas');
+        $this->assertSame('hermes', $payload['ai'], 'kimi segue no músculo hermes — mas agora sob o Atlas');
+        $this->assertNotSame('hermes', $payload['argv'][0] ?? null, 'nunca mais chamar o hermes cru como se fosse Atlas');
+        $this->assertContains('atlas:cli:dev', $payload['argv']);
+        $this->assertNotContains('-z', $payload['argv'], 'o one-shot cru do hermes não é o braço Atlas');
+        // O anti-fallback original, preservado: kimi jamais vira claude.
+        $this->assertNotContains('--provider=claude_cli', $payload['argv']);
+        $this->assertContains('--single-provider', $payload['argv']);
+        $this->assertContains('--no-decide', $payload['argv']);
+        $this->assertContains('--fallback-disabled', $payload['argv']);
+    }
+
+    public function test_hermes_oneshot_stays_reachable_only_as_explicit_operator_escape(): void
+    {
+        // O one-shot cru continua alcançável, mas só por escolha DECLARADA do
+        // operador — nunca por dedução do provider, que era como a medição
+        // trocava sozinha e em silêncio. Quem liga isto sabe que não está
+        // medindo o Atlas: o recibo sai com atlas_runtime=false e o uplift
+        // recusa o par.
+        $process = new Process([
+            PHP_BINARY,
+            base_path('scripts/rivals-atlas-dev-bridge.php'),
+            '--workspace='.$this->workspace,
+            '--prompt-file='.$this->workspace.'/.rivals_task.md',
+            '--model=kimi-k2.7',
+            '--dry-run',
+        ], base_path(), ['ATLAS_RIVALS_BRIDGE_HERMES_ONESHOT' => 'true']);
         $process->run();
         $this->assertTrue($process->isSuccessful(), $process->getErrorOutput());
         $payload = json_decode($process->getOutput(), true);
