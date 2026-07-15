@@ -525,6 +525,43 @@ final class AtlasCodeAskService
      * mesma que já vale para a tela: máquina embaixo do vidro, português em
      * cima. E o singular é dito: "1 dia", nunca "1 dias".
      */
+    /**
+     * O termo do operador, tolerante a acento, na sintaxe do git.
+     *
+     * BUG REAL (15/07): "procura pilula" devolvia "nenhum commit fala de
+     * pilula" — com SEIS commits sobre a pílula no repositório. O roteador
+     * normaliza a pergunta sem acento (certo: o operador escreve dos dois
+     * jeitos), e o `--grep` literal então nunca casa "pílula".
+     *
+     * Classe de caractere NÃO resolve: o regex do git é byte a byte e `í` são
+     * dois bytes em UTF-8 — `p[ií]lula` casa ZERO, medido. Só alternação
+     * funciona: `p(i|í)lula` casa os seis.
+     *
+     * Cada vogal vira o par sem-acento/com-acento. O resto é escapado: o termo
+     * é do operador, e um `.` ou `*` que ele digitou é literal, não curinga.
+     */
+    public function accentTolerantPattern(string $term): string
+    {
+        $variants = [
+            'a' => 'a|á|à|ã|â',
+            'e' => 'e|é|ê',
+            'i' => 'i|í',
+            'o' => 'o|ó|õ|ô',
+            'u' => 'u|ú|ü',
+            'c' => 'c|ç',
+        ];
+
+        $pattern = '';
+        foreach (preg_split('//u', $term, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+            $lower = mb_strtolower($char);
+            $pattern .= isset($variants[$lower])
+                ? '('.$variants[$lower].')'
+                : preg_quote($char, '/');
+        }
+
+        return $pattern;
+    }
+
     public static function ago(int $epoch, int $now): string
     {
         $seconds = max(0, $now - $epoch);
@@ -552,8 +589,11 @@ final class AtlasCodeAskService
             return $this->shape(false, 'procurar o quê? diga o assunto do commit.', source: self::SOURCE_GRAPH);
         }
 
+        // `-E` + alternação: o operador digita "pilula" e o commit diz "pílula".
         $lines = $this->git($path, [
-            'git', 'log', '--all', '-i', '--grep='.$term, '--format=%H%x1f%an%x1f%at%x1f%s',
+            'git', 'log', '--all', '-i', '-E',
+            '--grep='.$this->accentTolerantPattern($term),
+            '--format=%H%x1f%an%x1f%at%x1f%s',
         ]);
         $commits = $this->parseCommits($lines);
 
@@ -561,16 +601,50 @@ final class AtlasCodeAskService
             return $this->shape(true, "nenhum commit fala de \u{201C}{$term}\u{201D}.", source: self::SOURCE_GRAPH);
         }
 
-        $count = count($commits);
-        $noun = $count === 1 ? 'commit fala' : 'commits falam';
-        $newest = $commits[0]['message'];
-
         return $this->shape(
             true,
-            "{$count} {$noun} de \u{201C}{$term}\u{201D}. O mais recente: \u{201C}{$newest}\u{201D}",
+            $this->phraseFind($term, $commits),
             commits: array_column($commits, 'hash'),
             source: self::SOURCE_GRAPH,
         );
+    }
+
+    /**
+     * "cadê o commit do X?" — e o QUANDO, que é metade da busca.
+     *
+     * Achar 7 commits sobre "sanitizer" sem dizer se o último é de hoje ou de
+     * seis meses atrás deixa o operador com a metade da resposta. E se a
+     * conversa toda aconteceu num intervalo, o intervalo é a história.
+     *
+     * @param  array<int, array{hash:string, author_name:string, authored_at:int, message:string}>  $commits
+     */
+    public function phraseFind(string $term, array $commits, ?int $now = null): string
+    {
+        $now ??= time();
+        $count = count($commits);
+        $noun = $count === 1 ? 'commit fala' : 'commits falam';
+        $newest = $commits[0];
+
+        $phrase = "{$count} {$noun} de \u{201C}{$term}\u{201D}";
+
+        // Um só: a mensagem dele É a resposta, sem cerimônia de "o mais
+        // recente" — não há disputa.
+        if ($count === 1) {
+            return $phrase.', há '.self::ago($newest['authored_at'], $now)
+                .": \u{201C}{$newest['message']}\u{201D}";
+        }
+
+        $oldest = min(array_column($commits, 'authored_at'));
+        $newestAt = self::ago($newest['authored_at'], $now);
+        $oldestAt = self::ago($oldest, $now);
+
+        // O intervalo só é notícia quando as pontas diferem: "entre 3h e 3h"
+        // seria ruído.
+        $phrase .= $newestAt === $oldestAt
+            ? ", há {$newestAt}"
+            : ", entre {$oldestAt} e {$newestAt} atrás";
+
+        return $phrase.". O mais recente: \u{201C}{$newest['message']}\u{201D}";
     }
 
     /**

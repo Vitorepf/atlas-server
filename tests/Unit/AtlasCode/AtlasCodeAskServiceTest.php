@@ -219,6 +219,68 @@ final class AtlasCodeAskServiceTest extends TestCase
         ));
     }
 
+    public function test_the_operator_types_without_accent_and_still_finds_the_accented_commit(): void
+    {
+        // BUG REAL: "procura pilula" → "nenhum commit fala de pilula", com SEIS
+        // commits sobre a pílula no repositório. O roteador tira o acento
+        // (certo) e o --grep literal nunca casa "pílula".
+        //
+        // Classe de caractere não resolve: o regex do git é byte a byte e `í`
+        // são dois bytes — `p[ií]lula` casa ZERO (medido). Só alternação.
+        self::assertSame('p(i|í)l(u|ú|ü)l(a|á|à|ã|â)', $this->ask->accentTolerantPattern('pilula'));
+        self::assertSame('r(e|é|ê)v(i|í)s(a|á|à|ã|â)', $this->ask->accentTolerantPattern('revisa'));
+        // Consoante com cedilha entra no par; o resto passa igual.
+        self::assertSame('(c|ç)(o|ó|õ|ô)d(i|í)g(o|ó|õ|ô)', $this->ask->accentTolerantPattern('codigo'));
+    }
+
+    public function test_a_term_the_operator_typed_is_literal_never_a_wildcard(): void
+    {
+        // Se ele digitou `.` ou `*`, ele quis o caractere — não um curinga que
+        // faz a busca voltar o repositório inteiro.
+        $pattern = $this->ask->accentTolerantPattern('v1.*');
+
+        self::assertStringContainsString('\.', $pattern);
+        self::assertStringContainsString('\*', $pattern);
+    }
+
+    public function test_find_says_when_because_that_is_half_the_search(): void
+    {
+        $now = 1_784_100_000;
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'V', 'authored_at' => $now - 7200, 'message' => 'fix: o guarda'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'V', 'authored_at' => $now - 3 * 86400, 'message' => 'feat: nasce'],
+        ];
+
+        self::assertSame(
+            '2 commits falam de “sanitizer”, entre 3 dias e 2 horas atrás. O mais recente: “fix: o guarda”',
+            $this->ask->phraseFind('sanitizer', $commits, $now)
+        );
+    }
+
+    public function test_a_single_find_is_the_message_without_ceremony(): void
+    {
+        // Com um só, "o mais recente" é cerimônia: não há disputa.
+        $now = 1_784_100_000;
+        $commits = [['hash' => str_repeat('a', 40), 'author_name' => 'V', 'authored_at' => $now - 3600, 'message' => 'feat: pílula']];
+
+        self::assertSame(
+            '1 commit fala de “pilula”, há 1 hora: “feat: pílula”',
+            $this->ask->phraseFind('pilula', $commits, $now)
+        );
+    }
+
+    public function test_a_conversation_inside_one_window_does_not_fake_an_interval(): void
+    {
+        // "entre 3 horas e 3 horas atrás" seria ruído.
+        $now = 1_784_100_000;
+        $commits = [
+            ['hash' => str_repeat('a', 40), 'author_name' => 'V', 'authored_at' => $now - 10800, 'message' => 'b'],
+            ['hash' => str_repeat('b', 40), 'author_name' => 'V', 'authored_at' => $now - 11000, 'message' => 'a'],
+        ];
+
+        self::assertStringContainsString('há 3 horas.', $this->ask->phraseFind('x', $commits, $now));
+    }
+
     public function test_healthy_repository_is_quiet_not_celebrated(): void
     {
         self::assertSame('nada fora do lugar neste repositório.', $this->ask->phraseProblems([]));
