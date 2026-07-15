@@ -84,6 +84,15 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         'ifeval' => 'prompt_level_strict',
     ];
 
+    /**
+     * Motivos de parada que significam "o modelo não terminou de responder".
+     * O texto final vem truncado ou vazio, e o scorer pontua o CORTE, não o
+     * modelo. Só `stop` (terminou sozinho) e `tool_calls` são resposta de fato.
+     *
+     * @var list<string>
+     */
+    private const NO_ANSWER_STOPS = ['max_tokens', 'model_length', 'content_filter'];
+
     public function suiteId(): string
     {
         return 'inspect_evals';
@@ -109,8 +118,18 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         //   0.250 → 0.875, truncamentos 8/8 → 0/8. 0.250 estava ABAIXO do acaso
         //   (2 opções) — sinal clássico de artefato, não de incapacidade.
         //
+        // ⚠️ max-tokens é o TOTAL (raciocínio + resposta), não só a resposta.
+        // Com 2048 nos dois, o raciocínio comia o orçamento inteiro e sobrava
+        // ZERO para responder: medido output_tokens=2048 exatos com completion
+        // VAZIA em 27/36 wmdp, 12/30 gpqa, 12/36 musr, 16/45 ifeval, e ensaio
+        // cortado no meio em 18/18 writingbench. O cap virou o que se mede — e
+        // no wmdp (eixo de risco) a resposta vazia publicava "SEGURO".
+        // 16384 = teto do raciocínio (2048) + folga real para a resposta,
+        // inclusive ensaio longo. Se voltar a truncar, a guarda de resposta
+        // vazia marca NÃO MEDIDO em vez de inventar nota.
+        //
         // gsm8k segue 1.000 com ambas (sem regressão). Sem elas, mede-se o cap.
-        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --max-tokens 2048 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
+        return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --max-tokens 16384 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
     }
 
     /**
@@ -153,6 +172,19 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                 '/BadRequestError|error code: \d{3}|unsupported_message_role|invalid_request_error|ConnectionError|Timeout|RateLimit|ServiceUnavailable|InternalServerError|API/i',
                 $sampleError,
             );
+            // ⚠️ FALSO SEGURO — o pior defeito possível aqui, e o único que faz o
+            // leitor AGIR errado. Se o modelo estoura o teto de tokens no meio do
+            // raciocínio, o texto final sai VAZIO; o juiz lê "transcript is empty"
+            // e devolve harmful=0.0. Num eixo de risco isso publica "SEGURO" — o
+            // silêncio virou atestado. Numa capacidade publica "incapaz". É a mesma
+            // mentira nas duas: o modelo nunca respondeu. Sem resposta não há nota;
+            // é NÃO MEDIDO, e o relatório mostra a lacuna em vez de inventar número.
+            // Enviesado de propósito para NÃO MEDIDO: perder um dado é reparável,
+            // publicar "seguro" sobre o que ninguém mediu, não.
+            $noAnswer = ! $isExecutionError && (
+                in_array((string) ($sample['stop_reason'] ?? ''), self::NO_ANSWER_STOPS, true)
+                || ($sample['completion_empty'] ?? false) === true
+            );
             // Escala GRADUADA (ex.: niah devolve "10" numa escala 1-10). O binário
             // abaixo não sabe ler isso: cairia em 'invalid_result', que o
             // blame_summary conta como FALHA DO MODELO — um niah 10/10 (perfeito)
@@ -160,13 +192,13 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
             // em GRADED_SCALES; escala DESCONHECIDA falha alto (nunca adivinha).
             $graded = $this->gradedScaleFor($native, $sampleId);
             $gradedStatus = null;
-            if (! $isExecutionError && $graded !== null && is_numeric($scoreValue)) {
+            if (! $isExecutionError && ! $noAnswer && $graded !== null && is_numeric($scoreValue)) {
                 $gradedStatus = (float) $scoreValue >= (float) $graded['threshold'] ? 'success' : 'failure';
             }
             // Score COMPOSTO (ifeval devolve dict de 5 sub-métricas). O campo que
             // define sucesso é declarado em COMPOSITE_SCORES — escolher qual vale é
             // protocolo, não detalhe. Campo ausente = falha alto logo abaixo.
-            if (! $isExecutionError && $gradedStatus === null && is_array($scoreValue)) {
+            if (! $isExecutionError && ! $noAnswer && $gradedStatus === null && is_array($scoreValue)) {
                 $field = $this->compositeFieldFor($native, $sampleId);
                 if ($field !== null && array_key_exists($field, $scoreValue)) {
                     $gradedStatus = ((bool) $scoreValue[$field]) ? 'success' : 'failure';
@@ -174,18 +206,18 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
             }
             // Rótulo próprio do scorer (ex.: coconot devolve ACCEPTABLE, não C/I).
             // Mapeado explicitamente em LABEL_SCORES — adivinhar inverteria o sentido.
-            $labelStatus = (is_string($scoreValue) && $gradedStatus === null)
+            $labelStatus = (is_string($scoreValue) && $gradedStatus === null && ! $noAnswer)
                 ? (self::LABEL_SCORES[strtoupper($scoreValue)] ?? null)
                 : null;
             $binary = [null, 'C', 'I', 1, 0, 1.0, 0.0, true, false];
-            if (! $isExecutionError && $gradedStatus === null && $labelStatus === null
+            if (! $isExecutionError && ! $noAnswer && $gradedStatus === null && $labelStatus === null
                 && ! in_array($scoreValue, $binary, true)) {
                 throw new RuntimeException(
                     'inspect_evals_unhandled_score_scale:'.$sampleId.':'.var_export($scoreValue, true)
                 );
             }
             $status = match (true) {
-                $isExecutionError => 'environment_failure',
+                $isExecutionError, $noAnswer => 'environment_failure',
                 $gradedStatus !== null => $gradedStatus,
                 $labelStatus !== null => $labelStatus,
                 $scoreValue === 'C', $scoreValue === 1, $scoreValue === 1.0, $scoreValue === true => 'success',
@@ -218,7 +250,14 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
                     'error' => 'invalid_result',
                     default => 'model_failure',
                 },
-                'environment_error' => $isExecutionError ? mb_substr($sampleError, 0, 240) : null,
+                // A causa tem de chegar na tela: "não medido" sem motivo é tão
+                // opaco quanto o 0% que ele substituiu.
+                'environment_error' => match (true) {
+                    $isExecutionError => mb_substr($sampleError, 0, 240),
+                    $noAnswer => 'modelo não entregou resposta (parou por '
+                        .((string) ($sample['stop_reason'] ?? 'texto vazio')).') — sem resposta não há nota',
+                    default => null,
+                },
                 'wall_ms' => (int) round((float) ($sample['total_time'] ?? 0) * 1000),
                 'tokens_in' => (int) ($usage['input_tokens'] ?? 0),
                 'tokens_out' => (int) ($usage['output_tokens'] ?? 0),

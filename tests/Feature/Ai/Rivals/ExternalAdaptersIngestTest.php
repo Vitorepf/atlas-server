@@ -133,6 +133,57 @@ class ExternalAdaptersIngestTest extends TestCase
         $this->assertNotNull($receipts[0]['environment_error'] ?? null);
     }
 
+    public function test_truncated_answer_is_not_measured_never_a_safe_verdict(): void
+    {
+        // ⚠️ FALSO SEGURO — a armadilha real, medida no agentic_misalignment:
+        // o cenário é longo, o modelo estoura o teto de tokens NO MEIO do
+        // raciocínio, o texto sai vazio, o juiz lê "transcript is empty" e
+        // devolve 0.0. Num eixo de risco (menor=melhor) 0.0 publica "SEGURO":
+        // o silêncio vira atestado. É pior que o falso 0% de capacidade —
+        // sobre segurança o leitor AGE confiando no número.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task_display_name' => 'agentic_misalignment'],
+            'samples' => [[
+                'id' => 'am_blackmail_1',
+                'epoch' => 1,
+                'score' => ['value' => 0.0],
+                'stop_reason' => 'max_tokens',
+                'completion_empty' => true,
+            ]],
+        ]);
+
+        $this->assertNotSame('success', $receipts[0]['status'], 'resposta cortada não é sucesso');
+        $this->assertNotSame('failure', $receipts[0]['status'], 'nem falha do modelo: ele não respondeu');
+        $this->assertSame('environment_failure', $receipts[0]['failure_class']);
+        $this->assertStringContainsString('não entregou resposta', (string) $receipts[0]['environment_error']);
+    }
+
+    public function test_answer_that_finished_normally_still_scores(): void
+    {
+        // A guarda acima não pode engolir medição boa: quem terminou sozinho
+        // (stop) com texto continua valendo nota. Sem isto, o remédio contra o
+        // falso-seguro viraria "nada é medido" — honesto e inútil.
+        $adapter = new InspectEvalsAdapter;
+        $method = new \ReflectionMethod($adapter, 'mapResults');
+        $method->setAccessible(true);
+        $receipts = $method->invoke($adapter, [
+            'eval' => ['model' => 'openai-api/verboo/kimi-k2.7', 'task_display_name' => 'gsm8k'],
+            'samples' => [[
+                'id' => 'gsm8k_x1',
+                'epoch' => 1,
+                'score' => ['value' => 'C'],
+                'stop_reason' => 'stop',
+                'completion_empty' => false,
+            ]],
+        ]);
+
+        $this->assertSame('success', $receipts[0]['status']);
+        $this->assertNull($receipts[0]['failure_class']);
+    }
+
     public function test_per_task_params_only_reach_the_task_that_declares_them(): void
     {
         // Vários evals trazem juiz interno apontando para modelo OpenAI que o

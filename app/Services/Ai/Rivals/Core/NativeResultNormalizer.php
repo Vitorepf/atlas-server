@@ -422,19 +422,25 @@ final class NativeResultNormalizer
                 $samplesJson = $zip->getFromName('_journal/summaries/1.json');
             }
             $samples = json_decode((string) $samplesJson, true) ?? [];
+            $sampleId = (string) (data_get($entry, 'normalization.case.sample_id')
+                ?? $entry['case_id']);
+            $matches = array_values(array_filter(
+                $samples,
+                fn (array $sample): bool => (string) ($sample['id'] ?? '') === $sampleId,
+            ));
+            if (count($matches) !== 1) {
+                throw new RuntimeException('inspect_evals_sample_cardinality');
+            }
+            $sample = $matches[0];
+            // summaries.json é a forma REDUZIDA: traz o score, não a resposta.
+            // Sem saber se o modelo respondeu vazio ou estourou o teto de tokens,
+            // "não respondeu" e "respondeu errado" chegam idênticos ao adaptador —
+            // e num eixo de risco "não respondeu" vira atestado de SEGURO. Estes
+            // dois campos só existem em samples/*.json; puxamos só eles.
+            $sample += $this->inspectDelivery($zip, $sampleId);
         } finally {
             $zip->close();
         }
-        $sampleId = (string) (data_get($entry, 'normalization.case.sample_id')
-            ?? $entry['case_id']);
-        $matches = array_values(array_filter(
-            $samples,
-            fn (array $sample): bool => (string) ($sample['id'] ?? '') === $sampleId,
-        ));
-        if (count($matches) !== 1) {
-            throw new RuntimeException('inspect_evals_sample_cardinality');
-        }
-        $sample = $matches[0];
         $sample['id'] = $entry['case_id'];
         $sample['epoch'] = $entry['repetition'];
 
@@ -442,6 +448,36 @@ final class NativeResultNormalizer
             'eval' => $header['eval'] ?? ['model' => $entry['cli_model']],
             'samples' => [$sample],
         ];
+    }
+
+    /**
+     * O que o modelo REALMENTE entregou neste sample: por que parou de gerar e
+     * se sobrou texto. Vem de samples/*.json (a forma completa); ausência é
+     * declarada como null — nunca inferida como "respondeu bem".
+     *
+     * @return array{stop_reason:?string,completion_empty:?bool}
+     */
+    private function inspectDelivery(ZipArchive $zip, string $sampleId): array
+    {
+        $unknown = ['stop_reason' => null, 'completion_empty' => null];
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = (string) $zip->getNameIndex($i);
+            if (! str_starts_with($name, 'samples/')) {
+                continue;
+            }
+            $sample = json_decode((string) $zip->getFromName($name), true);
+            if (! is_array($sample) || (string) ($sample['id'] ?? '') !== $sampleId) {
+                continue;
+            }
+            $output = $sample['output'] ?? [];
+
+            return [
+                'stop_reason' => data_get($output, 'choices.0.stop_reason'),
+                'completion_empty' => trim((string) ($output['completion'] ?? '')) === '',
+            ];
+        }
+
+        return $unknown;
     }
 
     private function hal(array $entry): array
