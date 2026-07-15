@@ -29,6 +29,7 @@ final class AtlasCodeGraphService
     public function __construct(
         private readonly ?AtlasCodeWorkspaceProfileService $profiles = null,
         private readonly int $timeoutSeconds = 30,
+        private readonly ?AtlasCodeRepoLocator $locator = null,
     ) {}
 
     /**
@@ -117,16 +118,9 @@ final class AtlasCodeGraphService
      */
     public function capture(string $repo, ?string $before = null, ?int $limit = null): array
     {
-        $profileService = $this->profiles ?? new AtlasCodeWorkspaceProfileService();
-        $profile = $profileService->findByReference($repo);
-        if (! is_array($profile)) {
-            throw new InvalidArgumentException('repository_profile_not_found');
-        }
-
-        $path = trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? ''));
-        if ($path === '' || ! is_dir($path)) {
-            throw new InvalidArgumentException('repository_path_missing_or_unreadable');
-        }
+        // O radar mostra a frota do Mac; o grafo abre a mesma frota.
+        $located = ($this->locator ?? new AtlasCodeRepoLocator($this->profiles))->locate($repo);
+        $path = $located['path'];
 
         $log = $this->run($path, [
             'git', 'log', '--all', '--topo-order', '--parents',
@@ -166,7 +160,7 @@ final class AtlasCodeGraphService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'repo' => (string) ($profile['slug'] ?? $repo),
+            'repo' => $located['slug'],
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
             'head' => $head !== '' ? $head : null,
             'default_branch' => $defaultBranch !== '' ? $defaultBranch : null,

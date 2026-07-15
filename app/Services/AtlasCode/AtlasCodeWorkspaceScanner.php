@@ -100,6 +100,48 @@ final class AtlasCodeWorkspaceScanner
     }
 
     /**
+     * Onde mora o repositório de slug `X` — a pergunta que a tela faz quando o
+     * operador toca num card do radar.
+     *
+     * Se dois produtos tiverem um repositório de mesmo nome, o slug é ambíguo e
+     * a resposta é o silêncio: mostrar a história do repositório errado seria
+     * uma mentira, e mentira é pior que erro numa ferramenta de governança.
+     */
+    public function locate(string $slug): ?string
+    {
+        // O slug é um segmento de diretório, nunca um caminho: '..' e '/' saem.
+        if (preg_match('/^[A-Za-z0-9._-]+$/', $slug) !== 1 || $slug === '.' || $slug === '..') {
+            return null;
+        }
+
+        $root = $this->workspaceRoot();
+        if ($root === '') {
+            return null;
+        }
+
+        $matches = [];
+        foreach ($this->children($root) as $entry) {
+            $path = $root.'/'.$entry;
+
+            if ($this->isRepository($path)) {
+                if ($entry === $slug) {
+                    $matches[] = $path;
+                }
+
+                continue;
+            }
+
+            foreach ($this->children($path) as $child) {
+                if ($child === $slug && $this->isRepository($path.'/'.$child)) {
+                    $matches[] = $path.'/'.$child;
+                }
+            }
+        }
+
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
+    /**
      * @return array<int, array{slug:string, name:string, path:string, folder:?string, last_commit_at:?int}>
      */
     public function discover(): array

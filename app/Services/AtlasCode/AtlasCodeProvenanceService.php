@@ -14,7 +14,17 @@ use InvalidArgumentException;
 /** C23 · read-only commit identity and provenance projection. */
 final class AtlasCodeProvenanceService
 {
-    public const SCHEMA_VERSION = 'atlas.code.provenance.v1';
+    public const SCHEMA_VERSION = 'atlas.code.provenance.v2';
+
+    /** @var array<string,string> Git status letters → the vocabulary the app renders. */
+    private const STATUS_MAP = [
+        'A' => 'added',
+        'M' => 'modified',
+        'D' => 'deleted',
+        'R' => 'renamed',
+        'C' => 'copied',
+        'T' => 'type_changed',
+    ];
 
     /** @var array<string,string> */
     private const DEFAULT_AGENT_MAP = [
@@ -26,6 +36,7 @@ final class AtlasCodeProvenanceService
         private readonly int $timeoutSeconds = 20,
         /** @var array<string,string>|null */
         private readonly ?array $agentMap = null,
+        private readonly ?AtlasCodeRepoLocator $locator = null,
     ) {}
 
     public function agentForAuthor(string $authorEmail): string
@@ -55,6 +66,70 @@ final class AtlasCodeProvenanceService
     }
 
     /**
+     * Pure parser for `git show --format= --raw --numstat -M`.
+     *
+     * Git prints two blocks for the same commit, in the same file order: the
+     * raw block (`:modes shas STATUS<TAB>path`) carries the status letter, the
+     * numstat block (`add<TAB>del<TAB>path`) carries the counts. Renames make
+     * the numstat path unreliable (`src/{old => new}.ts`), so the blocks are
+     * zipped by position — the one thing Git guarantees. Counts are dropped,
+     * never guessed, when the blocks disagree; a binary file has no counts at
+     * all and says so with null instead of a fabricated zero.
+     *
+     * @return array<int, array{path:string, status:string, additions:?int, deletions:?int, renamed_from:?string}>
+     */
+    public function parseFileChanges(string $output): array
+    {
+        $raw = [];
+        $numbers = [];
+
+        foreach (preg_split('/\r?\n/', $output) ?: [] as $line) {
+            if (trim($line) === '') {
+                continue;
+            }
+
+            if (str_starts_with($line, ':')) {
+                $columns = explode("\t", $line);
+                if (count($columns) < 2) {
+                    continue;
+                }
+                $meta = preg_split('/\s+/', trim($columns[0])) ?: [];
+                $letter = strtoupper(substr((string) end($meta), 0, 1));
+                $isRename = in_array($letter, ['R', 'C'], true) && isset($columns[2]);
+                $raw[] = [
+                    'path' => trim($isRename ? $columns[2] : $columns[1]),
+                    'status' => self::STATUS_MAP[$letter] ?? 'unknown',
+                    'renamed_from' => $isRename ? trim($columns[1]) : null,
+                ];
+
+                continue;
+            }
+
+            $columns = explode("\t", $line);
+            if (count($columns) < 3) {
+                continue;
+            }
+            // '-' marks a binary file: Git measured nothing, so neither do we.
+            $numbers[] = [
+                'additions' => $columns[0] === '-' ? null : (int) $columns[0],
+                'deletions' => $columns[1] === '-' ? null : (int) $columns[1],
+            ];
+        }
+
+        $aligned = count($raw) === count($numbers);
+
+        return array_values(array_map(static function (array $entry, int $index) use ($numbers, $aligned): array {
+            return [
+                'path' => $entry['path'],
+                'status' => $entry['status'],
+                'additions' => $aligned ? $numbers[$index]['additions'] : null,
+                'deletions' => $aligned ? $numbers[$index]['deletions'] : null,
+                'renamed_from' => $entry['renamed_from'],
+            ];
+        }, $raw, array_keys($raw)));
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function capture(string $hash, ?string $repo = null): array
@@ -64,40 +139,44 @@ final class AtlasCodeProvenanceService
             throw new InvalidArgumentException('invalid_commit_hash');
         }
 
-        $profileService = $this->profiles ?? new AtlasCodeWorkspaceProfileService();
-        $profile = $profileService->findByReference($repo ?: 'atlas-native');
-        if (! is_array($profile)) {
-            throw new InvalidArgumentException('repository_profile_not_found');
-        }
+        // Mesma frota do radar e do grafo: um commit aberto na tela abre aqui.
+        $located = ($this->locator ?? new AtlasCodeRepoLocator($this->profiles))->locate($repo ?: 'atlas-native');
+        $path = $located['path'];
 
-        $path = trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? ''));
-        if ($path === '' || ! is_dir($path)) {
-            throw new InvalidArgumentException('repository_path_missing_or_unreadable');
-        }
-
+        // The body (%b) comes last: it is multi-line by nature, so nothing may
+        // follow it in the record.
         $line = $this->run($path, [
-            'git', 'show', '-s', '--format=%H%x1f%an%x1f%ae%x1f%at%x1f%s', $requestedHash,
+            'git', 'show', '-s', '--format=%H%x1f%an%x1f%ae%x1f%at%x1f%s%x1f%b', $requestedHash,
         ]);
-        $parts = explode("\x1f", trim($line), 5);
-        if (count($parts) !== 5 || ! preg_match('/^[0-9a-f]{40}$/', $parts[0])) {
+        $parts = explode("\x1f", trim($line), 6);
+        if (count($parts) !== 6 || ! preg_match('/^[0-9a-f]{40}$/', $parts[0])) {
             throw new InvalidArgumentException('commit_not_found');
         }
 
-        [$fullHash, $authorName, $authorEmail, $authoredAt, $message] = $parts;
+        [$fullHash, $authorName, $authorEmail, $authoredAt, $message, $body] = $parts;
         if (! str_starts_with(strtolower($fullHash), $requestedHash)) {
             throw new InvalidArgumentException('commit_not_found');
         }
 
         $result = [
             'schema_version' => self::SCHEMA_VERSION,
-            'repo' => (string) ($profile['slug'] ?? ($repo ?: 'atlas-native')),
+            'repo' => $located['slug'],
             'hash' => strtolower($fullHash),
             'commit_message' => trim($message),
             'author_name' => trim($authorName),
             'author_email' => trim($authorEmail),
             'authored_at' => (int) $authoredAt,
             'agent' => $this->agentForAuthor($authorEmail),
+            // What the commit actually touched — the answer to "o que mudou".
+            // An empty list is honest (merge or empty commit), never padded.
+            'files' => $this->parseFileChanges($this->run($path, [
+                'git', 'show', '--format=', '--raw', '--numstat', '-M', $requestedHash,
+            ])),
         ];
+
+        if (trim($body) !== '') {
+            $result['commit_body'] = trim($body);
+        }
 
         $ledger = $this->findLedgerEvent(strtolower($fullHash));
         if (! $ledger instanceof AtlasLedgerEvent) {
