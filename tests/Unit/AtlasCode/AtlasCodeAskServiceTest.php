@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\AtlasCode;
 
 use App\Services\AtlasCode\AtlasCodeAskService;
+use App\Services\AtlasCode\AtlasCodeViolationService;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -52,10 +53,11 @@ final class AtlasCodeAskServiceTest extends TestCase
 
     public function test_problems_phrase_groups_by_rule_in_human_words(): void
     {
+        // Ids reais do motor de regras — os mesmos cinco que ele emite.
         $violations = [
             ['rule_id' => 'main_only', 'target' => 'obra-1'],
             ['rule_id' => 'main_only', 'target' => 'obra-2'],
-            ['rule_id' => 'worktree_outside_root', 'target' => '/tmp/wt'],
+            ['rule_id' => 'worktree_allowlist', 'target' => '/tmp/wt'],
         ];
 
         self::assertSame(
@@ -69,9 +71,60 @@ final class AtlasCodeAskServiceTest extends TestCase
         self::assertSame('nada fora do lugar neste repositório.', $this->ask->phraseProblems([]));
     }
 
+    public function test_the_phrase_names_the_real_trunk_not_the_word_main(): void
+    {
+        // A frota do operador não é só Atlas: nivor-back-end nem TEM `main` —
+        // a trunk é `production`. Dizer "fora da main" ali é mentira, e o
+        // Atlas mentindo sobre a lei é pior que o Atlas calado.
+        $violations = [['rule_id' => 'main_only', 'target' => 'develop']];
+
+        self::assertSame(
+            '1 exceção: 1 obra fora da production.',
+            $this->ask->phraseProblems($violations, 'production')
+        );
+        self::assertSame(
+            '1 exceção: 1 obra fora da main.',
+            $this->ask->phraseProblems($violations, 'main')
+        );
+    }
+
+    public function test_every_rule_the_engine_emits_speaks_portuguese(): void
+    {
+        // A primeira versão desta tradução foi escrita de imaginação — com ids
+        // que não existem — e a tela mostrou "18 × obra_return_deadline" ao
+        // operador. Este teste amarra a tradução às regras REAIS: uma sexta
+        // regra sem tradução quebra aqui, não na cara dele.
+        $engineRules = (new AtlasCodeViolationService())->scan([
+            'main_branch' => 'main',
+            'current_branch' => 'feature/cobaia',
+            'current_since' => '2026-07-01T00:00:00Z',
+            'allowed_worktree_roots' => ['/repo'],
+            'worktrees' => [['path' => '/tmp/foreign', 'head' => 'a']],
+            'obra_return_deadline_days' => 3,
+            'now' => '2026-07-15T00:00:00Z',
+            'branches' => [
+                ['name' => 'feature/cobaia', 'committed_at' => '2026-07-01T00:00:00Z', 'reachable_from_main' => true],
+                ['name' => 'orphan', 'committed_at' => '2026-07-14T00:00:00Z', 'reachable_from_main' => false],
+            ],
+            'main_head' => 'main-hash',
+            'mirror_head' => 'old-hash',
+        ])['violations'];
+
+        foreach (array_unique(array_column($engineRules, 'rule_id')) as $ruleId) {
+            $phrase = $this->ask->phraseRule($ruleId, 2);
+            self::assertStringNotContainsString(
+                $ruleId,
+                $phrase,
+                "a regra {$ruleId} vaza vocabulário de máquina para a tela: {$phrase}"
+            );
+            self::assertStringNotContainsString('_', $phrase, "tradução com underscore não é português: {$phrase}");
+        }
+    }
+
     public function test_a_rule_the_atlas_grew_later_shows_its_id_instead_of_an_invented_name(): void
     {
         // Tradução inventada para regra desconhecida seria mentira confiante.
+        // Feio de propósito: pede tradução em vez de fingir que tem uma.
         self::assertSame('2 × rule_from_the_future', $this->ask->phraseRule('rule_from_the_future', 2));
     }
 

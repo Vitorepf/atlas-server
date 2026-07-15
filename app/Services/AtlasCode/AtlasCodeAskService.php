@@ -143,8 +143,11 @@ final class AtlasCodeAskService
 
     /**
      * @param  array<int, array<string,mixed>>  $violations
+     * @param  string  $trunk  O nome REAL da trunk deste repositório. Escrever
+     *                         "fora da main" onde a trunk é `production` é
+     *                         mentira — e o operador tem repositórios assim.
      */
-    public function phraseProblems(array $violations): string
+    public function phraseProblems(array $violations, string $trunk = 'main'): string
     {
         if ($violations === []) {
             // Saudável é silêncio: o texto diz o fato, sem festa.
@@ -160,7 +163,7 @@ final class AtlasCodeAskService
 
         $parts = [];
         foreach ($byRule as $rule => $total) {
-            $parts[] = $this->phraseRule($rule, $total);
+            $parts[] = $this->phraseRule($rule, $total, $trunk);
         }
 
         $count = count($violations);
@@ -169,16 +172,27 @@ final class AtlasCodeAskService
         return "{$count} {$noun}: ".implode(', ', $parts).'.';
     }
 
-    /** A regra é máquina; a tela é português. */
-    public function phraseRule(string $ruleId, int $total): string
+    /**
+     * A regra é máquina; a tela é português.
+     *
+     * Os ids aqui são os cinco que o AtlasCodeViolationService emite de
+     * verdade — conferidos no código, não lembrados. A primeira versão desta
+     * tradução foi escrita de imaginação (`branch_not_merged`,
+     * `worktree_outside_root`, `stale_branch`: nenhum existe) e o resultado
+     * apareceu na tela como "18 × obra_return_deadline": exatamente o
+     * vazamento de vocabulário de máquina que o operador já tinha cobrado uma
+     * vez. AtlasCodeAskServiceTest cobre os cinco para isso não voltar.
+     */
+    public function phraseRule(string $ruleId, int $total, string $trunk = 'main'): string
     {
         return match ($ruleId) {
-            'main_only' => $total === 1 ? '1 obra fora da main' : "{$total} obras fora da main",
-            'branch_not_merged', 'orphan_branch' => $total === 1 ? '1 branch que nunca voltou' : "{$total} branches que nunca voltaram",
-            'worktree_outside_root' => $total === 1 ? '1 worktree fora do lugar' : "{$total} worktrees fora do lugar",
-            'stale_branch' => $total === 1 ? '1 branch parada' : "{$total} branches paradas",
+            'main_only' => $total === 1 ? "1 obra fora da {$trunk}" : "{$total} obras fora da {$trunk}",
+            'obra_return_deadline' => $total === 1 ? '1 obra que não voltou no prazo' : "{$total} obras que não voltaram no prazo",
+            'orphan_branch' => $total === 1 ? '1 branch que nunca voltou' : "{$total} branches que nunca voltaram",
+            'worktree_allowlist' => $total === 1 ? '1 worktree fora do lugar' : "{$total} worktrees fora do lugar",
+            'mirror_drift' => $total === 1 ? '1 espelho atrasado' : "{$total} espelhos atrasados",
             // Regra que o Atlas ganhou depois desta tela: aparece pelo id, sem
-            // tradução inventada.
+            // tradução inventada. Feio de propósito — pede tradução.
             default => "{$total} × {$ruleId}",
         };
     }
@@ -198,18 +212,27 @@ final class AtlasCodeAskService
         }
 
         $violations = array_values(array_filter((array) ($captured['violations'] ?? []), 'is_array'));
+
+        // A evidência de uma exceção é a LEI que ela viola, não o id dela. Uma
+        // regra sem canon acusaria sem citar — por isso ela vem junto.
         $evidence = [];
+        $seen = [];
         foreach ($violations as $violation) {
-            $evidence[] = [
+            $rule = (string) ($violation['rule_id'] ?? 'desconhecida');
+            if (isset($seen[$rule])) {
+                continue;
+            }
+            $seen[$rule] = true;
+            $evidence[] = array_filter([
                 'kind' => 'rule',
-                'ref' => (string) ($violation['rule_id'] ?? 'desconhecida'),
-                'target' => (string) ($violation['target'] ?? ''),
-            ];
+                'ref' => $rule,
+                'canon' => isset($violation['rule_canon_ref']) ? (string) $violation['rule_canon_ref'] : null,
+            ], static fn (mixed $value): bool => $value !== null);
         }
 
         return $this->shape(
             true,
-            $this->phraseProblems($violations),
+            $this->phraseProblems($violations, (string) ($captured['trunk'] ?? 'main')),
             evidence: $evidence,
             source: self::SOURCE_RULES,
         );
@@ -243,11 +266,14 @@ final class AtlasCodeAskService
     private function answerWhyBranch(string $slug, string $path): array
     {
         $current = trim($this->git($path, ['git', 'branch', '--show-current']));
+        // A trunk deste repositório, não a nossa: em nivor-back-end ela é
+        // `production`, e "você está na main" ali seria mentira.
+        $trunk = (new AtlasCodeTrunkResolver())->resolve($path);
 
-        if ($current === 'main' || $current === '') {
+        if ($current === '' || $current === $trunk) {
             return $this->shape(
                 true,
-                'você está na main — não há branch para explicar aqui.',
+                "você está na {$trunk} — não há branch para explicar aqui.",
                 source: self::SOURCE_GRAPH,
             );
         }

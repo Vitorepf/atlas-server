@@ -14,6 +14,28 @@ final class AtlasCodeViolationService
     public const SCHEMA_VERSION = 'atlas.code.violations.v1';
 
     /**
+     * Cada regra aponta para o documento que a justifica.
+     *
+     * O contrato C24 promete `rule_canon_ref` desde o começo, e a
+     * implementação nunca o emitiu: a lei acusava sem citar a lei. Numa
+     * ferramenta de governança isso é o pior tipo de silêncio — "está errado
+     * porque sim". Com a citação, "por que existe essa regra?" tem resposta
+     * conferível sem passar por modelo nenhum.
+     *
+     * Só entra doc que existe em `docs/engineering-knowledge-base/`; citação
+     * para arquivo inexistente seria pior que a ausência.
+     *
+     * @var array<string,string>
+     */
+    private const CANON = [
+        'main_only' => 'atlas-local-main-only-rule.md',
+        'obra_return_deadline' => 'atlas-code-programming-obras-operating-system.md',
+        'orphan_branch' => 'atlas-local-main-only-rule.md',
+        'worktree_allowlist' => 'atlas-code-multi-project-workspace-os.md',
+        'mirror_drift' => 'atlas-local-main-only-rule.md',
+    ];
+
+    /**
      * @param array<string,mixed> $facts
      * @return array{violations:array<int,array<string,mixed>>,plan:array<int,array<string,mixed>>}
      */
@@ -99,11 +121,15 @@ final class AtlasCodeViolationService
     {
         // Mesma frota do radar, do grafo e da folha: a lei vale para todos os
         // repositórios que o app mostra, não só para os registrados.
-        $path = (new AtlasCodeRepoLocator())->locate($repo)['path'];
+        $located = (new AtlasCodeRepoLocator())->locate($repo);
+        $path = $located['path'];
 
         $currentBranch = trim($this->run($path, ['git', 'branch', '--show-current'])) ?: 'HEAD';
-        $mainBranch = 'main';
-        $mainHead = trim($this->run($path, ['git', 'rev-parse', $mainBranch]));
+        // A trunk é fato do repositório, não opinião nossa: fora do Atlas ela
+        // se chama production/develop, e comparar tudo contra 'main' acusava
+        // trabalho correto ou matava a varredura inteira.
+        $mainBranch = (new AtlasCodeTrunkResolver())->resolve($path);
+        $mainHead = $mainBranch !== '' ? trim($this->run($path, ['git', 'rev-parse', $mainBranch])) : '';
         $branches = [];
         foreach (preg_split('/\r?\n/', trim($this->run($path, [
             'git', 'for-each-ref', '--format=%(refname:short)|%(objectname)|%(committerdate:iso-strict)|%(upstream:short)', 'refs/heads',
@@ -137,8 +163,12 @@ final class AtlasCodeViolationService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'repo' => (string) ($profile['slug'] ?? $repo),
+            'repo' => $located['slug'],
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
+            // Qual trunk a lei usou para julgar. Sem isto, quem fala com o
+            // operador escreve "fora da main" num repositório cuja trunk é
+            // production — e a frase vira mentira.
+            'trunk' => $mainBranch !== '' ? $mainBranch : null,
             'violations' => $result['violations'],
             'plan' => $result['plan'],
         ];
@@ -149,6 +179,7 @@ final class AtlasCodeViolationService
     {
         $violation = array_filter([
             'rule_id' => $ruleId,
+            'rule_canon_ref' => self::CANON[$ruleId] ?? null,
             'target' => $target,
             'since' => is_string($since) && trim($since) !== '' ? $since : null,
             'severity' => $severity,
