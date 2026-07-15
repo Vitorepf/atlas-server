@@ -136,6 +136,48 @@ class SkillMatrixTest extends TestCase
         $this->assertSame('empate', $row['verdict'], 'sem o par excluído, Atlas não é pior');
     }
 
+    public function test_delta_without_signal_is_not_conclusive(): void
+    {
+        // 6/9 contra 9/9 é "+33 pp" — e o intervalo é [-3, +65], que contém o
+        // zero. Publicar isso em verde afirma um ganho que a amostra não
+        // sustenta. Com 9 tarefas por braço só se afirma acima de 44 pp; é por
+        // isto que repetição barata compra conclusão e amostra pequena não.
+        $receipts = [];
+        for ($i = 1; $i <= 9; $i++) {
+            $this->unit('gsm8k', "q{$i}", [], 'bare');
+            $receipts[] = ['case_id' => "q{$i}", 'arm_id' => 'm@bare', 'status' => $i <= 6 ? 'success' : 'failure'];
+            $receipts[] = ['case_id' => "q{$i}", 'arm_id' => 'm@atlas_dev', 'status' => 'success'];
+        }
+        $this->receipts($receipts);
+
+        $row = (new SkillMatrix)->forRun($this->runId)[0];
+
+        $this->assertSame(0.3333, $row['delta'], 'o fato bruto continua +33 pp');
+        $this->assertSame('atlas_melhor', $row['verdict'], 'verdict é o fato, não a afirmação');
+        $this->assertFalse($row['conclusive'], '+33 pp com n=9 não separa do zero');
+        $this->assertLessThan(0.0, $row['delta_ci_low'], 'o intervalo cruza o zero');
+        $this->assertGreaterThan(0.0, $row['delta_ci_high']);
+    }
+
+    public function test_delta_with_signal_is_conclusive(): void
+    {
+        // O outro lado da moeda: sem este caminho, exigir intervalo viraria uma
+        // desculpa para nunca afirmar nada, e o relatório seria inútil de outro
+        // jeito. 0/9 contra 9/9 é [+58, +100] — separa do zero e AFIRMA.
+        $receipts = [];
+        for ($i = 1; $i <= 9; $i++) {
+            $this->unit('gsm8k', "q{$i}", [], 'bare');
+            $receipts[] = ['case_id' => "q{$i}", 'arm_id' => 'm@bare', 'status' => 'failure'];
+            $receipts[] = ['case_id' => "q{$i}", 'arm_id' => 'm@atlas_dev', 'status' => 'success'];
+        }
+        $this->receipts($receipts);
+
+        $row = (new SkillMatrix)->forRun($this->runId)[0];
+
+        $this->assertTrue($row['conclusive']);
+        $this->assertGreaterThan(0.0, $row['delta_ci_low'], 'o intervalo inteiro fica acima do zero');
+    }
+
     /** @param array<string,mixed> $metadata */
     private function unit(string $instrument, string $caseId, array $metadata, string $arm): void
     {

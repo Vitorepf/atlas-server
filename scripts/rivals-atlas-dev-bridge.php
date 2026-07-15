@@ -257,12 +257,34 @@ $providerExitCode = is_numeric($providerCall['exit_code'] ?? null)
     : null;
 $providerErrors = array_values(array_filter((array) ($providerCall['error_codes'] ?? [])));
 $expectedProvider = $ai === 'hermes' ? 'hermes_cli' : $provider;
-$providerLockVerified = $expectedProvider !== null
+// DUAS PERGUNTAS DIFERENTES, E JUNTÁ-LAS APAGA A MEDIÇÃO.
+//
+// "O Atlas rodou?" é prova de runtime: o provider certo, o modelo certo, e uma
+// chamada de provider que de fato aconteceu. "O Atlas acertou?" é o RESULTADO —
+// é justamente o que a medição existe para descobrir.
+//
+// Isto já esteve numa variável só, exigindo `exit_code === 0` para declarar
+// `real_provider`. O efeito: Atlas roda, erra a tarefa, sai exit_code=1 → a
+// prova de runtime vira false → o agente HAL levanta "runtime proof missing" →
+// o recibo vira environment_failure → o SkillMatrix descarta (falha de ambiente
+// não é nota do modelo). Toda tarefa errada pelo Atlas era apagada, e o braço
+// só conseguia registrar acerto: 100% por construção. O primeiro bug fazia a
+// coluna "com Atlas" medir Hermes; este a faria medir só as vitórias.
+//
+// Provado no runtime, não deduzido: `provider_calls: 1` com
+// `exit_code: 1, error_codes: [candidate_preparation_blocked:...]` — o provider
+// respondeu, e a falha veio depois, na governança do EliteExecutorKernel. São
+// camadas distintas e o portão não pode confundi-las.
+$atlasRuntimeProven = $expectedProvider !== null
     && $actualProvider === $expectedProvider
     && $actualModel === $model
-    && $providerCalls > 0
-    && $providerExitCode === 0
-    && $providerErrors === [];
+    && $providerCalls > 0;
+// Resultado da tarefa: vira DADO no recibo, nunca portão. Errar é medição
+// válida; não ter rodado é que não é.
+$taskOk = $providerExitCode === 0 && $providerErrors === [];
+$completionState = is_array($outputPayload)
+    ? data_get($outputPayload, 'run.completion_state')
+    : null;
 $inputTokens = is_numeric($providerCall['tokens_in'] ?? null)
     ? (int) $providerCall['tokens_in']
     : null;
@@ -274,24 +296,33 @@ $costUsd = is_numeric($providerCall['estimated_cost_usd'] ?? null)
     : null;
 $receipt = [
     'schema_version' => 'atlas.rivals2.atlas_dev_bridge_receipt.v1',
-    'status' => $providerLockVerified ? 'passed' : 'failed',
-    'real_provider' => $providerLockVerified,
+    // `status` do BRIDGE: ele conseguiu rodar o Atlas? Não é a nota da tarefa.
+    'status' => $atlasRuntimeProven ? 'passed' : 'failed',
+    'real_provider' => $atlasRuntimeProven,
     'workspace' => $workspace,
+    // O modelo EFETIVO, não o pedido: o hermes cai de kimi para qwen sozinho, e
+    // um par medindo kimi de um lado e qwen do outro não mede o Atlas — mede a
+    // troca de modelo, em silêncio.
     'model' => $actualModel !== '' ? $actualModel : $model,
     'expected_model' => $model,
+    'model_matches_request' => $actualModel === $model,
     'provider' => $actualProvider !== '' ? $actualProvider : $provider,
     'ai' => $ai,
     'execution' => 'atlas_cli_dev_efficient',
     // Aqui o Atlas roda de verdade: `artisan atlas:cli:dev` com as flags de
-    // fair-mode. Vale o mesmo teste do provider-lock — sem chamada de provider
-    // provada, o Atlas ter sido invocado não basta.
-    'atlas_runtime' => $providerLockVerified,
+    // fair-mode. Sem chamada de provider provada, o Atlas ter sido invocado não
+    // basta — mas a tarefa ter FALHADO não desprova nada: é o resultado que a
+    // medição foi buscar.
+    'atlas_runtime' => $atlasRuntimeProven,
     'fair_mode' => [
-        'single_provider' => $providerLockVerified,
-        'decide_disabled' => $providerLockVerified,
-        'fallback_disabled' => $providerLockVerified,
+        'single_provider' => $atlasRuntimeProven,
+        'decide_disabled' => $atlasRuntimeProven,
+        'fallback_disabled' => $atlasRuntimeProven,
         'deterministic_fast_path_disabled' => true,
     ],
+    // O resultado, como DADO. Quem pontua é a suíte; isto é evidência de apoio.
+    'task_ok' => $taskOk,
+    'completion_state' => $completionState,
     'provider_call' => [
         'provider_calls' => $providerCalls,
         'exit_code' => $providerExitCode,
@@ -317,7 +348,12 @@ file_put_contents(
     json_encode($receipt, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
 );
 echo $process->getOutput();
-if (! $providerLockVerified) {
+// Sai não-zero SÓ quando o Atlas não rodou — aí a unidade é falha de ambiente e
+// deve mesmo sumir da medição. Tarefa que o Atlas rodou e errou sai ZERO: o
+// patch (ruim ou vazio) segue para a suíte pontuar como falha, que é o dado.
+// Sair 1 aqui faria o agente HAL levantar "runtime proof missing", e o erro do
+// Atlas viraria "falha de ambiente" — descartado do denominador.
+if (! $atlasRuntimeProven) {
     fwrite(STDERR, $process->getErrorOutput());
     exit(1);
 }

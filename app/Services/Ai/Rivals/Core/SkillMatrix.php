@@ -98,6 +98,17 @@ final class SkillMatrix
         foreach ($tally as $skill => $t) {
             $bare = $t['bare'] === [] ? null : round(array_sum($t['bare']) / count($t['bare']), 4);
             $atlas = $t['atlas'] === [] ? null : round(array_sum($t['atlas']) / count($t['atlas']), 4);
+            // A DISTÂNCIA entre os braços é sinal ou ruído? Wilson diz onde cada
+            // braço está e cala sobre isso. Sem esta conta, 6/9 contra 9/9 sai
+            // como "+33 pp" — e o intervalo real é [-3, +65], que contém o zero.
+            // Com 9 tarefas por braço só se afirma acima de 44 pp; amostra menor
+            // não afirma nada, nem 0%->100%.
+            $ci = $bare === null || $atlas === null
+                ? null
+                : StatisticalPolicy::newcombeDiff(
+                    (int) array_sum($t['atlas']), count($t['atlas']),
+                    (int) array_sum($t['bare']), count($t['bare']),
+                );
             $rows[] = [
                 'skill' => $skill,
                 'instrument' => $t['instrument'],
@@ -107,6 +118,13 @@ final class SkillMatrix
                 'atlas' => $atlas,
                 'atlas_n' => count($t['atlas']),
                 'delta' => $bare === null || $atlas === null ? null : round($atlas - $bare, 4),
+                'delta_ci_low' => $ci['ci_low'] ?? null,
+                'delta_ci_high' => $ci['ci_high'] ?? null,
+                // `verdict` é o FATO BRUTO (o Atlas pontuou menos); `conclusive` é
+                // se dá para AFIRMAR isso. São perguntas diferentes e vivem em
+                // campos diferentes de propósito: a tela colore por conclusive,
+                // o fato continua registrado no verdict.
+                'conclusive' => $ci !== null && ($ci['ci_low'] > 0.0 || $ci['ci_high'] < 0.0),
                 'verdict' => $this->verdict($bare, $atlas),
             ];
         }
