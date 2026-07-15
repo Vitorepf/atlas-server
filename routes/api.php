@@ -71,6 +71,7 @@ use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
 use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
 use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
 use App\Http\Controllers\AtlasCodeGraphController;
+use App\Http\Controllers\AtlasCodeMirrorController;
 use App\Http\Controllers\AtlasCodeReposController;
 use App\Http\Controllers\AtlasCodeHealController;
 use App\Http\Controllers\AtlasCodePreflightController;
@@ -259,6 +260,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/code/graph', AtlasCodeGraphController::class);
     // M3 radar · a frota de repositórios por exceção (read-only).
     Route::get('/code/repos', AtlasCodeReposController::class);
+    // M5 espelho · estado do envio + varredura de segredos (read-only).
+    Route::get('/code/mirror', AtlasCodeMirrorController::class);
     Route::match(['get', 'post'], '/code/preflight', AtlasCodePreflightController::class);
     Route::match(['get', 'post'], '/code/heals/tick', [AtlasCodeHealController::class, 'tick']);
     Route::post('/code/heals/{healId}/undo', [AtlasCodeHealController::class, 'undo'])
