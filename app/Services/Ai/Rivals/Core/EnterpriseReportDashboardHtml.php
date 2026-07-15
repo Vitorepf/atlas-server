@@ -49,7 +49,13 @@ final class EnterpriseReportDashboardHtml
             'suites' => $board['suites'],
             'uplift_families' => $board['uplift_families'],
             'model_matrix' => $report['model_matrix'] ?? [],
-            'skills' => $report['skills'] ?? ['rows' => [], 'total' => 0, 'with_atlas' => 0, 'by_instrument' => []],
+            'skills' => $report['skills'] ?? [
+                'rows' => [],
+                'total' => 0,
+                'with_atlas' => 0,
+                'by_instrument' => [],
+                'atlas_arm_note' => null,
+            ],
             'facts' => $report['facts'] ?? ['measured' => [], 'incomplete' => [], 'headline' => null],
             'delivery_inventory' => $report['delivery_inventory'] ?? [],
             'model_profiles' => $report['model_profiles'] ?? [],
@@ -292,6 +298,7 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <h2>Toda habilidade medida, uma por linha</h2>
       <p class="hint">A aba <strong>Capacidades</strong> mostra a média do domínio. Aqui está o que existe <strong>por baixo</strong> dela: cada linha é uma habilidade que um instrumento mede de verdade, com o nome que o próprio benchmark dá à pergunta — não um rótulo nosso. <strong>Verde</strong> = com Atlas foi melhor; <strong>vermelho</strong> = com Atlas foi pior; <strong>cinza</strong> = não há braço Atlas nessa habilidade, então não há o que comparar. Cinza nunca é elogio: é lacuna.</p>
       <div class="covstats" id="skillStats"></div>
+      <div id="skillArmNote"></div>
     </div>
     <div class="card">
       <div id="skillTable"></div>
@@ -554,6 +561,14 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       <span><b>${SK.total||0}</b> habilidades medidas</span>
       <span><b>${SK.with_atlas||0}</b> com os dois braços (as únicas que podem ficar verdes ou vermelhas)</span>
       ${inst ? `<span class="hint" style="flex-basis:100%">Por instrumento — ${inst}</span>` : ''}`;
+    // Coluna Atlas inteira vazia é a informação mais importante da tela: sem o
+    // motivo, o leitor supõe "a bateria não rodou" — a verdade é mais grave.
+    if (SK.atlas_arm_note) {
+      document.getElementById('skillArmNote').innerHTML =
+        `<div class="empty" style="border-color:var(--bad);color:var(--ink);margin-top:10px">
+           <b style="color:var(--bad)">Por que nenhuma linha tem cor</b><br>${SK.atlas_arm_note}
+         </div>`;
+    }
   }
 
   document.getElementById('objective').textContent = D.objective;

@@ -378,7 +378,7 @@ class EnterpriseReportBuilder
             'skills' => $this->buildSkills(array_merge($included, array_values(array_filter(array_map(
                 static fn (array $f): ?string => is_string($f['run_id'] ?? null) ? $f['run_id'] : null,
                 (array) ($atlasUplift['families'] ?? []),
-            ))))),
+            )))), $atlasUplift),
             'atlas_uplift' => $atlasUplift,
             'facts' => $facts,
             'gaps' => array_values(array_unique($gaps)),
@@ -1512,9 +1512,11 @@ class EnterpriseReportBuilder
      * 57 que o MMLU tem.
      *
      * @param  list<string>  $runIds
-     * @return array{rows:list<array<string,mixed>>, total:int, with_atlas:int, by_instrument:array<string,int>}
+     * @param  array<string,mixed>  $atlasUplift
+     * @return array{rows:list<array<string,mixed>>, total:int, with_atlas:int,
+     *     by_instrument:array<string,int>, atlas_arm_note:?string}
      */
-    private function buildSkills(array $runIds): array
+    private function buildSkills(array $runIds, array $atlasUplift = []): array
     {
         $matrix = new SkillMatrix;
         $rows = [];
@@ -1531,17 +1533,49 @@ class EnterpriseReportBuilder
         }
         ksort($byInstrument);
 
+        $withAtlas = count(array_filter($rows, static fn (array $r): bool => $r['atlas'] !== null));
+
         return [
             'rows' => array_values($rows),
             'total' => count($rows),
             // Quantas dá para pintar de verde/vermelho: sem os dois braços a
             // comparação não existe, e a aba tem de dizer isso em número.
-            'with_atlas' => count(array_filter(
-                $rows,
-                static fn (array $r): bool => $r['atlas'] !== null,
-            )),
+            'with_atlas' => $withAtlas,
             'by_instrument' => $byInstrument,
+            'atlas_arm_note' => $this->atlasArmNote($withAtlas, $atlasUplift),
         ];
+    }
+
+    /**
+     * Por que NENHUMA linha tem cor — derivado dos motivos de recusa do uplift.
+     *
+     * "Não medido" sem motivo é tão opaco quanto o número falso que ele
+     * substituiu: o leitor vê a coluna vazia e supõe que a bateria não rodou,
+     * quando a verdade é outra e é grave — o braço rotulado "Atlas" executava
+     * `hermes -z`, Hermes CLI puro, sem Atlas nenhum no laço. A frase sai dos
+     * motivos que o próprio portão registrou, nunca escrita à mão.
+     *
+     * @param  array<string,mixed>  $atlasUplift
+     */
+    private function atlasArmNote(int $withAtlas, array $atlasUplift): ?string
+    {
+        if ($withAtlas > 0) {
+            return null;
+        }
+        $families = (array) ($atlasUplift['families'] ?? []);
+        $missingProof = array_filter(
+            $families,
+            static fn (array $f): bool => str_contains((string) ($f['reason'] ?? ''), 'atlas_runtime_proof_missing'),
+        );
+        if ($missingProof === []) {
+            return 'Nenhuma habilidade tem os dois braços: a comparação com Atlas ainda não foi medida.';
+        }
+
+        return 'Nenhuma linha está verde ou vermelha, e o motivo não é falta de bateria: em '
+            .count($missingProof).' de '.count($families).' famílias o braço rotulado "com Atlas" '
+            .'não provou ter rodado o Atlas (atlas_runtime_proof_missing). O relatório recusa o '
+            .'número em vez de publicar um delta que compararia outra coisa com o nome do Atlas. '
+            .'A coluna "modelo sozinho" continua medida e válida.';
     }
 
     private function buildCoverage(array $capabilities): array

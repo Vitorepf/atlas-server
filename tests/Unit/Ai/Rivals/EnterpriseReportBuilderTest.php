@@ -471,6 +471,39 @@ class EnterpriseReportBuilderTest extends TestCase
         $this->assertGreaterThan(0, $safety['dormant'], 'segurança tem instrumentos parados — declare quantos');
     }
 
+    public function test_empty_atlas_column_says_why_and_the_reason_is_derived(): void
+    {
+        // "Não medido" sem motivo é tão opaco quanto o número falso que ele
+        // substituiu. A coluna Atlas está inteira vazia porque o braço rotulado
+        // "com Atlas" rodava `hermes -z` — Hermes CLI puro, sem Atlas no laço — e
+        // o portão passou a recusá-lo (atlas_runtime_proof_missing). Sem a frase,
+        // o leitor supõe "a bateria não rodou", que é bem menos grave que a
+        // verdade.
+        //
+        // Derivada, nunca escrita à mão: quando UM par com Atlas provado existir,
+        // a frase tem de sumir sozinha. Prosa fixa envelheceria contra o dado —
+        // foi assim que a frase de escopo passou a mentir.
+        $note = new \ReflectionMethod(EnterpriseReportBuilder::class, 'atlasArmNote');
+        $note->setAccessible(true);
+        $builder = new EnterpriseReportBuilder;
+        $refused = ['families' => [
+            ['family' => 'polyglot', 'reason' => 'atlas_runtime_proof_missing:polyglot_001|1'],
+            ['family' => 'terminal', 'reason' => 'atlas_runtime_proof_missing:tb_hello|1'],
+        ]];
+
+        $whenRefused = (string) $note->invoke($builder, 0, $refused);
+        $this->assertStringContainsString(
+            'atlas_runtime_proof_missing',
+            $whenRefused,
+            'o motivo tem de citar o código que o portão registrou, para o leitor poder auditar',
+        );
+        $this->assertStringContainsString('2 de 2', $whenRefused, 'a frase conta as famílias que o portão recusou');
+
+        // O par existe → a lacuna acabou → a frase some sozinha. É isto que
+        // impede a prosa de envelhecer contra o dado.
+        $this->assertNull($note->invoke($builder, 1, $refused));
+    }
+
     public function test_scope_note_never_calls_a_covered_domain_unmeasured(): void
     {
         // Bug real: a frase de escopo era prosa fixa e dizia "raciocínio,
