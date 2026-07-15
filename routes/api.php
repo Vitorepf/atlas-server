@@ -71,6 +71,7 @@ use App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController;
 use App\Http\Controllers\AtlasCodeForgeUxOrchestratorController;
 use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
 use App\Http\Controllers\AtlasCodeGraphController;
+use App\Http\Controllers\AtlasCodeReposController;
 use App\Http\Controllers\AtlasCodeHealController;
 use App\Http\Controllers\AtlasCodePreflightController;
 use App\Http\Controllers\AtlasCodeProvenanceController;
@@ -256,6 +257,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
 
     // Atlas Código C22 · local-first, read-only Git topology for the native app.
     Route::get('/code/graph', AtlasCodeGraphController::class);
+    // M3 radar · a frota de repositórios por exceção (read-only).
+    Route::get('/code/repos', AtlasCodeReposController::class);
     Route::match(['get', 'post'], '/code/preflight', AtlasCodePreflightController::class);
     Route::match(['get', 'post'], '/code/heals/tick', [AtlasCodeHealController::class, 'tick']);
     Route::post('/code/heals/{healId}/undo', [AtlasCodeHealController::class, 'undo'])
