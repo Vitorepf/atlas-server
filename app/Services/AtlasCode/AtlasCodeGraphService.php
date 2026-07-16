@@ -155,7 +155,27 @@ final class AtlasCodeGraphService
         $this->refFingerprints[$path] = $refFingerprint;
 
         $head = trim($this->run($path, ['git', 'rev-parse', 'HEAD']));
-        $defaultBranch = trim($this->run($path, ['git', 'branch', '--show-current']));
+
+        // A TRUNK, não a branch em que alguém está parado.
+        //
+        // Isto era `git branch --show-current` chamado de `default_branch`, e a
+        // diferença entre os dois nomes é a lei da cor inteira: dourado = na
+        // main. Estando numa obra, `--show-current` devolve `obra/x`, e a tela
+        // pintava a obra inteira de dourado — a EXCEÇÃO vestida de norma,
+        // exatamente o contrário do que o operador precisa ver. Metade da frota
+        // nem tem `main` (nivor-back-end é `production`), então o erro não é
+        // hipótese.
+        //
+        // O resolver existe desde a varredura da frota e sabe recusar o chute:
+        // origin/HEAD → main/master → candidato único → silêncio.
+        $defaultBranch = (new AtlasCodeTrunkResolver())->resolve($path);
+
+        // A ponta DA TRUNK — de onde a espinha dourada nasce. `head` é outra
+        // coisa: é onde o operador está. Confundir os dois faz o app traçar a
+        // espinha a partir da obra e pintar 197 nós errados em vez de 2.
+        $trunkHead = $defaultBranch !== ''
+            ? trim($this->run($path, ['git', 'rev-parse', $defaultBranch]))
+            : '';
         $worktrees = $this->parseWorktrees($this->run($path, ['git', 'worktree', 'list', '--porcelain']));
 
         return [
@@ -164,6 +184,9 @@ final class AtlasCodeGraphService
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
             'head' => $head !== '' ? $head : null,
             'default_branch' => $defaultBranch !== '' ? $defaultBranch : null,
+            // Trunk ambígua não vira chute: sem ponta, a tela pinta menos do
+            // que devia — nunca pinta de dourado o que não está na trunk.
+            'trunk_head' => $trunkHead !== '' ? $trunkHead : null,
             'nodes' => $nodes,
             'worktrees' => $worktrees,
             'pagination' => [
