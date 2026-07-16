@@ -148,7 +148,13 @@ final class AtlasCodeMirrorService
         $payload['pending'] = ['commits' => $ahead];
 
         if ($ahead > 0) {
-            $patch = $this->run($path, ['git', 'diff', $upstream.'..HEAD']);
+            // `git log -p`, NÃO `git diff`. O diff agregado só vê o estado
+            // FINAL: um segredo commitado num commit e removido no seguinte
+            // some do diff — mas o push envia os dois commits, e o blob com o
+            // segredo fica recuperável para sempre no espelho. É o cenário real
+            // de vazamento (commitou .env por engano, "consertou" removendo
+            // depois). `log -p` vê cada commit, que é o que o remoto recebe.
+            $patch = $this->run($path, ['git', 'log', '--format=', '-p', $upstream.'..HEAD']);
             $findings = $this->scanForSecrets($patch);
             $payload['scan'] = [
                 'ran' => true,
