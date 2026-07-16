@@ -718,7 +718,24 @@ final class AtlasCodeAskService
             );
         }
 
-        // Aqui o ledger RESPONDEU e não tinha registro: aí sim é fato.
+        // O ledger RESPONDEU e não tinha registro. Mas a frase depende de o
+        // registro EXISTIR como sistema: medido em 16/07, o escritor de
+        // proveniência nunca foi chamado — 0 eventos em 2.125 —, então TODA
+        // branch recebia "nasceu fora do Atlas". Ausência num sistema que
+        // nunca gravou nada não discrimina nada: acusar a branch com ela é
+        // vestir um vazio de fato. A acusação fica reservada ao único caso em
+        // que ela informa: o registro está VIVO (gravou outros commits) e esta
+        // branch não está nele.
+        if (! $this->provenanceRecordingIsLive()) {
+            return $this->shape(
+                true,
+                "a origem da branch {$current} não está registrada — o Atlas ainda não grava proveniência de commit nenhum, então não sei dizer de onde ela veio.",
+                commits: $head !== '' ? [$head] : [],
+                evidence: $evidence,
+                source: self::SOURCE_LEDGER,
+            );
+        }
+
         return $this->shape(
             true,
             "a branch {$current} não tem proveniência registrada — ela nasceu fora do Atlas.",
@@ -726,6 +743,22 @@ final class AtlasCodeAskService
             evidence: $evidence,
             source: self::SOURCE_LEDGER,
         );
+    }
+
+    /**
+     * O registro de proveniência já gravou ALGUM commit? Se nunca gravou
+     * nenhum, ausência de registro não diz nada sobre branch nenhuma.
+     * Ledger fora do ar conta como "não vivo": errar para o lado de não acusar.
+     */
+    private function provenanceRecordingIsLive(): bool
+    {
+        try {
+            return \App\Models\AtlasLedgerEvent::query()
+                ->where('event_type', \App\Services\Ai\Kernel\Evidence\LedgerEventType::CodeProvenanceRecorded->value)
+                ->exists();
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     /**

@@ -638,4 +638,33 @@ final class AtlasCodeAskServiceTest extends TestCase
             shell_exec('rm -rf '.escapeshellarg($raiz));
         }
     }
+
+    public function test_a_dead_provenance_registry_does_not_accuse_the_branch(): void
+    {
+        // Medido em 16/07: o escritor de proveniência nunca foi chamado — 0
+        // eventos em 2.125 — e TODA branch fora da trunk recebia "ela nasceu
+        // fora do Atlas". Ausência num registro que nunca gravou nada não
+        // discrimina nada: acusar com ela é vestir um vazio de fato. A
+        // acusação fica reservada ao caso em que informa: registro VIVO e a
+        // branch fora dele.
+        $raiz = sys_get_temp_dir().'/atlas-branch-sem-registro-'.uniqid();
+        mkdir($raiz.'/repo-x', 0o777, true);
+        $run = static fn (string $cmd): string => (string) shell_exec('cd '.escapeshellarg($raiz.'/repo-x').' && '.$cmd.' 2>&1');
+        $run('git init -q -b main');
+        $run('git -c user.name=V -c user.email=v@x.test commit -q --allow-empty -m base');
+        $run('git checkout -q -b obra/experimento');
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $ask = new AtlasCodeAskService(locator: new AtlasCodeRepoLocator(scanner: new AtlasCodeWorkspaceScanner()));
+            $resposta = $ask->answer('repo-x', 'por que essa branch existe?');
+
+            self::assertTrue($resposta['answered']);
+            self::assertStringContainsString('ainda não grava proveniência', $resposta['answer']);
+            self::assertStringNotContainsString('nasceu fora do Atlas', $resposta['answer']);
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            shell_exec('rm -rf '.escapeshellarg($raiz));
+        }
+    }
 }
