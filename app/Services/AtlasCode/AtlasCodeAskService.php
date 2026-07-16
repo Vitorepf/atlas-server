@@ -538,9 +538,25 @@ final class AtlasCodeAskService
                 );
             }
         } catch (Throwable) {
-            // Ledger indisponível não vira explicação inventada.
+            // O catch estava VAZIO e o comentário dizia que ledger indisponível
+            // não vira explicação inventada. Dizia. A execução caía no return
+            // seguinte e o Atlas ACUSAVA a branch de ter nascido fora dele —
+            // porque um banco estava fora do ar. Acusação falsa é pior que
+            // silêncio: ela faz o operador agir, apagar trabalho legítimo, e
+            // desconfiar da única ferramenta que deveria provar estado.
+            //
+            // "Não sei" é resposta. "Nasceu fora do Atlas" sem ter perguntado
+            // ao ledger é calúnia com voz de autoridade.
+            return $this->shape(
+                false,
+                "o ledger não respondeu agora — não sei dizer de onde a branch {$current} veio.",
+                commits: $head !== '' ? [$head] : [],
+                evidence: $evidence,
+                source: self::SOURCE_LEDGER,
+            );
         }
 
+        // Aqui o ledger RESPONDEU e não tinha registro: aí sim é fato.
         return $this->shape(
             true,
             "a branch {$current} não tem proveniência registrada — ela nasceu fora do Atlas.",
