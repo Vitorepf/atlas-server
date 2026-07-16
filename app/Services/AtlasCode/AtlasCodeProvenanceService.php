@@ -258,17 +258,30 @@ final class AtlasCodeProvenanceService
         try {
             $process = new Process($command, $cwd, null, null, $this->timeoutSeconds);
             $process->run();
-            if (! $process->isSuccessful()) {
-                throw new InvalidArgumentException('commit_not_found');
-            }
-
-            return $process->getOutput();
-        } catch (Throwable $exception) {
-            if ($exception instanceof InvalidArgumentException) {
-                throw $exception;
-            }
-            throw new InvalidArgumentException('commit_not_found');
+        } catch (Throwable) {
+            // O git NÃO RODOU (timeout, binário fora do PATH): isso não é "o
+            // commit não existe" — é "não consegui perguntar". Achatar os dois
+            // em commit_not_found afirmava ausência sobre uma falha de leitura,
+            // e o operador concluiria que o commit sumiu quando o git nem abriu.
+            throw new InvalidArgumentException('git_unavailable');
         }
+
+        if (! $process->isSuccessful()) {
+            // O git RODOU e recusou o hash: "unknown revision" (não existe) ou
+            // "ambiguous" (prefixo casa mais de um). Ambos são veredito honesto
+            // sobre a IDENTIDADE do commit — "não sei qual é este" —, e o
+            // caller mapeia para 404. Qualquer outra falha do git (permissão,
+            // .git corrompido) é leitura que não deu, não ausência: git_unavailable.
+            $stderr = strtolower($process->getErrorOutput());
+            $aboutCommit = str_contains($stderr, 'unknown revision')
+                || str_contains($stderr, 'ambiguous')
+                || str_contains($stderr, 'bad object')
+                || str_contains($stderr, 'bad revision');
+
+            throw new InvalidArgumentException($aboutCommit ? 'commit_not_found' : 'git_unavailable');
+        }
+
+        return $process->getOutput();
     }
 
     /** @param array<string,mixed> $payload */

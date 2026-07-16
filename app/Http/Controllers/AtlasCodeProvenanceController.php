@@ -26,9 +26,15 @@ final class AtlasCodeProvenanceController extends Controller
                 isset($input['repo']) && is_string($input['repo']) ? $input['repo'] : null,
             ));
         } catch (InvalidArgumentException $exception) {
-            $status = in_array($exception->getMessage(), ['repository_profile_not_found', 'commit_not_found'], true)
-                ? 404
-                : 422;
+            // 404 = o git rodou e disse que não conhece este commit (ausência
+            // real). 503 = o git não pôde ler (timeout, corrupção): falha de
+            // leitura, não ausência — o operador não deve concluir que o commit
+            // sumiu quando a ferramenta é que não abriu. 422 = pedido malformado.
+            $status = match ($exception->getMessage()) {
+                'repository_profile_not_found', 'commit_not_found' => 404,
+                'git_unavailable', 'repository_path_missing_or_unreadable' => 503,
+                default => 422,
+            };
 
             return response()->json([
                 'error' => $exception->getMessage(),
