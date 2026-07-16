@@ -101,7 +101,84 @@ final class AtlasCodeAskService
         $now ??= time();
         $collecting = $mode === self::MODE_FACTS;
 
-        $result = match ($route['intent']) {
+        // Um ponto de captura para as 11 chamadas de git: quando o repositório
+        // não responde, a resposta é "não consegui ler" — nunca um fato sobre
+        // um git que ninguém leu. Coletando, `answered=false` faz o bloco de
+        // fatos sumir, e o agente responde sem muleta em vez de citar um
+        // repositório fantasma como se tivesse aberto.
+        try {
+            $result = $this->route($route, $located, $now, $timezone, $collecting, $asked);
+        } catch (AtlasCodeGitUnavailable) {
+            $result = $this->shape(
+                false,
+                'não consegui ler o git de '.$located['slug'].' agora.',
+                source: self::SOURCE_GRAPH,
+            );
+        }
+
+        $response = [
+            'schema_version' => self::SCHEMA_VERSION,
+            'repo' => $located['slug'],
+            'question' => $asked,
+            'intent' => $route['intent'],
+            'answered' => $result['answered'],
+            'answer' => $result['answer'],
+            'commits' => array_slice($result['commits'], 0, self::MAX_ANCHORS),
+            // Quantas âncoras EXISTEM, não quantas couberam. Sem isto a tela só
+            // sabe dizer "há mais", e "12 acesos" ao lado de "22 commits" lê
+            // como contradição em vez de recorte.
+            'commits_total' => count($result['commits']),
+            'truncated' => count($result['commits']) > self::MAX_ANCHORS,
+            'evidence' => $result['evidence'],
+            'source' => $result['source'],
+        ];
+
+        // O que o AGENTE lê e o operador não precisa ver.
+        //
+        // Duas coisas, nesta ordem: quem são os commits, e o código deles.
+        //
+        // O hash pelado é inútil para quem responde: `7f3069943f0d5343…` não
+        // diz o que o commit fez, e um agente que recebe doze deles ou cala ou
+        // inventa. O grafo precisa do hash para acender a linha; o agente
+        // precisa da MENSAGEM. Os dois são o mesmo commit visto por quem tem
+        // olho diferente — e o servidor já lê as duas coisas do mesmo git.
+        $detail = [];
+        if ($collecting && $response['commits'] !== []) {
+            $roll = $this->commitRoll($located['path'], $response['commits']);
+            if ($roll !== '') {
+                $detail[] = $roll;
+            }
+        }
+        if (isset($result['detail']) && is_string($result['detail']) && $result['detail'] !== '') {
+            $detail[] = $result['detail'];
+        }
+        if ($detail !== []) {
+            $response['detail'] = implode("\n\n", $detail);
+        }
+
+        // "Hoje" é uma afirmação sobre um recorte do tempo: o recorte vai junto,
+        // para o operador poder conferir contra o próprio git.
+        if ($route['intent'] === AtlasCodeQuestionRouter::INTENT_CHANGES) {
+            $response['window'] = [
+                'kind' => (string) $route['window'],
+                'since' => $this->windowStart((string) $route['window'], $now, $timezone),
+                'timezone' => $this->zone($timezone)->getName(),
+            ];
+        }
+
+        return $response;
+    }
+
+    /**
+     * @param  array<string,mixed>  $route
+     * @param  array{slug:string, path:string}  $located
+     * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string}
+     *
+     * @throws AtlasCodeGitUnavailable
+     */
+    private function route(array $route, array $located, int $now, ?string $timezone, bool $collecting, string $asked): array
+    {
+        return match ($route['intent']) {
             AtlasCodeQuestionRouter::INTENT_PROBLEMS => $this->answerProblems($located['slug'], $now),
             AtlasCodeQuestionRouter::INTENT_CHANGES => $this->answerChanges($located['path'], (string) $route['window'], $now, $timezone),
             // Mandar revisar é verbo, e verbo não roda dentro de um coletor de
@@ -123,45 +200,6 @@ final class AtlasCodeAskService
                 ? $this->shape(false, '', source: self::SOURCE_GRAPH)
                 : $this->consultBrain($asked, $located['path']),
         };
-
-        $response = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'repo' => $located['slug'],
-            'question' => $asked,
-            'intent' => $route['intent'],
-            'answered' => $result['answered'],
-            'answer' => $result['answer'],
-            'commits' => array_slice($result['commits'], 0, self::MAX_ANCHORS),
-            // Quantas âncoras EXISTEM, não quantas couberam. Sem isto a tela só
-            // sabe dizer "há mais", e "12 acesos" ao lado de "22 commits" lê
-            // como contradição em vez de recorte.
-            'commits_total' => count($result['commits']),
-            'truncated' => count($result['commits']) > self::MAX_ANCHORS,
-            'evidence' => $result['evidence'],
-            'source' => $result['source'],
-        ];
-
-        // O que o AGENTE lê e o operador não precisa ver: o diff cru.
-        //
-        // Só existe no modo `facts`, e existe porque sem ele "revise os commits
-        // de hoje" é promessa quebrada: o agente recebia 12 hashes e nenhuma
-        // linha de código. Foi exatamente assim que 12 revisores foram procurar
-        // o repositório, não acharam, e devolveram raciocínio em vez de veredito.
-        if (isset($result['detail']) && is_string($result['detail']) && $result['detail'] !== '') {
-            $response['detail'] = $result['detail'];
-        }
-
-        // "Hoje" é uma afirmação sobre um recorte do tempo: o recorte vai junto,
-        // para o operador poder conferir contra o próprio git.
-        if ($route['intent'] === AtlasCodeQuestionRouter::INTENT_CHANGES) {
-            $response['window'] = [
-                'kind' => (string) $route['window'],
-                'since' => $this->windowStart((string) $route['window'], $now, $timezone),
-                'timezone' => $this->zone($timezone)->getName(),
-            ];
-        }
-
-        return $response;
     }
 
     // MARK: — Composição das frases (puras, golden-testáveis)
@@ -943,6 +981,44 @@ final class AtlasCodeAskService
     }
 
     /**
+     * Quem são os commits que a resposta cita — para o AGENTE, não para a tela.
+     *
+     * `7f3069943f0d5343…` não diz nada a ninguém. O grafo precisa do hash para
+     * acender a linha certa; quem vai RESPONDER precisa da mensagem, do autor e
+     * de quando. Sem isto o agente recebe doze hashes pelados e só tem dois
+     * caminhos, os dois ruins: calar ou inventar o que eles fizeram.
+     *
+     * Uma chamada de git para os doze, não doze chamadas.
+     *
+     * @param  array<int,string>  $hashes
+     *
+     * @throws AtlasCodeGitUnavailable
+     */
+    private function commitRoll(string $path, array $hashes): string
+    {
+        if ($hashes === []) {
+            return '';
+        }
+
+        $saida = $this->git($path, [
+            'git', 'show', '--no-patch', '--format=%H%x1f%an%x1f%at%x1f%s', ...$hashes,
+        ]);
+
+        $linhas = [];
+        foreach ($this->parseCommits($saida) as $commit) {
+            $linhas[] = '- '.mb_substr($commit['hash'], 0, 10)
+                .' · '.$commit['message']
+                .' — '.$commit['author_name'];
+        }
+
+        if ($linhas === []) {
+            return '';
+        }
+
+        return "Os commits que a resposta cita:\n".implode("\n", $linhas);
+    }
+
+    /**
      * Revisar em lote, coletando: os commits da janela MAIS o código deles.
      *
      * Sem o diff, "revise os commits de hoje" é promessa quebrada — o agente
@@ -1088,15 +1164,34 @@ final class AtlasCodeAskService
     }
 
     /** @param array<int,string> $command */
+    /**
+     * Roda git e devolve a saída — ou levanta, se o git não respondeu.
+     *
+     * Levantar não é rigor: é a única forma de "não consegui ler" chegar à
+     * superfície. Devolvendo '' na falha (como era), timeout, permissão negada
+     * e `.git` corrompido produziam a frase "não há commit hoje" — afirmativa,
+     * sem ressalva, indistinguível de um dia sem trabalho. O operador
+     * acreditaria, e a ferramenta que existe para provar estado teria mentido
+     * calada.
+     *
+     * Saída VAZIA com sucesso continua sendo vazia de verdade: `git log` num
+     * dia sem commit sai zero com nada, e isso é um fato, não uma falha.
+     *
+     * @throws AtlasCodeGitUnavailable
+     */
     private function git(string $path, array $command): string
     {
         try {
             $process = new Process($command, $path, null, null, $this->timeoutSeconds);
             $process->run();
-
-            return $process->isSuccessful() ? $process->getOutput() : '';
-        } catch (Throwable) {
-            return '';
+        } catch (Throwable $exception) {
+            throw new AtlasCodeGitUnavailable($command[1] ?? 'git', 0, $exception);
         }
+
+        if (! $process->isSuccessful()) {
+            throw new AtlasCodeGitUnavailable($command[1] ?? 'git');
+        }
+
+        return $process->getOutput();
     }
 }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Unit\AtlasCode;
 
 use App\Services\AtlasCode\AtlasCodeAskService;
+use App\Services\AtlasCode\AtlasCodeRepoLocator;
+use App\Services\AtlasCode\AtlasCodeWorkspaceScanner;
 use App\Services\AtlasCode\AtlasCodeViolationService;
 use PHPUnit\Framework\TestCase;
 
@@ -518,5 +520,63 @@ final class AtlasCodeAskServiceTest extends TestCase
             $this->ask->windowStart('week', $now, 'UTC'),
             $this->ask->windowStart('week', $now, 'Asia/Tokyo')
         );
+    }
+
+    public function test_a_git_that_does_not_answer_is_said_never_reported_as_an_empty_day(): void
+    {
+        // A pior mentira de uma ferramenta de governança é a que parece
+        // verdade. Antes disto TODA falha de git virava string vazia, e string
+        // vazia virava "não há commit hoje": timeout de 20s num repo grande,
+        // permissão negada, `.git` corrompido — tudo dizia ao operador
+        // exatamente o mesmo que um dia sem trabalho, numa frase afirmativa e
+        // sem ressalva nenhuma. Ele acreditaria, e acreditaria com razão: a
+        // ferramenta existe justamente para ele não precisar conferir.
+        //
+        // Aqui o `.git` é uma pasta vazia: o locator ACHA o repositório (ele só
+        // procura a pasta) e o git recusa de verdade. Falha real, não simulada.
+        $raiz = sys_get_temp_dir().'/atlas-git-quebrado-'.uniqid();
+        mkdir($raiz.'/repo-quebrado/.git', 0o777, true);
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $resposta = (new AtlasCodeAskService(
+                locator: new AtlasCodeRepoLocator(scanner: new AtlasCodeWorkspaceScanner())
+            ))->answer('repo-quebrado', 'o que mudou hoje?');
+
+            self::assertFalse($resposta['answered'], 'git que não responde NÃO é um dia vazio');
+            self::assertStringContainsString('não consegui ler o git', $resposta['answer']);
+            self::assertSame([], $resposta['commits']);
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            rmdir($raiz.'/repo-quebrado/.git');
+            rmdir($raiz.'/repo-quebrado');
+            rmdir($raiz);
+        }
+    }
+
+    public function test_a_broken_git_collecting_facts_leaves_the_agent_without_a_crutch(): void
+    {
+        // Coletando fato, `answered=false` faz o bloco sumir no app
+        // (AtlasCodeFacts.block devolve nil) e o agente responde sem muleta.
+        // O caminho errado seria mandar "não consegui ler o git" como se fosse
+        // FATO do repositório: o agente citaria um git fantasma como se
+        // tivesse aberto.
+        $raiz = sys_get_temp_dir().'/atlas-git-quebrado-facts-'.uniqid();
+        mkdir($raiz.'/repo-quebrado/.git', 0o777, true);
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $resposta = (new AtlasCodeAskService(
+                locator: new AtlasCodeRepoLocator(scanner: new AtlasCodeWorkspaceScanner())
+            ))->answer('repo-quebrado', 'revise os commits de hoje', null, null, AtlasCodeAskService::MODE_FACTS);
+
+            self::assertFalse($resposta['answered']);
+            self::assertArrayNotHasKey('detail', $resposta, 'sem git não há código para o agente ler');
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            rmdir($raiz.'/repo-quebrado/.git');
+            rmdir($raiz.'/repo-quebrado');
+            rmdir($raiz);
+        }
     }
 }
