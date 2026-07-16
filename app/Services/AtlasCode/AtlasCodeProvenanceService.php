@@ -44,7 +44,16 @@ final class AtlasCodeProvenanceService
         $email = strtolower(trim($authorEmail));
         $map = $this->agentMap ?? self::DEFAULT_AGENT_MAP;
 
-        return $map[$email] ?? 'autonomo:desconhecido';
+        // `desconhecido`, não `autonomo:desconhecido`.
+        //
+        // O mapa tem UMA entrada (o e-mail do operador). Tudo que não casa
+        // vinha carimbado como agente autônomo — uma AFIRMAÇÃO sobre quem fez o
+        // trabalho, tirada de um e-mail que ninguém reconheceu. Pode ser um
+        // colega, um bot de CI, a interface do GitHub, o próprio operador de
+        // outra máquina. "Não sei quem" é o fato; "foi um autônomo" é o Atlas
+        // inventando identidade — e identidade inventada é a mentira que mais
+        // rápido vira decisão errada numa tela de governança.
+        return $map[$email] ?? 'desconhecido';
     }
 
     /**

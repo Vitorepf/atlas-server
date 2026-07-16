@@ -81,7 +81,12 @@ final class AtlasCodeGraphServiceTest extends TestCase
         ]);
 
         self::assertSame('voce', $service->agentForAuthor('Operator@Example.Test'));
-        self::assertSame('autonomo:desconhecido', $service->agentForAuthor('unknown@example.test'));
+
+        // E-mail que o mapa não conhece é DESCONHECIDO, e nada além disso.
+        // Chamá-lo de `autonomo:desconhecido` afirmava quem fez o trabalho a
+        // partir de um endereço que ninguém reconheceu — podia ser um colega,
+        // um bot de CI, a interface do GitHub, o operador de outra máquina.
+        self::assertSame('desconhecido', $service->agentForAuthor('unknown@example.test'));
     }
 
     public function test_projects_only_explicit_operator_quote_and_gate_fields(): void
