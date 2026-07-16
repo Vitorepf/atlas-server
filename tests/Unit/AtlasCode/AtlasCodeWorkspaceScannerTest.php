@@ -91,4 +91,56 @@ final class AtlasCodeWorkspaceScannerTest extends TestCase
         self::assertContains('Produto', $folders);
         self::assertContains(null, $folders);
     }
+
+    public function test_a_broken_repo_is_a_registered_failure_never_a_repo_without_history(): void
+    {
+        // Dois nulls que eram o MESMO null: "repo sem commit" (fato) e "não
+        // consegui ler" (falha). Sem distinguir, git quebrado fazia a frota
+        // inteira virar "sem data", RECENTES ficava vazio e a tela afirmava
+        // que o operador não trabalhou em nada — quando a varredura falhou.
+        $raiz = sys_get_temp_dir().'/atlas-scanner-falha-'.uniqid();
+
+        // Repo VAZIO de verdade: git init sem commit. Fato, não falha.
+        mkdir($raiz.'/vazio', 0o777, true);
+        shell_exec('cd '.escapeshellarg($raiz.'/vazio').' && git init -q -b main 2>&1');
+
+        // Repo QUEBRADO: pasta .git vazia — o git recusa ler.
+        mkdir($raiz.'/quebrado/.git', 0o777, true);
+
+        // Repo SAUDÁVEL, para provar que a falha de um não esconde o outro.
+        mkdir($raiz.'/saudavel', 0o777, true);
+        shell_exec('cd '.escapeshellarg($raiz.'/saudavel').' && git init -q -b main && git -c user.name=V -c user.email=v@x.test commit -q --allow-empty -m ok 2>&1');
+
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $payload = (new AtlasCodeWorkspaceScanner())->capture();
+
+            // A falha é DITA no payload — e só a falha: o vazio é fato.
+            self::assertSame(['quebrado'], $payload['scan_failures'] ?? []);
+
+            // O saudável continua no pódio: a falha de UM não some com TODOS.
+            self::assertNotEmpty($payload['recents']);
+            self::assertSame('saudavel', $payload['recents'][0]['slug']);
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            shell_exec('rm -rf '.escapeshellarg($raiz));
+        }
+    }
+
+    public function test_a_clean_scan_does_not_invent_a_failures_key(): void
+    {
+        $raiz = sys_get_temp_dir().'/atlas-scanner-limpo-'.uniqid();
+        mkdir($raiz.'/repo', 0o777, true);
+        shell_exec('cd '.escapeshellarg($raiz.'/repo').' && git init -q -b main && git -c user.name=V -c user.email=v@x.test commit -q --allow-empty -m ok 2>&1');
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $payload = (new AtlasCodeWorkspaceScanner())->capture();
+            self::assertArrayNotHasKey('scan_failures', $payload, 'varredura limpa não carrega chave de falha vazia');
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            shell_exec('rm -rf '.escapeshellarg($raiz));
+        }
+    }
 }

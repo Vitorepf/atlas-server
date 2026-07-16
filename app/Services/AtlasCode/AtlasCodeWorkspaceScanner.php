@@ -84,14 +84,48 @@ final class AtlasCodeWorkspaceScanner
     }
 
     /**
+     * Repos cuja HISTÓRIA não pôde ser lida na última varredura — falha, não
+     * fato. "Repo sem commit" é fato (sai com data null e é dito); "não
+     * consegui ler" é outra coisa, e sem esta lista os dois colapsavam no
+     * mesmo null: git fora do PATH fazia os 13 repos virarem "sem data",
+     * RECENTES ficava vazio e a tela afirmava que o operador não trabalhou em
+     * nada — quando a varredura é que falhou.
+     *
+     * @var array<int,string>
+     */
+    private array $unreadable = [];
+
+    /**
      * Último commit em epoch, ou null quando o repositório não tem história
      * legível. Null NUNCA vira 0 — repo sem data não é repo "de 1970".
+     *
+     * O `run()` fica em try/catch porque timeout LANÇA
+     * (ProcessTimedOutException), não vira `isSuccessful() === false` — e o
+     * controller devolve o capture() cru: sem o catch, UM repo travado
+     * (fsmonitor preso, volume desmontado, index.lock órfão) virava 500 no
+     * endpoint inteiro e os outros doze repos saudáveis sumiam junto.
      */
     public function lastCommitAt(string $path): ?int
     {
         $process = new Process(['git', 'log', '-1', '--format=%ct'], $path, null, null, $this->timeoutSeconds);
-        $process->run();
+
+        try {
+            $process->run();
+        } catch (\Throwable) {
+            $this->unreadable[] = $path;
+
+            return null;
+        }
+
         if (! $process->isSuccessful()) {
+            // Repo genuinamente sem commit sai 128 com "does not have any
+            // commits yet" — isso é FATO (sem data), não falha de leitura.
+            // Qualquer outra saída (127 git ausente, permissão, corrupção) é
+            // falha, e falha é registrada, nunca vestida de "sem história".
+            if (! str_contains($process->getErrorOutput(), 'does not have any commits')) {
+                $this->unreadable[] = $path;
+            }
+
             return null;
         }
         $value = filter_var(trim($process->getOutput()), FILTER_VALIDATE_INT);
@@ -227,9 +261,10 @@ final class AtlasCodeWorkspaceScanner
      */
     public function capture(int $recentLimit = 3): array
     {
+        $this->unreadable = [];
         $organized = $this->organize($this->discover(), $recentLimit);
 
-        return [
+        $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
             'workspace_root' => $this->workspaceRoot(),
@@ -237,6 +272,15 @@ final class AtlasCodeWorkspaceScanner
             'folders' => $organized['folders'],
             'loose' => $organized['loose'],
         ];
+
+        // Falha de leitura é DITA no payload, nunca vestida de "sem data".
+        // A tela pode confessar "não consegui ler N repositórios" em vez de
+        // mostrar um pódio vazio afirmando que ninguém trabalhou.
+        if ($this->unreadable !== []) {
+            $payload['scan_failures'] = array_values(array_unique(array_map('basename', $this->unreadable)));
+        }
+
+        return $payload;
     }
 
     /**

@@ -50,17 +50,24 @@ final class AtlasCodeRepoLocator
                     'path' => $path,
                 ];
             }
+
+            // O perfil é a AUTORIDADE, e o path registrado dele está morto.
+            // Isso é um problema de governança e tem de ser DITO aqui — cair
+            // no disco encontraria qualquer diretório homônimo com .git (um
+            // clone de teste, um backup) e o devolveria em silêncio sob a
+            // identidade do repo governado: Ask, Graph, Violation, Provenance
+            // e Review passariam a operar no repositório errado achando que é
+            // o certo. Chute onde deveria haver alarme.
+            throw new InvalidArgumentException('repository_path_missing_or_unreadable');
         }
 
+        // Sem perfil, o disco responde — essa é a intenção documentada do
+        // fallback, e o único caso em que ele é honesto.
         $found = ($this->scanner ?? new AtlasCodeWorkspaceScanner())->locate($requested);
         if ($found !== null) {
             return ['slug' => $requested, 'path' => $found];
         }
 
-        // Perfil existe mas o caminho não abre → o caminho é o problema.
-        // Nenhum perfil e nada no disco → o repositório é que não existe.
-        throw new InvalidArgumentException(
-            is_array($profile) ? 'repository_path_missing_or_unreadable' : 'repository_profile_not_found'
-        );
+        throw new InvalidArgumentException('repository_profile_not_found');
     }
 }
