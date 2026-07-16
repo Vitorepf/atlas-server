@@ -219,6 +219,11 @@ Todas as fases entregues e provadas ao vivo em 2026-07-16:
   chegava com "no matching symbols", agora entrega `code_graph: 63`
   (ex.: `sym:TurnPresence`, `sym:LiveNowSection`) + memory 4 + fusão 12.
 
+- **Refinamento extra:** o brief determinístico era cego a repos não-Laravel
+  (churn hardcoded `-- app` + `.php`); agora é linguagem-agnóstico com
+  exclusão de tests/vendor/build. Prova: brief do atlas-native saiu de
+  0 módulos para 8 módulos/15 hot files Swift reais.
+
 Follow-up registrado (não bloqueante): endurecer o extractor para que
 grammar tree-sitter AUSENTE vire erro dito em vez de 0 símbolos silencioso
 (hoje o grammar swift existe; a regra protege linguagens futuras).

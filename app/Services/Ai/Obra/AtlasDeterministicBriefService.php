@@ -132,12 +132,12 @@ final class AtlasDeterministicBriefService
             $out = @shell_exec(
                 'git -C '.escapeshellarg($repoPath ?? base_path())
                 .' log --since='.escapeshellarg(self::CHURN_SINCE)
-                .' --name-only --pretty=format: -- app 2>/dev/null'
+                .' --name-only --pretty=format: 2>/dev/null'
             );
             $counts = [];
             foreach (preg_split('/\R/', (string) $out) ?: [] as $line) {
                 $line = trim($line);
-                if ($line !== '' && str_ends_with($line, '.php')) {
+                if ($line !== '' && $this->isProductSourceFile($line)) {
                     $counts[$line] = ($counts[$line] ?? 0) + 1;
                 }
             }
@@ -151,6 +151,28 @@ final class AtlasDeterministicBriefService
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /**
+     * ADN — o churn é linguagem-agnóstico (a rede opera repos PHP, Swift, TS…):
+     * arquivo de código de produto conta; testes/vendor/artefatos não. Antes o
+     * filtro era `-- app` + `.php`, o que deixava todo repo não-Laravel com
+     * brief estruturalmente vazio.
+     */
+    private function isProductSourceFile(string $path): bool
+    {
+        foreach (['tests/', 'vendor/', 'node_modules/', '.build/', 'build/', 'dist/'] as $excluded) {
+            if (str_starts_with($path, $excluded) || str_contains($path, '/'.$excluded)) {
+                return false;
+            }
+        }
+
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        return in_array($extension, [
+            'php', 'swift', 'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs',
+            'py', 'go', 'rs', 'java', 'rb', 'kt', 'kts', 'scala', 'cpp', 'hpp', 'lua',
+        ], true);
     }
 
     /**
