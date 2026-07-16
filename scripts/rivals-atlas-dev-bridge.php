@@ -285,6 +285,52 @@ $taskOk = $providerExitCode === 0 && $providerErrors === [];
 $completionState = is_array($outputPayload)
     ? data_get($outputPayload, 'run.completion_state')
     : null;
+
+// APLICAR O PATCH QUE O ATLAS GEROU no workspace, para o grader poder julgá-lo.
+//
+// O Atlas Dev produz o patch e o aplica num sandbox EFÊMERO; depois tenta o merge
+// governado, que num benchmark descartável não tem autoridade de release e
+// bloqueia (governor_authority_absent). O workspace do harness ficava intocado e
+// o `git diff` do agente saía vazio — o Atlas trabalhava e a medição via nada.
+//
+// O que se mede é o PATCH GERADO (o grader o aplica e roda os testes), não o
+// merge de produção — que não cabe aqui. O patch_plan (resposta do modelo:
+// path+mode+next) é exposto pelo KernelRunExecutor só no contexto Rivals e existe
+// mesmo com o merge bloqueado. Aplicá-lo no workspace é o que torna o Atlas
+// mensurável, sem tocar a governança de produção.
+$patchApplied = 0;
+if ($atlasRuntimeProven) {
+    foreach ((array) data_get($providerCall, 'patch_plan.patches', []) as $patch) {
+        if (! is_array($patch)) {
+            continue;
+        }
+        $rel = ltrim((string) ($patch['path'] ?? ''), '/');
+        // Nunca escapar do workspace — o path vem do modelo.
+        if ($rel === '' || str_contains($rel, '..')) {
+            continue;
+        }
+        $abs = $workspace.'/'.$rel;
+        $mode = (string) ($patch['mode'] ?? 'modify');
+        if ($mode === 'delete') {
+            if (is_file($abs)) {
+                @unlink($abs);
+                $patchApplied++;
+            }
+
+            continue;
+        }
+        if (! array_key_exists('next', $patch)) {
+            continue;
+        }
+        $dir = \dirname($abs);
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0o755, true);
+        }
+        if (@file_put_contents($abs, (string) $patch['next']) !== false) {
+            $patchApplied++;
+        }
+    }
+}
 $inputTokens = is_numeric($providerCall['tokens_in'] ?? null)
     ? (int) $providerCall['tokens_in']
     : null;

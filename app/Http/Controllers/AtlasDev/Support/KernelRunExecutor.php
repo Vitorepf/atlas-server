@@ -119,6 +119,18 @@ final class KernelRunExecutor implements RunExecutor
                 'tokens_out' => null,
                 'estimated_cost_usd' => null,
                 'error_codes' => array_values(array_map('strval', (array) ($result->details['kernel_outcome']['uncertainties'] ?? []))),
+                // O PATCH que o Atlas gerou, exposto SÓ no contexto Rivals. É a
+                // resposta do modelo (patch_plan: path+mode+contents), retida no
+                // provider_receipt, que existe mesmo quando o merge governado
+                // bloqueia (governor_authority_absent) — o sandbox é efêmero, mas
+                // isto não. Serve para o harness medir o Atlas pelo PATCH gerado
+                // (o grader o aplica e julga); o merge de produção não cabe num
+                // benchmark descartável e não é o que se mede. Aditivo e
+                // observável: não muda decisão, gate, nem o que é commitado.
+                ...(filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)
+                    && is_array($provider['patch_plan'] ?? null)
+                    ? ['patch_plan' => $provider['patch_plan']]
+                    : []),
             ],
             verificationReceiptHash: self::hashOrNull($verification['hash'] ?? null),
             scopeGuardReceiptHash: self::hashOrNull($hashes['release'] ?? null),
