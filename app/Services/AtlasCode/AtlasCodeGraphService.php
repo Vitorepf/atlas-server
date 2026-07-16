@@ -23,9 +23,6 @@ final class AtlasCodeGraphService
 
     private const MAX_LIMIT = 500;
 
-    /** @var array<string, string> */
-    private array $refFingerprints = [];
-
     public function __construct(
         private readonly ?AtlasCodeWorkspaceProfileService $profiles = null,
         private readonly int $timeoutSeconds = 30,
@@ -149,11 +146,6 @@ final class AtlasCodeGraphService
         $hasMore = count($nodes) > $boundedLimit;
         $nodes = array_slice($nodes, 0, $boundedLimit);
 
-        $refs = $this->run($path, ['git', 'for-each-ref', '--format=%(objectname)']);
-        $refFingerprint = hash('sha256', $refs);
-        $previousFingerprint = $this->refFingerprints[$path] ?? null;
-        $this->refFingerprints[$path] = $refFingerprint;
-
         $head = trim($this->run($path, ['git', 'rev-parse', 'HEAD']));
 
         // A TRUNK, não a branch em que alguém está parado.
@@ -194,12 +186,14 @@ final class AtlasCodeGraphService
                 'before' => $before,
                 'has_more' => $hasMore,
             ],
-            'cache' => [
-                'strategy' => 'refs_fingerprint',
-                'refs_fingerprint' => $refFingerprint,
-                'invalidated' => $previousFingerprint !== null && $previousFingerprint !== $refFingerprint,
-            ],
         ];
+        // O bloco `cache` era teatro: `invalidated` prometia dizer se o grafo
+        // mudou desde a última carga, mas o serviço não é singleton — Laravel
+        // resolve instância nova por request, então `$previousFingerprint` era
+        // SEMPRE nil e `invalidated` SEMPRE false, estruturalmente. O app
+        // decodificava e nenhuma tela lia. Campo que não pode ser verdadeiro é
+        // pior que campo ausente: promete o que nunca cumpre. Deletado das duas
+        // pontas.
     }
 
     /**
