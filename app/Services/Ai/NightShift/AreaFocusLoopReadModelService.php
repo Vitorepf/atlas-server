@@ -9,6 +9,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedEvolutionGapReadModelService;
 use App\Services\Ai\SelfDirectedEvolution\SelfDirectedSpecProposalAdapter;
+use App\Services\Ai\SelfConstruction\AtlasNativeConstitutionScanner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtlasAreaFocusLoopReadModelService;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -91,6 +92,8 @@ class AreaFocusLoopReadModelService
 
     public const SOURCE_OWNER_DOCS = 'area_owner_docs';
 
+    public const SOURCE_NATIVE_CONSTITUTION = AtlasNativeConstitutionScanner::SOURCE;
+
     /** Routes that would consume an execution WIP slot (i.e. open a branch). */
     private const EXECUTION_ROUTES = [self::ROUTE_ATLAS_DEV, self::ROUTE_ATLAS_FORGE];
 
@@ -125,6 +128,7 @@ class AreaFocusLoopReadModelService
         private readonly SelfDirectedEvolutionGapReadModelService $gapReadModel,
         private readonly AtlasNightShiftAreaFocusContractRegistry $registry,
         private readonly AtlasAreaFocusLoopReadModelService $coreReadModel,
+        private readonly AtlasNativeConstitutionScanner $nativeConstitutionScanner,
     ) {}
 
     /**
@@ -168,6 +172,15 @@ class AreaFocusLoopReadModelService
         $sourceSummary[self::SOURCE_SDE] = $gapSummary;
         if ($gapBlocker !== null) {
             $blockers[] = $gapBlocker;
+        }
+
+        // Source 3 — V3 Self-Construction constitution findings for atlas-native.
+        // Written by atlas:native:constitution-scan into the existing backlog seam;
+        // absence is silence, not zero proof.
+        [$nativeFindings, $nativeSummary] = $this->collectNativeConstitutionFindings($area);
+        if ($nativeFindings !== [] || $nativeSummary !== []) {
+            $findings = array_merge($findings, $nativeFindings);
+            $sourceSummary[self::SOURCE_NATIVE_CONSTITUTION] = $nativeSummary;
         }
 
         $findings = $this->sortFindings($findings);
@@ -406,6 +419,36 @@ class AreaFocusLoopReadModelService
         return [$findings, $summary, null, $report];
     }
 
+    /**
+     * @param  array<string,mixed>  $area
+     * @return array{0:list<array<string,mixed>>,1:array<string,mixed>}
+     */
+    private function collectNativeConstitutionFindings(array $area): array
+    {
+        if ((string) ($area['area_id'] ?? '') !== 'atlas-native') {
+            return [[], []];
+        }
+
+        $report = $this->nativeConstitutionScanner->readFindingCache();
+        if (! is_array($report)) {
+            return [[], [
+                'available' => false,
+                'finding_count' => 0,
+                'reason' => 'scan_cache_absent',
+            ]];
+        }
+
+        $items = is_array($report['findings'] ?? null) ? array_values(array_filter($report['findings'], 'is_array')) : [];
+        $findings = array_map(fn (array $finding): array => $this->nativeConstitutionToFinding($area, $finding), $items);
+
+        return [$findings, [
+            'available' => true,
+            'scan_schema_version' => (string) ($report['schema_version'] ?? ''),
+            'finding_count' => count($findings),
+            'report_hash' => (string) ($report['report_hash'] ?? ''),
+        ]];
+    }
+
     // ---------- finding normalizers ----------
 
     /**
@@ -449,6 +492,52 @@ class AreaFocusLoopReadModelService
             'recommended_action' => 'Route to Self-Directed Evolution for a reviewable spec draft (future slice); operator curates. Never auto-implemented.',
             'capability' => $capability,
         ]);
+    }
+
+    /**
+     * Scanner findings are already provider-safe and hash-stable. Preserve their
+     * hash so duplicate scans collapse in the existing backlog projection.
+     *
+     * @param  array<string,mixed>  $area
+     * @param  array<string,mixed>  $source
+     * @return array<string,mixed>
+     */
+    private function nativeConstitutionToFinding(array $area, array $source): array
+    {
+        $risk = $this->normalizeRisk($source['risk_level'] ?? $source['severity'] ?? null);
+        $policy = (string) ($source['policy'] ?? 'observe');
+        $hash = (string) ($source['finding_hash'] ?? '');
+        if ($hash === '') {
+            $hash = 'sha1:'.sha1((string) ($source['rule_id'] ?? '').'|'.(string) ($source['target'] ?? ''));
+        }
+        $target = (string) ($source['target'] ?? '');
+        $ruleId = (string) ($source['rule_id'] ?? '');
+
+        return [
+            'schema_version' => self::FINDING_SCHEMA,
+            'safe_to_autofix' => $policy === 'heal',
+            'requires_operator_review' => $policy !== 'heal',
+            'area_id' => (string) ($area['area_id'] ?? 'atlas-native'),
+            'repo_id' => 'atlas-native',
+            'source' => self::SOURCE_NATIVE_CONSTITUTION,
+            'source_ref' => 'native_constitution:'.$ruleId.':'.$target,
+            'source_owner' => 'self_construction',
+            'gap_kind' => (string) ($source['rule_slug'] ?? 'native_constitution'),
+            'title' => (string) ($source['title'] ?? 'Native constitution finding'),
+            'severity' => $risk,
+            'confidence' => 'high',
+            'evidence_refs' => array_values(array_filter((array) ($source['evidence_refs'] ?? []), 'is_string')),
+            'affected_paths' => array_values(array_filter((array) ($source['affected_paths'] ?? []), 'is_string')),
+            'recommended_action' => (string) ($source['recommended_action'] ?? ''),
+            'capability' => 'atlas_native_self_construction',
+            'rule_id' => $ruleId,
+            'rule_text' => (string) ($source['rule_text'] ?? ''),
+            'triage_class' => $policy === 'heal' ? 'branch_allowed' : 'inbox_only',
+            'blast_radius' => $policy === 'heal' ? 'local' : 'wide',
+            'priority_score' => (int) ($source['priority_score'] ?? ((self::RISK_RANK[$risk] ?? 0) * 10)),
+            'finding_id' => 'nsf_native_'.substr(str_replace('sha1:', '', $hash), 0, 12),
+            'finding_hash' => $hash,
+        ];
     }
 
     /**
@@ -788,6 +877,12 @@ class AreaFocusLoopReadModelService
                 'reused_methods' => ['project'],
                 'not_invoked_methods' => ['none — read-only projection only'],
                 'role' => 'canonical gap owner (scan source)',
+            ],
+            self::SOURCE_NATIVE_CONSTITUTION => [
+                'owner_service' => AtlasNativeConstitutionScanner::class,
+                'reused_methods' => ['readFindingCache'],
+                'not_invoked_methods' => ['scan — command writes the cache before the read model projects it'],
+                'role' => 'V3 self-construction constitution findings for atlas-native',
             ],
             'area_contract' => [
                 'owner_service' => AtlasNightShiftAreaFocusContractRegistry::class,

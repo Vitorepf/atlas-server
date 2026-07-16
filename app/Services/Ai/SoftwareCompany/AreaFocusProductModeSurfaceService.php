@@ -200,6 +200,8 @@ class AreaFocusProductModeSurfaceService
                 'risk_level' => $risk,
                 'priority_score' => (int) ($finding['priority_score'] ?? 0),
                 'route' => (string) ($finding['route'] ?? ''),
+                'rule_id' => (string) ($finding['rule_id'] ?? ''),
+                'rule_text' => (string) ($finding['rule_text'] ?? ''),
             ];
         }
         ksort($byRisk);
