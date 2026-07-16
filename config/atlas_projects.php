@@ -64,6 +64,7 @@ return [
                 'atlas-desktop/crates',
                 'atlas-desktop/packages',
                 'atlas-app',
+                'atlas-native',
             ],
             'docs_status' => 'canonical',
             'default_risk' => 'medium',
@@ -103,6 +104,40 @@ return [
             'default_risk' => 'medium',
             'deployment_notes' => 'Atlas Server é o backend e cérebro local. Escopo específico para sessões abertas diretamente em atlas-server.',
             'surfaces_enabled' => ['atlas_ai', 'cartografia', 'code', 'atencao'],
+        ],
+        [
+            'id' => 'atlas-native',
+            'slug' => 'atlas-native',
+            'name' => 'Atlas Native',
+            'kind' => 'product',
+            'workspace_path' => env('ATLAS_PROJECT_ATLAS_NATIVE_PATH', base_path('../atlas-native')),
+            'repo_root' => env('ATLAS_PROJECT_ATLAS_NATIVE_REPO', base_path('../atlas-native')),
+            'production_status' => 'development',
+            'stack_summary' => 'App iOS nativo · SwiftUI + Swift 6 strict concurrency · AtlasCore (SPM Foundation-only) + AtlasCoreChecks (golden checks) · zero dependências externas.',
+            'commands' => [
+                'checks' => 'swift run AtlasCoreChecks',
+            ],
+            'test_commands' => [
+                'swift run AtlasCoreChecks',
+            ],
+            'build_commands' => [
+                'cd App && make build',
+            ],
+            'dev_server_command' => null,
+            'critical_areas' => [
+                'Sources/AtlasCore',
+                'App/Atlas',
+                'Sources/AtlasCoreChecks',
+                'docs/engineering-knowledge-base',
+                'OBRA.md',
+            ],
+            'code_index_roots' => [
+                '.',
+            ],
+            'docs_status' => 'incomplete',
+            'default_risk' => 'medium',
+            'deployment_notes' => 'Casca iOS do Atlas (iPhone). Coordenação por OBRA.md (blackboard da obra); gates: swift run AtlasCoreChecks + make build antes de todo commit.',
+            'surfaces_enabled' => ['atlas_ai', 'code', 'atencao'],
         ],
         [
             'id' => 'blackink',
