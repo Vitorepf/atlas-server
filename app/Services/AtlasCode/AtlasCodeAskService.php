@@ -1158,11 +1158,19 @@ final class AtlasCodeAskService
         })->afterResponse();
 
         $count = count($hashes);
+        $total = count($commits);
         $noun = $count === 1 ? 'commit' : 'commits';
+
+        // O teto da frota é dito com número: "12 em revisão" quando a janela
+        // tem 889 lê como cobertura total, e cobertura fingida é pior que
+        // cobertura pequena — o operador confia numa revisão que não houve.
+        $frase = $total > $count
+            ? "{$count} de {$total} {$noun} em revisão — os mais recentes primeiro; os outros ficaram de fora."
+            : "{$count} {$noun} em revisão — um agente por commit, ao vivo no grafo.";
 
         return $this->shape(
             true,
-            "{$count} {$noun} em revisão — um agente por commit, ao vivo no grafo.",
+            $frase,
             commits: $hashes,
             source: self::SOURCE_GRAPH,
         );

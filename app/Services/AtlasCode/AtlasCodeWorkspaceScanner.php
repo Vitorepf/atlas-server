@@ -144,7 +144,11 @@ final class AtlasCodeWorkspaceScanner
     public function locate(string $slug): ?string
     {
         // O slug é um segmento de diretório, nunca um caminho: '..' e '/' saem.
-        if (preg_match('/^[A-Za-z0-9._-]+$/', $slug) !== 1 || $slug === '.' || $slug === '..') {
+        // Espaço é caractere legítimo de nome de pasta — "Meu Projeto" existe
+        // no disco, o radar o LISTA, e este filtro fazia o /code/ask negar que
+        // ele existe: a mesma frota com duas verdades. O que o filtro guarda é
+        // travessia (`/`, `..`), não estética de nome.
+        if (preg_match('/^[A-Za-z0-9._\- ]+$/', $slug) !== 1 || $slug === '.' || $slug === '..' || trim($slug) === '') {
             return null;
         }
 
