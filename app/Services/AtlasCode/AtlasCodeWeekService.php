@@ -29,7 +29,21 @@ final class AtlasCodeWeekService
         $since = $until->sub(new \DateInterval('P7D'));
         $lines = $this->run($path, ['git', 'log', '--all', '--since='.$since->format(DATE_ATOM), '--until='.$until->format(DATE_ATOM), '--format=%ae%x1f%H']);
         $commits = 0;
-        $byAgent = ['fable' => 0, 'codex' => 0, 'voce' => 0, 'autonomo:desconhecido' => 0];
+        // Nenhum balde semeado: só existe quem o git realmente devolveu.
+        //
+        // A semente era `['fable' => 0, 'codex' => 0, 'voce' => 0,
+        // 'autonomo:desconhecido' => 0]` e publicava quatro números como se
+        // fossem medição. Dois deles NÃO PODEM sair de zero: `agentForAuthor()`
+        // só devolve `voce` ou `autonomo:desconhecido`, então "fable: 0" e
+        // "codex: 0" eram zeros fabricados — a folha da semana afirmando que
+        // mediu o trabalho de dois agentes que ela não sabe reconhecer.
+        //
+        // Zero medido e zero inventado se escrevem igual na tela, e é
+        // exatamente por isso que inventar zero é caro: some a diferença entre
+        // "não trabalhou" e "não sei olhar". Agente novo agora aparece sozinho
+        // quando o mapa aprender o e-mail dele; até lá, ele simplesmente não
+        // aparece — que é a verdade.
+        $byAgent = [];
         $provenance = new AtlasCodeProvenanceService();
         foreach (preg_split('/\r?\n/', trim($lines)) ?: [] as $line) {
             $parts = explode("\x1f", trim($line), 2);
