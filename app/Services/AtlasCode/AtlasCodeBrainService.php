@@ -118,7 +118,12 @@ final class AtlasCodeBrainService
         // inconferível — o oposto de proveniência.
         return [
             'answered' => true,
-            'answer' => "não é um filtro do grafo, mas o cérebro conhece {$count} {$noun} sobre isso.",
+            // "não RECONHECI como filtro", nunca "não É um filtro": a frase
+            // antiga afirmava sobre a PERGUNTA o que só se sabe sobre o
+            // roteador — "what changed today?" É o filtro do dia, em inglês, e
+            // era negado com confiança. Falar de si é honesto; falar da
+            // pergunta é chute com voz de autoridade.
+            'answer' => "não reconheci a pergunta como um filtro do grafo, mas o cérebro conhece {$count} {$noun} sobre isso.",
             'evidence' => $evidence,
             'source' => self::SOURCE,
         ];

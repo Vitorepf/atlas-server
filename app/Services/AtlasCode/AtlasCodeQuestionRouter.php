@@ -318,7 +318,12 @@ final class AtlasCodeQuestionRouter
         if (str_contains($text, 'semana') || str_contains($text, '7 dias')) {
             return self::WINDOW_WEEK;
         }
-        if (str_contains($text, 'mes') || str_contains($text, '30 dias')) {
+        // Fronteira de palavra obrigatória — a mesma lição do revisa/revisão:
+        // "mesmo", "mesma" e "mesa" CONTÊM "mes", e "o que mudou mesmo?"
+        // respondia sobre o MÊS quando o operador perguntava do dia. Janela
+        // inventada é o tempo mentindo, e o recorte vai junto da resposta como
+        // se fosse o pedido dele. ("mês" normaliza para "mes" sem acento.)
+        if (preg_match('/\bmes(es)?\b/u', $text) === 1 || str_contains($text, '30 dias')) {
             return self::WINDOW_MONTH;
         }
 

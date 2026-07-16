@@ -225,4 +225,19 @@ final class AtlasCodeQuestionRouterTest extends TestCase
             $this->router->route('procura cura no repositório')['intent']
         );
     }
+
+    public function test_mesmo_and_mesa_do_not_invent_a_month_window(): void
+    {
+        // "mesmo", "mesma" e "mesa" CONTÊM "mes" — e "o que mudou mesmo?"
+        // respondia sobre o MÊS quando o operador perguntava do dia. Janela
+        // inventada é o tempo mentindo: o recorte viaja junto da resposta
+        // como se fosse o pedido dele.
+        self::assertSame('today', $this->router->route('o que mudou mesmo?')['window']);
+        self::assertSame('today', $this->router->route('quantos commits temos mesmo?')['window']);
+
+        // O mês de verdade continua sendo o mês.
+        self::assertSame('month', $this->router->route('quais as mudanças do mês?')['window']);
+        self::assertSame('month', $this->router->route('o que mudou nos últimos 30 dias?')['window']);
+        self::assertSame('month', $this->router->route('o que mudou nos ultimos meses?')['window']);
+    }
 }
