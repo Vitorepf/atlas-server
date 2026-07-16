@@ -80,6 +80,7 @@ use App\Http\Controllers\AtlasCodeAskController;
 use App\Http\Controllers\AtlasCodeReviewController;
 use App\Http\Controllers\AtlasCodeViolationController;
 use App\Http\Controllers\AtlasCodeWeekController;
+use App\Http\Controllers\AtlasCodeWhyController;
 use App\Http\Controllers\AtlasCodeMcpStatusController;
 use App\Http\Controllers\AtlasCodeObraCommandCenterController;
 use App\Http\Controllers\AtlasCodeObservedSessionController;
@@ -270,6 +271,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
         ->where('healId', '[0-9A-Z]{20,32}');
     Route::get('/code/provenance/{hash}', AtlasCodeProvenanceController::class)
         ->where('hash', '[0-9a-fA-F]{7,64}');
+    // H1 · biografia do arquivo: Git --follow + proveniência C23.
+    Route::get('/code/why', AtlasCodeWhyController::class);
     Route::get('/code/violations', AtlasCodeViolationController::class);
     Route::get('/code/week', AtlasCodeWeekController::class);
     // H6 pílula · pergunta em linguagem humana sobre o grafo (read-only).
