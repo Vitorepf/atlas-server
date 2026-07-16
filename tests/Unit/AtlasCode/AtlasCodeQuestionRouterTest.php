@@ -121,10 +121,10 @@ final class AtlasCodeQuestionRouterTest extends TestCase
         // dela. Se alguém adicionar sugestão lá e não aqui, este teste é o
         // canário: a lista some do par e a promessa quebra em silêncio.
         $suggestions = [
-            'o que mudou hoje?',
             'tem algum problema?',
+            'o que mudou hoje?',
+            'qual arquivo mais mexe?',
             'revise os commits de hoje',
-            'por que essa branch existe?',
         ];
 
         foreach ($suggestions as $suggestion) {

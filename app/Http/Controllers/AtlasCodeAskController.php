@@ -27,6 +27,11 @@ final class AtlasCodeAskController extends Controller
             // Quem sabe que horas são para o operador é o aparelho na mão dele.
             // Sem isso o servidor responde em UTC — e "hoje" seria o dia errado.
             'timezone' => ['sometimes', 'nullable', 'string', 'max:64', 'timezone'],
+            // `facts` = leitura pura, para o agente do card ler antes de
+            // responder. Um modo desconhecido não vira `answer` em silêncio:
+            // `answer` pode despachar frota, e adivinhar verbo é como um
+            // coletor de fato acaba mandando 12 agentes trabalharem sozinho.
+            'mode' => ['sometimes', 'string', 'in:answer,facts'],
         ]);
 
         try {
@@ -35,6 +40,9 @@ final class AtlasCodeAskController extends Controller
                 (string) $input['question'],
                 null,
                 isset($input['timezone']) && is_string($input['timezone']) ? $input['timezone'] : null,
+                isset($input['mode']) && is_string($input['mode'])
+                    ? $input['mode']
+                    : AtlasCodeAskService::MODE_ANSWER,
             ));
         } catch (InvalidArgumentException $exception) {
             $status = in_array($exception->getMessage(), ['repository_profile_not_found'], true) ? 404 : 422;

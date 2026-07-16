@@ -52,6 +52,48 @@ class AiContextPack
         return $this->data;
     }
 
+    /**
+     * A lei escrita do repositório que a pergunta puxou.
+     *
+     * Vem ANTES do recall e da memória semântica de propósito: quando o canon
+     * e a lembrança discordam, quem manda é o canon — ele é versionado,
+     * revisado e vive no repo; a lembrança é o que alguém disse um dia. A ordem
+     * na janela é a ordem da autoridade.
+     *
+     * O caminho canônico vai junto com cada doc, e não é enfeite: sem ele o
+     * agente sabe a regra e não sabe onde ela mora, então não tem como o
+     * operador conferir. Regra sem endereço é boato com boa reputação.
+     *
+     * @return array<int,string>
+     */
+    private function engineeringCanonLines(): array
+    {
+        $canon = data_get($this->data, 'engineering_canon', []);
+        if (! is_array($canon) || $canon === []) {
+            return [];
+        }
+
+        $lines = [
+            '',
+            '## Canon de Engenharia (lei escrita do repo)',
+            'Governa implementacao. Se discordar do recall ou da sua memoria, o canon vence. Cite o caminho quando usar.',
+        ];
+
+        foreach (array_slice($canon, 0, 5) as $doc) {
+            if (! is_array($doc)) {
+                continue;
+            }
+
+            $lines[] = '### '.($doc['title'] ?? $doc['slug'] ?? 'Sem titulo').$this->scoreLabel($doc['score'] ?? null);
+            $lines[] = 'path: '.($doc['canonical_path'] ?? 'n/a');
+            if (! empty($doc['summary'])) {
+                $lines[] = 'resumo: '.$doc['summary'];
+            }
+        }
+
+        return $lines;
+    }
+
     public function contextRefs(): array
     {
         return $this->contextRefs;
@@ -149,6 +191,8 @@ class AiContextPack
             $lines[] = '- expansion_handles: '.implode(', ', array_slice($handles, 0, 16));
         }
         $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; raw_docs_dumped=false; raw_tests_dumped=false; providers_invoked=false; writes=false';
+
+        $lines = [...$lines, ...$this->engineeringCanonLines()];
 
         if (! empty($rankedRecall)) {
             $lines[] = '';
@@ -497,6 +541,8 @@ class AiContextPack
             $lines[] = '- quality_gate_hint: '.($contextDeliveryPolicy['quality_gate_hint'] ?? 'feedback_guided_staging_allowed');
             $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; providers_invoked=false; writes=false';
         }
+
+        $lines = [...$lines, ...$this->engineeringCanonLines()];
 
         if (! empty($rankedRecall)) {
             $lines[] = '';

@@ -123,7 +123,7 @@ final class EngineeringKnowledgeSearch
             $available += $rarity;
 
             $hit = 0.0;
-            if ($this->mentions($name, $term)) {
+            if ($this->mentions($name, $term) || $this->isInitialismOf($item, $term)) {
                 // O nome da coisa é a coisa: casar aqui é forte.
                 $hit = 1.0;
             } elseif ($this->mentions($body, $term)) {
@@ -157,6 +157,64 @@ final class EngineeringKnowledgeSearch
         // sozinho (0.68) passa; um termo que está em tudo (0.03) não passa nem
         // casando no título.
         return round(min(1.0, $covered / max(1.0, $available)), 4);
+    }
+
+    /**
+     * A sigla É o nome: "ACOS" e "Atlas Cognition Operating System" são a mesma
+     * coisa, e o Atlas tem de saber disso sobre si mesmo.
+     *
+     * O buraco, medido contra a KB real: "o que é o ACOS?" devolvia cinco
+     * satélites (`atlas-acos-areas-map`, `atlas-acos-delta-series`…) a 0.418 —
+     * que trazem a sigla no slug — e o doc-MÃE, `Atlas Cognition Operating
+     * System`, ficava em 0.2506, ABAIXO do piso, fora da resposta. A autoridade
+     * do próprio cérebro era invisível para o próprio cérebro, porque ela
+     * soletra o nome e os filhos abreviam.
+     *
+     * A regra é geral, não um dicionário: as iniciais das palavras do nome. É
+     * como um humano lê, e cobre de graça o canon inteiro do Atlas — AWIS, AOBG,
+     * ACIE, APCR, AEMOR —, que é uma casa de siglas. Dicionário fixo seria
+     * vocabulário inventado, envelheceria na primeira sigla nova e mentiria
+     * calado; iniciais não têm o que envelhecer.
+     *
+     * Só vale contra o NOME (slug/título), nunca contra o corpo: iniciais de
+     * parágrafo não significam nada, e ali a regra viraria ruído.
+     *
+     * @param  array<string,mixed>  $item
+     */
+    public function isInitialismOf(array $item, string $term): bool
+    {
+        // Sigla de 2 letras é ruído; os termos já chegam com 3+, mas a regra é
+        // desta função e não de quem a chama.
+        if (mb_strlen($term) < 3) {
+            return false;
+        }
+
+        foreach ([(string) ($item['title'] ?? ''), (string) ($item['slug'] ?? '')] as $name) {
+            if ($this->initials($name) === $term) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * As iniciais das palavras de um nome. "Atlas Cognition Operating System" e
+     * `atlas-cognition-operating-system` dão os dois `acos` — hífen é espaço,
+     * porque slug é nome escrito com hífen.
+     */
+    public function initials(string $name): string
+    {
+        $words = preg_split('/[^a-z0-9]+/', mb_strtolower(trim($name))) ?: [];
+        $words = array_values(array_filter($words, static fn (string $w): bool => $w !== ''));
+
+        // Nome de uma ou duas palavras não forma sigla: "Atlas AI" viraria
+        // "aa", e qualquer termo curto casaria com meio corpus.
+        if (count($words) < 3) {
+            return '';
+        }
+
+        return implode('', array_map(static fn (string $w): string => mb_substr($w, 0, 1), $words));
     }
 
     /**
@@ -281,11 +339,90 @@ final class EngineeringKnowledgeSearch
             if ($score < self::RELEVANCE_FLOOR) {
                 continue;
             }
-            $scored[] = ['score' => $score] + $item;
+            $scored[] = ['score' => $score, 'is_the_thing' => $this->isTheThing($item, $terms)] + $item;
         }
 
-        usort($scored, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+        // Empate desempata por identidade: `Atlas Cognition Operating System`
+        // (que É o ACOS) na frente de `atlas-acos-areas-map` (que FALA do
+        // ACOS). Os dois pontuam 0.418 — cobrem a mesma informação da pergunta
+        // —, e sem este critério quem lidera é a ordem que o banco devolveu.
+        // Deixar o acaso escolher a autoridade é pior que não ordenar: parece
+        // decisão e não é.
+        usort($scored, static fn (array $a, array $b): int => [$b['score'], $b['is_the_thing']] <=> [$a['score'], $a['is_the_thing']]);
 
         return array_slice($scored, 0, max(1, $limit));
+    }
+
+    /**
+     * O doc É a coisa perguntada, em vez de falar dela.
+     *
+     * Identidade é o nome INTEIRO batendo com o termo — a sigla expandida
+     * (`Atlas Cognition Operating System` = acos) ou o slug exato. Conter o
+     * termo entre outras palavras (`atlas-acos-areas-map`) é falar da coisa;
+     * ser a coisa é outra categoria, e a diferença aparece justamente no empate,
+     * onde alguém tem de liderar.
+     *
+     * @param  array<string,mixed>  $item
+     * @param  array<int,string>  $terms
+     */
+    public function isTheThing(array $item, array $terms): bool
+    {
+        $slug = mb_strtolower((string) ($item['slug'] ?? ''));
+
+        foreach ($terms as $term) {
+            if ($slug === $term || $this->isInitialismOf($item, $term)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Só quem chega perto do líder — o resto é distração com nota de corte.
+     *
+     * O piso (0.35) é absoluto e serve para BUSCA, onde o operador vê a lista e
+     * julga sozinho. Num Context Pack não há ninguém julgando: o agente lê tudo
+     * como se fosse igualmente lei. Medido contra a KB real, "por que existe a
+     * regra da main?" devolvia o doc certo a 0.711 e mais três a 0.427 — que
+     * apenas CITAM "regra" e "main" no corpo, enquanto o líder tem a regra no
+     * próprio nome. Cobrir a pergunta e mencioná-la de passagem não são a mesma
+     * coisa, e empilhar as duas na janela ensina o agente a ignorar a seção.
+     *
+     * Empate real sobrevive: dois docs a 0.70 e 0.68 continuam os dois, porque
+     * aí a pergunta tem mesmo duas leis.
+     *
+     * @param  array<int,array<string,mixed>>  $ranked  Já ordenado por `rank()`.
+     * @return array<int,array<string,mixed>>
+     */
+    public function dominant(array $ranked, float $ratio = 0.8): array
+    {
+        $top = (float) ($ranked[0]['score'] ?? 0.0);
+        if ($top <= 0.0) {
+            return [];
+        }
+
+        $cut = $top * max(0.0, min(1.0, $ratio));
+
+        // Quando a própria coisa lidera, quem apenas fala dela com a mesma nota
+        // é redundância. "O que é o ACOS?" tem UMA resposta — o doc-mãe —, e
+        // `atlas-acos-areas-map`, `atlas-acos-delta-series` e os outros três
+        // empatam em 0.418 só porque a sigla está no slug deles. Cinco docs onde
+        // um responde não é generosidade: é diluir a autoridade em ruído.
+        //
+        // Nada acima do líder existe (ele é o líder), então o filtro é seguro:
+        // ele só corta empate e cauda.
+        $leaderIsTheThing = (bool) ($ranked[0]['is_the_thing'] ?? false);
+
+        return array_values(array_filter(
+            $ranked,
+            static function (array $item) use ($cut, $leaderIsTheThing): bool {
+                if ((float) ($item['score'] ?? 0.0) < $cut) {
+                    return false;
+                }
+
+                return ! $leaderIsTheThing || (bool) ($item['is_the_thing'] ?? false);
+            }
+        ));
     }
 }

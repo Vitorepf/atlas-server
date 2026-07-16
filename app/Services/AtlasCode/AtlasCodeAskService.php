@@ -38,6 +38,35 @@ final class AtlasCodeAskService
     /** Quantos commits uma resposta ancora antes de virar ruído. */
     private const MAX_ANCHORS = 12;
 
+    /**
+     * Quanto código cabe num turno de revisão. Teto de FIO: o `input_text` do
+     * servidor não é lugar de carregar um dia inteiro de trabalho, e um agente
+     * afogado em 15 mil linhas não revisa melhor — revisa pior. O que não cabe
+     * é dito com número, nunca cortado em silêncio.
+     */
+    private const REVIEW_DIFF_BUDGET = 12_000;
+
+    /** Um commit gigante não pode comer o turno inteiro sozinho. */
+    private const REVIEW_DIFF_PER_COMMIT = 6_000;
+
+    /**
+     * Perguntar: a resposta É o produto. Pode mandar revisar (verbo do
+     * operador) e pode consultar o cérebro quando não é filtro de git.
+     */
+    public const MODE_ANSWER = 'answer';
+
+    /**
+     * Coletar fato para o agente do card ler antes de responder. LEITURA PURA
+     * do git: nunca despacha frota, nunca chama outro agente.
+     *
+     * A distinção não é preciosismo. No card, o coletor roda a CADA turno — se
+     * ele mantivesse os verbos do modo `answer`, escrever "revise os commits de
+     * hoje" dispararia a frota de revisão E mandaria a pergunta ao agente: o
+     * mesmo trabalho duas vezes, um deles sem ninguém ter pedido. Coletar fato
+     * é ler; quem age é o operador.
+     */
+    public const MODE_FACTS = 'facts';
+
     public function __construct(
         private readonly ?AtlasCodeQuestionRouter $router = null,
         private readonly ?AtlasCodeRepoLocator $locator = null,
@@ -55,8 +84,13 @@ final class AtlasCodeAskService
      *                                 ele está é o aparelho na mão dele, então o
      *                                 app manda; o servidor nunca adivinha.
      */
-    public function answer(string $repo, string $question, ?int $now = null, ?string $timezone = null): array
-    {
+    public function answer(
+        string $repo,
+        string $question,
+        ?int $now = null,
+        ?string $timezone = null,
+        string $mode = self::MODE_ANSWER,
+    ): array {
         $asked = trim($question);
         if ($asked === '') {
             throw new InvalidArgumentException('empty_question');
@@ -65,17 +99,29 @@ final class AtlasCodeAskService
         $located = ($this->locator ?? new AtlasCodeRepoLocator())->locate($repo);
         $route = ($this->router ?? new AtlasCodeQuestionRouter())->route($asked);
         $now ??= time();
+        $collecting = $mode === self::MODE_FACTS;
 
         $result = match ($route['intent']) {
             AtlasCodeQuestionRouter::INTENT_PROBLEMS => $this->answerProblems($located['slug'], $now),
             AtlasCodeQuestionRouter::INTENT_CHANGES => $this->answerChanges($located['path'], (string) $route['window'], $now, $timezone),
-            AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH => $this->startReview($located['slug'], $located['path'], (string) $route['window'], $now, $timezone),
+            // Mandar revisar é verbo, e verbo não roda dentro de um coletor de
+            // fato. Coletando, "revise os commits de hoje" vira o QUE mudou
+            // hoje — e quem revisa é o agente do card, lendo esses commits.
+            // Ele responde no mesmo turno; a frota respondia em lugar nenhum.
+            AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH => $collecting
+                ? $this->collectReview($located['path'], (string) $route['window'], $now, $timezone)
+                : $this->startReview($located['slug'], $located['path'], (string) $route['window'], $now, $timezone),
             AtlasCodeQuestionRouter::INTENT_WHY_BRANCH => $this->answerWhyBranch($located['slug'], $located['path']),
             AtlasCodeQuestionRouter::INTENT_WHO_TOUCHED => $this->answerWhoTouched($located['path'], $route['term']),
             AtlasCodeQuestionRouter::INTENT_FIND => $this->answerFind($located['path'], $route['term']),
             AtlasCodeQuestionRouter::INTENT_HOTTEST => $this->answerHottest($located['path'], (string) $route['window'], $now, $timezone),
-            // Não é filtro do grafo: é pergunta de julgamento. Vai ao cérebro.
-            default => $this->consultBrain($asked, $located['path']),
+            // Não é filtro do grafo: é pergunta de julgamento. Perguntando, vai
+            // ao cérebro. Coletando, o silêncio é a resposta certa: quem vai
+            // julgar é o agente que já está lendo isto, e chamar um segundo
+            // cérebro para ditar a resposta do primeiro é ruído, não fato.
+            default => $collecting
+                ? $this->shape(false, '', source: self::SOURCE_GRAPH)
+                : $this->consultBrain($asked, $located['path']),
         };
 
         $response = [
@@ -94,6 +140,16 @@ final class AtlasCodeAskService
             'evidence' => $result['evidence'],
             'source' => $result['source'],
         ];
+
+        // O que o AGENTE lê e o operador não precisa ver: o diff cru.
+        //
+        // Só existe no modo `facts`, e existe porque sem ele "revise os commits
+        // de hoje" é promessa quebrada: o agente recebia 12 hashes e nenhuma
+        // linha de código. Foi exatamente assim que 12 revisores foram procurar
+        // o repositório, não acharam, e devolveram raciocínio em vez de veredito.
+        if (isset($result['detail']) && is_string($result['detail']) && $result['detail'] !== '') {
+            $response['detail'] = $result['detail'];
+        }
 
         // "Hoje" é uma afirmação sobre um recorte do tempo: o recorte vai junto,
         // para o operador poder conferir contra o próprio git.
@@ -884,6 +940,60 @@ final class AtlasCodeAskService
             $this->phraseHottest($work, $window),
             source: self::SOURCE_GRAPH,
         );
+    }
+
+    /**
+     * Revisar em lote, coletando: os commits da janela MAIS o código deles.
+     *
+     * Sem o diff, "revise os commits de hoje" é promessa quebrada — o agente
+     * recebia a contagem e os hashes, e revisar sem ver o código é opinar. Foi
+     * literalmente o que aconteceu com a frota antiga: 12 agentes procuraram o
+     * repositório, não acharam, e devolveram raciocínio no lugar do veredito.
+     *
+     * O teto é de FIO, não de verdade: cabe o que cabe, do mais recente para
+     * trás, e o que não coube é DITO com número. Um agente que revisa 4 de 45
+     * e diz isso é útil; um que revisa 4 de 45 calado está mentindo sobre a
+     * cobertura, e o operador confia numa revisão que não houve.
+     *
+     * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string, detail:string}
+     */
+    private function collectReview(string $path, string $window, int $now, ?string $timezone): array
+    {
+        $base = $this->answerChanges($path, $window, $now, $timezone);
+        if ($base['commits'] === []) {
+            return $base + ['detail' => ''];
+        }
+
+        $review = $this->review ?? new AtlasCodeReviewService();
+        $lidos = [];
+        $orcamento = self::REVIEW_DIFF_BUDGET;
+
+        foreach ($base['commits'] as $hash) {
+            if ($orcamento <= 0) {
+                break;
+            }
+
+            $diff = $review->diff($path, $hash, min($orcamento, self::REVIEW_DIFF_PER_COMMIT));
+            if (trim($diff) === '') {
+                continue;
+            }
+
+            $lidos[] = "--- commit {$hash} ---\n".$diff;
+            $orcamento -= mb_strlen($diff);
+        }
+
+        if ($lidos === []) {
+            return $base + ['detail' => ''];
+        }
+
+        $fora = count($base['commits']) - count($lidos);
+        $detail = "Código dos commits, lido do git (do mais recente para trás):\n\n".implode("\n\n", $lidos);
+        if ($fora > 0) {
+            $detail .= "\n\n[".$fora.' commit(s) desta janela NÃO couberam neste turno e você não os viu. '
+                .'Revise o que leu e diga que os outros ficaram de fora — nunca fale deles como se tivesse lido.]';
+        }
+
+        return $base + ['detail' => $detail];
     }
 
     /**

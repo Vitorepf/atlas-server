@@ -15,7 +15,10 @@ use App\Services\Ai\Security\PromptInjectionScanner;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiContextPack;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
+use App\Services\Engineering\EngineeringKnowledgeBaseService;
+use App\Services\Engineering\EngineeringKnowledgeSearch;
 use App\Services\Semantic\SemanticSearchService;
+use Throwable;
 use Illuminate\Support\Str;
 
 class AiContextPackBuilder
@@ -33,7 +36,9 @@ class AiContextPackBuilder
         ?SemanticContextInput $semanticInput = null,
         ?ContextRetrievalRouter $retrievalRouter = null,
         ?AtlasContextIdRemapService $idRemap = null,
+        ?EngineeringKnowledgeBaseService $engineeringCanon = null,
     ) {
+        $this->engineeringCanon = $engineeringCanon ?? app(EngineeringKnowledgeBaseService::class);
         $this->memoryPrivacy = $memoryPrivacy ?? app(AtlasMemoryPrivacyService::class);
         $this->sourcePrivacy = $sourcePrivacy ?? app(AtlasMemorySourcePrivacyPolicy::class);
         $this->verbatimMemory = $verbatimMemory ?? app(AtlasVerbatimMemoryService::class);
@@ -62,6 +67,8 @@ class AiContextPackBuilder
     private ContextRetrievalRouter $retrievalRouter;
 
     private AtlasContextIdRemapService $idRemap;
+
+    private EngineeringKnowledgeBaseService $engineeringCanon;
 
     public function build(string $input, AiTaskRequest $task, array $options = []): AiContextPack
     {
@@ -128,7 +135,16 @@ class AiContextPackBuilder
             'source_type' => $memory->source_type,
             'source_id' => $memory->source_id,
         ])->values()->all();
-        $contextRefs = array_values([...$contextRefs, ...$registryRefs, ...$verbatimRefs]);
+        $engineeringCanon = $this->engineeringCanon($input);
+        $canonRefs = array_map(static fn (array $doc): array => [
+            'type' => 'atlas_engineering_knowledge_item',
+            'id' => $doc['id'] ?? null,
+            'slug' => $doc['slug'] ?? null,
+            'title' => $doc['title'] ?? null,
+            'path' => $doc['canonical_path'] ?? null,
+            'score' => isset($doc['score']) ? round((float) $doc['score'], 4) : null,
+        ], $engineeringCanon);
+        $contextRefs = array_values([...$contextRefs, ...$registryRefs, ...$verbatimRefs, ...$canonRefs]);
         $registryItems = $this->registryMemoryItems($registryMemory);
         $verbatimItems = $this->verbatimMemoryItems($verbatimRecall, $options);
         $semanticItems = $this->semanticMemory($notes);
@@ -179,6 +195,10 @@ class AiContextPackBuilder
                 'commands' => (array) data_get($payload, 'commands', []),
             ],
             'retrieval' => $retrievalPlan,
+            // O canon do próprio repositório. Não é memória (que é o que o
+            // Atlas lembra da vida do operador): é a LEI escrita, versionada em
+            // docs/engineering-knowledge-base, que governa a implementação.
+            'engineering_canon' => $engineeringCanon,
             'memory' => [
                 'constitutional' => [],
                 'recall' => $recallItems,
@@ -233,6 +253,43 @@ class AiContextPackBuilder
         }
 
         return $pack;
+    }
+
+    /**
+     * O canon de engenharia que a pergunta puxa — a LEI escrita do repositório.
+     *
+     * O buraco que isto fecha, medido: 972 docs canônicos na Engineering KB e
+     * ZERO referência a eles aqui. O Atlas respondia sobre o próprio Atlas sem
+     * nunca abrir a lei do próprio Atlas — dizia "não crie branch" de memória,
+     * não porque leu `atlas-local-main-only-rule`. Opinião com sotaque de canon
+     * é a pior das duas coisas: soa autoridade e não tem prova.
+     *
+     * A régua é léxica e vem do `EngineeringKnowledgeSearch` (piso 0.35): doc
+     * irrelevante no pack é PIOR que doc nenhum — ocupa a janela, dilui o que
+     * importa e ensina o agente a ignorar a seção inteira.
+     *
+     * Falha aberta de propósito: KB fora do ar não pode derrubar a conversa.
+     * Sem canon o agente responde sem ele, que é exatamente o que fazia antes.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function engineeringCanon(string $input): array
+    {
+        $question = trim($input);
+        if ($question === '') {
+            return [];
+        }
+
+        try {
+            // Corte por dominância: no pack não há operador julgando a lista —
+            // o agente lê tudo como lei. Quem não chega perto do líder é
+            // distração ocupando a janela.
+            return (new EngineeringKnowledgeSearch())->dominant(
+                $this->engineeringCanon->search($question, 5)
+            );
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function registryMemory(array $taskData, array $payload, array $conversation, array $options)

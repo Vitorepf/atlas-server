@@ -210,4 +210,133 @@ final class EngineeringKnowledgeSearchTest extends TestCase
 
         self::assertGreaterThan($inTheBody, $inTheName);
     }
+
+    public function test_the_pack_keeps_the_leader_and_drops_the_passing_mentions(): void
+    {
+        // Medido contra a KB real: "por que existe a regra da main?" devolvia
+        // o doc certo a 0.711 e três a 0.427 — que só CITAM "regra" e "main" no
+        // corpo. Na busca isso é aceitável: o operador vê e julga. Num Context
+        // Pack não há ninguém julgando, e empilhar os quatro como se fossem
+        // igualmente lei ensina o agente a ignorar a seção inteira.
+        $ranked = [
+            ['slug' => 'atlas-local-main-only-rule', 'score' => 0.711],
+            ['slug' => 'recovery-stashes-readme', 'score' => 0.427],
+            ['slug' => 'aaeos-l7-convergence-roadmap', 'score' => 0.427],
+        ];
+
+        $dominant = $this->search->dominant($ranked);
+
+        self::assertCount(1, $dominant);
+        self::assertSame('atlas-local-main-only-rule', $dominant[0]['slug']);
+    }
+
+    public function test_a_real_tie_survives_because_the_question_has_two_laws(): void
+    {
+        // O corte é contra distração, não contra pluralidade. Quando duas leis
+        // cobrem a pergunta de verdade, cortar uma seria esconder metade da
+        // resposta — que é o mesmo defeito, do outro lado.
+        $ranked = [
+            ['slug' => 'lei-a', 'score' => 0.70],
+            ['slug' => 'lei-b', 'score' => 0.68],
+            ['slug' => 'passagem', 'score' => 0.40],
+        ];
+
+        $dominant = $this->search->dominant($ranked);
+
+        self::assertSame(['lei-a', 'lei-b'], array_column($dominant, 'slug'));
+    }
+
+    public function test_nothing_ranked_yields_nothing_dominant(): void
+    {
+        // Ausência não vira líder de lista vazia: sem canon, o agente responde
+        // sem canon — que é honesto — em vez de receber uma seção vazia com
+        // cara de autoridade.
+        self::assertSame([], $this->search->dominant([]));
+    }
+
+    public function test_the_acronym_is_the_name_so_the_mother_doc_is_findable(): void
+    {
+        // O caso real, medido contra a KB: "o que é o ACOS?" devolvia cinco
+        // satélites (que trazem a sigla no slug) e deixava o doc-MÃE em 0.2506
+        // — abaixo do piso, fora da resposta. O cérebro do Atlas não achava a
+        // autoridade do próprio Atlas, porque ela soletra o nome.
+        $mae = [
+            'slug' => 'atlas-cognition-operating-system',
+            'title' => 'Atlas Cognition Operating System',
+            'canonical_path' => 'docs/engineering-knowledge-base/atlas-cognition-operating-system.md',
+            'summary' => 'A autoridade-mae da camada cognitiva.',
+        ];
+
+        self::assertTrue($this->search->isInitialismOf($mae, 'acos'));
+        self::assertSame('acos', $this->search->initials('Atlas Cognition Operating System'));
+        self::assertSame('acos', $this->search->initials('atlas-cognition-operating-system'));
+
+        // A regra é geral, e por isso cobre a casa de siglas inteira de graca.
+        self::assertSame('awis', $this->search->initials('Atlas Workspace Intelligence System'));
+        self::assertSame('aobg', $this->search->initials('Atlas Open Brain Gateway'));
+    }
+
+    public function test_a_short_name_never_forms_an_initialism(): void
+    {
+        // "Atlas AI" viraria "aa" e casaria com meio corpus. Duas palavras nao
+        // sao sigla; sao so um nome curto.
+        self::assertSame('', $this->search->initials('Atlas AI'));
+        self::assertSame('', $this->search->initials('Codex'));
+    }
+
+    public function test_being_the_thing_beats_talking_about_it_when_scores_tie(): void
+    {
+        // Os dois cobrem a MESMA informacao da pergunta e empatam. Sem criterio,
+        // quem lidera e a ordem que o banco devolveu — acaso com cara de
+        // decisao. A autoridade e quem tem o nome da coisa por inteiro.
+        $mae = [
+            'slug' => 'atlas-cognition-operating-system',
+            'title' => 'Atlas Cognition Operating System',
+            'canonical_path' => 'docs/engineering-knowledge-base/atlas-cognition-operating-system.md',
+            'summary' => 'ACOS: a autoridade-mae da camada cognitiva.',
+        ];
+        $satelite = [
+            'slug' => 'atlas-acos-areas-map',
+            'title' => 'Atlas ACOS Areas Map',
+            'canonical_path' => 'docs/engineering-knowledge-base/atlas-acos-areas-map.md',
+            'summary' => 'Mapa de areas do ACOS.',
+        ];
+
+        self::assertTrue($this->search->isTheThing($mae, ['acos']));
+        self::assertFalse($this->search->isTheThing($satelite, ['acos']));
+
+        $ranked = $this->search->rank([$satelite, $mae], 'o que e o ACOS?', 5, ['acos' => 50], 827);
+
+        self::assertSame('atlas-cognition-operating-system', $ranked[0]['slug'], 'a mae lidera o empate');
+        self::assertSame('atlas-acos-areas-map', $ranked[1]['slug']);
+    }
+
+    public function test_when_the_authority_is_present_its_satellites_are_noise(): void
+    {
+        // "O que é o ACOS?" tem UMA resposta: o doc-mae. Os satelites empatam em
+        // 0.418 so porque a sigla esta no slug deles — cinco docs onde um
+        // responde nao e generosidade, e diluir a autoridade em ruido.
+        $ranked = [
+            ['slug' => 'atlas-cognition-operating-system', 'score' => 0.418, 'is_the_thing' => true],
+            ['slug' => 'atlas-acos-areas-map', 'score' => 0.418, 'is_the_thing' => false],
+            ['slug' => 'atlas-acos-delta-series', 'score' => 0.418, 'is_the_thing' => false],
+        ];
+
+        $dominant = $this->search->dominant($ranked);
+
+        self::assertCount(1, $dominant);
+        self::assertSame('atlas-cognition-operating-system', $dominant[0]['slug']);
+    }
+
+    public function test_without_an_authority_the_tie_stays_whole(): void
+    {
+        // Sem doc que SEJA a coisa, nao ha autoridade para eclipsar ninguem:
+        // cortar aqui seria escolher no acaso e chamar de decisao.
+        $ranked = [
+            ['slug' => 'doc-a', 'score' => 0.60, 'is_the_thing' => false],
+            ['slug' => 'doc-b', 'score' => 0.58, 'is_the_thing' => false],
+        ];
+
+        self::assertCount(2, $this->search->dominant($ranked));
+    }
 }
