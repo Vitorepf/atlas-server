@@ -25,14 +25,6 @@
                         "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-state.sh reinject"
                     }
                 ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-ctx.sh"
-                    }
-                ]
             }
         ],
         "PreCompact": [
@@ -54,15 +46,6 @@
                         "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-pretooluse-guard.sh"
                     }
                 ]
-            },
-            {
-                "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-pretooluse-guard.sh"
-                    }
-                ]
             }
         ],
         "PostToolUse": [
@@ -74,15 +57,6 @@
                         "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-postedit-context.sh"
                     }
                 ]
-            },
-            {
-                "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-postedit-context.sh"
-                    }
-                ]
             }
         ],
         "Stop": [
@@ -91,14 +65,6 @@
                     {
                         "type": "command",
                         "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/atlas-session-capture.sh"
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "/Users/vitorepf/develop/Atlas/atlas-server/.claude/hooks/atlas-session-capture.sh"
                     }
                 ]
             }
