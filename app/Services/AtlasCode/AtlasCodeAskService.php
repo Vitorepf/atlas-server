@@ -327,7 +327,11 @@ final class AtlasCodeAskService
         $label = match ($window) {
             AtlasCodeQuestionRouter::WINDOW_TODAY => 'hoje',
             AtlasCodeQuestionRouter::WINDOW_YESTERDAY => 'ontem',
-            AtlasCodeQuestionRouter::WINDOW_MONTH => 'no último mês',
+            // "nos últimos 30 dias", não "no último mês" — a mesma janela é
+            // dita do mesmo jeito em todas as respostas irmãs (mudanças,
+            // revisão, arquivo mais mexido). Duas frases para o mesmo recorte
+            // fazem o operador achar que são janelas diferentes.
+            AtlasCodeQuestionRouter::WINDOW_MONTH => 'nos últimos 30 dias',
             default => 'nos últimos 7 dias',
         };
 
