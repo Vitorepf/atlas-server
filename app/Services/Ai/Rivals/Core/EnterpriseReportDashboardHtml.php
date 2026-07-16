@@ -614,10 +614,16 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
         : `<b style="color:var(--${r.conclusive ? (r.delta>0?'melhor':'pior') : 'sem-sinal'})">${pp(r.delta)} pp</b>
            ${r.delta_ci_low !== null && r.delta_ci_low !== undefined
               ? `<span class="sk-ci">${pp(r.delta_ci_low)} a ${pp(r.delta_ci_high)}${r.conclusive ? '' : ' · inclui o zero'}</span>` : ''}`;
+      // A FAIXA DE WILSON ao lado da taxa — o piso do goal: "Wilson visível,
+      // nunca implícito". "67%" sobre 9 tarefas tem faixa real [35%, 88%]; o
+      // dígito sozinho promete uma precisão que 9 amostras não têm. A faixa diz
+      // ao operador quanto do número é dado e quanto é sorte.
+      const wil = (lo, hi) => (lo === null || lo === undefined)
+        ? '' : `<span class="sk-ci">${pct(lo)} a ${pct(hi)}</span>`;
       rows += `<tr>
         <td><span class="sk-nome">${r.label || r.skill}</span>${fatia}</td>
-        <td>${pct(r.bare)} <span class="subci">${r.bare_n} tarefas</span>${teto}</td>
-        <td>${pct(r.atlas)} <span class="subci">${r.atlas_n} tarefas</span></td>
+        <td>${pct(r.bare)} <span class="subci">${r.bare_n} tarefas</span>${wil(r.bare_ci_low, r.bare_ci_high)}${teto}</td>
+        <td>${pct(r.atlas)} <span class="subci">${r.atlas_n} tarefas</span>${wil(r.atlas_ci_low, r.atlas_ci_high)}</td>
         <td>${regua(r)}${dcell}</td></tr>`;
       }
     }

@@ -167,8 +167,17 @@ final class SkillMatrix
                 'axis' => $t['axis'],
                 'bare' => $bare,
                 'bare_n' => count($t['bare']),
+                // O intervalo de Wilson da PRÓPRIA taxa — o /goal exige "Wilson
+                // visível, nunca implícito". "66,7%" sobre 9 tarefas tem faixa
+                // real [35%, 88%]; o número sozinho mente por precisão. A tela
+                // mostra a faixa ao lado do número para o operador ver quanto do
+                // dígito é dado e quanto é sorte de amostra pequena.
+                'bare_ci_low' => $t['bare'] === [] ? null : StatisticalPolicy::wilson((int) array_sum($t['bare']), count($t['bare']))['low'],
+                'bare_ci_high' => $t['bare'] === [] ? null : StatisticalPolicy::wilson((int) array_sum($t['bare']), count($t['bare']))['high'],
                 'atlas' => $atlas,
                 'atlas_n' => count($t['atlas']),
+                'atlas_ci_low' => $t['atlas'] === [] ? null : StatisticalPolicy::wilson((int) array_sum($t['atlas']), count($t['atlas']))['low'],
+                'atlas_ci_high' => $t['atlas'] === [] ? null : StatisticalPolicy::wilson((int) array_sum($t['atlas']), count($t['atlas']))['high'],
                 'delta' => $bare === null || $atlas === null ? null : round($atlas - $bare, 4),
                 'delta_ci_low' => $ci['ci_low'] ?? null,
                 'delta_ci_high' => $ci['ci_high'] ?? null,
