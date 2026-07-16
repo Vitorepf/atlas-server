@@ -586,6 +586,8 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::post('/ai/interactions/{trace}/change-review/action', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'action']);
     Route::post('/ai/interactions/{trace}/change-review/file-action', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'fileAction']);
     Route::get('/ai/interactions/{trace}/change-review/patches/{patch}/diff', [\App\Http\Controllers\Ai\AiTraceChangeReviewController::class, 'diff']);
+    Route::get('/ai/interactions/{trace}/artifacts', [\App\Http\Controllers\Ai\AiTraceArtifactsController::class, 'show']);
+    Route::get('/ai/interactions/{trace}/artifacts/{artifactId}/content', [\App\Http\Controllers\Ai\AiTraceArtifactsController::class, 'content']);
     Route::get('/ai/interactions/{trace}/flow-status', [AiInteractionController::class, 'flowStatus']);
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/content', [AiInteractionController::class, 'attachmentContent']);
