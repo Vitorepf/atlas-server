@@ -860,7 +860,11 @@ PHP);
 
         Schema::create('atlas_engineering_knowledge_items', function (Blueprint $table): void {
             $table->uuid('id')->primary();
-            $table->string('slug', 160)->unique();
+            // ADN F3: espelha a migration 2026_07_16_230000 (workspace_id +
+            // unique composto) — a rede é federada por workspace.
+            $table->string('workspace_id', 120)->default('atlas-server')->index();
+            $table->string('slug', 160);
+            $table->unique(['workspace_id', 'slug'], 'uq_atlas_eng_knowledge_ws_slug_test');
             $table->string('title', 220);
             $table->string('category', 80);
             $table->string('status', 32)->default('active');

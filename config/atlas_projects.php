@@ -100,6 +100,7 @@ return [
                 'docs/engineering-knowledge-base',
                 'tests',
             ],
+            'docs_roots' => ['docs/engineering-knowledge-base'],
             'docs_status' => 'canonical',
             'default_risk' => 'medium',
             'deployment_notes' => 'Atlas Server é o backend e cérebro local. Escopo específico para sessões abertas diretamente em atlas-server.',
@@ -134,6 +135,7 @@ return [
             'code_index_roots' => [
                 '.',
             ],
+            'docs_roots' => ['docs/engineering-knowledge-base'],
             'docs_status' => 'incomplete',
             'default_risk' => 'medium',
             'deployment_notes' => 'Casca iOS do Atlas (iPhone). Coordenação por OBRA.md (blackboard da obra); gates: swift run AtlasCoreChecks + make build antes de todo commit.',

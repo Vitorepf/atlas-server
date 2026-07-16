@@ -13,6 +13,14 @@ use SplFileInfo;
 
 class EngineeringKnowledgeBaseService
 {
+    /**
+     * Workspace dono do corpus legado (todo o histórico pré-federação).
+     * ADN: docs/engineering-knowledge-base/atlas-documentation-network.md.
+     */
+    public const DEFAULT_WORKSPACE = 'atlas-server';
+
+    private const DEFAULT_DOCS_ROOT = 'docs/engineering-knowledge-base';
+
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
         private readonly ?EngineeringContextIntelligenceInput $input = null,
@@ -28,8 +36,8 @@ class EngineeringKnowledgeBaseService
 
         $dryRun = (bool) ($options['dry_run'] ?? false);
         $prune = (bool) ($options['prune'] ?? false);
-        $docs = $this->canonicalDocs();
-        $seenSlugs = [];
+        $workspaces = $this->docsRootsByWorkspace();
+        $seenSlugsByWorkspace = [];
         $items = [];
         $summary = [
             'created' => 0,
@@ -39,58 +47,79 @@ class EngineeringKnowledgeBaseService
             'failed' => 0,
         ];
 
-        foreach ($docs as $path) {
-            try {
-                $document = $this->parseDocument($path);
-                $seenSlugs[] = $document['slug'];
-                $existing = AtlasEngineeringKnowledgeItem::query()
-                    ->where('slug', $document['slug'])
-                    ->first();
-                $action = $existing === null
-                    ? 'created'
-                    : ($this->documentChanged($existing, $document) ? 'updated' : 'unchanged');
+        foreach ($workspaces as $workspaceId => $workspace) {
+            $seenSlugsByWorkspace[$workspaceId] = [];
+            foreach ($workspace['roots'] as $root) {
+                foreach ($this->canonicalDocsIn($root) as $path) {
+                    try {
+                        $document = $this->parseDocument($path, $workspaceId, $workspace['repo_root']);
+                        $seenSlugsByWorkspace[$workspaceId][] = $document['slug'];
+                        $existing = AtlasEngineeringKnowledgeItem::query()
+                            ->where('workspace_id', $workspaceId)
+                            ->where('slug', $document['slug'])
+                            ->first();
+                        $action = $existing === null
+                            ? 'created'
+                            : ($this->documentChanged($existing, $document) ? 'updated' : 'unchanged');
 
-                if (! $dryRun) {
-                    AtlasEngineeringKnowledgeItem::query()->updateOrCreate(
-                        ['slug' => $document['slug']],
-                        $document,
-                    );
+                        if (! $dryRun) {
+                            AtlasEngineeringKnowledgeItem::query()->updateOrCreate(
+                                ['workspace_id' => $workspaceId, 'slug' => $document['slug']],
+                                $document,
+                            );
+                        }
+
+                        $summary[$action]++;
+                        $items[] = array_merge($document, [
+                            'action' => $action,
+                            'dry_run' => $dryRun,
+                        ]);
+                    } catch (\Throwable $exception) {
+                        $summary['failed']++;
+                        $items[] = [
+                            'path' => $this->relativeTo($path, $workspace['repo_root']),
+                            'workspace_id' => $workspaceId,
+                            'action' => 'failed',
+                            'error' => $exception->getMessage(),
+                        ];
+                    }
                 }
-
-                $summary[$action]++;
-                $items[] = array_merge($document, [
-                    'action' => $action,
-                    'dry_run' => $dryRun,
-                ]);
-            } catch (\Throwable $exception) {
-                $summary['failed']++;
-                $items[] = [
-                    'path' => $this->relativePath($path),
-                    'action' => 'failed',
-                    'error' => $exception->getMessage(),
-                ];
             }
         }
 
-        if ($prune && $seenSlugs !== []) {
-            $query = AtlasEngineeringKnowledgeItem::query()
-                ->where('source_type', 'canonical_doc')
-                ->whereNotIn('slug', $seenSlugs)
-                ->where('status', '!=', 'archived');
-            $archiveCount = (int) $query->count();
-            if (! $dryRun && $archiveCount > 0) {
-                $query->update([
-                    'status' => 'archived',
-                    'archived_at' => now(),
-                ]);
+        if ($prune) {
+            // Escopado por workspace SINCRONIZADO: slug sumido arquiva só no
+            // workspace dono; um repo fora desta rodada fica intocado (ADN).
+            foreach ($seenSlugsByWorkspace as $workspaceId => $seenSlugs) {
+                $query = AtlasEngineeringKnowledgeItem::query()
+                    ->where('source_type', 'canonical_doc')
+                    ->where('workspace_id', $workspaceId)
+                    ->where('status', '!=', 'archived');
+                if ($seenSlugs !== []) {
+                    $query->whereNotIn('slug', $seenSlugs);
+                }
+                $archiveCount = (int) $query->count();
+                if (! $dryRun && $archiveCount > 0) {
+                    $query->update([
+                        'status' => 'archived',
+                        'archived_at' => now(),
+                    ]);
+                }
+                $summary['archived'] += $archiveCount;
             }
-            $summary['archived'] = $archiveCount;
         }
 
         return [
             'ok' => $summary['failed'] === 0,
             'dry_run' => $dryRun,
             'docs_root' => $this->relativePath($this->docsRoot()),
+            'workspaces' => array_map(
+                fn (array $workspace): array => array_values(array_map(
+                    fn (string $root): string => $this->relativeTo($root, $workspace['repo_root']),
+                    $workspace['roots'],
+                )),
+                $workspaces,
+            ),
             'summary' => $summary,
             'items' => array_values($items),
             'generated_at' => now()->toJSON(),
@@ -371,7 +400,14 @@ class EngineeringKnowledgeBaseService
      */
     private function canonicalDocs(): array
     {
-        $root = $this->docsRoot();
+        return $this->canonicalDocsIn($this->docsRoot());
+    }
+
+    /**
+     * @return array<int,string>
+     */
+    private function canonicalDocsIn(string $root): array
+    {
         if (! File::isDirectory($root)) {
             return [];
         }
@@ -384,26 +420,101 @@ class EngineeringKnowledgeBaseService
             ->all();
     }
 
+    /**
+     * ADN F2 — os cantos de docs por workspace, derivados dos perfis
+     * registrados (config atlas_projects ∪ tabela). Rede é opt-in: repo sem
+     * perfil não entra. Fail-open: sem nenhum canto válido, degrada para o
+     * corpus legado do atlas-server (comportamento pré-federação).
+     *
+     * @return array<string,array{repo_root:string,roots:array<int,string>}>
+     */
+    private function docsRootsByWorkspace(): array
+    {
+        $map = [];
+        $seenRoots = [];
+
+        try {
+            $profiles = app(\App\Services\AtlasCode\AtlasCodeWorkspaceProfileService::class)->listProfiles();
+        } catch (\Throwable) {
+            $profiles = [];
+        }
+
+        foreach ($profiles as $profile) {
+            $slug = trim((string) ($profile['slug'] ?? ''));
+            $repoRoot = rtrim((string) ($profile['repo_root'] ?? ''), DIRECTORY_SEPARATOR);
+            if ($slug === '' || $repoRoot === '' || ! File::isDirectory($repoRoot)) {
+                continue;
+            }
+
+            $declared = EngineeringStringListNormalizer::uniqueNonEmptyScalarStrings(
+                $profile['docs_roots'] ?? [self::DEFAULT_DOCS_ROOT],
+            );
+            $roots = [];
+            foreach ($declared as $root) {
+                $absolute = str_starts_with($root, DIRECTORY_SEPARATOR)
+                    ? $root
+                    : $repoRoot.DIRECTORY_SEPARATOR.$root;
+                $real = realpath($absolute);
+                if ($real === false || ! File::isDirectory($real) || isset($seenRoots[$real])) {
+                    continue;
+                }
+                $seenRoots[$real] = true;
+                $roots[] = $real;
+            }
+
+            if ($roots !== []) {
+                $map[$slug] = [
+                    'repo_root' => (string) (realpath($repoRoot) ?: $repoRoot),
+                    'roots' => $roots,
+                ];
+            }
+        }
+
+        if ($map === []) {
+            $legacy = realpath($this->docsRoot());
+            if ($legacy !== false) {
+                $map[self::DEFAULT_WORKSPACE] = [
+                    'repo_root' => base_path(),
+                    'roots' => [$legacy],
+                ];
+            }
+        }
+
+        return $map;
+    }
+
     private function docsRoot(): string
     {
         return base_path('docs/engineering-knowledge-base');
     }
 
+    private function relativeTo(string $path, string $base): string
+    {
+        $base = rtrim($base, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+        $relative = str_starts_with($path, $base) ? substr($path, strlen($base)) : $path;
+
+        return str_replace(DIRECTORY_SEPARATOR, '/', $relative);
+    }
+
     /**
      * @return array<string,mixed>
      */
-    private function parseDocument(string $path): array
-    {
+    private function parseDocument(
+        string $path,
+        string $workspaceId = self::DEFAULT_WORKSPACE,
+        ?string $repoRoot = null,
+    ): array {
         $markdown = File::get($path);
         $parsed = $this->frontmatter->parse($markdown);
         $frontmatter = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
         $body = trim((string) ($parsed['body'] ?? $markdown));
-        $relativePath = $this->relativePath($path);
+        $relativePath = $this->relativeTo($path, $repoRoot ?? base_path());
         $slug = $this->slug((string) ($frontmatter['id'] ?? $frontmatter['slug'] ?? $relativePath));
         $status = $this->status((string) ($frontmatter['status'] ?? 'active'));
         $contentHash = hash('sha256', $markdown);
 
         return [
+            'workspace_id' => $workspaceId,
             'slug' => $slug,
             'title' => Str::limit($this->title($frontmatter, $body, $slug), 220, ''),
             'category' => $this->category($frontmatter, $relativePath),
@@ -542,6 +653,9 @@ class EngineeringKnowledgeBaseService
         if (is_string($filters['status'] ?? null) && trim((string) $filters['status']) !== '') {
             $query->where('status', trim((string) $filters['status']));
         }
+        if (is_string($filters['workspace'] ?? null) && trim((string) $filters['workspace']) !== '') {
+            $query->where('workspace_id', trim((string) $filters['workspace']));
+        }
         if (is_string($filters['category'] ?? null) && trim((string) $filters['category']) !== '') {
             $query->where('category', Str::slug(trim((string) $filters['category']), '_'));
         }
@@ -596,6 +710,7 @@ class EngineeringKnowledgeBaseService
     {
         $payload = [
             'id' => $item->id,
+            'workspace_id' => $item->workspace_id ?? self::DEFAULT_WORKSPACE,
             'slug' => $item->slug,
             'title' => $item->title,
             'category' => $item->category,

@@ -19,6 +19,7 @@ class AtlasEngineeringKnowledgeItem extends Model
     ];
 
     protected $fillable = [
+        'workspace_id',
         'slug',
         'title',
         'category',
