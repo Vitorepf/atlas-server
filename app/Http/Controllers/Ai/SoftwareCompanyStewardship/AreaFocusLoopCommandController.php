@@ -531,7 +531,15 @@ final class AreaFocusLoopCommandController extends Controller
             'execute' => $execute,
             'auto_merge' => $autoMerge,
             'dry_run' => ! $execute,
+            // Operator opt-in for single-writer override (CanonicalWorktreeWriteGuard).
+            // Default false — mutating runs still refuse the human checkout unless set.
+            'allow_canonical_worktree_write' => (bool) ($input['allow_canonical_worktree_write'] ?? false),
         ];
+        // Pin a provider-safe finding through the existing injected_finding seam
+        // (used by V3 self-construction e2e / operator-directed slices).
+        if (is_array($input['injected_finding'] ?? null) && $input['injected_finding'] !== []) {
+            $runnerInput['injected_finding'] = $input['injected_finding'];
+        }
         if ($maxRuntimeMinutes !== null) {
             $runnerInput['max_runtime_minutes'] = $maxRuntimeMinutes;
         }

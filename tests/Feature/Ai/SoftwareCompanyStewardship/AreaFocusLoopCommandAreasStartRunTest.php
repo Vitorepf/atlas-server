@@ -422,6 +422,31 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         });
     }
 
+    public function test_start_run_passes_injected_finding_and_canonical_write_opt_in(): void
+    {
+        Bus::fake();
+        $finding = [
+            'finding_id' => 'native_constitution_test',
+            'finding_hash' => 'sha1:abc',
+            'affected_files' => ['Sources/AtlasCore/Dead.swift'],
+        ];
+        $response = $this->controller->startRun($this->postRequest([
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'pin self-construction heal slice',
+            'mode' => 'execute',
+            'repo_root' => '/tmp/atlas-native-loop',
+            'allow_canonical_worktree_write' => true,
+            'injected_finding' => $finding,
+        ]), self::AREA);
+
+        $this->assertSame(202, $response->getStatusCode());
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job) use ($finding): bool {
+            return ($job->input['repo_root'] ?? null) === '/tmp/atlas-native-loop'
+                && ($job->input['allow_canonical_worktree_write'] ?? null) === true
+                && ($job->input['injected_finding'] ?? null) === $finding;
+        });
+    }
+
     public function test_start_run_by_cycles_bounds_cycles_and_repairs_and_continues(): void
     {
         Bus::fake();

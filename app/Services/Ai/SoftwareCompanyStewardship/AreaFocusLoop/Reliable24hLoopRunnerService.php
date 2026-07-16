@@ -1067,6 +1067,9 @@ final class Reliable24hLoopRunnerService
         if (isset($input['forge_inputs']) && is_array($input['forge_inputs'])) {
             $sessionInput['forge_inputs'] = $input['forge_inputs'];
         }
+        if (is_array($input['injected_finding'] ?? null) && $input['injected_finding'] !== []) {
+            $sessionInput['injected_finding'] = $input['injected_finding'];
+        }
 
         $runner = $this->sessionRunner ?? fn (array $in): array => $this->session->run($in);
 
