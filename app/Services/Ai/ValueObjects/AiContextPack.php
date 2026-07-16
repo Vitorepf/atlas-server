@@ -53,6 +53,51 @@ class AiContextPack
     }
 
     /**
+     * O que o Atlas É — as invariantes pétreas, antes de qualquer outra coisa.
+     *
+     * Vem PRIMEIRO na janela, antes do canon de engenharia e do recall, porque
+     * é a camada mais alta da autoridade: canon diz como implementar, memória
+     * diz o que aconteceu, e isto diz o que o Atlas não pode deixar de ser. Um
+     * agente que lê `atlas_is_substrato_not_wrapper` não escreve "wrapper de
+     * IA" na tela do operador — e não precisa ser corrigido por um gate depois
+     * de já ter escrito.
+     *
+     * Compacto de propósito: id e a frase. É lei para orientar a resposta, não
+     * um tratado para consumir a janela.
+     *
+     * @return array<int,string>
+     */
+    private function constitutionalLines(): array
+    {
+        $law = data_get($this->data, 'memory.constitutional', []);
+        if (! is_array($law) || $law === []) {
+            return [];
+        }
+
+        $lines = [
+            '',
+            '## Lei Petrea do Atlas (o que ele E)',
+            'Invariantes que nao se negociam. Nenhuma resposta pode contradize-las.',
+        ];
+
+        foreach (array_slice($law, 0, 16) as $invariant) {
+            if (! is_array($invariant)) {
+                continue;
+            }
+
+            $id = (string) ($invariant['id'] ?? '');
+            $statement = trim((string) ($invariant['statement'] ?? $invariant['description'] ?? $invariant['rule'] ?? ''));
+            if ($id === '' && $statement === '') {
+                continue;
+            }
+
+            $lines[] = '- '.$id.($statement !== '' ? ': '.$statement : '');
+        }
+
+        return count($lines) > 3 ? $lines : [];
+    }
+
+    /**
      * A lei escrita do repositório que a pergunta puxou.
      *
      * Vem ANTES do recall e da memória semântica de propósito: quando o canon
@@ -192,7 +237,7 @@ class AiContextPack
         }
         $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; raw_docs_dumped=false; raw_tests_dumped=false; providers_invoked=false; writes=false';
 
-        $lines = [...$lines, ...$this->engineeringCanonLines()];
+        $lines = [...$lines, ...$this->constitutionalLines(), ...$this->engineeringCanonLines()];
 
         if (! empty($rankedRecall)) {
             $lines[] = '';
@@ -542,7 +587,7 @@ class AiContextPack
             $lines[] = '- policy: provider_safe_only=true; raw_text_exposed=false; providers_invoked=false; writes=false';
         }
 
-        $lines = [...$lines, ...$this->engineeringCanonLines()];
+        $lines = [...$lines, ...$this->constitutionalLines(), ...$this->engineeringCanonLines()];
 
         if (! empty($rankedRecall)) {
             $lines[] = '';

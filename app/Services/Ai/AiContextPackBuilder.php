@@ -9,6 +9,7 @@ use App\Models\SemanticNote;
 use App\Services\Ai\Context\AtlasContextIdRemapService;
 use App\Services\Ai\Context\ContextPackMemoryInput;
 use App\Services\Ai\Context\ContextRetrievalRouter;
+use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Context\SemanticContextInput;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Security\PromptInjectionScanner;
@@ -200,7 +201,7 @@ class AiContextPackBuilder
             // docs/engineering-knowledge-base, que governa a implementação.
             'engineering_canon' => $engineeringCanon,
             'memory' => [
-                'constitutional' => [],
+                'constitutional' => $this->constitutionalLaw(),
                 'recall' => $recallItems,
                 'registry' => $registryItems,
                 'verbatim' => $verbatimItems,
@@ -253,6 +254,36 @@ class AiContextPackBuilder
         }
 
         return $pack;
+    }
+
+    /**
+     * As leis pétreas do Atlas — o que ele é, e não pode deixar de ser.
+     *
+     * O slot existia, com o nome exato, e era um literal vazio: o pack dizia
+     * `'constitutional' => []` para todo agente, em toda superfície, desde
+     * sempre. As 16 invariantes RODAM (`atlas:constitutional:kernel
+     * --action=list-invariants`) e nenhuma chegava a quem fala com o operador —
+     * `no_jarvis_vocabulary`, `atlas_is_substrato_not_wrapper`,
+     * `sovereignty_local_first`, `cognitive_immune_law`.
+     *
+     * É a diferença entre um agente que SABE o que o Atlas é e um que precisa
+     * ser corrigido depois de escrever "wrapper de IA" na tela. Governança que
+     * só existe no gate corrige o erro; governança no contexto evita o erro.
+     *
+     * Só as pétreas: elásticas mudam de estado e runtime é sintonia. Lei que o
+     * agente lê tem de ser lei que não muda enquanto ele responde.
+     *
+     * Falha aberta: kernel fora do ar não derruba a conversa.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function constitutionalLaw(): array
+    {
+        try {
+            return array_values(app(AtlasConstitutionalKernelService::class)->listInvariants('petreo'));
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**
