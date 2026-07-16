@@ -89,7 +89,10 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
                 'id' => 'atlas_dev_http_run',
                 'path' => 'app/Http/Controllers/AtlasDev/RunController.php',
                 'required_markers' => [
-                    'AtlasWorkspaceIntelligenceExecutionGateService',
+                    // Refactor hexagonal (05faa45f14/e62c0c3aea): o guard passou a
+                    // entrar pelo port, que o AppServiceProvider amarra no
+                    // AtlasWorkspaceIntelligenceExecutionGateService concreto.
+                    'AwisExecutionGatePort',
                     'ATLAS_DEV_AWIS_EXECUTION_BLOCKED',
                     "mode: 'dev'",
                 ],
@@ -98,7 +101,7 @@ final class AtlasWorkspaceExecutionBoundaryAuditService
                 'id' => 'atlas_dev_worker',
                 'path' => 'app/Console/Commands/AtlasDevRunWorkerCommand.php',
                 'required_markers' => [
-                    'AtlasWorkspaceIntelligenceExecutionGateService',
+                    'AwisExecutionGatePort',
                     'ATLAS_DEV_AWIS_EXECUTION_BLOCKED',
                     "mode: 'dev'",
                 ],
