@@ -168,7 +168,6 @@ final class AtlasCodeGraphService
         $trunkHead = $defaultBranch !== ''
             ? trim($this->run($path, ['git', 'rev-parse', $defaultBranch]))
             : '';
-        $worktrees = $this->parseWorktrees($this->run($path, ['git', 'worktree', 'list', '--porcelain']));
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -180,7 +179,12 @@ final class AtlasCodeGraphService
             // que devia — nunca pinta de dourado o que não está na trunk.
             'trunk_head' => $trunkHead !== '' ? $trunkHead : null,
             'nodes' => $nodes,
-            'worktrees' => $worktrees,
+            // `worktrees` no grafo era morto: um subprocesso `git worktree
+            // list` a cada pull, decodificado pelo app e nunca pintado — a tela
+            // desenha nós, espinha e paginação, nunca worktrees. Custo sem
+            // consumo. O MÉTODO parseWorktrees continua vivo: o
+            // AtlasCodeViolationService tem o próprio subprocesso para detectar
+            // a violação worktree_allowlist, e não lê este campo.
             'pagination' => [
                 'limit' => $boundedLimit,
                 'before' => $before,
