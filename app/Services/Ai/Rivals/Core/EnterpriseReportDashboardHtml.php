@@ -585,7 +585,18 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     // entre si pela melhor linha de cada um. O olho varre de cima (onde o Atlas
     // mais ajuda) para baixo (onde mais atrapalha), e cada domínio aparece uma
     // vez só.
-    const peso = r => (r.conclusive ? 1000 : 0) + ((r.delta ?? -9) * 100);
+    // Com par Atlas: a maior ajuda no topo, a maior piora no fundo.
+    // Sem par Atlas (estado de hoje): NÃO há delta, então `delta ?? -9` dava o
+    // MESMO peso a todas as 104 linhas — e a ordem virava alfabética do slug,
+    // com as 78 linhas saturadas em 100% (teto do teste, nada a medir) enterrando
+    // as ~26 onde o modelo cru É fraco. Vira o contrário: sem delta, o mais fraco
+    // primeiro — é onde o Atlas terá o que provar; o teto afunda, onde não há o
+    // que multiplicar.
+    const peso = r => {
+      if (r.delta !== null && r.delta !== undefined) return (r.conclusive ? 1000 : 0) + r.delta * 100;
+      if (r.bare === null || r.bare === undefined) return -3000; // sem medição alguma: fundo
+      return -1000 - r.bare * 100; // bare 0% → -1000 (topo do grupo sem-Atlas); 100% → -1100 (fundo)
+    };
     const grupos = new Map();
     for (const r of (SK.rows||[])) {
       const dl = r.domain_label || 'Sem domínio';
