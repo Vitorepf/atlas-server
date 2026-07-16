@@ -269,6 +269,15 @@ class AtlasAobgWorkspaceOnboardingService
         // Side-effect only, fail-open — never blocks or breaks activation.
         $this->generateBriefFor($workspacePath, (string) $after['workspace_id']);
 
+        // ADN F5 — o canto de docs do repo ganha lineage no AKIF na ativação
+        // (docs/engineering-knowledge-base/atlas-documentation-network.md).
+        // Side-effect fail-open: lineage nunca bloqueia ativação.
+        try {
+            $this->registerDocsCornerInAkif($workspacePath, (string) $after['workspace_id']);
+        } catch (Throwable) {
+            // fail-open
+        }
+
         $action = match (true) {
             ($profile['ok'] ?? false) !== true => 'activation_profile_blocked',
             ($bootstrap['ok'] ?? false) !== true => 'activation_bootstrap_incomplete',
@@ -280,6 +289,41 @@ class AtlasAobgWorkspaceOnboardingService
         };
 
         return $this->activationEnvelope($action, $shouldIndex, $after, $before, $opts, $profile, $bootstrap, $run);
+    }
+
+    /**
+     * ADN F5 — registra o canto canônico de docs do workspace como source
+     * packet AKIF (`source_type=repo`) com lineage: workspace_id, docs_root e
+     * origin (git remote quando existir; senão file://). Idempotente por
+     * source_hash determinístico. Ausência de canto é ausência — nada nasce.
+     *
+     * @return array{ok:bool, reason?:string, status?:string, packet_id?:?string}
+     */
+    public function registerDocsCornerInAkif(string $workspacePath, string $workspaceId): array
+    {
+        $workspacePath = rtrim($workspacePath, DIRECTORY_SEPARATOR);
+        $docsRoot = 'docs/engineering-knowledge-base';
+        $corner = $workspacePath.DIRECTORY_SEPARATOR.$docsRoot;
+        if (! is_dir($corner)) {
+            return ['ok' => false, 'reason' => 'no_docs_corner'];
+        }
+
+        $remote = trim((string) @shell_exec(
+            'git -C '.escapeshellarg($workspacePath).' config --get remote.origin.url 2>/dev/null',
+        ));
+        $originUri = $remote !== '' ? $remote : 'file://'.$workspacePath;
+
+        return app(\App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService::class)->register([
+            'source_type' => \App\Services\Ai\Knowledge\AtlasKnowledgeSourcePacketRegistryService::SOURCE_TYPE_REPO,
+            'origin_uri' => $originUri,
+            'source_hash' => hash('sha256', 'adn.docs_corner|'.$workspaceId.'|'.$corner),
+            'ingester' => 'aobg.workspace_activate',
+            'metadata' => [
+                'adn' => 'docs_corner.v1',
+                'workspace_id' => $workspaceId,
+                'docs_root' => $docsRoot,
+            ],
+        ]);
     }
 
     /**
