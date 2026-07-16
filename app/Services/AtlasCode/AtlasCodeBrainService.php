@@ -77,6 +77,21 @@ final class AtlasCodeBrainService
         // governam o próprio código.
         $relevant = array_merge($this->aboveFloor($refs), $this->canonRefs($question));
 
+        // As duas metades LEEM os mesmos documentos por caminhos diferentes, e
+        // o mesmo doc chegava duas vezes: "o cérebro conhece 6 fontes" com 3
+        // documentos — contagem dobrada é a tela inflando a própria erudição.
+        // Dedup por caminho (fallback: rótulo), primeira ocorrência vence.
+        $vistos = [];
+        $relevant = array_values(array_filter($relevant, function (array $ref) use (&$vistos): bool {
+            $chave = is_string($ref['path'] ?? null) && $ref['path'] !== '' ? $ref['path'] : $this->label($ref);
+            if (isset($vistos[$chave])) {
+                return false;
+            }
+            $vistos[$chave] = true;
+
+            return true;
+        }));
+
         if ($relevant === []) {
             return [
                 'answered' => false,
