@@ -65,14 +65,32 @@ final class AtlasCodeReviewServiceTest extends TestCase
             'completed' => 'done',
             'failed' => 'failed',
             'error' => 'failed',
-            // Status que o motor ganhar depois desta tela cai no mais honesto
-            // dos estados: enfileirado. Nunca em "pronto".
-            'algum_status_novo' => 'queued',
+            // Cancelado é terminal, não fila: girar "na fila" para sempre sobre
+            // uma revisão que ninguém vai terminar é falha vestida de progresso.
+            'cancelled' => 'failed',
+            // Status que o motor ganhar depois desta tela NÃO é "enfileirado" —
+            // fila é uma afirmação de progresso que um status desconhecido não
+            // ganhou. Erra para o lado de não afirmar.
+            'algum_status_novo' => 'unknown',
         ] as $engine => $screen) {
             $trace = new AiTrace();
             $trace->status = $engine;
             self::assertSame($screen, $this->review->stateOf($trace), "status {$engine}");
         }
+    }
+
+    public function test_a_guard_blocked_review_is_failed_not_a_done_with_machine_text(): void
+    {
+        // O guarda bloqueia a saída (moldura de raciocínio aberta) mas o job
+        // rodou ok=true → o trace grava 'succeeded' com a NOTA do bloqueio como
+        // response_text. Sem isto, a revisão aparecia como 'done' com veredito
+        // "a saída interna foi bloqueada; reenvie" — falha vestida de fato E
+        // vocabulário de máquina como veredito de commit.
+        $trace = new AiTrace();
+        $trace->status = 'succeeded';
+        $trace->response_text = \App\Services\Ai\AtlasFinalResponseSanitizer::BLOCKED_NOTICE;
+
+        self::assertSame('failed', $this->review->stateOf($trace));
     }
 
     public function test_the_batch_is_bounded_and_refuses_what_is_not_a_hash(): void

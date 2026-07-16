@@ -7,6 +7,15 @@ use Illuminate\Support\Str;
 class AtlasFinalResponseSanitizer
 {
     /**
+     * A nota que substitui uma saída bloqueada. Constante, não literal solto,
+     * porque quem CONSOME uma resposta (o read-model da revisão) precisa
+     * reconhecê-la: no chat "reenvie" é resposta legítima, mas como VEREDITO de
+     * commit é falha vestida de fato — e só quem sabe o texto exato pode
+     * distinguir os dois sem depender de metadata que nem sempre chega.
+     */
+    public const BLOCKED_NOTICE = 'Não consegui preparar uma resposta segura para exibição. A saída interna foi bloqueada; reenvie o pedido para gerar uma resposta limpa.';
+
+    /**
      * @return array{0:string,1:array<string,mixed>}
      */
     public function sanitize(string $text): array
@@ -44,7 +53,7 @@ class AtlasFinalResponseSanitizer
 
             // Moldura ABERTA (sem fecho) ou nada além dela: não dá para saber
             // onde o pensamento termina. Aí sim, bloqueia — fail-closed.
-            return ['Não consegui preparar uma resposta segura para exibição. A saída interna foi bloqueada; reenvie o pedido para gerar uma resposta limpa.', [
+            return [self::BLOCKED_NOTICE, [
                 'changed' => true,
                 'reason' => 'reasoning_frame_blocked',
             ]];
@@ -61,7 +70,7 @@ class AtlasFinalResponseSanitizer
         }
 
         if ($this->hasInternalLeakMarkers($original)) {
-            return ['Não consegui preparar uma resposta segura para exibição. A saída interna foi bloqueada; reenvie o pedido para gerar uma resposta limpa.', [
+            return [self::BLOCKED_NOTICE, [
                 'changed' => true,
                 'reason' => 'internal_context_leak_blocked',
             ]];

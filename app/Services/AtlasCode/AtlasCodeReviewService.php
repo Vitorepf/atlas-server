@@ -77,11 +77,29 @@ final class AtlasCodeReviewService
             return 'idle';
         }
 
+        // O guarda bloqueou a saída, mas o job rodou com ok=true → o trace grava
+        // status='succeeded' com a NOTA do bloqueio como response_text. Sem
+        // isto, a revisão bloqueada aparecia como 'done' com veredito "a saída
+        // interna foi bloqueada; reenvie" — falha vestida de fato E vocabulário
+        // de máquina como veredito de commit. No chat "reenvie" é resposta; como
+        // veredito, é falha. Reconhecer a nota exige saber o texto dela — por
+        // isso a constante no sanitizer.
+        if (is_string($trace->response_text)
+            && str_contains($trace->response_text, 'A saída interna foi bloqueada')) {
+            return 'failed';
+        }
+
         return match (strtolower((string) $trace->status)) {
             'succeeded', 'completed' => 'done',
             'failed', 'error' => 'failed',
             'processing', 'running' => 'running',
-            default => 'queued',
+            // `cancelled` é terminal legal (operador cancelou) e caía no default
+            // 'queued' → a pílula girava "na fila" para sempre sobre uma revisão
+            // que ninguém vai terminar. Status desconhecido não é progresso: o
+            // default erra para o lado de NÃO afirmar fila.
+            'cancelled' => 'failed',
+            'queued', 'pending', 'created' => 'queued',
+            default => 'unknown',
         };
     }
 
