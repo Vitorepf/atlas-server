@@ -499,6 +499,69 @@ class EnterpriseReportBuilderTest extends TestCase
         );
         $this->assertStringContainsString('2 de 2', $whenRefused, 'a frase conta as famílias que o portão recusou');
 
+        // ESTADO NOVO (15/07): o braço PASSOU a rodar — 20 unidades com
+        // atlas_runtime=true — e foi bloqueado pela PRÓPRIA governança do Atlas.
+        // A frase antiga ("não provou ter rodado") continuaria idêntica e
+        // MENTIRIA, porque lê o `reason` de famílias de uplift velhas. A nota tem
+        // de ler os RECIBOS e distinguir os dois estados: "não rodou" é bug de
+        // bridge; "rodou e o executor recusou" é decisão de arquitetura. As duas
+        // deixam a tela sem cor e exigem obras opostas.
+        $runId = 'rep-'.uniqid();
+        File::ensureDirectoryExists(RunPaths::runDir($runId));
+        $receipts = [];
+        foreach (['governor_authority_absent', 'governor_authority_absent', 'candidate_preparation_blocked:sandbox_apply_failed'] as $i => $code) {
+            // O schema v2 é fail-closed (e está certo): recibo magro não passa.
+            // O fixture tem de ser um recibo REAL, senão o teste provaria um
+            // contrato que não existe.
+            $receipts[] = (string) json_encode([
+                'schema_version' => 'atlas.rivals2.run_receipt.v2',
+                'run_id' => $runId,
+                'case_id' => 'c'.$i,
+                'arm_id' => 'm@atlas_dev',
+                'repetition' => 1,
+                'task_type' => 'coding_patch',
+                'status' => 'failure',
+                'failure_class' => 'model_failure',
+                // Valores copiados de um recibo REAL do disco (run
+                // 20260716_022147_effd1a3e): claim_tier só aceita
+                // harness|diagnostic|production|public, e os numéricos não podem
+                // ser null. Inventar o fixture provaria um contrato que não
+                // existe — o schema me corrigiu duas vezes aqui, e estava certo.
+                'claim_tier' => 'production',
+                'harness_only' => false,
+                'wall_ms' => 41971,
+                'tokens_in' => 5053,
+                'tokens_out' => 4569,
+                'cost_usd' => 0,
+                'artifacts' => [],
+                'started_at' => '2026-07-15T00:00:00+00:00',
+                'finished_at' => '2026-07-15T00:00:01+00:00',
+                'field_presence' => [
+                    'tokens_in' => ['present' => true, 'reason' => null],
+                    'tokens_out' => ['present' => true, 'reason' => null],
+                    'cost_usd' => ['present' => true, 'reason' => 'verboo_subscription_marginal'],
+                    'wall_ms' => ['present' => true, 'reason' => null],
+                ],
+                'metadata' => ['runtime_bridge' => [
+                    'atlas_runtime' => true,
+                    'provider_call' => ['error_codes' => [$code]],
+                ]],
+            ]);
+        }
+        file_put_contents(RunPaths::receiptsPath($runId), implode("\n", $receipts));
+
+        $whenBlocked = (string) $note->invoke($builder, 0, $refused, [$runId]);
+
+        $this->assertStringNotContainsString(
+            'não provou ter rodado',
+            $whenBlocked,
+            'com o Atlas PROVADO em recibo, a frase de "não rodou" é falsa e não pode sobreviver',
+        );
+        $this->assertStringContainsString('3 unidades PROVARAM', $whenBlocked);
+        $this->assertStringContainsString('2× governor_authority_absent', $whenBlocked, 'o motivo dominante, contado do recibo');
+        $this->assertStringContainsString('1× candidate_preparation_blocked', $whenBlocked);
+        File::deleteDirectory(RunPaths::runDir($runId));
+
         // O par existe → a lacuna acabou → a frase some sozinha. É isto que
         // impede a prosa de envelhecer contra o dado.
         $this->assertNull($note->invoke($builder, 1, $refused));

@@ -1542,7 +1542,7 @@ class EnterpriseReportBuilder
             // comparação não existe, e a aba tem de dizer isso em número.
             'with_atlas' => $withAtlas,
             'by_instrument' => $byInstrument,
-            'atlas_arm_note' => $this->atlasArmNote($withAtlas, $atlasUplift),
+            'atlas_arm_note' => $this->atlasArmNote($withAtlas, $atlasUplift, $runIds),
         ];
     }
 
@@ -1557,11 +1557,63 @@ class EnterpriseReportBuilder
      *
      * @param  array<string,mixed>  $atlasUplift
      */
-    private function atlasArmNote(int $withAtlas, array $atlasUplift): ?string
+    /**
+     * POR QUE não há cor — derivado dos RECIBOS, nunca de rótulo que envelhece.
+     *
+     * Esta nota já mentiu: dizia "o braço não provou ter rodado o Atlas" lendo o
+     * `reason` das famílias de uplift ANTIGAS. No dia em que o braço passou a
+     * rodar de verdade, a frase continuou igual — e o motivo verdadeiro (o Atlas
+     * roda e é bloqueado pela PRÓPRIA governança) ficou invisível. Rótulo de run
+     * velho não é o estado de hoje.
+     *
+     * Agora conta o que os recibos dizem: quantas unidades PROVARAM o Atlas
+     * (`atlas_runtime === true`) e o que bloqueou cada uma. A diferença importa
+     * para o operador: "não rodou" é bug de bridge; "rodou e a governança
+     * recusou" é decisão de arquitetura. As duas produzem tela sem cor e exigem
+     * obras opostas.
+     *
+     * @param  list<string>  $runIds
+     */
+    private function atlasArmNote(int $withAtlas, array $atlasUplift, array $runIds = []): ?string
     {
         if ($withAtlas > 0) {
             return null;
         }
+
+        $provadas = 0;
+        $motivos = [];
+        foreach (array_unique($runIds) as $runId) {
+            foreach (RunReceipt::loadAll((string) $runId) as $receipt) {
+                $bridge = (array) data_get($receipt->data, 'metadata.runtime_bridge', []);
+                if (($bridge['atlas_runtime'] ?? null) !== true) {
+                    continue;
+                }
+                $provadas++;
+                foreach ((array) data_get($bridge, 'provider_call.error_codes', []) as $code) {
+                    // Só a família do erro: o sufixo carrega nome de arquivo do
+                    // caso e viraria ruído irrepetível na tela.
+                    $familia = explode(':', (string) $code)[0];
+                    $motivos[$familia] = ($motivos[$familia] ?? 0) + 1;
+                }
+            }
+        }
+
+        if ($provadas > 0) {
+            arsort($motivos);
+            $lista = [];
+            foreach ($motivos as $familia => $n) {
+                $lista[] = "{$n}× {$familia}";
+            }
+
+            return 'Nenhuma linha está verde ou vermelha — e desta vez não é porque o Atlas não '
+                .'rodou: '.$provadas.' unidades PROVARAM ter rodado o Atlas ('
+                .'atlas_runtime derivado do caminho executado). Elas foram bloqueadas pelo próprio '
+                .'Atlas antes de terminar: '.implode(' · ', $lista).'. Isso não é o modelo falhando '
+                .'nem falta de bateria — é o executor recusando a tarefa. Enquanto o braço não '
+                .'CONCLUIR, não há par para comparar, e o relatório recusa o número. A coluna '
+                .'"sem Atlas" continua medida e válida.';
+        }
+
         $families = (array) ($atlasUplift['families'] ?? []);
         $missingProof = array_filter(
             $families,
