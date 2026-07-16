@@ -26,7 +26,12 @@ final class AtlasCodeAskController extends Controller
             'question' => ['required', 'string', 'max:500'],
             // Quem sabe que horas são para o operador é o aparelho na mão dele.
             // Sem isso o servidor responde em UTC — e "hoje" seria o dia errado.
-            'timezone' => ['sometimes', 'nullable', 'string', 'max:64', 'timezone'],
+            //
+            // SEM a regra `timezone` de propósito: fuso inválido derrubava a
+            // pergunta inteira com 422 (em inglês), contra o contrato fail-open
+            // — o serviço já cai para UTC quando não entende o fuso, e hora
+            // errada de fuso nunca deve calar uma resposta sobre git.
+            'timezone' => ['sometimes', 'nullable', 'string', 'max:64'],
             // `facts` = leitura pura, para o agente do card ler antes de
             // responder. Um modo desconhecido não vira `answer` em silêncio:
             // `answer` pode despachar frota, e adivinhar verbo é como um

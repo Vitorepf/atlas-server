@@ -97,7 +97,12 @@ final class AtlasCodeWeekService
             // O Atlas não deixa trabalho parado esperando o operador; ele age e
             // aceita veto retroativo com recibo. A métrica media uma coisa que
             // não deve existir — medir zero dela para sempre é a prova.
-            'by_agent' => $byAgent,
+            // (object) de propósito: PHP serializa array VAZIO como `[]`, e o
+            // Swift espera dicionário — numa semana quieta o decode inteiro do
+            // /code/week falhava e o cartão da semana sumia em silêncio.
+            // Regressão da remoção dos baldes semeados: com eles, o array
+            // nunca era vazio e o bug ficava invisível.
+            'by_agent' => (object) $byAgent,
             'notifications' => ['enabled' => false, 'reason' => 'operator_opt_in'],
         ];
     }

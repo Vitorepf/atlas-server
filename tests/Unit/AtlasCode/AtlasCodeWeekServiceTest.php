@@ -32,7 +32,14 @@ final class AtlasCodeWeekServiceTest extends TestCase
         // Zero medido e zero inventado se escrevem igual na tela. É por isso
         // que inventar zero é caro: some a diferença entre "não trabalhou" e
         // "não sei olhar".
-        foreach ($result['by_agent'] as $agent => $count) {
+        // (object) no contrato: array vazio serializa como `[]` e o Swift
+        // espera dicionário — numa semana quieta o decode inteiro do /code/week
+        // falhava e o cartão da semana sumia em silêncio.
+        self::assertInstanceOf(\stdClass::class, $result['by_agent']);
+        self::assertSame('{}', json_encode(new \stdClass()), 'objeto vazio serializa como {}, nunca []');
+
+        $byAgent = (array) $result['by_agent'];
+        foreach ($byAgent as $agent => $count) {
             self::assertIsInt($count);
             self::assertGreaterThan(0, $count, "balde '{$agent}' zerado é fabricação: quem não commitou não aparece");
         }
@@ -40,6 +47,6 @@ final class AtlasCodeWeekServiceTest extends TestCase
         // A soma dos baldes É a contagem de commits: número que não fecha com o
         // número ao lado é a tela discutindo consigo mesma na frente do
         // operador.
-        self::assertSame($result['commits'], array_sum($result['by_agent']));
+        self::assertSame($result['commits'], array_sum($byAgent));
     }
 }
