@@ -20,11 +20,11 @@ final class AtlasCodeWeekService
     /** @return array<string,mixed> */
     public function capture(string $repo = 'atlas-server'): array
     {
-        $profile = (new AtlasCodeWorkspaceProfileService())->findByReference($repo);
-        if (! is_array($profile)) {
-            throw new \InvalidArgumentException('repository_profile_not_found');
-        }
-        $path = trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? ''));
+        // O locator da frota, como ask/graph: perfil vence, disco responde
+        // pelo resto. A semana ficou na localização antiga (só perfis) e
+        // devolvia 422 para repos que o radar lista e o grafo abre.
+        $located = (new AtlasCodeRepoLocator())->locate($repo);
+        $path = $located['path'];
         $until = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
         $since = $until->sub(new \DateInterval('P7D'));
         $lines = $this->run($path, ['git', 'log', '--all', '--since='.$since->format(DATE_ATOM), '--until='.$until->format(DATE_ATOM), '--format=%ae%x1f%H']);
@@ -79,7 +79,7 @@ final class AtlasCodeWeekService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'repo' => (string) ($profile['slug'] ?? $repo),
+            'repo' => $located['slug'],
             'window' => $since->format('Y-m-d').'..'.$until->format('Y-m-d'),
             'commits' => $commits,
             'heals' => count($heals),

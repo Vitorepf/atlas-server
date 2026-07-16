@@ -75,23 +75,46 @@ final class AtlasCodeMirrorService
      */
     public function capture(string $repo): array
     {
-        $profileService = $this->profiles ?? new AtlasCodeWorkspaceProfileService();
-        $profile = $profileService->findByReference($repo);
-        if (! is_array($profile)) {
-            throw new InvalidArgumentException('repository_profile_not_found');
-        }
-
-        $path = trim((string) ($profile['repo_root'] ?? $profile['workspace_path'] ?? ''));
-        if ($path === '' || ! is_dir($path)) {
-            throw new InvalidArgumentException('repository_path_missing_or_unreadable');
-        }
+        // O locator da frota: perfil registrado vence, disco responde pelo
+        // resto. Espelho e semana ficaram na localização antiga (só perfis)
+        // quando ask/graph migraram — medido: nivor-back-end e
+        // blackink-website tinham grafo (200) e espelho 404 na MESMA tela.
+        $located = (new AtlasCodeRepoLocator())->locate($repo);
+        $path = $located['path'];
 
         $branch = trim($this->run($path, ['git', 'branch', '--show-current']));
-        $remote = trim($this->run($path, ['git', 'remote']));
+
+        // `git remote` que FALHA não é "sem espelho configurado": .git
+        // corrompido e timeout viravam a mesma frase de um repo genuinamente
+        // sem remote — falha vestida de fato, na tela que vigia backup.
+        $remoteProcess = new Process(['git', 'remote'], $path, null, null, $this->timeoutSeconds);
+        try {
+            $remoteProcess->run();
+        } catch (\Throwable) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'repo' => $located['slug'],
+                'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
+                'branch' => $branch !== '' ? $branch : null,
+                'mirror' => null,
+                'reason' => 'remote_unreadable',
+            ];
+        }
+        if (! $remoteProcess->isSuccessful()) {
+            return [
+                'schema_version' => self::SCHEMA_VERSION,
+                'repo' => $located['slug'],
+                'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
+                'branch' => $branch !== '' ? $branch : null,
+                'mirror' => null,
+                'reason' => 'remote_unreadable',
+            ];
+        }
+        $remote = trim($remoteProcess->getOutput());
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
-            'repo' => (string) ($profile['slug'] ?? $repo),
+            'repo' => $located['slug'],
             'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
             'branch' => $branch !== '' ? $branch : null,
         ];
