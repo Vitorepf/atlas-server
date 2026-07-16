@@ -84,7 +84,19 @@ final class AtlasCodeWeekService
             'commits' => $commits,
             'heals' => count($heals),
             'prevented' => $prevented,
-            'waiting_for_you' => 0,
+            // `waiting_for_you => 0` foi deletado, e por dois motivos que se
+            // somam.
+            //
+            // Era o literal `0` — única ocorrência em todo o app/, sem query,
+            // sem contagem, sem fallback. A folha publicava uma constante ao
+            // lado de números medidos (887 commits), e na tela zero fabricado e
+            // zero medido se escrevem igual.
+            //
+            // E o nome era pior que o dado: "esperando você" é vocabulário de
+            // FILA DE APROVAÇÃO, numa tela cujo canon é autonomia > aprovação.
+            // O Atlas não deixa trabalho parado esperando o operador; ele age e
+            // aceita veto retroativo com recibo. A métrica media uma coisa que
+            // não deve existir — medir zero dela para sempre é a prova.
             'by_agent' => $byAgent,
             'notifications' => ['enabled' => false, 'reason' => 'operator_opt_in'],
         ];
