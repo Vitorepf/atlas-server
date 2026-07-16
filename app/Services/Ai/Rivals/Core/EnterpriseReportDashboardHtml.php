@@ -599,7 +599,18 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
     for (const [dl, rs] of ordenados) {
       rows += `<tr class="dgroup"><td colspan="4">${dl} · ${rs.length}</td></tr>`;
       for (const r of rs) {
-      const fatia = r.skill !== r.label ? `<span class="sk-fatia">${r.skill} · ${r.instrument}</span>` : '';
+      // A FATIA sem jargão. Mostrava o slug cru "bbq:Age · bbq" — e o operador
+      // via 6 linhas "Responder pelo contexto" idênticas, distinguidas só por um
+      // slug que exige legenda. O eixo já vem nomeável (`axis`) e o valor está no
+      // slug depois do ":". Vira "categoria: Age" — o que a fatia É, em português,
+      // sem o instrumento repetido nem o underscore cru.
+      const AXP = {category:'categoria', subject:'matéria', language:'idioma',
+        high_level_domain:'área', instruction_id_list:'tipo de instrução',
+        domain1:'domínio do texto', task_type:'tipo de tarefa'};
+      const valorFatia = (r.skill.includes(':') ? r.skill.split(':').slice(1).join(':') : '')
+        .replace(/_/g, ' ').trim();
+      const fatia = (r.skill !== r.label && valorFatia)
+        ? `<span class="sk-fatia">${(AXP[r.axis] || r.axis || 'fatia')}: ${valorFatia}</span>` : '';
       // O TETO É DO TESTE, NÃO DO ATLAS — e o teto é do `n`, não do instrumento.
       // Com 9 tarefas, uma habilidade em 66% já não consegue mostrar ganho
       // nenhum (o máximo é 33 pp e só se afirma acima de 44). Sem dizer isto, a
