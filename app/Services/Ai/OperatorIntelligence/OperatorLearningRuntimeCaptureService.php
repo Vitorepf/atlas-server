@@ -32,11 +32,46 @@ class OperatorLearningRuntimeCaptureService
     ) {}
 
     /**
+     * O que o OPERADOR escreveu — nunca a muleta que a superfície anexou.
+     *
+     * Medido em 15/07/2026: 8 dos 13 sinais aprendidos sobre o operador eram
+     * prosa da própria máquina — "O coletor determinístico leu o Git e o ledger
+     * de `atlas-server` agora e apurou…" — gravada como REGRA DELE. O Atlas
+     * estava aprendendo quem o operador é a partir de frases que o operador
+     * nunca escreveu.
+     *
+     * A causa é estrutural, não um bug de string: superfícies legitimamente
+     * prefixam contexto no `input_text` — o card do Código anexa os fatos do
+     * git, a mensagem longa vira ponteiro. Para o modelo aquilo é entrada. Para
+     * quem aprende QUEM É O OPERADOR, é a máquina se ouvindo falar e anotando
+     * como se fosse ele. Num substrato de soberania pessoal esse é o pior
+     * estrago possível: volta como "regra dele" para sempre, e ele não escreveu
+     * nada daquilo.
+     *
+     * A guarda mora aqui, e não no gateway, porque é lei do aprendizado: quem
+     * for aprender o operador amanhã, por outra porta, herda a proteção sem
+     * precisar saber que ela existe.
+     *
+     * Quem sabe o que o operador digitou é a superfície. Quando ela diz
+     * (`payload.operator_text`), é isso que vale; quando não diz, `input_text` é
+     * o melhor que existe e continua valendo — nunca inventamos um silêncio.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    public static function operatorWords(string $input, array $options): string
+    {
+        $written = data_get($options, 'payload.operator_text');
+
+        return is_string($written) && trim($written) !== '' ? trim($written) : $input;
+    }
+
+    /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>|null
      */
     public function captureFromTrace(AiTrace $trace, string $input, array $options = []): ?array
     {
+        $input = self::operatorWords($input, $options);
         $availability = $this->runtimeCaptureAvailability($trace, $options);
         if (! (bool) $availability['available']) {
             if (($availability['reason'] ?? null) === 'missing_operator_tables') {
