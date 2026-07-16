@@ -191,7 +191,7 @@ class AreaFocusProductModeSurfaceService
         foreach ($findings as $finding) {
             $risk = (string) ($finding['severity'] ?? 'unknown');
             $byRisk[$risk] = ($byRisk[$risk] ?? 0) + 1;
-            $items[] = [
+            $item = [
                 'finding_hash' => (string) ($finding['finding_hash'] ?? ''),
                 'title' => (string) ($finding['title'] ?? ''),
                 'source' => (string) ($finding['source'] ?? ''),
@@ -200,9 +200,12 @@ class AreaFocusProductModeSurfaceService
                 'risk_level' => $risk,
                 'priority_score' => (int) ($finding['priority_score'] ?? 0),
                 'route' => (string) ($finding['route'] ?? ''),
-                'rule_id' => (string) ($finding['rule_id'] ?? ''),
-                'rule_text' => (string) ($finding['rule_text'] ?? ''),
             ];
+            if (trim((string) ($finding['rule_id'] ?? '')) !== '') {
+                $item['rule_id'] = (string) $finding['rule_id'];
+                $item['rule_text'] = (string) ($finding['rule_text'] ?? '');
+            }
+            $items[] = $item;
         }
         ksort($byRisk);
 

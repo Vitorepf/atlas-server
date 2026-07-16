@@ -8,6 +8,7 @@ use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusLoopCommandContr
 use App\Jobs\SoftwareCompanyLoopRunJob;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
+use App\Services\Ai\SelfConstruction\AtlasNativeConstitutionScanner;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeCockpitSurfaceService;
@@ -68,6 +69,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
     protected function tearDown(): void
     {
         File::deleteDirectory($this->storage);
+        File::deleteDirectory(storage_path('app/atlas/native-constitution'));
         parent::tearDown();
     }
 
@@ -86,9 +88,9 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         $this->assertSame(self::AREA, $body['default_area']);
         $this->assertSame(self::FOCUS, $body['default_focus']);
 
-        // TWO Atlas-itself areas in v1: agentic_engineering_os + atlas_loop_factory. Never invented.
-        $this->assertSame(2, $body['area_count']);
-        $this->assertCount(2, $body['areas']);
+        // Three Atlas-itself areas in v1: AAEOS + loop factory + atlas-native self-construction.
+        $this->assertSame(3, $body['area_count']);
+        $this->assertCount(3, $body['areas']);
 
         $byId = [];
         foreach ($body['areas'] as $a) {
@@ -96,6 +98,7 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         }
         $this->assertArrayHasKey(self::AREA, $byId);
         $this->assertArrayHasKey('atlas_loop_factory', $byId);
+        $this->assertArrayHasKey('atlas-native', $byId);
 
         $aaeos = $byId[self::AREA];
         $this->assertSame('Agentic Engineering OS', $aaeos['area_name']);
@@ -114,6 +117,13 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         $this->assertTrue($factory['registered']);
         $this->assertNotSame('', $factory['objective']);
         $this->assertFalse($factory['run_state']['lock']['held']);
+
+        $native = $byId['atlas-native'];
+        $this->assertSame('Atlas Native', $native['area_name']);
+        $this->assertSame(['repos'], array_keys($native['repo_scope']));
+        $this->assertSame(['atlas-native'], $native['repo_scope']['repos']);
+        $this->assertStringNotContainsString('allowed_paths', json_encode($native['repo_scope']) ?: '');
+        $this->assertStringNotContainsString('forbidden_paths', json_encode($native['repo_scope']) ?: '');
 
         $this->assertStringStartsWith('sha256:', $body['surface_hash']);
     }
@@ -217,6 +227,31 @@ final class AreaFocusLoopCommandAreasStartRunTest extends TestCase
         $body = $this->decode($response);
         $this->assertSame('unknown_area', $body['error']['code']);
         $this->assertContains(self::AREA, $body['error']['supported_areas']);
+    }
+
+    public function test_atlas_native_backlog_projects_native_constitution_scan_cache(): void
+    {
+        $nativeRepo = $this->storage.'/atlas-native';
+        File::ensureDirectoryExists($nativeRepo.'/App/Atlas');
+        File::put($nativeRepo.'/App/Atlas/GiantView.swift', implode("\n", array_fill(0, 401, '// line')));
+
+        $scanner = app(AtlasNativeConstitutionScanner::class);
+        $report = $scanner->scan($nativeRepo);
+        $scanner->writeFindingCache($report);
+
+        $response = $this->controller->backlog($this->request(['_query' => ['limit' => '200']]), 'atlas-native');
+        $this->assertSame(200, $response->getStatusCode());
+        $body = $this->decode($response);
+        $hash = $report['findings'][0]['finding_hash'];
+        $scannerItem = collect($body['findings']['items'])->firstWhere('finding_hash', $hash);
+
+        $this->assertSame('atlas-native', $body['area_id']);
+        $this->assertIsArray($scannerItem);
+        $this->assertSame($hash, $scannerItem['finding_hash']);
+        $this->assertSame('native_constitution_scan', $scannerItem['source']);
+        $this->assertSame('file_over_limit', $scannerItem['gap_kind']);
+        $this->assertSame('R1', $scannerItem['rule_id']);
+        $this->assertSame('inbox_only', $scannerItem['route']);
     }
 
     public function test_backlog_known_area_projects_findings_work_orders_inbox_budgets(): void

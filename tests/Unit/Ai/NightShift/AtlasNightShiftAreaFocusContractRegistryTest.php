@@ -11,8 +11,8 @@ use Tests\TestCase;
  * Contract tests for the Night Shift Area Focus contract registry (AP-712).
  *
  * The registry is read-only, stateless and deterministic: v1 registers only
- * `agentic_engineering_os`; any other area_id must resolve to null so the loop
- * blocks it as `area_not_registered`.
+ * Atlas-itself areas; any other area_id must resolve to null so the loop blocks
+ * it as `area_not_registered`.
  */
 final class AtlasNightShiftAreaFocusContractRegistryTest extends TestCase
 {
@@ -51,12 +51,35 @@ final class AtlasNightShiftAreaFocusContractRegistryTest extends TestCase
         $this->assertNull($this->registry()->resolve('unknown_company'));
     }
 
-    public function test_registered_areas_lists_only_v1_areas(): void
+    public function test_atlas_native_contract_registers_self_construction_policy(): void
+    {
+        $contract = $this->registry()->resolve(AtlasNightShiftAreaFocusContractRegistry::AREA_ATLAS_NATIVE);
+
+        $this->assertNotNull($contract);
+        $this->assertSame('atlas-native', $contract['area_id']);
+        $this->assertSame('Atlas Native', $contract['area_name']);
+        $this->assertSame(['atlas-native'], $contract['repo_scope']['repos']);
+        $this->assertSame([
+            'R1' => 'observe',
+            'R2' => 'heal',
+            'R3' => 'heal',
+            'R4' => 'heal',
+            'R5' => 'heal',
+        ], $contract['native_constitution_policy']);
+        $this->assertContains('App/Atlas/', $contract['repo_scope']['allowed_paths']);
+        $this->assertContains('Sources/', $contract['repo_scope']['allowed_paths']);
+    }
+
+    public function test_registered_areas_lists_only_v1_atlas_itself_areas(): void
     {
         $areas = $this->registry()->registeredAreas();
 
         $this->assertSame(
-            [AtlasNightShiftAreaFocusContractRegistry::AREA_AGENTIC_ENGINEERING_OS],
+            [
+                AtlasNightShiftAreaFocusContractRegistry::AREA_AGENTIC_ENGINEERING_OS,
+                AtlasNightShiftAreaFocusContractRegistry::AREA_LOOP_FACTORY,
+                AtlasNightShiftAreaFocusContractRegistry::AREA_ATLAS_NATIVE,
+            ],
             $areas
         );
     }
@@ -68,6 +91,7 @@ final class AtlasNightShiftAreaFocusContractRegistryTest extends TestCase
         $this->assertTrue($registry->isRegistered(
             AtlasNightShiftAreaFocusContractRegistry::AREA_AGENTIC_ENGINEERING_OS
         ));
+        $this->assertTrue($registry->isRegistered(AtlasNightShiftAreaFocusContractRegistry::AREA_ATLAS_NATIVE));
         $this->assertFalse($registry->isRegistered('blackink'));
     }
 }

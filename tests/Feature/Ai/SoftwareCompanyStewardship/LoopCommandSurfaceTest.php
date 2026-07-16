@@ -38,6 +38,8 @@ final class LoopCommandSurfaceTest extends TestCase
 
     private const LOOP_FACTORY_AREA = 'atlas_loop_factory';
 
+    private const ATLAS_NATIVE_AREA = 'atlas-native';
+
     private const BASE = '/ai/software-company-stewardship/loop/agentic_engineering_os';
 
     private const TOKEN = 'test-token-with-enough-length-123';
@@ -148,7 +150,7 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('schema_version', 'atlas.software_company_stewardship.loop_command_areas.v1')
             ->assertJsonPath('default_area', self::AREA)
-            ->assertJsonPath('area_count', 2);
+            ->assertJsonPath('area_count', 3);
 
         $areas = (array) $response->json('areas');
         $byId = [];
@@ -159,8 +161,10 @@ final class LoopCommandSurfaceTest extends TestCase
 
         $this->assertArrayHasKey(self::AREA, $byId);
         $this->assertArrayHasKey(self::LOOP_FACTORY_AREA, $byId);
+        $this->assertArrayHasKey(self::ATLAS_NATIVE_AREA, $byId);
         $this->assertTrue($byId[self::AREA]['registered']);
         $this->assertTrue($byId[self::LOOP_FACTORY_AREA]['registered']);
+        $this->assertTrue($byId[self::ATLAS_NATIVE_AREA]['registered']);
     }
 
     // ----------------------------------------------------------------- (new) start-run

@@ -32,6 +32,8 @@ class AtlasNightShiftAreaFocusContractRegistry
 
     public const AREA_LOOP_FACTORY = 'atlas_loop_factory';
 
+    public const AREA_ATLAS_NATIVE = 'atlas-native';
+
     /**
      * Resolve the canonical Area Contract for an area_id.
      *
@@ -65,6 +67,7 @@ class AtlasNightShiftAreaFocusContractRegistry
         return [
             self::AREA_AGENTIC_ENGINEERING_OS => $this->agenticEngineeringOsContract(),
             self::AREA_LOOP_FACTORY => $this->loopFactoryContract(),
+            self::AREA_ATLAS_NATIVE => $this->atlasNativeContract(),
         ];
     }
 
@@ -241,6 +244,97 @@ class AtlasNightShiftAreaFocusContractRegistry
                 'kill_switch',
                 'operator_pause',
                 'sensitive_domain_without_review',
+            ],
+            'inbox_destination' => 'morning_inbox',
+        ];
+    }
+
+    /**
+     * V3 Self-Construction area contract — the loop points at the native app's
+     * own constitution scanner and only exposes repo names publicly.
+     *
+     * @return array<string,mixed>
+     */
+    private function atlasNativeContract(): array
+    {
+        return [
+            'schema_version' => self::CONTRACT_SCHEMA,
+            'area_id' => self::AREA_ATLAS_NATIVE,
+            'area_name' => 'Atlas Native',
+            'objective' => 'Melhorar continuamente o próprio app nativo do Atlas: casca SwiftUI, AtlasCore, gates, evidência e OBRA, sempre com scanner → backlog → loop → gates → recibo.',
+            'area_owner_docs' => [
+                '../atlas-native/OBRA.md',
+                '../atlas-native/docs/spec-proximo-patamar.md',
+                '../atlas-native/docs/rich-input-shared-core.md',
+            ],
+            'owned_systems' => [
+                'Atlas Native App',
+                'AtlasCore',
+                'AtlasCoreChecks',
+                'Autônomos mobile surface',
+                'Self-Construction receipt',
+            ],
+            'repo_scope' => [
+                'target' => 'atlas_itself',
+                'repos' => ['atlas-native'],
+                'allowed_paths' => [
+                    'App/Atlas/',
+                    'Sources/',
+                    'App/project.yml',
+                    'App/Makefile',
+                    'App/scripts/',
+                    'docs/',
+                    'OBRA.md',
+                ],
+                'forbidden_paths' => [
+                    '.env',
+                    '.git/',
+                    '.build/',
+                    'App/build/',
+                    'DerivedData/',
+                    'vendor/',
+                    'node_modules/',
+                ],
+            ],
+            'native_constitution_policy' => [
+                'R1' => 'observe',
+                'R2' => 'heal',
+                'R3' => 'heal',
+                'R4' => 'heal',
+                'R5' => 'heal',
+            ],
+            'autonomy_tier' => 0,
+            'max_tier_for_area' => 2,
+            'dev_mode' => 'max_governed',
+            'forge_mode' => 'max_governed',
+            'dev_budget' => [
+                'mode' => 'max_governed',
+                'max_concurrent_work_orders' => 1,
+            ],
+            'forge_budget' => [
+                'mode' => 'max_governed',
+                'max_concurrent_obras' => 1,
+            ],
+            'wip_limit' => [
+                'max_findings' => 20,
+                'max_spec_drafts' => 3,
+                'max_branches' => 1,
+            ],
+            'risk_policy' => [
+                'inbox_only_for_sensitive' => true,
+                'block_external_company' => true,
+                'sensitive_domains' => [
+                    'secrets', 'production', 'deploy', 'data_deletion',
+                    'migration', 'architecture_redesign', 'large_refactor',
+                ],
+            ],
+            'stop_conditions' => [
+                'budget_exhausted',
+                'wip_limit_reached',
+                'kill_switch',
+                'operator_pause',
+                'workspace_cert_missing',
+                'gates_failed',
             ],
             'inbox_destination' => 'morning_inbox',
         ];
