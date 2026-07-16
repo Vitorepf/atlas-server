@@ -188,6 +188,23 @@ final class AtlasCodeAskService
             AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH => $collecting
                 ? $this->collectReview($located['path'], (string) $route['window'], $now, $timezone)
                 : $this->startReview($located['slug'], $located['path'], (string) $route['window'], $now, $timezone),
+            // Pergunta que CITA um commit: o operador (ou a folha do commit,
+            // que semeia esta pergunta) quer ESTE commit — identidade, corpo e,
+            // coletando, o código. Antes disto ela caía em `unknown` e o agente
+            // respondia sem os fatos do próprio commit que o operador olhava.
+            AtlasCodeQuestionRouter::INTENT_COMMIT => $this->answerCommit(
+                $located['path'],
+                (array) ($route['hashes'] ?? []),
+                $collecting,
+                $now,
+            ),
+            // A voz do veto: o ciclo curou/desfez, lido do ledger.
+            AtlasCodeQuestionRouter::INTENT_HEALS => $this->answerHeals(
+                $located['slug'],
+                (string) $route['window'],
+                $now,
+                $timezone,
+            ),
             AtlasCodeQuestionRouter::INTENT_WHY_BRANCH => $this->answerWhyBranch($located['slug'], $located['path']),
             AtlasCodeQuestionRouter::INTENT_WHO_TOUCHED => $this->answerWhoTouched($located['path'], $route['term']),
             AtlasCodeQuestionRouter::INTENT_FIND => $this->answerFind($located['path'], $route['term']),
@@ -200,6 +217,151 @@ final class AtlasCodeAskService
                 ? $this->shape(false, '', source: self::SOURCE_GRAPH)
                 : $this->consultBrain($asked, $located['path']),
         };
+    }
+
+    /**
+     * A pergunta que cita um commit: identidade, esforço e — coletando — o
+     * corpo e o código, para o agente responder sobre O commit, não sobre a
+     * ideia de um commit.
+     *
+     * A primeira leitura é `rev-parse HEAD` de propósito: se o git estiver
+     * fora, isto LEVANTA e a resposta vira "não consegui ler o git". Sem essa
+     * sonda, todo hash pareceria inexistente e a falha viraria fato — "não
+     * achei o commit X" sobre um git que ninguém leu.
+     *
+     * @param  array<int,string>  $hashes
+     * @return array{answered:bool, answer:string, commits:array<int,string>, evidence:array<int,array<string,string>>, source:string, detail?:string}
+     *
+     * @throws AtlasCodeGitUnavailable
+     */
+    private function answerCommit(string $path, array $hashes, bool $collecting, int $now): array
+    {
+        $this->git($path, ['git', 'rev-parse', 'HEAD']);
+
+        $hashes = array_slice(array_values(array_unique($hashes)), 0, 3);
+        $review = $this->review ?? new AtlasCodeReviewService();
+
+        $lines = [];
+        $anchors = [];
+        $missing = [];
+        $detail = [];
+
+        foreach ($hashes as $cited) {
+            try {
+                $full = trim($this->git($path, ['git', 'rev-parse', '--verify', $cited.'^{commit}']));
+            } catch (AtlasCodeGitUnavailable) {
+                // O git está de pé (a sonda acima passou): ESTE hash não
+                // existe aqui, e ausência verificada é fato.
+                $missing[] = $cited;
+
+                continue;
+            }
+
+            $identity = explode("\x1f", trim($this->git($path, [
+                'git', 'show', '--no-patch', '--format=%H%x1f%an%x1f%at%x1f%s', $full,
+            ])), 4);
+            if (count($identity) !== 4) {
+                $missing[] = $cited;
+
+                continue;
+            }
+            [$fullHash, $author, $epoch, $subject] = $identity;
+
+            $work = $this->parseWork($this->git($path, ['git', 'show', '--format=', '--numstat', '-M', $full]));
+            $anchors[] = $fullHash;
+
+            $files = $work['files'] === 1 ? '1 arquivo' : $work['files'].' arquivos';
+            $lines[] = mb_substr($fullHash, 0, 10)
+                ." · \u{201C}{$subject}\u{201D} — {$author}, há ".self::ago((int) $epoch, $now)
+                .": {$files}, +{$work['additions']} \u{2212}{$work['deletions']}.";
+
+            if ($collecting) {
+                $body = trim($this->git($path, ['git', 'show', '--no-patch', '--format=%b', $full]));
+                $diff = $review->diff($path, $full, self::REVIEW_DIFF_PER_COMMIT);
+                $bloco = "--- commit {$fullHash} ---";
+                if ($body !== '') {
+                    $bloco .= "\nDescrição do autor:\n".$body;
+                }
+                if (trim($diff) !== '') {
+                    $bloco .= "\n".$diff;
+                }
+                $detail[] = $bloco;
+            }
+        }
+
+        foreach ($missing as $cited) {
+            $lines[] = "não achei o commit {$cited} neste repositório.";
+        }
+
+        $result = $this->shape(
+            $lines !== [],
+            implode("\n", $lines),
+            commits: $anchors,
+            source: self::SOURCE_GRAPH,
+        );
+        if ($detail !== []) {
+            $result['detail'] = "Código e descrição dos commits citados, lidos do git:\n\n".implode("\n\n", $detail);
+        }
+
+        return $result;
+    }
+
+    /**
+     * A voz do veto — canon nº 1 do operador: o Atlas age sozinho e o humano
+     * desfaz com recibo. "O que você curou?" e "o que eu vetei?" fecham esse
+     * ciclo, e não tinham intent: o único jeito de saber era abrir a folha.
+     *
+     * Ledger vazio devolve zero curas, e zero LIDO é fato ("nenhuma cura"),
+     * não falha. Ledger fora do ar é a outra coisa, e é dito.
+     */
+    private function answerHeals(string $slug, string $window, int $now, ?string $timezone): array
+    {
+        $since = $this->windowStart($window, $now, $timezone);
+
+        try {
+            $cycle = app(AtlasCodeHealService::class)->vetoCycle($slug, $since);
+        } catch (Throwable) {
+            return $this->shape(false, 'não consegui ler o ledger de curas agora.', source: self::SOURCE_LEDGER);
+        }
+
+        $label = match ($window) {
+            AtlasCodeQuestionRouter::WINDOW_TODAY => 'hoje',
+            AtlasCodeQuestionRouter::WINDOW_YESTERDAY => 'ontem',
+            AtlasCodeQuestionRouter::WINDOW_MONTH => 'no último mês',
+            default => 'nos últimos 7 dias',
+        };
+
+        $healed = $cycle['healed'];
+        $undone = $cycle['undone'];
+
+        if ($healed === [] && $undone === []) {
+            return $this->shape(
+                true,
+                "nenhuma cura {$label} — o Atlas não precisou intervir neste repositório, e nada esperou seu veto.",
+                source: self::SOURCE_LEDGER,
+            );
+        }
+
+        $frases = [];
+        if ($healed !== []) {
+            $frases[] = (count($healed) === 1 ? '1 cura' : count($healed).' curas')." {$label}";
+        }
+        if ($undone !== []) {
+            $frases[] = count($undone) === 1
+                ? '1 desfeita por você — o veto funcionou'
+                : count($undone).' desfeitas por você — o veto funcionou';
+        }
+
+        $evidence = [];
+        foreach (array_slice([...$healed, ...$undone], 0, 6) as $receipt) {
+            $evidence[] = array_filter([
+                'kind' => 'heal',
+                'ref' => (string) ($receipt['heal_id'] ?? $receipt['action'] ?? 'cura'),
+                'target' => isset($receipt['target']) ? (string) $receipt['target'] : null,
+            ], static fn (mixed $v): bool => $v !== null);
+        }
+
+        return $this->shape(true, implode('; ', $frases).'.', evidence: $evidence, source: self::SOURCE_LEDGER);
     }
 
     // MARK: — Composição das frases (puras, golden-testáveis)

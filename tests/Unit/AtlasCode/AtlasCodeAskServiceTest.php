@@ -579,4 +579,63 @@ final class AtlasCodeAskServiceTest extends TestCase
             rmdir($raiz);
         }
     }
+
+    public function test_a_cited_commit_hands_the_agent_the_whole_commit(): void
+    {
+        // A pergunta que a folha do commit semeia. Antes, caía em `unknown` e
+        // o agente respondia sem os fatos do commit que o operador olhava.
+        $raiz = sys_get_temp_dir().'/atlas-commit-citado-'.uniqid();
+        mkdir($raiz.'/repo-x', 0o777, true);
+        $run = static function (string $cmd) use ($raiz): string {
+            return (string) shell_exec('cd '.escapeshellarg($raiz.'/repo-x').' && '.$cmd.' 2>&1');
+        };
+        $run('git init -q -b main');
+        $run('git -c user.name="Vitor Freire" -c user.email=v@x.test commit -q --allow-empty -m "feat: nasce o motor" -m "O corpo explica o porquê."');
+        file_put_contents($raiz.'/repo-x/a.txt', "linha\n");
+        $run('git add a.txt && git -c user.name="Vitor Freire" -c user.email=v@x.test commit -q -m "feat(core): grava a linha" -m "Porque linha gravada é fato."');
+        $full = trim($run('git rev-parse HEAD'));
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $ask = new AtlasCodeAskService(locator: new AtlasCodeRepoLocator(scanner: new AtlasCodeWorkspaceScanner()));
+            $curto = substr($full, 0, 9);
+            $resposta = $ask->answer('repo-x', "o que o commit {$curto} fez, e por quê?", null, null, AtlasCodeAskService::MODE_FACTS);
+
+            self::assertSame('commit', $resposta['intent']);
+            self::assertTrue($resposta['answered']);
+            self::assertStringContainsString('feat(core): grava a linha', $resposta['answer']);
+            self::assertStringContainsString('Vitor Freire', $resposta['answer']);
+            // A âncora é o hash COMPLETO: o grafo compara hashes cheios, e uma
+            // âncora abreviada nunca acenderia nada.
+            self::assertSame([$full], $resposta['commits']);
+            // O dossiê do agente: a descrição do autor E o código.
+            self::assertStringContainsString('Porque linha gravada é fato.', (string) ($resposta['detail'] ?? ''));
+            self::assertStringContainsString('diff --git', (string) ($resposta['detail'] ?? ''));
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            shell_exec('rm -rf '.escapeshellarg($raiz));
+        }
+    }
+
+    public function test_a_hash_that_does_not_exist_is_a_verified_absence_not_a_guess(): void
+    {
+        $raiz = sys_get_temp_dir().'/atlas-hash-inexistente-'.uniqid();
+        mkdir($raiz.'/repo-x', 0o777, true);
+        shell_exec('cd '.escapeshellarg($raiz.'/repo-x').' && git init -q -b main && git -c user.name=V -c user.email=v@x.test commit -q --allow-empty -m ok 2>&1');
+        putenv('ATLAS_CODE_WORKSPACE_ROOT='.$raiz);
+
+        try {
+            $ask = new AtlasCodeAskService(locator: new AtlasCodeRepoLocator(scanner: new AtlasCodeWorkspaceScanner()));
+            $resposta = $ask->answer('repo-x', 'o que o commit deadbee99 fez?', null, null, AtlasCodeAskService::MODE_FACTS);
+
+            // O git está DE PÉ (a sonda rev-parse HEAD passou), então "não
+            // achei" é ausência verificada — fato, não falha vestida de fato.
+            self::assertTrue($resposta['answered']);
+            self::assertStringContainsString('não achei o commit deadbee99', $resposta['answer']);
+            self::assertSame([], $resposta['commits']);
+        } finally {
+            putenv('ATLAS_CODE_WORKSPACE_ROOT');
+            shell_exec('rm -rf '.escapeshellarg($raiz));
+        }
+    }
 }

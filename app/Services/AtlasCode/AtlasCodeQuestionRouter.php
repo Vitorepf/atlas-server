@@ -42,6 +42,12 @@ final class AtlasCodeQuestionRouter
     /** "qual arquivo mais mexe?" — onde o esforço se concentra. */
     public const INTENT_HOTTEST = 'hottest';
 
+    /** Pergunta sobre UM commit citado pelo hash: "o que o commit f76c8be fez?" */
+    public const INTENT_COMMIT = 'commit';
+
+    /** A voz do veto: "o que você curou?", "o que eu desfiz?" */
+    public const INTENT_HEALS = 'heals';
+
     /** Nem toda pergunta é filtro. Esta vai para o cérebro. */
     public const INTENT_UNKNOWN = 'unknown';
 
@@ -78,6 +84,24 @@ final class AtlasCodeQuestionRouter
             return $hashes !== []
                 ? $this->shape(self::INTENT_REVIEW_BATCH, hashes: $hashes)
                 : $this->shape(self::INTENT_REVIEW_BATCH, window: $this->extractWindow($text) ?? self::WINDOW_TODAY, hashes: []);
+        }
+
+        // Pergunta que CITA um commit é sobre aquele commit. Vem depois de
+        // `ordersReview` (revisar com hash continua sendo ordem de revisão) e
+        // antes de tudo o mais: quem digita 7+ caracteres de hash não está
+        // fazendo pergunta genérica. É a pergunta que a folha do commit semeia
+        // ("o que o commit f76c8be fez, e por quê?") — e ela caía em `unknown`,
+        // com o agente respondendo sem os fatos do próprio commit que o
+        // operador estava olhando.
+        if (($hashes = $this->extractHashes($text)) !== []) {
+            return $this->shape(self::INTENT_COMMIT, hashes: $hashes);
+        }
+
+        // A voz do veto (canon nº 1: autonomia > aprovação, humano desfaz com
+        // recibo). "O que você curou?" e "o que eu vetei?" são as perguntas
+        // que fecham esse ciclo — e não tinham intent.
+        if ($this->asksHeals($text)) {
+            return $this->shape(self::INTENT_HEALS, window: $this->extractWindow($text) ?? self::WINDOW_WEEK);
         }
 
         if ($this->mentionsProblem($text)) {
@@ -198,6 +222,19 @@ final class AtlasCodeQuestionRouter
      * só MENCIONA revisão ("o que a revisão achou?"), que é pergunta sobre
      * resultado — e essa é a natureza de perguntar, não a de mandar fazer.
      */
+    /**
+     * O ciclo do veto: cura feita, cura desfeita, quem vetou o quê.
+     *
+     * Fronteira de palavra pelo mesmo motivo do `revisa`/`revisao`: "procura"
+     * CONTÉM "cura", e sem \b toda busca viraria pergunta sobre cura.
+     */
+    private function asksHeals(string $text): bool
+    {
+        return preg_match('/\bcur(ou|ada|adas|ado|ados|as)\b/u', $text) === 1
+            || preg_match('/\bvet(ei|ou|ado|ados|adas)\b/u', $text) === 1
+            || preg_match('/\bdesf(iz|ez|eito|eitos|eita|eitas)\b/u', $text) === 1;
+    }
+
     private function ordersReview(string $text): bool
     {
         // Fronteira de palavra é obrigatória: `revisao` CONTÉM `revisa`, e sem

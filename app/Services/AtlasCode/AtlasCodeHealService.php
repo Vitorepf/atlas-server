@@ -232,6 +232,52 @@ final class AtlasCodeHealService
         return $payload;
     }
 
+    /**
+     * O ciclo do veto, legível: o que foi curado e o que o operador desfez.
+     *
+     * Existe para a pílula ter voz sobre o canon nº 1 (autonomia > aprovação,
+     * humano = veto retroativo): "o que você curou?" e "o que eu vetei?" eram
+     * perguntas sem intent, e o único jeito de saber era abrir a folha do
+     * recibo. Leitura pura do ledger; ledger vazio devolve listas vazias, que
+     * é fato, não falha.
+     *
+     * @return array{healed: array<int,array<string,mixed>>, undone: array<int,array<string,mixed>>}
+     */
+    public function vetoCycle(string $repo, int $sinceEpoch = 0): array
+    {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return ['healed' => [], 'undone' => []];
+        }
+
+        $payloads = AtlasLedgerEvent::query()
+            ->where('event_type', LedgerEventType::OperationCompleted->value)
+            ->when($sinceEpoch > 0, fn ($q) => $q->where('occurred_at', '>=', gmdate('Y-m-d H:i:s', $sinceEpoch)))
+            ->orderByDesc('occurred_at')
+            ->limit(200)
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => (array) ($event->payload ?? []))
+            ->filter(fn (array $payload): bool => ($payload['schema_version'] ?? null) === self::RECEIPT_SCHEMA_VERSION
+                && ($payload['repo'] ?? null) === $repo
+                && ($payload['status'] ?? null) === 'completed')
+            ->values()
+            ->all();
+
+        $undone = array_values(array_filter($payloads, fn (array $p): bool => str_starts_with((string) ($p['action'] ?? ''), 'undo:')));
+        $vetoed = [];
+        foreach ($undone as $u) {
+            if (isset($u['heal_id'])) {
+                $vetoed[(string) $u['heal_id']] = true;
+            }
+        }
+        $healed = array_values(array_filter(
+            $payloads,
+            fn (array $p): bool => ! str_starts_with((string) ($p['action'] ?? ''), 'undo:')
+                && ! isset($vetoed[(string) ($p['heal_id'] ?? '')])
+        ));
+
+        return ['healed' => $healed, 'undone' => $undone];
+    }
+
     /** @return array<int,array<string,mixed>> */
     private function recentReceiptsForRepo(string $repo): array
     {

@@ -123,7 +123,7 @@ final class AtlasCodeQuestionRouterTest extends TestCase
         $suggestions = [
             'tem algum problema?',
             'o que mudou hoje?',
-            'qual arquivo mais mexe?',
+            'o que você curou essa semana?',
             'revise os commits de hoje',
         ];
 
@@ -173,5 +173,56 @@ final class AtlasCodeQuestionRouterTest extends TestCase
     {
         self::assertSame('por que essa branch existe', $this->router->normalize('Por quê essa BRANCH existe?'));
         self::assertSame('o que mudou hoje', $this->router->normalize('  O que mudou hoje??  '));
+    }
+
+    public function test_a_question_citing_a_commit_is_about_that_commit(): void
+    {
+        // É a pergunta que a FOLHA DO COMMIT semeia ("perguntar sobre este
+        // commit"). Ela caía em `unknown` e o agente respondia sem os fatos do
+        // próprio commit que o operador estava olhando.
+        $route = $this->router->route('o que o commit 1f63f38a2 fez, e por quê?');
+        self::assertSame(AtlasCodeQuestionRouter::INTENT_COMMIT, $route['intent']);
+        self::assertSame(['1f63f38a2'], $route['hashes']);
+
+        self::assertSame(
+            AtlasCodeQuestionRouter::INTENT_COMMIT,
+            $this->router->route('por que o commit 1f63f38a2 existe?')['intent']
+        );
+
+        // Revisar com hash continua sendo ORDEM de revisão, não pergunta.
+        self::assertSame(
+            AtlasCodeQuestionRouter::INTENT_REVIEW_BATCH,
+            $this->router->route('revise f76c8be99')['intent']
+        );
+    }
+
+    public function test_the_veto_cycle_has_a_voice(): void
+    {
+        // Canon nº 1: autonomia > aprovação — o humano desfaz com recibo. As
+        // perguntas que fecham esse ciclo não tinham intent.
+        foreach ([
+            'o que você curou essa semana?',
+            'o que o atlas curou?',
+            'o que foi curado hoje?',
+            'o que eu vetei?',
+            'o que eu desfiz?',
+        ] as $question) {
+            self::assertSame(
+                AtlasCodeQuestionRouter::INTENT_HEALS,
+                $this->router->route($question)['intent'],
+                "deveria ser a voz do veto: {$question}"
+            );
+        }
+
+        // A janela é a mesma gramática de tempo; sem janela, a semana.
+        self::assertSame('today', $this->router->route('o que você curou hoje?')['window']);
+        self::assertSame('week', $this->router->route('o que você curou?')['window']);
+
+        // A armadilha: "procura" CONTÉM "cura". Sem fronteira de palavra,
+        // toda busca viraria pergunta sobre cura.
+        self::assertSame(
+            AtlasCodeQuestionRouter::INTENT_FIND,
+            $this->router->route('procura cura no repositório')['intent']
+        );
     }
 }

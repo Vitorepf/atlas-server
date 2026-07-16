@@ -23,12 +23,16 @@ final class AtlasCodeGraphControllerTest extends TestCase
             ->assertJsonPath('repo', 'atlas-server')
             ->assertJsonPath('pagination.limit', 3)
             ->assertJsonStructure([
-                'schema_version', 'repo', 'generated_at', 'head', 'default_branch',
+                'schema_version', 'repo', 'generated_at', 'head', 'default_branch', 'trunk_head',
                 'nodes' => [['hash', 'parents', 'author_name', 'author_email', 'authored_at', 'refs']],
-                'worktrees' => [['path', 'branch', 'head']],
                 'pagination' => ['limit', 'before', 'has_more'],
-                'cache' => ['strategy', 'refs_fingerprint', 'invalidated'],
             ]);
+
+        // `cache` e `worktrees` foram DELETADOS do contrato — eram teatro
+        // (invalidated sempre false) e peso morto (decodificado, nunca
+        // pintado). Este assert impede que voltem em silêncio.
+        self::assertArrayNotHasKey('cache', (array) $response->json());
+        self::assertArrayNotHasKey('worktrees', (array) $response->json());
 
         self::assertLessThanOrEqual(3, count((array) $response->json('nodes')));
         self::assertTrue((bool) $response->json('pagination.has_more'));
