@@ -14,6 +14,9 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 {
     public const ADAPTER_KIND = 'aemor';
 
+    /** @var list<string> */
+    public const BOOL_FIELDS = ['verified'];
+
     public function origin(): string
     {
         return self::ADAPTER_KIND;
@@ -35,7 +38,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $verifiedSourcePresent = array_key_exists('verified', $native)
             || array_key_exists('verified_source_present', $contract);
         $verifiedBasis = AiValueNormalizer::lowerTrimmedString($contract['verified_basis'] ?? $native['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT);
-        $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
+        $verified = (AiValueNormalizer::boolOrNull($contract['verified'] ?? $native['verified'] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
         $episodeId = AiValueNormalizer::trimmedStringOrNull($context['episode_id'] ?? $native['episode_id'] ?? null) ?? '';
@@ -80,7 +83,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'context_utility' => AiValueNormalizer::arrayOrEmpty($fields['context_utility'] ?? null),
             'patch_outcome' => AiValueNormalizer::arrayOrEmpty($fields['patch_outcome'] ?? null),
             'learning_claim' => (AiValueNormalizer::trimmedStringOrNull($fields['learning_claim'] ?? null) ?? ''),
-            'verified' => (bool) ($data['verified'] ?? false),
+            'verified' => (AiValueNormalizer::boolOrNull($data['verified'] ?? null) ?? false),
             'verified_basis' => AiValueNormalizer::trimmedStringOrNull($data['verified_basis'] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ];
     }

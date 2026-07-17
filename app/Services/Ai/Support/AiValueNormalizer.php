@@ -62,6 +62,18 @@ final class AiValueNormalizer
         return is_array($value) ? $value : [];
     }
 
+    /**
+     * Coerce a present value with PHP (bool) cast semantics; null stays null.
+     */
+    public static function boolOrNull(mixed $value): ?bool
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return (bool) $value;
+    }
+
     public static function trimmedString(mixed $value): string
     {
         return trim((string) $value);

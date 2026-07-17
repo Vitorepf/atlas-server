@@ -500,7 +500,7 @@ final class PromotionProtocol
                 : (AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? ''),
             'config_key' => $entry['config_key'] ?? null,
             'env_key' => $entry['env_key'] ?? null,
-            'operator_only' => (bool) ($entry['operator_only'] ?? false),
+            'operator_only' => (AiValueNormalizer::boolOrNull($entry['operator_only'] ?? null) ?? false),
             'required_fields' => $this->requiredFields($entry),
             'shadow_minimum_window' => AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? '',
             'flip_criterion' => AiValueNormalizer::trimmedStringOrNull($entry['flip_criterion'] ?? null) ?? '',

@@ -71,8 +71,8 @@ final class RunbookOrchestrator
     {
         $intent = AiValueNormalizer::trimmedStringOrNull($request['intent'] ?? null) ?? '';
         $intentClass = AiValueNormalizer::trimmedStringOrNull($request['intent_class'] ?? null) ?? $this->classify($intent);
-        $needsResearch = (bool) ($request['needs_research'] ?? false);
-        $needsDebug = (bool) ($request['needs_debug'] ?? false);
+        $needsResearch = (AiValueNormalizer::boolOrNull($request['needs_research'] ?? null) ?? false);
+        $needsDebug = (AiValueNormalizer::boolOrNull($request['needs_debug'] ?? null) ?? false);
 
         $flow = $this->flowFor($intentClass, $needsResearch, $needsDebug);
         $stages = [];
@@ -152,7 +152,7 @@ final class RunbookOrchestrator
             ];
         }
 
-        $touchesSovereignty = (bool) ($request['touches_sovereignty_layer'] ?? false);
+        $touchesSovereignty = (AiValueNormalizer::boolOrNull($request['touches_sovereignty_layer'] ?? null) ?? false);
         $baselineFlow = self::DEFAULT_FLOW;
         $baselineGatesTotal = array_sum(array_map(
             fn (string $dept): int => count($this->departments->gatesFor($dept)),

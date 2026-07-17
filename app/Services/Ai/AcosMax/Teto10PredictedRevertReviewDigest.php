@@ -150,9 +150,9 @@ final class Teto10PredictedRevertReviewDigest
             'diff_ref' => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
             'reverse_command' => $reverse,
             'review_mode' => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
-            'pending_flip' => (bool) ($item['pending_flip'] ?? false),
+            'pending_flip' => (AiValueNormalizer::boolOrNull($item['pending_flip'] ?? null) ?? false),
             'flip_ref' => self::firstString($item, ['flip_ref', 'flip_id'], ''),
-            'batched_ask' => (bool) ($item['batched_ask'] ?? false),
+            'batched_ask' => (AiValueNormalizer::boolOrNull($item['batched_ask'] ?? null) ?? false),
             'ask_ref' => self::firstString($item, ['ask_ref', 'ask_id'], ''),
         ];
     }

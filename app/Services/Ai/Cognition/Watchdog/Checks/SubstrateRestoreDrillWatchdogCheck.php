@@ -74,7 +74,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         $successes = array_values(array_filter(
             $rows,
             static fn (array $row): bool => ($row['status'] ?? null) === 'restored_ok'
-                && (bool) ($row['restored_ok'] ?? false)
+                && (AiValueNormalizer::boolOrNull($row['restored_ok'] ?? null) ?? false)
                 && is_string($row['checked_at'] ?? null),
         ));
 

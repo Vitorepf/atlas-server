@@ -211,7 +211,7 @@ final class AtlasAcosWatchdogHealthService
         $edgesBySource = AiValueNormalizer::arrayOrEmpty($store['edges_by_source'] ?? null);
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage['memory_cross_layer_coverage_ratio'] ?? null) ?? 0.0;
         $blocking = [];
-        if (! (bool) ($coverage['available'] ?? false)) {
+        if (! (AiValueNormalizer::boolOrNull($coverage['available'] ?? null) ?? false)) {
             $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage['reason'] ?? null) ?? 'aurg_store_unavailable');
         }
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
@@ -450,7 +450,7 @@ final class AtlasAcosWatchdogHealthService
             ],
             'cross_week_recall_lift_gate' => [
                 'status' => $crossWeek['status'] ?? 'unknown',
-                'certified' => (bool) ($crossWeek['certified'] ?? false),
+                'certified' => (AiValueNormalizer::boolOrNull($crossWeek['certified'] ?? null) ?? false),
                 'blockers' => AiValueNormalizer::arrayOrEmpty($crossWeek['blockers'] ?? null),
             ],
             'rollback_trigger' => [
@@ -644,7 +644,7 @@ final class AtlasAcosWatchdogHealthService
     public function toCheckResult(array $report, string $alertCode, string $message): AtlasWatchdogCheckResult
     {
         $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
-        $alert = (bool) ($report['alert'] ?? false)
+        $alert = (AiValueNormalizer::boolOrNull($report['alert'] ?? null) ?? false)
             || in_array($status, ['alert', 'not_ready', 'unavailable'], true)
             || (isset($report['ready_to_enforce']) && $report['ready_to_enforce'] === false);
 

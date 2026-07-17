@@ -45,7 +45,7 @@ final class AcosMaxProceduralSkillPromoterService
 
         $eligible = array_values(array_filter(
             $candidates,
-            static fn (array $candidate): bool => (bool) ($candidate['case_count_floor_met'] ?? false),
+            static fn (array $candidate): bool => (AiValueNormalizer::boolOrNull($candidate['case_count_floor_met'] ?? null) ?? false),
         ));
 
         $enqueued = [];

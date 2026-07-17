@@ -2703,4 +2703,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(5, $payload['docs_locate_default_limit']);
         $this->assertSame(10, $payload['observe_helper_limit_floor_count']);
     }
+
+    public function test_outcome_envelope_bool_fields_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->outcomeEnvelopeBoolFieldsContractObserve([]);
+
+        $this->assertSame('AiValueNormalizer::boolOrNull', $payload['bool_or_null_helper']);
+        $this->assertSame('aemor', $payload['aemor_adapter_kind']);
+        $this->assertSame(['verified'], $payload['aemor_bool_fields']);
+        $this->assertSame('compounding', $payload['compounding_adapter_kind']);
+        $this->assertSame(['verified', 'learning_required', 'human_override'], $payload['compounding_bool_fields']);
+        $this->assertSame('dev_procedural', $payload['dev_procedural_adapter_kind']);
+        $this->assertSame('atlas.dev.outcome_memory.v1', $payload['dev_procedural_native_schema']);
+        $this->assertSame(['proven_real', 'fake_green', 'should_promote_to_aemor'], $payload['dev_procedural_bool_fields']);
+        $this->assertSame(7, $payload['outcome_envelope_bool_field_count']);
+        $this->assertSame(9, $payload['outcome_envelope_bool_fields_floor_count']);
+    }
 }

@@ -363,7 +363,7 @@ final class AtlasAaeosHttpPathFacadeService
                 'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? 'unknown',
                 'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? 'unknown',
                 'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? 'unknown',
-                'requires_ap' => (bool) ($placementResult['placement']['requires_ap'] ?? false),
+                'requires_ap' => (AiValueNormalizer::boolOrNull($placementResult['placement']['requires_ap'] ?? null) ?? false),
             ],
             'envelopes' => $envelopes,
         ];

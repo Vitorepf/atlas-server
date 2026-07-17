@@ -96,7 +96,7 @@ final class CognitiveImmuneCheckContract
             gateStatuses: $gateStatuses,
             checkCategories: self::CHECK_CATEGORIES,
             blockers: $blockers,
-            autonomousExecutionAllowed: (bool) ($input['autonomous_execution_allowed'] ?? false),
+            autonomousExecutionAllowed: (AiValueNormalizer::boolOrNull($input['autonomous_execution_allowed'] ?? null) ?? false),
         );
     }
 

@@ -53,6 +53,18 @@ final class AiValueNormalizerTest extends TestCase
         $this->assertSame([], AiValueNormalizer::arrayOrEmpty('x'));
     }
 
+    public function test_bool_or_null_preserves_php_bool_cast_for_present_values(): void
+    {
+        $this->assertNull(AiValueNormalizer::boolOrNull(null));
+        $this->assertTrue(AiValueNormalizer::boolOrNull(true));
+        $this->assertFalse(AiValueNormalizer::boolOrNull(false));
+        $this->assertTrue(AiValueNormalizer::boolOrNull(1));
+        $this->assertFalse(AiValueNormalizer::boolOrNull(0));
+        $this->assertFalse(AiValueNormalizer::boolOrNull('0'));
+        $this->assertTrue(AiValueNormalizer::boolOrNull('false'));
+        $this->assertSame(false, AiValueNormalizer::boolOrNull(null) ?? false);
+    }
+
     public function test_trimmed_and_lower_trimmed_string_helpers(): void
     {
         $this->assertSame('Alpha', AiValueNormalizer::trimmedString(' Alpha '));

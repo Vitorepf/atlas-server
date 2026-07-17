@@ -130,11 +130,11 @@ final class OutcomeCausalityRanker
     public function rankOutcomeEnvelope(array $envelope): array
     {
         $outcome = AiValueNormalizer::lowerTrimmedString($envelope['outcome'] ?? '');
-        $hasEvidenceRefs = (bool) ($envelope['has_evidence_refs'] ?? false);
+        $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope['has_evidence_refs'] ?? null) ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
-        $missingRequiredSources = (bool) ($envelope['missing_required_sources'] ?? false);
+        $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
         $allowedFilesSufficient = (bool) ($envelope['allowed_files_sufficient'] ?? true);
-        $packetQualityFailed = (bool) ($envelope['packet_quality_failed'] ?? false);
+        $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope['packet_quality_failed'] ?? null) ?? false);
 
         $candidates = $this->buildCandidates(
             $hasEvidenceRefs,

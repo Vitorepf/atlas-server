@@ -16,6 +16,9 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
     public const NATIVE_SCHEMA_VERSION = 'atlas.dev.outcome_memory.v1';
 
+    /** @var list<string> */
+    public const BOOL_FIELDS = ['proven_real', 'fake_green', 'should_promote_to_aemor'];
+
     public function origin(): string
     {
         return self::ADAPTER_KIND;
@@ -25,8 +28,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
         $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? 'needs_review'));
-        $provenReal = (bool) ($native['proven_real'] ?? false);
-        $fakeGreen = (bool) ($native['fake_green'] ?? false);
+        $provenReal = (AiValueNormalizer::boolOrNull($native['proven_real'] ?? null) ?? false);
+        $fakeGreen = (AiValueNormalizer::boolOrNull($native['fake_green'] ?? null) ?? false);
         $verifiedSourcePresent = array_key_exists('proven_real', $native);
         $verifiedBasis = $this->deriveVerifiedBasis($provenReal, $fakeGreen, $verifiedSourcePresent);
         $verified = $provenReal && ! $fakeGreen && in_array($verifiedBasis, AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASES_WEIGHTED, true);
@@ -54,7 +57,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'selected_tests' => AiValueNormalizer::arrayOrEmpty($native['selected_tests'] ?? null),
             'changed_files' => AiValueNormalizer::arrayOrEmpty($native['changed_files'] ?? null),
             'learning_candidates' => AiValueNormalizer::arrayOrEmpty($native['learning_candidates'] ?? null),
-            'should_promote_to_aemor' => (bool) ($native['should_promote_to_aemor'] ?? false),
+            'should_promote_to_aemor' => (AiValueNormalizer::boolOrNull($native['should_promote_to_aemor'] ?? null) ?? false),
         ]);
     }
 
@@ -67,14 +70,14 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'schema_version' => self::NATIVE_SCHEMA_VERSION,
             'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? 'unknown'),
             'outcome_status' => AiValueNormalizer::trimmedStringOrNull($fields['outcome_status'] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin()),
-            'proven_real' => (bool) ($fields['proven_real'] ?? false),
-            'fake_green' => (bool) ($fields['fake_green'] ?? false),
+            'proven_real' => (AiValueNormalizer::boolOrNull($fields['proven_real'] ?? null) ?? false),
+            'fake_green' => (AiValueNormalizer::boolOrNull($fields['fake_green'] ?? null) ?? false),
             'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($fields['proof_reason'] ?? null) ?? ''),
             'evidence_kinds' => AiValueNormalizer::arrayOrEmpty($fields['evidence_kinds'] ?? null),
             'selected_tests' => AiValueNormalizer::arrayOrEmpty($fields['selected_tests'] ?? null),
             'changed_files' => AiValueNormalizer::arrayOrEmpty($fields['changed_files'] ?? null),
             'learning_candidates' => AiValueNormalizer::arrayOrEmpty($fields['learning_candidates'] ?? null),
-            'should_promote_to_aemor' => (bool) ($fields['should_promote_to_aemor'] ?? false),
+            'should_promote_to_aemor' => (AiValueNormalizer::boolOrNull($fields['should_promote_to_aemor'] ?? null) ?? false),
         ];
     }
 

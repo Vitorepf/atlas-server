@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Repair-loop guard named by the AAEOS Cross-Department Choreography doc. Tracks
  * the repair iteration for a (from -> to) review cycle and enforces the max-3
@@ -33,7 +35,7 @@ class AtlasRepairLoopGuard
             'schema_version' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
             'attempt' => $next,
             'admitted' => ($decision['decision'] ?? null) === 'repair',
-            'escalated' => (bool) ($decision['escalate'] ?? false),
+            'escalated' => (AiValueNormalizer::boolOrNull($decision['escalate'] ?? null) ?? false),
             'escalate_to' => $decision['escalate_to'] ?? [],
             'remaining_repairs' => $decision['remaining_repairs'] ?? 0,
         ];

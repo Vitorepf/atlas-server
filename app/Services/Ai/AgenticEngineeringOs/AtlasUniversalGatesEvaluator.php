@@ -1225,7 +1225,7 @@ final class AtlasUniversalGatesEvaluator
     public function proceduralSkillPromoterObserve(array $input = []): array
     {
         $floor = array_key_exists('floor', $input) ? max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['floor'] ?? null) ?? 0)) : null;
-        $enqueue = (bool) ($input['enqueue'] ?? false);
+        $enqueue = (AiValueNormalizer::boolOrNull($input['enqueue'] ?? null) ?? false);
 
         return (new AcosMaxProceduralSkillPromoterService)->report($floor, $enqueue);
     }
@@ -3938,6 +3938,31 @@ final class AtlasUniversalGatesEvaluator
             'docs_locate_schema' => AtlasDocsAuthorityGraphService::LOCATE_SCHEMA,
             'docs_locate_default_limit' => AtlasDocsAuthorityGraphService::DEFAULT_LOCATE_LIMIT,
             'observe_helper_limit_floor_count' => 10,
+        ];
+    }
+
+    /**
+     * Observe-only outcome-envelope adapter bool field floors + boolOrNull helper.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeEnvelopeBoolFieldsContractObserve(array $input = []): array
+    {
+        return [
+            'bool_or_null_helper' => 'AiValueNormalizer::boolOrNull',
+            'aemor_adapter_kind' => AemorOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'aemor_bool_fields' => AemorOutcomeEnvelopeAdapter::BOOL_FIELDS,
+            'compounding_adapter_kind' => CompoundingOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'compounding_bool_fields' => CompoundingOutcomeEnvelopeAdapter::BOOL_FIELDS,
+            'dev_procedural_adapter_kind' => DevProceduralOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'dev_procedural_native_schema' => DevProceduralOutcomeEnvelopeAdapter::NATIVE_SCHEMA_VERSION,
+            'dev_procedural_bool_fields' => DevProceduralOutcomeEnvelopeAdapter::BOOL_FIELDS,
+            'outcome_envelope_bool_field_count' => count(AemorOutcomeEnvelopeAdapter::BOOL_FIELDS)
+                + count(CompoundingOutcomeEnvelopeAdapter::BOOL_FIELDS)
+                + count(DevProceduralOutcomeEnvelopeAdapter::BOOL_FIELDS),
+            'outcome_envelope_bool_fields_floor_count' => 9,
         ];
     }
 

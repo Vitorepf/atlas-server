@@ -14,6 +14,9 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 {
     public const ADAPTER_KIND = 'compounding';
 
+    /** @var list<string> */
+    public const BOOL_FIELDS = ['verified', 'learning_required', 'human_override'];
+
     public function origin(): string
     {
         return self::ADAPTER_KIND;
@@ -46,7 +49,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
                 ? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED
                 : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)
         );
-        $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
+        $verified = (AiValueNormalizer::boolOrNull($contract['verified'] ?? $native['verified'] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
         $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? null) ?? '';
 
@@ -68,9 +71,9 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'retrieval_quality' => $native['retrieval_quality'] ?? null,
             'execution_quality' => $native['execution_quality'] ?? null,
             'evidence_quality' => $native['evidence_quality'] ?? null,
-            'learning_required' => (bool) ($native['learning_required'] ?? false),
+            'learning_required' => (AiValueNormalizer::boolOrNull($native['learning_required'] ?? null) ?? false),
             'missed_signals' => AiValueNormalizer::arrayOrEmpty($native['missed_signals'] ?? null),
-            'human_override' => (bool) ($native['human_override'] ?? false),
+            'human_override' => (AiValueNormalizer::boolOrNull($native['human_override'] ?? null) ?? false),
         ]);
     }
 
@@ -87,10 +90,10 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'retrieval_quality' => $fields['retrieval_quality'] ?? null,
             'execution_quality' => $fields['execution_quality'] ?? null,
             'evidence_quality' => $fields['evidence_quality'] ?? null,
-            'learning_required' => (bool) ($fields['learning_required'] ?? false),
+            'learning_required' => (AiValueNormalizer::boolOrNull($fields['learning_required'] ?? null) ?? false),
             'missed_signals' => AiValueNormalizer::arrayOrEmpty($fields['missed_signals'] ?? null),
-            'human_override' => (bool) ($fields['human_override'] ?? false),
-            'verified' => (bool) ($data['verified'] ?? false),
+            'human_override' => (AiValueNormalizer::boolOrNull($fields['human_override'] ?? null) ?? false),
+            'verified' => (AiValueNormalizer::boolOrNull($data['verified'] ?? null) ?? false),
             'verified_basis' => AiValueNormalizer::trimmedStringOrNull($data['verified_basis'] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ];
     }

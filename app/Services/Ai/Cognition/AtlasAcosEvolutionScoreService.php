@@ -403,10 +403,10 @@ class AtlasAcosEvolutionScoreService
             $readiness = AiValueNormalizer::arrayOrEmpty(app(self::TIER_CHAIN_CLASS)->readiness());
 
             return [
-                'implemented' => (bool) ($readiness['implemented'] ?? false),
-                'audited' => (bool) ($readiness['audited'] ?? false),
+                'implemented' => (AiValueNormalizer::boolOrNull($readiness['implemented'] ?? null) ?? false),
+                'audited' => (AiValueNormalizer::boolOrNull($readiness['audited'] ?? null) ?? false),
                 'tier_exposed' => array_key_exists('tier', $readiness),
-                'operator_signed' => (bool) ($readiness['operator_signed'] ?? false),
+                'operator_signed' => (AiValueNormalizer::boolOrNull($readiness['operator_signed'] ?? null) ?? false),
                 'evidence' => sprintf(
                     'chain implemented=%s audited=%s tier=%s signed=%s',
                     ($readiness['implemented'] ?? false) ? 'yes' : 'no',

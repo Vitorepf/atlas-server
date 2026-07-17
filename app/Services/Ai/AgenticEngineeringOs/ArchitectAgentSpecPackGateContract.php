@@ -85,10 +85,10 @@ final class ArchitectAgentSpecPackGateContract
         return new self(
             riskScope: AiValueNormalizer::trimmedStringOrNull($input['risk_scope'] ?? null) ?? self::MIN_AUTONOMOUS_RISK_SCOPE,
             specPackHash: AiValueNormalizer::trimmedStringOrNull($input['spec_pack_hash'] ?? null) ?? '',
-            acceptanceCriteriaPresent: (bool) ($input['acceptance_criteria_present'] ?? false),
-            rollbackPlanPresent: (bool) ($input['rollback_plan_present'] ?? false),
-            breakingChangeMatrixPresent: (bool) ($input['breaking_change_matrix_present'] ?? false),
-            operatorSignaturePresent: (bool) ($input['operator_signature_present'] ?? false),
+            acceptanceCriteriaPresent: (AiValueNormalizer::boolOrNull($input['acceptance_criteria_present'] ?? null) ?? false),
+            rollbackPlanPresent: (AiValueNormalizer::boolOrNull($input['rollback_plan_present'] ?? null) ?? false),
+            breakingChangeMatrixPresent: (AiValueNormalizer::boolOrNull($input['breaking_change_matrix_present'] ?? null) ?? false),
+            operatorSignaturePresent: (AiValueNormalizer::boolOrNull($input['operator_signature_present'] ?? null) ?? false),
         );
     }
 
