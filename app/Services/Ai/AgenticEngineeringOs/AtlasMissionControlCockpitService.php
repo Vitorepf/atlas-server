@@ -121,7 +121,7 @@ final class AtlasMissionControlCockpitService
         $numericKeys = ['servable_now', 'active_leases', 'blocked', 'quarantined', 'recoverable', 'malformed'];
         $hasAnySignal = false;
         foreach ($numericKeys as $key) {
-            if (isset($signals[$key]) && is_numeric($signals[$key])) {
+            if (isset($signals[$key]) && AiValueNormalizer::finiteFloatOrNull($signals[$key]) !== null) {
                 $hasAnySignal = true;
                 break;
             }
@@ -130,12 +130,12 @@ final class AtlasMissionControlCockpitService
             return null;
         }
 
-        $servableNow = max(0, (int) ($signals['servable_now'] ?? 0));
-        $activeLeases = max(0, (int) ($signals['active_leases'] ?? 0));
-        $blocked = max(0, (int) ($signals['blocked'] ?? 0));
-        $quarantined = max(0, (int) ($signals['quarantined'] ?? 0));
-        $recoverable = max(0, (int) ($signals['recoverable'] ?? 0));
-        $malformed = max(0, (int) ($signals['malformed'] ?? 0));
+        $servableNow = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['servable_now'] ?? 0) ?? 0));
+        $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['active_leases'] ?? 0) ?? 0));
+        $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['blocked'] ?? 0) ?? 0));
+        $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['quarantined'] ?? 0) ?? 0));
+        $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['recoverable'] ?? 0) ?? 0));
+        $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['malformed'] ?? 0) ?? 0));
 
         $recommendedAction = match (true) {
             $servableNow === 0 && $recoverable > 0 => 'recover_blocked_backlog',

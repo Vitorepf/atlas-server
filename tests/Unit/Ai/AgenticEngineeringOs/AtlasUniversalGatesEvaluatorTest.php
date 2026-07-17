@@ -6,6 +6,7 @@ namespace Tests\Unit\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\AgenticEngineeringOs\ArchitectAgentSpecPackGateContract;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\AaeosPhaseHandoffService;
 use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
 use App\Services\Ai\AgenticEngineeringOs\RealityCompilerSlice;
@@ -1130,5 +1131,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame('partial', $payload['computed_state']);
         $this->assertArrayHasKey('test_resolution', $payload);
+    }
+
+    public function test_phase_handoff_catalogue_observe_lists_seventeen_phases(): void
+    {
+        $payload = $this->svc->phaseHandoffCatalogueObserve(['autonomy_level' => ' L4 ']);
+
+        $this->assertSame(AaeosPhaseHandoffService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(17, $payload['phase_count']);
+        $this->assertCount(17, $payload['phases']);
+        $this->assertSame(4, $payload['autonomy_level_int']);
     }
 }

@@ -144,8 +144,8 @@ final class AtlasResourceBudgetService
         $disk = $probed['disk_mb'] ?? null;
 
         return [
-            'ram_mb' => is_int($ram) ? $ram : (is_numeric($ram) ? (int) $ram : null),
-            'disk_mb' => is_int($disk) ? $disk : (is_numeric($disk) ? (int) $disk : null),
+            'ram_mb' => ($ramFloat = AiValueNormalizer::finiteFloatOrNull($ram)) === null ? null : (int) $ramFloat,
+            'disk_mb' => ($diskFloat = AiValueNormalizer::finiteFloatOrNull($disk)) === null ? null : (int) $diskFloat,
         ];
     }
 }

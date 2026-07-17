@@ -196,11 +196,9 @@ final class Maxa04JinaV3DualReadService
 
     private function unitOrNull(mixed $value): ?float
     {
-        if (! is_numeric($value)) {
-            return null;
-        }
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
 
-        return round(AiValueNormalizer::clampUnit((float) $value), 6);
+        return $float === null ? null : round(AiValueNormalizer::clampUnit($float), 6);
     }
 
     /** @param list<array<string,mixed>> $cases */
@@ -208,8 +206,9 @@ final class Maxa04JinaV3DualReadService
     {
         $values = [];
         foreach ($cases as $case) {
-            if (is_numeric($case[$field] ?? null)) {
-                $values[] = (float) $case[$field];
+            $float = AiValueNormalizer::finiteFloatOrNull($case[$field] ?? null);
+            if ($float !== null) {
+                $values[] = $float;
             }
         }
 

@@ -1348,6 +1348,25 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only AAEOS phase-handoff catalogue (17 canonical phases).
+     * Accepts any JSON object (ignored). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function phaseHandoffCatalogueObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            'phase_count' => count(AaeosPhaseHandoffService::PHASES),
+            'phases' => AaeosPhaseHandoffService::PHASES,
+            'autonomy_level_int' => AaeosPhaseHandoffService::autonomyLevelInt(
+                AiValueNormalizer::trimmedString($input['autonomy_level'] ?? 'L0'),
+            ),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
