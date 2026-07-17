@@ -50,6 +50,12 @@ final class AtlasSurpriseGateService
      */
     public const DEFAULT_MIN_PREDICTION_TOKENS = 8;
 
+    public const THRESHOLD_CONFIG_KEY = 'atlas.aobg.surprise_gate.threshold';
+
+    public const HIGH_BAND_CONFIG_KEY = 'atlas.aobg.surprise_gate.high_band';
+
+    public const MIN_PREDICTION_TOKENS_CONFIG_KEY = 'atlas.aobg.surprise_gate.min_prediction_tokens';
+
     /**
      * Julga um candidato contra a predição pré-sessão.
      *
@@ -57,9 +63,9 @@ final class AtlasSurpriseGateService
      */
     public function evaluate(string $candidate, string $prediction, ?float $threshold = null): array
     {
-        $threshold = $threshold ?? (AiValueNormalizer::finiteFloatOrNull(config('atlas.aobg.surprise_gate.threshold', self::DEFAULT_THRESHOLD)) ?? self::DEFAULT_THRESHOLD);
-        $highBand = AiValueNormalizer::finiteFloatOrNull(config('atlas.aobg.surprise_gate.high_band', self::DEFAULT_HIGH_BAND)) ?? self::DEFAULT_HIGH_BAND;
-        $minPredictionTokens = max(0, (int) config('atlas.aobg.surprise_gate.min_prediction_tokens', self::DEFAULT_MIN_PREDICTION_TOKENS));
+        $threshold = $threshold ?? (AiValueNormalizer::finiteFloatOrNull(config(self::THRESHOLD_CONFIG_KEY, self::DEFAULT_THRESHOLD)) ?? self::DEFAULT_THRESHOLD);
+        $highBand = AiValueNormalizer::finiteFloatOrNull(config(self::HIGH_BAND_CONFIG_KEY, self::DEFAULT_HIGH_BAND)) ?? self::DEFAULT_HIGH_BAND;
+        $minPredictionTokens = max(0, (int) (AiValueNormalizer::finiteFloatOrNull(config(self::MIN_PREDICTION_TOKENS_CONFIG_KEY, self::DEFAULT_MIN_PREDICTION_TOKENS)) ?? self::DEFAULT_MIN_PREDICTION_TOKENS));
 
         $candidateTokens = $this->tokens($candidate);
         $predictionTokens = $this->tokens($prediction);

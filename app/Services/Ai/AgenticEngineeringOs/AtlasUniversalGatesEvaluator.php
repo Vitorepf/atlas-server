@@ -4057,6 +4057,47 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: RAGX mechanism flags + substrate/immune/surprise/compaction
+     * config floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ragxImmuneSubstrateConfigFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ragx_flag_late_chunk_index' => RagxChainMechanismService::FLAG_LATE_CHUNK_INDEX,
+            'ragx_flag_late_chunk_maxa04_promoted' => RagxChainMechanismService::FLAG_LATE_CHUNK_MAXA04_PROMOTED,
+            'ragx_flag_adaptive_k' => RagxChainMechanismService::FLAG_ADAPTIVE_K,
+            'ragx_flag_sparse_fallback' => RagxChainMechanismService::FLAG_SPARSE_FALLBACK,
+            'ragx_flag_ab_registrar' => RagxChainMechanismService::FLAG_AB_REGISTRAR,
+            'ragx_flag_louvain_chunks' => RagxChainMechanismService::FLAG_LOUVAIN_CHUNKS,
+            'ragx_flag_maxa06_fase2_backfilled' => RagxChainMechanismService::FLAG_MAXA06_FASE2_BACKFILLED,
+            'ragx_flag_raptor_lite' => RagxChainMechanismService::FLAG_RAPTOR_LITE,
+            'substrate_receipt_path_config_key' => SubstrateRestoreDrillWatchdogCheck::RECEIPT_PATH_CONFIG_KEY,
+            'substrate_default_receipt_relative_path' => SubstrateRestoreDrillWatchdogCheck::DEFAULT_RECEIPT_RELATIVE_PATH,
+            'substrate_max_success_age_days_config_key' => SubstrateRestoreDrillWatchdogCheck::MAX_SUCCESS_AGE_DAYS_CONFIG_KEY,
+            'immune_signature_decay_days_config_key' => ImmuneSignatureStore::DECAY_DAYS_CONFIG_KEY,
+            'immune_signature_default_decay_days' => ImmuneSignatureStore::DEFAULT_DECAY_DAYS,
+            'immune_signature_mode_config_key' => ImmuneSignatureStore::MODE_CONFIG_KEY,
+            'immune_signature_default_mode' => ImmuneSignatureStore::DEFAULT_MODE,
+            'surprise_threshold_config_key' => AtlasSurpriseGateService::THRESHOLD_CONFIG_KEY,
+            'surprise_high_band_config_key' => AtlasSurpriseGateService::HIGH_BAND_CONFIG_KEY,
+            'surprise_min_prediction_tokens_config_key' => AtlasSurpriseGateService::MIN_PREDICTION_TOKENS_CONFIG_KEY,
+            'surprise_default_threshold' => AtlasSurpriseGateService::DEFAULT_THRESHOLD,
+            'surprise_default_high_band' => AtlasSurpriseGateService::DEFAULT_HIGH_BAND,
+            'surprise_default_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
+            'compaction_recovery_limit_config_key' => CompactionRecoverySampleWatchdogCheck::LIMIT_CONFIG_KEY,
+            'compaction_recovery_days_config_key' => CompactionRecoverySampleWatchdogCheck::DAYS_CONFIG_KEY,
+            'compaction_recovery_min_receipts_config_key' => CompactionRecoverySampleWatchdogCheck::MIN_RECEIPTS_CONFIG_KEY,
+            'compaction_recovery_default_limit' => CompactionRecoverySampleWatchdogCheck::DEFAULT_LIMIT,
+            'compaction_recovery_default_days' => CompactionRecoverySampleWatchdogCheck::DEFAULT_DAYS,
+            'compaction_recovery_default_min_receipts' => CompactionRecoverySampleWatchdogCheck::DEFAULT_MIN_RECEIPTS,
+            'ragx_immune_substrate_config_floor_count' => 27,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -219,6 +219,7 @@ final class AtlasAaeosCommand extends Command
         {--quality-bar-cognitive-floors-contract= : JSON file (any object) to observe quality-bar + cognitive-atlas + long-horizon enabled floors}
         {--parallel-substrate-bridge-floors-contract= : JSON file (any object) to observe parallel/substrate/envelope-bridge + procedural enqueue floors}
         {--ops-config-toggle-floors-contract= : JSON file (any object) to observe http-path/remint/watchdog/rollback/scorecard/generated/evolution/immune config-toggle floors}
+        {--ragx-immune-substrate-config-floors-contract= : JSON file (any object) to observe RAGX flags + substrate/immune/surprise/compaction config floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -594,6 +595,7 @@ final class AtlasAaeosCommand extends Command
             ['quality-bar-cognitive-floors-contract', 'quality_bar_cognitive_floors_contract', fn (array $p) => $gates->qualityBarCognitiveFloorsContractObserve($p)],
             ['parallel-substrate-bridge-floors-contract', 'parallel_substrate_bridge_floors_contract', fn (array $p) => $gates->parallelSubstrateBridgeFloorsContractObserve($p)],
             ['ops-config-toggle-floors-contract', 'ops_config_toggle_floors_contract', fn (array $p) => $gates->opsConfigToggleFloorsContractObserve($p)],
+            ['ragx-immune-substrate-config-floors-contract', 'ragx_immune_substrate_config_floors_contract', fn (array $p) => $gates->ragxImmuneSubstrateConfigFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

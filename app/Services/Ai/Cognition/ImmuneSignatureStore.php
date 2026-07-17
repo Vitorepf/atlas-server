@@ -33,6 +33,14 @@ final class ImmuneSignatureStore
 
     public const ORIGIN_MEMORY_REVERT = 'memory_revert';
 
+    public const DECAY_DAYS_CONFIG_KEY = 'atlas.aaeos.immune_signature.decay_days';
+
+    public const DEFAULT_DECAY_DAYS = 90;
+
+    public const MODE_CONFIG_KEY = 'atlas.aaeos.immune_signature.mode';
+
+    public const DEFAULT_MODE = 'observe';
+
     private readonly ImmuneSignatureDeriver $deriver;
 
     public function __construct(?ImmuneSignatureDeriver $deriver = null)
@@ -162,7 +170,7 @@ final class ImmuneSignatureStore
             return 0;
         }
 
-        $days = max(1, $days ?? (int) config('atlas.aaeos.immune_signature.decay_days', 90));
+        $days = max(1, $days ?? (int) (AiValueNormalizer::finiteFloatOrNull(config(self::DECAY_DAYS_CONFIG_KEY, self::DEFAULT_DECAY_DAYS)) ?? self::DEFAULT_DECAY_DAYS));
         $cutoff = CarbonImmutable::now('UTC')->subDays($days);
 
         try {
@@ -243,7 +251,7 @@ final class ImmuneSignatureStore
 
     public function mode(): string
     {
-        $mode = AiValueNormalizer::lowerTrimmedString(config('atlas.aaeos.immune_signature.mode', 'observe'));
+        $mode = AiValueNormalizer::lowerTrimmedString(config(self::MODE_CONFIG_KEY, self::DEFAULT_MODE));
 
         return in_array($mode, ['off', 'observe', 'enforce'], true) ? $mode : 'observe';
     }

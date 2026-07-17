@@ -2789,4 +2789,39 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(28, $payload['ops_config_toggle_floor_count']);
     }
 
+
+    public function test_ragx_immune_substrate_config_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ragxImmuneSubstrateConfigFloorsContractObserve([]);
+
+        $this->assertSame('atlas.aobg.ragx_late_chunk_index', $payload['ragx_flag_late_chunk_index']);
+        $this->assertSame('atlas.aobg.ragx_late_chunk_maxa04_promoted', $payload['ragx_flag_late_chunk_maxa04_promoted']);
+        $this->assertSame('atlas.aobg.ragx_adaptive_k', $payload['ragx_flag_adaptive_k']);
+        $this->assertSame('atlas.aobg.ragx_sparse_fallback', $payload['ragx_flag_sparse_fallback']);
+        $this->assertSame('atlas.aobg.ragx_ab_registrar', $payload['ragx_flag_ab_registrar']);
+        $this->assertSame('atlas.aobg.ragx_louvain_chunks', $payload['ragx_flag_louvain_chunks']);
+        $this->assertSame('atlas.aobg.ragx_maxa06_fase2_backfilled', $payload['ragx_flag_maxa06_fase2_backfilled']);
+        $this->assertSame('atlas.aobg.ragx_raptor_lite', $payload['ragx_flag_raptor_lite']);
+        $this->assertSame('atlas.cognition.substrate_restore_drill.receipt_path', $payload['substrate_receipt_path_config_key']);
+        $this->assertSame('app/atlas/evidence/substrate-restore-drills.jsonl', $payload['substrate_default_receipt_relative_path']);
+        $this->assertSame('atlas.cognition.substrate_restore_drill.max_success_age_days', $payload['substrate_max_success_age_days_config_key']);
+        $this->assertSame('atlas.aaeos.immune_signature.decay_days', $payload['immune_signature_decay_days_config_key']);
+        $this->assertSame(90, $payload['immune_signature_default_decay_days']);
+        $this->assertSame('atlas.aaeos.immune_signature.mode', $payload['immune_signature_mode_config_key']);
+        $this->assertSame('observe', $payload['immune_signature_default_mode']);
+        $this->assertSame('atlas.aobg.surprise_gate.threshold', $payload['surprise_threshold_config_key']);
+        $this->assertSame('atlas.aobg.surprise_gate.high_band', $payload['surprise_high_band_config_key']);
+        $this->assertSame('atlas.aobg.surprise_gate.min_prediction_tokens', $payload['surprise_min_prediction_tokens_config_key']);
+        $this->assertSame(0.5, $payload['surprise_default_threshold']);
+        $this->assertSame(0.75, $payload['surprise_default_high_band']);
+        $this->assertSame(8, $payload['surprise_default_min_prediction_tokens']);
+        $this->assertSame('atlas.compaction.recovery_sample_watchdog_limit', $payload['compaction_recovery_limit_config_key']);
+        $this->assertSame('atlas.compaction.recovery_sample_watchdog_days', $payload['compaction_recovery_days_config_key']);
+        $this->assertSame('atlas.compaction.recovery_sample_min_receipts', $payload['compaction_recovery_min_receipts_config_key']);
+        $this->assertSame(50, $payload['compaction_recovery_default_limit']);
+        $this->assertSame(14, $payload['compaction_recovery_default_days']);
+        $this->assertSame(20, $payload['compaction_recovery_default_min_receipts']);
+        $this->assertSame(27, $payload['ragx_immune_substrate_config_floor_count']);
+    }
+
 }

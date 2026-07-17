@@ -54,7 +54,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
         $insufficient = [];
         foreach (AtlasAobgLatencyLedger::OPS as $op) {
-            $samples = (int) data_get($ops, $op.'.samples', 0);
+            $samples = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.samples', 0)) ?? 0);
             if ($samples < $denominatorMin || data_get($ops, $op.'.p95_ms') === null) {
                 $insufficient[] = [
                     'op' => $op,

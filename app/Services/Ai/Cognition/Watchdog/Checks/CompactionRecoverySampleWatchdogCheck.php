@@ -19,6 +19,12 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
 
     public const DEFAULT_MIN_RECEIPTS = 20;
 
+    public const LIMIT_CONFIG_KEY = 'atlas.compaction.recovery_sample_watchdog_limit';
+
+    public const DAYS_CONFIG_KEY = 'atlas.compaction.recovery_sample_watchdog_days';
+
+    public const MIN_RECEIPTS_CONFIG_KEY = 'atlas.compaction.recovery_sample_min_receipts';
+
     public function __construct(private CompactionRecoverySampler $sampler) {}
 
     public function id(): string
@@ -29,9 +35,9 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
     public function run(): AtlasWatchdogCheckResult
     {
         $payload = $this->sampler->sample(
-            limit: (int) config('atlas.compaction.recovery_sample_watchdog_limit', self::DEFAULT_LIMIT),
-            days: (int) config('atlas.compaction.recovery_sample_watchdog_days', self::DEFAULT_DAYS),
-            minimumSamples: (int) config('atlas.compaction.recovery_sample_min_receipts', self::DEFAULT_MIN_RECEIPTS),
+            limit: (int) (AiValueNormalizer::finiteFloatOrNull(config(self::LIMIT_CONFIG_KEY, self::DEFAULT_LIMIT)) ?? self::DEFAULT_LIMIT),
+            days: (int) (AiValueNormalizer::finiteFloatOrNull(config(self::DAYS_CONFIG_KEY, self::DEFAULT_DAYS)) ?? self::DEFAULT_DAYS),
+            minimumSamples: (int) (AiValueNormalizer::finiteFloatOrNull(config(self::MIN_RECEIPTS_CONFIG_KEY, self::DEFAULT_MIN_RECEIPTS)) ?? self::DEFAULT_MIN_RECEIPTS),
             recordEvidence: false,
         );
 

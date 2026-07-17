@@ -18,6 +18,12 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 
     public const DEFAULT_MAX_SUCCESS_AGE_DAYS = 45;
 
+    public const RECEIPT_PATH_CONFIG_KEY = 'atlas.cognition.substrate_restore_drill.receipt_path';
+
+    public const DEFAULT_RECEIPT_RELATIVE_PATH = 'app/atlas/evidence/substrate-restore-drills.jsonl';
+
+    public const MAX_SUCCESS_AGE_DAYS_CONFIG_KEY = 'atlas.cognition.substrate_restore_drill.max_success_age_days';
+
     public function id(): string
     {
         return self::CHECK_ID;
@@ -25,11 +31,9 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 
     public function run(): AtlasWatchdogCheckResult
     {
-        $receiptPath = (string) config(
-            'atlas.cognition.substrate_restore_drill.receipt_path',
-            storage_path('app/atlas/evidence/substrate-restore-drills.jsonl'),
-        );
-        $maxAgeDays = max(1, (int) config('atlas.cognition.substrate_restore_drill.max_success_age_days', self::DEFAULT_MAX_SUCCESS_AGE_DAYS));
+        $receiptPath = AiValueNormalizer::trimmedStringOrNull(config(self::RECEIPT_PATH_CONFIG_KEY))
+            ?? storage_path(self::DEFAULT_RECEIPT_RELATIVE_PATH);
+        $maxAgeDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull(config(self::MAX_SUCCESS_AGE_DAYS_CONFIG_KEY, self::DEFAULT_MAX_SUCCESS_AGE_DAYS)) ?? self::DEFAULT_MAX_SUCCESS_AGE_DAYS));
         $latest = $this->latestSuccessfulReceipt($receiptPath);
 
         if ($latest === null) {

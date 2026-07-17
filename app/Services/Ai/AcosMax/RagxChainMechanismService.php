@@ -25,6 +25,22 @@ final class RagxChainMechanismService
 
     public const LOUVAIN_SCHEMA = 'atlas.acos_max.maxd05_louvain_chunks.v1';
 
+    public const FLAG_LATE_CHUNK_INDEX = 'atlas.aobg.ragx_late_chunk_index';
+
+    public const FLAG_LATE_CHUNK_MAXA04_PROMOTED = 'atlas.aobg.ragx_late_chunk_maxa04_promoted';
+
+    public const FLAG_ADAPTIVE_K = 'atlas.aobg.ragx_adaptive_k';
+
+    public const FLAG_SPARSE_FALLBACK = 'atlas.aobg.ragx_sparse_fallback';
+
+    public const FLAG_AB_REGISTRAR = 'atlas.aobg.ragx_ab_registrar';
+
+    public const FLAG_LOUVAIN_CHUNKS = 'atlas.aobg.ragx_louvain_chunks';
+
+    public const FLAG_MAXA06_FASE2_BACKFILLED = 'atlas.aobg.ragx_maxa06_fase2_backfilled';
+
+    public const FLAG_RAPTOR_LITE = 'atlas.aobg.ragx_raptor_lite';
+
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
         private readonly ?string $abLedgerPath = null,
@@ -38,25 +54,25 @@ final class RagxChainMechanismService
     {
         $stages = [
             'RAGX-01' => $this->stage(
-                'atlas.aobg.ragx_late_chunk_index',
+                self::FLAG_LATE_CHUNK_INDEX,
                 'late_chunk_asef_chunks_shadow',
-                blockedBy: $this->flag('atlas.aobg.ragx_late_chunk_index') && ! $this->flag('atlas.aobg.ragx_late_chunk_maxa04_promoted') ? ['MAXA-04'] : [],
+                blockedBy: $this->flag(self::FLAG_LATE_CHUNK_INDEX) && ! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED) ? ['MAXA-04'] : [],
                 pendingWindow: ['jina_v3_dual_read_benchmark_window'],
             ),
             'RAGX-02' => $this->stage('atlas.aobg.facet_retrieval', 'query_time_facets_existing_packfor_seam', pendingWindow: ['facet_retrieval_ab_soak']),
             'RAGX-06' => $this->stage('atlas.aobg.fusion_enabled', 'reciprocal_rank_fusion_existing_aobg_seam', pendingWindow: ['fusion_shadow_ab_window']),
             'RAGX-03' => $this->stage('atlas.aobg.cross_encoder_rerank', 'cross_encoder_rerank_existing_semantic_rag_seam', pendingWindow: ['rerank_precision3_latency_window']),
-            'RAGX-11' => $this->stage('atlas.aobg.ragx_adaptive_k', 'score_distribution_adaptive_k_shadow', pendingWindow: ['late_chunk_score_distribution_window']),
-            'RAGX-05' => $this->stage('atlas.aobg.ragx_sparse_fallback', 'deterministic_sparse_shadow_fallback', pendingWindow: ['dense_vs_sparse_shadow_window']),
-            'RAGX-07' => $this->stage('atlas.aobg.ragx_ab_registrar', 'records_only_ab_registrar', pendingWindow: ['golden_v2_or_live_window_not_run']),
+            'RAGX-11' => $this->stage(self::FLAG_ADAPTIVE_K, 'score_distribution_adaptive_k_shadow', pendingWindow: ['late_chunk_score_distribution_window']),
+            'RAGX-05' => $this->stage(self::FLAG_SPARSE_FALLBACK, 'deterministic_sparse_shadow_fallback', pendingWindow: ['dense_vs_sparse_shadow_window']),
+            'RAGX-07' => $this->stage(self::FLAG_AB_REGISTRAR, 'records_only_ab_registrar', pendingWindow: ['golden_v2_or_live_window_not_run']),
             'MAXD-05' => $this->stage(
-                'atlas.aobg.ragx_louvain_chunks',
+                self::FLAG_LOUVAIN_CHUNKS,
                 'louvain_over_asef_chunks_shadow',
-                blockedBy: $this->flag('atlas.aobg.ragx_louvain_chunks') && ! $this->flag('atlas.aobg.ragx_maxa06_fase2_backfilled') ? ['MAXA-06(fase 2)'] : [],
+                blockedBy: $this->flag(self::FLAG_LOUVAIN_CHUNKS) && ! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED) ? ['MAXA-06(fase 2)'] : [],
                 pendingWindow: ['maxa06_fase2_code_symbol_embedding_backfill'],
             ),
             'RAGX-10' => $this->stage(
-                'atlas.aobg.ragx_raptor_lite',
+                self::FLAG_RAPTOR_LITE,
                 'raptor_lite_from_louvain_and_verified_l2_summaries',
                 blockedBy: $this->raptorBlockers($deps),
                 pendingWindow: ['raptor_lite_verified_summary_window'],
@@ -78,11 +94,11 @@ final class RagxChainMechanismService
      */
     public function lateChunkIndexShadow(string $query, int $limit = 5, bool $allowExternalProvider = false): array
     {
-        if (! $this->flag('atlas.aobg.ragx_late_chunk_index')) {
-            return $this->disabled('RAGX-01', 'atlas.aobg.ragx_late_chunk_index') + ['documents' => []];
+        if (! $this->flag(self::FLAG_LATE_CHUNK_INDEX)) {
+            return $this->disabled('RAGX-01', self::FLAG_LATE_CHUNK_INDEX) + ['documents' => []];
         }
 
-        if (! $this->flag('atlas.aobg.ragx_late_chunk_maxa04_promoted')) {
+        if (! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED)) {
             return [
                 'schema_version' => self::SCHEMA,
                 'slice' => 'RAGX-01',
@@ -156,11 +172,11 @@ final class RagxChainMechanismService
      */
     public function louvainOverChunks(array $chunks, array $edges): array
     {
-        if (! $this->flag('atlas.aobg.ragx_louvain_chunks')) {
-            return $this->disabled('MAXD-05', 'atlas.aobg.ragx_louvain_chunks') + ['communities' => []];
+        if (! $this->flag(self::FLAG_LOUVAIN_CHUNKS)) {
+            return $this->disabled('MAXD-05', self::FLAG_LOUVAIN_CHUNKS) + ['communities' => []];
         }
 
-        if (! $this->flag('atlas.aobg.ragx_maxa06_fase2_backfilled')) {
+        if (! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED)) {
             return [
                 'schema_version' => self::LOUVAIN_SCHEMA,
                 'slice' => 'MAXD-05',
@@ -205,8 +221,8 @@ final class RagxChainMechanismService
      */
     public function raptorLite(array $communities, array $verifiedSummaries, array $deps = []): array
     {
-        if (! $this->flag('atlas.aobg.ragx_raptor_lite')) {
-            return $this->disabled('RAGX-10', 'atlas.aobg.ragx_raptor_lite') + ['nodes' => []];
+        if (! $this->flag(self::FLAG_RAPTOR_LITE)) {
+            return $this->disabled('RAGX-10', self::FLAG_RAPTOR_LITE) + ['nodes' => []];
         }
 
         $blockers = $this->raptorBlockers($deps);
@@ -266,8 +282,8 @@ final class RagxChainMechanismService
      */
     public function sparseShadow(string $query, array $documents, int $limit = 5): array
     {
-        if (! $this->flag('atlas.aobg.ragx_sparse_fallback')) {
-            return $this->disabled('RAGX-05', 'atlas.aobg.ragx_sparse_fallback') + ['matches' => []];
+        if (! $this->flag(self::FLAG_SPARSE_FALLBACK)) {
+            return $this->disabled('RAGX-05', self::FLAG_SPARSE_FALLBACK) + ['matches' => []];
         }
 
         $tokens = $this->tokens($query);
@@ -303,8 +319,8 @@ final class RagxChainMechanismService
      */
     public function adaptiveK(array $scores, int $requestedK): array
     {
-        if (! $this->flag('atlas.aobg.ragx_adaptive_k')) {
-            return $this->disabled('RAGX-11', 'atlas.aobg.ragx_adaptive_k') + ['k' => max(1, $requestedK)];
+        if (! $this->flag(self::FLAG_ADAPTIVE_K)) {
+            return $this->disabled('RAGX-11', self::FLAG_ADAPTIVE_K) + ['k' => max(1, $requestedK)];
         }
 
         $scores = array_values(array_map('floatval', $scores));
@@ -367,7 +383,7 @@ final class RagxChainMechanismService
     /** @param  array<string,bool>  $deps */
     private function raptorBlockers(array $deps): array
     {
-        if (! $this->flag('atlas.aobg.ragx_raptor_lite')) {
+        if (! $this->flag(self::FLAG_RAPTOR_LITE)) {
             return [];
         }
 
