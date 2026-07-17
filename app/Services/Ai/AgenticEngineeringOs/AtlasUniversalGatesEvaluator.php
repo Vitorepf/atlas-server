@@ -5161,6 +5161,36 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: obra/verified/long-horizon/enabled residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function obraVerifiedLongHorizonEnabledFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'composed_obra_status_author_judge_invariant_violation' => ComposedObraArcComposer::STATUS_AUTHOR_JUDGE_INVARIANT_VIOLATION,
+            'composed_obra_status_invalid_dependency_graph' => ComposedObraArcComposer::STATUS_INVALID_DEPENDENCY_GRAPH,
+            'composed_obra_status_insufficient_grounded_candidates' => ComposedObraArcComposer::STATUS_INSUFFICIENT_GROUNDED_CANDIDATES,
+            'composed_obra_status_no_neighbor_cluster' => ComposedObraArcComposer::STATUS_NO_NEIGHBOR_CLUSTER,
+            'compounding_field_verified' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'aemor_field_verified' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'department_registry_field_valid' => AtlasAaeosDepartmentRegistryService::FIELD_VALID,
+            'long_horizon_field_enabled' => AtlasAcosLongHorizonGateService::FIELD_ENABLED,
+            'long_horizon_field_certified' => AtlasAcosLongHorizonGateService::FIELD_CERTIFIED,
+            'rollback_field_enabled' => AtlasAcosRollbackTriggerCheckService::FIELD_ENABLED,
+            'immune_hybrid_field_enabled' => AtlasImmuneHybridInputClassifier::FIELD_ENABLED,
+            'evidence_vision_status_insufficient_signal' => EvidenceVisionThesisComposer::STATUS_INSUFFICIENT_SIGNAL,
+            'code_symbol_embedding_status_insufficient_signal' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL,
+            'window_gates_status_sem_dados' => AtlasAcosWindowGatesService::STATUS_SEM_DADOS,
+            'prereview_basis_measured' => PreReviewAdvisoryBand::BASIS_MEASURED,
+            'mission_control_field_blocked' => AtlasMissionControlCockpitService::FIELD_BLOCKED,
+            'promotion_field_missing' => PromotionProtocol::FIELD_MISSING,
+            'obra_verified_long_horizon_enabled_floor_count' => 17,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -33,6 +33,8 @@ final class AtlasAcosRollbackTriggerCheckService
 
     public const STATUS_ALERT = 'alert';
 
+    public const FIELD_ENABLED = 'enabled';
+
     public const REASON_SIMULATED_CONDITION = 'simulated_condition';
 
 
@@ -90,7 +92,7 @@ final class AtlasAcosRollbackTriggerCheckService
             'status' => $status,
             self::STATUS_ALERT => $alert,
             'alert_code' => $alert ? 'rollback_trigger_fired' : null,
-            'enabled' => $enabled,
+            self::FIELD_ENABLED => $enabled,
             'flip_count' => count($evaluations),
             'evaluations' => $evaluations,
             'alerts' => $alerts,

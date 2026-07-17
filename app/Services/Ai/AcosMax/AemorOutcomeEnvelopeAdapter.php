@@ -17,6 +17,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     /** @var list<string> */
     public const BOOL_FIELDS = ['verified'];
 
+    public const FIELD_VERIFIED = 'verified';
+
     public function origin(): string
     {
         return self::ADAPTER_KIND;

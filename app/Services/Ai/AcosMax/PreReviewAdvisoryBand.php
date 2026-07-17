@@ -82,7 +82,7 @@ final class PreReviewAdvisoryBand
             ],
             'predicted_revert_band' => null,
             'probability' => null,
-            'basis' => 'insufficient_sample',
+            'basis' => self::BASIS_INSUFFICIENT_SAMPLE,
             'source' => [
                 'blocks_auto_apply' => false,
                 'delays_auto_apply' => false,
@@ -119,7 +119,7 @@ final class PreReviewAdvisoryBand
 
         $result['predicted_revert_band'] = AiValueNormalizer::trimmedStringOrNull($classification['band'] ?? null) ?? '';
         $result['probability'] = $probability;
-        $result['basis'] = 'measured';
+        $result['basis'] = self::BASIS_MEASURED;
 
         return $result;
     }
@@ -155,10 +155,10 @@ final class PreReviewAdvisoryBand
         }
 
         $lift = null;
-        $liftBasis = 'insufficient_sample';
+        $liftBasis = self::BASIS_INSUFFICIENT_SAMPLE;
         if ($curve['high']['n'] >= self::DEATH_MIN_N && $curve['low']['n'] >= self::DEATH_MIN_N) {
             $lift = ($curve['high']['realized_revert_rate'] ?? 0.0) - ($curve['low']['realized_revert_rate'] ?? 0.0);
-            $liftBasis = 'measured';
+            $liftBasis = self::BASIS_MEASURED;
         }
 
         return [
@@ -170,7 +170,7 @@ final class PreReviewAdvisoryBand
             'death_criterion' => [
                 'min_n' => self::DEATH_MIN_N,
                 'min_lift' => self::DEATH_MIN_LIFT,
-                'satisfied_for_death' => $liftBasis === 'measured' && $lift !== null && $lift < self::DEATH_MIN_LIFT,
+                'satisfied_for_death' => $liftBasis === self::BASIS_MEASURED && $lift !== null && $lift < self::DEATH_MIN_LIFT,
             ],
             'source' => [
                 'single_scalar_forbidden' => true,

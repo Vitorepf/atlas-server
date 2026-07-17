@@ -156,7 +156,7 @@ final class AtlasMissionControlCockpitService
 
         $servableNow = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['servable_now'] ?? 0) ?? 0));
         $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['active_leases'] ?? 0) ?? 0));
-        $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['blocked'] ?? 0) ?? 0));
+        $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_BLOCKED] ?? 0) ?? 0));
         $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['quarantined'] ?? 0) ?? 0));
         $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['recoverable'] ?? 0) ?? 0));
         $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['malformed'] ?? 0) ?? 0));
@@ -219,7 +219,7 @@ final class AtlasMissionControlCockpitService
         }
 
         $blocked = array_merge(
-            AiValueNormalizer::arrayOrEmpty($gateReport['blocked'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_BLOCKED] ?? null),
             AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_MISSING] ?? null),
         );
         $hasEvidenceRefs = ! in_array('evidence_traceable', $blocked, true);
@@ -277,7 +277,7 @@ final class AtlasMissionControlCockpitService
                 continue;
             }
             $gates = AiValueNormalizer::arrayOrEmpty($env['gates'] ?? null);
-            $blocked = AiValueNormalizer::arrayOrEmpty($gates['blocked'] ?? null);
+            $blocked = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
             $passed = AiValueNormalizer::arrayOrEmpty($gates['passed'] ?? null);
             $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
             $actor = AiValueNormalizer::arrayOrEmpty($env['actor'] ?? null);

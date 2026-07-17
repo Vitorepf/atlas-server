@@ -19,6 +19,8 @@ class AtlasAaeosDepartmentRegistryService
 {
     public const SCHEMA = 'atlas.aaeos.department.v1';
 
+    public const FIELD_VALID = 'valid';
+
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
      *

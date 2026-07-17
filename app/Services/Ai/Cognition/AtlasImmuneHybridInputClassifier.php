@@ -46,6 +46,8 @@ final class AtlasImmuneHybridInputClassifier
 
     public const SOURCE_JACCARD_BASELINE = 'jaccard_baseline';
 
+    public const FIELD_ENABLED = 'enabled';
+
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
     private readonly ImmuneSemanticSimilarityPort $port;
@@ -127,7 +129,7 @@ final class AtlasImmuneHybridInputClassifier
 
         $armBlock = [
             'schema_version' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
-            'enabled' => $this->enabled,
+            self::FIELD_ENABLED => $this->enabled,
             'source' => 'off',
             'tau' => $this->tau,
             'max_similarity' => null,

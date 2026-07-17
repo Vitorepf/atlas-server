@@ -44,6 +44,8 @@ final class EvidenceVisionThesisComposer
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     /**
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>
@@ -96,7 +98,7 @@ final class EvidenceVisionThesisComposer
         }
 
         if ($theses === []) {
-            return self::emptyResult('insufficient_signal');
+            return self::emptyResult(self::STATUS_INSUFFICIENT_SIGNAL);
         }
 
         return [

@@ -98,7 +98,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
         if ($active === 0) {
             return array_merge(
-                $this->emptyReport('insufficient_signal', 'no_active_code_symbols', $freeze),
+                $this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, 'no_active_code_symbols', $freeze),
                 ['aggregate' => $this->emptyAggregate()],
             );
         }

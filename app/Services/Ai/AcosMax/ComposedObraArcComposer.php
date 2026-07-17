@@ -30,6 +30,14 @@ final class ComposedObraArcComposer
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
+    public const STATUS_AUTHOR_JUDGE_INVARIANT_VIOLATION = 'author_judge_invariant_violation';
+
+    public const STATUS_INVALID_DEPENDENCY_GRAPH = 'invalid_dependency_graph';
+
+    public const STATUS_INSUFFICIENT_GROUNDED_CANDIDATES = 'insufficient_grounded_candidates';
+
+    public const STATUS_NO_NEIGHBOR_CLUSTER = 'no_neighbor_cluster';
+
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
      * @param  list<array<string,mixed>>  $clusterLeads  optional reactive obra-cluster leads
@@ -45,22 +53,22 @@ final class ComposedObraArcComposer
         $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? self::DEFAULT_AUTHOR_ENGINE_ID;
         $judge = AiValueNormalizer::trimmedStringOrNull($context['judge_engine_id'] ?? null) ?? self::DEFAULT_JUDGE_ENGINE_ID;
         if ($author === '' || $judge === '' || $author === $judge) {
-            return self::emptyResult('author_judge_invariant_violation');
+            return self::emptyResult(self::STATUS_AUTHOR_JUDGE_INVARIANT_VIOLATION);
         }
 
         $graph = $context['graph'] ?? new AtlasBrainOrganDependencyGraph;
         if (! $graph instanceof AtlasBrainOrganDependencyGraph) {
-            return self::emptyResult('invalid_dependency_graph');
+            return self::emptyResult(self::STATUS_INVALID_DEPENDENCY_GRAPH);
         }
 
         $grounded = self::groundedCandidates($candidates);
         if (count($grounded) < self::MIN_NEIGHBOR_CANDIDATES) {
-            return self::emptyResult('insufficient_grounded_candidates');
+            return self::emptyResult(self::STATUS_INSUFFICIENT_GROUNDED_CANDIDATES);
         }
 
         $group = self::bestNeighborGroup($grounded, $graph, $clusterLeads);
         if ($group === null) {
-            return self::emptyResult('no_neighbor_cluster');
+            return self::emptyResult(self::STATUS_NO_NEIGHBOR_CLUSTER);
         }
 
         $arc = self::serializeArc($group, $author, $judge);

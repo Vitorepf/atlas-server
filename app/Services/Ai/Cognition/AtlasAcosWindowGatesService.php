@@ -80,7 +80,7 @@ final class AtlasAcosWindowGatesService
         } catch (Throwable) {
             return [[
                 'gate' => 'memory_quality',
-                'status' => 'sem_dados',
+                'status' => self::STATUS_SEM_DADOS,
                 'evidence' => 'AtlasMemoryQualityService::scorecard indisponível (tabelas ausentes)',
             ]];
         }
@@ -104,14 +104,14 @@ final class AtlasAcosWindowGatesService
     private function dimension(string $gate, array $dims, string $key, string $target, ?int $threshold, bool $assert): array
     {
         if (! array_key_exists($key, $dims)) {
-            return ['gate' => $gate, 'status' => 'sem_dados', 'target' => $target, 'evidence' => "dimensão '{$key}' ausente no scorecard"];
+            return ['gate' => $gate, 'status' => self::STATUS_SEM_DADOS, 'target' => $target, 'evidence' => "dimensão '{$key}' ausente no scorecard"];
         }
         $value = $dims[$key];
 
         $out = ['gate' => $gate, 'target' => $target, 'value' => $value];
         $numeric = AiValueNormalizer::finiteFloatOrNull($value);
         if ($assert && $threshold !== null && $numeric !== null) {
-            $out['status'] = $numeric >= $threshold ? 'met' : 'aguardando_janela';
+            $out['status'] = $numeric >= $threshold ? self::STATUS_MET : self::STATUS_AGUARDANDO_JANELA;
         } else {
             $out['status'] = 'reported';
         }
@@ -152,19 +152,19 @@ final class AtlasAcosWindowGatesService
         try {
             $data = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable) {
-            return ['gate' => $gate, 'status' => 'sem_dados', 'evidence' => 'receipt ilegível'];
+            return ['gate' => $gate, 'status' => self::STATUS_SEM_DADOS, 'evidence' => 'receipt ilegível'];
         }
         if (! is_array($data)) {
-            return ['gate' => $gate, 'status' => 'sem_dados', 'evidence' => 'receipt não-objeto'];
+            return ['gate' => $gate, 'status' => self::STATUS_SEM_DADOS, 'evidence' => 'receipt não-objeto'];
         }
 
-        $certified = ($data['certified'] ?? false) === true;
+        $certified = ($data[self::FIELD_CERTIFIED] ?? false) === true;
         $fresh = (time() - (int) @filemtime($file)) <= self::RECEIPT_FRESH_SECONDS;
 
         return [
             'gate' => $gate,
-            'status' => $certified && $fresh ? 'certified' : 'aguardando_janela',
-            'certified' => $certified,
+            'status' => $certified && $fresh ? self::STATUS_CERTIFIED : self::STATUS_AGUARDANDO_JANELA,
+            self::FIELD_CERTIFIED => $certified,
             'fresh' => $fresh,
             'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? self::STATUS_UNKNOWN),
             'generated_at' => (AiValueNormalizer::trimmedStringOrNull($data['generated_at'] ?? null) ?? ''),

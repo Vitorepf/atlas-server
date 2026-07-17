@@ -121,7 +121,7 @@ final class PromotionProtocol
 
         $required = $this->requiredFields($entry);
         if ($required[self::FIELD_OK] !== true) {
-            $missing = AiValueNormalizer::arrayOrEmpty($required['missing'] ?? null);
+            $missing = AiValueNormalizer::arrayOrEmpty($required[self::FIELD_MISSING] ?? null);
 
             return $this->blocked(
                 in_array('rollback_trigger', $missing, true)
@@ -129,7 +129,7 @@ final class PromotionProtocol
                     : 'missing_required_fields',
                 $flagId,
                 $toState,
-                ['missing' => $missing],
+                [self::FIELD_MISSING => $missing],
             );
         }
 
@@ -410,7 +410,7 @@ final class PromotionProtocol
             }
         }
 
-        return [self::FIELD_OK => $missing === [], 'missing' => $missing];
+        return [self::FIELD_OK => $missing === [], self::FIELD_MISSING => $missing];
     }
 
     /**

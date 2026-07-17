@@ -3470,4 +3470,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(23, $payload['window_gates_integrity_flag_disabled_floor_count']);
     }
 
+    public function test_obra_verified_long_horizon_enabled_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->obraVerifiedLongHorizonEnabledFloorsContractObserve([]);
+
+        $this->assertSame('author_judge_invariant_violation', $payload['composed_obra_status_author_judge_invariant_violation']);
+        $this->assertSame('invalid_dependency_graph', $payload['composed_obra_status_invalid_dependency_graph']);
+        $this->assertSame('no_neighbor_cluster', $payload['composed_obra_status_no_neighbor_cluster']);
+        $this->assertSame('verified', $payload['compounding_field_verified']);
+        $this->assertSame('verified', $payload['aemor_field_verified']);
+        $this->assertSame('valid', $payload['department_registry_field_valid']);
+        $this->assertSame('enabled', $payload['long_horizon_field_enabled']);
+        $this->assertSame('certified', $payload['long_horizon_field_certified']);
+        $this->assertSame('enabled', $payload['rollback_field_enabled']);
+        $this->assertSame('enabled', $payload['immune_hybrid_field_enabled']);
+        $this->assertSame('insufficient_signal', $payload['evidence_vision_status_insufficient_signal']);
+        $this->assertSame('sem_dados', $payload['window_gates_status_sem_dados']);
+        $this->assertSame('measured', $payload['prereview_basis_measured']);
+        $this->assertSame('blocked', $payload['mission_control_field_blocked']);
+        $this->assertSame(17, $payload['obra_verified_long_horizon_enabled_floor_count']);
+    }
+
 }

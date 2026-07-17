@@ -46,6 +46,10 @@ final class AtlasAcosLongHorizonGateService
 
     public const STATUS_INSUFFICIENT = 'insufficient_long_horizon_evidence';
 
+    public const FIELD_ENABLED = 'enabled';
+
+    public const FIELD_CERTIFIED = 'certified';
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
