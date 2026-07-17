@@ -58,7 +58,7 @@ final class AtlasCognitiveFunctionDecomposerService
      *
      * @var array<string, array<int,string>>
      */
-    private const RULES = [
+    public const RULES = [
         'reasoning' => [
             'porque', 'por que', 'analise', 'analisa', 'explique', 'pense', 'pondere',
             'decida', 'decisao', 'compare', 'avalie', 'logica', 'estrategia',

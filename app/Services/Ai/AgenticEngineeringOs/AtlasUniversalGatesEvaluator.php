@@ -2002,6 +2002,8 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => AtlasCognitiveFunctionDecomposerService::SCHEMA,
             'functions' => AtlasCognitiveFunctionDecomposerService::FUNCTIONS,
             'function_count' => count(AtlasCognitiveFunctionDecomposerService::FUNCTIONS),
+            'rule_axes' => array_keys(AtlasCognitiveFunctionDecomposerService::RULES),
+            'rule_axis_count' => count(AtlasCognitiveFunctionDecomposerService::RULES),
         ];
     }
 
@@ -2763,6 +2765,31 @@ final class AtlasUniversalGatesEvaluator
             'lift_cases_per_arm_required' => AtlasAcosEvolutionScoreService::LIFT_CASES_PER_ARM_REQUIRED,
             'hostile_severity' => AtlasImmuneHybridInputClassifier::HOSTILE_SEVERITY,
             'hostile_severity_count' => count(AtlasImmuneHybridInputClassifier::HOSTILE_SEVERITY),
+        ];
+    }
+
+    /**
+     * Observe-only implementation-truth / docs-authority / verified-share floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function implementationAuthorityContractObserve(array $input = []): array
+    {
+        return [
+            'implementation_truth_schema' => AtlasAaeosImplementationTruthService::SCHEMA,
+            'implementation_truth_ranks' => AtlasAaeosImplementationTruthService::RANK,
+            'implementation_truth_rank_count' => count(AtlasAaeosImplementationTruthService::RANK),
+            'docs_authority_schema' => AtlasDocsAuthorityGraphService::SCHEMA_VERSION,
+            'docs_authority_confidence' => AtlasDocsAuthorityGraphService::CONFIDENCE,
+            'docs_authority_basis_count' => count(AtlasDocsAuthorityGraphService::CONFIDENCE),
+            'verified_share_schema' => AcosMaxVerifiedShareService::SCHEMA_VERSION,
+            'verified_share_executors' => AcosMaxVerifiedShareService::EXECUTORS,
+            'verified_share_executor_count' => count(AcosMaxVerifiedShareService::EXECUTORS),
+            'quality_bar_schema' => AtlasAaeosQualityBarService::SCHEMA_VERSION,
+            'department_level_schema' => AaeosDepartmentLevelClassifier::SCHEMA_VERSION,
+            'department_maturity_band_schema' => AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION,
         ];
     }
 

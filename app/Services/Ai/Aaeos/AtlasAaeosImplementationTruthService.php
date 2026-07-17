@@ -47,7 +47,7 @@ class AtlasAaeosImplementationTruthService
     /**
      * @var array<string,int>
      */
-    private const RANK = ['spec' => 0, 'partial' => 1, 'verified' => 2];
+    public const RANK = ['spec' => 0, 'partial' => 1, 'verified' => 2];
 
     public function __construct(
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver,
@@ -66,7 +66,7 @@ class AtlasAaeosImplementationTruthService
     public function ledger(?string $capability = null): array
     {
         $docs = $this->scanDocsWithEvidence();
-        if ($capability !== null && AiValueNormalizer::trimmedString($capability) !== '') {
+        if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
                 fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
@@ -229,7 +229,7 @@ class AtlasAaeosImplementationTruthService
     public function capabilityTestRefs(?string $capability = null): array
     {
         $docs = $this->scanDocsWithEvidence();
-        if ($capability !== null && AiValueNormalizer::trimmedString($capability) !== '') {
+        if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
                 fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),

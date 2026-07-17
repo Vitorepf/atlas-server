@@ -8,7 +8,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AaeosDepartmentLevelClassifier
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.department_level_classification.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.department_level_classification.v1';
 
     /**
      * Deterministically walk a caller-supplied (bottom-up ordered) band ladder and
@@ -32,7 +32,7 @@ final class AaeosDepartmentLevelClassifier
      */
     public function classify(string $departmentId, array $metricsSnapshot, array $bandLadder): array
     {
-        $departmentId = AiValueNormalizer::trimmedString($departmentId);
+        $departmentId = AiValueNormalizer::trimmedStringOrNull($departmentId) ?? '';
         $bands = AtlasAaeosThresholdLadderNormalizer::levelLadder($bandLadder);
 
         if ($bands === []) {

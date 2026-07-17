@@ -18,7 +18,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosDepartmentMaturityBandClassifier
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.department_maturity_band.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.department_maturity_band.v1';
 
     /**
      * @param  list<array{band: string, rank: int, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder  ordered lowest-first

@@ -22,7 +22,12 @@ use SplFileInfo;
  */
 class AtlasDocsAuthorityGraphService
 {
-    private const CONFIDENCE = [
+    public const SCHEMA_VERSION = 'atlas.docs.authority_graph.v1';
+
+    /**
+     * @var array<string, int>
+     */
+    public const CONFIDENCE = [
         'governs_frontmatter' => 100,
         'doc_id' => 95,
         'capability_frontmatter' => 80,
@@ -58,7 +63,7 @@ class AtlasDocsAuthorityGraphService
         });
 
         return [
-            'schema_version' => 'atlas.docs.authority_graph.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'rows' => count($rows),
             'docs' => count($docs),
         ];
@@ -74,12 +79,12 @@ class AtlasDocsAuthorityGraphService
      */
     public function rowsForDoc(array $frontmatter, string $path): array
     {
-        $ownerId = AiValueNormalizer::trimmedString($frontmatter['id'] ?? $frontmatter['graph_id'] ?? '');
-        $state = AiValueNormalizer::trimmedString($frontmatter['implementation_state'] ?? '');
+        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter['id'] ?? $frontmatter['graph_id'] ?? null) ?? '';
+        $state = AiValueNormalizer::trimmedStringOrNull($frontmatter['implementation_state'] ?? null) ?? '';
         $rows = [];
 
         $add = function (string $kind, mixed $needle, string $basis) use (&$rows, $path, $ownerId, $state): void {
-            $needle = AiValueNormalizer::trimmedString($needle);
+            $needle = AiValueNormalizer::trimmedStringOrNull($needle) ?? '';
             if ($needle === '') {
                 return;
             }

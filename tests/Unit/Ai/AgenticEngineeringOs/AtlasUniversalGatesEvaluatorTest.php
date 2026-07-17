@@ -1513,6 +1513,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('reasoning', $payload['functions']);
         $this->assertContains('audit', $payload['functions']);
         $this->assertSame(6, $payload['function_count']);
+        $this->assertContains('code', $payload['rule_axes']);
+        $this->assertSame(6, $payload['rule_axis_count']);
     }
 
     public function test_gate_signal_contract_observe_reports_weights(): void
@@ -1963,5 +1965,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(10, $payload['lift_cases_per_arm_required']);
         $this->assertSame('prompt_injection', $payload['hostile_severity'][0]);
         $this->assertSame(3, $payload['hostile_severity_count']);
+    }
+
+    public function test_implementation_authority_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->implementationAuthorityContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.implementation_state.v1', $payload['implementation_truth_schema']);
+        $this->assertSame(2, $payload['implementation_truth_ranks']['verified']);
+        $this->assertSame(3, $payload['implementation_truth_rank_count']);
+        $this->assertSame('atlas.docs.authority_graph.v1', $payload['docs_authority_schema']);
+        $this->assertSame(100, $payload['docs_authority_confidence']['governs_frontmatter']);
+        $this->assertSame(4, $payload['docs_authority_basis_count']);
+        $this->assertContains('dev', $payload['verified_share_executors']);
+        $this->assertSame(3, $payload['verified_share_executor_count']);
+        $this->assertSame('atlas.aaeos.quality_bar.v1', $payload['quality_bar_schema']);
+        $this->assertSame('atlas.aaeos.department_level_classification.v1', $payload['department_level_schema']);
+        $this->assertSame('atlas.aaeos.department_maturity_band.v1', $payload['department_maturity_band_schema']);
     }
 }

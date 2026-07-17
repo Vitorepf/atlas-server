@@ -22,7 +22,7 @@ final class AcosMaxVerifiedShareService
     public const FORMULA_VERSION = 'verified_share.v1';
 
     /** @var list<string> */
-    private const EXECUTORS = ['dev', 'forge', 'autonomos'];
+    public const EXECUTORS = ['dev', 'forge', 'autonomos'];
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array

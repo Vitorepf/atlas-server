@@ -8,7 +8,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosQualityBarService
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.quality_bar.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.quality_bar.v1';
 
     private const DEPARTMENT_DATA = [
         ['department' => 'Engineering', 'threshold' => 0.85, 'current' => 0.92],
