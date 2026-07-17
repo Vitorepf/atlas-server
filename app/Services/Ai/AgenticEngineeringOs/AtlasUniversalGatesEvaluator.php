@@ -5685,6 +5685,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function verifiedFrontierCooccurrenceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'verified_field_status' => AcosMaxVerifiedShareService::FIELD_STATUS,
+            'verified_field_reason' => AcosMaxVerifiedShareService::FIELD_REASON,
+            'verified_field_measure_id' => AcosMaxVerifiedShareService::FIELD_MEASURE_ID,
+            'verified_field_thresholds' => AcosMaxVerifiedShareService::FIELD_THRESHOLDS,
+            'verified_status_ok' => AcosMaxVerifiedShareService::STATUS_OK,
+            'verified_schema_version' => AcosMaxVerifiedShareService::SCHEMA_VERSION,
+            'frontier_field_key' => AtlasFrontierWaveLadder::FIELD_KEY,
+            'frontier_field_wave' => AtlasFrontierWaveLadder::FIELD_WAVE,
+            'frontier_field_activation' => AtlasFrontierWaveLadder::FIELD_ACTIVATION,
+            'frontier_field_waves' => AtlasFrontierWaveLadder::FIELD_WAVES,
+            'frontier_activation_active' => AtlasFrontierWaveLadder::ACTIVATION_ACTIVE,
+            'frontier_schema_version' => AtlasFrontierWaveLadder::SCHEMA_VERSION,
+            'cooccurrence_field_status' => ExecutionContextCooccurrenceService::FIELD_STATUS,
+            'cooccurrence_field_reason' => ExecutionContextCooccurrenceService::FIELD_REASON,
+            'cooccurrence_field_measured' => ExecutionContextCooccurrenceService::FIELD_MEASURED,
+            'cooccurrence_field_measured_share' => ExecutionContextCooccurrenceService::FIELD_MEASURED_SHARE,
+            'cooccurrence_status_ok' => ExecutionContextCooccurrenceService::STATUS_OK,
+            'verified_frontier_cooccurrence_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

@@ -19,6 +19,18 @@ final class ExecutionContextCooccurrenceService
     public const STATUS_OK = 'ok';
 
     public const FIELD_MEASURED = 'measured';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_RUNS_PATH = 'runs_path';
+    public const FIELD_DENOMINATOR = 'denominator';
+    public const FIELD_RUNS = 'runs';
+    public const FIELD_MEASURED_RUNS = 'measured_runs';
+    public const FIELD_MEASURED_SHARE = 'measured_share';
+    public const FIELD_COOCCURRENCES = 'cooccurrences';
+
 
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
 
@@ -31,9 +43,9 @@ final class ExecutionContextCooccurrenceService
     public function report(?string $runsPath = null): array
     {
         $base = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'generated_at' => now()->toIso8601String(),
             'context_causal_binding' => 'correlational_cooccurrence',
             'enforcement_allowed' => false,
@@ -49,19 +61,19 @@ final class ExecutionContextCooccurrenceService
 
         if ($runsPath === null || (AiValueNormalizer::trimmedStringOrNull($runsPath) ?? '') === '' || ! is_file($runsPath)) {
             return array_replace($base, [
-                'status' => self::STATUS_UNMEASURABLE,
-                'reason' => self::REASON_RUN_ARTIFACT_UNAVAILABLE,
-                'runs_path' => $runsPath,
-                'denominator' => [
-                    'runs' => 0,
-                    'measured_runs' => 0,
-                    'measured_share' => 0.0,
+                self::FIELD_STATUS => self::STATUS_UNMEASURABLE,
+                self::FIELD_REASON => self::REASON_RUN_ARTIFACT_UNAVAILABLE,
+                self::FIELD_RUNS_PATH => $runsPath,
+                self::FIELD_DENOMINATOR => [
+                    self::FIELD_RUNS => 0,
+                    self::FIELD_MEASURED_RUNS => 0,
+                    self::FIELD_MEASURED_SHARE => 0.0,
                 ],
-                'cooccurrences' => [],
+                self::FIELD_COOCCURRENCES => [],
             ]);
         }
 
-        $runs = array_values(AiValueNormalizer::arrayOrEmpty($this->readJson($runsPath)['runs'] ?? null));
+        $runs = array_values(AiValueNormalizer::arrayOrEmpty($this->readJson($runsPath)[self::FIELD_RUNS] ?? null));
         $measured = [];
         foreach ($runs as $run) {
             if (! is_array($run) || ($run[self::FIELD_MEASURED] ?? false) !== true) {
@@ -75,15 +87,15 @@ final class ExecutionContextCooccurrenceService
         $measuredShare = $runCount > 0 ? round($measuredCount / $runCount, 6) : 0.0;
         if ($measuredCount === 0) {
             return array_replace($base, [
-                'status' => self::STATUS_UNMEASURABLE,
-                'reason' => self::REASON_MEASURED_SHARE_ZERO,
-                'runs_path' => $runsPath,
-                'denominator' => [
-                    'runs' => $runCount,
-                    'measured_runs' => 0,
-                    'measured_share' => $measuredShare,
+                self::FIELD_STATUS => self::STATUS_UNMEASURABLE,
+                self::FIELD_REASON => self::REASON_MEASURED_SHARE_ZERO,
+                self::FIELD_RUNS_PATH => $runsPath,
+                self::FIELD_DENOMINATOR => [
+                    self::FIELD_RUNS => $runCount,
+                    self::FIELD_MEASURED_RUNS => 0,
+                    self::FIELD_MEASURED_SHARE => $measuredShare,
                 ],
-                'cooccurrences' => [],
+                self::FIELD_COOCCURRENCES => [],
             ]);
         }
 
@@ -107,16 +119,16 @@ final class ExecutionContextCooccurrenceService
         }
 
         return array_replace($base, [
-            'status' => self::STATUS_OK,
-            'reason' => null,
-            'runs_path' => $runsPath,
-            'denominator' => [
-                'runs' => $runCount,
-                'measured_runs' => $measuredCount,
-                'measured_share' => $measuredShare,
+            self::FIELD_STATUS => self::STATUS_OK,
+            self::FIELD_REASON => null,
+            self::FIELD_RUNS_PATH => $runsPath,
+            self::FIELD_DENOMINATOR => [
+                self::FIELD_RUNS => $runCount,
+                self::FIELD_MEASURED_RUNS => $measuredCount,
+                self::FIELD_MEASURED_SHARE => $measuredShare,
             ],
             'cooccurrence_count' => count($cooccurrences),
-            'cooccurrences' => $cooccurrences,
+            self::FIELD_COOCCURRENCES => $cooccurrences,
         ]);
     }
 

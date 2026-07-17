@@ -44,24 +44,37 @@ final class AcosMaxVerifiedShareService
 
     public const REASON_MEASURE_FREEZE_NOT_RECORDED = 'measure_freeze_not_recorded';
 
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_SERIES_REGISTRY = 'series_registry';
+
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'formula' => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
-            'formula_version' => self::FORMULA_VERSION,
-            'thresholds' => [
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_THRESHOLDS => [
                 'verified_share_min' => self::DEFAULT_VERIFIED_SHARE_MIN,
                 'window_days_min' => self::DEFAULT_WINDOW_DAYS_MIN,
                 'denominator_min_executions' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             ],
-            'denominator_min' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+            self::FIELD_DENOMINATOR_MIN => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             'ttl_days' => self::DEFAULT_TTL_DAYS,
-            'author_engine_id' => 'cursor-acos-max-elev12',
-            'judge_engine_id' => 'codex-elev12-judge',
-            'series_registry' => [
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-elev12',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-elev12-judge',
+            self::FIELD_SERIES_REGISTRY => [
                 'series' => self::MEASURE_ID,
                 'path' => 'atlas:acos:verified-share --json',
                 'watchdog_plugin' => 'wdg-01.acos_verified_share',
@@ -75,11 +88,11 @@ final class AcosMaxVerifiedShareService
         $freeze = $this->freeze();
         if ($freeze === null) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'measure_id' => self::MEASURE_ID,
-                'formula_version' => self::FORMULA_VERSION,
-                'status' => self::STATUS_MISSING_FREEZE,
-                'reason' => self::REASON_MEASURE_FREEZE_NOT_RECORDED,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_MEASURE_ID => self::MEASURE_ID,
+                self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+                self::FIELD_STATUS => self::STATUS_MISSING_FREEZE,
+                self::FIELD_REASON => self::REASON_MEASURE_FREEZE_NOT_RECORDED,
                 'freeze_required' => self::freezePayload(),
             ];
         }
@@ -109,26 +122,26 @@ final class AcosMaxVerifiedShareService
         }
 
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
-        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? data_get($freeze, 'thresholds.denominator_min_executions', self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
+        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? data_get($freeze, 'thresholds.denominator_min_executions', self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
         $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', self::DEFAULT_VERIFIED_SHARE_MIN)) ?? self::DEFAULT_VERIFIED_SHARE_MIN;
-        $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['author_engine_id'] ?? null) ?? '';
-        $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['judge_engine_id'] ?? null) ?? '';
+        $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
+        $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '';
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'status' => $this->status($aggregate, $denominatorMin, $shareMin),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_STATUS => $this->status($aggregate, $denominatorMin, $shareMin),
             'window_days' => $windowDays,
             'freeze' => [
-                'measure_id' => AiValueNormalizer::trimmedStringOrNull($freeze['measure_id'] ?? null) ?? self::MEASURE_ID,
+                self::FIELD_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_MEASURE_ID] ?? null) ?? self::MEASURE_ID,
                 'content_hash' => AiValueNormalizer::trimmedStringOrNull($freeze['content_hash'] ?? null) ?? '',
-                'denominator_min' => $denominatorMin,
-                'thresholds' => AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null),
-                'author_engine_id' => $authorEngineId,
-                'judge_engine_id' => $judgeEngineId,
+                self::FIELD_DENOMINATOR_MIN => $denominatorMin,
+                self::FIELD_THRESHOLDS => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null),
+                self::FIELD_AUTHOR_ENGINE_ID => $authorEngineId,
+                self::FIELD_JUDGE_ENGINE_ID => $judgeEngineId,
                 'judge_author_distinct' => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
-                'series_registry' => AiValueNormalizer::arrayOrEmpty($freeze['series_registry'] ?? null),
+                self::FIELD_SERIES_REGISTRY => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_SERIES_REGISTRY] ?? null),
             ],
             'aggregate' => $aggregate,
             'executors' => $executors,
@@ -187,8 +200,8 @@ final class AcosMaxVerifiedShareService
                     continue;
                 }
                 if (is_array($row)
-                    && ($row['kind'] ?? null) === self::KIND_MEASURE_FREEZE
-                    && ($row['measure_id'] ?? null) === self::MEASURE_ID
+                    && ($row[self::FIELD_KIND] ?? null) === self::KIND_MEASURE_FREEZE
+                    && ($row[self::FIELD_MEASURE_ID] ?? null) === self::MEASURE_ID
                     && $this->judgeAuthorDistinct($row)) {
                     $latest = $row;
                 }
@@ -203,8 +216,8 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function judgeAuthorDistinct(array $row): bool
     {
-        $author = AiValueNormalizer::trimmedStringOrNull($row['author_engine_id'] ?? null) ?? '';
-        $judge = AiValueNormalizer::trimmedStringOrNull($row['judge_engine_id'] ?? null) ?? '';
+        $author = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
+        $judge = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '';
 
         return $author !== '' && $judge !== '' && $author !== $judge;
     }

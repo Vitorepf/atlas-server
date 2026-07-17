@@ -41,17 +41,26 @@ final class AtlasFrontierWaveLadder
         'memory_cited_by_foreign_session', // memória citada por sessão que não a gerou
     ];
 
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_KEY = 'key';
+    public const FIELD_SYSTEMS = 'systems';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_WAVE = 'wave';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_WAVES = 'waves';
+    public const FIELD_ACTIVATION = 'activation';
+
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
      *
      * @var array<int,array{key:string,systems:list<string>,summary:string}>
      */
     public const WAVES = [
-        ['key' => 'fase_0', 'systems' => ['constituicao'], 'summary' => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
-        ['key' => 'onda_1', 'systems' => ['SIS2'], 'summary' => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
-        ['key' => 'onda_2', 'systems' => ['SIS3', 'SIS5'], 'summary' => 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada'],
-        ['key' => 'onda_3', 'systems' => ['SIS6', 'SIS7'], 'summary' => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
-        ['key' => 'onda_4', 'systems' => ['economia', 'depreciacao', 'graduacao'], 'summary' => 'Economia de arms + depreciação + graduação em regime'],
+        [self::FIELD_KEY => 'fase_0', self::FIELD_SYSTEMS => ['constituicao'], self::FIELD_SUMMARY => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
+        [self::FIELD_KEY => 'onda_1', self::FIELD_SYSTEMS => ['SIS2'], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
+        [self::FIELD_KEY => 'onda_2', self::FIELD_SYSTEMS => ['SIS3', 'SIS5'], self::FIELD_SUMMARY => 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada'],
+        [self::FIELD_KEY => 'onda_3', self::FIELD_SYSTEMS => ['SIS6', 'SIS7'], self::FIELD_SUMMARY => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
+        [self::FIELD_KEY => 'onda_4', self::FIELD_SYSTEMS => ['economia', 'depreciacao', 'graduacao'], self::FIELD_SUMMARY => 'Economia de arms + depreciação + graduação em regime'],
     ];
 
     private string $path;
@@ -76,8 +85,8 @@ final class AtlasFrontierWaveLadder
         }
         try {
             AppendOnlyJsonlStore::append($this->path, [
-                'wave' => $wave,
-                'kind' => $kind,
+                self::FIELD_WAVE => $wave,
+                self::FIELD_KIND => $kind,
                 'ref' => $ref,
                 'at' => now()->toIso8601String(),
             ]);
@@ -103,26 +112,26 @@ final class AtlasFrontierWaveLadder
                 $activation = 'portao'; // Fase 0 constitution — build first, gates the rest
                 $priorEvents = null;
             } else {
-                $priorKey = self::WAVES[$i - 1]['key'];
+                $priorKey = self::WAVES[$i - 1][self::FIELD_KEY];
                 $priorEvents = $counts[$priorKey] ?? 0;
                 $activation = $priorEvents >= self::EVENT_THRESHOLD ? self::ACTIVATION_ACTIVE : self::ACTIVATION_AGUARDANDO_EVENTOS;
             }
             $waves[] = [
-                'wave' => $wave['key'],
-                'systems' => $wave['systems'],
-                'summary' => $wave['summary'],
-                'activation' => $activation,
-                'external_events' => $counts[$wave['key']] ?? 0,
+                self::FIELD_WAVE => $wave[self::FIELD_KEY],
+                self::FIELD_SYSTEMS => $wave[self::FIELD_SYSTEMS],
+                self::FIELD_SUMMARY => $wave[self::FIELD_SUMMARY],
+                self::FIELD_ACTIVATION => $activation,
+                'external_events' => $counts[$wave[self::FIELD_KEY]] ?? 0,
                 'prior_events' => $priorEvents,
                 'threshold' => self::EVENT_THRESHOLD,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'generated_at' => gmdate('c'),
             'event_threshold' => self::EVENT_THRESHOLD,
-            'waves' => $waves,
+            self::FIELD_WAVES => $waves,
             'note' => 'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.',
         ];
     }
@@ -133,8 +142,8 @@ final class AtlasFrontierWaveLadder
         $counts = [];
         try {
             foreach (AppendOnlyJsonlStore::read($this->path) as $row) {
-                $wave = (AiValueNormalizer::trimmedStringOrNull($row['wave'] ?? null) ?? '');
-                if ($wave !== '' && in_array((AiValueNormalizer::trimmedStringOrNull($row['kind'] ?? null) ?? ''), self::EVENT_KINDS, true)) {
+                $wave = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_WAVE] ?? null) ?? '');
+                if ($wave !== '' && in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_KIND] ?? null) ?? ''), self::EVENT_KINDS, true)) {
                     $counts[$wave] = ($counts[$wave] ?? 0) + 1;
                 }
             }
@@ -148,7 +157,7 @@ final class AtlasFrontierWaveLadder
     private function isWave(string $wave): bool
     {
         foreach (self::WAVES as $w) {
-            if ($w['key'] === $wave) {
+            if ($w[self::FIELD_KEY] === $wave) {
                 return true;
             }
         }

@@ -4073,4 +4073,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['ledger_counterfactual_advisory_floor_count']);
     }
 
+    public function test_verified_frontier_cooccurrence_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->verifiedFrontierCooccurrenceFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['verified_field_status']);
+        $this->assertSame('reason', $payload['verified_field_reason']);
+        $this->assertSame('measure_id', $payload['verified_field_measure_id']);
+        $this->assertSame('thresholds', $payload['verified_field_thresholds']);
+        $this->assertSame('ok', $payload['verified_status_ok']);
+        $this->assertSame('atlas.acos_max.verified_share.v1', $payload['verified_schema_version']);
+        $this->assertSame('key', $payload['frontier_field_key']);
+        $this->assertSame('wave', $payload['frontier_field_wave']);
+        $this->assertSame('activation', $payload['frontier_field_activation']);
+        $this->assertSame('waves', $payload['frontier_field_waves']);
+        $this->assertSame('active', $payload['frontier_activation_active']);
+        $this->assertSame('atlas.cognition.frontier_ladder.v1', $payload['frontier_schema_version']);
+        $this->assertSame('status', $payload['cooccurrence_field_status']);
+        $this->assertSame('reason', $payload['cooccurrence_field_reason']);
+        $this->assertSame('measured', $payload['cooccurrence_field_measured']);
+        $this->assertSame('measured_share', $payload['cooccurrence_field_measured_share']);
+        $this->assertSame('ok', $payload['cooccurrence_status_ok']);
+        $this->assertSame(17, $payload['verified_frontier_cooccurrence_floor_count']);
+    }
+
 }

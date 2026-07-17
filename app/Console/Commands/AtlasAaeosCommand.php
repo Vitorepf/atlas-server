@@ -278,6 +278,7 @@ final class AtlasAaeosCommand extends Command
         {--department-integrity-capture-floors-contract= : JSON file (any object) to observe department/integrity/capture residual floors}
         {--asef-calibration-jina-floors-contract= : JSON file (any object) to observe ASEF/immune-calibration/jina residual floors}
         {--ledger-counterfactual-advisory-floors-contract= : JSON file (any object) to observe ledger/counterfactual/advisory residual floors}
+        {--verified-frontier-cooccurrence-floors-contract= : JSON file (any object) to observe verified-share/frontier/cooccurrence residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -712,6 +713,7 @@ final class AtlasAaeosCommand extends Command
             ['department-integrity-capture-floors-contract', 'department_integrity_capture_floors_contract', fn (array $p) => $gates->departmentIntegrityCaptureFloorsContractObserve($p)],
             ['asef-calibration-jina-floors-contract', 'asef_calibration_jina_floors_contract', fn (array $p) => $gates->asefCalibrationJinaFloorsContractObserve($p)],
             ['ledger-counterfactual-advisory-floors-contract', 'ledger_counterfactual_advisory_floors_contract', fn (array $p) => $gates->ledgerCounterfactualAdvisoryFloorsContractObserve($p)],
+            ['verified-frontier-cooccurrence-floors-contract', 'verified_frontier_cooccurrence_floors_contract', fn (array $p) => $gates->verifiedFrontierCooccurrenceFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
