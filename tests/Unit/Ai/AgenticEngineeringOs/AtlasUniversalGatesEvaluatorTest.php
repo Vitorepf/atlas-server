@@ -523,7 +523,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         ]);
 
         $this->assertSame(PortfolioBudgetAllocator::SCHEMA_VERSION, $payload['schema_version']);
-        $this->assertArrayHasKey('allocated_shares', $payload);
+        $this->assertArrayHasKey('allocation', $payload);
         $this->assertSame('ok', $payload['status']);
     }
 }
