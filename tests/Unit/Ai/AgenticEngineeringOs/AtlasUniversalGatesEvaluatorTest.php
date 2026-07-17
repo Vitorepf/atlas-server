@@ -3784,4 +3784,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['teto_cognitive_hmac_floor_count']);
     }
 
+
+    public function test_promotion_asef_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->promotionAsefAutonomyFloorsContractObserve([]);
+
+        $this->assertSame('slice', $payload['promotion_field_slice']);
+        $this->assertSame('config_key', $payload['promotion_field_config_key']);
+        $this->assertSame('env_key', $payload['promotion_field_env_key']);
+        $this->assertSame('status', $payload['promotion_field_status']);
+        $this->assertSame('ok', $payload['promotion_status_ok']);
+        $this->assertSame('status', $payload['asef_field_status']);
+        $this->assertSame('source_ref', $payload['asef_field_source_ref']);
+        $this->assertSame('chunk_hash', $payload['asef_field_chunk_hash']);
+        $this->assertSame('chunk_id', $payload['asef_field_chunk_id']);
+        $this->assertSame('similarity', $payload['asef_field_similarity']);
+        $this->assertSame('chunks_written', $payload['asef_field_chunks_written']);
+        $this->assertSame('refused', $payload['autonomy_field_refused']);
+        $this->assertSame('observed', $payload['autonomy_field_observed']);
+        $this->assertSame('expected', $payload['autonomy_field_expected']);
+        $this->assertSame('reason', $payload['autonomy_field_reason']);
+        $this->assertSame('maxk-09.autonomy_ladder_adversarial', $payload['autonomy_check_id']);
+        $this->assertSame('atlas.acos.watchdog.autonomy_ladder_adversarial.v1', $payload['autonomy_schema']);
+        $this->assertSame(17, $payload['promotion_asef_autonomy_floor_count']);
+    }
+
 }

@@ -5390,6 +5390,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for promotion config / ASEF chunk / autonomy-ladder adversarial contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function promotionAsefAutonomyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'promotion_field_slice' => PromotionProtocol::FIELD_SLICE,
+            'promotion_field_config_key' => PromotionProtocol::FIELD_CONFIG_KEY,
+            'promotion_field_env_key' => PromotionProtocol::FIELD_ENV_KEY,
+            'promotion_field_status' => PromotionProtocol::FIELD_STATUS,
+            'promotion_status_ok' => PromotionProtocol::STATUS_OK,
+            'asef_field_status' => AsefChunkIndexService::FIELD_STATUS,
+            'asef_field_source_ref' => AsefChunkIndexService::FIELD_SOURCE_REF,
+            'asef_field_chunk_hash' => AsefChunkIndexService::FIELD_CHUNK_HASH,
+            'asef_field_chunk_id' => AsefChunkIndexService::FIELD_CHUNK_ID,
+            'asef_field_similarity' => AsefChunkIndexService::FIELD_SIMILARITY,
+            'asef_field_chunks_written' => AsefChunkIndexService::FIELD_CHUNKS_WRITTEN,
+            'autonomy_field_refused' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REFUSED,
+            'autonomy_field_observed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OBSERVED,
+            'autonomy_field_expected' => AutonomyLadderAdversarialWatchdogCheck::FIELD_EXPECTED,
+            'autonomy_field_reason' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REASON,
+            'autonomy_check_id' => AutonomyLadderAdversarialWatchdogCheck::CHECK_ID,
+            'autonomy_schema' => AutonomyLadderAdversarialWatchdogCheck::SCHEMA,
+            'promotion_asef_autonomy_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
