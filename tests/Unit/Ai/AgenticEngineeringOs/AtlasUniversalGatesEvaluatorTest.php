@@ -1451,4 +1451,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(8, $payload['default_min_prediction_tokens']);
         $this->assertTrue($payload['fail_open_when_prediction_thin']);
     }
+
+    public function test_immune_calibration_contract_observe_reports_measure(): void
+    {
+        $payload = $this->svc->immuneCalibrationContractObserve([]);
+
+        $this->assertSame('atlas.cognition.immune_calibration.v1', $payload['schema_version']);
+        $this->assertSame('atlas.immune.calibration.v1', $payload['measure_id']);
+        $this->assertContains('G0', $payload['gate_ids']);
+        $this->assertContains('G8', $payload['gate_ids']);
+        $this->assertSame(9, $payload['gate_count']);
+        $this->assertSame(10, $payload['denominator_min']);
+    }
 }

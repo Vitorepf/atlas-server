@@ -20,7 +20,7 @@ final class ImmuneCalibrationService
     public const TTL_DAYS = 90;
 
     /** @var list<string> */
-    private const GATE_IDS = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'];
+    public const GATE_IDS = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'];
 
     private readonly ImmuneVerdictLedger $ledger;
 

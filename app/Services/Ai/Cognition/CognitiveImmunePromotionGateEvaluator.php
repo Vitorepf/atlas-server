@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure, deterministic domain classifier for the cognitive-immune promotion
  * gates G0..G8 (cognitive-immune-learning-kernel.md). Given the raw candidate
@@ -548,7 +550,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
     private function stringFromMixed(mixed $value): string
     {
-        return is_scalar($value) ? trim((string) $value) : '';
+        return AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '';
     }
 
     private function intFromMixed(mixed $value): int

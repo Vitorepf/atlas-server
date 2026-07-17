@@ -30,6 +30,7 @@ use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
+use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1864,6 +1865,26 @@ final class AtlasUniversalGatesEvaluator
             'default_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
             'unit_interval' => [0.0, 1.0],
             'fail_open_when_prediction_thin' => true,
+        ];
+    }
+
+    /**
+     * Observe-only immune-calibration measure contract (Cognition).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function immuneCalibrationContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ImmuneCalibrationService::SCHEMA_VERSION,
+            'measure_id' => ImmuneCalibrationService::MEASURE_ID,
+            'formula_version' => ImmuneCalibrationService::FORMULA_VERSION,
+            'denominator_min' => ImmuneCalibrationService::DENOMINATOR_MIN,
+            'ttl_days' => ImmuneCalibrationService::TTL_DAYS,
+            'gate_ids' => ImmuneCalibrationService::GATE_IDS,
+            'gate_count' => count(ImmuneCalibrationService::GATE_IDS),
         ];
     }
 

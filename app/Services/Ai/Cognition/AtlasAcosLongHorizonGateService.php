@@ -28,10 +28,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $cfg = (array) config('atlas.cognition.acos_long_horizon_gate', []);
         $enabled = (bool) ($options['enabled'] ?? $cfg['enabled'] ?? true);
-        $fixture = trim((string) ($options['fixture'] ?? 'live'));
-        if ($fixture === '') {
-            $fixture = 'live';
-        }
+        $fixture = AiValueNormalizer::trimmedString($options['fixture'] ?? 'live') ?: 'live';
 
         if (! in_array($fixture, ['live', 'mature', 'short-window'], true)) {
             return $this->payload('blocked', false, $fixture, [], [], [], ['unsupported_fixture'], []);
@@ -42,17 +39,17 @@ final class AtlasAcosLongHorizonGateService
         }
 
         $minDays = max(1, (int) ($options['min_days'] ?? $cfg['min_days'] ?? 30));
-        $minOverall = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5) ?? 9.5));
-        $minPipeline = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5) ?? 9.5));
-        $warningMargin = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15) ?? 0.15));
+        $minOverall = $this->clampOutOfTen($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5, 9.5);
+        $minPipeline = $this->clampOutOfTen($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5, 9.5);
+        $warningMargin = $this->clampOutOfTen($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15, 0.15);
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
         $maxGapDays = max(1, (int) ($options['max_gap_days'] ?? $cfg['max_gap_days'] ?? 1));
         $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
         $seriesV2Path = (string) ($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl'));
-        $minAreaOverall = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall) ?? $minOverall));
-        $minAreaCode = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall) ?? $minAreaOverall));
-        $minAreaDoc = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall) ?? $minAreaOverall));
-        $minAreaPipeline = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_pipeline'] ?? $cfg['min_area_pipeline'] ?? $minAreaOverall) ?? $minAreaOverall));
+        $minAreaOverall = $this->clampOutOfTen($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall, $minOverall);
+        $minAreaCode = $this->clampOutOfTen($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall, $minAreaOverall);
+        $minAreaDoc = $this->clampOutOfTen($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall, $minAreaOverall);
+        $minAreaPipeline = $this->clampOutOfTen($options['min_area_pipeline'] ?? $cfg['min_area_pipeline'] ?? $minAreaOverall, $minAreaOverall);
 
         // "Today" is injectable so the frozen test can pin the freshness window
         // deterministically; in production it is the real UTC calendar day. It
@@ -873,5 +870,11 @@ final class AtlasAcosLongHorizonGateService
         $payload['receipt_hash'] = 'sha256:'.hash('sha256', json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
+    }
+
+    /** Clamp mixed score/threshold inputs into the closed ACOS [0, 10] band. */
+    private function clampOutOfTen(mixed $value, float $default): float
+    {
+        return max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($value) ?? $default));
     }
 }

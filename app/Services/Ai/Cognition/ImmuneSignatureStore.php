@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
@@ -242,7 +243,7 @@ final class ImmuneSignatureStore
 
     public function mode(): string
     {
-        $mode = strtolower(trim((string) config('atlas.aaeos.immune_signature.mode', 'observe')));
+        $mode = AiValueNormalizer::lowerTrimmedString(config('atlas.aaeos.immune_signature.mode', 'observe'));
 
         return in_array($mode, ['off', 'observe', 'enforce'], true) ? $mode : 'observe';
     }
@@ -288,7 +289,7 @@ final class ImmuneSignatureStore
     private function findBySignature(string $signature): ?array
     {
         try {
-            $row = DB::table(self::TABLE)->where('signature', strtolower(trim($signature)))->first();
+            $row = DB::table(self::TABLE)->where('signature', AiValueNormalizer::lowerTrimmedString($signature))->first();
         } catch (Throwable) {
             return null;
         }
