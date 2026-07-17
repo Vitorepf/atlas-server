@@ -109,7 +109,7 @@ final class LearningPacketQualityScorer
 
     private function clampUnit(float $value): float
     {
-        return min(max($value, 0.0), 1.0);
+        return AiValueNormalizer::clampUnit($value);
     }
 
     /**

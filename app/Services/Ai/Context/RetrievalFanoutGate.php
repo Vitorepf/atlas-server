@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class RetrievalFanoutGate
 {
     /**
@@ -150,6 +152,6 @@ final class RetrievalFanoutGate
 
     private function clampUnit(float $value): float
     {
-        return min(max($value, 0.0), 1.0);
+        return AiValueNormalizer::clampUnit($value);
     }
 }

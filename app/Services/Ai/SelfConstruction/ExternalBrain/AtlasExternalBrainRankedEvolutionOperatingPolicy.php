@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Deterministic policy that orders brain work by the operator-defined 8-tier ranking.
  *
@@ -159,7 +161,7 @@ final class AtlasExternalBrainRankedEvolutionOperatingPolicy
 
     private function clamp01(float $v): float
     {
-        return max(0.0, min(1.0, $v));
+        return AiValueNormalizer::clampUnit($v);
     }
 
     public const ACTION_ORIGINATE_SELECTIVE = 'originate_selective';

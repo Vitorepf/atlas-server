@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 
 /**
@@ -643,7 +644,7 @@ final class AtlasContextQualityCertificationService
 
     private function clampUnit(float $value): float
     {
-        return max(0.0, min(1.0, $value));
+        return AiValueNormalizer::clampUnit($value);
     }
 
     /**

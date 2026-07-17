@@ -1810,6 +1810,24 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only SelfConstruction high-risk class + burn ceilings.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function scopeHighRisksObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
+            'high_risks' => AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS,
+            'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS),
+            'max_failure_rate' => AtlasSelfConstructionScopeRiskBudgetGate::MAX_FAILURE_RATE,
+            'max_give_back_rate' => AtlasSelfConstructionScopeRiskBudgetGate::MAX_GIVE_BACK_RATE,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

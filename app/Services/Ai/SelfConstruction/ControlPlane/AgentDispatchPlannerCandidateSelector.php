@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 use Carbon\CarbonImmutable;
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
 use App\Services\Ai\SelfConstruction\Support\RuntimeFlagsShared;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Select claimable task packets and available agents to feed the
@@ -182,7 +183,7 @@ final class AgentDispatchPlannerCandidateSelector
 
     private function clamp01(float $v): float
     {
-        return max(0.0, min(1.0, $v));
+        return AiValueNormalizer::clampUnit($v);
     }
 
     /**

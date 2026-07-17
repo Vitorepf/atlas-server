@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure strategic scorecard: compresses fitness gain, autonomy gain, deletion gain, proof
  * health and regression rate into ONE north_star_score plus a thresholded strategic
@@ -118,7 +120,7 @@ final class AtlasExternalBrainCompressionNorthStarScorecard
 
     private function clamp01(float $value): float
     {
-        return max(0.0, min(1.0, $value));
+        return AiValueNormalizer::clampUnit($value);
     }
 
     private function severity(string $recommendation): int

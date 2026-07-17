@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Gates the L7 self-evolving rung on a stable Trust Ledger window.
  *
@@ -258,7 +260,7 @@ final class TrustLedgerStabilityGate
     private function clampUnit(float $value): float
     {
         // A NAN ratio (e.g. when overflowing event masses make total INF, so
-        // success/total is INF/INF) escapes both bound checks below — every NAN
+        // success/total is INF/INF) escapes plain bound checks — every NAN
         // comparison is false — and would leak a non-[0,1] score past the clamp.
         // NAN is not a valid trust ratio: collapse it to the safe floor so the
         // documented inclusive 0..1 bound holds and the hard gate stays
@@ -267,14 +269,6 @@ final class TrustLedgerStabilityGate
             return 0.0;
         }
 
-        if ($value < 0.0) {
-            return 0.0;
-        }
-
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
+        return AiValueNormalizer::clampUnit($value);
     }
 }

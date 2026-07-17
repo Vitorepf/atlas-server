@@ -1419,4 +1419,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('high', $payload['decisive_levels']);
         $this->assertSame(count($payload['levels']), $payload['count']);
     }
+
+    public function test_scope_high_risks_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->scopeHighRisksObserve([]);
+
+        $this->assertSame('atlas.controlplane.scope_risk_budget_gate.v1', $payload['schema_version']);
+        $this->assertContains('hardest', $payload['high_risks']);
+        $this->assertSame(count($payload['high_risks']), $payload['count']);
+        $this->assertSame(0.3, $payload['max_failure_rate']);
+    }
 }
