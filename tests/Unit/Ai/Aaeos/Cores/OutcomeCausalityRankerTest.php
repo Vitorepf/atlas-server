@@ -183,6 +183,18 @@ final class OutcomeCausalityRankerTest extends TestCase
         $this->assertFalse($result['attribution_blocked']);
     }
 
+    public function testOutcomeEnvelopeNormalizesCaseAndWhitespace(): void
+    {
+        $result = $this->ranker->rankOutcomeEnvelope([
+            'outcome' => '  SUCCESS  ',
+            'has_evidence_refs' => true,
+            'tests_passed' => true,
+        ]);
+
+        $this->assertSame('execution_strategy_likely_succeeded', $result['primary_cause']);
+        $this->assertFalse($result['attribution_blocked']);
+    }
+
     public function testIdenticalInputIsDeterministic(): void
     {
         $first = $this->ranker->rank(false, 'failed', true, false);

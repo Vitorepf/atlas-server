@@ -26,6 +26,7 @@ use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
+use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -788,6 +789,28 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var array<string,list<string>> $graph */
         return BeliefCascadeReverificationPlanner::plan($origin, $graph, $depthCap);
+    }
+
+    /**
+     * Observe-only ledger rotation policy lookup (ELEV-24).
+     * Accepts `{series:string}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ledgerRotationObserve(array $input): array
+    {
+        $registry = new AcosMaxLedgerRotationRegistry;
+        $series = AiValueNormalizer::trimmedString($input['series'] ?? '');
+        $policy = $series === '' ? null : $registry->policyFor($series);
+
+        return [
+            'schema_version' => 'atlas.aaeos.ledger_rotation_observe.v1',
+            'series' => $series,
+            'found' => $policy !== null,
+            'policy' => $policy,
+            'declared_series_count' => count($registry->all()),
+        ];
     }
 
     /**

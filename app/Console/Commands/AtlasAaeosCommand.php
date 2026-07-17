@@ -76,6 +76,7 @@ final class AtlasAaeosCommand extends Command
         {--provenance-weight= : JSON file with evidence_refs + verified_refs (observe-only provenance weight)}
         {--recall-gap= : JSON file with weak-recall events (observe-only recall gap aggregate)}
         {--belief-cascade= : JSON file with origin + graph (observe-only belief cascade plan)}
+        {--ledger-rotation= : JSON file with series id (observe-only ledger rotation policy)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -308,6 +309,7 @@ final class AtlasAaeosCommand extends Command
             ['provenance-weight', 'provenance_weight', fn (array $p) => $gates->provenanceWeightObserve($p)],
             ['recall-gap', 'recall_gap', fn (array $p) => $gates->recallGapObserve($p)],
             ['belief-cascade', 'belief_cascade', fn (array $p) => $gates->beliefCascadeObserve($p)],
+            ['ledger-rotation', 'ledger_rotation', fn (array $p) => $gates->ledgerRotationObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

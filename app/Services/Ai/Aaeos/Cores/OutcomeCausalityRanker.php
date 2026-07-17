@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class OutcomeCausalityRanker
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.outcome_causality_ranking.v1';
@@ -108,7 +110,7 @@ final class OutcomeCausalityRanker
      */
     public function rankOutcomeEnvelope(array $envelope): array
     {
-        $outcome = (string) ($envelope['outcome'] ?? '');
+        $outcome = AiValueNormalizer::lowerTrimmedString($envelope['outcome'] ?? '');
         $hasEvidenceRefs = (bool) ($envelope['has_evidence_refs'] ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
         $missingRequiredSources = (bool) ($envelope['missing_required_sources'] ?? false);

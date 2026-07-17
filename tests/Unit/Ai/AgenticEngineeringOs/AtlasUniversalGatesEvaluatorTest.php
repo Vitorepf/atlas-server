@@ -30,6 +30,7 @@ use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
+use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -653,5 +654,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(BeliefCascadeReverificationPlanner::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame(['B', 'C'], array_column($payload['marked'], 'id'));
+    }
+
+    public function test_ledger_rotation_observe_finds_declared_policy(): void
+    {
+        $payload = $this->svc->ledgerRotationObserve([
+            'series' => 'atlas.evidence_ledger.hash_chain.v1',
+        ]);
+
+        $this->assertSame('atlas.aaeos.ledger_rotation_observe.v1', $payload['schema_version']);
+        $this->assertTrue($payload['found']);
+        $this->assertSame('append_forever', $payload['policy']['mode']);
+        $this->assertGreaterThan(0, $payload['declared_series_count']);
     }
 }

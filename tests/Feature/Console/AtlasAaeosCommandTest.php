@@ -804,6 +804,27 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_ledger_rotation(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-lr-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'series' => 'atlas.evidence_ledger.hash_chain.v1',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-lr',
+                '--ledger-rotation' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"ledger_rotation"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

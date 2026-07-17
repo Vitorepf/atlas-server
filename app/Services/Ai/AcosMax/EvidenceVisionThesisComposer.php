@@ -111,15 +111,15 @@ final class EvidenceVisionThesisComposer
             return false;
         }
 
-        $haystack = mb_strtolower(json_encode([
+        $haystack = AiValueNormalizer::lowerTrimmedString(json_encode([
             $thesis['claim'] ?? '',
             $thesis['death_criterion']['described_at_birth'] ?? '',
             $thesis['evidence'] ?? [],
         ], JSON_UNESCAPED_SLASHES) ?: '');
 
         foreach ($forbidden as $needle) {
-            $needle = AiValueNormalizer::trimmedString($needle);
-            if ($needle !== '' && str_contains($haystack, mb_strtolower($needle))) {
+            $needle = AiValueNormalizer::lowerTrimmedString($needle);
+            if ($needle !== '' && str_contains($haystack, $needle)) {
                 return false;
             }
         }
@@ -136,7 +136,7 @@ final class EvidenceVisionThesisComposer
             if (! is_array($row)) {
                 return false;
             }
-            $source = (string) ($row['source'] ?? '');
+            $source = AiValueNormalizer::trimmedString($row['source'] ?? '');
             if (! in_array($source, self::ALLOWED_EVIDENCE_SOURCES, true)) {
                 return false;
             }
@@ -428,12 +428,12 @@ final class EvidenceVisionThesisComposer
      */
     private static function candidateAligns(array $pair, array $keys): bool
     {
-        $rel = mb_strtolower(ltrim(AiValueNormalizer::trimmedString($pair[1] ?? ''), '/'));
-        $yieldPath = mb_strtolower(AiValueNormalizer::trimmedString($pair[2] ?? ''));
-        $objective = mb_strtolower(AiValueNormalizer::trimmedString($pair[0] ?? ''));
+        $rel = AiValueNormalizer::lowerTrimmedString(ltrim(AiValueNormalizer::trimmedString($pair[1] ?? ''), '/'));
+        $yieldPath = AiValueNormalizer::lowerTrimmedString($pair[2] ?? '');
+        $objective = AiValueNormalizer::lowerTrimmedString($pair[0] ?? '');
 
         foreach ($keys as $key) {
-            $key = mb_strtolower(AiValueNormalizer::trimmedString($key));
+            $key = AiValueNormalizer::lowerTrimmedString($key);
             if ($key === '') {
                 continue;
             }
