@@ -484,6 +484,30 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_memory_feedback_decay(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-mfd-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'positive_count' => 1,
+            'negative_count' => 0,
+            'wrong_context_count' => 0,
+            'stale_count' => 0,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-mfd',
+                '--memory-feedback-decay' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"memory_feedback_decay"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -17,6 +17,7 @@ use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -417,5 +418,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('a', $payload['admitted'][0]['ref']);
         $this->assertSame(100, $payload['admitted'][1]['allocated_chars']);
         $this->assertTrue($payload['admitted'][1]['capped']);
+    }
+
+    public function test_memory_feedback_decay_observe_scores_signals(): void
+    {
+        $payload = $this->svc->memoryFeedbackDecayObserve([
+            'positive_count' => 2,
+            'negative_count' => 0,
+            'wrong_context_count' => 0,
+            'stale_count' => 0,
+            'base_priority' => 50,
+            'recall_eval_hit_rate' => 0.8,
+        ]);
+
+        $this->assertSame(MemoryFeedbackDecayScorer::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertGreaterThan(50, $payload['health_score']);
+        $this->assertIsString($payload['lifecycle_action']);
     }
 }

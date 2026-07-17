@@ -7,6 +7,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
+use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
@@ -44,6 +45,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
         private readonly SummaryFidelityCoverageScorer $summaryFidelity = new SummaryFidelityCoverageScorer,
         private readonly MemoryInjectionBudgetAllocator $memoryInjectionBudget = new MemoryInjectionBudgetAllocator,
+        private readonly MemoryFeedbackDecayScorer $memoryFeedbackDecay = new MemoryFeedbackDecayScorer,
     ) {}
 
     /**
@@ -522,6 +524,19 @@ final class AtlasUniversalGatesEvaluator
                 ? (int) $input['min_excerpt_chars']
                 : (array_key_exists('min_excerpt', $input) ? (int) $input['min_excerpt'] : null),
         );
+    }
+
+    /**
+     * Observe-only memory feedback decay / lifecycle health score.
+     * Accepts a signals map (`positive_count`, `negative_count`, ages, …).
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $signals
+     * @return array<string,mixed>
+     */
+    public function memoryFeedbackDecayObserve(array $signals): array
+    {
+        return $this->memoryFeedbackDecay->score($signals);
     }
 
     /**

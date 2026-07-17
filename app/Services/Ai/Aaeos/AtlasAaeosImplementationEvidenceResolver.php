@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasEngineeringCodeSymbol;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Resolves a single doc-declared evidence_ref against the real Code Intelligence
@@ -142,14 +143,14 @@ class AtlasAaeosImplementationEvidenceResolver
     /** Current `memory_limit` in bytes; -1 means unlimited. */
     private function memoryLimitBytes(): int
     {
-        $raw = trim((string) ini_get('memory_limit'));
+        $raw = AiValueNormalizer::trimmedString(ini_get('memory_limit'));
         if ($raw === '' || $raw === '-1') {
             return -1;
         }
 
         $value = (int) $raw;
 
-        return match (strtolower(substr($raw, -1))) {
+        return match (AiValueNormalizer::lowerTrimmedString(substr($raw, -1))) {
             'g' => $value * 1024 * 1024 * 1024,
             'm' => $value * 1024 * 1024,
             'k' => $value * 1024,
@@ -216,7 +217,7 @@ class AtlasAaeosImplementationEvidenceResolver
         foreach ($rows as $row) {
             $type = (string) $row->symbol_type;
             $type = $typePool[$type] ??= $type;
-            $path = trim((string) ($row->file_path ?? ''));
+            $path = AiValueNormalizer::trimmedString($row->file_path ?? '');
             $path = $pathPool[$path] ??= $path;
 
             $name = (string) $row->symbol_name;

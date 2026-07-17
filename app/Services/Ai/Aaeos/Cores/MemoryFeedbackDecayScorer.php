@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class MemoryFeedbackDecayScorer
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.memory_feedback_decay.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.memory_feedback_decay.v1';
 
     private const HARD_STALE_AGE_DAYS = 180;
 
@@ -277,17 +279,7 @@ final class MemoryFeedbackDecayScorer
         }
 
         if (is_int($value) || (is_float($value) && is_finite($value)) || (is_string($value) && is_numeric($value))) {
-            $float = (float) $value;
-
-            if ($float < 0.0) {
-                return 0.0;
-            }
-
-            if ($float > 1.0) {
-                return 1.0;
-            }
-
-            return $float;
+            return AiValueNormalizer::clampUnit((float) $value);
         }
 
         return null;

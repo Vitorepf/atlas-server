@@ -6,6 +6,7 @@ namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasAaeosTestRunReceipt;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -300,14 +301,14 @@ class AtlasAaeosTestExecutionService
      */
     public function plainFilterForTestRef(string $testRef): string
     {
-        $ref = trim($testRef);
+        $ref = AiValueNormalizer::trimmedString($testRef);
         if ($ref === '') {
             return '';
         }
 
         // Class::method -> prefer the method (most specific, cheapest run).
         if (str_contains($ref, '::')) {
-            $method = trim((string) substr($ref, (int) strrpos($ref, '::') + 2));
+            $method = AiValueNormalizer::trimmedString(substr($ref, (int) strrpos($ref, '::') + 2));
             if ($method !== '') {
                 return $method;
             }
@@ -452,7 +453,7 @@ class AtlasAaeosTestExecutionService
      */
     private function absoluteTestPath(?string $relativeOrAbsolute): ?string
     {
-        $path = trim((string) $relativeOrAbsolute);
+        $path = AiValueNormalizer::trimmedString($relativeOrAbsolute);
         if ($path === '') {
             return null;
         }

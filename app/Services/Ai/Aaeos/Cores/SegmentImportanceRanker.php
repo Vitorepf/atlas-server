@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Cores;
 
 use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class SegmentImportanceRanker
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.segment_importance_ranking.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.segment_importance_ranking.v1';
 
     /**
      * Semantic weight per segment kind (composite base term).
@@ -183,7 +184,7 @@ final class SegmentImportanceRanker
             $hasEvidenceRef = $this->boolField($row, 'has_evidence_ref');
             $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
             $dupGroup = $this->nullableStringField($row, 'dup_group');
-            $importance = max(0.0, min(1.0, (float) $this->numericField($row, 'importance') / 100.0));
+            $importance = AiValueNormalizer::clampUnit((float) $this->numericField($row, 'importance') / 100.0);
 
             $kindWeight = $this->kindWeight($kind);
             $dedupPenalty = $this->dedupPenalty($dupGroup, $dupGroupSeen);
