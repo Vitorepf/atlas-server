@@ -47,6 +47,13 @@ final class OutcomeCausalityRanker
     public const OUTCOME_POISON = 'poison';
 
     public const OUTCOME_QUARANTINE = 'quarantine';
+    public const FIELD_WEIGHT = 'weight';
+    public const FIELD_CAUSE = 'cause';
+    public const FIELD_ORDER = 'order';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_OUTCOME = 'outcome';
+    public const FIELD_CAUSES = 'causes';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -129,7 +136,7 @@ final class OutcomeCausalityRanker
      */
     public function rankOutcomeEnvelope(array $envelope): array
     {
-        $outcome = AiValueNormalizer::lowerTrimmedString($envelope['outcome'] ?? '');
+        $outcome = AiValueNormalizer::lowerTrimmedString($envelope[self::FIELD_OUTCOME] ?? '');
         $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope['has_evidence_refs'] ?? null) ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
         $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
@@ -147,17 +154,17 @@ final class OutcomeCausalityRanker
 
         if ($outcome === self::OUTCOME_GIVE_BACK && ! $allowedFilesSufficient) {
             $candidates[] = [
-                'cause' => self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH,
-                'weight' => self::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH,
-                'order' => $order++,
+                self::FIELD_CAUSE => self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH,
+                self::FIELD_WEIGHT => self::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH,
+                self::FIELD_ORDER => $order++,
             ];
         }
 
         if (in_array($outcome, [self::OUTCOME_POISON, self::OUTCOME_QUARANTINE], true) && $packetQualityFailed) {
             $candidates[] = [
-                'cause' => self::CAUSE_PACKET_QUALITY_FAILURE,
-                'weight' => self::WEIGHT_PACKET_QUALITY_FAILURE,
-                'order' => $order++,
+                self::FIELD_CAUSE => self::CAUSE_PACKET_QUALITY_FAILURE,
+                self::FIELD_WEIGHT => self::WEIGHT_PACKET_QUALITY_FAILURE,
+                self::FIELD_ORDER => $order++,
             ];
         }
 
@@ -178,27 +185,27 @@ final class OutcomeCausalityRanker
     private function finalizeRanking(array $candidates, bool $hasEvidenceRefs): array
     {
         usort($candidates, function (array $a, array $b): int {
-            if ($a['weight'] === $b['weight']) {
-                return $a['order'] <=> $b['order'];
+            if ($a[self::FIELD_WEIGHT] === $b[self::FIELD_WEIGHT]) {
+                return $a[self::FIELD_ORDER] <=> $b[self::FIELD_ORDER];
             }
 
-            return $b['weight'] <=> $a['weight'];
+            return $b[self::FIELD_WEIGHT] <=> $a[self::FIELD_WEIGHT];
         });
 
         $ranked = [];
 
         foreach ($candidates as $candidate) {
             $ranked[] = [
-                'cause' => $candidate['cause'],
-                'weight' => $candidate['weight'],
+                self::FIELD_CAUSE => $candidate[self::FIELD_CAUSE],
+                self::FIELD_WEIGHT => $candidate[self::FIELD_WEIGHT],
             ];
         }
 
-        $primaryCause = $ranked[0]['cause'];
+        $primaryCause = $ranked[0][self::FIELD_CAUSE];
         $alternativeExplanations = array_values(array_slice($ranked, 1));
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'candidates' => $ranked,
             'primary_cause' => $primaryCause,
             'alternative_explanations' => $alternativeExplanations,
@@ -221,41 +228,41 @@ final class OutcomeCausalityRanker
 
         if (! $hasEvidenceRefs) {
             $candidates[] = [
-                'cause' => self::CAUSE_MISSING_EVIDENCE,
-                'weight' => self::WEIGHT_MISSING_EVIDENCE,
-                'order' => $order++,
+                self::FIELD_CAUSE => self::CAUSE_MISSING_EVIDENCE,
+                self::FIELD_WEIGHT => self::WEIGHT_MISSING_EVIDENCE,
+                self::FIELD_ORDER => $order++,
             ];
         }
 
         if ($testsPassed === false) {
             $candidates[] = [
-                'cause' => self::CAUSE_TESTS_FAILED,
-                'weight' => self::WEIGHT_TESTS_FAILED,
-                'order' => $order++,
+                self::FIELD_CAUSE => self::CAUSE_TESTS_FAILED,
+                self::FIELD_WEIGHT => self::WEIGHT_TESTS_FAILED,
+                self::FIELD_ORDER => $order++,
             ];
         }
 
         if ($status !== self::STATUS_SUCCEEDED) {
             $candidates[] = [
-                'cause' => self::CAUSE_EXECUTION_FAILED_OR_BLOCKED,
-                'weight' => self::WEIGHT_EXECUTION_FAILED_OR_BLOCKED,
-                'order' => $order++,
+                self::FIELD_CAUSE => self::CAUSE_EXECUTION_FAILED_OR_BLOCKED,
+                self::FIELD_WEIGHT => self::WEIGHT_EXECUTION_FAILED_OR_BLOCKED,
+                self::FIELD_ORDER => $order++,
             ];
         }
 
         if ($missingRequiredSources) {
             $candidates[] = [
-                'cause' => self::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES,
-                'weight' => self::WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES,
-                'order' => $order++,
+                self::FIELD_CAUSE => self::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES,
+                self::FIELD_WEIGHT => self::WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES,
+                self::FIELD_ORDER => $order++,
             ];
         }
 
         if ($candidates === []) {
             $candidates[] = [
-                'cause' => self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
-                'weight' => self::WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
-                'order' => $order,
+                self::FIELD_CAUSE => self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+                self::FIELD_WEIGHT => self::WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+                self::FIELD_ORDER => $order,
             ];
         }
 

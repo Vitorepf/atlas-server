@@ -3857,4 +3857,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['test_immune_truth_floor_count']);
     }
 
+    public function test_model_causality_skill_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->modelCausalitySkillFloorsContractObserve([]);
+
+        $this->assertSame('reason', $payload['model_field_reason']);
+        $this->assertSame('field', $payload['model_field_field']);
+        $this->assertSame('expected', $payload['model_field_expected']);
+        $this->assertSame('actual', $payload['model_field_actual']);
+        $this->assertSame('status', $payload['model_field_status']);
+        $this->assertSame('ok', $payload['model_status_ok']);
+        $this->assertSame('weight', $payload['causality_field_weight']);
+        $this->assertSame('cause', $payload['causality_field_cause']);
+        $this->assertSame('order', $payload['causality_field_order']);
+        $this->assertSame('outcome', $payload['causality_field_outcome']);
+        $this->assertSame('atlas.aaeos.outcome_causality_ranking.v1', $payload['causality_schema_version']);
+        $this->assertSame('case_count', $payload['skill_field_case_count']);
+        $this->assertSame('task_category', $payload['skill_field_task_category']);
+        $this->assertSame('candidate_hash', $payload['skill_field_candidate_hash']);
+        $this->assertSame('admission_door', $payload['skill_field_admission_door']);
+        $this->assertSame('case_count_floor', $payload['skill_field_case_count_floor']);
+        $this->assertSame('ok', $payload['skill_status_ok']);
+        $this->assertSame(17, $payload['model_causality_skill_floor_count']);
+    }
+
 }

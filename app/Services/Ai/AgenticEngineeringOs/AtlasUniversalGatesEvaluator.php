@@ -5469,6 +5469,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function modelCausalitySkillFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'model_field_reason' => AtlasModelCapabilitySpecService::FIELD_REASON,
+            'model_field_field' => AtlasModelCapabilitySpecService::FIELD_FIELD,
+            'model_field_expected' => AtlasModelCapabilitySpecService::FIELD_EXPECTED,
+            'model_field_actual' => AtlasModelCapabilitySpecService::FIELD_ACTUAL,
+            'model_field_status' => AtlasModelCapabilitySpecService::FIELD_STATUS,
+            'model_status_ok' => AtlasModelCapabilitySpecService::STATUS_OK,
+            'causality_field_weight' => OutcomeCausalityRanker::FIELD_WEIGHT,
+            'causality_field_cause' => OutcomeCausalityRanker::FIELD_CAUSE,
+            'causality_field_order' => OutcomeCausalityRanker::FIELD_ORDER,
+            'causality_field_outcome' => OutcomeCausalityRanker::FIELD_OUTCOME,
+            'causality_schema_version' => OutcomeCausalityRanker::SCHEMA_VERSION,
+            'skill_field_case_count' => AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT,
+            'skill_field_task_category' => AcosMaxProceduralSkillPromoterService::FIELD_TASK_CATEGORY,
+            'skill_field_candidate_hash' => AcosMaxProceduralSkillPromoterService::FIELD_CANDIDATE_HASH,
+            'skill_field_admission_door' => AcosMaxProceduralSkillPromoterService::FIELD_ADMISSION_DOOR,
+            'skill_field_case_count_floor' => AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT_FLOOR,
+            'skill_status_ok' => AcosMaxProceduralSkillPromoterService::STATUS_OK,
+            'model_causality_skill_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
