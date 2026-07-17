@@ -176,7 +176,7 @@ final class ImmuneVerdictLedger
             'blocking_gate_ids' => $this->jsonList($row->blocking_gate_ids ?? []),
             'pending_gate_ids' => $this->jsonList($row->pending_gate_ids ?? []),
             'expected_block_gate_ids' => $this->jsonList($row->expected_block_gate_ids ?? []),
-            'sample_label' => is_string($row->sample_label ?? null) ? $row->sample_label : null,
+            'sample_label' => AiValueNormalizer::trimmedStringOrNull($row->sample_label ?? null),
             'metadata' => $this->jsonArray($row->metadata ?? []),
             'decided_at' => (string) $row->decided_at,
         ];

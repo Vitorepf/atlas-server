@@ -134,8 +134,8 @@ final class AtlasAcosRollbackTriggerCheckService
             return false;
         }
 
-        if (isset($requires['any_env']) && is_array($requires['any_env'])) {
-            foreach ($requires['any_env'] as $entry) {
+        if (is_array($requires['any_env'] ?? null)) {
+            foreach (AiValueNormalizer::arrayOrEmpty($requires['any_env']) as $entry) {
                 if (! is_array($entry)) {
                     continue;
                 }

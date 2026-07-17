@@ -1548,4 +1548,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('active', $payload['statuses']);
         $this->assertContains('immune_verdict', $payload['origins']);
     }
+
+    public function test_promotion_protocol_states_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->promotionProtocolStatesObserve([]);
+
+        $this->assertSame('atlas.acos.promotion_protocol.v1', $payload['schema_version']);
+        $this->assertContains('shadow', $payload['states']);
+        $this->assertContains('live', $payload['states']);
+        $this->assertSame(5, $payload['state_count']);
+    }
 }

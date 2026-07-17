@@ -349,9 +349,9 @@ final class ImmuneSignatureStore
             'hostile_class' => (string) $row->hostile_class,
             'hit_count' => (int) $row->hit_count,
             'first_seen' => (string) $row->first_seen,
-            'last_hit_at' => is_string($row->last_hit_at ?? null) ? $row->last_hit_at : null,
+            'last_hit_at' => AiValueNormalizer::trimmedStringOrNull($row->last_hit_at ?? null),
             'status' => (string) $row->status,
-            'reverse_handle' => is_string($row->reverse_handle ?? null) ? $row->reverse_handle : null,
+            'reverse_handle' => AiValueNormalizer::trimmedStringOrNull($row->reverse_handle ?? null),
             'metadata' => $this->jsonArray($row->metadata ?? []),
         ];
     }
@@ -362,8 +362,9 @@ final class ImmuneSignatureStore
         if (is_array($value)) {
             return $value;
         }
-        if (is_string($value) && trim($value) !== '') {
-            $decoded = json_decode($value, true);
+        $raw = AiValueNormalizer::trimmedStringOrNull($value);
+        if ($raw !== null) {
+            $decoded = json_decode($raw, true);
 
             return AiValueNormalizer::arrayOrEmpty($decoded);
         }

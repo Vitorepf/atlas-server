@@ -41,6 +41,7 @@ use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
+use App\Services\Ai\AcosMax\PromotionProtocol;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -2071,6 +2072,23 @@ final class AtlasUniversalGatesEvaluator
                 ImmuneSignatureStore::ORIGIN_VERDICT,
                 ImmuneSignatureStore::ORIGIN_MEMORY_REVERT,
             ],
+        ];
+    }
+
+    /**
+     * Observe-only ACOS promotion-protocol states.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function promotionProtocolStatesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => PromotionProtocol::SCHEMA,
+            'report_schema' => PromotionProtocol::REPORT_SCHEMA,
+            'states' => PromotionProtocol::STATES,
+            'state_count' => count(PromotionProtocol::STATES),
         ];
     }
 

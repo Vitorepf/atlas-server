@@ -145,6 +145,7 @@ final class AtlasAaeosCommand extends Command
         {--rollback-trigger-contract= : JSON file (any object) to observe ACOS rollback-trigger contract}
         {--long-horizon-gate-contract= : JSON file (any object) to observe ACOS long-horizon gate contract}
         {--immune-signature-store-contract= : JSON file (any object) to observe immune signature store contract}
+        {--promotion-protocol-states= : JSON file (any object) to observe ACOS promotion-protocol states}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -446,6 +447,7 @@ final class AtlasAaeosCommand extends Command
             ['rollback-trigger-contract', 'rollback_trigger_contract', fn (array $p) => $gates->rollbackTriggerContractObserve($p)],
             ['long-horizon-gate-contract', 'long_horizon_gate_contract', fn (array $p) => $gates->longHorizonGateContractObserve($p)],
             ['immune-signature-store-contract', 'immune_signature_store_contract', fn (array $p) => $gates->immuneSignatureStoreContractObserve($p)],
+            ['promotion-protocol-states', 'promotion_protocol_states', fn (array $p) => $gates->promotionProtocolStatesObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

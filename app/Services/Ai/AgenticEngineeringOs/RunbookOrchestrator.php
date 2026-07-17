@@ -186,7 +186,7 @@ final class RunbookOrchestrator
             ],
             'requires_replay_before_promotion' => true,
             'review_status' => 'pending_replay',
-            'proposed_by_actor' => (array) ($request['proposed_by_actor'] ?? [
+            'proposed_by_actor' => AiValueNormalizer::arrayOrEmpty($request['proposed_by_actor'] ?? [
                 'kind' => 'agent',
                 'id' => 'aaeos-runbook-orchestrator',
                 'autonomy_level' => 'L13',
