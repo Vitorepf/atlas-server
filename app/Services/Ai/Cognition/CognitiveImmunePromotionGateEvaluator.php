@@ -382,9 +382,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function stringValue(array $signals, string $key): string
     {
-        $value = $signals[$key] ?? '';
-
-        return is_string($value) ? trim($value) : '';
+        return AiValueNormalizer::trimmedStringOrNull($signals[$key] ?? null) ?? '';
     }
 
     /**

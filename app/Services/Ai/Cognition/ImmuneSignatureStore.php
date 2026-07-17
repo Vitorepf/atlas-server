@@ -365,7 +365,7 @@ final class ImmuneSignatureStore
         if (is_string($value) && trim($value) !== '') {
             $decoded = json_decode($value, true);
 
-            return is_array($decoded) ? $decoded : [];
+            return AiValueNormalizer::arrayOrEmpty($decoded);
         }
 
         return [];

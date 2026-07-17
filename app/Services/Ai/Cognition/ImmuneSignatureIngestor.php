@@ -71,10 +71,8 @@ final class ImmuneSignatureIngestor
             ? $entry->content_hash
             : $this->deriver->contentHashFromText((string) ($entry->body ?? $entry->redacted_body ?? ''));
 
-        $metadata = is_array($entry->metadata) ? $entry->metadata : [];
-        $classification = is_array($metadata['immune_classification'] ?? null)
-            ? $metadata['immune_classification']
-            : [];
+        $metadata = AiValueNormalizer::arrayOrEmpty($entry->metadata);
+        $classification = AiValueNormalizer::arrayOrEmpty($metadata['immune_classification'] ?? null);
 
         $memoryType = (string) ($entry->memory_type ?? '');
         $hostileClass = $this->hostileClassFromClassification($classification)

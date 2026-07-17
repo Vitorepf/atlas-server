@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 
 /**
@@ -26,7 +27,7 @@ final class AtlasAcosRollbackTriggerCheckService
         $asOf = ($asOf ?? CarbonImmutable::now())->utc();
         $enabled = (bool) config('atlas.acos.rollback_triggers.enabled', true);
         /** @var list<array<string,mixed>> $flips */
-        $flips = (array) config('atlas.acos.rollback_triggers.flips', []);
+        $flips = AiValueNormalizer::arrayOrEmpty(config('atlas.acos.rollback_triggers.flips', []));
 
         $evaluations = [];
         $alerts = [];
@@ -106,7 +107,7 @@ final class AtlasAcosRollbackTriggerCheckService
     private function evaluateFlip(array $flip, CarbonImmutable $asOf): array
     {
         $id = (string) ($flip['id'] ?? '');
-        $condition = is_array($flip['condition'] ?? null) ? $flip['condition'] : [];
+        $condition = AiValueNormalizer::arrayOrEmpty($flip['condition'] ?? null);
         $armed = $this->flipIsArmed($condition);
 
         return [

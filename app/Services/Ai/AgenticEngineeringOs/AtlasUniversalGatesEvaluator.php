@@ -38,6 +38,7 @@ use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -2010,6 +2011,23 @@ final class AtlasUniversalGatesEvaluator
             'compound_connectors' => AtlasAaeosGateSignalEvaluator::COMPOUND_CONNECTORS,
             'teto10_schema' => Teto10PredictedRevertReviewDigest::SCHEMA_VERSION,
             'teto10_band_rank' => Teto10PredictedRevertReviewDigest::BAND_RANK,
+        ];
+    }
+
+    /**
+     * Observe-only ACOS rollback-trigger contract (ROL-01).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function rollbackTriggerContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
+            'default_executor' => 'watchdog_alert_operator_reverts',
+            'auto_revert' => false,
+            'alert_code' => 'rollback_trigger_fired',
         ];
     }
 

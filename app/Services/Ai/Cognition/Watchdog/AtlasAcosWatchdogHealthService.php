@@ -322,7 +322,7 @@ final class AtlasAcosWatchdogHealthService
             $byWriter[$writer]['total']++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
             $hasDelivered = (int) $event->included_sources > 0 || AiValueNormalizer::trimmedString($event->retrieval_receipt_id) !== '';
-            $payload = is_array($event->payload) ? $event->payload : [];
+            $payload = AiValueNormalizer::arrayOrEmpty($event->payload);
             $isSynthetic = ($payload['synthetic'] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload['source'] ?? ''), 'synthetic');
             $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload['source'] ?? $payload['origin'] ?? ''), 'transcript_inferred');
             $measured += $isMeasured ? 1 : 0;
@@ -604,7 +604,7 @@ final class AtlasAcosWatchdogHealthService
         ];
         $blocking = [];
         foreach ($flips as $flip) {
-            $blocking = array_merge($blocking, (array) $flip['blocking']);
+            $blocking = array_merge($blocking, AiValueNormalizer::arrayOrEmpty($flip['blocking'] ?? null));
         }
 
         return [

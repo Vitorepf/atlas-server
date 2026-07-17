@@ -1518,4 +1518,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(0.4, $payload['weights']['resolved']);
         $this->assertArrayHasKey('high', $payload['teto10_band_rank']);
     }
+
+    public function test_rollback_trigger_contract_observe_reports_rol01(): void
+    {
+        $payload = $this->svc->rollbackTriggerContractObserve([]);
+
+        $this->assertSame('atlas.acos.rollback_triggers.v1', $payload['schema_version']);
+        $this->assertSame('watchdog_alert_operator_reverts', $payload['default_executor']);
+        $this->assertFalse($payload['auto_revert']);
+        $this->assertSame('rollback_trigger_fired', $payload['alert_code']);
+    }
 }

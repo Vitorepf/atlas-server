@@ -364,7 +364,7 @@ class AtlasAcosEvolutionScoreService
                 ->where('created_at', '>=', now()->subDays(7))
                 ->get(['source_utility'])
                 ->contains(function (AiRagFeedbackEvent $event) use ($activeKeys): bool {
-                    $utility = is_array($event->source_utility) ? $event->source_utility : [];
+                    $utility = AiValueNormalizer::arrayOrEmpty($event->source_utility);
                     foreach ($utility as $key => $status) {
                         if (! isset($activeKeys[(string) $key])) {
                             continue;

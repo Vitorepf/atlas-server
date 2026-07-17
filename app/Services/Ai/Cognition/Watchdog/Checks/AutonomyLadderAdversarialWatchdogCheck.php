@@ -13,6 +13,7 @@ use App\Services\Ai\Autonomy\SealedLedgerAutonomyMetricsAuthority;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Policy\PolicyCanon;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 /**
@@ -229,7 +230,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, ['operator' => true]);
         $this->cleanup($path);
 
-        $provenance = is_array($verdict['metrics_authority'] ?? null) ? $verdict['metrics_authority'] : [];
+        $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
         $refused = ($verdict['eligible'] ?? true) === false
             && ($verdict['decision'] ?? '') === 'blocked'
             && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_missing'
@@ -298,7 +299,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             ];
         }
 
-        $provenance = is_array($verdict['metrics_authority'] ?? null) ? $verdict['metrics_authority'] : [];
+        $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
 
         return [
             'id' => 'maxk06.metrics_authority_tampered',
@@ -395,7 +396,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeMinerIsReportOnly(): array
     {
         $report = $this->miner->mine([], []);
-        $source = is_array($report['source'] ?? null) ? $report['source'] : [];
+        $source = AiValueNormalizer::arrayOrEmpty($report['source'] ?? null);
         $refused = ($source['promotes_selection'] ?? true) === false
             && ($source['blocker'] ?? true) === false;
 
