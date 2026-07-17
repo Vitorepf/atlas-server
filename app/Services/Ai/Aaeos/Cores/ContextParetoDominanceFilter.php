@@ -21,9 +21,9 @@ final class ContextParetoDominanceFilter
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.context_pareto_dominance.v1';
 
-    private const DIRECTION_MAXIMIZE = 'maximize';
+    public const DIRECTION_MAXIMIZE = 'maximize';
 
-    private const DIRECTION_MINIMIZE = 'minimize';
+    public const DIRECTION_MINIMIZE = 'minimize';
 
     /**
      * @param  list<array<string,mixed>>  $variants
@@ -247,7 +247,7 @@ final class ContextParetoDominanceFilter
         $normalized = [];
 
         foreach ($objectiveDirection as $key => $dir) {
-            $normalized[(string) $key] = $dir === self::DIRECTION_MINIMIZE
+            $normalized[(string) $key] = AiValueNormalizer::lowerTrimmedString($dir) === self::DIRECTION_MINIMIZE
                 ? self::DIRECTION_MINIMIZE
                 : self::DIRECTION_MAXIMIZE;
         }

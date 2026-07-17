@@ -16,11 +16,11 @@ final class SummaryFidelityCoverageScorer
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.summary_fidelity_coverage.v1';
 
-    private const DECISION_KIND = 'decision';
+    public const DECISION_KIND = 'decision';
 
-    private const SCORE_PRECISION = 4;
+    public const SCORE_PRECISION = 4;
 
-    private const RETENTION_FAIL_FLOOR = 0.6;
+    public const RETENTION_FAIL_FLOOR = 0.6;
 
     /**
      * @param  list<array{id?: mixed, kind?: mixed, digest?: mixed}>  $requiredItems

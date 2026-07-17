@@ -16,13 +16,13 @@ final class MemoryInjectionBudgetAllocator
      * The effective floor is min(perItemCapChars, this) so it can never exceed
      * the per-item cap.
      */
-    private const DEFAULT_INTERNAL_FLOOR_CHARS = 80;
+    public const DEFAULT_INTERNAL_FLOOR_CHARS = 80;
 
-    private const REASON_BUDGET_EXHAUSTED = 'budget_exhausted';
+    public const REASON_BUDGET_EXHAUSTED = 'budget_exhausted';
 
-    private const REASON_BELOW_MIN_EXCERPT = 'below_min_excerpt';
+    public const REASON_BELOW_MIN_EXCERPT = 'below_min_excerpt';
 
-    private const REASON_ZERO_ESTIMATED_CHARS = 'zero_estimated_chars';
+    public const REASON_ZERO_ESTIMATED_CHARS = 'zero_estimated_chars';
 
     /**
      * Pure char-budget packer. Sorts a copy of the ranked items by

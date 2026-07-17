@@ -32,6 +32,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
+use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
@@ -2274,8 +2275,9 @@ final class AtlasUniversalGatesEvaluator
         return [
             'summary_fidelity_schema' => SummaryFidelityCoverageScorer::SCHEMA_VERSION,
             'segment_importance_schema' => SegmentImportanceRanker::SCHEMA_VERSION,
-            'summary_retention_fail_floor' => 0.6,
-            'summary_score_precision' => 4,
+            'summary_retention_fail_floor' => SummaryFidelityCoverageScorer::RETENTION_FAIL_FLOOR,
+            'summary_score_precision' => SummaryFidelityCoverageScorer::SCORE_PRECISION,
+            'summary_decision_kind' => SummaryFidelityCoverageScorer::DECISION_KIND,
         ];
     }
 
@@ -2292,7 +2294,16 @@ final class AtlasUniversalGatesEvaluator
             'memory_injection_schema' => MemoryInjectionBudgetAllocator::SCHEMA_VERSION,
             'context_pareto_schema' => ContextParetoDominanceFilter::SCHEMA_VERSION,
             'delivery_pack_schema' => DeliveryPackCompletenessScorer::SCHEMA,
-            'memory_injection_default_floor_chars' => 80,
+            'memory_injection_default_floor_chars' => MemoryInjectionBudgetAllocator::DEFAULT_INTERNAL_FLOOR_CHARS,
+            'memory_injection_drop_reasons' => [
+                MemoryInjectionBudgetAllocator::REASON_BUDGET_EXHAUSTED,
+                MemoryInjectionBudgetAllocator::REASON_BELOW_MIN_EXCERPT,
+                MemoryInjectionBudgetAllocator::REASON_ZERO_ESTIMATED_CHARS,
+            ],
+            'pareto_directions' => [
+                ContextParetoDominanceFilter::DIRECTION_MAXIMIZE,
+                ContextParetoDominanceFilter::DIRECTION_MINIMIZE,
+            ],
         ];
     }
 
@@ -2657,6 +2668,31 @@ final class AtlasUniversalGatesEvaluator
                 SegmentImportanceRanker::DROP_REASON_BUDGET_EXCEEDED,
                 SegmentImportanceRanker::DROP_REASON_OVERSIZED_SEGMENT,
             ],
+        ];
+    }
+
+    /**
+     * Observe-only cognitive-immune promotion gates G0..G8 contract.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cognitiveImmunePromotionGateContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => CognitiveImmunePromotionGateEvaluator::SCHEMA_VERSION,
+            'gate_ids' => CognitiveImmunePromotionGateEvaluator::GATE_IDS,
+            'gate_count' => count(CognitiveImmunePromotionGateEvaluator::GATE_IDS),
+            'statuses' => [
+                CognitiveImmunePromotionGateEvaluator::STATUS_PASS,
+                CognitiveImmunePromotionGateEvaluator::STATUS_BLOCK,
+                CognitiveImmunePromotionGateEvaluator::STATUS_PENDING,
+            ],
+            'known_scopes' => CognitiveImmunePromotionGateEvaluator::KNOWN_SCOPES,
+            'allowed_promotion_modes' => CognitiveImmunePromotionGateEvaluator::ALLOWED_PROMOTION_MODES,
+            'blocked_promotion_modes' => CognitiveImmunePromotionGateEvaluator::BLOCKED_PROMOTION_MODES,
+            'probation_min_recall_actors' => CognitiveImmunePromotionGateEvaluator::PROBATION_MIN_RECALL_ACTORS,
         ];
     }
 

@@ -24,28 +24,28 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class CognitiveImmunePromotionGateEvaluator
 {
-    private const SCHEMA_VERSION = 'atlas.cognition.cognitive_immune_promotion_gate.v1';
+    public const SCHEMA_VERSION = 'atlas.cognition.cognitive_immune_promotion_gate.v1';
 
     /** Canonical gate ids, ordered G0..G8. */
-    private const GATE_IDS = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'];
+    public const GATE_IDS = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'];
 
-    private const STATUS_PASS = 'pass';
+    public const STATUS_PASS = 'pass';
 
-    private const STATUS_BLOCK = 'block';
+    public const STATUS_BLOCK = 'block';
 
-    private const STATUS_PENDING = 'pending';
+    public const STATUS_PENDING = 'pending';
 
     /** Recognised promotion scopes (G6). */
-    private const KNOWN_SCOPES = ['global', 'workspace', 'project', 'task', 'domain', 'session'];
+    public const KNOWN_SCOPES = ['global', 'workspace', 'project', 'task', 'domain', 'session'];
 
     /** Recognised non-blocking promotion modes (G7). */
-    private const ALLOWED_PROMOTION_MODES = ['auto', 'review', 'human_review', 'proposal'];
+    public const ALLOWED_PROMOTION_MODES = ['auto', 'review', 'human_review', 'proposal'];
 
     /** Promotion modes that explicitly forbid promotion (G7). */
-    private const BLOCKED_PROMOTION_MODES = ['block', 'blocked'];
+    public const BLOCKED_PROMOTION_MODES = ['block', 'blocked'];
 
     /** ASI-12 guard: a single loud actor cannot graduate probation alone. */
-    private const PROBATION_MIN_RECALL_ACTORS = 2;
+    public const PROBATION_MIN_RECALL_ACTORS = 2;
 
     /**
      * @param  array<string,mixed>  $signals

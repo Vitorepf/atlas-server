@@ -1658,6 +1658,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.summary_fidelity_coverage.v1', $payload['summary_fidelity_schema']);
         $this->assertSame('atlas.aaeos.segment_importance_ranking.v1', $payload['segment_importance_schema']);
         $this->assertSame(0.6, $payload['summary_retention_fail_floor']);
+        $this->assertSame(4, $payload['summary_score_precision']);
+        $this->assertSame('decision', $payload['summary_decision_kind']);
     }
 
     public function test_context_budget_schemas_observe_reports_schemas(): void
@@ -1899,5 +1901,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(0.30, $payload['decision_or_blocker_link_bonus']);
         $this->assertContains('budget_exceeded', $payload['drop_reasons']);
         $this->assertContains('oversized_segment', $payload['drop_reasons']);
+    }
+
+    public function test_cognitive_immune_promotion_gate_contract_observe_reports_gates(): void
+    {
+        $payload = $this->svc->cognitiveImmunePromotionGateContractObserve([]);
+
+        $this->assertSame('atlas.cognition.cognitive_immune_promotion_gate.v1', $payload['schema_version']);
+        $this->assertContains('G0', $payload['gate_ids']);
+        $this->assertContains('G8', $payload['gate_ids']);
+        $this->assertSame(9, $payload['gate_count']);
+        $this->assertContains('pass', $payload['statuses']);
+        $this->assertContains('workspace', $payload['known_scopes']);
+        $this->assertContains('auto', $payload['allowed_promotion_modes']);
+        $this->assertContains('blocked', $payload['blocked_promotion_modes']);
+        $this->assertSame(2, $payload['probation_min_recall_actors']);
     }
 }
