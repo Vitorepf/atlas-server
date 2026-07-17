@@ -42,6 +42,9 @@ use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
+use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1132,6 +1135,35 @@ final class AtlasUniversalGatesEvaluator
     public function aaeosQualityBarObserve(array $input = []): array
     {
         return (new AtlasAaeosQualityBarService)->qualityBar();
+    }
+
+    /**
+     * Observe-only AAEOS department maturity matrix snapshot.
+     * Accepts any JSON object (ignored). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function aaeosDepartmentMaturityObserve(array $input = []): array
+    {
+        return (new AtlasAaeosDepartmentMaturityService)->maturity();
+    }
+
+    /**
+     * Observe-only cross-department veto propagation watchdog replay.
+     * Accepts `{events:[...]}` or a bare events list. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function vetoPropagationWatchdogObserve(array $input = []): array
+    {
+        $events = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
+
+        /** @var list<array{department:string, lift?:bool}> $events */
+        return (new AtlasVetoPropagationWatchdog(new AtlasCrossDepartmentChoreographyService))->watch($events);
     }
 
     /**

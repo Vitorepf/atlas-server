@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Stateful veto-propagation watchdog named by the AAEOS Cross-Department
  * Choreography doc. Tracks which departments are currently paused as vetos are
@@ -30,22 +32,25 @@ class AtlasVetoPropagationWatchdog
         $finalOverride = false;
 
         foreach ($events as $event) {
-            $dept = (string) ($event['department'] ?? '');
+            if (! is_array($event)) {
+                continue;
+            }
+            $dept = AiValueNormalizer::trimmedString($event['department'] ?? '');
             $veto = $this->choreography->evaluateVeto($dept);
             if (($veto['recognized'] ?? false) !== true) {
                 continue;
             }
 
             if (($event['lift'] ?? false) === true) {
-                foreach ((array) ($veto['paused_departments'] ?? []) as $p) {
-                    unset($paused[$p]);
+                foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
+                    unset($paused[AiValueNormalizer::trimmedString($p)]);
                 }
             } else {
                 if (($veto['final_override'] ?? false) === true) {
                     $finalOverride = true;
                 }
-                foreach ((array) ($veto['paused_departments'] ?? []) as $p) {
-                    $paused[$p] = true;
+                foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
+                    $paused[AiValueNormalizer::trimmedString($p)] = true;
                 }
             }
             $receipts[] = $veto;

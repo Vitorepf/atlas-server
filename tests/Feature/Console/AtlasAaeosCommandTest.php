@@ -1240,6 +1240,48 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_aaeos_department_maturity(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-adm-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-adm',
+                '--aaeos-department-maturity' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"aaeos_department_maturity"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_veto_propagation_watchdog(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-vpw-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'events' => [
+                ['department' => 'security'],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-vpw',
+                '--veto-propagation-watchdog' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"veto_propagation_watchdog"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

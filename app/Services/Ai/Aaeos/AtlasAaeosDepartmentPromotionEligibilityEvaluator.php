@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.department_promotion_eligibility.v1';
@@ -297,12 +299,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
     private function stringValue(mixed $value): string
     {
-        if (is_string($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
+        if (is_string($value) || is_int($value) || is_float($value)) {
+            return AiValueNormalizer::trimmedString($value);
         }
 
         return '';

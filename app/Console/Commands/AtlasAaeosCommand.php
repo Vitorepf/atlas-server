@@ -95,6 +95,8 @@ final class AtlasAaeosCommand extends Command
         {--procedural-skill-promoter= : JSON file with optional floor/enqueue (observe-only MULTJ-04)}
         {--aaeos-phase-router= : JSON file with optional phase override (observe-only HTTP path phase)}
         {--aaeos-quality-bar= : JSON file (any object) to observe AAEOS department quality bar}
+        {--aaeos-department-maturity= : JSON file (any object) to observe AAEOS department maturity}
+        {--veto-propagation-watchdog= : JSON file with veto events (observe-only choreography)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -346,6 +348,8 @@ final class AtlasAaeosCommand extends Command
             ['procedural-skill-promoter', 'procedural_skill_promoter', fn (array $p) => $gates->proceduralSkillPromoterObserve($p)],
             ['aaeos-phase-router', 'aaeos_phase_router', fn (array $p) => $gates->aaeosPhaseRouterObserve($p)],
             ['aaeos-quality-bar', 'aaeos_quality_bar', fn (array $p) => $gates->aaeosQualityBarObserve($p)],
+            ['aaeos-department-maturity', 'aaeos_department_maturity', fn (array $p) => $gates->aaeosDepartmentMaturityObserve($p)],
+            ['veto-propagation-watchdog', 'veto_propagation_watchdog', fn (array $p) => $gates->vetoPropagationWatchdogObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

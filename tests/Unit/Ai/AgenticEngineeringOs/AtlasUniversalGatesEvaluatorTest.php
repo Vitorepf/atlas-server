@@ -950,4 +950,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertArrayHasKey('breach_count', $payload['signal']);
         $this->assertGreaterThan(0, $payload['signal']['breach_count']);
     }
+
+    public function test_aaeos_department_maturity_observe_reports_matrix(): void
+    {
+        $payload = $this->svc->aaeosDepartmentMaturityObserve([]);
+
+        $this->assertSame('atlas.aaeos.department_maturity.v1', $payload['schema_version']);
+        $this->assertNotEmpty($payload['departments']);
+        $this->assertSame('product', $payload['departments'][0]['department']);
+    }
+
+    public function test_veto_propagation_watchdog_observe_replays_events(): void
+    {
+        $payload = $this->svc->vetoPropagationWatchdogObserve([
+            'events' => [
+                ['department' => 'security'],
+            ],
+        ]);
+
+        $this->assertArrayHasKey('paused_departments', $payload);
+        $this->assertArrayHasKey('veto_receipts', $payload);
+        $this->assertArrayHasKey('pause_sla_seconds', $payload);
+    }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosDepartmentMaturityService
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.department_maturity.v1';
@@ -117,17 +119,17 @@ final class AtlasAaeosDepartmentMaturityService
     {
         return array_map(
             fn (array $department): array => [
-                'department' => $department['department_id'],
+                'department' => AiValueNormalizer::trimmedString($department['department_id']),
                 'maturity_tier' => $this->parseLevel($department['current_level']),
                 'signals' => $this->buildSignals($department),
                 'schema' => self::SCHEMA_VERSION,
                 'evidence' => $department['evidence'],
                 'blockers_to_next' => [
                     [
-                        'id' => $department['blocker_id'],
-                        'severity' => $department['blocker_severity'],
+                        'id' => AiValueNormalizer::trimmedString($department['blocker_id']),
+                        'severity' => AiValueNormalizer::lowerTrimmedString($department['blocker_severity']),
                         'owner' => self::OWNER,
-                        'summary' => $department['blocker_summary'],
+                        'summary' => AiValueNormalizer::trimmedString($department['blocker_summary']),
                     ],
                 ],
                 'last_evaluation' => self::LAST_EVALUATION,
@@ -140,17 +142,17 @@ final class AtlasAaeosDepartmentMaturityService
 
     private function parseLevel(string $level): int
     {
-        return (int) preg_replace('/[^0-9]/', '', $level);
+        return (int) preg_replace('/[^0-9]/', '', AiValueNormalizer::trimmedString($level));
     }
 
     private function buildSignals(array $department): array
     {
         return [
-            'current_level' => $department['current_level'],
-            'evidence' => $department['evidence'],
-            'primary_blocker' => $department['blocker_id'],
-            'blocker_summary' => $department['blocker_summary'],
-            'blocker_severity' => $department['blocker_severity'],
+            'current_level' => AiValueNormalizer::trimmedString($department['current_level'] ?? ''),
+            'evidence' => AiValueNormalizer::arrayOrEmpty($department['evidence'] ?? null),
+            'primary_blocker' => AiValueNormalizer::trimmedString($department['blocker_id'] ?? ''),
+            'blocker_summary' => AiValueNormalizer::trimmedString($department['blocker_summary'] ?? ''),
+            'blocker_severity' => AiValueNormalizer::lowerTrimmedString($department['blocker_severity'] ?? ''),
         ];
     }
 }
