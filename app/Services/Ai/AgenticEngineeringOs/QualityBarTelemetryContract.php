@@ -83,10 +83,10 @@ final class QualityBarTelemetryContract
         $breaches = AiValueNormalizer::arrayOrEmpty($input['threshold_breaches'] ?? null);
 
         return new self(
-            departmentId: AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
+            departmentId: AiValueNormalizer::trimmedStringOrNull($input['department_id'] ?? null) ?? '',
             breachCount: max(0, (int) ($input['breach_count'] ?? 0)),
             evaluatedWindowDays: max(1, (int) ($input['evaluated_window_days'] ?? self::EVALUATED_WINDOW_DAYS)),
-            evidenceHash: AiValueNormalizer::trimmedString($input['evidence_hash'] ?? ''),
+            evidenceHash: AiValueNormalizer::trimmedStringOrNull($input['evidence_hash'] ?? null) ?? '',
             thresholdBreaches: array_values($breaches),
         );
     }

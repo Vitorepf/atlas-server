@@ -2448,6 +2448,27 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only M5 quality-bar telemetry contract floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function qualityBarTelemetryContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => QualityBarTelemetryContract::SCHEMA,
+            'quality_bar_schema' => QualityBarTelemetryContract::QUALITY_BAR_SCHEMA,
+            'immune_gate_id' => QualityBarTelemetryContract::IMMUNE_GATE_ID,
+            'breach_signal' => QualityBarTelemetryContract::BREACH_SIGNAL,
+            'evaluated_window_days' => QualityBarTelemetryContract::EVALUATED_WINDOW_DAYS,
+            'auto_block_on_breach' => QualityBarTelemetryContract::AUTO_BLOCK_ON_BREACH,
+            'evidence_required' => QualityBarTelemetryContract::EVIDENCE_REQUIRED,
+            'telemetry_fields' => QualityBarTelemetryContract::TELEMETRY_FIELDS,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -83,8 +83,8 @@ final class ArchitectAgentSpecPackGateContract
     public static function fromArray(array $input): self
     {
         return new self(
-            riskScope: AiValueNormalizer::trimmedString($input['risk_scope'] ?? self::MIN_AUTONOMOUS_RISK_SCOPE),
-            specPackHash: AiValueNormalizer::trimmedString($input['spec_pack_hash'] ?? ''),
+            riskScope: AiValueNormalizer::trimmedStringOrNull($input['risk_scope'] ?? null) ?? self::MIN_AUTONOMOUS_RISK_SCOPE,
+            specPackHash: AiValueNormalizer::trimmedStringOrNull($input['spec_pack_hash'] ?? null) ?? '',
             acceptanceCriteriaPresent: (bool) ($input['acceptance_criteria_present'] ?? false),
             rollbackPlanPresent: (bool) ($input['rollback_plan_present'] ?? false),
             breakingChangeMatrixPresent: (bool) ($input['breaking_change_matrix_present'] ?? false),

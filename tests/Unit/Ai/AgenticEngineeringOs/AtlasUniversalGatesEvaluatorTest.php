@@ -1770,4 +1770,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(4, $payload['unconditional_field_count']);
         $this->assertStringContainsString('implementation-reality.md', $payload['evaluated_against']);
     }
+
+    public function test_quality_bar_telemetry_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->qualityBarTelemetryContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.quality_bar_telemetry.v1', $payload['schema_version']);
+        $this->assertSame('atlas.aaeos.quality_bar.v1', $payload['quality_bar_schema']);
+        $this->assertSame('quality_bar_auto_block', $payload['immune_gate_id']);
+        $this->assertSame('dept_quality_bar_breach_count', $payload['breach_signal']);
+        $this->assertSame(30, $payload['evaluated_window_days']);
+        $this->assertTrue($payload['auto_block_on_breach']);
+        $this->assertContains('breach_metrics', $payload['evidence_required']);
+        $this->assertContains('department_id', $payload['telemetry_fields']);
+    }
 }

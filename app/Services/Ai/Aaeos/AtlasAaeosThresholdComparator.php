@@ -33,6 +33,6 @@ final class AtlasAaeosThresholdComparator
 
     private static function normalizeComparator(string $comparator): string
     {
-        return AiValueNormalizer::trimmedString($comparator);
+        return AiValueNormalizer::trimmedStringOrNull($comparator) ?? '';
     }
 }
