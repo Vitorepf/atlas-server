@@ -35,6 +35,7 @@ use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
+use App\Services\Ai\Cognition\AtlasImmuneSignatureFreeze;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 use App\Services\Ai\Cognition\AtlasCognitiveMemoryFabricSchemaEvolutionService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
@@ -3400,6 +3401,31 @@ final class AtlasUniversalGatesEvaluator
             'memory_fabric_trigger_frontmatter_drift' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_FRONTMATTER_DRIFT,
             'memory_fabric_trigger_extension_pressure' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_EXTENSION_PRESSURE,
             'memory_fabric_trigger_count' => count(AtlasCognitiveMemoryFabricSchemaEvolutionService::VALID_TRIGGERS),
+        ];
+    }
+
+    /**
+     * Observe-only gate-signal saturation + evolution/skill/immune-freeze floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gateEvolutionSkillFreezeContractObserve(array $input = []): array
+    {
+        return [
+            'gate_signal_schema' => AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION,
+            'ambiguity_saturation' => AtlasAaeosGateSignalEvaluator::AMBIGUITY_SATURATION,
+            'missing_saturation' => AtlasAaeosGateSignalEvaluator::MISSING_SATURATION,
+            'evolution_score_schema' => AtlasAcosEvolutionScoreService::SCHEMA_VERSION,
+            'tier_chain_class' => AtlasAcosEvolutionScoreService::TIER_CHAIN_CLASS,
+            'reversal_command_class' => AtlasAcosEvolutionScoreService::REVERSAL_COMMAND_CLASS,
+            'procedural_skill_schema' => AcosMaxProceduralSkillPromoterService::SCHEMA_VERSION,
+            'procedural_skill_skill_schema' => AcosMaxProceduralSkillPromoterService::SKILL_SCHEMA_VERSION,
+            'immune_signature_freeze_measure_id' => AtlasImmuneSignatureFreeze::MEASURE_ID,
+            'immune_signature_freeze_ttl_days' => AtlasImmuneSignatureFreeze::TTL_DAYS,
+            'immune_signature_store_schema' => ImmuneSignatureStore::SCHEMA_VERSION,
+            'immune_signature_deriver_schema' => ImmuneSignatureDeriver::SCHEMA_VERSION,
         ];
     }
 

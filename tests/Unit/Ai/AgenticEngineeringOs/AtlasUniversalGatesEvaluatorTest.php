@@ -2361,4 +2361,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('extension_pressure', $payload['memory_fabric_trigger_extension_pressure']);
         $this->assertSame(3, $payload['memory_fabric_trigger_count']);
     }
+
+    public function test_gate_evolution_skill_freeze_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->gateEvolutionSkillFreezeContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['gate_signal_schema']);
+        $this->assertSame(2, $payload['ambiguity_saturation']);
+        $this->assertSame(1, $payload['missing_saturation']);
+        $this->assertSame('atlas.cognition.evolution_score.v1', $payload['evolution_score_schema']);
+        $this->assertStringContainsString('AtlasLoopTierPromotionChainService', $payload['tier_chain_class']);
+        $this->assertStringContainsString('AtlasBrainReplayCommand', $payload['reversal_command_class']);
+        $this->assertSame('atlas.ai.procedural_skill_promoter.v1', $payload['procedural_skill_schema']);
+        $this->assertSame('skill.v1', $payload['procedural_skill_skill_schema']);
+        $this->assertSame('atlas.immune.signature_store.v1', $payload['immune_signature_freeze_measure_id']);
+        $this->assertSame(90, $payload['immune_signature_freeze_ttl_days']);
+        $this->assertSame('atlas.cognition.immune_signature_store.v1', $payload['immune_signature_store_schema']);
+        $this->assertSame('atlas.cognition.immune_signature_family.v1', $payload['immune_signature_deriver_schema']);
+    }
 }

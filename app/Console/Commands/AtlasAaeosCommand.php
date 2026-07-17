@@ -196,6 +196,7 @@ final class AtlasAaeosCommand extends Command
         {--http-path-facade-contract= : JSON file (any object) to observe HTTP path facade + phase-router + department-id floors}
         {--phase-doc-promotion-ids-contract= : JSON file (any object) to observe phase/doc-maturity/promotion individual id floors}
         {--outcome-immune-scorecard-ids-contract= : JSON file (any object) to observe outcome/immune/scorecard/delivery/blocker/fabric id floors}
+        {--gate-evolution-skill-freeze-contract= : JSON file (any object) to observe gate-signal/evolution/skill/immune-freeze floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -548,6 +549,7 @@ final class AtlasAaeosCommand extends Command
             ['http-path-facade-contract', 'http_path_facade_contract', fn (array $p) => $gates->httpPathFacadeContractObserve($p)],
             ['phase-doc-promotion-ids-contract', 'phase_doc_promotion_ids_contract', fn (array $p) => $gates->phaseDocPromotionIdsContractObserve($p)],
             ['outcome-immune-scorecard-ids-contract', 'outcome_immune_scorecard_ids_contract', fn (array $p) => $gates->outcomeImmuneScorecardIdsContractObserve($p)],
+            ['gate-evolution-skill-freeze-contract', 'gate_evolution_skill_freeze_contract', fn (array $p) => $gates->gateEvolutionSkillFreezeContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
