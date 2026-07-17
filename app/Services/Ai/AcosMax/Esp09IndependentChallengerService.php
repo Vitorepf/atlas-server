@@ -202,10 +202,8 @@ final class Esp09IndependentChallengerService
 
     private static function floatOrNull(mixed $value): ?float
     {
-        if (! is_numeric($value)) {
-            return null;
-        }
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
 
-        return AiValueNormalizer::clampUnit((float) $value);
+        return $float === null ? null : AiValueNormalizer::clampUnit($float);
     }
 }

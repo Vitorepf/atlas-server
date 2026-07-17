@@ -52,6 +52,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
 use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
@@ -1324,6 +1325,25 @@ final class AtlasUniversalGatesEvaluator
             AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
             AiValueNormalizer::arrayOrEmpty($input['measured_metrics'] ?? $input['metrics_snapshot'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
+        );
+    }
+
+    /**
+     * Observe-only Implementation Truth evaluate (pure, no I/O).
+     * Accepts `{claimed_state, resolutions, green_test_run?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function implementationTruthEvaluateObserve(array $input = []): array
+    {
+        $green = $input['green_test_run'] ?? null;
+        $greenTestRun = is_bool($green) ? $green : null;
+
+        return app(AtlasAaeosImplementationTruthService::class)->evaluate(
+            AiValueNormalizer::trimmedString($input['claimed_state'] ?? 'spec'),
+            AiValueNormalizer::arrayOrEmpty($input['resolutions'] ?? null),
+            $greenTestRun,
         );
     }
 

@@ -58,8 +58,8 @@ final class PreReviewAdvisoryBand
         $targetClass = self::normalizeClass($features['target_class'] ?? null);
         $riskBand = self::normalizeRiskBand($features['risk_band'] ?? null);
         $confidenceBand = self::normalizeConfBand($features['confidence_band'] ?? null);
-        $rawRate = $features['similar_revert_rate'] ?? null;
-        $rate = is_numeric($rawRate) ? AiValueNormalizer::clampUnit((float) $rawRate) : null;
+        $rate = AiValueNormalizer::finiteFloatOrNull($features['similar_revert_rate'] ?? null);
+        $rate = $rate === null ? null : AiValueNormalizer::clampUnit($rate);
         $nSimilar = max(0, (int) ($features['n_similar'] ?? 0));
 
         $result = [

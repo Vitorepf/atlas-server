@@ -132,7 +132,8 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $val = $raw[$class] ?? null;
-            $out[$class] = is_numeric($val) ? AiValueNormalizer::clampUnit((float) $val) : $fallback[$class];
+            $float = AiValueNormalizer::finiteFloatOrNull($val);
+            $out[$class] = $float === null ? $fallback[$class] : AiValueNormalizer::clampUnit($float);
         }
         // If everything zeroed to 0, use fallback wholesale to avoid degeneracy.
         if (array_sum($out) <= 0.0) {
@@ -163,8 +164,10 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $band = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
-            $min = is_numeric($band['min'] ?? null) ? AiValueNormalizer::clampUnit((float) $band['min']) : 0.0;
-            $max = is_numeric($band['max'] ?? null) ? max($min, AiValueNormalizer::clampUnit((float) $band['max'])) : 1.0;
+            $minRaw = AiValueNormalizer::finiteFloatOrNull($band['min'] ?? null);
+            $maxRaw = AiValueNormalizer::finiteFloatOrNull($band['max'] ?? null);
+            $min = $minRaw === null ? 0.0 : AiValueNormalizer::clampUnit($minRaw);
+            $max = $maxRaw === null ? 1.0 : max($min, AiValueNormalizer::clampUnit($maxRaw));
             $out[$class] = ['min' => $min, 'max' => $max];
         }
 
@@ -181,7 +184,7 @@ final class PortfolioBudgetAllocator
         foreach (self::CLASSES as $class) {
             $entry = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
             $n = max(0, (int) ($entry['n'] ?? 0));
-            $y = is_numeric($entry['mean_proven_yield'] ?? null) ? (float) $entry['mean_proven_yield'] : 0.0;
+            $y = AiValueNormalizer::finiteFloatOrNull($entry['mean_proven_yield'] ?? null) ?? 0.0;
             $out[$class] = ['n' => $n, 'mean_proven_yield' => $y];
         }
 

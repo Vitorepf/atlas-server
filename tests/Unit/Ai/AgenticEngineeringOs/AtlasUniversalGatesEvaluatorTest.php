@@ -1116,4 +1116,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('forge', $payload['department_id']);
         $this->assertSame('L1', $payload['achieved_level']);
     }
+
+    public function test_implementation_truth_evaluate_observe_reports_partial(): void
+    {
+        $payload = $this->svc->implementationTruthEvaluateObserve([
+            'claimed_state' => 'verified',
+            'resolutions' => [
+                ['kind' => 'symbol', 'ref' => 'Foo', 'resolved' => true, 'matched' => 'Foo'],
+                ['kind' => 'route', 'ref' => '/x', 'resolved' => true, 'matched' => '/x'],
+            ],
+            'green_test_run' => false,
+        ]);
+
+        $this->assertSame('partial', $payload['computed_state']);
+        $this->assertArrayHasKey('test_resolution', $payload);
+    }
 }

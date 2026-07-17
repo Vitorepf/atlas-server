@@ -222,13 +222,15 @@ final class ContextParetoDominanceFilter
         }
 
         if (array_key_exists('min', $rule)) {
-            if (! is_numeric($value) || (float) $value < (float) $rule['min']) {
+            $numeric = AiValueNormalizer::finiteFloatOrNull($value);
+            if ($numeric === null || $numeric < (float) $rule['min']) {
                 return false;
             }
         }
 
         if (array_key_exists('max', $rule)) {
-            if (! is_numeric($value) || (float) $value > (float) $rule['max']) {
+            $numeric = AiValueNormalizer::finiteFloatOrNull($value);
+            if ($numeric === null || $numeric > (float) $rule['max']) {
                 return false;
             }
         }

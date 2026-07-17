@@ -186,8 +186,6 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function floatField(array $row, string $key, float $default): float
     {
-        $value = $row[$key] ?? $default;
-
-        return is_numeric($value) ? (float) $value : $default;
+        return AiValueNormalizer::finiteFloatOrNull($row[$key] ?? null) ?? $default;
     }
 }

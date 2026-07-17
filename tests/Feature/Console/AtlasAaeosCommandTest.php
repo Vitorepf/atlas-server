@@ -1504,6 +1504,32 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_implementation_truth_evaluate(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-ite-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'claimed_state' => 'verified',
+            'resolutions' => [
+                ['kind' => 'symbol', 'ref' => 'Foo', 'resolved' => true, 'matched' => 'Foo'],
+                ['kind' => 'route', 'ref' => '/x', 'resolved' => true, 'matched' => '/x'],
+            ],
+            'green_test_run' => false,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-ite',
+                '--implementation-truth-evaluate' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"implementation_truth_evaluate"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
