@@ -5733,6 +5733,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function immuneRagxScorecardFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_field_origin_kind' => ImmuneSignatureStore::FIELD_ORIGIN_KIND,
+            'immune_field_reverse_handle' => ImmuneSignatureStore::FIELD_REVERSE_HANDLE,
+            'immune_field_measure_id' => ImmuneSignatureStore::FIELD_MEASURE_ID,
+            'immune_field_active_cells' => ImmuneSignatureStore::FIELD_ACTIVE_CELLS,
+            'immune_field_metadata' => ImmuneSignatureStore::FIELD_METADATA,
+            'immune_field_status' => ImmuneSignatureStore::FIELD_STATUS,
+            'ragx_field_blocked_by' => RagxChainMechanismService::FIELD_BLOCKED_BY,
+            'ragx_field_communities' => RagxChainMechanismService::FIELD_COMMUNITIES,
+            'ragx_field_nodes' => RagxChainMechanismService::FIELD_NODES,
+            'ragx_field_mode' => RagxChainMechanismService::FIELD_MODE,
+            'ragx_field_score' => RagxChainMechanismService::FIELD_SCORE,
+            'ragx_field_status' => RagxChainMechanismService::FIELD_STATUS,
+            'scorecard_field_schema_version' => AtlasCognitionScoreCardService::FIELD_SCHEMA_VERSION,
+            'scorecard_field_score' => AtlasCognitionScoreCardService::FIELD_SCORE,
+            'scorecard_field_modules' => AtlasCognitionScoreCardService::FIELD_MODULES,
+            'scorecard_field_scorecard_hash' => AtlasCognitionScoreCardService::FIELD_SCORECARD_HASH,
+            'scorecard_field_overall' => AtlasCognitionScoreCardService::FIELD_OVERALL,
+            'immune_ragx_scorecard_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

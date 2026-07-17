@@ -133,6 +133,15 @@ class AtlasCognitionScoreCardService
     public const FIELD_CODE_STATUS = 'code_status';
     public const FIELD_STATUS = 'status';
     public const FIELD_OVERALL = 'overall';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_SUBSYSTEM_COUNT = 'subsystem_count';
+    public const FIELD_SCORED_SUBSYSTEM_COUNT = 'scored_subsystem_count';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_SCORECARD_HASH = 'scorecard_hash';
+    public const FIELD_MODULE_COUNT = 'module_count';
+    public const FIELD_MODULES = 'modules';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -318,21 +327,21 @@ class AtlasCognitionScoreCardService
 
         $score = $this->aggregateScore($rows);
         $envelope = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => gmdate('c'),
-            'subsystem_count' => count($rows),
-            'scored_subsystem_count' => count(array_filter(
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_SUBSYSTEM_COUNT => count($rows),
+            self::FIELD_SCORED_SUBSYSTEM_COUNT => count(array_filter(
                 $rows,
                 static fn (array $row): bool => $row[self::FIELD_EVIDENCE_ALIAS_OF] === null,
             )),
             'subsystems' => $rows,
-            'score' => $score,
-            'claim_policy' => $this->claimPolicy(),
+            self::FIELD_SCORE => $score,
+            self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
             'notes' => [
                 'readiness_definition' => 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.',
             ],
         ];
-        $envelope['scorecard_hash'] = $this->hash($rows, $score);
+        $envelope[self::FIELD_SCORECARD_HASH] = $this->hash($rows, $score);
 
         if ((AiValueNormalizer::boolOrNull(config(self::DUAL_EMIT_V3_CONFIG_KEY, self::DEFAULT_DUAL_EMIT_V3)) ?? self::DEFAULT_DUAL_EMIT_V3)) {
             $grouper = new AtlasCognitionScoreCardV4Grouper;
@@ -340,9 +349,9 @@ class AtlasCognitionScoreCardService
             $modules = $grouper->group(array_merge($rows, $supplemental));
             $consumerModules = $grouper->groupConsumers($rows);
             $envelope['v4'] = [
-                'schema_version' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
-                'module_count' => count($modules),
-                'modules' => $modules,
+                self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
+                self::FIELD_MODULE_COUNT => count($modules),
+                self::FIELD_MODULES => $modules,
                 'consumer_module_count' => count($consumerModules),
                 'consumer_modules' => $consumerModules,
                 'supplemental_subsystem_count' => count($supplemental),
@@ -362,18 +371,18 @@ class AtlasCognitionScoreCardService
         $v3 = $this->build();
 
         return [
-            'schema_version' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
-            'generated_at' => $v3['generated_at'] ?? gmdate('c'),
-            'module_count' => $v3['v4']['module_count'] ?? 0,
-            'modules' => $v3['v4']['modules'] ?? [],
+            self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
+            self::FIELD_GENERATED_AT => $v3[self::FIELD_GENERATED_AT] ?? gmdate('c'),
+            self::FIELD_MODULE_COUNT => $v3['v4'][self::FIELD_MODULE_COUNT] ?? 0,
+            self::FIELD_MODULES => $v3['v4'][self::FIELD_MODULES] ?? [],
             'consumer_module_count' => $v3['v4']['consumer_module_count'] ?? 0,
             'consumer_modules' => $v3['v4']['consumer_modules'] ?? [],
             'supplemental_subsystem_count' => $v3['v4']['supplemental_subsystem_count'] ?? 0,
-            'subsystem_count' => $v3['subsystem_count'] ?? 0,
-            'scored_subsystem_count' => $v3['scored_subsystem_count'] ?? 0,
-            'score' => $v3['score'] ?? [],
-            'scorecard_hash' => $v3['scorecard_hash'] ?? null,
-            'claim_policy' => $v3['claim_policy'] ?? [],
+            self::FIELD_SUBSYSTEM_COUNT => $v3[self::FIELD_SUBSYSTEM_COUNT] ?? 0,
+            self::FIELD_SCORED_SUBSYSTEM_COUNT => $v3[self::FIELD_SCORED_SUBSYSTEM_COUNT] ?? 0,
+            self::FIELD_SCORE => $v3[self::FIELD_SCORE] ?? [],
+            self::FIELD_SCORECARD_HASH => $v3[self::FIELD_SCORECARD_HASH] ?? null,
+            self::FIELD_CLAIM_POLICY => $v3[self::FIELD_CLAIM_POLICY] ?? [],
         ];
     }
 

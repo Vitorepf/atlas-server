@@ -4121,4 +4121,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['docs_handoff_adversarial_floor_count']);
     }
 
+    public function test_immune_ragx_scorecard_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneRagxScorecardFloorsContractObserve([]);
+
+        $this->assertSame('origin_kind', $payload['immune_field_origin_kind']);
+        $this->assertSame('reverse_handle', $payload['immune_field_reverse_handle']);
+        $this->assertSame('measure_id', $payload['immune_field_measure_id']);
+        $this->assertSame('active_cells', $payload['immune_field_active_cells']);
+        $this->assertSame('metadata', $payload['immune_field_metadata']);
+        $this->assertSame('status', $payload['immune_field_status']);
+        $this->assertSame('blocked_by', $payload['ragx_field_blocked_by']);
+        $this->assertSame('communities', $payload['ragx_field_communities']);
+        $this->assertSame('nodes', $payload['ragx_field_nodes']);
+        $this->assertSame('mode', $payload['ragx_field_mode']);
+        $this->assertSame('score', $payload['ragx_field_score']);
+        $this->assertSame('status', $payload['ragx_field_status']);
+        $this->assertSame('schema_version', $payload['scorecard_field_schema_version']);
+        $this->assertSame('score', $payload['scorecard_field_score']);
+        $this->assertSame('modules', $payload['scorecard_field_modules']);
+        $this->assertSame('scorecard_hash', $payload['scorecard_field_scorecard_hash']);
+        $this->assertSame('overall', $payload['scorecard_field_overall']);
+        $this->assertSame(17, $payload['immune_ragx_scorecard_floor_count']);
+    }
+
 }

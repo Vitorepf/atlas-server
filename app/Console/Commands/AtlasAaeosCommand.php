@@ -280,6 +280,7 @@ final class AtlasAaeosCommand extends Command
         {--ledger-counterfactual-advisory-floors-contract= : JSON file (any object) to observe ledger/counterfactual/advisory residual floors}
         {--verified-frontier-cooccurrence-floors-contract= : JSON file (any object) to observe verified-share/frontier/cooccurrence residual floors}
         {--docs-handoff-adversarial-floors-contract= : JSON file (any object) to observe docs/handoff/adversarial residual floors}
+        {--immune-ragx-scorecard-floors-contract= : JSON file (any object) to observe immune/RAGX/scorecard residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -716,6 +717,7 @@ final class AtlasAaeosCommand extends Command
             ['ledger-counterfactual-advisory-floors-contract', 'ledger_counterfactual_advisory_floors_contract', fn (array $p) => $gates->ledgerCounterfactualAdvisoryFloorsContractObserve($p)],
             ['verified-frontier-cooccurrence-floors-contract', 'verified_frontier_cooccurrence_floors_contract', fn (array $p) => $gates->verifiedFrontierCooccurrenceFloorsContractObserve($p)],
             ['docs-handoff-adversarial-floors-contract', 'docs_handoff_adversarial_floors_contract', fn (array $p) => $gates->docsHandoffAdversarialFloorsContractObserve($p)],
+            ['immune-ragx-scorecard-floors-contract', 'immune_ragx_scorecard_floors_contract', fn (array $p) => $gates->immuneRagxScorecardFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

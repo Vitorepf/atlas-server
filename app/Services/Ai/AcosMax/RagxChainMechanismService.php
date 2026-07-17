@@ -153,6 +153,14 @@ final class RagxChainMechanismService
     public const FIELD_ENABLED = 'enabled';
 
     public const FIELD_PENDING_WINDOW = 'pending_window';
+    public const FIELD_ID = 'id';
+    public const FIELD_BLOCKED_BY = 'blocked_by';
+    public const FIELD_COMMUNITIES = 'communities';
+    public const FIELD_NODES = 'nodes';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_GENERATED_SUMMARY = 'generated_summary';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_REASON = 'reason';
 
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
@@ -200,7 +208,7 @@ final class RagxChainMechanismService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            'mode' => $anyEnabled ? self::MODE_SHADOW : self::MODE_DEFAULT_OFF,
+            self::FIELD_MODE => $anyEnabled ? self::MODE_SHADOW : self::MODE_DEFAULT_OFF,
             self::FIELD_AB_GREEN_CLAIMED => false,
             'stages' => $stages,
         ];
@@ -220,8 +228,8 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA,
                 self::FIELD_SLICE => self::STAGE_RAGX_01,
                 self::FIELD_STATUS => self::STATUS_BLOCKED,
-                'mode' => self::MODE_SHADOW,
-                'blocked_by' => [self::BLOCKER_MAXA04],
+                self::FIELD_MODE => self::MODE_SHADOW,
+                self::FIELD_BLOCKED_BY => [self::BLOCKER_MAXA04],
                 self::FIELD_PENDING_WINDOW => [self::PENDING_JINA_V3_DUAL_READ],
                 self::FIELD_DOCUMENTS => [],
                 self::FIELD_AB_GREEN_CLAIMED => false,
@@ -236,7 +244,7 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA,
                 self::FIELD_SLICE => self::STAGE_RAGX_01,
                 self::FIELD_STATUS => self::STATUS_DEGRADED,
-                'reason' => self::REASON_LATE_CHUNK_INDEX_ERROR,
+                self::FIELD_REASON => self::REASON_LATE_CHUNK_INDEX_ERROR,
                 'error_class' => $e::class,
                 self::FIELD_DOCUMENTS => [],
                 self::FIELD_AB_GREEN_CLAIMED => false,
@@ -247,7 +255,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_SLICE => self::STAGE_RAGX_01,
             self::FIELD_STATUS => AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
-            'mode' => self::MODE_SHADOW,
+            self::FIELD_MODE => self::MODE_SHADOW,
             'result' => $result,
             self::FIELD_DOCUMENTS => array_values(AiValueNormalizer::arrayOrEmpty($result[self::FIELD_DOCUMENTS] ?? null)),
             self::FIELD_AB_GREEN_CLAIMED => false,
@@ -290,7 +298,7 @@ final class RagxChainMechanismService
     public function louvainOverChunks(array $chunks, array $edges): array
     {
         if (! $this->flag(self::FLAG_LOUVAIN_CHUNKS)) {
-            return $this->disabled(self::STAGE_MAXD_05, self::FLAG_LOUVAIN_CHUNKS) + ['communities' => []];
+            return $this->disabled(self::STAGE_MAXD_05, self::FLAG_LOUVAIN_CHUNKS) + [self::FIELD_COMMUNITIES => []];
         }
 
         if (! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED)) {
@@ -298,9 +306,9 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
                 self::FIELD_SLICE => self::STAGE_MAXD_05,
                 self::FIELD_STATUS => self::STATUS_BLOCKED,
-                'blocked_by' => [self::BLOCKER_MAXA06_FASE2],
+                self::FIELD_BLOCKED_BY => [self::BLOCKER_MAXA06_FASE2],
                 self::FIELD_PENDING_WINDOW => [self::PENDING_MAXA06_FASE2_BACKFILL],
-                'communities' => [],
+                self::FIELD_COMMUNITIES => [],
             ];
         }
 
@@ -311,7 +319,7 @@ final class RagxChainMechanismService
                 self::FIELD_SLICE => self::STAGE_MAXD_05,
                 self::FIELD_STATUS => self::STATUS_EMPTY,
                 'algorithm' => 'louvain_deterministic_local',
-                'communities' => [],
+                self::FIELD_COMMUNITIES => [],
             ];
         }
 
@@ -325,7 +333,7 @@ final class RagxChainMechanismService
             'algorithm' => 'louvain_deterministic_local',
             'node_count' => count($nodes),
             'edge_count' => count($edges),
-            'communities' => $communities,
+            self::FIELD_COMMUNITIES => $communities,
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
@@ -339,7 +347,7 @@ final class RagxChainMechanismService
     public function raptorLite(array $communities, array $verifiedSummaries, array $deps = []): array
     {
         if (! $this->flag(self::FLAG_RAPTOR_LITE)) {
-            return $this->disabled(self::STAGE_RAGX_10, self::FLAG_RAPTOR_LITE) + ['nodes' => []];
+            return $this->disabled(self::STAGE_RAGX_10, self::FLAG_RAPTOR_LITE) + [self::FIELD_NODES => []];
         }
 
         $blockers = $this->raptorBlockers($deps);
@@ -348,10 +356,10 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::RAPTOR_SCHEMA,
                 self::FIELD_SLICE => self::STAGE_RAGX_10,
                 self::FIELD_STATUS => self::STATUS_BLOCKED,
-                'blocked_by' => $blockers,
+                self::FIELD_BLOCKED_BY => $blockers,
                 self::FIELD_PENDING_WINDOW => [self::PENDING_RAPTOR_LITE_SUMMARY],
-                'nodes' => [],
-                'generated_summary' => false,
+                self::FIELD_NODES => [],
+                self::FIELD_GENERATED_SUMMARY => false,
             ];
         }
 
@@ -365,10 +373,10 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::RAPTOR_SCHEMA,
                 self::FIELD_SLICE => self::STAGE_RAGX_10,
                 self::FIELD_STATUS => self::STATUS_INSUFFICIENT_SIGNAL,
-                'reason' => self::REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES,
+                self::FIELD_REASON => self::REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES,
                 'communities_seen' => count($communities),
-                'nodes' => [],
-                'generated_summary' => false,
+                self::FIELD_NODES => [],
+                self::FIELD_GENERATED_SUMMARY => false,
                 self::FIELD_AB_GREEN_CLAIMED => false,
             ];
         }
@@ -376,9 +384,9 @@ final class RagxChainMechanismService
         $nodes = [];
         foreach ($verified as $index => $summary) {
             $nodes[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($summary['id'] ?? null) ?? ('raptor_lite_'.($index + 1)),
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
                 'community' => array_values(AiValueNormalizer::arrayOrEmpty($summary['community'] ?? ($communities[$index] ?? null))),
-                'summary_ref' => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary['id'] ?? null) ?? '',
+                'summary_ref' => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary[self::FIELD_ID] ?? null) ?? '',
                 'source' => 'maxf09_verified_l2_summary',
             ];
         }
@@ -387,8 +395,8 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::RAPTOR_SCHEMA,
             self::FIELD_SLICE => self::STAGE_RAGX_10,
             self::FIELD_STATUS => self::STATUS_OK,
-            'nodes' => $nodes,
-            'generated_summary' => false,
+            self::FIELD_NODES => $nodes,
+            self::FIELD_GENERATED_SUMMARY => false,
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
@@ -414,12 +422,12 @@ final class RagxChainMechanismService
                 }
             }
             $matches[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($document['id'] ?? null) ?? ('doc_'.$index),
-                'score' => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($document[self::FIELD_ID] ?? null) ?? ('doc_'.$index),
+                self::FIELD_SCORE => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
                 'score_origin' => 'lexical_sparse_shadow',
             ];
         }
-        usort($matches, static fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['id'], $b['id']));
+        usort($matches, static fn (array $a, array $b): int => $b[self::FIELD_SCORE] <=> $a[self::FIELD_SCORE] ?: strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]));
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
@@ -474,7 +482,7 @@ final class RagxChainMechanismService
             'flag' => $flag,
             self::FIELD_ENABLED => $enabled,
             self::FIELD_STATUS => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
-            'blocked_by' => $blockedBy,
+            self::FIELD_BLOCKED_BY => $blockedBy,
             self::FIELD_PENDING_WINDOW => $pendingWindow,
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
@@ -523,7 +531,7 @@ final class RagxChainMechanismService
     {
         $ids = [];
         foreach ($chunks as $chunk) {
-            $id = AiValueNormalizer::trimmedStringOrNull($chunk['id'] ?? $chunk['chunk_id'] ?? null) ?? '';
+            $id = AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_ID] ?? $chunk['chunk_id'] ?? null) ?? '';
             if ($id !== '') {
                 $ids[$id] = true;
             }
