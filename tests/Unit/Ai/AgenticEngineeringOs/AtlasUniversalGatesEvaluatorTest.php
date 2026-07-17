@@ -4505,4 +4505,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['schema_decomposer_surprise_floor_count']);
     }
 
+    public function test_evidence_flywheel_budget_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->evidenceFlywheelBudgetFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['evidence_field_status']);
+        $this->assertSame('reason', $payload['evidence_field_reason']);
+        $this->assertSame('owner_capability_ids', $payload['evidence_field_owner_capability_ids']);
+        $this->assertSame('candidate_test_refs', $payload['evidence_field_candidate_test_refs']);
+        $this->assertSame('latest_receipt_at', $payload['evidence_field_latest_receipt_at']);
+        $this->assertSame('green_receipt_count', $payload['evidence_field_green_receipt_count']);
+        $this->assertSame('status', $payload['flywheel_field_status']);
+        $this->assertSame('stages', $payload['flywheel_field_stages']);
+        $this->assertSame('by_executor', $payload['flywheel_field_by_executor']);
+        $this->assertSame('outcome_count', $payload['flywheel_field_outcome_count']);
+        $this->assertSame('outcomes_without_lesson', $payload['flywheel_field_outcomes_without_lesson']);
+        $this->assertSame('ram_mb', $payload['budget_field_ram_mb']);
+        $this->assertSame('disk_mb', $payload['budget_field_disk_mb']);
+        $this->assertSame('name', $payload['budget_field_name']);
+        $this->assertSame('purpose', $payload['budget_field_purpose']);
+        $this->assertSame('ram_cap_mb', $payload['budget_field_ram_cap_mb']);
+        $this->assertSame('status', $payload['budget_field_status']);
+        $this->assertSame(17, $payload['evidence_flywheel_budget_floor_count']);
+    }
+
 }

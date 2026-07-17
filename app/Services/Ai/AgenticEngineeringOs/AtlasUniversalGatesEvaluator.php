@@ -6117,6 +6117,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function evidenceFlywheelBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_field_status' => AtlasCognitionEvidenceResolver::FIELD_STATUS,
+            'evidence_field_reason' => AtlasCognitionEvidenceResolver::FIELD_REASON,
+            'evidence_field_owner_capability_ids' => AtlasCognitionEvidenceResolver::FIELD_OWNER_CAPABILITY_IDS,
+            'evidence_field_candidate_test_refs' => AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_REFS,
+            'evidence_field_latest_receipt_at' => AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AT,
+            'evidence_field_green_receipt_count' => AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_COUNT,
+            'flywheel_field_status' => AtlasFlywheelFunnelService::FIELD_STATUS,
+            'flywheel_field_stages' => AtlasFlywheelFunnelService::FIELD_STAGES,
+            'flywheel_field_by_executor' => AtlasFlywheelFunnelService::FIELD_BY_EXECUTOR,
+            'flywheel_field_outcome_count' => AtlasFlywheelFunnelService::FIELD_OUTCOME_COUNT,
+            'flywheel_field_outcomes_without_lesson' => AtlasFlywheelFunnelService::FIELD_OUTCOMES_WITHOUT_LESSON,
+            'budget_field_ram_mb' => AtlasResourceBudgetService::FIELD_RAM_MB,
+            'budget_field_disk_mb' => AtlasResourceBudgetService::FIELD_DISK_MB,
+            'budget_field_name' => AtlasResourceBudgetService::FIELD_NAME,
+            'budget_field_purpose' => AtlasResourceBudgetService::FIELD_PURPOSE,
+            'budget_field_ram_cap_mb' => AtlasResourceBudgetService::FIELD_RAM_CAP_MB,
+            'budget_field_status' => AtlasResourceBudgetService::FIELD_STATUS,
+            'evidence_flywheel_budget_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

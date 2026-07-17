@@ -5164,6 +5164,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_evidence_flywheel_budget_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-efb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-efb',
+                '--evidence-flywheel-budget-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"evidence_flywheel_budget_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -65,6 +65,14 @@ class AtlasCognitionEvidenceResolver
     public const STATUS_BUILDING = 'building';
 
     public const STATUS_BLOCKED = 'blocked';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OWNER_CAPABILITY_IDS = 'owner_capability_ids';
+    public const FIELD_CANDIDATE_TEST_REFS = 'candidate_test_refs';
+    public const FIELD_LATEST_RECEIPT_AT = 'latest_receipt_at';
+    public const FIELD_LATEST_RECEIPT_AGE_DAYS = 'latest_receipt_age_days';
+    public const FIELD_GREEN_RECEIPT_COUNT = 'green_receipt_count';
+    public const FIELD_TEST_FILE_HASH = 'test_file_hash';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -166,12 +174,12 @@ class AtlasCognitionEvidenceResolver
                 try {
                     $hashes = $this->truth->freshnessHashes($owner['evidence_refs'], $testRef);
                 } catch (Throwable) {
-                    $hashes = ['test_file_hash' => null, 'impl_files_hash' => null];
+                    $hashes = [self::FIELD_TEST_FILE_HASH => null, 'impl_files_hash' => null];
                 }
                 if ($this->testExecution->hasGreenReceipt(
                     $owner['capability_id'],
                     $testRef,
-                    $hashes['test_file_hash'],
+                    $hashes[self::FIELD_TEST_FILE_HASH],
                     $hashes['impl_files_hash'],
                 )) {
                     return self::STATUS_READY;
@@ -293,13 +301,13 @@ class AtlasCognitionEvidenceResolver
         $fqn = $this->normalizeFqn($serviceClass);
         if ($fqn === null) {
             return [
-                'status' => self::STATUS_BLOCKED,
-                'reason' => 'service_class_missing',
-                'owner_capability_ids' => [],
-                'candidate_test_refs' => [],
-                'latest_receipt_at' => null,
-                'latest_receipt_age_days' => null,
-                'green_receipt_count' => 0,
+                self::FIELD_STATUS => self::STATUS_BLOCKED,
+                self::FIELD_REASON => 'service_class_missing',
+                self::FIELD_OWNER_CAPABILITY_IDS => [],
+                self::FIELD_CANDIDATE_TEST_REFS => [],
+                self::FIELD_LATEST_RECEIPT_AT => null,
+                self::FIELD_LATEST_RECEIPT_AGE_DAYS => null,
+                self::FIELD_GREEN_RECEIPT_COUNT => 0,
             ];
         }
 
@@ -339,14 +347,14 @@ class AtlasCognitionEvidenceResolver
         };
 
         return [
-            'status' => $pipelineStatus,
-            'reason' => $reason,
-            'owner_capability_ids' => $ownerIds,
-            'candidate_test_refs' => $candidateTestRefs,
+            self::FIELD_STATUS => $pipelineStatus,
+            self::FIELD_REASON => $reason,
+            self::FIELD_OWNER_CAPABILITY_IDS => $ownerIds,
+            self::FIELD_CANDIDATE_TEST_REFS => $candidateTestRefs,
             'existing_test_refs' => $existingTestRefs,
-            'latest_receipt_at' => $latestAt?->toIso8601String(),
-            'latest_receipt_age_days' => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now('UTC')) / 24, 2),
-            'green_receipt_count' => $greenCount,
+            self::FIELD_LATEST_RECEIPT_AT => $latestAt?->toIso8601String(),
+            self::FIELD_LATEST_RECEIPT_AGE_DAYS => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now('UTC')) / 24, 2),
+            self::FIELD_GREEN_RECEIPT_COUNT => $greenCount,
         ];
     }
 

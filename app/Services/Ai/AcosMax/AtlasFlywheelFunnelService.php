@@ -21,6 +21,14 @@ final class AtlasFlywheelFunnelService
     public const STATUS_NO_SIGNAL = 'no_signal';
 
     public const STATUS_INSUFFICIENT = 'insufficient';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_STAGES = 'stages';
+    public const FIELD_BY_EXECUTOR = 'by_executor';
+    public const FIELD_OUTCOME_COUNT = 'outcome_count';
+    public const FIELD_OUTCOMES_WITHOUT_LESSON = 'outcomes_without_lesson';
+    public const FIELD_LESSONS_WITHOUT_PROMOTION = 'lessons_without_promotion';
+    public const FIELD_PROMOTED_WITHOUT_RECALL = 'promoted_without_recall';
+    public const FIELD_RECALLS_WITHOUT_CITATION = 'recalls_without_citation';
 
     /** @var list<string> */
     public const STAGES = [
@@ -61,8 +69,8 @@ final class AtlasFlywheelFunnelService
         $byExecutor = [];
         foreach ($byExecutorRows as $executor => $executorRows) {
             $byExecutor[$executor] = [
-                'outcome_count' => count($executorRows),
-                'stages' => $this->stages($executorRows, $denominatorMin),
+                self::FIELD_OUTCOME_COUNT => count($executorRows),
+                self::FIELD_STAGES => $this->stages($executorRows, $denominatorMin),
             ];
         }
 
@@ -81,22 +89,22 @@ final class AtlasFlywheelFunnelService
         $cited = array_values(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) === true));
 
         return [
-            'outcomes_without_lesson' => $this->stage(
+            self::FIELD_OUTCOMES_WITHOUT_LESSON => $this->stage(
                 count(array_filter($rows, fn (array $row): bool => ! $this->hasLesson($row))),
                 count($rows),
                 $denominatorMin,
             ),
-            'lessons_without_promotion' => $this->stage(
+            self::FIELD_LESSONS_WITHOUT_PROMOTION => $this->stage(
                 count(array_filter($withLesson, static fn (array $row): bool => ($row['lesson_promoted'] ?? false) !== true)),
                 count($withLesson),
                 $denominatorMin,
             ),
-            'promoted_without_recall' => $this->stage(
+            self::FIELD_PROMOTED_WITHOUT_RECALL => $this->stage(
                 count(array_filter($promoted, static fn (array $row): bool => ($row['promoted_lesson_recalled'] ?? false) !== true)),
                 count($promoted),
                 $denominatorMin,
             ),
-            'recalls_without_citation' => $this->stage(
+            self::FIELD_RECALLS_WITHOUT_CITATION => $this->stage(
                 count(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) !== true)),
                 count($recalled),
                 $denominatorMin,
@@ -117,7 +125,7 @@ final class AtlasFlywheelFunnelService
         return [
             'num' => $num,
             'den' => $den,
-            'status' => $den >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT,
+            self::FIELD_STATUS => $den >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT,
         ];
     }
 
@@ -189,19 +197,19 @@ final class AtlasFlywheelFunnelService
             'schema_version' => self::SCHEMA_VERSION,
             'measure_id' => self::MEASURE_ID,
             'formula_version' => self::FORMULA_VERSION,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             'generated_at' => Carbon::now()->toIso8601String(),
             'source' => [
                 'outcomes_path' => $path,
                 'outcome_rows' => $rowCount,
             ],
             'denominator_min' => $denominatorMin,
-            'stages' => self::STAGES,
-            'by_executor' => $byExecutor,
+            self::FIELD_STAGES => self::STAGES,
+            self::FIELD_BY_EXECUTOR => $byExecutor,
             'windows' => [
                 'all' => [
-                    'status' => $status,
-                    'by_executor' => $byExecutor,
+                    self::FIELD_STATUS => $status,
+                    self::FIELD_BY_EXECUTOR => $byExecutor,
                 ],
             ],
             'claim_policy' => [

@@ -25,6 +25,14 @@ final class AtlasResourceBudgetService
     public const DEFAULT_HOST_RAM_GIB = 48;
 
     public const DEFAULT_ENGINE_FLOOR_GIB = 12;
+    public const FIELD_RAM_MB = 'ram_mb';
+    public const FIELD_DISK_MB = 'disk_mb';
+    public const FIELD_NAME = 'name';
+    public const FIELD_PURPOSE = 'purpose';
+    public const FIELD_RAM_CAP_MB = 'ram_cap_mb';
+    public const FIELD_RAM_ACTUAL_MB = 'ram_actual_mb';
+    public const FIELD_DISK_CAP_MB = 'disk_cap_mb';
+    public const FIELD_STATUS = 'status';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -71,17 +79,17 @@ final class AtlasResourceBudgetService
             if (! is_array($component)) {
                 continue;
             }
-            $name = AiValueNormalizer::trimmedStringOrNull($component['name'] ?? null) ?? '';
+            $name = AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_NAME] ?? null) ?? '';
             if ($name === '') {
                 continue;
             }
-            $ramCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($component['ram_cap_mb'] ?? null) ?? 0));
-            $diskCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($component['disk_cap_mb'] ?? null) ?? 0));
+            $ramCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($component[self::FIELD_RAM_CAP_MB] ?? null) ?? 0));
+            $diskCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($component[self::FIELD_DISK_CAP_MB] ?? null) ?? 0));
             $totalRamCap += $ramCap;
 
             $measured = $this->probeComponent($name);
-            $ramActual = $measured['ram_mb'] ?? null;
-            $diskActual = $measured['disk_mb'] ?? null;
+            $ramActual = $measured[self::FIELD_RAM_MB] ?? null;
+            $diskActual = $measured[self::FIELD_DISK_MB] ?? null;
 
             $componentStatus = 'unmeasured';
             if (is_int($ramActual)) {
@@ -94,14 +102,14 @@ final class AtlasResourceBudgetService
             }
 
             $rows[] = [
-                'name' => $name,
-                'purpose' => AiValueNormalizer::trimmedStringOrNull($component['purpose'] ?? null) ?? '',
-                'ram_cap_mb' => $ramCap,
-                'ram_actual_mb' => $ramActual,
-                'disk_cap_mb' => $diskCap,
+                self::FIELD_NAME => $name,
+                self::FIELD_PURPOSE => AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_PURPOSE] ?? null) ?? '',
+                self::FIELD_RAM_CAP_MB => $ramCap,
+                self::FIELD_RAM_ACTUAL_MB => $ramActual,
+                self::FIELD_DISK_CAP_MB => $diskCap,
                 'disk_actual_mb' => $diskActual,
                 'cpu_share' => AiValueNormalizer::trimmedStringOrNull($component['cpu_share'] ?? null) ?? 'shared',
-                'status' => $componentStatus,
+                self::FIELD_STATUS => $componentStatus,
                 'probe_hint' => AiValueNormalizer::trimmedStringOrNull($component['probe_hint'] ?? null) ?? '',
             ];
         }
@@ -142,18 +150,18 @@ final class AtlasResourceBudgetService
     private function probeComponent(string $name): array
     {
         if ($this->probe === null) {
-            return ['ram_mb' => null, 'disk_mb' => null];
+            return [self::FIELD_RAM_MB => null, self::FIELD_DISK_MB => null];
         }
         $probed = ($this->probe)($name);
         if (! is_array($probed)) {
-            return ['ram_mb' => null, 'disk_mb' => null];
+            return [self::FIELD_RAM_MB => null, self::FIELD_DISK_MB => null];
         }
-        $ram = $probed['ram_mb'] ?? null;
-        $disk = $probed['disk_mb'] ?? null;
+        $ram = $probed[self::FIELD_RAM_MB] ?? null;
+        $disk = $probed[self::FIELD_DISK_MB] ?? null;
 
         return [
-            'ram_mb' => ($ramFloat = AiValueNormalizer::finiteFloatOrNull($ram)) === null ? null : (int) $ramFloat,
-            'disk_mb' => ($diskFloat = AiValueNormalizer::finiteFloatOrNull($disk)) === null ? null : (int) $diskFloat,
+            self::FIELD_RAM_MB => ($ramFloat = AiValueNormalizer::finiteFloatOrNull($ram)) === null ? null : (int) $ramFloat,
+            self::FIELD_DISK_MB => ($diskFloat = AiValueNormalizer::finiteFloatOrNull($disk)) === null ? null : (int) $diskFloat,
         ];
     }
 }
