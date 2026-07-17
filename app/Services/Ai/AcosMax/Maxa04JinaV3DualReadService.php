@@ -42,6 +42,14 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_SERIES = 'series';
     public const FIELD_TARGETS_AVAILABLE = 'targets_available';
     public const FIELD_DUAL_READ_HASH = 'dual_read_hash';
+    public const FIELD_MODEL_ID = 'model_id';
+    public const FIELD_DIMENSIONS = 'dimensions';
+    public const FIELD_DEFAULT_PROMOTED = 'default_promoted';
+    public const FIELD_AB_GREEN_CLAIMED = 'ab_green_claimed';
+    public const FIELD_CURRENT_MODEL = 'current_model';
+    public const FIELD_CANDIDATE_MODEL = 'candidate_model';
+    public const FIELD_CTX_TOKENS = 'ctx_tokens';
+    public const FIELD_POOLING = 'pooling';
 
 
     /** @return array<string,mixed> */
@@ -57,25 +65,25 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_SLICE => 'MAXA-04',
             self::FIELD_STATUS => self::STATUS_MECHANISM_READY,
             self::FIELD_SERIES => Maxa04JinaV3DualReadLedger::SCHEMA,
-            'current_model' => [
+            self::FIELD_CURRENT_MODEL => [
                 self::FIELD_PROVIDER => 'semantic_rag',
                 self::FIELD_MODEL => $currentModel,
-                'model_id' => EmbeddingProvenance::modelId([
+                self::FIELD_MODEL_ID => EmbeddingProvenance::modelId([
                     self::FIELD_PROVIDER => 'semantic_rag',
                     self::FIELD_MODEL => $currentModel,
                 ]),
-                'dimensions' => (int) $this->configValue('atlas.semantic_memory.embedding_dimensions', 384),
+                self::FIELD_DIMENSIONS => (int) $this->configValue('atlas.semantic_memory.embedding_dimensions', 384),
             ],
-            'candidate_model' => [
+            self::FIELD_CANDIDATE_MODEL => [
                 self::FIELD_PROVIDER => 'semantic_rag',
                 self::FIELD_MODEL => self::CANDIDATE_MODEL,
-                'model_id' => EmbeddingProvenance::modelId([
+                self::FIELD_MODEL_ID => EmbeddingProvenance::modelId([
                     self::FIELD_PROVIDER => 'semantic_rag',
                     self::FIELD_MODEL => self::CANDIDATE_MODEL,
                 ]),
-                'dimensions' => self::CANDIDATE_DIMENSIONS,
-                'ctx_tokens' => 8192,
-                'pooling' => 'mean',
+                self::FIELD_DIMENSIONS => self::CANDIDATE_DIMENSIONS,
+                self::FIELD_CTX_TOKENS => 8192,
+                self::FIELD_POOLING => 'mean',
                 'multilingual_pt' => true,
             ],
             'dual_read' => [
@@ -96,7 +104,7 @@ final class Maxa04JinaV3DualReadService
                 'description' => 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.',
                 'default_model_unchanged' => true,
             ],
-            'default_promoted' => false,
+            self::FIELD_DEFAULT_PROMOTED => false,
             'applied_to_live' => false,
             self::STATUS_PENDING_WINDOW => self::PENDING_WINDOW,
         ];
@@ -121,7 +129,7 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_WINDOW_BASIS => $windowBasis,
             self::FIELD_SUMMARY => $summary,
             self::FIELD_CASES => $normalized,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
             self::FIELD_PROMOTION => $this->promotionBlock(),
             self::FIELD_ROLLBACK => $this->plan()[self::FIELD_ROLLBACK],
         ];
@@ -142,7 +150,7 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_STATUS => $report[self::FIELD_STATUS],
             self::FIELD_WINDOW_BASIS => $report[self::FIELD_WINDOW_BASIS],
             self::FIELD_SUMMARY => $report[self::FIELD_SUMMARY],
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
             self::FIELD_PROMOTION => $report[self::FIELD_PROMOTION],
             self::FIELD_DUAL_READ_HASH => hash('sha256', (string) json_encode($report[self::FIELD_CASES], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)),
         ];
@@ -221,7 +229,7 @@ final class Maxa04JinaV3DualReadService
         return [
             'allowed' => false,
             'basis' => self::STATUS_PENDING_WINDOW,
-            'default_promoted' => false,
+            self::FIELD_DEFAULT_PROMOTED => false,
             'live_flip_performed' => false,
             self::FIELD_REASON => 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.',
         ];

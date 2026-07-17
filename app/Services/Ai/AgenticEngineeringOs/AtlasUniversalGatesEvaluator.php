@@ -6453,6 +6453,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function advisoryTetoJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'advisory_field_target_class' => PreReviewAdvisoryBand::FIELD_TARGET_CLASS,
+            'advisory_field_risk_band' => PreReviewAdvisoryBand::FIELD_RISK_BAND,
+            'advisory_field_confidence_band' => PreReviewAdvisoryBand::FIELD_CONFIDENCE_BAND,
+            'advisory_field_similar_revert_rate' => PreReviewAdvisoryBand::FIELD_SIMILAR_REVERT_RATE,
+            'advisory_field_n_similar' => PreReviewAdvisoryBand::FIELD_N_SIMILAR,
+            'advisory_field_high' => PreReviewAdvisoryBand::FIELD_HIGH,
+            'teto_field_item_count' => Teto10PredictedRevertReviewDigest::FIELD_ITEM_COUNT,
+            'teto_field_title' => Teto10PredictedRevertReviewDigest::FIELD_TITLE,
+            'teto_field_shown_item_count' => Teto10PredictedRevertReviewDigest::FIELD_SHOWN_ITEM_COUNT,
+            'teto_field_group_count' => Teto10PredictedRevertReviewDigest::FIELD_GROUP_COUNT,
+            'teto_field_cap' => Teto10PredictedRevertReviewDigest::FIELD_CAP,
+            'teto_field_band_order' => Teto10PredictedRevertReviewDigest::FIELD_BAND_ORDER,
+            'jina_field_model_id' => Maxa04JinaV3DualReadService::FIELD_MODEL_ID,
+            'jina_field_dimensions' => Maxa04JinaV3DualReadService::FIELD_DIMENSIONS,
+            'jina_field_default_promoted' => Maxa04JinaV3DualReadService::FIELD_DEFAULT_PROMOTED,
+            'jina_field_ab_green_claimed' => Maxa04JinaV3DualReadService::FIELD_AB_GREEN_CLAIMED,
+            'jina_field_current_model' => Maxa04JinaV3DualReadService::FIELD_CURRENT_MODEL,
+            'advisory_teto_jina_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

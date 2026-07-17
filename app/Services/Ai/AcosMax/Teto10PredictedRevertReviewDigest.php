@@ -62,6 +62,14 @@ final class Teto10PredictedRevertReviewDigest
     public const DEFAULT_LIMIT = 50;
 
     public const HARD_LIMIT_CAP = 200;
+    public const FIELD_ITEM_COUNT = 'item_count';
+    public const FIELD_TITLE = 'title';
+    public const FIELD_SHOWN_ITEM_COUNT = 'shown_item_count';
+    public const FIELD_GROUP_COUNT = 'group_count';
+    public const FIELD_CAP = 'cap';
+    public const FIELD_BAND_ORDER = 'band_order';
+    public const FIELD_BAND_COUNTS = 'band_counts';
+    public const FIELD_PENDING_FLIPS = 'pending_flips';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -87,14 +95,14 @@ final class Teto10PredictedRevertReviewDigest
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => $normalised === [] ? self::STATUS_EMPTY : self::STATUS_OK,
-            'item_count' => count($normalised),
-            'shown_item_count' => count($shown),
-            'group_count' => count($groups),
-            'cap' => $limit,
-            'band_order' => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
-            'band_counts' => $bandCounts,
+            self::FIELD_ITEM_COUNT => count($normalised),
+            self::FIELD_SHOWN_ITEM_COUNT => count($shown),
+            self::FIELD_GROUP_COUNT => count($groups),
+            self::FIELD_CAP => $limit,
+            self::FIELD_BAND_ORDER => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
+            self::FIELD_BAND_COUNTS => $bandCounts,
             self::FIELD_GROUPS => $groups,
-            'pending_flips' => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
+            self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
             'batched_asks' => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
             'source' => [
                 'slice' => 'TETO-10',
@@ -117,7 +125,7 @@ final class Teto10PredictedRevertReviewDigest
             '',
             '- schema: '.self::inline(self::string($digest[self::FIELD_SCHEMA_VERSION] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
             '- status: '.self::plain(self::string($digest[self::FIELD_STATUS] ?? self::BAND_UNKNOWN) ?: self::BAND_UNKNOWN),
-            '- items: '.self::string($digest['shown_item_count'] ?? 0).'/'.self::string($digest['item_count'] ?? 0),
+            '- items: '.self::string($digest[self::FIELD_SHOWN_ITEM_COUNT] ?? 0).'/'.self::string($digest[self::FIELD_ITEM_COUNT] ?? 0),
             '- order: high -> sweet -> low -> unknown',
             '- surface: markdown/CLI only',
             '',
@@ -147,7 +155,7 @@ final class Teto10PredictedRevertReviewDigest
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item['title'] ?? 'untitled') ?: 'untitled');
+                $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? 'untitled') ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item['evidence_refs'] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
@@ -157,7 +165,7 @@ final class Teto10PredictedRevertReviewDigest
             $lines[] = '';
         }
 
-        $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', AiValueNormalizer::arrayOrEmpty($digest['pending_flips'] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_PENDING_FLIPS] ?? null)));
         $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', AiValueNormalizer::arrayOrEmpty($digest['batched_asks'] ?? null)));
 
         return rtrim(implode(PHP_EOL, $lines)).PHP_EOL;
@@ -177,7 +185,7 @@ final class Teto10PredictedRevertReviewDigest
 
         return [
             'id' => $id !== '' ? $id : 'item-'.($index + 1),
-            'title' => self::firstString($item, ['title', 'summary', 'description'], 'Untitled review item'),
+            self::FIELD_TITLE => self::firstString($item, ['title', 'summary', 'description'], 'Untitled review item'),
             self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
             self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
             self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
@@ -220,10 +228,10 @@ final class Teto10PredictedRevertReviewDigest
                 self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
                 'highest_predicted_revert_band' => $item[self::FIELD_PREDICTED_REVERT_BAND],
                 self::FIELD_HIGHEST_BAND_RANK => $item[self::FIELD_BAND_RANK],
-                'item_count' => 0,
+                self::FIELD_ITEM_COUNT => 0,
                 self::FIELD_ITEMS => [],
             ];
-            $groups[$key]['item_count']++;
+            $groups[$key][self::FIELD_ITEM_COUNT]++;
             $groups[$key][self::FIELD_ITEMS][] = $item;
             if ((int) (AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_BAND_RANK] ?? null) ?? 0) < (int) $groups[$key][self::FIELD_HIGHEST_BAND_RANK]) {
                 $groups[$key][self::FIELD_HIGHEST_BAND_RANK] = $item[self::FIELD_BAND_RANK];
@@ -254,7 +262,7 @@ final class Teto10PredictedRevertReviewDigest
             }
             $flagged[] = [
                 'id' => $item['id'],
-                'title' => $item['title'],
+                self::FIELD_TITLE => $item[self::FIELD_TITLE],
                 self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
                 self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
                 $refKey => $item[$refKey] !== '' ? $item[$refKey] : 'unlabelled',

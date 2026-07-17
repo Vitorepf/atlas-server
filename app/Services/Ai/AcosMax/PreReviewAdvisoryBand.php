@@ -62,6 +62,14 @@ final class PreReviewAdvisoryBand
     public const FIELD_CURVE = 'curve';
     public const FIELD_N = 'n';
     public const FIELD_REVERTS = 'reverts';
+    public const FIELD_TARGET_CLASS = 'target_class';
+    public const FIELD_RISK_BAND = 'risk_band';
+    public const FIELD_CONFIDENCE_BAND = 'confidence_band';
+    public const FIELD_SIMILAR_REVERT_RATE = 'similar_revert_rate';
+    public const FIELD_N_SIMILAR = 'n_similar';
+    public const FIELD_HIGH = 'high';
+    public const FIELD_LOW = 'low';
+    public const FIELD_REVERTED = 'reverted';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -75,22 +83,22 @@ final class PreReviewAdvisoryBand
      */
     public static function judge(array $features, ?CalibrationBandClassifier $classifier = null): array
     {
-        $targetClass = self::normalizeClass($features['target_class'] ?? null);
-        $riskBand = self::normalizeRiskBand($features['risk_band'] ?? null);
-        $confidenceBand = self::normalizeConfBand($features['confidence_band'] ?? null);
-        $rate = AiValueNormalizer::finiteFloatOrNull($features['similar_revert_rate'] ?? null);
+        $targetClass = self::normalizeClass($features[self::FIELD_TARGET_CLASS] ?? null);
+        $riskBand = self::normalizeRiskBand($features[self::FIELD_RISK_BAND] ?? null);
+        $confidenceBand = self::normalizeConfBand($features[self::FIELD_CONFIDENCE_BAND] ?? null);
+        $rate = AiValueNormalizer::finiteFloatOrNull($features[self::FIELD_SIMILAR_REVERT_RATE] ?? null);
         $rate = $rate === null ? null : AiValueNormalizer::clampUnit($rate);
-        $nSimilar = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($features['n_similar'] ?? null) ?? 0));
+        $nSimilar = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($features[self::FIELD_N_SIMILAR] ?? null) ?? 0));
 
         $result = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_FEATURES => [
-                'target_class' => $targetClass,
-                'risk_band' => $riskBand,
-                'confidence_band' => $confidenceBand,
-                'similar_revert_rate' => $rate,
-                'n_similar' => $nSimilar,
+                self::FIELD_TARGET_CLASS => $targetClass,
+                self::FIELD_RISK_BAND => $riskBand,
+                self::FIELD_CONFIDENCE_BAND => $confidenceBand,
+                self::FIELD_SIMILAR_REVERT_RATE => $rate,
+                self::FIELD_N_SIMILAR => $nSimilar,
             ],
             self::FIELD_PREDICTED_REVERT_BAND => null,
             self::FIELD_PROBABILITY => null,
@@ -115,14 +123,14 @@ final class PreReviewAdvisoryBand
         // Risk nudge: higher risk band ⇒ higher predicted-revert probability.
         $probability += match ($riskBand) {
             'critical' => 0.15,
-            'high' => 0.08,
+            self::FIELD_HIGH => 0.08,
             'medium' => 0.02,
             default => 0.0,
         };
         // Confidence nudge: low confidence ⇒ more likely revert; high confidence ⇒ less.
         $probability += match ($confidenceBand) {
-            'low' => 0.05,
-            'high' => -0.05,
+            self::FIELD_LOW => 0.05,
+            self::FIELD_HIGH => -0.05,
             default => 0.0,
         };
         $probability = AiValueNormalizer::clampUnit($probability);
@@ -145,31 +153,31 @@ final class PreReviewAdvisoryBand
      */
     public static function calibration(array $observations): array
     {
-        $buckets = ['low' => [self::FIELD_N => 0, 'reverted' => 0], 'sweet' => [self::FIELD_N => 0, 'reverted' => 0], 'high' => [self::FIELD_N => 0, 'reverted' => 0]];
+        $buckets = [self::FIELD_LOW => [self::FIELD_N => 0, self::FIELD_REVERTED => 0], 'sweet' => [self::FIELD_N => 0, self::FIELD_REVERTED => 0], self::FIELD_HIGH => [self::FIELD_N => 0, self::FIELD_REVERTED => 0]];
         foreach ($observations as $obs) {
             $band = AiValueNormalizer::trimmedStringOrNull($obs[self::FIELD_PREDICTED_REVERT_BAND] ?? null);
             if ($band === null || ! isset($buckets[$band])) {
                 continue;
             }
             $buckets[$band][self::FIELD_N]++;
-            if (($obs['reverted'] ?? false) === true) {
-                $buckets[$band]['reverted']++;
+            if (($obs[self::FIELD_REVERTED] ?? false) === true) {
+                $buckets[$band][self::FIELD_REVERTED]++;
             }
         }
         $curve = [];
         foreach ($buckets as $band => $agg) {
             $curve[$band] = [
                 self::FIELD_N => $agg[self::FIELD_N],
-                self::FIELD_REVERTS => $agg['reverted'],
-                self::FIELD_REALIZED_REVERT_RATE => $agg[self::FIELD_N] > 0 ? $agg['reverted'] / $agg[self::FIELD_N] : null,
+                self::FIELD_REVERTS => $agg[self::FIELD_REVERTED],
+                self::FIELD_REALIZED_REVERT_RATE => $agg[self::FIELD_N] > 0 ? $agg[self::FIELD_REVERTED] / $agg[self::FIELD_N] : null,
                 self::FIELD_BASIS => $agg[self::FIELD_N] > 0 ? self::BASIS_MEASURED : self::BASIS_INSUFFICIENT_SAMPLE,
             ];
         }
 
         $lift = null;
         $liftBasis = self::BASIS_INSUFFICIENT_SAMPLE;
-        if ($curve['high'][self::FIELD_N] >= self::DEATH_MIN_N && $curve['low'][self::FIELD_N] >= self::DEATH_MIN_N) {
-            $lift = ($curve['high'][self::FIELD_REALIZED_REVERT_RATE] ?? 0.0) - ($curve['low'][self::FIELD_REALIZED_REVERT_RATE] ?? 0.0);
+        if ($curve[self::FIELD_HIGH][self::FIELD_N] >= self::DEATH_MIN_N && $curve[self::FIELD_LOW][self::FIELD_N] >= self::DEATH_MIN_N) {
+            $lift = ($curve[self::FIELD_HIGH][self::FIELD_REALIZED_REVERT_RATE] ?? 0.0) - ($curve[self::FIELD_LOW][self::FIELD_REALIZED_REVERT_RATE] ?? 0.0);
             $liftBasis = self::BASIS_MEASURED;
         }
 

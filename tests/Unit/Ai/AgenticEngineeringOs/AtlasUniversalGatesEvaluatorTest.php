@@ -4673,4 +4673,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['immune_scorecard_segment_floor_count']);
     }
 
+
+    public function test_advisory_teto_jina_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->advisoryTetoJinaFloorsContractObserve([]);
+
+        $this->assertSame('target_class', $payload['advisory_field_target_class']);
+        $this->assertSame('risk_band', $payload['advisory_field_risk_band']);
+        $this->assertSame('confidence_band', $payload['advisory_field_confidence_band']);
+        $this->assertSame('similar_revert_rate', $payload['advisory_field_similar_revert_rate']);
+        $this->assertSame('n_similar', $payload['advisory_field_n_similar']);
+        $this->assertSame('high', $payload['advisory_field_high']);
+        $this->assertSame('item_count', $payload['teto_field_item_count']);
+        $this->assertSame('title', $payload['teto_field_title']);
+        $this->assertSame('shown_item_count', $payload['teto_field_shown_item_count']);
+        $this->assertSame('group_count', $payload['teto_field_group_count']);
+        $this->assertSame('cap', $payload['teto_field_cap']);
+        $this->assertSame('band_order', $payload['teto_field_band_order']);
+        $this->assertSame('model_id', $payload['jina_field_model_id']);
+        $this->assertSame('dimensions', $payload['jina_field_dimensions']);
+        $this->assertSame('default_promoted', $payload['jina_field_default_promoted']);
+        $this->assertSame('ab_green_claimed', $payload['jina_field_ab_green_claimed']);
+        $this->assertSame('current_model', $payload['jina_field_current_model']);
+        $this->assertSame(17, $payload['advisory_teto_jina_floor_count']);
+    }
+
+
 }
