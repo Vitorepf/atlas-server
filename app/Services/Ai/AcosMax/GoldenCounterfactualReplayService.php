@@ -34,7 +34,7 @@ final class GoldenCounterfactualReplayService
             ],
         ];
 
-        if ($runsPath === null || AiValueNormalizer::trimmedString($runsPath) === '' || ! is_file($runsPath)) {
+        if ($runsPath === null || (AiValueNormalizer::trimmedStringOrNull($runsPath) ?? '') === '' || ! is_file($runsPath)) {
             return array_replace($base, [
                 'status' => 'skipped',
                 'reason' => 'paired_golden_runs_unavailable',
@@ -113,8 +113,8 @@ final class GoldenCounterfactualReplayService
             if (AiValueNormalizer::finiteFloatOrNull($run['recall_at_5'] ?? null) === null) {
                 continue;
             }
-            $commit = AiValueNormalizer::trimmedString($run['commit'] ?? '');
-            $runId = AiValueNormalizer::trimmedString($run['run_id'] ?? '');
+            $commit = AiValueNormalizer::trimmedStringOrNull($run['commit'] ?? null) ?? '';
+            $runId = AiValueNormalizer::trimmedStringOrNull($run['run_id'] ?? null) ?? '';
             if ($commit === '' || $runId === '') {
                 continue;
             }

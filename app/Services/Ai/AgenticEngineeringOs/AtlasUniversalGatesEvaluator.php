@@ -19,6 +19,7 @@ use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
+use App\Services\Ai\AcosMax\AsefChunkIndexService;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
@@ -2245,6 +2246,8 @@ final class AtlasUniversalGatesEvaluator
             'lifecycle_schema' => ComposedObraArcLifecycle::SCHEMA_VERSION,
             'min_neighbor_candidates' => ComposedObraArcComposer::MIN_NEIGHBOR_CANDIDATES,
             'kill_gate_consecutive_failures' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            'default_author_engine_id' => ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'default_judge_engine_id' => ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID,
             'supports_lifecycle_reset' => true,
         ];
     }
@@ -2944,6 +2947,34 @@ final class AtlasUniversalGatesEvaluator
             'promotion_protocol_schema' => PromotionProtocol::SCHEMA,
             'promotion_protocol_states' => PromotionProtocol::STATES,
             'cognitive_immune_check_schema' => CognitiveImmuneCheckContract::SCHEMA,
+        ];
+    }
+
+    /**
+     * Observe-only verified-share + scorecard subsystems + golden/asef floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function verifiedShareScorecardContractObserve(array $input = []): array
+    {
+        return [
+            'verified_share_schema' => AcosMaxVerifiedShareService::SCHEMA_VERSION,
+            'verified_share_measure_id' => AcosMaxVerifiedShareService::MEASURE_ID,
+            'verified_share_formula' => AcosMaxVerifiedShareService::FORMULA_VERSION,
+            'verified_share_executors' => AcosMaxVerifiedShareService::EXECUTORS,
+            'verified_share_executor_count' => count(AcosMaxVerifiedShareService::EXECUTORS),
+            'scorecard_status_points' => AtlasCognitionScoreCardService::STATUS_POINTS,
+            'scorecard_subsystem_count' => count(AtlasCognitionScoreCardService::SUBSYSTEMS),
+            'scorecard_v4_supplemental_count' => count(AtlasCognitionScoreCardService::V4_SUPPLEMENTAL_SUBSYSTEMS),
+            'golden_counterfactual_schema' => GoldenCounterfactualReplayService::SCHEMA_VERSION,
+            'golden_counterfactual_measure_id' => GoldenCounterfactualReplayService::MEASURE_ID,
+            'golden_counterfactual_formula' => GoldenCounterfactualReplayService::FORMULA_VERSION,
+            'asef_chunk_index_schema' => AsefChunkIndexService::SCHEMA_VERSION,
+            'outcome_envelope_schema' => OutcomeEnvelope::SCHEMA_VERSION,
+            'composed_obra_author_engine' => ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'composed_obra_judge_engine' => ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID,
         ];
     }
 

@@ -38,8 +38,8 @@ final class ComposedObraArcComposer
             return self::emptyResult('flag_disabled');
         }
 
-        $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? self::DEFAULT_AUTHOR_ENGINE_ID);
-        $judge = AiValueNormalizer::trimmedString($context['judge_engine_id'] ?? self::DEFAULT_JUDGE_ENGINE_ID);
+        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? self::DEFAULT_AUTHOR_ENGINE_ID;
+        $judge = AiValueNormalizer::trimmedStringOrNull($context['judge_engine_id'] ?? null) ?? self::DEFAULT_JUDGE_ENGINE_ID;
         if ($author === '' || $judge === '' || $author === $judge) {
             return self::emptyResult('author_judge_invariant_violation');
         }
@@ -93,8 +93,8 @@ final class ComposedObraArcComposer
             if (! is_array($candidate)) {
                 continue;
             }
-            $target = ltrim(AiValueNormalizer::trimmedString($candidate['target_path'] ?? ''), '/');
-            $summary = AiValueNormalizer::trimmedString($candidate['summary'] ?? '');
+            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($candidate['target_path'] ?? null) ?? '', '/');
+            $summary = AiValueNormalizer::trimmedStringOrNull($candidate['summary'] ?? null) ?? '';
             if ($target === '' || $summary === '') {
                 continue;
             }
@@ -271,7 +271,7 @@ final class ComposedObraArcComposer
             }
             $block = is_array($lead['obra_cluster_candidate'] ?? null) ? $lead['obra_cluster_candidate'] : $lead;
             foreach (AiValueNormalizer::arrayOrEmpty($block['allowed_files'] ?? $block['member_paths'] ?? null) as $path) {
-                $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedString($path)), '/');
+                $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedStringOrNull($path) ?? ''), '/');
                 if ($normalized !== '') {
                     $paths[] = $normalized;
                 }
@@ -334,9 +334,9 @@ final class ComposedObraArcComposer
      */
     private static function organClass(array $candidate, string $targetPath): string
     {
-        $fqcn = AiValueNormalizer::trimmedString($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? '');
+        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? null) ?? '';
         if ($fqcn !== '') {
-            return ltrim(AiValueNormalizer::trimmedString($fqcn), '\\');
+            return ltrim(AiValueNormalizer::trimmedStringOrNull($fqcn) ?? '', '\\');
         }
 
         $base = basename($targetPath, '.php');

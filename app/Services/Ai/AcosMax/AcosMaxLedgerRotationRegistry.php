@@ -49,7 +49,7 @@ final class AcosMaxLedgerRotationRegistry
      */
     public function policyFor(string $series): ?array
     {
-        $series = AiValueNormalizer::trimmedString($series);
+        $series = AiValueNormalizer::trimmedStringOrNull($series) ?? '';
 
         return $series === '' ? null : ($this->policies[$series] ?? null);
     }
@@ -353,12 +353,12 @@ final class AcosMaxLedgerRotationRegistry
     {
         $normalized = [];
         foreach ($policies as $series => $policy) {
-            $seriesKey = AiValueNormalizer::trimmedString($series);
+            $seriesKey = AiValueNormalizer::trimmedStringOrNull($series) ?? '';
             if ($seriesKey === '') {
                 continue;
             }
             $policy = AiValueNormalizer::arrayOrEmpty($policy);
-            $mode = AiValueNormalizer::trimmedString($policy['mode'] ?? 'rotate_hybrid');
+            $mode = AiValueNormalizer::trimmedStringOrNull($policy['mode'] ?? null) ?? 'rotate_hybrid';
             if (! in_array($mode, ['append_forever', 'rotate_size', 'rotate_age', 'rotate_hybrid'], true)) {
                 $mode = 'rotate_hybrid';
             }
@@ -366,7 +366,7 @@ final class AcosMaxLedgerRotationRegistry
                 'max_size_mb' => max(1, (int) ($policy['max_size_mb'] ?? 32)),
                 'max_age_days' => max(1, (int) ($policy['max_age_days'] ?? 30)),
                 'mode' => $mode,
-                'rationale' => AiValueNormalizer::trimmedString($policy['rationale'] ?? ''),
+                'rationale' => AiValueNormalizer::trimmedStringOrNull($policy['rationale'] ?? null) ?? '',
             ];
         }
 

@@ -163,7 +163,7 @@ class AtlasCognitionScoreCardService
      * against real services is the honest ceiling; operator ruled
      * "uso organico nao conta" (organic-usage gating is not a valid dimension).
      */
-    private const SUBSYSTEMS = [
+    public const SUBSYSTEMS = [
         // Cognitive Immune G0-G8 (9)
         ['G0',     'Raw Capture Layer',           'cognitive_immune', AtlasAemorRuntimeService::class],
         ['G1',     'Evidence Promotion Gate',     'cognitive_immune', AtlasAemorRuntimeService::class],
@@ -264,7 +264,7 @@ class AtlasCognitionScoreCardService
      * absent from the 73-row v3 facet inventory. They are emitted only in v4 so
      * v3 remains a compatibility surface while v4 becomes the truthful boundary.
      */
-    private const V4_SUPPLEMENTAL_SUBSYSTEMS = [
+    public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
         ['ACCCR', 'Context Cache Compiler Runtime', 'context_cache', AtlasContextCacheCompilerRuntimeService::class],
         ['ACIE', 'Context Intelligence Engine', 'context_intelligence', AtlasContextOperationsRuntimeService::class],
         ['APCR', 'Persistent Context Runtime', 'persistent_context', AtlasPersistentContextRuntimeService::class],

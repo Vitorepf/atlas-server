@@ -33,9 +33,9 @@ final class AsefChunkIndexService
 
     public static function contextualizedText(string $title, string $section, string $chunk): string
     {
-        $title = AiValueNormalizer::trimmedString($title);
-        $section = AiValueNormalizer::trimmedString($section);
-        $chunk = AiValueNormalizer::trimmedString($chunk);
+        $title = AiValueNormalizer::trimmedStringOrNull($title) ?? '';
+        $section = AiValueNormalizer::trimmedStringOrNull($section) ?? '';
+        $chunk = AiValueNormalizer::trimmedStringOrNull($chunk) ?? '';
 
         return $title.' > '.$section."\n\n".$chunk;
     }
@@ -56,10 +56,10 @@ final class AsefChunkIndexService
             ];
         }
 
-        $sourceRef = AiValueNormalizer::trimmedString($source['source_ref'] ?? '');
-        $text = AiValueNormalizer::trimmedString($source['text'] ?? '');
-        $title = AiValueNormalizer::trimmedString($source['title'] ?? '');
-        $section = AiValueNormalizer::trimmedString($source['section'] ?? '');
+        $sourceRef = AiValueNormalizer::trimmedStringOrNull($source['source_ref'] ?? null) ?? '';
+        $text = AiValueNormalizer::trimmedStringOrNull($source['text'] ?? null) ?? '';
+        $title = AiValueNormalizer::trimmedStringOrNull($source['title'] ?? null) ?? '';
+        $section = AiValueNormalizer::trimmedStringOrNull($source['section'] ?? null) ?? '';
 
         if ($sourceRef === '' || $text === '') {
             return [
@@ -139,7 +139,7 @@ final class AsefChunkIndexService
 
     public function deleteCascade(string $deleteCascadeKey): int
     {
-        $key = AiValueNormalizer::trimmedString($deleteCascadeKey);
+        $key = AiValueNormalizer::trimmedStringOrNull($deleteCascadeKey) ?? '';
         if ($key === '' || ! DatabaseTableAvailability::has('asef_chunks')) {
             return 0;
         }
@@ -149,7 +149,7 @@ final class AsefChunkIndexService
 
     public function deleteBySourceRef(string $sourceRef): int
     {
-        $ref = AiValueNormalizer::trimmedString($sourceRef);
+        $ref = AiValueNormalizer::trimmedStringOrNull($sourceRef) ?? '';
         if ($ref === '' || ! DatabaseTableAvailability::has('asef_chunks')) {
             return 0;
         }
@@ -169,7 +169,7 @@ final class AsefChunkIndexService
         $counts = [];
 
         foreach ($chunkHits as $hit) {
-            $ref = AiValueNormalizer::trimmedString($hit['source_ref'] ?? '');
+            $ref = AiValueNormalizer::trimmedStringOrNull($hit['source_ref'] ?? null) ?? '';
             if ($ref === '') {
                 continue;
             }
@@ -219,7 +219,7 @@ final class AsefChunkIndexService
             ];
         }
 
-        $vector = $this->embeddings->embedText(AiValueNormalizer::trimmedString($query), $allowExternalProvider);
+        $vector = $this->embeddings->embedText(AiValueNormalizer::trimmedStringOrNull($query) ?? '', $allowExternalProvider);
         $literal = $this->embeddings->vectorLiteral($vector);
         $modelId = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
 

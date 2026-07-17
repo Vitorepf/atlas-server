@@ -91,8 +91,8 @@ final class AcosMaxVerifiedShareService
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
         $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? data_get($freeze, 'thresholds.denominator_min_executions', 50)));
         $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', 0.80)) ?? 0.80;
-        $authorEngineId = AiValueNormalizer::trimmedString($freeze['author_engine_id'] ?? '');
-        $judgeEngineId = AiValueNormalizer::trimmedString($freeze['judge_engine_id'] ?? '');
+        $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['author_engine_id'] ?? null) ?? '';
+        $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['judge_engine_id'] ?? null) ?? '';
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -101,8 +101,8 @@ final class AcosMaxVerifiedShareService
             'status' => $this->status($aggregate, $denominatorMin, $shareMin),
             'window_days' => $windowDays,
             'freeze' => [
-                'measure_id' => AiValueNormalizer::trimmedString($freeze['measure_id'] ?? self::MEASURE_ID) ?: self::MEASURE_ID,
-                'content_hash' => AiValueNormalizer::trimmedString($freeze['content_hash'] ?? ''),
+                'measure_id' => AiValueNormalizer::trimmedStringOrNull($freeze['measure_id'] ?? null) ?? self::MEASURE_ID,
+                'content_hash' => AiValueNormalizer::trimmedStringOrNull($freeze['content_hash'] ?? null) ?? '',
                 'denominator_min' => $denominatorMin,
                 'thresholds' => AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null),
                 'author_engine_id' => $authorEngineId,
@@ -162,7 +162,7 @@ final class AcosMaxVerifiedShareService
         try {
             while (($line = fgets($handle)) !== false) {
                 try {
-                    $row = json_decode(AiValueNormalizer::trimmedString($line), true, flags: JSON_THROW_ON_ERROR);
+                    $row = json_decode(AiValueNormalizer::trimmedStringOrNull($line) ?? '', true, flags: JSON_THROW_ON_ERROR);
                 } catch (Throwable) {
                     continue;
                 }
@@ -183,8 +183,8 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function judgeAuthorDistinct(array $row): bool
     {
-        $author = AiValueNormalizer::trimmedString($row['author_engine_id'] ?? '');
-        $judge = AiValueNormalizer::trimmedString($row['judge_engine_id'] ?? '');
+        $author = AiValueNormalizer::trimmedStringOrNull($row['author_engine_id'] ?? null) ?? '';
+        $judge = AiValueNormalizer::trimmedStringOrNull($row['judge_engine_id'] ?? null) ?? '';
 
         return $author !== '' && $judge !== '' && $author !== $judge;
     }
@@ -206,7 +206,7 @@ final class AcosMaxVerifiedShareService
         try {
             while (($line = fgets($handle)) !== false) {
                 try {
-                    $row = json_decode(AiValueNormalizer::trimmedString($line), true, flags: JSON_THROW_ON_ERROR);
+                    $row = json_decode(AiValueNormalizer::trimmedStringOrNull($line) ?? '', true, flags: JSON_THROW_ON_ERROR);
                 } catch (Throwable) {
                     continue;
                 }
@@ -252,14 +252,14 @@ final class AcosMaxVerifiedShareService
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }
 
-        return $this->normalizeExecutor(AiValueNormalizer::trimmedString($row['task_category'] ?? $row['role'] ?? ''));
+        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? $row['role'] ?? null) ?? '');
     }
 
     /** @param array<string,mixed> $row */
     private function executorFromCoverage(array $row): ?string
     {
-        $surface = AiValueNormalizer::trimmedString($row['surface'] ?? '');
-        $owner = AiValueNormalizer::trimmedString(EngineeringExecutionSurfaceRegistry::surface($surface)['owner'] ?? '');
+        $surface = AiValueNormalizer::trimmedStringOrNull($row['surface'] ?? null) ?? '';
+        $owner = AiValueNormalizer::trimmedStringOrNull(EngineeringExecutionSurfaceRegistry::surface($surface)['owner'] ?? null) ?? '';
 
         return $this->normalizeExecutor($owner);
     }

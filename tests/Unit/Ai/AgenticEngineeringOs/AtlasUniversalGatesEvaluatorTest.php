@@ -2086,4 +2086,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('shadow', $payload['promotion_protocol_states']);
         $this->assertSame('atlas.cognition.cognitive_immune_check.v1', $payload['cognitive_immune_check_schema']);
     }
+
+    public function test_verified_share_scorecard_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->verifiedShareScorecardContractObserve([]);
+
+        $this->assertSame('atlas.acos_max.verified_share.v1', $payload['verified_share_schema']);
+        $this->assertSame('acos.verified_share.v1', $payload['verified_share_measure_id']);
+        $this->assertSame('verified_share.v1', $payload['verified_share_formula']);
+        $this->assertSame(['dev', 'forge', 'autonomos'], $payload['verified_share_executors']);
+        $this->assertSame(3, $payload['verified_share_executor_count']);
+        $this->assertIsArray($payload['scorecard_status_points']);
+        $this->assertGreaterThan(0, $payload['scorecard_subsystem_count']);
+        $this->assertGreaterThan(0, $payload['scorecard_v4_supplemental_count']);
+        $this->assertSame('atlas.context.golden_counterfactual.v1', $payload['golden_counterfactual_schema']);
+        $this->assertSame('atlas.context.golden_counterfactual.v1', $payload['golden_counterfactual_measure_id']);
+        $this->assertSame('atlas_context_golden_counterfactual_v1', $payload['golden_counterfactual_formula']);
+        $this->assertSame('atlas.asef_chunks.index.v1', $payload['asef_chunk_index_schema']);
+        $this->assertSame('atlas.engineering_outcome.v2', $payload['outcome_envelope_schema']);
+        $this->assertSame('cursor-acos-max-multn1702', $payload['composed_obra_author_engine']);
+        $this->assertSame('codex-independent-multn1702-judge', $payload['composed_obra_judge_engine']);
+    }
 }

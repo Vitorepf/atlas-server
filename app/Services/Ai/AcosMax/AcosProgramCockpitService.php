@@ -52,7 +52,7 @@ final class AcosProgramCockpitService
         try {
             $buffer = new BufferedOutput;
             $exitCode = Artisan::call($command, $arguments, $buffer);
-            $decoded = json_decode(AiValueNormalizer::trimmedString($buffer->fetch()), true);
+            $decoded = json_decode(AiValueNormalizer::trimmedStringOrNull($buffer->fetch()) ?? '', true);
             if (! is_array($decoded)) {
                 return $this->unavailable($source, 'source_did_not_emit_json', ['exit_code' => $exitCode]);
             }
@@ -148,7 +148,7 @@ final class AcosProgramCockpitService
 
                     continue;
                 }
-                if (AiValueNormalizer::trimmedString($line) !== '') {
+                if ((AiValueNormalizer::trimmedStringOrNull($line) ?? '') !== '') {
                     $current['lines'][] = $line;
                 }
             }
@@ -174,7 +174,7 @@ final class AcosProgramCockpitService
             'status' => 'ok',
             'source' => $path,
             'payload' => [
-                'heading' => AiValueNormalizer::trimmedString($selected['heading'] ?? ''),
+                'heading' => AiValueNormalizer::trimmedStringOrNull($selected['heading'] ?? null) ?? '',
                 'lines' => array_values(AiValueNormalizer::arrayOrEmpty($selected['lines'] ?? null)),
             ],
         ];

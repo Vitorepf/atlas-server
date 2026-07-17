@@ -184,6 +184,7 @@ final class AtlasAaeosCommand extends Command
         {--evidence-vision-composer-contract= : JSON file (any object) to observe evidence-vision composer floors}
         {--measure-series-maxa04-contract= : JSON file (any object) to observe measure-series freshness + Maxa04 dual-read floors}
         {--ragx-choreography-budget-contract= : JSON file (any object) to observe RAGX + choreography + budget floors}
+        {--verified-share-scorecard-contract= : JSON file (any object) to observe verified-share + scorecard + golden/asef floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -524,6 +525,7 @@ final class AtlasAaeosCommand extends Command
             ['evidence-vision-composer-contract', 'evidence_vision_composer_contract', fn (array $p) => $gates->evidenceVisionComposerContractObserve($p)],
             ['measure-series-maxa04-contract', 'measure_series_maxa04_contract', fn (array $p) => $gates->measureSeriesMaxa04ContractObserve($p)],
             ['ragx-choreography-budget-contract', 'ragx_choreography_budget_contract', fn (array $p) => $gates->ragxChoreographyBudgetContractObserve($p)],
+            ['verified-share-scorecard-contract', 'verified_share_scorecard_contract', fn (array $p) => $gates->verifiedShareScorecardContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

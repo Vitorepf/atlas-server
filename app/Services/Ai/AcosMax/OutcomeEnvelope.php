@@ -139,9 +139,9 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_native_divergent_fields_invalid');
         }
 
-        $executor = AiValueNormalizer::trimmedString($data['executor'] ?? '');
-        $taskCategory = AiValueNormalizer::trimmedString($data['task_category'] ?? '');
-        $provider = AiValueNormalizer::trimmedString($data['provider'] ?? '');
+        $executor = AiValueNormalizer::trimmedStringOrNull($data['executor'] ?? null) ?? '';
+        $taskCategory = AiValueNormalizer::trimmedStringOrNull($data['task_category'] ?? null) ?? '';
+        $provider = AiValueNormalizer::trimmedStringOrNull($data['provider'] ?? null) ?? '';
         if ($executor === '' || $taskCategory === '' || $provider === '') {
             throw new InvalidArgumentException('outcome_envelope_identity_fields_required');
         }
@@ -179,10 +179,10 @@ final class OutcomeEnvelope
             'verified' => (bool) $data['verified'],
             'verified_basis' => $basis,
             'verified_source_present' => (bool) $data['verified_source_present'],
-            'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedString($certifiedReceiptId) : null,
+            'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,
             'evidence_ref_count' => $evidenceRefCount,
-            'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedString($episodeId) : null,
-            'run_id' => isset($data['run_id']) ? AiValueNormalizer::trimmedString($data['run_id']) : null,
+            'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,
+            'run_id' => AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null),
             'native_divergent' => [
                 'origin' => $divergentOrigin,
                 'fields' => $divergent['fields'],
