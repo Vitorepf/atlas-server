@@ -2634,4 +2634,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('verified_share.v1', $payload['verified_share_formula']);
         $this->assertSame(10, $payload['resource_budget_host_floor_count']);
     }
+
+    public function test_verified_share_procedural_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->verifiedShareProceduralFloorsContractObserve([]);
+
+        $this->assertSame(0.80, $payload['verified_share_min']);
+        $this->assertSame(14, $payload['verified_share_window_days_min']);
+        $this->assertSame(50, $payload['verified_share_denominator_min_executions']);
+        $this->assertSame(30, $payload['verified_share_ttl_days']);
+        $this->assertSame('atlas.ai.procedural_skill_promoter.v1', $payload['procedural_skill_schema']);
+        $this->assertSame('skill.v1', $payload['procedural_skill_schema_version']);
+        $this->assertSame(8, $payload['procedural_case_count_floor']);
+        $this->assertSame('atlas.acos_max.n_capture_drill.v1', $payload['n_capture_schema']);
+        $this->assertSame('atlas.n_capture_drill.v1', $payload['n_capture_measure_id']);
+        $this->assertSame(180, $payload['n_capture_days_between_drills_max']);
+        $this->assertSame(10, $payload['verified_share_procedural_floor_count']);
+    }
 }

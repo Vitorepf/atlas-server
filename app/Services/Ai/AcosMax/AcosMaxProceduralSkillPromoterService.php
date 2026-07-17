@@ -18,6 +18,8 @@ final class AcosMaxProceduralSkillPromoterService
 
     public const SKILL_SCHEMA_VERSION = 'skill.v1';
 
+    public const DEFAULT_CASE_COUNT_FLOOR = 8;
+
     public function __construct(
         private readonly ?AtlasProceduralPlaybookLedger $ledger = null,
     ) {}
@@ -26,7 +28,7 @@ final class AcosMaxProceduralSkillPromoterService
     public function report(?int $floor = null, bool $enqueue = false): array
     {
         $freeze = AcosMaxLote2MeasureService::freezePayload('MULTJ-04');
-        $effectiveFloor = max(1, (int) ($floor ?? data_get($freeze, 'thresholds.procedural_case_count_floor', 8)));
+        $effectiveFloor = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($floor) ?? data_get($freeze, 'thresholds.procedural_case_count_floor', self::DEFAULT_CASE_COUNT_FLOOR)));
         $ledger = $this->ledger ?? new AtlasProceduralPlaybookLedger;
         $cadence = $ledger->cadence();
         $enqueueRequested = $enqueue && $this->enqueueEnabled();

@@ -57,7 +57,7 @@ final class ComposedObraArcLifecycle
             'obra_id' => AiValueNormalizer::trimmedStringOrNull($arc['obra_id'] ?? null) ?? '',
             'status' => 'active',
             'consecutive_failures' => 0,
-            'kill_gate_k' => max(1, (int) data_get($arc, 'kill_gate.consecutive_failures_k', ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
+            'kill_gate_k' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($arc, 'kill_gate.consecutive_failures_k')) ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
             'tasks' => $tasks,
             'archive_receipt' => null,
         ];

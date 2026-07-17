@@ -24,6 +24,14 @@ final class AcosMaxVerifiedShareService
     /** @var list<string> */
     public const EXECUTORS = ['dev', 'forge', 'autonomos'];
 
+    public const DEFAULT_VERIFIED_SHARE_MIN = 0.80;
+
+    public const DEFAULT_WINDOW_DAYS_MIN = 14;
+
+    public const DEFAULT_DENOMINATOR_MIN_EXECUTIONS = 50;
+
+    public const DEFAULT_TTL_DAYS = 30;
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -33,12 +41,12 @@ final class AcosMaxVerifiedShareService
             'formula' => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
             'formula_version' => self::FORMULA_VERSION,
             'thresholds' => [
-                'verified_share_min' => 0.80,
-                'window_days_min' => 14,
-                'denominator_min_executions' => 50,
+                'verified_share_min' => self::DEFAULT_VERIFIED_SHARE_MIN,
+                'window_days_min' => self::DEFAULT_WINDOW_DAYS_MIN,
+                'denominator_min_executions' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             ],
-            'denominator_min' => 50,
-            'ttl_days' => 30,
+            'denominator_min' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+            'ttl_days' => self::DEFAULT_TTL_DAYS,
             'author_engine_id' => 'cursor-acos-max-elev12',
             'judge_engine_id' => 'codex-elev12-judge',
             'series_registry' => [
@@ -64,7 +72,7 @@ final class AcosMaxVerifiedShareService
             ];
         }
 
-        $windowDays = max(1, (int) ($days ?? data_get($freeze, 'thresholds.window_days_min', 14)));
+        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? data_get($freeze, 'thresholds.window_days_min', self::DEFAULT_WINDOW_DAYS_MIN)));
         $since = CarbonImmutable::now('UTC')->subDays($windowDays);
         $totals = $this->emptyCounts();
         $verified = $this->emptyCounts();
@@ -89,8 +97,8 @@ final class AcosMaxVerifiedShareService
         }
 
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
-        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? data_get($freeze, 'thresholds.denominator_min_executions', 50)));
-        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', 0.80)) ?? 0.80;
+        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? data_get($freeze, 'thresholds.denominator_min_executions', self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
+        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', self::DEFAULT_VERIFIED_SHARE_MIN)) ?? self::DEFAULT_VERIFIED_SHARE_MIN;
         $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['author_engine_id'] ?? null) ?? '';
         $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['judge_engine_id'] ?? null) ?? '';
 

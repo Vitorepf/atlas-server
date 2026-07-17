@@ -3845,6 +3845,30 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only verified-share + procedural-skill + n-capture published floor defaults.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function verifiedShareProceduralFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'verified_share_min' => AcosMaxVerifiedShareService::DEFAULT_VERIFIED_SHARE_MIN,
+            'verified_share_window_days_min' => AcosMaxVerifiedShareService::DEFAULT_WINDOW_DAYS_MIN,
+            'verified_share_denominator_min_executions' => AcosMaxVerifiedShareService::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+            'verified_share_ttl_days' => AcosMaxVerifiedShareService::DEFAULT_TTL_DAYS,
+            'procedural_skill_schema' => AcosMaxProceduralSkillPromoterService::SCHEMA_VERSION,
+            'procedural_skill_schema_version' => AcosMaxProceduralSkillPromoterService::SKILL_SCHEMA_VERSION,
+            'procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR,
+            'n_capture_schema' => AtlasNCaptureDrillService::SCHEMA_VERSION,
+            'n_capture_measure_id' => AtlasNCaptureDrillService::MEASURE_ID,
+            'n_capture_days_between_drills_max' => AtlasNCaptureDrillService::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
+            'verified_share_procedural_floor_count' => 10,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

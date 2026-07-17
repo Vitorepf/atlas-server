@@ -41,6 +41,8 @@ final class AtlasNCaptureDrillService
 
     public const RELATIVE_LEDGER_PATH = 'app/atlas/evidence/acos-max-teto-01-n-capture-drill.jsonl';
 
+    public const DEFAULT_DAYS_BETWEEN_DRILLS_MAX = 180;
+
     private readonly string $ledgerPath;
 
     public function __construct(?string $ledgerPath = null)
@@ -57,7 +59,7 @@ final class AtlasNCaptureDrillService
             'formula' => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
             'formula_version' => self::FORMULA_VERSION,
             'thresholds' => [
-                'days_between_drills_max' => 180,
+                'days_between_drills_max' => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
                 'cold_start_channels_allowed' => ['maxk02'],
                 'bypass_forbidden' => true,
                 'yardstick_required_series' => [
@@ -154,7 +156,7 @@ final class AtlasNCaptureDrillService
     public function report(?int $days = null): array
     {
         $freeze = self::freezePayload();
-        $windowDays = ($days !== null && $days > 0) ? $days : (int) $freeze['thresholds']['days_between_drills_max'];
+        $windowDays = ($days !== null && $days > 0) ? $days : (int) (AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.days_between_drills_max')) ?? self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX);
 
         $receipts = $this->readReceipts();
         $since = now('UTC')->subDays($windowDays);
