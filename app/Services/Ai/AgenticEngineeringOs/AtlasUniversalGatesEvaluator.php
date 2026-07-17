@@ -5517,6 +5517,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function compoundingScorecardCanaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'compounding_field_run_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_RUN_ID,
+            'compounding_field_retrieval_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_RETRIEVAL_QUALITY,
+            'compounding_field_missed_signals' => CompoundingOutcomeEnvelopeAdapter::FIELD_MISSED_SIGNALS,
+            'compounding_field_flow_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_QUALITY,
+            'compounding_field_execution_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_EXECUTION_QUALITY,
+            'compounding_adapter_kind' => CompoundingOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'scorecard_field_evidence_alias_of' => AtlasCognitionScoreCardService::FIELD_EVIDENCE_ALIAS_OF,
+            'scorecard_field_acronym' => AtlasCognitionScoreCardService::FIELD_ACRONYM,
+            'scorecard_field_score_out_of_10' => AtlasCognitionScoreCardService::FIELD_SCORE_OUT_OF_10,
+            'scorecard_field_pipeline_status' => AtlasCognitionScoreCardService::FIELD_PIPELINE_STATUS,
+            'scorecard_field_doc_status' => AtlasCognitionScoreCardService::FIELD_DOC_STATUS,
+            'scorecard_schema_version' => AtlasCognitionScoreCardService::SCHEMA_VERSION,
+            'canary_field_recall_at_5' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_RECALL_AT_5,
+            'canary_field_improper_floor_discards' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_IMPROPER_FLOOR_DISCARDS,
+            'canary_field_refs_total' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_TOTAL,
+            'canary_field_flows_checked' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOWS_CHECKED,
+            'canary_schema_version' => DailyCanaryReplayByRefsWatchdogCheck::SCHEMA_VERSION,
+            'compounding_scorecard_canary_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

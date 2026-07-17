@@ -125,6 +125,14 @@ class AtlasCognitionScoreCardService
     public const STATUS_BUILDING = 'building';
 
     public const STATUS_BLOCKED = 'blocked';
+    public const FIELD_EVIDENCE_ALIAS_OF = 'evidence_alias_of';
+    public const FIELD_ACRONYM = 'acronym';
+    public const FIELD_SCORE_OUT_OF_10 = 'score_out_of_10';
+    public const FIELD_PIPELINE_STATUS = 'pipeline_status';
+    public const FIELD_DOC_STATUS = 'doc_status';
+    public const FIELD_CODE_STATUS = 'code_status';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_OVERALL = 'overall';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -293,18 +301,18 @@ class AtlasCognitionScoreCardService
             $evidenceAlias = $firstFacetByService[$serviceClass] ?? null;
             $firstFacetByService[$serviceClass] ??= $acronym;
             $rows[] = [
-                'acronym' => $acronym,
+                self::FIELD_ACRONYM => $acronym,
                 'name' => $name,
                 'group' => $group,
                 'service_class' => $serviceClass,
-                'evidence_alias_of' => $evidenceAlias,
-                'code_status' => $this->probeCodeStatus($serviceClass),
+                self::FIELD_EVIDENCE_ALIAS_OF => $evidenceAlias,
+                self::FIELD_CODE_STATUS => $this->probeCodeStatus($serviceClass),
                 // doc_status and pipeline_status are RESOLVED from real evidence at
                 // runtime (FQN-bound doc ownership + a fresh B3 green-run receipt) —
                 // never read from the SUBSYSTEMS tuple. Moving the evidence moves the
                 // status and the aggregate; a hardcoded literal could not move.
-                'doc_status' => $this->evidence->resolveDocStatus($serviceClass),
-                'pipeline_status' => $this->evidence->resolvePipelineStatus($serviceClass),
+                self::FIELD_DOC_STATUS => $this->evidence->resolveDocStatus($serviceClass),
+                self::FIELD_PIPELINE_STATUS => $this->evidence->resolvePipelineStatus($serviceClass),
             ];
         }
 
@@ -315,7 +323,7 @@ class AtlasCognitionScoreCardService
             'subsystem_count' => count($rows),
             'scored_subsystem_count' => count(array_filter(
                 $rows,
-                static fn (array $row): bool => $row['evidence_alias_of'] === null,
+                static fn (array $row): bool => $row[self::FIELD_EVIDENCE_ALIAS_OF] === null,
             )),
             'subsystems' => $rows,
             'score' => $score,
@@ -398,7 +406,7 @@ class AtlasCognitionScoreCardService
     {
         $rows = array_values(array_filter(
             $rows,
-            static fn (array $row): bool => ($row['evidence_alias_of'] ?? null) === null,
+            static fn (array $row): bool => ($row[self::FIELD_EVIDENCE_ALIAS_OF] ?? null) === null,
         ));
         $dimensions = ['code_status', 'doc_status', 'pipeline_status'];
         $totals = [];
@@ -412,14 +420,14 @@ class AtlasCognitionScoreCardService
             $totals[$key] = [
                 'sum' => $sum,
                 'max' => $max,
-                'score_out_of_10' => $max > 0 ? round(($sum / $max) * 10, 2) : 0.0,
+                self::FIELD_SCORE_OUT_OF_10 => $max > 0 ? round(($sum / $max) * 10, 2) : 0.0,
             ];
         }
 
         $overall = round(
-            ($totals['code']['score_out_of_10']
-                + $totals['doc']['score_out_of_10']
-                + $totals['pipeline']['score_out_of_10']) / 3,
+            ($totals['code'][self::FIELD_SCORE_OUT_OF_10]
+                + $totals['doc'][self::FIELD_SCORE_OUT_OF_10]
+                + $totals['pipeline'][self::FIELD_SCORE_OUT_OF_10]) / 3,
             2
         );
 
@@ -452,19 +460,19 @@ class AtlasCognitionScoreCardService
     {
         $canonical = array_map(static function (array $r): array {
             return [
-                'acronym' => $r['acronym'],
-                'evidence_alias_of' => $r['evidence_alias_of'] ?? null,
-                'code_status' => $r['code_status'],
-                'doc_status' => $r['doc_status'],
-                'pipeline_status' => $r['pipeline_status'],
+                self::FIELD_ACRONYM => $r[self::FIELD_ACRONYM],
+                self::FIELD_EVIDENCE_ALIAS_OF => $r[self::FIELD_EVIDENCE_ALIAS_OF] ?? null,
+                self::FIELD_CODE_STATUS => $r[self::FIELD_CODE_STATUS],
+                self::FIELD_DOC_STATUS => $r[self::FIELD_DOC_STATUS],
+                self::FIELD_PIPELINE_STATUS => $r[self::FIELD_PIPELINE_STATUS],
             ];
         }, $rows);
-        usort($canonical, static fn ($a, $b) => strcmp($a['acronym'], $b['acronym']));
+        usort($canonical, static fn ($a, $b) => strcmp($a[self::FIELD_ACRONYM], $b[self::FIELD_ACRONYM]));
 
         return 'sha256:'.hash('sha256', json_encode([
             'schema' => self::SCHEMA_VERSION,
             'rows' => $canonical,
-            'overall' => $score['overall_out_of_10'],
+            self::FIELD_OVERALL => $score['overall_out_of_10'],
         ], JSON_THROW_ON_ERROR));
     }
 
@@ -489,15 +497,15 @@ class AtlasCognitionScoreCardService
         $rows = [];
         foreach (self::V4_SUPPLEMENTAL_SUBSYSTEMS as [$acronym, $name, $group, $serviceClass]) {
             $rows[] = [
-                'acronym' => $acronym,
+                self::FIELD_ACRONYM => $acronym,
                 'name' => $name,
                 'group' => $group,
                 'service_class' => $serviceClass,
-                'evidence_alias_of' => null,
+                self::FIELD_EVIDENCE_ALIAS_OF => null,
                 'supplemental' => true,
-                'code_status' => $this->probeCodeStatus($serviceClass),
-                'doc_status' => $this->evidence->resolveDocStatus($serviceClass),
-                'pipeline_status' => $this->evidence->resolvePipelineStatus($serviceClass),
+                self::FIELD_CODE_STATUS => $this->probeCodeStatus($serviceClass),
+                self::FIELD_DOC_STATUS => $this->evidence->resolveDocStatus($serviceClass),
+                self::FIELD_PIPELINE_STATUS => $this->evidence->resolvePipelineStatus($serviceClass),
             ];
         }
 

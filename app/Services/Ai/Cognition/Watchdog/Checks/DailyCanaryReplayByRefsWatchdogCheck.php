@@ -62,6 +62,14 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const REASON_CANARY_WITHIN_FLOORS = 'canary_within_floors';
 
     public const REASON_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_RECALL_AT_5 = 'recall_at_5';
+    public const FIELD_IMPROPER_FLOOR_DISCARDS = 'improper_floor_discards';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REFS_TOTAL = 'refs_total';
+    public const FIELD_REFS_CANONICAL = 'refs_canonical';
+    public const FIELD_FLOWS_CHECKED = 'flows_checked';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OK = 'ok';
 
 
     public function __construct(
@@ -87,8 +95,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $window = $this->deliveredWindow($now);
 
         $refCounts = $this->refCounts($window['entries']);
-        $refStability = $refCounts['refs_total'] > 0
-            ? round($refCounts['refs_canonical'] / $refCounts['refs_total'], 4)
+        $refStability = $refCounts[self::FIELD_REFS_TOTAL] > 0
+            ? round($refCounts[self::FIELD_REFS_CANONICAL] / $refCounts[self::FIELD_REFS_TOTAL], 4)
             : null;
 
         $golden = $this->goldenSnapshot();
@@ -98,31 +106,31 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             'as_of' => $now->toIso8601String(),
             'window_hours' => max(1, $this->windowHours),
             'top_n_flows' => max(1, $this->topNFlows),
-            'flows_checked' => $window['flows_checked'],
+            self::FIELD_FLOWS_CHECKED => $window[self::FIELD_FLOWS_CHECKED],
             'flows_available_in_window' => $window['flows_available'],
-            'refs_total' => $refCounts['refs_total'],
-            'refs_canonical' => $refCounts['refs_canonical'],
+            self::FIELD_REFS_TOTAL => $refCounts[self::FIELD_REFS_TOTAL],
+            self::FIELD_REFS_CANONICAL => $refCounts[self::FIELD_REFS_CANONICAL],
             'refs_by_kind' => $refCounts['by_kind'],
             'ref_stability' => $refStability,
             'ref_stability_floor' => self::REF_STABILITY_ALERT_FLOOR,
             'golden_version' => $golden['version'],
-            'golden_recall_at_5' => $golden['recall_at_5'],
-            'improper_floor_discards' => $golden['improper_floor_discards'],
-            'golden_status' => $golden['status'],
+            'golden_recall_at_5' => $golden[self::FIELD_RECALL_AT_5],
+            self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
+            'golden_status' => $golden[self::FIELD_STATUS],
             'golden_recall_at_5_floor' => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
             'provider_safe_invariant' => 'no_raw_query_or_context_in_report_or_ledger',
         ];
 
         $this->assertProviderSafeEvidence($evidence);
 
-        if ($window['flows_checked'] === 0 && $golden['recall_at_5'] === null) {
-            return AtlasWatchdogCheckResult::skipped($evidence + ['reason' => self::REASON_INSUFFICIENT_SIGNAL]);
+        if ($window[self::FIELD_FLOWS_CHECKED] === 0 && $golden[self::FIELD_RECALL_AT_5] === null) {
+            return AtlasWatchdogCheckResult::skipped($evidence + [self::FIELD_REASON => self::REASON_INSUFFICIENT_SIGNAL]);
         }
 
         $violations = $this->violations($refStability, $golden);
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => self::REASON_CANARY_DRIFT],
+                $evidence + [self::FIELD_REASON => self::REASON_CANARY_DRIFT],
                 [
                     'code' => 'daily_canary_drift',
                     'message' => 'MAXG-06 daily canary detected drift above frozen thresholds.',
@@ -131,7 +139,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             );
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_CANARY_WITHIN_FLOORS]);
+        return AtlasWatchdogCheckResult::ok($evidence + [self::FIELD_REASON => self::REASON_CANARY_WITHIN_FLOORS]);
     }
 
     /**
@@ -150,7 +158,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         // caps at topN, so we do NOT fabricate a larger denominator; the acceptance
         // is on ref stability + golden — the top-N sample is honest by contract.
         return [
-            'flows_checked' => count($entries),
+            self::FIELD_FLOWS_CHECKED => count($entries),
             'flows_available' => count($entries),
             'entries' => $entries,
         ];
@@ -187,8 +195,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         }
 
         return [
-            'refs_total' => $total,
-            'refs_canonical' => $canonical,
+            self::FIELD_REFS_TOTAL => $total,
+            self::FIELD_REFS_CANONICAL => $canonical,
             'by_kind' => $byKind,
         ];
     }
@@ -203,18 +211,18 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         } catch (Throwable) {
             return [
                 'version' => null,
-                'recall_at_5' => null,
-                'improper_floor_discards' => null,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_RECALL_AT_5 => null,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => null,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
             ];
         }
 
         if (! is_array($report)) {
             return [
                 'version' => null,
-                'recall_at_5' => null,
-                'improper_floor_discards' => null,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_RECALL_AT_5 => null,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => null,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
             ];
         }
 
@@ -236,24 +244,24 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         if ($chosenKey === null) {
             return [
                 'version' => null,
-                'recall_at_5' => null,
-                'improper_floor_discards' => null,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_RECALL_AT_5 => null,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => null,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
             ];
         }
 
         $chosen = $versions[$chosenKey];
-        $recall = $chosen['recall_at_5'] ?? $chosen['r5'] ?? null;
-        $discards = $chosen['improper_floor_discards'] ?? $chosen['fd'] ?? null;
+        $recall = $chosen[self::FIELD_RECALL_AT_5] ?? $chosen['r5'] ?? null;
+        $discards = $chosen[self::FIELD_IMPROPER_FLOOR_DISCARDS] ?? $chosen['fd'] ?? null;
 
         $recallNumeric = AiValueNormalizer::finiteFloatOrNull($recall);
         $discardsNumeric = AiValueNormalizer::finiteFloatOrNull($discards);
 
         return [
             'version' => $chosenKey,
-            'recall_at_5' => $recallNumeric === null ? null : round($recallNumeric, 4),
-            'improper_floor_discards' => $discardsNumeric === null ? null : (int) $discardsNumeric,
-            'status' => (AiValueNormalizer::trimmedStringOrNull($chosen['status'] ?? null) ?? self::STATUS_UNKNOWN),
+            self::FIELD_RECALL_AT_5 => $recallNumeric === null ? null : round($recallNumeric, 4),
+            self::FIELD_IMPROPER_FLOOR_DISCARDS => $discardsNumeric === null ? null : (int) $discardsNumeric,
+            self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($chosen[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
         ];
     }
 
@@ -292,19 +300,19 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             ];
         }
 
-        if ($golden['recall_at_5'] !== null && $golden['recall_at_5'] < self::GOLDEN_RECALL_AT_5_ALERT_FLOOR) {
+        if ($golden[self::FIELD_RECALL_AT_5] !== null && $golden[self::FIELD_RECALL_AT_5] < self::GOLDEN_RECALL_AT_5_ALERT_FLOOR) {
             $violations[] = [
                 'metric' => 'golden_recall_at_5',
-                'value' => $golden['recall_at_5'],
+                'value' => $golden[self::FIELD_RECALL_AT_5],
                 'floor' => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
                 'version' => $golden['version'],
             ];
         }
 
-        if ($golden['improper_floor_discards'] !== null && $golden['improper_floor_discards'] > self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING) {
+        if ($golden[self::FIELD_IMPROPER_FLOOR_DISCARDS] !== null && $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS] > self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING) {
             $violations[] = [
                 'metric' => 'improper_floor_discards',
-                'value' => $golden['improper_floor_discards'],
+                'value' => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
                 'ceiling' => self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
                 'version' => $golden['version'],
             ];

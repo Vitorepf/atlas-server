@@ -3905,4 +3905,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['choreography_hybrid_dev_floor_count']);
     }
 
+    public function test_compounding_scorecard_canary_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->compoundingScorecardCanaryFloorsContractObserve([]);
+
+        $this->assertSame('run_id', $payload['compounding_field_run_id']);
+        $this->assertSame('retrieval_quality', $payload['compounding_field_retrieval_quality']);
+        $this->assertSame('missed_signals', $payload['compounding_field_missed_signals']);
+        $this->assertSame('flow_quality', $payload['compounding_field_flow_quality']);
+        $this->assertSame('execution_quality', $payload['compounding_field_execution_quality']);
+        $this->assertSame('compounding', $payload['compounding_adapter_kind']);
+        $this->assertSame('evidence_alias_of', $payload['scorecard_field_evidence_alias_of']);
+        $this->assertSame('acronym', $payload['scorecard_field_acronym']);
+        $this->assertSame('score_out_of_10', $payload['scorecard_field_score_out_of_10']);
+        $this->assertSame('pipeline_status', $payload['scorecard_field_pipeline_status']);
+        $this->assertSame('doc_status', $payload['scorecard_field_doc_status']);
+        $this->assertSame('atlas.cognition.scorecard.v3', $payload['scorecard_schema_version']);
+        $this->assertSame('recall_at_5', $payload['canary_field_recall_at_5']);
+        $this->assertSame('improper_floor_discards', $payload['canary_field_improper_floor_discards']);
+        $this->assertSame('refs_total', $payload['canary_field_refs_total']);
+        $this->assertSame('flows_checked', $payload['canary_field_flows_checked']);
+        $this->assertSame('atlas.acos.watchdog.daily_canary_replay_by_refs.v1', $payload['canary_schema_version']);
+        $this->assertSame(17, $payload['compounding_scorecard_canary_floor_count']);
+    }
+
 }

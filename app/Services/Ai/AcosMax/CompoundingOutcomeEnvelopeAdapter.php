@@ -28,6 +28,14 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const STATUS_PASSED = 'passed';
 
     public const STATUS_ABSENT = 'absent';
+    public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_RETRIEVAL_QUALITY = 'retrieval_quality';
+    public const FIELD_MISSED_SIGNALS = 'missed_signals';
+    public const FIELD_FLOW_QUALITY = 'flow_quality';
+    public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_EXECUTION_QUALITY = 'execution_quality';
+    public const FIELD_EVIDENCE_QUALITY = 'evidence_quality';
+    public const FIELD_STATUS = 'status';
 
     public function origin(): string
     {
@@ -40,7 +48,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
      */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $flowId = AiValueNormalizer::lowerTrimmedString($native['flow_id'] ?? 'atlas_conversation');
+        $flowId = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_FLOW_ID] ?? 'atlas_conversation');
         $executor = match (true) {
             str_contains($flowId, 'forge') => 'forge',
             str_contains($flowId, 'autonomos') => 'autonomos',
@@ -48,7 +56,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             default => 'engineering',
         };
 
-        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native['status'] ?? self::STATUS_PASSED);
+        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native[self::FIELD_STATUS] ?? self::STATUS_PASSED);
         $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
@@ -63,28 +71,28 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         );
         $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
-        $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? null) ?? '';
+        $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
             'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $executor) ?? '',
             'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? null,
             'evidence_ref_count' => count($evidenceRefs),
             'episode_id' => null,
-            'run_id' => $runId !== '' ? $runId : null,
+            self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
         ], [
-            'flow_id' => $flowId,
-            'flow_quality' => $native['flow_quality'] ?? null,
-            'retrieval_quality' => $native['retrieval_quality'] ?? null,
-            'execution_quality' => $native['execution_quality'] ?? null,
-            'evidence_quality' => $native['evidence_quality'] ?? null,
+            self::FIELD_FLOW_ID => $flowId,
+            self::FIELD_FLOW_QUALITY => $native[self::FIELD_FLOW_QUALITY] ?? null,
+            self::FIELD_RETRIEVAL_QUALITY => $native[self::FIELD_RETRIEVAL_QUALITY] ?? null,
+            self::FIELD_EXECUTION_QUALITY => $native[self::FIELD_EXECUTION_QUALITY] ?? null,
+            self::FIELD_EVIDENCE_QUALITY => $native[self::FIELD_EVIDENCE_QUALITY] ?? null,
             self::FIELD_LEARNING_REQUIRED => (AiValueNormalizer::boolOrNull($native[self::FIELD_LEARNING_REQUIRED] ?? null) ?? false),
-            'missed_signals' => AiValueNormalizer::arrayOrEmpty($native['missed_signals'] ?? null),
+            self::FIELD_MISSED_SIGNALS => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_MISSED_SIGNALS] ?? null),
             self::FIELD_HUMAN_OVERRIDE => (AiValueNormalizer::boolOrNull($native[self::FIELD_HUMAN_OVERRIDE] ?? null) ?? false),
         ]);
     }
@@ -95,15 +103,15 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
-            'flow_id' => (AiValueNormalizer::trimmedStringOrNull($fields['flow_id'] ?? null) ?? 'atlas_conversation'),
-            'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? ''),
-            'outcome_status' => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
-            'flow_quality' => $fields['flow_quality'] ?? null,
-            'retrieval_quality' => $fields['retrieval_quality'] ?? null,
-            'execution_quality' => $fields['execution_quality'] ?? null,
-            'evidence_quality' => $fields['evidence_quality'] ?? null,
+            self::FIELD_FLOW_ID => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_FLOW_ID] ?? null) ?? 'atlas_conversation'),
+            self::FIELD_RUN_ID => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_RUN_ID] ?? null) ?? ''),
+            'outcome_status' => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
+            self::FIELD_FLOW_QUALITY => $fields[self::FIELD_FLOW_QUALITY] ?? null,
+            self::FIELD_RETRIEVAL_QUALITY => $fields[self::FIELD_RETRIEVAL_QUALITY] ?? null,
+            self::FIELD_EXECUTION_QUALITY => $fields[self::FIELD_EXECUTION_QUALITY] ?? null,
+            self::FIELD_EVIDENCE_QUALITY => $fields[self::FIELD_EVIDENCE_QUALITY] ?? null,
             self::FIELD_LEARNING_REQUIRED => (AiValueNormalizer::boolOrNull($fields[self::FIELD_LEARNING_REQUIRED] ?? null) ?? false),
-            'missed_signals' => AiValueNormalizer::arrayOrEmpty($fields['missed_signals'] ?? null),
+            self::FIELD_MISSED_SIGNALS => AiValueNormalizer::arrayOrEmpty($fields[self::FIELD_MISSED_SIGNALS] ?? null),
             self::FIELD_HUMAN_OVERRIDE => (AiValueNormalizer::boolOrNull($fields[self::FIELD_HUMAN_OVERRIDE] ?? null) ?? false),
             self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
             self::FIELD_VERIFIED_BASIS => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_VERIFIED_BASIS] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
