@@ -50,6 +50,14 @@ final class AtlasMissionControlCockpitService
     public const FIELD_PASSED = 'passed';
 
     public const FIELD_MISSING = 'missing';
+    public const FIELD_PHASE = 'phase';
+    public const FIELD_INDEX = 'index';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_GATES_PASSED = 'gates_passed';
+    public const FIELD_GATES_BLOCKED = 'gates_blocked';
+    public const FIELD_GATE_COVERAGE = 'gate_coverage';
+    public const FIELD_ACTOR_KIND = 'actor_kind';
+    public const FIELD_OPERATOR_SIGNATURE = 'operator_signature';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -267,14 +275,14 @@ final class AtlasMissionControlCockpitService
             $env = $byPhase[$phase] ?? null;
             if ($env === null) {
                 $out[] = [
-                    'phase' => $phase,
-                    'index' => $idx,
-                    'status' => self::STATUS_PENDING,
-                    'gates_passed' => 0,
-                    'gates_blocked' => 0,
-                    'gate_coverage' => null,
-                    'actor_kind' => null,
-                    'operator_signature' => null,
+                    self::FIELD_PHASE => $phase,
+                    self::FIELD_INDEX => $idx,
+                    self::FIELD_STATUS => self::STATUS_PENDING,
+                    self::FIELD_GATES_PASSED => 0,
+                    self::FIELD_GATES_BLOCKED => 0,
+                    self::FIELD_GATE_COVERAGE => null,
+                    self::FIELD_ACTOR_KIND => null,
+                    self::FIELD_OPERATOR_SIGNATURE => null,
                 ];
                 continue;
             }
@@ -286,14 +294,14 @@ final class AtlasMissionControlCockpitService
             $skipped = ! empty($env['skip_reason']);
             $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env['ended_at'] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));
             $out[] = [
-                'phase' => $phase,
-                'index' => $idx,
-                'status' => $status,
-                'gates_passed' => count($passed),
-                'gates_blocked' => count($blocked),
-                'gate_coverage' => $this->gateCoverage->check($required, $passed),
-                'actor_kind' => $actor['kind'] ?? null,
-                'operator_signature' => $env['operator_signature'] ?? null,
+                self::FIELD_PHASE => $phase,
+                self::FIELD_INDEX => $idx,
+                self::FIELD_STATUS => $status,
+                self::FIELD_GATES_PASSED => count($passed),
+                self::FIELD_GATES_BLOCKED => count($blocked),
+                self::FIELD_GATE_COVERAGE => $this->gateCoverage->check($required, $passed),
+                self::FIELD_ACTOR_KIND => $actor['kind'] ?? null,
+                self::FIELD_OPERATOR_SIGNATURE => $env[self::FIELD_OPERATOR_SIGNATURE] ?? null,
             ];
         }
 
@@ -305,12 +313,12 @@ final class AtlasMissionControlCockpitService
     {
         $last = null;
         foreach ($journey as $row) {
-            if (in_array($row['status'] ?? null, [self::STATUS_COMPLETE, self::STATUS_SKIPPED], true)) {
-                $last = $row['phase'];
+            if (in_array($row[self::FIELD_STATUS] ?? null, [self::STATUS_COMPLETE, self::STATUS_SKIPPED], true)) {
+                $last = $row[self::FIELD_PHASE];
                 continue;
             }
-            if (in_array($row['status'] ?? null, [self::STATUS_IN_PROGRESS, self::STATUS_BLOCKED], true)) {
-                return $row['phase'];
+            if (in_array($row[self::FIELD_STATUS] ?? null, [self::STATUS_IN_PROGRESS, self::STATUS_BLOCKED], true)) {
+                return $row[self::FIELD_PHASE];
             }
         }
 

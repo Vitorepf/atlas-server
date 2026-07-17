@@ -4289,4 +4289,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['obra_thesis_skill_floor_count']);
     }
 
+    public function test_mission_promotion_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->missionPromotionOutcomeFloorsContractObserve([]);
+
+        $this->assertSame('phase', $payload['mission_field_phase']);
+        $this->assertSame('index', $payload['mission_field_index']);
+        $this->assertSame('status', $payload['mission_field_status']);
+        $this->assertSame('gates_passed', $payload['mission_field_gates_passed']);
+        $this->assertSame('gates_blocked', $payload['mission_field_gates_blocked']);
+        $this->assertSame('gate_coverage', $payload['mission_field_gate_coverage']);
+        $this->assertSame('actor_kind', $payload['mission_field_actor_kind']);
+        $this->assertSame('schema_version', $payload['promo_field_schema_version']);
+        $this->assertSame('verdict', $payload['promo_field_verdict']);
+        $this->assertSame('current_tier', $payload['promo_field_current_tier']);
+        $this->assertSame('target_tier', $payload['promo_field_target_tier']);
+        $this->assertSame('preconditions', $payload['promo_field_preconditions']);
+        $this->assertSame('failed_preconditions', $payload['promo_field_failed_preconditions']);
+        $this->assertSame('schema_version', $payload['outcome_field_schema_version']);
+        $this->assertSame('formula_version', $payload['outcome_field_formula_version']);
+        $this->assertSame('adapter_origin', $payload['outcome_field_adapter_origin']);
+        $this->assertSame('native_divergent', $payload['outcome_field_native_divergent']);
+        $this->assertSame(17, $payload['mission_promotion_outcome_floor_count']);
+    }
+
 }

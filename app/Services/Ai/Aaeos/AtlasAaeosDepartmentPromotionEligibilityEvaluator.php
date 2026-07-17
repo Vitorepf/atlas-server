@@ -19,6 +19,13 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const VERDICT_BLOCKED = 'blocked';
 
     public const FIELD_PASSED = 'passed';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_CURRENT_TIER = 'current_tier';
+    public const FIELD_TARGET_TIER = 'target_tier';
+    public const FIELD_PRECONDITIONS = 'preconditions';
+    public const FIELD_FAILED_PRECONDITIONS = 'failed_preconditions';
+    public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -45,7 +52,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     public function evaluate(array $department, array $metrics, array $options = []): array
     {
-        $currentTier = $this->intValue($department['current_tier'] ?? 0);
+        $currentTier = $this->intValue($department[self::FIELD_CURRENT_TIER] ?? 0);
         $maxTier = $this->intValue($options['max_tier'] ?? self::DEFAULT_MAX_TIER, self::DEFAULT_MAX_TIER);
         $atMaxTier = $currentTier >= $maxTier;
         $targetTier = $atMaxTier ? $maxTier : ($currentTier + 1);
@@ -87,13 +94,13 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         ];
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
-            'current_tier' => $currentTier,
-            'target_tier' => $targetTier,
-            'preconditions' => $preconditions,
-            'failed_preconditions' => $failedPreconditions,
-            'blocking_reasons' => $blockingReasons,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_VERDICT => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
+            self::FIELD_CURRENT_TIER => $currentTier,
+            self::FIELD_TARGET_TIER => $targetTier,
+            self::FIELD_PRECONDITIONS => $preconditions,
+            self::FIELD_FAILED_PRECONDITIONS => $failedPreconditions,
+            self::FIELD_BLOCKING_REASONS => $blockingReasons,
             'eligibility_hash' => $this->eligibilityHash(
                 $currentTier,
                 $targetTier,
@@ -248,13 +255,13 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         array $blockingReasons,
     ): string {
         $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'current_tier' => $currentTier,
-            'target_tier' => $targetTier,
-            'verdict' => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
-            'preconditions' => $preconditions,
-            'failed_preconditions' => $failedPreconditions,
-            'blocking_reasons' => $blockingReasons,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CURRENT_TIER => $currentTier,
+            self::FIELD_TARGET_TIER => $targetTier,
+            self::FIELD_VERDICT => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
+            self::FIELD_PRECONDITIONS => $preconditions,
+            self::FIELD_FAILED_PRECONDITIONS => $failedPreconditions,
+            self::FIELD_BLOCKING_REASONS => $blockingReasons,
         ];
 
         return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

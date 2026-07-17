@@ -5901,6 +5901,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function missionPromotionOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'mission_field_phase' => AtlasMissionControlCockpitService::FIELD_PHASE,
+            'mission_field_index' => AtlasMissionControlCockpitService::FIELD_INDEX,
+            'mission_field_status' => AtlasMissionControlCockpitService::FIELD_STATUS,
+            'mission_field_gates_passed' => AtlasMissionControlCockpitService::FIELD_GATES_PASSED,
+            'mission_field_gates_blocked' => AtlasMissionControlCockpitService::FIELD_GATES_BLOCKED,
+            'mission_field_gate_coverage' => AtlasMissionControlCockpitService::FIELD_GATE_COVERAGE,
+            'mission_field_actor_kind' => AtlasMissionControlCockpitService::FIELD_ACTOR_KIND,
+            'promo_field_schema_version' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_SCHEMA_VERSION,
+            'promo_field_verdict' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_VERDICT,
+            'promo_field_current_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_TIER,
+            'promo_field_target_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_TIER,
+            'promo_field_preconditions' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PRECONDITIONS,
+            'promo_field_failed_preconditions' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FAILED_PRECONDITIONS,
+            'outcome_field_schema_version' => OutcomeEnvelope::FIELD_SCHEMA_VERSION,
+            'outcome_field_formula_version' => OutcomeEnvelope::FIELD_FORMULA_VERSION,
+            'outcome_field_adapter_origin' => OutcomeEnvelope::FIELD_ADAPTER_ORIGIN,
+            'outcome_field_native_divergent' => OutcomeEnvelope::FIELD_NATIVE_DIVERGENT,
+            'mission_promotion_outcome_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

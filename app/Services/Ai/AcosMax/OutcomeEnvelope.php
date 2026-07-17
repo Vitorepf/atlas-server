@@ -43,6 +43,12 @@ final class OutcomeEnvelope
     public const ADAPTER_ORIGINS = [self::ORIGIN_DEV_PROCEDURAL, self::ORIGIN_AEMOR, self::ORIGIN_COMPOUNDING];
 
     public const FIELD_VERIFIED = 'verified';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_ADAPTER_ORIGIN = 'adapter_origin';
+    public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
+    public const FIELD_ORIGIN = 'origin';
+    public const FIELD_FIELDS = 'fields';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -101,12 +107,12 @@ final class OutcomeEnvelope
     public static function fromAdapter(string $origin, array $fields, array $nativeFields): self
     {
         return self::fromArray(array_merge($fields, [
-            'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
-            'adapter_origin' => $origin,
-            'native_divergent' => [
-                'origin' => $origin,
-                'fields' => $nativeFields,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_ADAPTER_ORIGIN => $origin,
+            self::FIELD_NATIVE_DIVERGENT => [
+                self::FIELD_ORIGIN => $origin,
+                self::FIELD_FIELDS => $nativeFields,
             ],
         ]));
     }
@@ -117,17 +123,17 @@ final class OutcomeEnvelope
      */
     public static function validate(array $data): array
     {
-        $schema = AiValueNormalizer::lowerTrimmedString($data['schema_version'] ?? '');
+        $schema = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_SCHEMA_VERSION] ?? '');
         if ($schema !== self::SCHEMA_VERSION) {
             throw new InvalidArgumentException('outcome_envelope_schema_invalid');
         }
 
-        $formula = AiValueNormalizer::lowerTrimmedString($data['formula_version'] ?? '');
+        $formula = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_FORMULA_VERSION] ?? '');
         if ($formula !== self::FORMULA_VERSION) {
             throw new InvalidArgumentException('outcome_envelope_formula_invalid');
         }
 
-        $origin = AiValueNormalizer::lowerTrimmedString($data['adapter_origin'] ?? '');
+        $origin = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_ADAPTER_ORIGIN] ?? '');
         if (! in_array($origin, self::ADAPTER_ORIGINS, true)) {
             throw new InvalidArgumentException('outcome_envelope_adapter_origin_invalid');
         }
@@ -147,15 +153,15 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_verified_basis_invalid');
         }
 
-        $divergent = $data['native_divergent'] ?? null;
+        $divergent = $data[self::FIELD_NATIVE_DIVERGENT] ?? null;
         if (! is_array($divergent)) {
             throw new InvalidArgumentException('outcome_envelope_native_divergent_invalid');
         }
-        $divergentOrigin = AiValueNormalizer::lowerTrimmedString($divergent['origin'] ?? '');
+        $divergentOrigin = AiValueNormalizer::lowerTrimmedString($divergent[self::FIELD_ORIGIN] ?? '');
         if ($divergentOrigin !== $origin) {
             throw new InvalidArgumentException('outcome_envelope_native_divergent_origin_mismatch');
         }
-        if (! is_array($divergent['fields'] ?? null)) {
+        if (! is_array($divergent[self::FIELD_FIELDS] ?? null)) {
             throw new InvalidArgumentException('outcome_envelope_native_divergent_fields_invalid');
         }
 
@@ -189,9 +195,9 @@ final class OutcomeEnvelope
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
-            'adapter_origin' => $origin,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_ADAPTER_ORIGIN => $origin,
             'executor' => $executor,
             'task_category' => $taskCategory,
             'provider' => $provider,
@@ -203,9 +209,9 @@ final class OutcomeEnvelope
             'evidence_ref_count' => $evidenceRefCount,
             'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,
             'run_id' => AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null),
-            'native_divergent' => [
-                'origin' => $divergentOrigin,
-                'fields' => $divergent['fields'],
+            self::FIELD_NATIVE_DIVERGENT => [
+                self::FIELD_ORIGIN => $divergentOrigin,
+                self::FIELD_FIELDS => $divergent[self::FIELD_FIELDS],
             ],
         ];
     }
