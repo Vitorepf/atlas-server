@@ -18,31 +18,31 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosDocMaturityClassifier
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.doc_maturity.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.doc_maturity.v1';
 
-    private const LEVEL_L0 = 'DOC L0';
+    public const LEVEL_L0 = 'DOC L0';
 
-    private const LEVEL_L1 = 'DOC L1';
+    public const LEVEL_L1 = 'DOC L1';
 
-    private const LEVEL_L2 = 'DOC L2';
+    public const LEVEL_L2 = 'DOC L2';
 
-    private const LEVEL_L3 = 'DOC L3';
+    public const LEVEL_L3 = 'DOC L3';
 
-    private const LEVEL_L4 = 'DOC L4';
+    public const LEVEL_L4 = 'DOC L4';
 
     /**
      * Boolean structural parts: present when the input flag is truthy.
      *
      * @var list<string>
      */
-    private const BOOLEAN_REQUIREMENTS = ['mother_doc', 'contracts'];
+    public const BOOLEAN_REQUIREMENTS = ['mother_doc', 'contracts'];
 
     /**
      * Strength-graded structural parts: satisfied only at 'strong'.
      *
      * @var list<string>
      */
-    private const STRENGTH_REQUIREMENTS = ['runbook', 'matrix', 'quality_bar', 'evidence', 'gates'];
+    public const STRENGTH_REQUIREMENTS = ['runbook', 'matrix', 'quality_bar', 'evidence', 'gates'];
 
     /**
      * The four high signals that, when all 'strong' on top of mother + contracts
@@ -50,13 +50,22 @@ final class AtlasAaeosDocMaturityClassifier
      *
      * @var list<string>
      */
-    private const L4_SIGNALS = ['matrix', 'quality_bar', 'evidence', 'gates'];
+    public const L4_SIGNALS = ['matrix', 'quality_bar', 'evidence', 'gates'];
 
-    private const STRENGTH_NONE = 'none';
+    public const STRENGTH_NONE = 'none';
 
-    private const STRENGTH_PARTIAL = 'partial';
+    public const STRENGTH_PARTIAL = 'partial';
 
-    private const STRENGTH_STRONG = 'strong';
+    public const STRENGTH_STRONG = 'strong';
+
+    /** @var list<string> */
+    public const LEVELS = [
+        self::LEVEL_L0,
+        self::LEVEL_L1,
+        self::LEVEL_L2,
+        self::LEVEL_L3,
+        self::LEVEL_L4,
+    ];
 
     /**
      * @param  array<string,mixed>  $sections

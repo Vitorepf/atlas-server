@@ -166,6 +166,8 @@ final class AtlasAaeosCommand extends Command
         {--gated-corpus-contract= : JSON file (any object) to observe gated corpus miner contract}
         {--claim-definition-of-done-contract= : JSON file (any object) to observe Claim DoD contract fields}
         {--quality-bar-telemetry-contract= : JSON file (any object) to observe M5 quality-bar telemetry contract}
+        {--doc-maturity-contract= : JSON file (any object) to observe DOC L0..L4 maturity contract}
+        {--attempt-lifecycle-contract= : JSON file (any object) to observe ESP-01 attempt lifecycle contract}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -488,6 +490,8 @@ final class AtlasAaeosCommand extends Command
             ['gated-corpus-contract', 'gated_corpus_contract', fn (array $p) => $gates->gatedCorpusContractObserve($p)],
             ['claim-definition-of-done-contract', 'claim_definition_of_done_contract', fn (array $p) => $gates->claimDefinitionOfDoneContractObserve($p)],
             ['quality-bar-telemetry-contract', 'quality_bar_telemetry_contract', fn (array $p) => $gates->qualityBarTelemetryContractObserve($p)],
+            ['doc-maturity-contract', 'doc_maturity_contract', fn (array $p) => $gates->docMaturityContractObserve($p)],
+            ['attempt-lifecycle-contract', 'attempt_lifecycle_contract', fn (array $p) => $gates->attemptLifecycleContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -1784,4 +1784,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('breach_metrics', $payload['evidence_required']);
         $this->assertContains('department_id', $payload['telemetry_fields']);
     }
+
+    public function test_doc_maturity_contract_observe_reports_levels(): void
+    {
+        $payload = $this->svc->docMaturityContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.doc_maturity.v1', $payload['schema_version']);
+        $this->assertContains('DOC L0', $payload['levels']);
+        $this->assertContains('DOC L4', $payload['levels']);
+        $this->assertSame(5, $payload['level_count']);
+        $this->assertContains('mother_doc', $payload['boolean_requirements']);
+        $this->assertContains('gates', $payload['l4_signals']);
+        $this->assertFalse($payload['runtime_ready_always']);
+    }
+
+    public function test_attempt_lifecycle_contract_observe_reports_terminal_states(): void
+    {
+        $payload = $this->svc->attemptLifecycleContractObserve([]);
+
+        $this->assertSame('atlas.execution.attempt_lifecycle.v1', $payload['schema_version']);
+        $this->assertContains('completed', $payload['terminal_states']);
+        $this->assertContains('abandoned', $payload['terminal_states']);
+        $this->assertSame(4, $payload['terminal_state_count']);
+        $this->assertFalse($payload['outcome_without_attempt_allowed']);
+        $this->assertTrue($payload['attempt_id_deduped']);
+    }
 }

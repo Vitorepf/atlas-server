@@ -61,6 +61,7 @@ use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\AcosMax\OutcomeEnvelope;
+use App\Services\Ai\AcosMax\AttemptLifecycleLedger;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
@@ -2465,6 +2466,44 @@ final class AtlasUniversalGatesEvaluator
             'auto_block_on_breach' => QualityBarTelemetryContract::AUTO_BLOCK_ON_BREACH,
             'evidence_required' => QualityBarTelemetryContract::EVIDENCE_REQUIRED,
             'telemetry_fields' => QualityBarTelemetryContract::TELEMETRY_FIELDS,
+        ];
+    }
+
+    /**
+     * Observe-only DOC L0..L4 maturity contract (never proves runtime).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function docMaturityContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
+            'levels' => AtlasAaeosDocMaturityClassifier::LEVELS,
+            'level_count' => count(AtlasAaeosDocMaturityClassifier::LEVELS),
+            'boolean_requirements' => AtlasAaeosDocMaturityClassifier::BOOLEAN_REQUIREMENTS,
+            'strength_requirements' => AtlasAaeosDocMaturityClassifier::STRENGTH_REQUIREMENTS,
+            'l4_signals' => AtlasAaeosDocMaturityClassifier::L4_SIGNALS,
+            'runtime_ready_always' => false,
+        ];
+    }
+
+    /**
+     * Observe-only ESP-01 attempt lifecycle terminal states.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function attemptLifecycleContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AttemptLifecycleLedger::SCHEMA_VERSION,
+            'terminal_states' => AttemptLifecycleLedger::TERMINAL_STATES,
+            'terminal_state_count' => count(AttemptLifecycleLedger::TERMINAL_STATES),
+            'outcome_without_attempt_allowed' => false,
+            'attempt_id_deduped' => true,
         ];
     }
 
