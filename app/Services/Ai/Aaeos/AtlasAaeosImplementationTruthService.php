@@ -72,6 +72,15 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_DRIFT = 'drift';
+    public const FIELD_CAPABILITY_ID = 'capability_id';
+    public const FIELD_OWNER_DOC = 'owner_doc';
+    public const FIELD_CLAIMED_STATE = 'claimed_state';
+    public const FIELD_CLAIMED_STATE_RAW = 'claimed_state_raw';
+    public const FIELD_COMPUTED_STATE = 'computed_state';
+    public const FIELD_UNDER_CLAIM = 'under_claim';
+    public const FIELD_UNMET_EVIDENCE = 'unmet_evidence';
+    public const FIELD_TEST_RESOLUTION = 'test_resolution';
+    public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
 
     public const TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN = 'existence_only_unrun';
 
@@ -114,7 +123,7 @@ class AtlasAaeosImplementationTruthService
 
         foreach ($docs as $doc) {
             $result = $this->compute($doc[self::FIELD_IMPLEMENTATION_STATE], $doc[self::FIELD_EVIDENCE_REFS], $doc['id']);
-            $byComputed[$result['computed_state']]++;
+            $byComputed[$result[self::FIELD_COMPUTED_STATE]]++;
             if ($result[self::FIELD_DRIFT] === true) {
                 $driftCount++;
             }
@@ -126,15 +135,15 @@ class AtlasAaeosImplementationTruthService
             }
             $rows[] = [
                 self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
-                'capability_id' => $doc['id'],
-                'owner_doc' => $doc['path'],
-                'claimed_state' => $result['claimed_state'],
-                'claimed_state_raw' => $result['claimed_state_raw'],
-                'computed_state' => $result['computed_state'],
+                self::FIELD_CAPABILITY_ID => $doc['id'],
+                self::FIELD_OWNER_DOC => $doc['path'],
+                self::FIELD_CLAIMED_STATE => $result[self::FIELD_CLAIMED_STATE],
+                self::FIELD_CLAIMED_STATE_RAW => $result[self::FIELD_CLAIMED_STATE_RAW],
+                self::FIELD_COMPUTED_STATE => $result[self::FIELD_COMPUTED_STATE],
                 self::FIELD_DRIFT => $result[self::FIELD_DRIFT],
-                'under_claim' => $result['under_claim'],
+                self::FIELD_UNDER_CLAIM => $result[self::FIELD_UNDER_CLAIM],
                 self::FIELD_RESOLVED => $result[self::FIELD_RESOLVED],
-                'unmet_evidence' => $result['unmet_evidence'],
+                self::FIELD_UNMET_EVIDENCE => $result[self::FIELD_UNMET_EVIDENCE],
                 'proof_refs_resolved' => array_values(array_filter(
                     $result[self::FIELD_EVIDENCE],
                     fn (array $e): bool => ($e[self::FIELD_RESOLVED] ?? false) === true,
@@ -154,7 +163,7 @@ class AtlasAaeosImplementationTruthService
                 // otherwise. Downstream that relaxes uncertainty on an exact 'green' match
                 // (AtlasDocumentationRealityBidirectionalReconciliationService) therefore
                 // stays fail-safe unless the whole corpus is green-proven.
-                'test_resolution' => $this->summaryTestResolution($testBearingRows, $greenRows),
+                self::FIELD_TEST_RESOLUTION => $this->summaryTestResolution($testBearingRows, $greenRows),
                 'test_bearing_rows' => $testBearingRows,
                 'green_run_rows' => $greenRows,
             ],
@@ -290,8 +299,8 @@ class AtlasAaeosImplementationTruthService
                 continue;
             }
             $out[] = [
-                'capability_id' => $doc['id'],
-                'owner_doc' => $doc['path'],
+                self::FIELD_CAPABILITY_ID => $doc['id'],
+                self::FIELD_OWNER_DOC => $doc['path'],
                 self::FIELD_EVIDENCE_REFS => $doc[self::FIELD_EVIDENCE_REFS],
                 'test_refs' => $testRefs,
             ];
@@ -429,7 +438,7 @@ class AtlasAaeosImplementationTruthService
     {
         return [
             'test_file_hash' => $this->currentTestFileHash($testRef),
-            'impl_files_hash' => $this->currentImplFilesHash($evidenceRefs),
+            self::FIELD_IMPL_FILES_HASH => $this->currentImplFilesHash($evidenceRefs),
         ];
     }
 
@@ -454,7 +463,7 @@ class AtlasAaeosImplementationTruthService
 
         return [
             'format' => self::IMPL_FILES_HASH_FORMAT,
-            'impl_files_hash' => $this->combineImplFilesHash($breakdown),
+            self::FIELD_IMPL_FILES_HASH => $this->combineImplFilesHash($breakdown),
             'paths' => $breakdown,
         ];
     }
@@ -677,15 +686,15 @@ class AtlasAaeosImplementationTruthService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            'claimed_state' => $claimed,
-            'claimed_state_raw' => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
-            'computed_state' => $computed,
+            self::FIELD_CLAIMED_STATE => $claimed,
+            self::FIELD_CLAIMED_STATE_RAW => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
+            self::FIELD_COMPUTED_STATE => $computed,
             'rank_claimed' => $rankClaimed,
             'rank_computed' => $rankComputed,
             // Over-claim: the doc claims MORE than the index can prove. This is the
             // blocking condition. Under-claim (computed > claimed) is fine (a warning).
             self::FIELD_DRIFT => $rankClaimed > $rankComputed,
-            'under_claim' => $rankComputed > $rankClaimed,
+            self::FIELD_UNDER_CLAIM => $rankComputed > $rankClaimed,
             self::FIELD_RESOLVED => [
                 'symbol' => $hasSymbol,
                 'wiring' => $hasWiring,
@@ -695,9 +704,9 @@ class AtlasAaeosImplementationTruthService
                 'test_green' => $hasGreenTest,
                 'receipt' => $hasReceipt,
             ],
-            'unmet_evidence' => $unmet,
+            self::FIELD_UNMET_EVIDENCE => $unmet,
             self::FIELD_EVIDENCE => array_values($resolutions),
-            'test_resolution' => $testResolution,
+            self::FIELD_TEST_RESOLUTION => $testResolution,
         ];
     }
 

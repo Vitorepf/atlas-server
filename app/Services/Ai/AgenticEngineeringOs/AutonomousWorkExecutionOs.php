@@ -47,6 +47,14 @@ final class AutonomousWorkExecutionOs
     public const FIELD_COMPLETE = 'complete';
 
     public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_NEXT_STAGE = 'next_stage';
+    public const FIELD_CERTIFICATION_BLOCKED = 'certification_blocked';
+    public const FIELD_LEARNING_BLOCKED = 'learning_blocked';
+    public const FIELD_FAILURE_STAGE = 'failure_stage';
+    public const FIELD_STAGE = 'stage';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_STAGES = 'stages';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -104,20 +112,20 @@ final class AutonomousWorkExecutionOs
 
         $stages = array_map(
             static fn (string $stage): array => [
-                'stage' => $stage,
-                'status' => self::STATUS_PENDING,
+                self::FIELD_STAGE => $stage,
+                self::FIELD_STATUS => self::STATUS_PENDING,
             ],
             self::CYCLE_STAGES,
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'cycle_id' => 'cycle-'.bin2hex(random_bytes(6)),
             'goal_hash' => hash('sha256', $goal),
             'autonomy_level' => $level,
             'may_proceed' => $mayProceed,
             'blocking_reasons' => $blocking,
-            'stages' => $stages,
+            self::FIELD_STAGES => $stages,
             'evaluated_at' => now()->toAtomString(),
         ];
     }
@@ -137,11 +145,11 @@ final class AutonomousWorkExecutionOs
         }
 
         $stages = array_map(
-            static fn (array $s): array => $s['stage'] === $stage ? ['stage' => $stage, 'status' => $status] : $s,
-            AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null),
+            static fn (array $s): array => $s[self::FIELD_STAGE] === $stage ? [self::FIELD_STAGE => $stage, self::FIELD_STATUS => $status] : $s,
+            AiValueNormalizer::arrayOrEmpty($cycle[self::FIELD_STAGES] ?? null),
         );
 
-        return array_merge($cycle, ['stages' => $stages]);
+        return array_merge($cycle, [self::FIELD_STAGES => $stages]);
     }
 
     /**
@@ -168,21 +176,21 @@ final class AutonomousWorkExecutionOs
     public function nextStageDecision(array $cycle): array
     {
         $statusByStage = [];
-        foreach (AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null) as $entry) {
-            $stageKey = AiValueNormalizer::trimmedStringOrNull($entry['stage'] ?? null) ?? '';
+        foreach (AiValueNormalizer::arrayOrEmpty($cycle[self::FIELD_STAGES] ?? null) as $entry) {
+            $stageKey = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STAGE] ?? null) ?? '';
             $statusByStage[$stageKey]
-                = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? self::STATUS_PENDING;
+                = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STATUS] ?? null) ?? self::STATUS_PENDING;
         }
 
         foreach (self::CYCLE_STAGES as $stage) {
             if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_FAILED) {
                 return [
-                    'next_stage' => null,
+                    self::FIELD_NEXT_STAGE => null,
                     self::FIELD_BLOCKED => true,
                     self::FIELD_COMPLETE => false,
-                    'certification_blocked' => true,
-                    'learning_blocked' => true,
-                    'failure_stage' => $stage,
+                    self::FIELD_CERTIFICATION_BLOCKED => true,
+                    self::FIELD_LEARNING_BLOCKED => true,
+                    self::FIELD_FAILURE_STAGE => $stage,
                 ];
             }
         }
@@ -190,23 +198,23 @@ final class AutonomousWorkExecutionOs
         foreach (self::CYCLE_STAGES as $stage) {
             if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_PENDING) {
                 return [
-                    'next_stage' => $stage,
+                    self::FIELD_NEXT_STAGE => $stage,
                     self::FIELD_BLOCKED => false,
                     self::FIELD_COMPLETE => false,
-                    'certification_blocked' => false,
-                    'learning_blocked' => false,
-                    'failure_stage' => null,
+                    self::FIELD_CERTIFICATION_BLOCKED => false,
+                    self::FIELD_LEARNING_BLOCKED => false,
+                    self::FIELD_FAILURE_STAGE => null,
                 ];
             }
         }
 
         return [
-            'next_stage' => null,
+            self::FIELD_NEXT_STAGE => null,
             self::FIELD_BLOCKED => false,
             self::FIELD_COMPLETE => true,
-            'certification_blocked' => false,
-            'learning_blocked' => false,
-            'failure_stage' => null,
+            self::FIELD_CERTIFICATION_BLOCKED => false,
+            self::FIELD_LEARNING_BLOCKED => false,
+            self::FIELD_FAILURE_STAGE => null,
         ];
     }
 }

@@ -4241,4 +4241,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['phase_obra_bets_floor_count']);
     }
 
+    public function test_parallel_truth_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->parallelTruthAutonomyFloorsContractObserve([]);
+
+        $this->assertSame('lote', $payload['parallel_field_lote']);
+        $this->assertSame('family', $payload['parallel_field_family']);
+        $this->assertSame('schema', $payload['parallel_field_schema']);
+        $this->assertSame('target', $payload['parallel_field_target']);
+        $this->assertSame('claimed_by', $payload['parallel_field_claimed_by']);
+        $this->assertSame('scoreboard_annotation', $payload['parallel_field_scoreboard_annotation']);
+        $this->assertSame('capability_id', $payload['truth_field_capability_id']);
+        $this->assertSame('owner_doc', $payload['truth_field_owner_doc']);
+        $this->assertSame('claimed_state', $payload['truth_field_claimed_state']);
+        $this->assertSame('computed_state', $payload['truth_field_computed_state']);
+        $this->assertSame('under_claim', $payload['truth_field_under_claim']);
+        $this->assertSame('unmet_evidence', $payload['truth_field_unmet_evidence']);
+        $this->assertSame('next_stage', $payload['autonomy_field_next_stage']);
+        $this->assertSame('certification_blocked', $payload['autonomy_field_certification_blocked']);
+        $this->assertSame('learning_blocked', $payload['autonomy_field_learning_blocked']);
+        $this->assertSame('failure_stage', $payload['autonomy_field_failure_stage']);
+        $this->assertSame('stages', $payload['autonomy_field_stages']);
+        $this->assertSame(17, $payload['parallel_truth_autonomy_floor_count']);
+    }
+
 }

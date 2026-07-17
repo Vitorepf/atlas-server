@@ -37,6 +37,18 @@ final class AcosMaxParallelExecutionProtocol
     public const ENGINE_UNKNOWN = 'unknown';
 
     public const FIELD_OK = 'ok';
+    public const FIELD_LOTE = 'lote';
+    public const FIELD_FAMILY = 'family';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_TARGET = 'target';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_ACTION = 'action';
+    public const FIELD_ENGINE = 'engine';
+    public const FIELD_CLAIMED_BY = 'claimed_by';
+    public const FIELD_SCOREBOARD_ANNOTATION = 'scoreboard_annotation';
+    public const FIELD_CLAIM = 'claim';
+    public const FIELD_SKIP_REASON = 'skip_reason';
+    public const FIELD_TTL = 'ttl';
 
 
     public function __construct(
@@ -74,56 +86,56 @@ final class AcosMaxParallelExecutionProtocol
         $engine = AiValueNormalizer::lowerTrimmedString($engine);
         $family = AiValueNormalizer::upperTrimmedString($family);
         $target = self::familyClaimTarget($lote, $family);
-        $ttl = (int) ($opts['ttl'] ?? self::DEFAULT_TTL_SECONDS);
+        $ttl = (int) ($opts[self::FIELD_TTL] ?? self::DEFAULT_TTL_SECONDS);
 
         $result = $this->blackboard->claim($engine, self::CLAIM_KIND, $target, [
-            'ttl' => $ttl,
+            self::FIELD_TTL => $ttl,
             'workspace' => $opts['workspace'] ?? null,
             'cwd' => $opts['cwd'] ?? null,
             'meta' => [
                 'protocol' => self::SCHEMA,
-                'lote' => $lote,
-                'family' => $family,
+                self::FIELD_LOTE => $lote,
+                self::FIELD_FAMILY => $family,
             ],
         ]);
 
-        $status = (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_ERROR);
+        $status = (AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_STATUS] ?? null) ?? self::STATUS_ERROR);
         if (($result[self::FIELD_OK] ?? false) === true && in_array($status, [self::STATUS_ACTIVE, self::STATUS_RENEWED], true)) {
             return [
-                'schema' => self::SCHEMA,
+                self::FIELD_SCHEMA => self::SCHEMA,
                 self::FIELD_OK => true,
-                'status' => $status,
-                'action' => self::ACTION_PROCEED,
-                'engine' => $engine,
-                'lote' => $lote,
-                'family' => $family,
-                'target' => $target,
-                'claimed_by' => $engine,
-                'scoreboard_annotation' => 'claimed_by:'.$engine,
-                'claim' => is_array($result['claim'] ?? null) ? $result['claim'] : null,
+                self::FIELD_STATUS => $status,
+                self::FIELD_ACTION => self::ACTION_PROCEED,
+                self::FIELD_ENGINE => $engine,
+                self::FIELD_LOTE => $lote,
+                self::FIELD_FAMILY => $family,
+                self::FIELD_TARGET => $target,
+                self::FIELD_CLAIMED_BY => $engine,
+                self::FIELD_SCOREBOARD_ANNOTATION => 'claimed_by:'.$engine,
+                self::FIELD_CLAIM => is_array($result[self::FIELD_CLAIM] ?? null) ? $result[self::FIELD_CLAIM] : null,
                 self::STATUS_CONFLICT => null,
-                'skip_reason' => null,
+                self::FIELD_SKIP_REASON => null,
             ];
         }
 
         $conflictEngine = is_array($result[self::STATUS_CONFLICT] ?? null)
-            ? AiValueNormalizer::lowerTrimmedString($result[self::STATUS_CONFLICT]['engine'] ?? '')
+            ? AiValueNormalizer::lowerTrimmedString($result[self::STATUS_CONFLICT][self::FIELD_ENGINE] ?? '')
             : '';
 
         return [
-            'schema' => self::SCHEMA,
+            self::FIELD_SCHEMA => self::SCHEMA,
             self::FIELD_OK => true,
-            'status' => $status === self::STATUS_CONFLICT ? self::STATUS_CONFLICT : $status,
-            'action' => self::ACTION_SKIP,
-            'engine' => $engine,
-            'lote' => $lote,
-            'family' => $family,
-            'target' => $target,
-            'claimed_by' => $conflictEngine !== '' ? $conflictEngine : null,
-            'scoreboard_annotation' => $conflictEngine !== '' ? 'claimed_by:'.$conflictEngine : '',
-            'claim' => null,
+            self::FIELD_STATUS => $status === self::STATUS_CONFLICT ? self::STATUS_CONFLICT : $status,
+            self::FIELD_ACTION => self::ACTION_SKIP,
+            self::FIELD_ENGINE => $engine,
+            self::FIELD_LOTE => $lote,
+            self::FIELD_FAMILY => $family,
+            self::FIELD_TARGET => $target,
+            self::FIELD_CLAIMED_BY => $conflictEngine !== '' ? $conflictEngine : null,
+            self::FIELD_SCOREBOARD_ANNOTATION => $conflictEngine !== '' ? 'claimed_by:'.$conflictEngine : '',
+            self::FIELD_CLAIM => null,
             self::STATUS_CONFLICT => is_array($result[self::STATUS_CONFLICT] ?? null) ? $result[self::STATUS_CONFLICT] : null,
-            'skip_reason' => sprintf(
+            self::FIELD_SKIP_REASON => sprintf(
                 'family_claimed_by_other_engine:%s',
                 $conflictEngine !== '' ? $conflictEngine : self::ENGINE_UNKNOWN,
             ),
@@ -145,10 +157,10 @@ final class AcosMaxParallelExecutionProtocol
         );
 
         return [
-            'schema' => self::SCHEMA,
+            self::FIELD_SCHEMA => self::SCHEMA,
             self::FIELD_OK => true,
             'released' => ((int) (AiValueNormalizer::finiteFloatOrNull($released['released_count'] ?? null) ?? 0)) > 0,
-            'target' => $target,
+            self::FIELD_TARGET => $target,
         ];
     }
 }

@@ -5853,6 +5853,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function parallelTruthAutonomyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'parallel_field_lote' => AcosMaxParallelExecutionProtocol::FIELD_LOTE,
+            'parallel_field_family' => AcosMaxParallelExecutionProtocol::FIELD_FAMILY,
+            'parallel_field_schema' => AcosMaxParallelExecutionProtocol::FIELD_SCHEMA,
+            'parallel_field_target' => AcosMaxParallelExecutionProtocol::FIELD_TARGET,
+            'parallel_field_claimed_by' => AcosMaxParallelExecutionProtocol::FIELD_CLAIMED_BY,
+            'parallel_field_scoreboard_annotation' => AcosMaxParallelExecutionProtocol::FIELD_SCOREBOARD_ANNOTATION,
+            'truth_field_capability_id' => AtlasAaeosImplementationTruthService::FIELD_CAPABILITY_ID,
+            'truth_field_owner_doc' => AtlasAaeosImplementationTruthService::FIELD_OWNER_DOC,
+            'truth_field_claimed_state' => AtlasAaeosImplementationTruthService::FIELD_CLAIMED_STATE,
+            'truth_field_computed_state' => AtlasAaeosImplementationTruthService::FIELD_COMPUTED_STATE,
+            'truth_field_under_claim' => AtlasAaeosImplementationTruthService::FIELD_UNDER_CLAIM,
+            'truth_field_unmet_evidence' => AtlasAaeosImplementationTruthService::FIELD_UNMET_EVIDENCE,
+            'autonomy_field_next_stage' => AutonomousWorkExecutionOs::FIELD_NEXT_STAGE,
+            'autonomy_field_certification_blocked' => AutonomousWorkExecutionOs::FIELD_CERTIFICATION_BLOCKED,
+            'autonomy_field_learning_blocked' => AutonomousWorkExecutionOs::FIELD_LEARNING_BLOCKED,
+            'autonomy_field_failure_stage' => AutonomousWorkExecutionOs::FIELD_FAILURE_STAGE,
+            'autonomy_field_stages' => AutonomousWorkExecutionOs::FIELD_STAGES,
+            'parallel_truth_autonomy_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
