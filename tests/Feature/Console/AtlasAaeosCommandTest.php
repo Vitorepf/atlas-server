@@ -755,6 +755,32 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_recall_gap(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rg-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'events' => [
+                ['query' => 'missing concept', 'top_score' => 0.0],
+                ['query' => 'missing concept', 'top_score' => 0.1],
+                ['query' => 'missing concept', 'top_score' => 0.2],
+            ],
+            'min_occurrences' => 3,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rg',
+                '--recall-gap' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"recall_gap"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

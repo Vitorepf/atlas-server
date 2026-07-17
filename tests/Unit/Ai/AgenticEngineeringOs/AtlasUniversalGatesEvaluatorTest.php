@@ -28,6 +28,7 @@ use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
+use App\Services\Ai\AcosMax\RecallGapAggregator;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -623,5 +624,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(1, $payload['resolved_count']);
         $this->assertSame(['missing'], $payload['dead_refs']);
         $this->assertSame(0.6, $payload['multiplier']);
+    }
+
+    public function test_recall_gap_observe_aggregates_weak_queries(): void
+    {
+        $payload = $this->svc->recallGapObserve([
+            'events' => [
+                ['query' => 'missing concept', 'top_score' => 0.0],
+                ['query' => 'missing concept', 'top_score' => 0.1],
+                ['query' => 'missing concept', 'top_score' => 0.2],
+            ],
+            'min_occurrences' => 3,
+        ]);
+
+        $this->assertSame(RecallGapAggregator::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(3, $payload['candidates'][0]['occurrences']);
     }
 }

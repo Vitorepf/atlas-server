@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class BeliefCascadeReverificationPlanner
 {
     public const SCHEMA_VERSION = 'atlas.memory.belief_cascade_reverification.v1';
@@ -14,6 +16,9 @@ final class BeliefCascadeReverificationPlanner
      */
     public static function plan(string $origin, array $graph, int $depthCap = 3): array
     {
+        $origin = AiValueNormalizer::trimmedString($origin);
+        $normalizedGraph = self::normalizeGraph($graph);
+
         $queue = [[$origin, 0]];
         $seen = [$origin => true];
         $marked = [];
@@ -22,12 +27,12 @@ final class BeliefCascadeReverificationPlanner
         while ($queue !== []) {
             [$node, $depth] = array_shift($queue);
             if ($depth >= $depthCap) {
-                if (($graph[$node] ?? []) !== []) {
+                if (($normalizedGraph[$node] ?? []) !== []) {
                     $depthHit = true;
                 }
                 continue;
             }
-            foreach ($graph[$node] ?? [] as $child) {
+            foreach ($normalizedGraph[$node] ?? [] as $child) {
                 if (isset($seen[$child])) {
                     continue;
                 }
@@ -47,5 +52,33 @@ final class BeliefCascadeReverificationPlanner
                 'cycle_safe' => true,
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,list<string>>  $graph
+     * @return array<string,list<string>>
+     */
+    private static function normalizeGraph(array $graph): array
+    {
+        $normalized = [];
+        foreach ($graph as $node => $children) {
+            $nodeKey = AiValueNormalizer::trimmedString($node);
+            if ($nodeKey === '') {
+                continue;
+            }
+            $seenChildren = [];
+            $cleanChildren = [];
+            foreach (AiValueNormalizer::arrayOrEmpty($children) as $child) {
+                $childId = AiValueNormalizer::trimmedString($child);
+                if ($childId === '' || isset($seenChildren[$childId])) {
+                    continue;
+                }
+                $seenChildren[$childId] = true;
+                $cleanChildren[] = $childId;
+            }
+            $normalized[$nodeKey] = $cleanChildren;
+        }
+
+        return $normalized;
     }
 }

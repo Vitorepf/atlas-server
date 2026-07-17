@@ -24,6 +24,7 @@ use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
+use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -746,6 +747,28 @@ final class AtlasUniversalGatesEvaluator
         /** @var list<string> $evidenceRefs */
         /** @var list<string> $verifiedRefs */
         return ProvenanceWeightCalculator::calculate($evidenceRefs, $verifiedRefs);
+    }
+
+    /**
+     * Observe-only recall-gap aggregation over weak-score query events.
+     * Accepts a list of events or `{events:[...], min_occurrences?:int}`.
+     * Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function recallGapObserve(array $input): array
+    {
+        if (array_is_list($input)) {
+            /** @var list<array<string,mixed>> $input */
+            return RecallGapAggregator::aggregate($input);
+        }
+
+        $events = AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
+        $minOccurrences = max(1, (int) ($input['min_occurrences'] ?? 3));
+
+        /** @var list<array<string,mixed>> $events */
+        return RecallGapAggregator::aggregate($events, $minOccurrences);
     }
 
     /**

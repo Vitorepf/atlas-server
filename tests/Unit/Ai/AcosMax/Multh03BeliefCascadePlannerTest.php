@@ -36,4 +36,17 @@ final class Multh03BeliefCascadePlannerTest extends TestCase
         $this->assertSame(['B'], array_column($out['marked'], 'id'));
         $this->assertFalse($out['source']['deletes_descendants']);
     }
+
+    #[Test]
+    public function trims_origin_and_dedupes_graph_edges(): void
+    {
+        $out = BeliefCascadeReverificationPlanner::plan(
+            '  A  ',
+            ['  A  ' => [' B ', 'B', ''], 'B' => ['  C  ']],
+            3,
+        );
+
+        $this->assertSame(['B', 'C'], array_column($out['marked'], 'id'));
+        $this->assertSame('A', $out['marked'][0]['cascade_origin']);
+    }
 }
