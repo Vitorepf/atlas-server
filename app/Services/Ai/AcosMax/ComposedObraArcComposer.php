@@ -182,7 +182,7 @@ final class ComposedObraArcComposer
         usort($group, static function (array $a, array $b): int {
             $byLeverage = ($b['leverage'] ?? 0.0) <=> ($a['leverage'] ?? 0.0);
 
-            return $byLeverage !== 0 ? $byLeverage : strcmp((string) $a['target_path'], (string) $b['target_path']);
+            return $byLeverage !== 0 ? $byLeverage : strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['target_path'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['target_path'] ?? null) ?? '');
         });
         $ordered = [];
         foreach (array_values($group) as $index => $task) {
@@ -197,7 +197,7 @@ final class ComposedObraArcComposer
      */
     private static function serializeArc(array $group, string $author, string $judge): array
     {
-        $targets = array_map(static fn (array $task): string => (string) $task['target_path'], $group);
+        $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '', $group);
         sort($targets);
         $arcSeed = implode('|', $targets);
         $arcId = 'arc_'.substr(hash('sha256', $arcSeed), 0, 16);
@@ -208,8 +208,8 @@ final class ComposedObraArcComposer
             $tasks[] = [
                 'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task['target_path'] ?? '')), 0, 12),
                 'order' => (int) ($task['order'] ?? 0),
-                'target_path' => (string) $task['target_path'],
-                'objective' => (string) $task['summary'],
+                'target_path' => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '',
+                'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
                 'individual_gate_required' => true,
                 'architect_phase_gate' => true,
                 'seed_gate' => true,
@@ -221,7 +221,7 @@ final class ComposedObraArcComposer
             'arc_id' => $arcId,
             'obra_id' => $obraId,
             'thesis' => [
-                'claim' => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename((string) $t['target_path'], '.php'), $tasks)).' materially increases end-to-end leverage.',
+                'claim' => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t['target_path'] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
                 'falsified_when' => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 'author_engine_id' => $author,
             ],

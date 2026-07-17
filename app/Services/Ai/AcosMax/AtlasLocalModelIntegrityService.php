@@ -48,7 +48,7 @@ final class AtlasLocalModelIntegrityService
             return $this->verifyOne(AiValueNormalizer::arrayOrEmpty($entry));
         }, $artifacts));
 
-        $status = array_count_values(array_map(static fn (array $row): string => (string) $row['status'], $rows));
+        $status = array_count_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', $rows));
 
         return [
             'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->manifest['schema_version'] ?? null) ?? self::MANIFEST_SCHEMA,

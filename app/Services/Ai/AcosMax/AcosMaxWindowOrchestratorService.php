@@ -276,6 +276,6 @@ final class AcosMaxWindowOrchestratorService
             return [];
         }
 
-        return [array_values(array_map(static fn (array $window): string => (string) $window['flag_id'], $independent))];
+        return [array_values(array_map(static fn (array $window): string => AiValueNormalizer::trimmedScalarStringOrNull($window['flag_id'] ?? null) ?? '', $independent))];
     }
 }

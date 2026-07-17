@@ -160,6 +160,33 @@ final class AtlasUniversalGatesEvaluator
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_report.v1';
 
+    public const OBSERVE_LEDGER_ROTATION_SCHEMA = 'atlas.aaeos.ledger_rotation_observe.v1';
+
+    public const OBSERVE_EVIDENCE_VISION_SCHEMA = 'atlas.aaeos.evidence_vision_observe.v1';
+
+    public const OBSERVE_THRESHOLD_LADDER_SCHEMA = 'atlas.aaeos.threshold_ladder_observe.v1';
+
+    public const OBSERVE_STRING_LIST_NORMALIZE_SCHEMA = 'atlas.aaeos.string_list_normalize.v1';
+
+    public const OBSERVE_THRESHOLD_COMPARATOR_SCHEMA = 'atlas.aaeos.threshold_comparator.v1';
+
+    public const OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA = 'atlas.aaeos.evidence_ref_normalize.v1';
+
+    public const OBSERVE_ARRAY_FIELD_READER_SCHEMA = 'atlas.aaeos.array_field_reader.v1';
+
+    public const OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA = 'atlas.aaeos.universal_gates_catalogue.v1';
+
+    public const OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA = 'atlas.aaeos.outcome_attribution_types.v1';
+
+    public const OBSERVE_TELEMETRY_COLLECTOR_SURFACES_SCHEMA = 'atlas.telemetry.collector.surfaces.v1';
+
+    public const OBSERVE_BLOCKER_SEVERITY_SCHEMA = 'atlas.aaeos.blocker_severity.v1';
+
+    public const OBSERVE_SURPRISE_GATE_BANDS_SCHEMA = 'atlas.cognition.surprise_gate.bands.v1';
+
+    public const OBSERVE_EVIDENCE_STATUSES_SCHEMA = 'atlas.cognition.evidence_statuses.v1';
+
+
     public function __construct(
         private readonly DeliveryPackCompletenessScorer $deliveryPackCompleteness = new DeliveryPackCompletenessScorer,
         private readonly SpecCompletenessScorer $specCompleteness = new SpecCompletenessScorer,
@@ -916,7 +943,7 @@ final class AtlasUniversalGatesEvaluator
         $policy = $series === '' ? null : $registry->policyFor($series);
 
         return [
-            'schema_version' => 'atlas.aaeos.ledger_rotation_observe.v1',
+            'schema_version' => self::OBSERVE_LEDGER_ROTATION_SCHEMA,
             'series' => $series,
             'found' => $policy !== null,
             'policy' => $policy,
@@ -938,7 +965,7 @@ final class AtlasUniversalGatesEvaluator
         /** @var list<string> $forbidden */
 
         return [
-            'schema_version' => 'atlas.aaeos.evidence_vision_observe.v1',
+            'schema_version' => self::OBSERVE_EVIDENCE_VISION_SCHEMA,
             'field_sources_valid' => EvidenceVisionThesisComposer::thesisFieldSourcesValid($thesis),
             'operator_fence_pass' => EvidenceVisionThesisComposer::thesisPassesOperatorFence($thesis, $forbidden),
         ];
@@ -1008,7 +1035,7 @@ final class AtlasUniversalGatesEvaluator
         $normalized = AtlasAaeosThresholdLadderNormalizer::levelLadder($ladder);
 
         return [
-            'schema_version' => 'atlas.aaeos.threshold_ladder_observe.v1',
+            'schema_version' => self::OBSERVE_THRESHOLD_LADDER_SCHEMA,
             'valid' => $normalized !== [] || $ladder === [],
             'band_count' => count($normalized),
             'ladder' => $normalized,
@@ -1533,7 +1560,7 @@ final class AtlasUniversalGatesEvaluator
         $values = AiValueNormalizer::arrayOrEmpty($input['values'] ?? null);
 
         return [
-            'schema_version' => 'atlas.aaeos.string_list_normalize.v1',
+            'schema_version' => self::OBSERVE_STRING_LIST_NORMALIZE_SCHEMA,
             'trimmed_strings' => AtlasAaeosStringListNormalizer::trimmedStrings($values),
             'unique_trimmed_strings' => AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values),
             'non_empty_strings' => AtlasAaeosStringListNormalizer::nonEmptyStrings($values),
@@ -1555,7 +1582,7 @@ final class AtlasUniversalGatesEvaluator
         $threshold = AiValueNormalizer::finiteFloatOrNull($input['threshold'] ?? null) ?? 0.0;
 
         return [
-            'schema_version' => 'atlas.aaeos.threshold_comparator.v1',
+            'schema_version' => self::OBSERVE_THRESHOLD_COMPARATOR_SCHEMA,
             'comparator' => $comparator,
             'observed' => $observed,
             'threshold' => $threshold,
@@ -1577,7 +1604,7 @@ final class AtlasUniversalGatesEvaluator
         $refs = $normalizer->listFromRaw($input['evidence_refs'] ?? []);
 
         return [
-            'schema_version' => 'atlas.aaeos.evidence_ref_normalize.v1',
+            'schema_version' => self::OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA,
             'count' => count($refs),
             'evidence_refs' => $refs,
         ];
@@ -1624,7 +1651,7 @@ final class AtlasUniversalGatesEvaluator
         $key = AiValueNormalizer::trimmedStringOrNull($input['key'] ?? null) ?? 'id';
 
         return [
-            'schema_version' => 'atlas.aaeos.array_field_reader.v1',
+            'schema_version' => self::OBSERVE_ARRAY_FIELD_READER_SCHEMA,
             'key' => $key,
             'string_field' => AtlasAaeosArrayFieldReader::stringField($row, $key),
         ];
@@ -1713,7 +1740,7 @@ final class AtlasUniversalGatesEvaluator
         $gates = $this->catalogue();
 
         return [
-            'schema_version' => 'atlas.aaeos.universal_gates_catalogue.v1',
+            'schema_version' => self::OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA,
             'count' => count($gates),
             'gates' => $gates,
         ];
@@ -1729,7 +1756,7 @@ final class AtlasUniversalGatesEvaluator
     public function outcomeAttributionTypesObserve(array $input = []): array
     {
         return [
-            'schema_version' => 'atlas.aaeos.outcome_attribution_types.v1',
+            'schema_version' => self::OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA,
             'outcome_types' => AiOutcomeAttributionService::OUTCOME_TYPES,
             'count' => count(AiOutcomeAttributionService::OUTCOME_TYPES),
         ];
@@ -1831,7 +1858,7 @@ final class AtlasUniversalGatesEvaluator
     public function telemetrySurfacesObserve(array $input = []): array
     {
         return [
-            'schema_version' => 'atlas.telemetry.collector.surfaces.v1',
+            'schema_version' => self::OBSERVE_TELEMETRY_COLLECTOR_SURFACES_SCHEMA,
             'surfaces' => AiTelemetryCollector::SURFACES,
             'runtimes' => AiTelemetryCollector::RUNTIMES,
             'surface_count' => count(AiTelemetryCollector::SURFACES),
@@ -1872,7 +1899,7 @@ final class AtlasUniversalGatesEvaluator
         ];
 
         return [
-            'schema_version' => 'atlas.aaeos.blocker_severity.v1',
+            'schema_version' => self::OBSERVE_BLOCKER_SEVERITY_SCHEMA,
             'levels' => $levels,
             'count' => count($levels),
             'decisive_levels' => [AaeosBlockerSeverity::CRITICAL, AaeosBlockerSeverity::HIGH],
@@ -1927,7 +1954,7 @@ final class AtlasUniversalGatesEvaluator
     public function surpriseGateBandsObserve(array $input = []): array
     {
         return [
-            'schema_version' => 'atlas.cognition.surprise_gate.bands.v1',
+            'schema_version' => self::OBSERVE_SURPRISE_GATE_BANDS_SCHEMA,
             'default_threshold' => AtlasSurpriseGateService::DEFAULT_THRESHOLD,
             'default_high_band' => AtlasSurpriseGateService::DEFAULT_HIGH_BAND,
             'default_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
@@ -1987,7 +2014,7 @@ final class AtlasUniversalGatesEvaluator
     public function cognitionEvidenceStatusesObserve(array $input = []): array
     {
         return [
-            'schema_version' => 'atlas.cognition.evidence_statuses.v1',
+            'schema_version' => self::OBSERVE_EVIDENCE_STATUSES_SCHEMA,
             'evidence_statuses' => [
                 AtlasCognitionEvidenceResolver::STATUS_READY,
                 AtlasCognitionEvidenceResolver::STATUS_PARTIAL,
@@ -3645,6 +3672,32 @@ final class AtlasUniversalGatesEvaluator
             'evidence_schema_executive_intake' => DepartmentContractRuntime::CATALOGUE[DepartmentContractRuntime::DEPARTMENT_EXECUTIVE_INTAKE]['evidence_schema'],
             'evidence_schema_dev' => DepartmentContractRuntime::CATALOGUE[DepartmentContractRuntime::DEPARTMENT_DEV]['evidence_schema'],
             'evidence_schema_memory' => DepartmentContractRuntime::CATALOGUE[DepartmentContractRuntime::DEPARTMENT_MEMORY]['evidence_schema'],
+        ];
+    }
+
+    /**
+     * Observe-only HTTP-path + watchdog health secondary report schemas + evaluator observe schemas.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function httpPathWatchdogObserveSchemasContractObserve(array $input = []): array
+    {
+        return [
+            'http_path_status_schema' => AtlasAaeosHttpPathFacadeService::STATUS_SCHEMA,
+            'http_path_request_schema' => AtlasAaeosHttpPathFacadeService::REQUEST_SCHEMA,
+            'aurg_coverage_schema' => AtlasAcosWatchdogHealthService::AURG_COVERAGE_SCHEMA,
+            'rag_dimension_schema' => AtlasAcosWatchdogHealthService::RAG_DIMENSION_SCHEMA,
+            'pipeline_scorecard_stability_schema' => AtlasAcosWatchdogHealthService::PIPELINE_SCORECARD_STABILITY_SCHEMA,
+            'ope_lift_cycle_closure_schema' => AtlasAcosWatchdogHealthService::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
+            'ope_scorecard_receipts_diagnosis_schema' => AtlasAcosWatchdogHealthService::OPE_SCORECARD_RECEIPTS_DIAGNOSIS_SCHEMA,
+            'onda4_emitter_version' => AtlasAcosWatchdogHealthService::ONDA4_EMITTER_VERSION,
+            'observe_ledger_rotation_schema' => self::OBSERVE_LEDGER_ROTATION_SCHEMA,
+            'observe_universal_gates_catalogue_schema' => self::OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA,
+            'observe_evidence_statuses_schema' => self::OBSERVE_EVIDENCE_STATUSES_SCHEMA,
+            'observe_surprise_gate_bands_schema' => self::OBSERVE_SURPRISE_GATE_BANDS_SCHEMA,
+            'observe_schema_count' => 13,
         ];
     }
 

@@ -42,6 +42,10 @@ use Illuminate\Support\Str;
  */
 final class AtlasAaeosHttpPathFacadeService
 {
+    public const STATUS_SCHEMA = 'atlas.aaeos.http_path_status.v1';
+
+    public const REQUEST_SCHEMA = 'atlas.aaeos.http_path_request.v1';
+
     public const RESULT_OK = 'ok';
 
     public const RESULT_BLOCKED = 'blocked';
@@ -245,7 +249,7 @@ final class AtlasAaeosHttpPathFacadeService
     public function telemetrySnapshot(string $configuredPhase): array
     {
         return [
-            'schema' => 'atlas.aaeos.http_path_status.v1',
+            'schema' => self::STATUS_SCHEMA,
             'configured_phase' => $configuredPhase,
             'facade_active' => self::isActive($configuredPhase),
             'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
@@ -347,7 +351,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $payload['aaeos_http_path'] = [
-            'schema' => 'atlas.aaeos.http_path_request.v1',
+            'schema' => self::REQUEST_SCHEMA,
             'intent_id' => $intentId,
             'phases_executed' => array_values(array_map(
                 static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? 'unknown',

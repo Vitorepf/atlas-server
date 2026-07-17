@@ -63,7 +63,7 @@ final class AcosMaxObraRetroService
             'scoreboard_path' => self::SCOREBOARD_RELATIVE_PATH,
             'slices' => [
                 'terminal' => count($slices),
-                'ids' => array_map(static fn (array $slice): string => (string) $slice['id'], $slices),
+                'ids' => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices),
             ],
             'outcomes' => [
                 'recorded' => count(array_filter(
@@ -134,7 +134,7 @@ final class AcosMaxObraRetroService
         $recorded = $this->outcomes->record([
             'executor' => 'forge',
             'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice['state']),
-            'summary' => (string) $slice['line'],
+            'summary' => AiValueNormalizer::trimmedScalarStringOrNull($slice['line'] ?? null) ?? '',
             'status' => $status,
             'workspace' => base_path(),
             'surface_id' => self::SERIES_TAG,
@@ -156,8 +156,8 @@ final class AcosMaxObraRetroService
         ]);
 
         return [
-            'slice_id' => (string) $slice['id'],
-            'slice_state' => (string) $slice['state'],
+            'slice_id' => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '',
+            'slice_state' => AiValueNormalizer::trimmedScalarStringOrNull($slice['state'] ?? null) ?? '',
             'status' => (AiValueNormalizer::trimmedStringOrNull($recorded['status'] ?? null) ?? 'unknown'),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
             'ai_run_outcome_id' => data_get($recorded, 'spine.ai_run_outcome.id'),
@@ -171,7 +171,7 @@ final class AcosMaxObraRetroService
      */
     private function defaultLessonCandidates(int $lote, array $slices): array
     {
-        $ids = array_map(static fn (array $slice): string => (string) $slice['id'], $slices);
+        $ids = array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices);
 
         return [[
             'kind' => 'failure_pattern',

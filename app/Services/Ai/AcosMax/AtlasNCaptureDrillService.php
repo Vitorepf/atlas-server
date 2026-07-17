@@ -110,7 +110,7 @@ final class AtlasNCaptureDrillService
             'measure_id' => self::MEASURE_ID,
             'formula_version' => self::FORMULA_VERSION,
             'drill_id' => AiValueNormalizer::trimmedStringOrNull($drill['drill_id'] ?? null) ?? (string) Str::uuid(),
-            'engine_id' => (string) $drill['engine_id'],
+            'engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($drill['engine_id'] ?? null) ?? '',
             'capability_spec' => [
                 'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
                 'verified' => (bool) data_get($drill, 'capability_spec.verified'),

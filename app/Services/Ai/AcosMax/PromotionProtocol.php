@@ -127,7 +127,7 @@ final class PromotionProtocol
             return $this->blocked('missing_flip_receipt', $flagId, $toState);
         }
 
-        $family = (string) $entry['family'];
+        $family = AiValueNormalizer::trimmedScalarStringOrNull($entry['family'] ?? null) ?? '';
         $action = $this->actionForState($toState);
         if ($action === 'flip' && $this->familyAlreadyFlippedInWindow($family, $windowId)) {
             return $this->blocked('family_window_flip_already_recorded', $flagId, $toState, [
@@ -157,9 +157,9 @@ final class PromotionProtocol
             'actor' => AiValueNormalizer::trimmedStringOrNull($context['actor'] ?? null) ?? 'atlas',
             'reason' => AiValueNormalizer::trimmedStringOrNull($context['reason'] ?? null) ?? '',
             'receipt' => $receipt,
-            'rollback_trigger' => (string) $entry['rollback_trigger'],
-            'judge_engine_id' => (string) $entry['judge_engine_id'],
-            'protocol_receipt' => (string) $entry['receipt'],
+            'rollback_trigger' => AiValueNormalizer::trimmedScalarStringOrNull($entry['rollback_trigger'] ?? null) ?? '',
+            'judge_engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($entry['judge_engine_id'] ?? null) ?? '',
+            'protocol_receipt' => AiValueNormalizer::trimmedScalarStringOrNull($entry['receipt'] ?? null) ?? '',
         ];
 
         $challenger = $this->observeChallenger($context);
@@ -189,12 +189,12 @@ final class PromotionProtocol
             $this->entries,
         );
         $managedIds = array_fill_keys(array_map(
-            fn (array $entry): string => (string) $entry['id'],
+            fn (array $entry): string => AiValueNormalizer::trimmedScalarStringOrNull($entry['id'] ?? null) ?? '',
             $managed,
         ), true);
         $legacy = array_values(array_filter(
             array_map(fn (array $entry): array => $this->legacyReportEntry($entry), $this->legacyFlags),
-            fn (array $entry): bool => ! isset($managedIds[(string) $entry['id']]),
+            fn (array $entry): bool => ! isset($managedIds[AiValueNormalizer::trimmedScalarStringOrNull($entry['id'] ?? null) ?? '']),
         ));
 
         return [
@@ -341,7 +341,7 @@ final class PromotionProtocol
     private function entryById(string $flagId): ?array
     {
         foreach ($this->entries as $entry) {
-            if ((string) $entry['id'] === $flagId) {
+            if ((AiValueNormalizer::trimmedScalarStringOrNull($entry['id'] ?? null) ?? '') === $flagId) {
                 return $entry;
             }
         }

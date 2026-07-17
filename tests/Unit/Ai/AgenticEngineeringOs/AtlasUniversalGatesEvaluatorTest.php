@@ -2516,4 +2516,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.dev.plan_visible.v1', $payload['evidence_schema_dev']);
         $this->assertSame('atlas.learning.compounding_signal.v1', $payload['evidence_schema_memory']);
     }
+
+    public function test_http_path_watchdog_observe_schemas_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->httpPathWatchdogObserveSchemasContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.http_path_status.v1', $payload['http_path_status_schema']);
+        $this->assertSame('atlas.aaeos.http_path_request.v1', $payload['http_path_request_schema']);
+        $this->assertSame('atlas.aurg.coverage_gate.v1', $payload['aurg_coverage_schema']);
+        $this->assertSame('atlas.rag.dimension_watchdog.v1', $payload['rag_dimension_schema']);
+        $this->assertSame('atlas.pipeline.scorecard_stability_watch.v1', $payload['pipeline_scorecard_stability_schema']);
+        $this->assertSame('atlas.ope.lift_cycle_closure_watch.v1', $payload['ope_lift_cycle_closure_schema']);
+        $this->assertSame('atlas.ope.scorecard_receipts_diagnosis_watch.v1', $payload['ope_scorecard_receipts_diagnosis_schema']);
+        $this->assertSame('atlas.acos.watchdog.onda4.v1', $payload['onda4_emitter_version']);
+        $this->assertSame('atlas.aaeos.ledger_rotation_observe.v1', $payload['observe_ledger_rotation_schema']);
+        $this->assertSame('atlas.aaeos.universal_gates_catalogue.v1', $payload['observe_universal_gates_catalogue_schema']);
+        $this->assertSame('atlas.cognition.evidence_statuses.v1', $payload['observe_evidence_statuses_schema']);
+        $this->assertSame('atlas.cognition.surprise_gate.bands.v1', $payload['observe_surprise_gate_bands_schema']);
+        $this->assertSame(13, $payload['observe_schema_count']);
+    }
 }

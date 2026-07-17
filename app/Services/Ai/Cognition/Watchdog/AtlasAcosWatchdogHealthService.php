@@ -37,6 +37,18 @@ final class AtlasAcosWatchdogHealthService
 
     public const ENGINEERING_READINESS_SCHEMA = 'atlas.engineering.enforce_readiness.v1';
 
+    public const AURG_COVERAGE_SCHEMA = 'atlas.aurg.coverage_gate.v1';
+
+    public const RAG_DIMENSION_SCHEMA = 'atlas.rag.dimension_watchdog.v1';
+
+    public const PIPELINE_SCORECARD_STABILITY_SCHEMA = 'atlas.pipeline.scorecard_stability_watch.v1';
+
+    public const OPE_LIFT_CYCLE_CLOSURE_SCHEMA = 'atlas.ope.lift_cycle_closure_watch.v1';
+
+    public const OPE_SCORECARD_RECEIPTS_DIAGNOSIS_SCHEMA = 'atlas.ope.scorecard_receipts_diagnosis_watch.v1';
+
+    public const ONDA4_EMITTER_VERSION = 'atlas.acos.watchdog.onda4.v1';
+
     public const MEMORY_SCORE_REGRESSION_TOLERANCE = 5;
 
     public const MEMORY_SNAPSHOT_MAX_AGE_HOURS = 48;
@@ -212,7 +224,7 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => 'atlas.aurg.coverage_gate.v1',
+            'schema_version' => self::AURG_COVERAGE_SCHEMA,
             'status' => $blocking === [] ? 'ok' : 'alert',
             'alert' => $blocking !== [],
             'coverage' => $coverage,
@@ -270,7 +282,7 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => 'atlas.rag.dimension_watchdog.v1',
+            'schema_version' => self::RAG_DIMENSION_SCHEMA,
             'status' => $issues === [] ? 'ok' : 'alert',
             'alert' => $issues !== [],
             'issues' => array_values(array_unique($issues)),
@@ -470,7 +482,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'pipeline_partials_present';
         }
         $payload = [
-            'schema_version' => 'atlas.pipeline.scorecard_stability_watch.v1',
+            'schema_version' => self::PIPELINE_SCORECARD_STABILITY_SCHEMA,
             'status' => $blocking === [] ? 'ok' : 'alert',
             'blocking' => $blocking,
             'scorecard_hash' => $scorecard['scorecard_hash'] ?? null,
@@ -497,7 +509,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'lift_blocker_stalled';
         }
         $payload = [
-            'schema_version' => 'atlas.ope.lift_cycle_closure_watch.v1',
+            'schema_version' => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
             'status' => $blocking === [] && (bool) data_get($report, 'measurement.measurement_ready', false) ? 'ok' : 'alert',
             'lift_status' => $status,
             'blocking' => array_values(array_unique($blocking)),
@@ -549,7 +561,7 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => 'atlas.ope.scorecard_receipts_diagnosis_watch.v1',
+            'schema_version' => self::OPE_SCORECARD_RECEIPTS_DIAGNOSIS_SCHEMA,
             'status' => $blocking === [] ? 'ok' : 'alert',
             'blocking' => $blocking,
             'partial_count' => count($partials),
@@ -820,7 +832,7 @@ final class AtlasAcosWatchdogHealthService
                 'scope_type' => 'acos_watchdog',
                 'scope_id' => $scopeId,
                 'emitter_stage' => 'atlas.acos.watchdog',
-                'emitter_version' => 'atlas.acos.watchdog.onda4.v1',
+                'emitter_version' => self::ONDA4_EMITTER_VERSION,
             ]);
         } catch (Throwable) {
             // The health report remains honest even if the append-only evidence sink is absent.

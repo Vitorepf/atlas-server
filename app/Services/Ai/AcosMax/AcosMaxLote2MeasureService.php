@@ -572,7 +572,7 @@ final class AcosMaxLote2MeasureService
 
         return array_values(array_map(function (array $row): array {
             return [
-                'lesson_class' => (string) $row['lesson_class'],
+                'lesson_class' => AiValueNormalizer::trimmedScalarStringOrNull($row['lesson_class'] ?? null) ?? '',
                 'n' => (int) $row['n'],
                 'delivered' => (int) $row['delivered'],
                 'cited' => (int) $row['cited'],
@@ -777,7 +777,7 @@ final class AcosMaxLote2MeasureService
         $n = (int) $group['n_pairs'];
 
         return [
-            'memory_type' => (string) $group['memory_type'],
+            'memory_type' => AiValueNormalizer::trimmedScalarStringOrNull($group['memory_type'] ?? null) ?? '',
             'status' => $n >= $denominatorMin ? 'measured' : 'insufficient_signal',
             'n_pairs' => $n,
             'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['control_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
