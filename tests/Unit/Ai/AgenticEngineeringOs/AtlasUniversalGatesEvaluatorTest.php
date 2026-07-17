@@ -737,4 +737,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['schema_version']);
         $this->assertArrayHasKey('gates', $payload);
     }
+
+    public function test_threshold_ladder_observe_normalizes_levels(): void
+    {
+        $payload = $this->svc->thresholdLadderObserve([
+            'band_ladder' => [
+                [
+                    'level' => '  green  ',
+                    'thresholds' => [
+                        ['metric' => '  coverage  ', 'comparator' => '>=', 'value' => 0.9],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.threshold_ladder_observe.v1', $payload['schema_version']);
+        $this->assertTrue($payload['valid']);
+        $this->assertSame(1, $payload['band_count']);
+        $this->assertSame('green', $payload['ladder'][0]['level']);
+        $this->assertSame('coverage', $payload['ladder'][0]['thresholds'][0]['metric']);
+    }
 }

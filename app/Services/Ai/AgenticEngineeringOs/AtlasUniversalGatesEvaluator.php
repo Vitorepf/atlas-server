@@ -29,6 +29,7 @@ use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -881,6 +882,29 @@ final class AtlasUniversalGatesEvaluator
     public function gateSignalPhaseObserve(array $input): array
     {
         return (new AtlasAaeosGateSignalEvaluator)->evaluatePhaseGates($input);
+    }
+
+    /**
+     * Observe-only AAEOS threshold ladder normalization.
+     * Accepts a level-ladder list or `{band_ladder|ladder:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function thresholdLadderObserve(array $input): array
+    {
+        $ladder = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? $input['ladder'] ?? null);
+        /** @var list<array{level:string,thresholds:list<array{metric:string,comparator:string,value:float}>}> $ladder */
+        $normalized = AtlasAaeosThresholdLadderNormalizer::levelLadder($ladder);
+
+        return [
+            'schema_version' => 'atlas.aaeos.threshold_ladder_observe.v1',
+            'valid' => $normalized !== [] || $ladder === [],
+            'band_count' => count($normalized),
+            'ladder' => $normalized,
+        ];
     }
 
     /**

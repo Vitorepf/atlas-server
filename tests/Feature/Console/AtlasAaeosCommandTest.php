@@ -941,6 +941,34 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_threshold_ladder(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-tl-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'band_ladder' => [
+                [
+                    'level' => 'green',
+                    'thresholds' => [
+                        ['metric' => 'coverage', 'comparator' => '>=', 'value' => 0.9],
+                    ],
+                ],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-tl',
+                '--threshold-ladder' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"threshold_ladder"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

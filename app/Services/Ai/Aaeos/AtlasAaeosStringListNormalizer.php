@@ -140,7 +140,7 @@ final class AtlasAaeosStringListNormalizer
     {
         $strings = [];
         foreach (self::trimmedStrings($values) as $value) {
-            $strings[] = strtolower($value);
+            $strings[] = AiValueNormalizer::lowerTrimmedString($value);
         }
 
         return $strings;

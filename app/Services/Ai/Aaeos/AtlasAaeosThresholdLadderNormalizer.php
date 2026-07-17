@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosThresholdLadderNormalizer
 {
     /**
@@ -23,13 +25,18 @@ final class AtlasAaeosThresholdLadderNormalizer
                 return [];
             }
 
+            $level = AiValueNormalizer::trimmedString($band['level']);
+            if ($level === '') {
+                return [];
+            }
+
             $thresholds = self::thresholds($band['thresholds'] ?? null);
             if ($thresholds === null) {
                 return [];
             }
 
             $bands[] = [
-                'level' => $band['level'],
+                'level' => $level,
                 'thresholds' => $thresholds,
             ];
         }
@@ -58,13 +65,18 @@ final class AtlasAaeosThresholdLadderNormalizer
                 return [];
             }
 
+            $bandName = AiValueNormalizer::trimmedString($band['band']);
+            if ($bandName === '') {
+                return [];
+            }
+
             $thresholds = self::thresholds($band['thresholds'] ?? null);
             if ($thresholds === null) {
                 return [];
             }
 
             $bands[] = [
-                'band' => $band['band'],
+                'band' => $bandName,
                 'rank' => $band['rank'],
                 'thresholds' => $thresholds,
             ];
@@ -90,8 +102,8 @@ final class AtlasAaeosThresholdLadderNormalizer
             }
 
             $normalized[] = [
-                'metric' => $threshold['metric'],
-                'comparator' => $threshold['comparator'],
+                'metric' => AiValueNormalizer::trimmedString($threshold['metric']),
+                'comparator' => AiValueNormalizer::trimmedString($threshold['comparator']),
                 'value' => (float) $threshold['value'],
             ];
         }
@@ -104,8 +116,9 @@ final class AtlasAaeosThresholdLadderNormalizer
         return is_array($threshold)
             && isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
             && is_string($threshold['metric'])
-            && trim($threshold['metric']) !== ''
+            && AiValueNormalizer::trimmedString($threshold['metric']) !== ''
             && is_string($threshold['comparator'])
+            && AiValueNormalizer::trimmedString($threshold['comparator']) !== ''
             && in_array(get_debug_type($threshold['value']), ['int', 'float'], true)
             && is_finite((float) $threshold['value']);
     }
