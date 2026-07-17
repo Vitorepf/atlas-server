@@ -1361,4 +1361,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(10, $payload['veto_sla_seconds']);
         $this->assertSame(3, $payload['repair_max_iterations']);
     }
+
+    public function test_reality_compiler_phases_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->realityCompilerPhasesObserve([]);
+
+        $this->assertSame('atlas.reality_compiler.slice.v1', $payload['schema_version']);
+        $this->assertContains('spec', $payload['execution_phases']);
+        $this->assertSame(count($payload['execution_phases']), $payload['count']);
+    }
 }

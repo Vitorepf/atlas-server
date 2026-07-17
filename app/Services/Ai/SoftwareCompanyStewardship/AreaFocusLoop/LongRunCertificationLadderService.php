@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -813,16 +814,6 @@ final class LongRunCertificationLadderService
 
     private function floatOrNull(mixed $value): ?float
     {
-        if ($value === null || $value === '' || is_bool($value)) {
-            return null;
-        }
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 }

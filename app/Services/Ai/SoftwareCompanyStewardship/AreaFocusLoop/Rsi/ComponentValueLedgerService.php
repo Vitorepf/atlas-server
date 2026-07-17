@@ -11,6 +11,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusStringList
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusSlugNormalizer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusUtcClock;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\PlanExecution\MetricLedgerService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -392,7 +393,7 @@ final class ComponentValueLedgerService
         }
         $delta = $outcome['measured_delta'] ?? null;
 
-        return is_numeric($delta) ? (float) $delta : null;
+        return AiValueNormalizer::finiteFloatOrNull($delta);
     }
 
     /**

@@ -1700,6 +1700,22 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only Reality Compiler execution phase catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function realityCompilerPhasesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => RealityCompilerSlice::SCHEMA_VERSION,
+            'execution_phases' => RealityCompilerSlice::EXECUTION_PHASES,
+            'count' => count(RealityCompilerSlice::EXECUTION_PHASES),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

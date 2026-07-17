@@ -1088,6 +1088,6 @@ final class AtlasRuntimeEfficiencyGovernorService implements EfficiencyOutcomeRe
 
     private function numericOrNull(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure gate for promoting local-agent ingestion candidates into durable memory.
  *
@@ -131,7 +133,7 @@ final class LocalAgentMemoryPromotionGateEvaluator
     {
         $value = $candidate['confidence'] ?? 0.0;
 
-        return is_numeric($value) ? (float) $value : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($value) ?? 0.0;
     }
 
     private function confidenceDeficit(float $confidence): float

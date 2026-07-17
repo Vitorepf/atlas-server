@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 /**
@@ -321,8 +322,8 @@ final class AtlasDeliveredPackLedger
         foreach ($pointsBySection as $section => $points) {
             $latest = $points[array_key_last($points)] ?? null;
             $previous = count($points) > 1 ? $points[count($points) - 2] : null;
-            $latestP95 = is_numeric($latest['p95_ms'] ?? null) ? (float) $latest['p95_ms'] : null;
-            $previousP95 = is_numeric($previous['p95_ms'] ?? null) ? (float) $previous['p95_ms'] : null;
+            $latestP95 = AiValueNormalizer::finiteFloatOrNull($latest['p95_ms'] ?? null);
+            $previousP95 = AiValueNormalizer::finiteFloatOrNull($previous['p95_ms'] ?? null);
             $delta = $latestP95 !== null && $previousP95 !== null
                 ? $this->roundOrNull($latestP95 - $previousP95)
                 : null;
