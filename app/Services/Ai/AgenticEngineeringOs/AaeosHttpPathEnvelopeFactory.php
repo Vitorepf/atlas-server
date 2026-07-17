@@ -336,15 +336,34 @@ final class AaeosHttpPathEnvelopeFactory
     }
 
     /**
+     * True when the phase-advance classifier says the HTTP path must stop
+     * (halt or block). Uses {@see PhaseAdvanceVerdictClassifier} so policy
+     * halt, high-severity blockers, and missing decision tokens share one
+     * precedence table instead of a single blocked-gate membership check.
+     *
      * @param  array<string,mixed>  $policyEnvelope
      */
     public static function policyGateBlocked(array $policyEnvelope): bool
     {
-        return in_array(
-            'policy_decision_allowed_true',
-            (array) ($policyEnvelope['gates']['blocked'] ?? []),
-            true,
-        );
+        $verdict = (new PhaseAdvanceVerdictClassifier())->classify($policyEnvelope)['verdict'] ?? '';
+
+        return in_array($verdict, ['halt', 'block'], true);
+    }
+
+    /**
+     * @param  array<string,mixed>  $phaseEnvelope
+     * @return array{
+     *     schema_version: string,
+     *     verdict: string,
+     *     reason: string,
+     *     missing_gates: list<string>,
+     *     blocked_gates: list<string>,
+     *     high_blocker_ids: list<string>
+     * }
+     */
+    public static function phaseAdvanceVerdict(array $phaseEnvelope): array
+    {
+        return (new PhaseAdvanceVerdictClassifier())->classify($phaseEnvelope);
     }
 
     /**

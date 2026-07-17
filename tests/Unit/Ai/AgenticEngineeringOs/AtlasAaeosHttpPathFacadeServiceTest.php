@@ -214,7 +214,11 @@ final class AtlasAaeosHttpPathFacadeServiceTest extends TestCase
         );
         self::assertSame(422, $result['blocker']['http_status']);
         self::assertContains('missing_workspace', $result['blocker']['blocked_when']);
-    }
+        self::assertStringContainsString(
+            'high_severity_blocker_block',
+            (string) $result['blocker']['reason'],
+            'policy stop must surface PhaseAdvanceVerdictClassifier reason',
+        );    }
 
     public function test_phase_2_passes_policy_gate_for_non_dev_target(): void
     {

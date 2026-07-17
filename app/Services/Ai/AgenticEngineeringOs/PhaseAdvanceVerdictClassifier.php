@@ -8,7 +8,10 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
- * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ * Pure phase-advance verdict over a decoded atlas.aaeos.phase.v1 envelope.
+ *
+ * Live consumer: {@see AaeosHttpPathEnvelopeFactory::policyGateBlocked()} /
+ * HTTP-path facade Phase 2+ policy-gate stop decision.
  */
 final class PhaseAdvanceVerdictClassifier
 {

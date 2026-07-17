@@ -165,8 +165,17 @@ final class AtlasAaeosHttpPathFacadeService
             $policyEnv = $factory->policyGate($intentId, $intentHash, $data);
             $envelopes[] = $policyEnv;
 
-            if (AaeosHttpPathEnvelopeFactory::policyGateBlocked($policyEnv)) {
+            $advance = AaeosHttpPathEnvelopeFactory::phaseAdvanceVerdict($policyEnv);
+            if (in_array($advance['verdict'] ?? '', ['halt', 'block'], true)) {
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
+
+                $blockedWhen = array_values(array_map(
+                    static fn (array $b): string => (string) $b['id'],
+                    (array) $policyEnv['blockers'],
+                ));
+                if ($blockedWhen === [] && ($advance['reason'] ?? '') !== '') {
+                    $blockedWhen = [(string) $advance['reason']];
+                }
 
                 return $this->blockedResult(
                     data: $data,
@@ -174,11 +183,9 @@ final class AtlasAaeosHttpPathFacadeService
                     envelopes: $envelopes,
                     placementResult: $placementResult,
                     blockerCode: self::BLOCK_POLICY_GATE_BLOCKED,
-                    reason: 'Atlas policy gate blocked this intent before provider execution.',
-                    blockedWhen: array_values(array_map(
-                        static fn (array $b): string => (string) $b['id'],
-                        (array) $policyEnv['blockers'],
-                    )),
+                    reason: 'Atlas policy gate blocked this intent before provider execution'
+                        .(($advance['reason'] ?? '') !== '' ? ' ('.$advance['reason'].').' : '.'),
+                    blockedWhen: $blockedWhen,
                     configuredPhase: $configuredPhase,
                     startedAtNs: $startedAtNs,
                     placementCacheHit: $cacheHit,
