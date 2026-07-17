@@ -3967,6 +3967,29 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only quality-bar + cognitive-atlas + long-horizon enabled floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function qualityBarCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'quality_bar_schema' => QualityBarTelemetryContract::QUALITY_BAR_SCHEMA,
+            'quality_bar_telemetry_schema' => QualityBarTelemetryContract::SCHEMA,
+            'quality_bar_immune_gate_id' => QualityBarTelemetryContract::IMMUNE_GATE_ID,
+            'quality_bar_evaluated_window_days' => QualityBarTelemetryContract::EVALUATED_WINDOW_DAYS,
+            'quality_bar_auto_block_on_breach' => QualityBarTelemetryContract::AUTO_BLOCK_ON_BREACH,
+            'cognitive_function_atlas_overload_threshold' => AtlasCognitiveFunctionAtlasService::OVERLOAD_DEFAULT_THRESHOLD,
+            'cognitive_immune_default_gate_status' => CognitiveImmuneCheckContract::DEFAULT_GATE_STATUS,
+            'long_horizon_gate_schema' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            'long_horizon_default_enabled' => AtlasAcosLongHorizonGateService::DEFAULT_ENABLED,
+            'quality_bar_cognitive_floor_count' => 9,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

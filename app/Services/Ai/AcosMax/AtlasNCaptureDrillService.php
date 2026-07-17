@@ -115,11 +115,11 @@ final class AtlasNCaptureDrillService
             'engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($drill['engine_id'] ?? null) ?? '',
             'capability_spec' => [
                 'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
-                'verified' => (bool) data_get($drill, 'capability_spec.verified'),
+                'verified' => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
                 'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             'yardstick' => [
-                'golden_v2_passed' => (bool) data_get($drill, 'yardstick.golden_v2_passed'),
+                'golden_v2_passed' => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
                 'golden_v2_score' => data_get($drill, 'yardstick.golden_v2_score'),
                 'regret_measure_id' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
                 'peek_mode' => true,
@@ -134,9 +134,9 @@ final class AtlasNCaptureDrillService
                 'proven_real_outcomes_observed' => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
             ],
             'admission' => [
-                'admitted' => (bool) data_get($drill, 'admission.admitted'),
+                'admitted' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
                 'cold_start_via' => data_get($drill, 'admission.cold_start_via'),
-                'bypass' => (bool) data_get($drill, 'admission.bypass'),
+                'bypass' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
                 'reason' => data_get($drill, 'admission.reason'),
             ],
             'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? 'unknown'),
@@ -178,12 +178,12 @@ final class AtlasNCaptureDrillService
 
         $admitted = array_values(array_filter(
             $inWindow,
-            static fn (array $r): bool => (bool) data_get($r, 'admission.admitted') === true
+            static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, 'admission.admitted')) ?? false) === true
         ));
 
         $refused = array_values(array_filter(
             $inWindow,
-            static fn (array $r): bool => (bool) data_get($r, 'admission.admitted') === false
+            static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, 'admission.admitted')) ?? false) === false
         ));
 
         $status = $inWindow === [] ? 'insufficient_signal' : 'ok';
@@ -258,11 +258,11 @@ final class AtlasNCaptureDrillService
             return $violations;
         }
 
-        $admitted = (bool) data_get($drill, 'admission.admitted');
-        $bypass = (bool) data_get($drill, 'admission.bypass');
+        $admitted = (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false);
+        $bypass = (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false);
         $coldStartVia = (string) (data_get($drill, 'admission.cold_start_via') ?? '');
-        $capabilityVerified = (bool) data_get($drill, 'capability_spec.verified');
-        $yardstickPassed = (bool) data_get($drill, 'yardstick.golden_v2_passed');
+        $capabilityVerified = (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false);
+        $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false);
 
         if ($admitted && $bypass) {
             $violations[] = ['field' => 'admission.bypass', 'reason' => 'admission_via_bypass_forbidden'];

@@ -133,7 +133,7 @@ final class OutcomeCausalityRanker
         $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope['has_evidence_refs'] ?? null) ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
         $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
-        $allowedFilesSufficient = (bool) ($envelope['allowed_files_sufficient'] ?? true);
+        $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope['allowed_files_sufficient'] ?? null) ?? true);
         $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope['packet_quality_failed'] ?? null) ?? false);
 
         $candidates = $this->buildCandidates(

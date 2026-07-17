@@ -564,7 +564,7 @@ class AtlasAaeosTestExecutionService
                 ],
                 [
                     'filter' => AiValueNormalizer::trimmedScalarStringOrNull($payload['filter'] ?? null) ?? '',
-                    'passed' => (bool) $payload['passed'],
+                    'passed' => (AiValueNormalizer::boolOrNull($payload['passed'] ?? null) ?? false),
                     'tests_run' => (int) (AiValueNormalizer::finiteFloatOrNull($payload['tests_run'] ?? null) ?? 0),
                     'exit_code' => $payload['exit_code'] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload['exit_code'] ?? null) ?? 0) : null,
                     'commit_stamp' => $payload['commit_stamp'],

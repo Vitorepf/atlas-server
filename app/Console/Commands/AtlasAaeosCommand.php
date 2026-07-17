@@ -216,6 +216,7 @@ final class AtlasAaeosCommand extends Command
         {--ledger-rotation-impact-floors-contract= : JSON file (any object) to observe ledger-rotation + predicted-impact + vision consecutive floors}
         {--observe-helper-limit-floors-contract= : JSON file (any object) to observe recall-gap/belief-cascade/teto10/docs-locate helper limit floors}
         {--outcome-envelope-bool-fields-contract= : JSON file (any object) to observe outcome-envelope adapter bool field floors + boolOrNull helper}
+        {--quality-bar-cognitive-floors-contract= : JSON file (any object) to observe quality-bar + cognitive-atlas + long-horizon enabled floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -588,6 +589,7 @@ final class AtlasAaeosCommand extends Command
             ['ledger-rotation-impact-floors-contract', 'ledger_rotation_impact_floors_contract', fn (array $p) => $gates->ledgerRotationImpactFloorsContractObserve($p)],
             ['observe-helper-limit-floors-contract', 'observe_helper_limit_floors_contract', fn (array $p) => $gates->observeHelperLimitFloorsContractObserve($p)],
             ['outcome-envelope-bool-fields-contract', 'outcome_envelope_bool_fields_contract', fn (array $p) => $gates->outcomeEnvelopeBoolFieldsContractObserve($p)],
+            ['quality-bar-cognitive-floors-contract', 'quality_bar_cognitive_floors_contract', fn (array $p) => $gates->qualityBarCognitiveFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

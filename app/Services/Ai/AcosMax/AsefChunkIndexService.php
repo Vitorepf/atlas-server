@@ -107,7 +107,7 @@ final class AsefChunkIndexService
                 'chunk_text' => $chunkText,
                 'embedded_text' => $embeddedText,
                 'privacy_class' => (AiValueNormalizer::trimmedStringOrNull($chunk['privacy_class'] ?? null) ?? 'normal'),
-                'provider_safe' => (bool) ($chunk['provider_safe'] ?? true),
+                'provider_safe' => (AiValueNormalizer::boolOrNull($chunk['provider_safe'] ?? null) ?? true),
                 'delete_cascade_key' => (AiValueNormalizer::trimmedStringOrNull($chunk['delete_cascade_key'] ?? null) ?? ''),
                 'embedding_status' => 'pending',
                 'created_at' => Carbon::now(),

@@ -34,6 +34,8 @@ final class AtlasAcosLongHorizonGateService
 
     public const DEFAULT_MAX_GAP_DAYS = 1;
 
+    public const DEFAULT_ENABLED = true;
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -41,7 +43,7 @@ final class AtlasAcosLongHorizonGateService
     public function evaluate(array $options = []): array
     {
         $cfg = AiValueNormalizer::arrayOrEmpty(config('atlas.cognition.acos_long_horizon_gate', []));
-        $enabled = (bool) ($options['enabled'] ?? $cfg['enabled'] ?? true);
+        $enabled = AiValueNormalizer::boolOrNull($options['enabled'] ?? null) ?? AiValueNormalizer::boolOrNull($cfg['enabled'] ?? null) ?? self::DEFAULT_ENABLED;
         $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? 'live';
 
         if (! in_array($fixture, ['live', 'mature', 'short-window'], true)) {

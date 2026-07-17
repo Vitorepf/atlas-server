@@ -63,7 +63,7 @@ final class RagxChainMechanismService
             ),
         ];
 
-        $anyEnabled = collect($stages)->contains(static fn (array $stage): bool => (bool) $stage['enabled']);
+        $anyEnabled = collect($stages)->contains(static fn (array $stage): bool => (AiValueNormalizer::boolOrNull($stage['enabled'] ?? null) ?? false));
 
         return [
             'schema_version' => self::SCHEMA,

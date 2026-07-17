@@ -138,7 +138,7 @@ final class AtlasAcosWatchdogHealthService
                 'latest_snapshot_at' => $latestSnapshotAt?->toIso8601String(),
             ], 'memory_quality_snapshot_stale'),
         ];
-        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (bool) $check['pass']));
+        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check['pass'] ?? null) ?? false)));
 
         return [
             'schema_version' => self::MEMORY_QUALITY_SCHEMA,
@@ -510,7 +510,7 @@ final class AtlasAcosWatchdogHealthService
         }
         $payload = [
             'schema_version' => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
-            'status' => $blocking === [] && (bool) data_get($report, 'measurement.measurement_ready', false) ? 'ok' : 'alert',
+            'status' => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, 'measurement.measurement_ready', false)) ?? false) ? 'ok' : 'alert',
             'lift_status' => $status,
             'blocking' => array_values(array_unique($blocking)),
             'case_counts' => [
@@ -668,7 +668,7 @@ final class AtlasAcosWatchdogHealthService
      */
     private function reportFromChecks(string $schema, array $checks, array $extra, string $alertCode): array
     {
-        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (bool) $check['pass']));
+        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check['pass'] ?? null) ?? false)));
 
         return [
             'schema_version' => $schema,

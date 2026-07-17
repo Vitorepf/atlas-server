@@ -156,7 +156,7 @@ class AtlasAcosEvolutionScoreService
         $lift = $this->lift->report(minCases: self::LIFT_CASES_PER_ARM_REQUIRED, minPassingUse: 1);
         $withCount = (int) data_get($lift, 'measurement.with_recalled_memory.case_count', 0);
         $withoutCount = (int) data_get($lift, 'measurement.without_recalled_memory.case_count', 0);
-        $measurementReady = (bool) data_get($lift, 'measurement.measurement_ready', false);
+        $measurementReady = (AiValueNormalizer::boolOrNull(data_get($lift, 'measurement.measurement_ready', false)) ?? false);
         $armProgress = min($withCount, $withoutCount) / self::LIFT_CASES_PER_ARM_REQUIRED;
         $newFeedbackPoints = ($measurementReady && $withCount >= self::LIFT_CASES_PER_ARM_REQUIRED && $withoutCount >= self::LIFT_CASES_PER_ARM_REQUIRED)
             ? 2.5

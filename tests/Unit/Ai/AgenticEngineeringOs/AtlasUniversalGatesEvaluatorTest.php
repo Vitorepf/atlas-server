@@ -2719,4 +2719,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(7, $payload['outcome_envelope_bool_field_count']);
         $this->assertSame(9, $payload['outcome_envelope_bool_fields_floor_count']);
     }
+
+    public function test_quality_bar_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->qualityBarCognitiveFloorsContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.quality_bar.v1', $payload['quality_bar_schema']);
+        $this->assertSame('atlas.aaeos.quality_bar_telemetry.v1', $payload['quality_bar_telemetry_schema']);
+        $this->assertSame('quality_bar_auto_block', $payload['quality_bar_immune_gate_id']);
+        $this->assertSame(30, $payload['quality_bar_evaluated_window_days']);
+        $this->assertTrue($payload['quality_bar_auto_block_on_breach']);
+        $this->assertSame(8, $payload['cognitive_function_atlas_overload_threshold']);
+        $this->assertSame('pending', $payload['cognitive_immune_default_gate_status']);
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.v1', $payload['long_horizon_gate_schema']);
+        $this->assertTrue($payload['long_horizon_default_enabled']);
+        $this->assertSame(9, $payload['quality_bar_cognitive_floor_count']);
+    }
 }
