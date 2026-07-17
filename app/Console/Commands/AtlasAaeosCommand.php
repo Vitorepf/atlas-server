@@ -191,6 +191,7 @@ final class AtlasAaeosCommand extends Command
         {--phase-gates-flywheel-contract= : JSON file (any object) to observe phase-gates map + flywheel + parallel/surprise floors}
         {--frontier-watchdog-cockpit-contract= : JSON file (any object) to observe frontier/watchdog/cockpit/window floors}
         {--runbook-department-atlas-contract= : JSON file (any object) to observe runbook/department/atlas/memory-fabric floors}
+        {--outcome-causality-weights-contract= : JSON file (any object) to observe outcome-causality cause weight floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -538,6 +539,7 @@ final class AtlasAaeosCommand extends Command
             ['phase-gates-flywheel-contract', 'phase_gates_flywheel_contract', fn (array $p) => $gates->phaseGatesFlywheelContractObserve($p)],
             ['frontier-watchdog-cockpit-contract', 'frontier_watchdog_cockpit_contract', fn (array $p) => $gates->frontierWatchdogCockpitContractObserve($p)],
             ['runbook-department-atlas-contract', 'runbook_department_atlas_contract', fn (array $p) => $gates->runbookDepartmentAtlasContractObserve($p)],
+            ['outcome-causality-weights-contract', 'outcome_causality_weights_contract', fn (array $p) => $gates->outcomeCausalityWeightsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

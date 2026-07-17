@@ -2220,4 +2220,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('operator_request', $payload['memory_fabric_valid_triggers']);
         $this->assertSame(4, $payload['memory_fabric_extension_pressure_threshold']);
     }
+
+    public function test_outcome_causality_weights_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->outcomeCausalityWeightsContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.outcome_causality_ranking.v1', $payload['schema_version']);
+        $this->assertSame(7, $payload['primary_cause_count']);
+        $this->assertSame(4, $payload['outcome_count']);
+        $this->assertSame('succeeded', $payload['status_succeeded']);
+        $this->assertSame(0.95, $payload['weights']['missing_evidence']);
+        $this->assertSame(0.85, $payload['weights']['tests_failed']);
+        $this->assertSame(0.72, $payload['weights']['packet_quality_failure']);
+        $this->assertSame(7, $payload['weight_count']);
+    }
 }

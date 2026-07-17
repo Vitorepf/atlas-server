@@ -3161,6 +3161,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_outcome_causality_weights_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-ocwc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-ocwc',
+                '--outcome-causality-weights-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"outcome_causality_weights_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

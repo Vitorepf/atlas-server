@@ -2696,6 +2696,14 @@ final class AtlasUniversalGatesEvaluator
             'outcomes' => OutcomeCausalityRanker::OUTCOMES,
             'threshold_epsilon' => AtlasAaeosThresholdComparator::EPSILON,
             'memory_recall_schema' => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
+            'status_succeeded' => OutcomeCausalityRanker::STATUS_SUCCEEDED,
+            'weight_missing_evidence' => OutcomeCausalityRanker::WEIGHT_MISSING_EVIDENCE,
+            'weight_tests_failed' => OutcomeCausalityRanker::WEIGHT_TESTS_FAILED,
+            'weight_execution_failed_or_blocked' => OutcomeCausalityRanker::WEIGHT_EXECUTION_FAILED_OR_BLOCKED,
+            'weight_context_missing_required_sources' => OutcomeCausalityRanker::WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES,
+            'weight_execution_strategy_likely_succeeded' => OutcomeCausalityRanker::WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+            'weight_scope_or_contract_mismatch' => OutcomeCausalityRanker::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH,
+            'weight_packet_quality_failure' => OutcomeCausalityRanker::WEIGHT_PACKET_QUALITY_FAILURE,
         ];
     }
 
@@ -3167,6 +3175,35 @@ final class AtlasUniversalGatesEvaluator
             'memory_fabric_ticket_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TICKET_SCHEMA,
             'memory_fabric_valid_triggers' => AtlasCognitiveMemoryFabricSchemaEvolutionService::VALID_TRIGGERS,
             'memory_fabric_extension_pressure_threshold' => AtlasCognitiveMemoryFabricSchemaEvolutionService::EXTENSION_PRESSURE_THRESHOLD,
+        ];
+    }
+
+    /**
+     * Observe-only outcome-causality weight floors (deepen of comparator observe).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeCausalityWeightsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => OutcomeCausalityRanker::SCHEMA_VERSION,
+            'primary_causes' => OutcomeCausalityRanker::PRIMARY_CAUSES,
+            'primary_cause_count' => count(OutcomeCausalityRanker::PRIMARY_CAUSES),
+            'outcomes' => OutcomeCausalityRanker::OUTCOMES,
+            'outcome_count' => count(OutcomeCausalityRanker::OUTCOMES),
+            'status_succeeded' => OutcomeCausalityRanker::STATUS_SUCCEEDED,
+            'weights' => [
+                OutcomeCausalityRanker::CAUSE_MISSING_EVIDENCE => OutcomeCausalityRanker::WEIGHT_MISSING_EVIDENCE,
+                OutcomeCausalityRanker::CAUSE_TESTS_FAILED => OutcomeCausalityRanker::WEIGHT_TESTS_FAILED,
+                OutcomeCausalityRanker::CAUSE_EXECUTION_FAILED_OR_BLOCKED => OutcomeCausalityRanker::WEIGHT_EXECUTION_FAILED_OR_BLOCKED,
+                OutcomeCausalityRanker::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES => OutcomeCausalityRanker::WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES,
+                OutcomeCausalityRanker::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED => OutcomeCausalityRanker::WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+                OutcomeCausalityRanker::CAUSE_SCOPE_OR_CONTRACT_MISMATCH => OutcomeCausalityRanker::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH,
+                OutcomeCausalityRanker::CAUSE_PACKET_QUALITY_FAILURE => OutcomeCausalityRanker::WEIGHT_PACKET_QUALITY_FAILURE,
+            ],
+            'weight_count' => 7,
         ];
     }
 
