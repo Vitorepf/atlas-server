@@ -50,6 +50,11 @@ class AtlasAaeosTestExecutionService
     public const FIELD_PASSED = 'passed';
 
     public const FIELD_RAN = 'ran';
+    public const FIELD_CAPABILITY_ID = 'capability_id';
+    public const FIELD_TEST_REF = 'test_ref';
+    public const FIELD_FILTER = 'filter';
+    public const FIELD_COMMIT_STAMP = 'commit_stamp';
+    public const FIELD_RAN_AT = 'ran_at';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -214,20 +219,20 @@ class AtlasAaeosTestExecutionService
 
         $payload = [
             'schema_version' => self::SCHEMA,
-            'capability_id' => $capabilityId,
-            'test_ref' => $testRef,
-            'filter' => $filter,
+            self::FIELD_CAPABILITY_ID => $capabilityId,
+            self::FIELD_TEST_REF => $testRef,
+            self::FIELD_FILTER => $filter,
             self::FIELD_PASSED => $run[self::FIELD_PASSED],
             self::FIELD_TESTS_RUN => $run[self::FIELD_TESTS_RUN],
             self::FIELD_EXIT_CODE => $run[self::FIELD_EXIT_CODE],
-            'commit_stamp' => $this->commitStamp(),
+            self::FIELD_COMMIT_STAMP => $this->commitStamp(),
             self::FIELD_TEST_FILE_HASH => $testFileHash,
             self::FIELD_IMPL_FILES_HASH => $implFilesHash,
             self::FIELD_OUTPUT_TAIL => $run[self::FIELD_OUTPUT_TAIL],
             self::FIELD_RUNNER => $run[self::FIELD_RUNNER],
             self::FIELD_RAN => $run[self::FIELD_RAN],
             self::FIELD_REASON => $run[self::FIELD_REASON] ?? null,
-            'ran_at' => now()->toJSON(),
+            self::FIELD_RAN_AT => now()->toJSON(),
         ];
 
         // A red run is a delivery-stage veto: resolve where it must propagate via the
@@ -571,15 +576,15 @@ class AtlasAaeosTestExecutionService
         try {
             AtlasAaeosTestRunReceipt::query()->updateOrCreate(
                 [
-                    'capability_id' => AiValueNormalizer::trimmedScalarStringOrNull($payload['capability_id'] ?? null) ?? '',
-                    'test_ref' => AiValueNormalizer::trimmedScalarStringOrNull($payload['test_ref'] ?? null) ?? '',
+                    self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_CAPABILITY_ID] ?? null) ?? '',
+                    self::FIELD_TEST_REF => AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_TEST_REF] ?? null) ?? '',
                 ],
                 [
-                    'filter' => AiValueNormalizer::trimmedScalarStringOrNull($payload['filter'] ?? null) ?? '',
+                    self::FIELD_FILTER => AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_FILTER] ?? null) ?? '',
                     self::FIELD_PASSED => (AiValueNormalizer::boolOrNull($payload[self::FIELD_PASSED] ?? null) ?? false),
                     self::FIELD_TESTS_RUN => (int) (AiValueNormalizer::finiteFloatOrNull($payload[self::FIELD_TESTS_RUN] ?? null) ?? 0),
                     self::FIELD_EXIT_CODE => $payload[self::FIELD_EXIT_CODE] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload[self::FIELD_EXIT_CODE] ?? null) ?? 0) : null,
-                    'commit_stamp' => $payload['commit_stamp'],
+                    self::FIELD_COMMIT_STAMP => $payload[self::FIELD_COMMIT_STAMP],
                     // B3 freshness: bind the receipt to the code+test content it proved.
                     self::FIELD_TEST_FILE_HASH => $payload[self::FIELD_TEST_FILE_HASH] ?? null,
                     self::FIELD_IMPL_FILES_HASH => $payload[self::FIELD_IMPL_FILES_HASH] ?? null,
@@ -588,7 +593,7 @@ class AtlasAaeosTestExecutionService
                     // FQN-anchored --filter regex can exceed that, so cap it (never let an
                     // audit label fail the write that records the green run itself).
                     self::FIELD_RUNNER => mb_substr(AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_RUNNER] ?? null) ?? '', 0, 120),
-                    'ran_at' => now(),
+                    self::FIELD_RAN_AT => now(),
                 ],
             );
         } catch (Throwable) {

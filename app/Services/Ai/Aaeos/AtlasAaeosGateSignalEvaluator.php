@@ -63,6 +63,10 @@ final class AtlasAaeosGateSignalEvaluator
     public const COMPOUND_CONNECTORS = [' and ', ' & ', ' then ', ' plus ', '; '];
 
     public const FIELD_PASSED = 'passed';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_ALL_PASSED = 'all_passed';
+    public const FIELD_REASONS = 'reasons';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -208,10 +212,10 @@ final class AtlasAaeosGateSignalEvaluator
 
         if ($gates === []) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'gates' => [],
-                'all_passed' => false,
-                'reasons' => ['no_phase_outputs'],
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_GATES => [],
+                self::FIELD_ALL_PASSED => false,
+                self::FIELD_REASONS => ['no_phase_outputs'],
             ];
         }
 
@@ -223,9 +227,9 @@ final class AtlasAaeosGateSignalEvaluator
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'gates' => $gates,
-            'all_passed' => $allPassed,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GATES => $gates,
+            self::FIELD_ALL_PASSED => $allPassed,
         ];
     }
 
@@ -238,11 +242,11 @@ final class AtlasAaeosGateSignalEvaluator
         sort($reasons, SORT_STRING);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'gate' => $gate,
             self::FIELD_PASSED => $passed,
             'computed_value' => $computedValue,
-            'reasons' => array_values($reasons),
+            self::FIELD_REASONS => array_values($reasons),
         ];
     }
 

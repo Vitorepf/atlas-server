@@ -142,6 +142,11 @@ class AtlasCognitionScoreCardService
     public const FIELD_SCORECARD_HASH = 'scorecard_hash';
     public const FIELD_MODULE_COUNT = 'module_count';
     public const FIELD_MODULES = 'modules';
+    public const FIELD_GROUP = 'group';
+    public const FIELD_SERVICE_CLASS = 'service_class';
+    public const FIELD_CONSUMER_MODULE_COUNT = 'consumer_module_count';
+    public const FIELD_CONSUMER_MODULES = 'consumer_modules';
+    public const FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT = 'supplemental_subsystem_count';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -312,8 +317,8 @@ class AtlasCognitionScoreCardService
             $rows[] = [
                 self::FIELD_ACRONYM => $acronym,
                 'name' => $name,
-                'group' => $group,
-                'service_class' => $serviceClass,
+                self::FIELD_GROUP => $group,
+                self::FIELD_SERVICE_CLASS => $serviceClass,
                 self::FIELD_EVIDENCE_ALIAS_OF => $evidenceAlias,
                 self::FIELD_CODE_STATUS => $this->probeCodeStatus($serviceClass),
                 // doc_status and pipeline_status are RESOLVED from real evidence at
@@ -352,9 +357,9 @@ class AtlasCognitionScoreCardService
                 self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
                 self::FIELD_MODULE_COUNT => count($modules),
                 self::FIELD_MODULES => $modules,
-                'consumer_module_count' => count($consumerModules),
-                'consumer_modules' => $consumerModules,
-                'supplemental_subsystem_count' => count($supplemental),
+                self::FIELD_CONSUMER_MODULE_COUNT => count($consumerModules),
+                self::FIELD_CONSUMER_MODULES => $consumerModules,
+                self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT => count($supplemental),
             ];
         }
 
@@ -375,9 +380,9 @@ class AtlasCognitionScoreCardService
             self::FIELD_GENERATED_AT => $v3[self::FIELD_GENERATED_AT] ?? gmdate('c'),
             self::FIELD_MODULE_COUNT => $v3['v4'][self::FIELD_MODULE_COUNT] ?? 0,
             self::FIELD_MODULES => $v3['v4'][self::FIELD_MODULES] ?? [],
-            'consumer_module_count' => $v3['v4']['consumer_module_count'] ?? 0,
-            'consumer_modules' => $v3['v4']['consumer_modules'] ?? [],
-            'supplemental_subsystem_count' => $v3['v4']['supplemental_subsystem_count'] ?? 0,
+            self::FIELD_CONSUMER_MODULE_COUNT => $v3['v4'][self::FIELD_CONSUMER_MODULE_COUNT] ?? 0,
+            self::FIELD_CONSUMER_MODULES => $v3['v4'][self::FIELD_CONSUMER_MODULES] ?? [],
+            self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT => $v3['v4'][self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT] ?? 0,
             self::FIELD_SUBSYSTEM_COUNT => $v3[self::FIELD_SUBSYSTEM_COUNT] ?? 0,
             self::FIELD_SCORED_SUBSYSTEM_COUNT => $v3[self::FIELD_SCORED_SUBSYSTEM_COUNT] ?? 0,
             self::FIELD_SCORE => $v3[self::FIELD_SCORE] ?? [],
@@ -508,8 +513,8 @@ class AtlasCognitionScoreCardService
             $rows[] = [
                 self::FIELD_ACRONYM => $acronym,
                 'name' => $name,
-                'group' => $group,
-                'service_class' => $serviceClass,
+                self::FIELD_GROUP => $group,
+                self::FIELD_SERVICE_CLASS => $serviceClass,
                 self::FIELD_EVIDENCE_ALIAS_OF => null,
                 'supplemental' => true,
                 self::FIELD_CODE_STATUS => $this->probeCodeStatus($serviceClass),

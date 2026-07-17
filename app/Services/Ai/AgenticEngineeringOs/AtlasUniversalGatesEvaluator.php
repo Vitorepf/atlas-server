@@ -5949,6 +5949,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function scorecardGateTestFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'scorecard_field_group' => AtlasCognitionScoreCardService::FIELD_GROUP,
+            'scorecard_field_service_class' => AtlasCognitionScoreCardService::FIELD_SERVICE_CLASS,
+            'scorecard_field_consumer_module_count' => AtlasCognitionScoreCardService::FIELD_CONSUMER_MODULE_COUNT,
+            'scorecard_field_consumer_modules' => AtlasCognitionScoreCardService::FIELD_CONSUMER_MODULES,
+            'scorecard_field_supplemental_subsystem_count' => AtlasCognitionScoreCardService::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT,
+            'scorecard_field_scorecard_hash' => AtlasCognitionScoreCardService::FIELD_SCORECARD_HASH,
+            'gate_field_schema_version' => AtlasAaeosGateSignalEvaluator::FIELD_SCHEMA_VERSION,
+            'gate_field_gates' => AtlasAaeosGateSignalEvaluator::FIELD_GATES,
+            'gate_field_all_passed' => AtlasAaeosGateSignalEvaluator::FIELD_ALL_PASSED,
+            'gate_field_reasons' => AtlasAaeosGateSignalEvaluator::FIELD_REASONS,
+            'gate_field_passed' => AtlasAaeosGateSignalEvaluator::FIELD_PASSED,
+            'test_field_capability_id' => AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID,
+            'test_field_test_ref' => AtlasAaeosTestExecutionService::FIELD_TEST_REF,
+            'test_field_filter' => AtlasAaeosTestExecutionService::FIELD_FILTER,
+            'test_field_commit_stamp' => AtlasAaeosTestExecutionService::FIELD_COMMIT_STAMP,
+            'test_field_ran_at' => AtlasAaeosTestExecutionService::FIELD_RAN_AT,
+            'test_field_status' => AtlasAaeosTestExecutionService::FIELD_STATUS,
+            'scorecard_gate_test_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

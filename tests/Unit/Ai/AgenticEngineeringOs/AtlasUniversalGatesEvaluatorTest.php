@@ -4337,4 +4337,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['immune_rollback_remint_floor_count']);
     }
 
+    public function test_scorecard_gate_test_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->scorecardGateTestFloorsContractObserve([]);
+
+        $this->assertSame('group', $payload['scorecard_field_group']);
+        $this->assertSame('service_class', $payload['scorecard_field_service_class']);
+        $this->assertSame('consumer_module_count', $payload['scorecard_field_consumer_module_count']);
+        $this->assertSame('consumer_modules', $payload['scorecard_field_consumer_modules']);
+        $this->assertSame('supplemental_subsystem_count', $payload['scorecard_field_supplemental_subsystem_count']);
+        $this->assertSame('scorecard_hash', $payload['scorecard_field_scorecard_hash']);
+        $this->assertSame('schema_version', $payload['gate_field_schema_version']);
+        $this->assertSame('gates', $payload['gate_field_gates']);
+        $this->assertSame('all_passed', $payload['gate_field_all_passed']);
+        $this->assertSame('reasons', $payload['gate_field_reasons']);
+        $this->assertSame('passed', $payload['gate_field_passed']);
+        $this->assertSame('capability_id', $payload['test_field_capability_id']);
+        $this->assertSame('test_ref', $payload['test_field_test_ref']);
+        $this->assertSame('filter', $payload['test_field_filter']);
+        $this->assertSame('commit_stamp', $payload['test_field_commit_stamp']);
+        $this->assertSame('ran_at', $payload['test_field_ran_at']);
+        $this->assertSame('status', $payload['test_field_status']);
+        $this->assertSame(17, $payload['scorecard_gate_test_floor_count']);
+    }
+
 }
