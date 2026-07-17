@@ -2895,4 +2895,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(35, $payload['department_extended_io_procedural_floor_count']);
     }
 
+
+    public function test_runtime_status_mode_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->runtimeStatusModeFloorsContractObserve([]);
+
+        $this->assertSame('shadow', $payload['ragx_mode_shadow']);
+        $this->assertSame('default_off', $payload['ragx_mode_default_off']);
+        $this->assertSame('shadow', $payload['ragx_status_shadow']);
+        $this->assertSame('blocked', $payload['ragx_status_blocked']);
+        $this->assertSame('disabled', $payload['ragx_status_disabled']);
+        $this->assertSame('not_started', $payload['window_state_not_started']);
+        $this->assertSame('unknown', $payload['window_state_unknown']);
+        $this->assertSame('window_not_started', $payload['window_blocking_not_started']);
+        $this->assertSame('active', $payload['parallel_status_active']);
+        $this->assertSame('renewed', $payload['parallel_status_renewed']);
+        $this->assertSame('conflict', $payload['parallel_status_conflict']);
+        $this->assertSame('error', $payload['parallel_status_error']);
+        $this->assertSame(12, $payload['runtime_status_mode_floor_count']);
+    }
+
 }

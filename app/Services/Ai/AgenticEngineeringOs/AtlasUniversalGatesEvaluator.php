@@ -4226,6 +4226,33 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    /**
+     * Observe-only: RAGX mode/status + window/parallel execution status floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function runtimeStatusModeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ragx_mode_shadow' => RagxChainMechanismService::MODE_SHADOW,
+            'ragx_mode_default_off' => RagxChainMechanismService::MODE_DEFAULT_OFF,
+            'ragx_status_shadow' => RagxChainMechanismService::STATUS_SHADOW,
+            'ragx_status_blocked' => RagxChainMechanismService::STATUS_BLOCKED,
+            'ragx_status_disabled' => RagxChainMechanismService::STATUS_DISABLED,
+            'window_state_not_started' => AcosMaxWindowOrchestratorService::STATE_NOT_STARTED,
+            'window_state_unknown' => AcosMaxWindowOrchestratorService::STATE_UNKNOWN,
+            'window_blocking_not_started' => AcosMaxWindowOrchestratorService::BLOCKING_WINDOW_NOT_STARTED,
+            'parallel_status_active' => AcosMaxParallelExecutionProtocol::STATUS_ACTIVE,
+            'parallel_status_renewed' => AcosMaxParallelExecutionProtocol::STATUS_RENEWED,
+            'parallel_status_conflict' => AcosMaxParallelExecutionProtocol::STATUS_CONFLICT,
+            'parallel_status_error' => AcosMaxParallelExecutionProtocol::STATUS_ERROR,
+            'runtime_status_mode_floor_count' => 12,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

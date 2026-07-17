@@ -109,6 +109,16 @@ final class RagxChainMechanismService
 
     public const ADAPTIVE_K_SCORE_GAP_FLOOR = 0.25;
 
+    public const MODE_SHADOW = 'shadow';
+
+    public const MODE_DEFAULT_OFF = 'default_off';
+
+    public const STATUS_SHADOW = 'shadow';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_DISABLED = 'disabled';
+
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
         private readonly ?string $abLedgerPath = null,
@@ -151,7 +161,7 @@ final class RagxChainMechanismService
 
         return [
             'schema_version' => self::SCHEMA,
-            'mode' => $anyEnabled ? 'shadow' : 'default_off',
+            'mode' => $anyEnabled ? self::MODE_SHADOW : self::MODE_DEFAULT_OFF,
             'ab_green_claimed' => false,
             'stages' => $stages,
         ];
@@ -170,10 +180,10 @@ final class RagxChainMechanismService
             return [
                 'schema_version' => self::SCHEMA,
                 'slice' => self::STAGE_RAGX_01,
-                'status' => 'blocked',
-                'mode' => 'shadow',
+                'status' => self::STATUS_BLOCKED,
+                'mode' => self::MODE_SHADOW,
                 'blocked_by' => [self::BLOCKER_MAXA04],
-                'pending_window' => ['jina_v3_dual_read_benchmark_window'],
+                'pending_window' => [self::PENDING_JINA_V3_DUAL_READ],
                 'documents' => [],
                 'ab_green_claimed' => false,
             ];
@@ -198,7 +208,7 @@ final class RagxChainMechanismService
             'schema_version' => self::SCHEMA,
             'slice' => self::STAGE_RAGX_01,
             'status' => AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown',
-            'mode' => 'shadow',
+            'mode' => self::MODE_SHADOW,
             'result' => $result,
             'documents' => array_values(AiValueNormalizer::arrayOrEmpty($result['documents'] ?? null)),
             'ab_green_claimed' => false,
@@ -221,7 +231,7 @@ final class RagxChainMechanismService
             'candidate' => AiValueNormalizer::trimmedStringOrNull($experiment['candidate']  ?? null) ?? 'unknown',
             'result' => null,
             'ab_green_claimed' => false,
-            'pending_window' => ['golden_v2_or_live_window_not_run'],
+            'pending_window' => [self::PENDING_GOLDEN_V2_OR_LIVE],
         ];
 
         if ($this->abLedgerPath !== null && $this->abLedgerPath !== '') {
@@ -248,9 +258,9 @@ final class RagxChainMechanismService
             return [
                 'schema_version' => self::LOUVAIN_SCHEMA,
                 'slice' => self::STAGE_MAXD_05,
-                'status' => 'blocked',
+                'status' => self::STATUS_BLOCKED,
                 'blocked_by' => [self::BLOCKER_MAXA06_FASE2],
-                'pending_window' => ['maxa06_fase2_code_symbol_embedding_backfill'],
+                'pending_window' => [self::PENDING_MAXA06_FASE2_BACKFILL],
                 'communities' => [],
             ];
         }
@@ -298,9 +308,9 @@ final class RagxChainMechanismService
             return [
                 'schema_version' => self::RAPTOR_SCHEMA,
                 'slice' => self::STAGE_RAGX_10,
-                'status' => 'blocked',
+                'status' => self::STATUS_BLOCKED,
                 'blocked_by' => $blockers,
-                'pending_window' => ['raptor_lite_verified_summary_window'],
+                'pending_window' => [self::PENDING_RAPTOR_LITE_SUMMARY],
                 'nodes' => [],
                 'generated_summary' => false,
             ];
@@ -375,7 +385,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::SCHEMA,
             'slice' => self::STAGE_RAGX_05,
-            'status' => 'shadow',
+            'status' => self::STATUS_SHADOW,
             'matches' => array_slice($matches, 0, max(1, $limit)),
             'ab_green_claimed' => false,
         ];
@@ -404,7 +414,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::SCHEMA,
             'slice' => self::STAGE_RAGX_11,
-            'status' => 'shadow',
+            'status' => self::STATUS_SHADOW,
             'k' => $k,
             'score_count' => count($scores),
             'ab_green_claimed' => false,
@@ -424,7 +434,7 @@ final class RagxChainMechanismService
             'mechanism' => $mechanism,
             'flag' => $flag,
             'enabled' => $enabled,
-            'status' => ! $enabled ? 'disabled' : ($blockedBy === [] ? 'shadow' : 'blocked'),
+            'status' => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
             'blocked_by' => $blockedBy,
             'pending_window' => $pendingWindow,
             'ab_green_claimed' => false,
@@ -437,7 +447,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::SCHEMA,
             'slice' => $slice,
-            'status' => 'disabled',
+            'status' => self::STATUS_DISABLED,
             'flag' => $flag,
             'ab_green_claimed' => false,
         ];

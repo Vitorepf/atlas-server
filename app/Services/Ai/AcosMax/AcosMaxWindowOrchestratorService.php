@@ -13,6 +13,12 @@ final class AcosMaxWindowOrchestratorService
 {
     public const SCHEMA_VERSION = 'atlas.acos.windows.v1';
 
+    public const STATE_NOT_STARTED = 'not_started';
+
+    public const STATE_UNKNOWN = 'unknown';
+
+    public const BLOCKING_WINDOW_NOT_STARTED = 'window_not_started';
+
     public function __construct(
         private readonly AcosMeasureSeriesFreshnessReader $freshness = new AcosMeasureSeriesFreshnessReader,
     ) {}
@@ -42,7 +48,7 @@ final class AcosMaxWindowOrchestratorService
 
         $active = array_values(array_filter(
             $windows,
-            static fn (array $window): bool => ($window['state'] ?? null) !== 'not_started'
+            static fn (array $window): bool => ($window['state'] ?? null) !== self::STATE_NOT_STARTED
                 && ($window['observation_window_id'] ?? null) !== null
         ));
         $critical = $this->criticalPath($active);
@@ -132,9 +138,9 @@ final class AcosMaxWindowOrchestratorService
 
         if ($lastEvent === null) {
             return array_merge($base, [
-                'state' => 'not_started',
+                'state' => self::STATE_NOT_STARTED,
                 'days_remaining' => null,
-                'blocking' => ['window_not_started'],
+                'blocking' => [self::BLOCKING_WINDOW_NOT_STARTED],
             ]);
         }
 
@@ -147,7 +153,7 @@ final class AcosMaxWindowOrchestratorService
             : null;
 
         $window = array_merge($base, [
-            'state' => (AiValueNormalizer::trimmedStringOrNull($lastEvent['to_state'] ?? null) ?? 'unknown'),
+            'state' => (AiValueNormalizer::trimmedStringOrNull($lastEvent['to_state'] ?? null) ?? self::STATE_UNKNOWN),
             'observation_window_id' => (AiValueNormalizer::trimmedStringOrNull($lastEvent['observation_window_id'] ?? null) ?? ''),
             'started_at' => $startedAt?->format(DateTimeInterface::ATOM),
             'days_elapsed' => $elapsed,

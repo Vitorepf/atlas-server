@@ -22,6 +22,14 @@ final class AcosMaxParallelExecutionProtocol
 
     public const DEFAULT_TTL_SECONDS = 3600;
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_RENEWED = 'renewed';
+
+    public const STATUS_CONFLICT = 'conflict';
+
+    public const STATUS_ERROR = 'error';
+
     public function __construct(
         private readonly AtlasAobgBlackboardService $blackboard,
     ) {}
@@ -70,8 +78,8 @@ final class AcosMaxParallelExecutionProtocol
             ],
         ]);
 
-        $status = (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'error');
-        if (($result['ok'] ?? false) === true && in_array($status, ['active', 'renewed'], true)) {
+        $status = (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_ERROR);
+        if (($result['ok'] ?? false) === true && in_array($status, [self::STATUS_ACTIVE, self::STATUS_RENEWED], true)) {
             return [
                 'schema' => self::SCHEMA,
                 'ok' => true,
@@ -96,7 +104,7 @@ final class AcosMaxParallelExecutionProtocol
         return [
             'schema' => self::SCHEMA,
             'ok' => true,
-            'status' => $status === 'conflict' ? 'conflict' : $status,
+            'status' => $status === self::STATUS_CONFLICT ? self::STATUS_CONFLICT : $status,
             'action' => 'skip',
             'engine' => $engine,
             'lote' => $lote,
