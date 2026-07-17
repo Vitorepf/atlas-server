@@ -4751,4 +4751,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+
+    public function test_knowledge_decomposer_promoter_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->knowledgeDecomposerPromoterFloorsContractObserve([]);
+
+        $this->assertSame('active_items', $payload['knowledge_field_active_items']);
+        $this->assertSame('covered_count', $payload['knowledge_field_covered_count']);
+        $this->assertSame('stale_count', $payload['knowledge_field_stale_count']);
+        $this->assertSame('missing_count', $payload['knowledge_field_missing_count']);
+        $this->assertSame('coverage_ratio', $payload['knowledge_field_coverage_ratio']);
+        $this->assertSame('kind', $payload['knowledge_field_kind']);
+        $this->assertSame('context', $payload['decomposer_field_context']);
+        $this->assertSame('weights', $payload['decomposer_field_weights']);
+        $this->assertSame('benchmark_claim_allowed', $payload['decomposer_field_benchmark_claim_allowed']);
+        $this->assertSame('rivals_claim_allowed', $payload['decomposer_field_rivals_claim_allowed']);
+        $this->assertSame('superiority_claim_allowed', $payload['decomposer_field_superiority_claim_allowed']);
+        $this->assertSame('provider_safe_only_enforced', $payload['decomposer_field_provider_safe_only_enforced']);
+        $this->assertSame('generated_at', $payload['promoter_field_generated_at']);
+        $this->assertSame('freeze', $payload['promoter_field_freeze']);
+        $this->assertSame('measure_id', $payload['promoter_field_measure_id']);
+        $this->assertSame('scoreboard', $payload['promoter_field_scoreboard']);
+        $this->assertSame('floor_met', $payload['promoter_field_floor_met']);
+        $this->assertSame(17, $payload['knowledge_decomposer_promoter_floor_count']);
+    }
+
+
 }

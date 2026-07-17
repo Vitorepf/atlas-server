@@ -66,6 +66,14 @@ final class AcosMaxProceduralSkillPromoterService
     public const KIND_PROCEDURAL_PLAYBOOK = 'procedural_playbook';
 
     public const STATUS_HELD_FOR_EVIDENCE = 'held_for_evidence';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_SCOREBOARD = 'scoreboard';
+    public const FIELD_LANDED = 'landed';
+    public const FIELD_TOTALS = 'totals';
+    public const FIELD_PROCEDURAL_PLAYBOOKS = 'procedural_playbooks';
+    public const FIELD_FLOOR_MET = 'floor_met';
 
 
     public function __construct(
@@ -110,19 +118,19 @@ final class AcosMaxProceduralSkillPromoterService
             self::FIELD_SLICE => self::SLICE_MULTJ04,
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $status === self::STATUS_OK ? null : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
-            'generated_at' => Carbon::now()->toIso8601String(),
-            'freeze' => $freeze,
-            'measure_id' => self::measureId(),
+            self::FIELD_GENERATED_AT => Carbon::now()->toIso8601String(),
+            self::FIELD_FREEZE => $freeze,
+            self::FIELD_MEASURE_ID => self::measureId(),
             self::FIELD_SKILL_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
             self::FIELD_CASE_COUNT_FLOOR => $effectiveFloor,
             self::FIELD_PROMOTION_ALLOWED => false,
-            'scoreboard' => [
-                'landed' => [self::SCOREBOARD_LANDED_MECHANISM],
+            self::FIELD_SCOREBOARD => [
+                self::FIELD_LANDED => [self::SCOREBOARD_LANDED_MECHANISM],
                 self::FIELD_PENDING_WINDOW => $status === self::STATUS_PENDING_WINDOW ? [self::REASON_PROCEDURAL_CASE_COUNT_SOAK] : [],
             ],
-            'totals' => [
-                'procedural_playbooks' => count($candidates),
-                'floor_met' => count($eligible),
+            self::FIELD_TOTALS => [
+                self::FIELD_PROCEDURAL_PLAYBOOKS => count($candidates),
+                self::FIELD_FLOOR_MET => count($eligible),
                 'floor_pending' => count($candidates) - count($eligible),
                 self::FIELD_ENQUEUED => count($enqueued),
             ],

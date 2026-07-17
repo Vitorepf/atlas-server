@@ -61,16 +61,24 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_FREEZE = 'freeze';
     public const FIELD_STATUS = 'status';
     public const FIELD_REASON = 'reason';
+    public const FIELD_ACTIVE_ITEMS = 'active_items';
+    public const FIELD_COVERED_COUNT = 'covered_count';
+    public const FIELD_STALE_COUNT = 'stale_count';
+    public const FIELD_MISSING_COUNT = 'missing_count';
+    public const FIELD_COVERAGE_RATIO = 'coverage_ratio';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_THRESHOLDS = 'thresholds';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'formula' => 'MAXA-06 fase 1: coverage_ratio = active items whose MAXA-03 provenance (embedding_model + embedded_content_hash) matches current content_hash, over active items. Stale = provenance stamped but hash drifted. Missing = no provenance.',
+            self::FIELD_FORMULA => 'MAXA-06 fase 1: coverage_ratio = active items whose MAXA-03 provenance (embedding_model + embedded_content_hash) matches current content_hash, over active items. Stale = provenance stamped but hash drifted. Missing = no provenance.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'target_coverage_ratio' => 1.0,
                 'denominator_min_active_items' => 1,
                 'stale_definition' => 'embedded_content_hash != content_hash',
@@ -159,11 +167,11 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_REASON => $reason,
             self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
             self::FIELD_AGGREGATE => [
-                'active_items' => $active,
-                'covered_count' => $covered,
-                'stale_count' => $stale,
-                'missing_count' => $missing,
-                'coverage_ratio' => $ratio,
+                self::FIELD_ACTIVE_ITEMS => $active,
+                self::FIELD_COVERED_COUNT => $covered,
+                self::FIELD_STALE_COUNT => $stale,
+                self::FIELD_MISSING_COUNT => $missing,
+                self::FIELD_COVERAGE_RATIO => $ratio,
             ],
         ];
     }
@@ -188,11 +196,11 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     private function emptyAggregate(): array
     {
         return [
-            'active_items' => 0,
-            'covered_count' => 0,
-            'stale_count' => 0,
-            'missing_count' => 0,
-            'coverage_ratio' => null,
+            self::FIELD_ACTIVE_ITEMS => 0,
+            self::FIELD_COVERED_COUNT => 0,
+            self::FIELD_STALE_COUNT => 0,
+            self::FIELD_MISSING_COUNT => 0,
+            self::FIELD_COVERAGE_RATIO => null,
         ];
     }
 }

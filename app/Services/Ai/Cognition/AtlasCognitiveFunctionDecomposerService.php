@@ -55,6 +55,14 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_AUDIT = 'audit';
     public const FIELD_REASON = 'reason';
     public const FIELD_HITS = 'hits';
+    public const FIELD_CONTEXT = 'context';
+    public const FIELD_WEIGHTS = 'weights';
+    public const FIELD_BENCHMARK_CLAIM_ALLOWED = 'benchmark_claim_allowed';
+    public const FIELD_RIVALS_CLAIM_ALLOWED = 'rivals_claim_allowed';
+    public const FIELD_SUPERIORITY_CLAIM_ALLOWED = 'superiority_claim_allowed';
+    public const FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED = 'external_rivals_certification_touched';
+    public const FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED = 'cognitive_immune_law_enforced';
+    public const FIELD_PROVIDER_SAFE_ONLY_ENFORCED = 'provider_safe_only_enforced';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -206,12 +214,12 @@ final class AtlasCognitiveFunctionDecomposerService
     public function claimPolicy(): array
     {
         return [
-            'benchmark_claim_allowed' => false,
-            'rivals_claim_allowed' => false,
-            'superiority_claim_allowed' => false,
-            'external_rivals_certification_touched' => false,
-            'cognitive_immune_law_enforced' => true,
-            'provider_safe_only_enforced' => true,
+            self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
+            self::FIELD_RIVALS_CLAIM_ALLOWED => false,
+            self::FIELD_SUPERIORITY_CLAIM_ALLOWED => false,
+            self::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED => false,
+            self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
+            self::FIELD_PROVIDER_SAFE_ONLY_ENFORCED => true,
         ];
     }
 
@@ -248,12 +256,12 @@ final class AtlasCognitiveFunctionDecomposerService
             'generated_at' => $generatedAt,
             'input_length' => mb_strlen($input),
             'input_preview' => mb_substr($input, 0, 120),
-            'context' => [
+            self::FIELD_CONTEXT => [
                 'role' => $context['role'] ?? null,
                 'framework' => $context['framework'] ?? null,
                 'privacy_class' => $context['privacy_class'] ?? null,
             ],
-            'weights' => $weights,
+            self::FIELD_WEIGHTS => $weights,
             'dominant_function' => $dominant,
             'debug' => $debug,
             'claim_policy' => $this->claimPolicy(),
@@ -261,9 +269,9 @@ final class AtlasCognitiveFunctionDecomposerService
         $envelope['decomposition_hash'] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::SCHEMA,
             'input' => $input,
-            'weights' => $weights,
+            self::FIELD_WEIGHTS => $weights,
             'dominant' => $dominant,
-            'context' => $envelope['context'],
+            self::FIELD_CONTEXT => $envelope[self::FIELD_CONTEXT],
         ], JSON_THROW_ON_ERROR));
 
         AppendOnlyJsonlStore::append($this->logPath(), $envelope);

@@ -6525,6 +6525,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function knowledgeDecomposerPromoterFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'knowledge_field_active_items' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ACTIVE_ITEMS,
+            'knowledge_field_covered_count' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_COVERED_COUNT,
+            'knowledge_field_stale_count' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_STALE_COUNT,
+            'knowledge_field_missing_count' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_MISSING_COUNT,
+            'knowledge_field_coverage_ratio' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_COVERAGE_RATIO,
+            'knowledge_field_kind' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_KIND,
+            'decomposer_field_context' => AtlasCognitiveFunctionDecomposerService::FIELD_CONTEXT,
+            'decomposer_field_weights' => AtlasCognitiveFunctionDecomposerService::FIELD_WEIGHTS,
+            'decomposer_field_benchmark_claim_allowed' => AtlasCognitiveFunctionDecomposerService::FIELD_BENCHMARK_CLAIM_ALLOWED,
+            'decomposer_field_rivals_claim_allowed' => AtlasCognitiveFunctionDecomposerService::FIELD_RIVALS_CLAIM_ALLOWED,
+            'decomposer_field_superiority_claim_allowed' => AtlasCognitiveFunctionDecomposerService::FIELD_SUPERIORITY_CLAIM_ALLOWED,
+            'decomposer_field_provider_safe_only_enforced' => AtlasCognitiveFunctionDecomposerService::FIELD_PROVIDER_SAFE_ONLY_ENFORCED,
+            'promoter_field_generated_at' => AcosMaxProceduralSkillPromoterService::FIELD_GENERATED_AT,
+            'promoter_field_freeze' => AcosMaxProceduralSkillPromoterService::FIELD_FREEZE,
+            'promoter_field_measure_id' => AcosMaxProceduralSkillPromoterService::FIELD_MEASURE_ID,
+            'promoter_field_scoreboard' => AcosMaxProceduralSkillPromoterService::FIELD_SCOREBOARD,
+            'promoter_field_floor_met' => AcosMaxProceduralSkillPromoterService::FIELD_FLOOR_MET,
+            'knowledge_decomposer_promoter_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
