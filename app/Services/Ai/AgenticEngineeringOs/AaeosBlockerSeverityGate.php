@@ -6,11 +6,18 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 final class AaeosBlockerSeverityGate
 {
-    private const SIGNAL_BLOCKED = 'blocked';
+    public const SIGNAL_BLOCKED = 'blocked';
 
-    private const SIGNAL_WARNING = 'warning';
+    public const SIGNAL_WARNING = 'warning';
 
-    private const SIGNAL_CLEAR = 'clear';
+    public const SIGNAL_CLEAR = 'clear';
+
+    /** @var list<string> */
+    public const SIGNALS = [
+        self::SIGNAL_BLOCKED,
+        self::SIGNAL_WARNING,
+        self::SIGNAL_CLEAR,
+    ];
 
     /**
      * Pure reduction over blockers[] of schema atlas.aaeos.phase.v1

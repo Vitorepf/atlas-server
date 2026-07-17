@@ -15,21 +15,29 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class PhaseAdvanceVerdictClassifier
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.phase_advance_verdict.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.phase_advance_verdict.v1';
 
-    private const PHASE_POLICY_GATE = 'policy_gate';
+    public const PHASE_POLICY_GATE = 'policy_gate';
 
-    private const PHASE_RECEIPT = 'receipt';
+    public const PHASE_RECEIPT = 'receipt';
 
-    private const POLICY_GATE_TOKEN = 'policy_decision_allowed_true';
+    public const POLICY_GATE_TOKEN = 'policy_decision_allowed_true';
 
-    private const VERDICT_ADVANCE = 'advance';
+    public const VERDICT_ADVANCE = 'advance';
 
-    private const VERDICT_REPAIR = 'repair';
+    public const VERDICT_REPAIR = 'repair';
 
-    private const VERDICT_BLOCK = 'block';
+    public const VERDICT_BLOCK = 'block';
 
-    private const VERDICT_HALT = 'halt';
+    public const VERDICT_HALT = 'halt';
+
+    /** @var list<string> */
+    public const VERDICTS = [
+        self::VERDICT_ADVANCE,
+        self::VERDICT_REPAIR,
+        self::VERDICT_BLOCK,
+        self::VERDICT_HALT,
+    ];
 
     /**
      * Ordered precedence rules applied top-to-bottom; the first match decides
@@ -38,7 +46,7 @@ final class PhaseAdvanceVerdictClassifier
      *
      * @var list<string>
      */
-    private const RULES = [
+    public const RULES = [
         'high_severity_blocker_block',
         'policy_decision_not_allowed_halt',
         'operator_signature_required',

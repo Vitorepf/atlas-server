@@ -8,7 +8,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosThresholdComparator
 {
-    private const EPSILON = 1e-9;
+    public const EPSILON = 1e-9;
 
     public static function binarySatisfied(string $comparator, float $observed, float $threshold): bool
     {

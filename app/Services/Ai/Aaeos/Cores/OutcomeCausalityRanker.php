@@ -8,45 +8,64 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class OutcomeCausalityRanker
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.outcome_causality_ranking.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.outcome_causality_ranking.v1';
 
-    private const CAUSE_MISSING_EVIDENCE = 'missing_evidence';
+    public const CAUSE_MISSING_EVIDENCE = 'missing_evidence';
 
-    private const CAUSE_TESTS_FAILED = 'tests_failed';
+    public const CAUSE_TESTS_FAILED = 'tests_failed';
 
-    private const CAUSE_EXECUTION_FAILED_OR_BLOCKED = 'execution_failed_or_blocked';
+    public const CAUSE_EXECUTION_FAILED_OR_BLOCKED = 'execution_failed_or_blocked';
 
-    private const CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES = 'context_missing_required_sources';
+    public const CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES = 'context_missing_required_sources';
 
-    private const CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED = 'execution_strategy_likely_succeeded';
+    public const CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED = 'execution_strategy_likely_succeeded';
 
-    private const WEIGHT_MISSING_EVIDENCE = 0.95;
+    public const WEIGHT_MISSING_EVIDENCE = 0.95;
 
-    private const WEIGHT_TESTS_FAILED = 0.85;
+    public const WEIGHT_TESTS_FAILED = 0.85;
 
-    private const WEIGHT_EXECUTION_FAILED_OR_BLOCKED = 0.70;
+    public const WEIGHT_EXECUTION_FAILED_OR_BLOCKED = 0.70;
 
-    private const WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES = 0.65;
+    public const WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES = 0.65;
 
-    private const WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED = 0.55;
+    public const WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED = 0.55;
 
-    private const STATUS_SUCCEEDED = 'succeeded';
+    public const STATUS_SUCCEEDED = 'succeeded';
 
-    private const CAUSE_SCOPE_OR_CONTRACT_MISMATCH = 'scope_or_contract_mismatch';
+    public const CAUSE_SCOPE_OR_CONTRACT_MISMATCH = 'scope_or_contract_mismatch';
 
-    private const CAUSE_PACKET_QUALITY_FAILURE = 'packet_quality_failure';
+    public const CAUSE_PACKET_QUALITY_FAILURE = 'packet_quality_failure';
 
-    private const WEIGHT_SCOPE_OR_CONTRACT_MISMATCH = 0.80;
+    public const WEIGHT_SCOPE_OR_CONTRACT_MISMATCH = 0.80;
 
-    private const WEIGHT_PACKET_QUALITY_FAILURE = 0.72;
+    public const WEIGHT_PACKET_QUALITY_FAILURE = 0.72;
 
-    private const OUTCOME_SUCCESS = 'success';
+    public const OUTCOME_SUCCESS = 'success';
 
-    private const OUTCOME_GIVE_BACK = 'give_back';
+    public const OUTCOME_GIVE_BACK = 'give_back';
 
-    private const OUTCOME_POISON = 'poison';
+    public const OUTCOME_POISON = 'poison';
 
-    private const OUTCOME_QUARANTINE = 'quarantine';
+    public const OUTCOME_QUARANTINE = 'quarantine';
+
+    /** @var list<string> */
+    public const PRIMARY_CAUSES = [
+        self::CAUSE_MISSING_EVIDENCE,
+        self::CAUSE_TESTS_FAILED,
+        self::CAUSE_EXECUTION_FAILED_OR_BLOCKED,
+        self::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES,
+        self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+        self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH,
+        self::CAUSE_PACKET_QUALITY_FAILURE,
+    ];
+
+    /** @var list<string> */
+    public const OUTCOMES = [
+        self::OUTCOME_SUCCESS,
+        self::OUTCOME_GIVE_BACK,
+        self::OUTCOME_POISON,
+        self::OUTCOME_QUARANTINE,
+    ];
 
     /**
      * Rank causal explanations for an execution outcome and derive attribution.

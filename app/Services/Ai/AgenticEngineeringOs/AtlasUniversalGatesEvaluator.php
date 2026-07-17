@@ -2590,6 +2590,50 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only phase-advance verdict + blocker severity signals.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function phaseAdvanceBlockerContractObserve(array $input = []): array
+    {
+        return [
+            'phase_advance_schema' => PhaseAdvanceVerdictClassifier::SCHEMA_VERSION,
+            'verdicts' => PhaseAdvanceVerdictClassifier::VERDICTS,
+            'verdict_count' => count(PhaseAdvanceVerdictClassifier::VERDICTS),
+            'rules' => PhaseAdvanceVerdictClassifier::RULES,
+            'rule_count' => count(PhaseAdvanceVerdictClassifier::RULES),
+            'blocker_signals' => AaeosBlockerSeverityGate::SIGNALS,
+            'blocker_levels' => [
+                AaeosBlockerSeverity::CRITICAL,
+                AaeosBlockerSeverity::HIGH,
+                AaeosBlockerSeverity::MEDIUM,
+                AaeosBlockerSeverity::LOW,
+            ],
+        ];
+    }
+
+    /**
+     * Observe-only outcome-causality + threshold-comparator floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeCausalityComparatorContractObserve(array $input = []): array
+    {
+        return [
+            'outcome_causality_schema' => OutcomeCausalityRanker::SCHEMA_VERSION,
+            'primary_causes' => OutcomeCausalityRanker::PRIMARY_CAUSES,
+            'primary_cause_count' => count(OutcomeCausalityRanker::PRIMARY_CAUSES),
+            'outcomes' => OutcomeCausalityRanker::OUTCOMES,
+            'threshold_epsilon' => AtlasAaeosThresholdComparator::EPSILON,
+            'memory_recall_schema' => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

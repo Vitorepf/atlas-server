@@ -1859,4 +1859,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(3, $payload['structured_fact_type_count']);
         $this->assertTrue($payload['deterministic']);
     }
+
+    public function test_phase_advance_blocker_contract_observe_reports_verdicts(): void
+    {
+        $payload = $this->svc->phaseAdvanceBlockerContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.phase_advance_verdict.v1', $payload['phase_advance_schema']);
+        $this->assertContains('advance', $payload['verdicts']);
+        $this->assertContains('halt', $payload['verdicts']);
+        $this->assertSame(4, $payload['verdict_count']);
+        $this->assertSame(7, $payload['rule_count']);
+        $this->assertContains('blocked', $payload['blocker_signals']);
+        $this->assertContains('critical', $payload['blocker_levels']);
+    }
+
+    public function test_outcome_causality_comparator_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->outcomeCausalityComparatorContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.outcome_causality_ranking.v1', $payload['outcome_causality_schema']);
+        $this->assertContains('missing_evidence', $payload['primary_causes']);
+        $this->assertSame(7, $payload['primary_cause_count']);
+        $this->assertContains('success', $payload['outcomes']);
+        $this->assertSame(1e-9, $payload['threshold_epsilon']);
+        $this->assertSame('atlas.aaeos.memory_recall_ranking.v1', $payload['memory_recall_schema']);
+    }
 }
