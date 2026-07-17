@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfImprovement;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class LearningPacketQualityScorer
 {
     private const EVIDENCE_BONUS_PER_ITEM = 0.05;
@@ -117,7 +119,7 @@ final class LearningPacketQualityScorer
     {
         $value = $packet[$key] ?? 0.0;
 
-        return is_numeric($value) ? (float) $value : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($value) ?? 0.0;
     }
 
     /**

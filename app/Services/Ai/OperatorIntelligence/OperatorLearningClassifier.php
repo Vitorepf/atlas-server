@@ -3,6 +3,7 @@
 namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 class OperatorLearningClassifier
@@ -148,7 +149,7 @@ class OperatorLearningClassifier
 
     private function confidence(mixed $value, string $risk, string $privacy, string $inferenceType = 'explicit', string $tier = ''): float
     {
-        $confidence = is_numeric($value) ? (float) $value : 0.5;
+        $confidence = AiValueNormalizer::finiteFloatOrNull($value) ?? 0.5;
         $confidence = max(0.0, min(1.0, $confidence));
 
         // STRUCTURAL floor: any inferred / non-explicit signal is forced into review

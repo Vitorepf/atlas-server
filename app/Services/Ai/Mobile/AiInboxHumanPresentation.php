@@ -4,6 +4,7 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -423,7 +424,7 @@ final class AiInboxHumanPresentation
     {
         $normalized = str_replace(['.', ','], ['', '.'], trim($value));
 
-        return is_numeric($normalized) ? (float) $normalized : null;
+        return AiValueNormalizer::finiteFloatOrNull($normalized);
     }
 
     private function metricLabel(string $key): string

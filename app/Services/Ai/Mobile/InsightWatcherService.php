@@ -6,6 +6,7 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AtlasInitiativeRun;
 use App\Models\DigitalActivitySnapshot;
 use App\Models\HealthSnapshot;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 
@@ -199,7 +200,7 @@ class InsightWatcherService
 
         $deepWorkValues = $this->numericValues($baseline, 'deep_work_total_min');
         $baselineDeepWork = $deepWorkValues->isNotEmpty() ? round((float) $deepWorkValues->avg(), 1) : null;
-        $latestDeepWork = is_numeric($latest->deep_work_total_min) ? (float) $latest->deep_work_total_min : null;
+        $latestDeepWork = AiValueNormalizer::finiteFloatOrNull($latest->deep_work_total_min);
 
         return [[
             'title' => 'Uso algoritmico subiu acima do padrao',

@@ -2021,6 +2021,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_phase_signature_l4(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-psl4-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-psl4',
+                '--phase-signature-l4' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"phase_signature_l4"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

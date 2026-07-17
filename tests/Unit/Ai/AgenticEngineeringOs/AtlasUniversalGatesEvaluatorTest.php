@@ -1400,4 +1400,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(count($payload['surfaces']), $payload['surface_count']);
         $this->assertSame(count($payload['runtimes']), $payload['runtime_count']);
     }
+
+    public function test_phase_signature_l4_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->phaseSignatureL4Observe([]);
+
+        $this->assertSame('atlas.aaeos.phase.v1', $payload['schema_version']);
+        $this->assertContains('human_review', $payload['phases_requiring_signature_at_l4']);
+        $this->assertSame(count($payload['phases_requiring_signature_at_l4']), $payload['count']);
+    }
 }

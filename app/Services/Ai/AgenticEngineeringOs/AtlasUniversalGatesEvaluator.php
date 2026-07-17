@@ -1770,6 +1770,22 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only AAEOS phases that require operator signature at L4+.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function phaseSignatureL4Observe(array $input = []): array
+    {
+        return [
+            'schema_version' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            'phases_requiring_signature_at_l4' => AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4,
+            'count' => count(AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -4,6 +4,7 @@ namespace App\Services\Ai\Mobile;
 
 use App\Models\AiInboxItem;
 use App\Models\AiQualityEvaluation;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 
@@ -270,6 +271,6 @@ class SelfDiagnosticEmitter
 
     private function float(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 }

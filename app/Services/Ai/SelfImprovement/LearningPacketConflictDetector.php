@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfImprovement;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class LearningPacketConflictDetector
 {
     /**
@@ -124,6 +126,6 @@ final class LearningPacketConflictDetector
     {
         $value = $packet[$key] ?? 0.0;
 
-        return is_int($value) || is_float($value) || (is_string($value) && is_numeric($value)) ? (float) $value : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($value) ?? 0.0;
     }
 }
