@@ -47,6 +47,7 @@ use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
+use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1487,6 +1488,25 @@ final class AtlasUniversalGatesEvaluator
             'threshold' => $threshold,
             'binary_satisfied' => AtlasAaeosThresholdComparator::binarySatisfied($comparator, $observed, $threshold),
             'satisfied' => AtlasAaeosThresholdComparator::satisfied($comparator, $observed, $threshold),
+        ];
+    }
+
+    /**
+     * Observe-only AAEOS evidence_ref normalization.
+     * Accepts `{evidence_refs}` list. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evidenceRefNormalizeObserve(array $input = []): array
+    {
+        $normalizer = new AtlasAaeosEvidenceRefNormalizer;
+        $refs = $normalizer->listFromRaw($input['evidence_refs'] ?? []);
+
+        return [
+            'schema_version' => 'atlas.aaeos.evidence_ref_normalize.v1',
+            'count' => count($refs),
+            'evidence_refs' => $refs,
         ];
     }
 

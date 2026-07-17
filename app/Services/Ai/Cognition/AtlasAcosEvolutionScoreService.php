@@ -10,6 +10,7 @@ use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use App\Services\Ai\Brain\AtlasEvolutionDiary;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -91,7 +92,7 @@ class AtlasAcosEvolutionScoreService
                 'inteligencia_entregue' => $inteligencia,
                 'autonomia' => $autonomia,
             ],
-            'acos_scorecard_overall' => (float) data_get($card, 'score.overall_out_of_10', 0.0),
+            'acos_scorecard_overall' => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,
             'notes' => [
                 'method' => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
                 'autonomy_governance' => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
@@ -110,7 +111,7 @@ class AtlasAcosEvolutionScoreService
      */
     private function execucaoProvada(array $card): array
     {
-        $pipeline = (float) data_get($card, 'score.dimensions.pipeline.score_out_of_10', 0.0);
+        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
 
         return [
             'score' => round($pipeline, 2),
@@ -483,7 +484,7 @@ class AtlasAcosEvolutionScoreService
     {
         $score = 0.0;
         foreach ($signals as $signal) {
-            $score += (float) $signal['points'];
+            $score += AiValueNormalizer::finiteFloatOrNull($signal['points'] ?? null) ?? 0.0;
         }
 
         return [

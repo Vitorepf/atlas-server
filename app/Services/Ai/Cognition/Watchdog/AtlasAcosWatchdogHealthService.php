@@ -22,6 +22,7 @@ use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\LongHorizon\LongHorizonCrossWeekRecallLiftGateService;
 use App\Services\Ai\Reality\AtlasRealityGraphStatusService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Throwable;
@@ -92,7 +93,7 @@ final class AtlasAcosWatchdogHealthService
         $latestSnapshotAt = $this->parseDate(data_get($scorecard, 'latest_snapshot.snapshot_at'));
         $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now('UTC')) / 60, 2) : null;
         $freshness = (int) data_get($scorecard, 'components.freshness', 0);
-        $concentration = (float) data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0);
+        $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
         $recallUsageTotal = (int) data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0);
         $demotionEnabled = (bool) config('atlas.semantic_memory.recall_concentration_demotion_enabled', true);
         $trendStatus = (string) data_get($scorecard, 'trend.status', 'unknown');
@@ -196,7 +197,7 @@ final class AtlasAcosWatchdogHealthService
         $coverage = (array) ($status['coverage'] ?? []);
         $store = (array) ($status['store'] ?? []);
         $edgesBySource = (array) ($store['edges_by_source'] ?? []);
-        $ratio = (float) ($coverage['memory_cross_layer_coverage_ratio'] ?? 0.0);
+        $ratio = AiValueNormalizer::finiteFloatOrNull($coverage['memory_cross_layer_coverage_ratio'] ?? null) ?? 0.0;
         $blocking = [];
         if (! (bool) ($coverage['available'] ?? false)) {
             $blocking[] = (string) ($coverage['reason'] ?? 'aurg_store_unavailable');
@@ -232,25 +233,29 @@ final class AtlasAcosWatchdogHealthService
         $aurg = $this->aurgCoverageReport();
         $retrievalEval = (int) data_get($quality, 'components.retrieval_eval', 0);
         // Prefer the RAG-05 frozen golden surface; fall back to the older corpus metrics path.
-        $recallAt5 = data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.recall_at_5');
-        if (! is_numeric($recallAt5)) {
-            $recallAt5 = data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5');
+        $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
+            data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.recall_at_5')
+        );
+        if ($recallAt5 === null) {
+            $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
+                data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5')
+            );
         }
         $improperFloorDiscards = (int) (
             data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards')
             ?? data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0)
         );
-        $coverageRatio = (float) data_get($aurg, 'coverage.memory_cross_layer_coverage_ratio', 0.0);
-        $preFilterConcentration = (float) data_get(
+        $coverageRatio = AiValueNormalizer::finiteFloatOrNull(data_get($aurg, 'coverage.memory_cross_layer_coverage_ratio', 0.0)) ?? 0.0;
+        $preFilterConcentration = AiValueNormalizer::finiteFloatOrNull(data_get(
             $quality,
             'ratios.pre_filter_recall_concentration_ratio',
             data_get($quality, 'ratios.recall_concentration_ratio', 0.0),
-        );
+        )) ?? 0.0;
         $issues = [];
         if ($retrievalEval < self::RAG_RETRIEVAL_EVAL_FLOOR) {
             $issues[] = 'retrieval_eval_below_floor';
         }
-        if (! is_numeric($recallAt5) || (float) $recallAt5 < self::RAG_RECALL_AT_5_FLOOR) {
+        if ($recallAt5 === null || $recallAt5 < self::RAG_RECALL_AT_5_FLOOR) {
             $issues[] = 'recall_at_5_below_floor_or_unmeasured';
         }
         if ($improperFloorDiscards > 0) {
@@ -271,7 +276,7 @@ final class AtlasAcosWatchdogHealthService
             'issues' => array_values(array_unique($issues)),
             'raw' => [
                 'retrieval_eval' => $retrievalEval,
-                'recall_at_5' => is_numeric($recallAt5) ? (float) $recallAt5 : null,
+                'recall_at_5' => $recallAt5,
                 'improper_floor_discards' => $improperFloorDiscards,
                 'aurg_cross_layer_coverage_ratio' => $coverageRatio,
                 'pre_filter_concentration_ratio' => $preFilterConcentration,
@@ -389,8 +394,9 @@ final class AtlasAcosWatchdogHealthService
         $criticalCuts = 0;
         $retentionScores = [];
         foreach ($receipts as $receipt) {
-            if (is_numeric($receipt->context_retention_score)) {
-                $retentionScores[] = (float) $receipt->context_retention_score;
+            $retention = AiValueNormalizer::finiteFloatOrNull($receipt->context_retention_score);
+            if ($retention !== null) {
+                $retentionScores[] = $retention;
             }
             foreach ((array) ($receipt->unresolved_loss ?? []) as $loss) {
                 if (! is_array($loss)) {
@@ -454,7 +460,7 @@ final class AtlasAcosWatchdogHealthService
     public function pipelineStabilityReport(): array
     {
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
-        $pipeline = (float) data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0);
+        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
         $partials = array_values(array_filter((array) ($scorecard['subsystems'] ?? []), static fn (array $row): bool => ($row['pipeline_status'] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
         if ($pipeline < 10.0) {
@@ -530,9 +536,9 @@ final class AtlasAcosWatchdogHealthService
             ];
         }
         $stale = array_values(array_filter($partials, static function (array $row): bool {
-            $age = data_get($row, 'diagnosis.latest_receipt_age_days');
+            $age = AiValueNormalizer::finiteFloatOrNull(data_get($row, 'diagnosis.latest_receipt_age_days'));
 
-            return is_numeric($age) && (float) $age > self::PIPELINE_PARTIAL_STALE_DAYS;
+            return $age !== null && $age > self::PIPELINE_PARTIAL_STALE_DAYS;
         }));
         $blocking = [];
         if ($partials !== []) {
@@ -566,20 +572,21 @@ final class AtlasAcosWatchdogHealthService
         $governanceByExecutor = $this->countExecutors($windowCoverageRows);
         $forgePromoted = $this->forgePromotedCycles();
         $admlRoutes = $this->admlReadyRoutes($liveRows);
+        $bypassRate = AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 1.0;
         $flips = [
             'governance_enforce' => [
                 'ready' => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3
-                    && (float) ($summary['bypass_rate'] ?? 1.0) === 0.0
+                    && $bypassRate === 0.0
                     && (int) ($summary['false_positive_total'] ?? 0) === 0,
                 'blocking' => array_values(array_filter([
                     count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : 'governance_soak_volume_below_floor',
-                    (float) ($summary['bypass_rate'] ?? 1.0) === 0.0 ? null : 'governance_bypass_rate_nonzero',
+                    $bypassRate === 0.0 ? null : 'governance_bypass_rate_nonzero',
                     (int) ($summary['false_positive_total'] ?? 0) === 0 ? null : 'governance_false_positive_nonzero',
                 ])),
                 'raw' => [
                     'window_days' => self::ENG_WINDOW_DAYS,
                     'by_executor' => $governanceByExecutor,
-                    'bypass_rate' => (float) ($summary['bypass_rate'] ?? 0.0),
+                    'bypass_rate' => AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 0.0,
                     'false_positive_total' => (int) ($summary['false_positive_total'] ?? 0),
                     'fp_definition' => (string) ($summary['fp_definition'] ?? ''),
                 ],

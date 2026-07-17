@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Cognitive\ProductiveFailure\ProductiveFailureComparisonEngine;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * T4-S2 · Surpresa medida como gate de gravação.
@@ -56,8 +57,8 @@ final class AtlasSurpriseGateService
      */
     public function evaluate(string $candidate, string $prediction, ?float $threshold = null): array
     {
-        $threshold = $threshold ?? (float) config('atlas.aobg.surprise_gate.threshold', self::DEFAULT_THRESHOLD);
-        $highBand = (float) config('atlas.aobg.surprise_gate.high_band', self::DEFAULT_HIGH_BAND);
+        $threshold = $threshold ?? (AiValueNormalizer::finiteFloatOrNull(config('atlas.aobg.surprise_gate.threshold', self::DEFAULT_THRESHOLD)) ?? self::DEFAULT_THRESHOLD);
+        $highBand = AiValueNormalizer::finiteFloatOrNull(config('atlas.aobg.surprise_gate.high_band', self::DEFAULT_HIGH_BAND)) ?? self::DEFAULT_HIGH_BAND;
         $minPredictionTokens = max(0, (int) config('atlas.aobg.surprise_gate.min_prediction_tokens', self::DEFAULT_MIN_PREDICTION_TOKENS));
 
         $candidateTokens = $this->tokens($candidate);
@@ -101,7 +102,7 @@ final class AtlasSurpriseGateService
      */
     public function score(string $candidate, string $prediction): float
     {
-        return (float) $this->evaluate($candidate, $prediction)['surprise'];
+        return AiValueNormalizer::finiteFloatOrNull($this->evaluate($candidate, $prediction)['surprise']) ?? 0.0;
     }
 
     /**

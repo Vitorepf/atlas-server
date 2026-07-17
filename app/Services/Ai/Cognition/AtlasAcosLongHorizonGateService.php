@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
 use Throwable;
@@ -41,17 +42,17 @@ final class AtlasAcosLongHorizonGateService
         }
 
         $minDays = max(1, (int) ($options['min_days'] ?? $cfg['min_days'] ?? 30));
-        $minOverall = max(0.0, min(10.0, (float) ($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5)));
-        $minPipeline = max(0.0, min(10.0, (float) ($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5)));
-        $warningMargin = max(0.0, min(10.0, (float) ($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15)));
+        $minOverall = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5) ?? 9.5));
+        $minPipeline = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5) ?? 9.5));
+        $warningMargin = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15) ?? 0.15));
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
         $maxGapDays = max(1, (int) ($options['max_gap_days'] ?? $cfg['max_gap_days'] ?? 1));
         $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
         $seriesV2Path = (string) ($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl'));
-        $minAreaOverall = max(0.0, min(10.0, (float) ($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall)));
-        $minAreaCode = max(0.0, min(10.0, (float) ($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall)));
-        $minAreaDoc = max(0.0, min(10.0, (float) ($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall)));
-        $minAreaPipeline = max(0.0, min(10.0, (float) ($options['min_area_pipeline'] ?? $cfg['min_area_pipeline'] ?? $minAreaOverall)));
+        $minAreaOverall = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall) ?? $minOverall));
+        $minAreaCode = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall) ?? $minAreaOverall));
+        $minAreaDoc = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall) ?? $minAreaOverall));
+        $minAreaPipeline = max(0.0, min(10.0, AiValueNormalizer::finiteFloatOrNull($options['min_area_pipeline'] ?? $cfg['min_area_pipeline'] ?? $minAreaOverall) ?? $minAreaOverall));
 
         // "Today" is injectable so the frozen test can pin the freshness window
         // deterministically; in production it is the real UTC calendar day. It
@@ -263,8 +264,8 @@ final class AtlasAcosLongHorizonGateService
      */
     private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, float $warningMargin, int $maxLatestStaleDays, int $maxGapDays, DateTimeImmutable $today, string $seriesPath): array
     {
-        $overall = (float) data_get($scorecard, 'score.overall_out_of_10', 0.0);
-        $pipeline = (float) data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0);
+        $overall = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.overall_out_of_10', 0.0)) ?? 0.0;
+        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
         $scorecardHash = (string) data_get($scorecard, 'scorecard_hash', '');
 
         $window = $this->seriesWindowIntegrity($series, $minDays, $today);
@@ -570,7 +571,7 @@ final class AtlasAcosLongHorizonGateService
 
                 $dayBelow = false;
                 foreach (['overall', 'code', 'doc', 'pipeline'] as $dimension) {
-                    $score = round((float) ($scores[$dimension] ?? 0.0), 3);
+                    $score = round(AiValueNormalizer::finiteFloatOrNull($scores[$dimension] ?? 0.0) ?? 0.0, 3);
                     $minAreaScores[$area][$dimension] = isset($minAreaScores[$area][$dimension])
                         ? min($minAreaScores[$area][$dimension], $score)
                         : $score;
@@ -694,7 +695,7 @@ final class AtlasAcosLongHorizonGateService
         foreach ($series as $row) {
             $date = (string) ($row['date'] ?? '');
             if ($date !== '' && isset($window[$date])) {
-                $scoresByDate[$date] = (float) data_get($row, 'metrics.scorecard_overall', 0.0);
+                $scoresByDate[$date] = AiValueNormalizer::finiteFloatOrNull(data_get($row, 'metrics.scorecard_overall', 0.0)) ?? 0.0;
             }
         }
 
@@ -729,7 +730,7 @@ final class AtlasAcosLongHorizonGateService
 
         foreach (array_reverse($series) as $row) {
             if ((string) ($row['date'] ?? '') === $latestDate) {
-                return (float) data_get($row, 'metrics.scorecard_overall', 0.0);
+                return AiValueNormalizer::finiteFloatOrNull(data_get($row, 'metrics.scorecard_overall', 0.0)) ?? 0.0;
             }
         }
 

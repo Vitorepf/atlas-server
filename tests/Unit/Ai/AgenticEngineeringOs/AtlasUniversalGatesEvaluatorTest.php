@@ -1219,4 +1219,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['binary_satisfied']);
         $this->assertTrue($payload['satisfied']);
     }
+
+    public function test_evidence_ref_normalize_observe_parses_refs(): void
+    {
+        $payload = $this->svc->evidenceRefNormalizeObserve([
+            'evidence_refs' => ['ledger:abc', ['kind' => ' file ', 'ref' => ' xyz ']],
+        ]);
+
+        $this->assertSame('atlas.aaeos.evidence_ref_normalize.v1', $payload['schema_version']);
+        $this->assertSame(2, $payload['count']);
+        $this->assertSame('ledger', $payload['evidence_refs'][0]['kind']);
+        $this->assertSame('file', $payload['evidence_refs'][1]['kind']);
+    }
 }

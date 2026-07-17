@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * MAXI-04 \u2014 the hybrid classifier that wraps the base
@@ -68,7 +69,7 @@ final class AtlasImmuneHybridInputClassifier
         $this->signatureStore = $signatureStore ?? new ImmuneSignatureStore;
         $this->anchors = $anchors;
         $freeze = AtlasImmuneClassifierHybridFreeze::freezePayload();
-        $this->tau = $tau ?? (float) ($freeze['thresholds']['tau'] ?? 0.62);
+        $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze['thresholds']['tau'] ?? null) ?? 0.62);
         $this->enabled = $enabled ?? (bool) config('atlas.aaeos.immune_classifier.semantic_arm_enabled', false);
     }
 
