@@ -5421,6 +5421,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function longhorizonWindowAemorFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'longhorizon_field_min_overall' => AtlasAcosLongHorizonGateService::FIELD_MIN_OVERALL,
+            'longhorizon_field_date' => AtlasAcosLongHorizonGateService::FIELD_DATE,
+            'longhorizon_field_blockers' => AtlasAcosLongHorizonGateService::FIELD_BLOCKERS,
+            'longhorizon_field_warnings' => AtlasAcosLongHorizonGateService::FIELD_WARNINGS,
+            'longhorizon_field_series_day_count' => AtlasAcosLongHorizonGateService::FIELD_SERIES_DAY_COUNT,
+            'longhorizon_field_latest_date' => AtlasAcosLongHorizonGateService::FIELD_LATEST_DATE,
+            'longhorizon_status_ready' => AtlasAcosLongHorizonGateService::STATUS_READY,
+            'window_field_slice' => AcosMaxWindowOrchestratorService::FIELD_SLICE,
+            'window_field_days_remaining' => AcosMaxWindowOrchestratorService::FIELD_DAYS_REMAINING,
+            'window_field_flag_id' => AcosMaxWindowOrchestratorService::FIELD_FLAG_ID,
+            'window_field_observation_window_id' => AcosMaxWindowOrchestratorService::FIELD_OBSERVATION_WINDOW_ID,
+            'window_field_status' => AcosMaxWindowOrchestratorService::FIELD_STATUS,
+            'window_status_ok' => AcosMaxWindowOrchestratorService::STATUS_OK,
+            'aemor_field_executor' => AemorOutcomeEnvelopeAdapter::FIELD_EXECUTOR,
+            'aemor_field_summary' => AemorOutcomeEnvelopeAdapter::FIELD_SUMMARY,
+            'aemor_field_outcome_type' => AemorOutcomeEnvelopeAdapter::FIELD_OUTCOME_TYPE,
+            'aemor_adapter_kind' => AemorOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'longhorizon_window_aemor_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

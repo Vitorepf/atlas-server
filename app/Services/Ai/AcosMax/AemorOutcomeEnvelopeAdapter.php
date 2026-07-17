@@ -20,6 +20,15 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_VERIFIED = 'verified';
 
     public const FIELD_VERIFIED_BASIS = 'verified_basis';
+    public const FIELD_EXECUTOR = 'executor';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_OUTCOME_TYPE = 'outcome_type';
+    public const FIELD_METRICS = 'metrics';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CONTEXT_UTILITY = 'context_utility';
+    public const FIELD_PATCH_OUTCOME = 'patch_outcome';
+    public const FIELD_LEARNING_CLAIM = 'learning_claim';
 
     public const STATUS_ABSENT = 'absent';
 
@@ -34,8 +43,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
      */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $executor = AiValueNormalizer::lowerTrimmedString($native['executor'] ?? $context['executor'] ?? 'engineering');
-        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED));
+        $executor = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_EXECUTOR] ?? $context[self::FIELD_EXECUTOR] ?? 'engineering');
+        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED));
 
         $contract = is_array($context['outcome_contract_v2'] ?? null)
             ? $context['outcome_contract_v2']
@@ -51,10 +60,10 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? $native['scope_id'] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
-            'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
+            self::FIELD_EXECUTOR => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
             'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $native['task_category'] ?? $executor) ?? '',
             'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
@@ -63,13 +72,13 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'episode_id' => $episodeId !== '' ? $episodeId : null,
             'run_id' => $runId !== '' ? $runId : null,
         ], [
-            'outcome_type' => (AiValueNormalizer::trimmedStringOrNull($native['outcome_type'] ?? null) ?? 'engineering_delivery'),
-            'summary' => AiValueNormalizer::trimmedStringOrNull($native['summary'] ?? $native['objective'] ?? null) ?? '',
-            'metrics' => AiValueNormalizer::arrayOrEmpty($native['metrics'] ?? null),
-            'blockers' => AiValueNormalizer::arrayOrEmpty($native['blockers'] ?? null),
-            'context_utility' => AiValueNormalizer::arrayOrEmpty($native['context_utility'] ?? null),
-            'patch_outcome' => AiValueNormalizer::arrayOrEmpty($native['patch_outcome'] ?? null),
-            'learning_claim' => (AiValueNormalizer::trimmedStringOrNull($native['learning_claim'] ?? null) ?? ''),
+            self::FIELD_OUTCOME_TYPE => (AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_OUTCOME_TYPE] ?? null) ?? 'engineering_delivery'),
+            self::FIELD_SUMMARY => AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_SUMMARY] ?? $native['objective'] ?? null) ?? '',
+            self::FIELD_METRICS => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_METRICS] ?? null),
+            self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_BLOCKERS] ?? null),
+            self::FIELD_CONTEXT_UTILITY => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_CONTEXT_UTILITY] ?? null),
+            self::FIELD_PATCH_OUTCOME => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_PATCH_OUTCOME] ?? null),
+            self::FIELD_LEARNING_CLAIM => (AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_LEARNING_CLAIM] ?? null) ?? ''),
         ]);
     }
 
@@ -79,16 +88,16 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
-            'executor' => (AiValueNormalizer::trimmedStringOrNull($data['executor'] ?? null) ?? 'engineering'),
-            'status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED),
-            'objective' => (AiValueNormalizer::trimmedStringOrNull($fields['summary'] ?? null) ?? ''),
-            'summary' => (AiValueNormalizer::trimmedStringOrNull($fields['summary'] ?? null) ?? ''),
-            'outcome_type' => (AiValueNormalizer::trimmedStringOrNull($fields['outcome_type'] ?? null) ?? 'engineering_delivery'),
-            'metrics' => AiValueNormalizer::arrayOrEmpty($fields['metrics'] ?? null),
-            'blockers' => AiValueNormalizer::arrayOrEmpty($fields['blockers'] ?? null),
-            'context_utility' => AiValueNormalizer::arrayOrEmpty($fields['context_utility'] ?? null),
-            'patch_outcome' => AiValueNormalizer::arrayOrEmpty($fields['patch_outcome'] ?? null),
-            'learning_claim' => (AiValueNormalizer::trimmedStringOrNull($fields['learning_claim'] ?? null) ?? ''),
+            self::FIELD_EXECUTOR => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? 'engineering'),
+            self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED),
+            'objective' => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_SUMMARY] ?? null) ?? ''),
+            self::FIELD_SUMMARY => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_SUMMARY] ?? null) ?? ''),
+            self::FIELD_OUTCOME_TYPE => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_OUTCOME_TYPE] ?? null) ?? 'engineering_delivery'),
+            self::FIELD_METRICS => AiValueNormalizer::arrayOrEmpty($fields[self::FIELD_METRICS] ?? null),
+            self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($fields[self::FIELD_BLOCKERS] ?? null),
+            self::FIELD_CONTEXT_UTILITY => AiValueNormalizer::arrayOrEmpty($fields[self::FIELD_CONTEXT_UTILITY] ?? null),
+            self::FIELD_PATCH_OUTCOME => AiValueNormalizer::arrayOrEmpty($fields[self::FIELD_PATCH_OUTCOME] ?? null),
+            self::FIELD_LEARNING_CLAIM => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_LEARNING_CLAIM] ?? null) ?? ''),
             self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
             self::FIELD_VERIFIED_BASIS => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_VERIFIED_BASIS] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ];

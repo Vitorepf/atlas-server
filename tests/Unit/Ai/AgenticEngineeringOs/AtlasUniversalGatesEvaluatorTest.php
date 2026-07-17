@@ -3809,4 +3809,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['promotion_asef_autonomy_floor_count']);
     }
 
+    public function test_longhorizon_window_aemor_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->longhorizonWindowAemorFloorsContractObserve([]);
+
+        $this->assertSame('min_overall', $payload['longhorizon_field_min_overall']);
+        $this->assertSame('date', $payload['longhorizon_field_date']);
+        $this->assertSame('blockers', $payload['longhorizon_field_blockers']);
+        $this->assertSame('warnings', $payload['longhorizon_field_warnings']);
+        $this->assertSame('series_day_count', $payload['longhorizon_field_series_day_count']);
+        $this->assertSame('latest_date', $payload['longhorizon_field_latest_date']);
+        $this->assertSame('acos_long_horizon_ready', $payload['longhorizon_status_ready']);
+        $this->assertSame('slice', $payload['window_field_slice']);
+        $this->assertSame('days_remaining', $payload['window_field_days_remaining']);
+        $this->assertSame('flag_id', $payload['window_field_flag_id']);
+        $this->assertSame('observation_window_id', $payload['window_field_observation_window_id']);
+        $this->assertSame('status', $payload['window_field_status']);
+        $this->assertSame('ok', $payload['window_status_ok']);
+        $this->assertSame('executor', $payload['aemor_field_executor']);
+        $this->assertSame('summary', $payload['aemor_field_summary']);
+        $this->assertSame('outcome_type', $payload['aemor_field_outcome_type']);
+        $this->assertSame('aemor', $payload['aemor_adapter_kind']);
+        $this->assertSame(17, $payload['longhorizon_window_aemor_floor_count']);
+    }
+
 }
