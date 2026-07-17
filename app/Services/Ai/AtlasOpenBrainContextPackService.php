@@ -2164,8 +2164,10 @@ class AtlasOpenBrainContextPackService
         $title = trim((string) ($ref['title'] ?? ''));
         $strength = data_get($ref, 'refutation_strength.strength');
         $denominator = data_get($ref, 'refutation_strength.denominator');
-        if (is_numeric($strength) && is_numeric($denominator)) {
-            return sprintf('%s (refutation_strength=%.4f, denominator=%d)', $title, (float) $strength, (int) $denominator);
+        $strengthNumeric = AiValueNormalizer::finiteFloatOrNull($strength);
+        $denominatorNumeric = AiValueNormalizer::finiteFloatOrNull($denominator);
+        if ($strengthNumeric !== null && $denominatorNumeric !== null) {
+            return sprintf('%s (refutation_strength=%.4f, denominator=%d)', $title, $strengthNumeric, (int) $denominatorNumeric);
         }
 
         return $title;
@@ -4104,8 +4106,11 @@ class AtlasOpenBrainContextPackService
         if (is_int($raw)) {
             return max(0, $raw);
         }
-        if (is_string($raw) && is_numeric(trim($raw))) {
-            return (int) max(0, (int) floor((float) trim($raw)));
+        if (is_string($raw)) {
+            $numeric = AiValueNormalizer::finiteFloatOrNull(trim($raw));
+            if ($numeric !== null) {
+                return (int) max(0, (int) floor($numeric));
+            }
         }
 
         return max(0, $default);

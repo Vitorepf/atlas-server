@@ -1631,6 +1631,24 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only universal gate catalogue (descriptions only).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function universalGatesCatalogueObserve(array $input = []): array
+    {
+        $gates = $this->catalogue();
+
+        return [
+            'schema_version' => 'atlas.aaeos.universal_gates_catalogue.v1',
+            'count' => count($gates),
+            'gates' => $gates,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -123,6 +123,7 @@ final class AtlasAaeosCommand extends Command
         {--department-registry-validate= : JSON file with department or departments list (observe-only)}
         {--cognitive-immune-classify= : JSON file with text(+metadata) (observe-only immune class)}
         {--department-canonical-list= : JSON file (any object) to observe canonical department ids}
+        {--universal-gates-catalogue= : JSON file (any object) to observe the 15-gate catalogue}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -402,6 +403,7 @@ final class AtlasAaeosCommand extends Command
             ['department-registry-validate', 'department_registry_validate', fn (array $p) => $gates->departmentRegistryValidateObserve($p)],
             ['cognitive-immune-classify', 'cognitive_immune_classify', fn (array $p) => $gates->cognitiveImmuneClassifyObserve($p)],
             ['department-canonical-list', 'department_canonical_list', fn (array $p) => $gates->departmentCanonicalListObserve($p)],
+            ['universal-gates-catalogue', 'universal_gates_catalogue', fn (array $p) => $gates->universalGatesCatalogueObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
