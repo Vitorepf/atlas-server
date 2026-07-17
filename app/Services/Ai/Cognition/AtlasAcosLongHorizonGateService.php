@@ -493,17 +493,7 @@ final class AtlasAcosLongHorizonGateService
         string $seriesPath,
     ): array {
         $window = $this->seriesWindowIntegrity($series, $minDays, $today);
-        $firstDate = $window['first_date'];
-        $latestDate = $window['latest_date'];
-        $todayKey = $window['today'];
-        $seriesDayCount = $window['series_day_count'];
-        $calendarSpanDays = $window['calendar_span_days'];
-        $futureDatedRows = $window['future_dated_rows'];
-        $latestStalenessDays = $window['latest_staleness_days'];
         $certificationWindowDates = $window['certification_window_dates'];
-        $sampledDatesInWindow = $window['sampled_dates_in_window'];
-        $maxConsecutiveGapDays = $window['max_consecutive_gap_days'];
-        $backfilledSamples = $window['backfilled_samples'];
         $resolvedEvidenceRows = $this->resolvedEvidenceRowsV2($series);
         $areaScan = $this->certificationWindowAreaScan($series, $certificationWindowDates, $floors);
 
@@ -528,28 +518,14 @@ final class AtlasAcosLongHorizonGateService
             $blockers[] = 'area_below_floor:'.$area;
         }
 
-        return [
+        return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
             'schema_version' => 'atlas.cognition.acos_long_horizon_gate.area_v2',
-            'series_path' => $seriesPath,
-            'series_day_count' => $seriesDayCount,
-            'calendar_span_days' => $calendarSpanDays,
-            'first_date' => $firstDate,
-            'latest_date' => $latestDate,
-            'today' => $todayKey,
-            'future_dated_rows' => $futureDatedRows,
-            'latest_staleness_days' => $latestStalenessDays,
-            'certification_window_start' => $certificationWindowDates[0] ?? null,
-            'certification_window_end' => $latestDate,
-            'certification_window_sample_count' => count($sampledDatesInWindow),
-            'max_consecutive_gap_days' => $maxConsecutiveGapDays,
-            'backfilled_samples' => $backfilledSamples,
-            'resolved_evidence_rows' => $resolvedEvidenceRows,
             'floors' => $floors,
             'min_area_scores' => $areaScan['min_area_scores'],
             'area_days_below_floor' => $areaScan['area_days_below_floor'],
             'areas_below_floor' => $areaScan['areas_below_floor'],
             'blockers' => $blockers,
-        ];
+        ]);
     }
 
     /**
