@@ -88,6 +88,7 @@ final class AtlasAaeosCommand extends Command
         {--predicted-revert-digest= : JSON file with review-debt items (observe-only TETO-10 digest)}
         {--jina-dual-read-ledger= : JSON file with optional path (observe-only MAXA-04 ledger)}
         {--resource-budget= : JSON file with optional budget override (observe-only ELEV-27)}
+        {--model-capability-spec= : JSON file with function+model (observe-only ELEV-29s)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -332,6 +333,7 @@ final class AtlasAaeosCommand extends Command
             ['predicted-revert-digest', 'predicted_revert_digest', fn (array $p) => $gates->predictedRevertDigestObserve($p)],
             ['jina-dual-read-ledger', 'jina_dual_read_ledger', fn (array $p) => $gates->jinaDualReadLedgerObserve($p)],
             ['resource-budget', 'resource_budget', fn (array $p) => $gates->resourceBudgetObserve($p)],
+            ['model-capability-spec', 'model_capability_spec', fn (array $p) => $gates->modelCapabilitySpecObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

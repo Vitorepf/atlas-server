@@ -35,7 +35,9 @@ use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
+use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 use App\Services\Ai\Support\AiValueNormalizer;
+use RuntimeException;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -992,6 +994,39 @@ final class AtlasUniversalGatesEvaluator
             : new AtlasResourceBudgetService($budget);
 
         return $service->report();
+    }
+
+    /**
+     * Observe-only ELEV-29s model capability spec verify.
+     * Accepts `{function?:string, model?:object, spec?:object}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function modelCapabilitySpecObserve(array $input = []): array
+    {
+        $function = AiValueNormalizer::trimmedString($input['function'] ?? 'dense_embed');
+        $model = AiValueNormalizer::arrayOrEmpty($input['model'] ?? null);
+        $spec = AiValueNormalizer::arrayOrEmpty($input['spec'] ?? null);
+        $service = $spec === []
+            ? new AtlasModelCapabilitySpecService
+            : new AtlasModelCapabilitySpecService($spec);
+
+        try {
+            return $service->verify($function, $model);
+        } catch (RuntimeException) {
+            return [
+                'status' => 'unknown_function',
+                'function' => AiValueNormalizer::lowerTrimmedString($function),
+                'model_id' => AiValueNormalizer::trimmedString($model['model_id'] ?? '') ?: 'unknown',
+                'violations' => [[
+                    'field' => 'function',
+                    'reason' => 'unknown_model_function',
+                    'expected' => $service->functions(),
+                    'actual' => $function,
+                ]],
+            ];
+        }
     }
 
     /**

@@ -842,4 +842,36 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('shared', $payload['components'][0]['cpu_share']);
         $this->assertSame('rss', $payload['components'][0]['probe_hint']);
     }
+
+    public function test_model_capability_spec_observe_verifies_model(): void
+    {
+        $payload = $this->svc->modelCapabilitySpecObserve([
+            'function' => ' Dense_Embed ',
+            'model' => [
+                'model_id' => 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+                'dim' => 384,
+                'pooling' => 'mean',
+                'ctx_tokens' => 512,
+                'multilingual_pt' => true,
+                'deterministic' => true,
+                'license' => 'apache-2.0',
+            ],
+        ]);
+
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame('dense_embed', $payload['function']);
+        $this->assertSame([], $payload['violations']);
+    }
+
+    public function test_model_capability_spec_observe_unknown_function(): void
+    {
+        $payload = $this->svc->modelCapabilitySpecObserve([
+            'function' => 'not_a_real_fn',
+            'model' => ['model_id' => 'x'],
+        ]);
+
+        $this->assertSame('unknown_function', $payload['status']);
+        $this->assertSame('not_a_real_fn', $payload['function']);
+        $this->assertSame('unknown_model_function', $payload['violations'][0]['reason']);
+    }
 }

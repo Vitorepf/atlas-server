@@ -30,7 +30,7 @@ final class AcosMeasureSeriesFreshnessReader
      */
     public function lastAppendAt(array $entry): ?CarbonImmutable
     {
-        $sourceType = (string) ($entry['source_type'] ?? '');
+        $sourceType = AiValueNormalizer::trimmedString($entry['source_type'] ?? '');
         if (($entry['table'] ?? null) !== null || $sourceType === 'table') {
             return $this->tableLastAppendAt($entry);
         }
@@ -38,7 +38,7 @@ final class AcosMeasureSeriesFreshnessReader
             return $this->commandLastAppendAt($entry);
         }
 
-        $path = (string) ($entry['path'] ?? '');
+        $path = AiValueNormalizer::trimmedString($entry['path'] ?? '');
         if ($path === '') {
             return null;
         }
@@ -67,7 +67,7 @@ final class AcosMeasureSeriesFreshnessReader
 
             return $this->rowTimestamp(
                 $this->flattenFirstPayload($decoded),
-                (string) ($entry['timestamp_field'] ?? 'generated_at'),
+                AiValueNormalizer::trimmedString($entry['timestamp_field'] ?? 'generated_at') ?: 'generated_at',
             );
         } catch (Throwable) {
             return null;
@@ -85,8 +85,8 @@ final class AcosMeasureSeriesFreshnessReader
 
         try {
             $query = DB::table($table);
-            foreach ((array) ($entry['where'] ?? []) as $column => $value) {
-                $query->where((string) $column, $value);
+            foreach (AiValueNormalizer::arrayOrEmpty($entry['where'] ?? null) as $column => $value) {
+                $query->where(AiValueNormalizer::trimmedString($column), $value);
             }
 
             return $this->parseDate($query->max($timestampField));
@@ -101,7 +101,7 @@ final class AcosMeasureSeriesFreshnessReader
         $latest = null;
         $files = is_dir($dir) ? glob(rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'*.jsonl') : [];
         foreach (AiValueNormalizer::arrayOrEmpty($files) as $file) {
-            $candidate = $this->jsonlFileLastAppendAt((string) $file, $entry);
+            $candidate = $this->jsonlFileLastAppendAt(AiValueNormalizer::trimmedString($file), $entry);
             if ($candidate instanceof CarbonImmutable && ($latest === null || $candidate->greaterThan($latest))) {
                 $latest = $candidate;
             }
@@ -126,7 +126,10 @@ final class AcosMeasureSeriesFreshnessReader
                     if (! is_array($decoded)) {
                         continue;
                     }
-                    $candidate = $this->rowTimestamp($decoded, (string) ($entry['timestamp_field'] ?? 'recorded_at'));
+                    $candidate = $this->rowTimestamp(
+                        $decoded,
+                        AiValueNormalizer::trimmedString($entry['timestamp_field'] ?? 'recorded_at') ?: 'recorded_at',
+                    );
                     if ($candidate instanceof CarbonImmutable && ($latest === null || $candidate->greaterThan($latest))) {
                         $latest = $candidate;
                     }

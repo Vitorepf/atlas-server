@@ -238,7 +238,10 @@ final class AtlasModelCapabilitySpecService
         if (! array_key_exists('license_allowed', $spec)) {
             return [];
         }
-        $allowed = array_map('strtolower', (array) $spec['license_allowed']);
+        $allowed = array_values(array_filter(array_map(
+            static fn (mixed $value): string => AiValueNormalizer::lowerTrimmedString($value),
+            (array) $spec['license_allowed'],
+        )));
         if ($allowed === []) {
             return [];
         }

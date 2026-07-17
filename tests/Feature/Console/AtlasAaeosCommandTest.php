@@ -1089,6 +1089,36 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_model_capability_spec(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-mcs-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'function' => 'dense_embed',
+            'model' => [
+                'model_id' => 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+                'dim' => 384,
+                'pooling' => 'mean',
+                'ctx_tokens' => 512,
+                'multilingual_pt' => true,
+                'deterministic' => true,
+                'license' => 'apache-2.0',
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-mcs',
+                '--model-capability-spec' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"model_capability_spec"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
