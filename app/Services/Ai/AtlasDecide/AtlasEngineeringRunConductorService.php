@@ -11,6 +11,7 @@ use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
 use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
 use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 use Closure;
@@ -434,7 +435,7 @@ final class AtlasEngineeringRunConductorService
 
         $quality = $winner['quality_score'] ?? null;
 
-        $confidenceSignal = is_numeric($quality) ? (float) $quality : null;
+        $confidenceSignal = AiValueNormalizer::finiteFloatOrNull($quality);
         $autoPromoteReady = $evidenceRefs !== []
             && $confidenceSignal !== null
             && (int) round($confidenceSignal * 100) >= 70;

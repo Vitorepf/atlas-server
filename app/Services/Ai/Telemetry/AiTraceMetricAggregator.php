@@ -13,6 +13,7 @@ use App\Models\AiToolEvent;
 use App\Models\AiTrace;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\AiProviderModelResolver;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -1127,7 +1128,7 @@ class AiTraceMetricAggregator
                 'event_name' => $event->event_name,
                 'phase' => $event->event_phase,
                 'unit' => $event->unit,
-                'value' => is_numeric($event->numeric_value) ? (float) $event->numeric_value : null,
+                'value' => AiValueNormalizer::finiteFloatOrNull($event->numeric_value),
             ])
             ->values()
             ->all();

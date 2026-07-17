@@ -128,6 +128,7 @@ final class AtlasAaeosCommand extends Command
         {--phase-router-valid-phases= : JSON file (any object) to observe AAEOS valid phases}
         {--choreography-handoff-kinds= : JSON file (any object) to observe choreography handoff kinds}
         {--reality-compiler-phases= : JSON file (any object) to observe RealityCompiler execution phases}
+        {--scope-risk-classes= : JSON file (any object) to observe SelfConstruction scope risk classes}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -412,6 +413,7 @@ final class AtlasAaeosCommand extends Command
             ['phase-router-valid-phases', 'phase_router_valid_phases', fn (array $p) => $gates->phaseRouterValidPhasesObserve($p)],
             ['choreography-handoff-kinds', 'choreography_handoff_kinds', fn (array $p) => $gates->choreographyHandoffKindsObserve($p)],
             ['reality-compiler-phases', 'reality_compiler_phases', fn (array $p) => $gates->realityCompilerPhasesObserve($p)],
+            ['scope-risk-classes', 'scope_risk_classes', fn (array $p) => $gates->scopeRiskClassesObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

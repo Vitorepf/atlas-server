@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Governance\Recursion;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * REC-02 — Scheduler de experimentos por valor-de-informação (o dono do relógio).
  *
@@ -286,17 +288,7 @@ final class ExperimentValueOfInformationScheduler
 
     private function numericOrNull(mixed $value): ?float
     {
-        if ($value === null) {
-            return null;
-        }
-        if (is_bool($value)) {
-            return null;
-        }
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        return (float) $value;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     private function positiveOrNull(mixed $value): ?float

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Health;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasMaestroReplenishUrgencyClassifier
 {
     public const SCHEMA = 'atlas.maestro.health.replenish_urgency.v1';
@@ -368,7 +370,7 @@ final class AtlasMaestroReplenishUrgencyClassifier
     /** @param array<string,mixed> $facts */
     private function floatFact(array $facts, string $key): float
     {
-        return isset($facts[$key]) && is_numeric($facts[$key]) ? (float) $facts[$key] : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($facts[$key] ?? null) ?? 0.0;
     }
 
     private function queueAgeObject(): object

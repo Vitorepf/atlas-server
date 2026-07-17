@@ -4,6 +4,7 @@ namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiInboxItem;
 use App\Services\Ai\Mobile\InsightInboxEmitter;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonInterface;
 
 class AiTelemetryHealthService
@@ -813,7 +814,9 @@ class AiTelemetryHealthService
 
     private function nullableFloat(mixed $value): ?float
     {
-        return is_numeric($value) ? round((float) $value, 4) : null;
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
+
+        return $float === null ? null : round($float, 4);
     }
 
     /**

@@ -56,6 +56,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -1712,6 +1713,23 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => RealityCompilerSlice::SCHEMA_VERSION,
             'execution_phases' => RealityCompilerSlice::EXECUTION_PHASES,
             'count' => count(RealityCompilerSlice::EXECUTION_PHASES),
+        ];
+    }
+
+    /**
+     * Observe-only SelfConstruction scope risk-class catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function scopeRiskClassesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
+            'risk_classes' => AtlasSelfConstructionScopeRiskBudgetGate::RISKS,
+            'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::RISKS),
+            'risk_floor_default' => AtlasSelfConstructionScopeRiskBudgetGate::RISK_FLOOR_DEFAULT,
         ];
     }
 

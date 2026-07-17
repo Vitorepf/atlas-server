@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Builds the canonical `atlas.autonomy.promotion_request.v1` payload for an
  * L6 -> L7 (Multi-Department Conductor -> Self-Evolving) promotion WITHOUT ever
@@ -221,7 +223,7 @@ final class L7PromotionRequestBuilder
     {
         $value = $evidence['broken_invariant_count'] ?? 0;
 
-        $float = is_float($value) ? $value : (is_string($value) && is_numeric($value) ? (float) $value : null);
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
 
         if ($float !== null && is_finite($float) && $float !== floor($float)) {
             return $float > 0.0 ? 1 : -1;
