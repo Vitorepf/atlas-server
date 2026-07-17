@@ -223,6 +223,40 @@ final class AtlasAcosLongHorizonGateService
     }
 
     /**
+     * Shared window fields projected into v1 assess and v2 area assess payloads.
+     *
+     * @param  array<string,mixed>  $window
+     * @return array<string,mixed>
+     */
+    private function windowIntegrityProjection(array $window, string $seriesPath, int $resolvedEvidenceRows): array
+    {
+        $latestDate = $window['latest_date'] ?? null;
+        $certificationWindowDates = is_array($window['certification_window_dates'] ?? null)
+            ? $window['certification_window_dates']
+            : [];
+        $sampledDatesInWindow = is_array($window['sampled_dates_in_window'] ?? null)
+            ? $window['sampled_dates_in_window']
+            : [];
+
+        return [
+            'series_path' => $seriesPath,
+            'series_day_count' => (int) ($window['series_day_count'] ?? 0),
+            'calendar_span_days' => (int) ($window['calendar_span_days'] ?? 0),
+            'first_date' => $window['first_date'] ?? null,
+            'latest_date' => $latestDate,
+            'today' => $window['today'] ?? null,
+            'future_dated_rows' => (int) ($window['future_dated_rows'] ?? 0),
+            'latest_staleness_days' => (int) ($window['latest_staleness_days'] ?? 0),
+            'certification_window_start' => $certificationWindowDates[0] ?? null,
+            'certification_window_end' => $latestDate,
+            'certification_window_sample_count' => count($sampledDatesInWindow),
+            'max_consecutive_gap_days' => (int) ($window['max_consecutive_gap_days'] ?? 0),
+            'backfilled_samples' => (int) ($window['backfilled_samples'] ?? 0),
+            'resolved_evidence_rows' => $resolvedEvidenceRows,
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $scorecard
      * @param  list<array<string,mixed>>  $series
      * @return array<string,mixed>
@@ -235,23 +269,12 @@ final class AtlasAcosLongHorizonGateService
 
         $window = $this->seriesWindowIntegrity($series, $minDays, $today);
         $latestDate = $window['latest_date'];
-        $firstDate = $window['first_date'];
-        $calendarSpanDays = $window['calendar_span_days'];
-        $seriesDayCount = $window['series_day_count'];
-        $latestSeriesOverall = $this->latestSeriesOverall($series, $latestDate);
         $resolvedEvidenceRows = $this->resolvedEvidenceRows($series);
-        $futureDatedRows = $window['future_dated_rows'];
-        $latestStalenessDays = $window['latest_staleness_days'];
         $certificationWindowDates = $window['certification_window_dates'];
         $windowOverallScan = $this->certificationWindowOverallScan($series, $certificationWindowDates, $minOverall);
         $minCertificationWindowOverall = $windowOverallScan['min_overall'];
         $certificationWindowDaysBelowFloor = $windowOverallScan['days_below_floor'];
-        $certificationWindowStart = $certificationWindowDates[0] ?? null;
-        $certificationWindowEnd = $latestDate;
-        $sampledDatesInWindow = $window['sampled_dates_in_window'];
-        $maxConsecutiveGapDays = $window['max_consecutive_gap_days'];
-        $backfilledSamples = $window['backfilled_samples'];
-        $todayKey = $window['today'];
+        $latestSeriesOverall = $this->latestSeriesOverall($series, $latestDate);
 
         $blockers = [];
         if ($overall < $minOverall) {
@@ -291,27 +314,13 @@ final class AtlasAcosLongHorizonGateService
             $warnings[] = 'pipeline_score_near_floor';
         }
 
-        return [
+        return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
             'overall_score' => round($overall, 3),
             'pipeline_score' => round($pipeline, 3),
             'scorecard_hash' => $scorecardHash,
-            'series_path' => $seriesPath,
-            'series_day_count' => $seriesDayCount,
-            'calendar_span_days' => $calendarSpanDays,
-            'first_date' => $firstDate,
-            'latest_date' => $latestDate,
             'latest_series_overall' => round($latestSeriesOverall, 3),
             'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
             'certification_window_days_below_floor' => $certificationWindowDaysBelowFloor,
-            'resolved_evidence_rows' => $resolvedEvidenceRows,
-            'today' => $todayKey,
-            'future_dated_rows' => $futureDatedRows,
-            'latest_staleness_days' => $latestStalenessDays,
-            'certification_window_start' => $certificationWindowStart,
-            'certification_window_end' => $certificationWindowEnd,
-            'certification_window_sample_count' => count($sampledDatesInWindow),
-            'max_consecutive_gap_days' => $maxConsecutiveGapDays,
-            'backfilled_samples' => $backfilledSamples,
             'floors' => [
                 'min_days' => $minDays,
                 'min_overall' => $minOverall,
@@ -322,7 +331,7 @@ final class AtlasAcosLongHorizonGateService
             ],
             'blockers' => $blockers,
             'warnings' => $warnings,
-        ];
+        ]);
     }
 
     /**
