@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use InvalidArgumentException;
 
 /**
@@ -82,6 +83,8 @@ final class AtlasMissionControlCockpitService
             // Observe-only advance verdict over the latest phase envelope
             // (same classifier the HTTP policy gate now uses live).
             'phase_advance' => $this->latestPhaseAdvance($phaseEnvelopes),
+            // Observe-only causality ranking when the journey is not clear green.
+            'outcome_causality' => $this->outcomeCausality($blockers, $gateReport),
             'operator_signature_required' => $signatureRequired,
             'provider_safe' => true,
             'generated_at' => gmdate('c'),
@@ -173,6 +176,44 @@ final class AtlasMissionControlCockpitService
         }
 
         return null;
+    }
+
+    /**
+     * Observe-only causality ranking for non-green gate reports / open blockers.
+     *
+     * @param  list<array<string,mixed>>  $blockers
+     * @param  array<string,mixed>  $gateReport
+     * @return array<string,mixed>|null
+     */
+    private function outcomeCausality(array $blockers, array $gateReport): ?array
+    {
+        $outcome = (string) ($gateReport['outcome'] ?? '');
+        if ($blockers === [] && $outcome === 'green') {
+            return null;
+        }
+
+        $blocked = array_merge(
+            (array) ($gateReport['blocked'] ?? []),
+            (array) ($gateReport['missing'] ?? []),
+        );
+        $hasEvidenceRefs = ! in_array('evidence_traceable', $blocked, true);
+        $testsPassed = in_array('tests_green', (array) ($gateReport['passed'] ?? []), true)
+            ? true
+            : (in_array('tests_green', $blocked, true) ? false : null);
+        $missingRequiredSources = in_array('decision_receipt_v2_signed', $blocked, true)
+            || in_array('review_packet_signed', $blocked, true);
+        $status = match ($outcome) {
+            'green', 'exception' => 'succeeded',
+            'red' => 'failed',
+            default => 'blocked',
+        };
+
+        return (new OutcomeCausalityRanker)->rank(
+            hasEvidenceRefs: $hasEvidenceRefs,
+            status: $status,
+            missingRequiredSources: $missingRequiredSources,
+            testsPassed: $testsPassed,
+        );
     }
 
     /**

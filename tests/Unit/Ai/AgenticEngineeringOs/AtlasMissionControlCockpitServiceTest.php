@@ -79,6 +79,8 @@ final class AtlasMissionControlCockpitServiceTest extends TestCase
     {
         $r = $this->svc->snapshot('i-1', []);
         $this->assertNull($r['phase_advance']);
+        $this->assertNotNull($r['outcome_causality'], 'empty journey still has missing gates → causality observe');
+        $this->assertSame('atlas.aaeos.outcome_causality_ranking.v1', $r['outcome_causality']['schema_version']);
     }
 
     public function test_signature_required_at_l4_human_review(): void
