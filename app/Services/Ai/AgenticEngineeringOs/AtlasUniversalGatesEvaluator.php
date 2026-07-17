@@ -33,6 +33,7 @@ use App\Services\Ai\AcosMax\ExecutionContextCooccurrenceService;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
+use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\AtlasImmuneSignatureFreeze;
@@ -4421,6 +4422,40 @@ final class AtlasUniversalGatesEvaluator
             'ragx_status_insufficient_signal' => RagxChainMechanismService::STATUS_INSUFFICIENT_SIGNAL,
             'ragx_reason_late_chunk_index_error' => RagxChainMechanismService::REASON_LATE_CHUNK_INDEX_ERROR,
             'asef_remint_immune_ragx_status_floor_count' => 20,
+        ];
+    }
+
+    /**
+     * Observe-only: memory-feedback decay decisions + veto reasons + numeric-range relations + choreography actions —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function decayVetoNumericChoreographyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'decay_decision_archive' => MemoryFeedbackDecayScorer::DECISION_ARCHIVE,
+            'decay_decision_inactivate' => MemoryFeedbackDecayScorer::DECISION_INACTIVATE,
+            'decay_decision_degrade' => MemoryFeedbackDecayScorer::DECISION_DEGRADE,
+            'decay_decision_keep' => MemoryFeedbackDecayScorer::DECISION_KEEP,
+            'decay_decision_fresh' => MemoryFeedbackDecayScorer::DECISION_FRESH,
+            'decay_decision_stale_inactive_candidate' => MemoryFeedbackDecayScorer::DECISION_STALE_INACTIVE_CANDIDATE,
+            'veto_reason_operator_final_override' => AtlasAaeosVetoPropagationResolver::REASON_OPERATOR_VETO_FINAL_OVERRIDE,
+            'veto_reason_security_pause_downstream' => AtlasAaeosVetoPropagationResolver::REASON_SECURITY_VETO_PAUSE_DOWNSTREAM,
+            'veto_reason_architect_upstream' => AtlasAaeosVetoPropagationResolver::REASON_ARCHITECT_SPEC_VETO_UPSTREAM,
+            'veto_reason_no_canonical_rule' => AtlasAaeosVetoPropagationResolver::REASON_NO_CANONICAL_VETO_RULE,
+            'numeric_relation_invalid' => NumericRangeOverlapContradictionDetector::RELATION_INVALID,
+            'numeric_relation_equal' => NumericRangeOverlapContradictionDetector::RELATION_EQUAL,
+            'numeric_relation_disjoint' => NumericRangeOverlapContradictionDetector::RELATION_DISJOINT,
+            'numeric_relation_overlap' => NumericRangeOverlapContradictionDetector::RELATION_OVERLAP,
+            'numeric_relation_a_contains_b' => NumericRangeOverlapContradictionDetector::RELATION_A_CONTAINS_B,
+            'choreography_action_noop' => AtlasCrossDepartmentChoreographyService::ACTION_NOOP,
+            'choreography_action_pause_downstream' => AtlasCrossDepartmentChoreographyService::ACTION_PAUSE_DOWNSTREAM,
+            'choreography_action_return_upstream' => AtlasCrossDepartmentChoreographyService::ACTION_RETURN_UPSTREAM,
+            'choreography_action_override' => AtlasCrossDepartmentChoreographyService::ACTION_OVERRIDE,
+            'choreography_handoff_kind_veto' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_VETO,
+            'decay_veto_numeric_choreography_floor_count' => 20,
         ];
     }
 

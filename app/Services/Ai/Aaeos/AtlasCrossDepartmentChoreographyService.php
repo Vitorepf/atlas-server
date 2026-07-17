@@ -24,7 +24,31 @@ class AtlasCrossDepartmentChoreographyService
     /**
      * @var array<int,string>
      */
-    public const HANDOFF_KINDS = ['delegation', 'escalation', 'veto', 'repair', 'review_request'];
+    public const HANDOFF_KIND_DELEGATION = 'delegation';
+
+    public const HANDOFF_KIND_ESCALATION = 'escalation';
+
+    public const HANDOFF_KIND_VETO = 'veto';
+
+    public const HANDOFF_KIND_REPAIR = 'repair';
+
+    public const HANDOFF_KIND_REVIEW_REQUEST = 'review_request';
+
+    public const HANDOFF_KINDS = [
+        self::HANDOFF_KIND_DELEGATION,
+        self::HANDOFF_KIND_ESCALATION,
+        self::HANDOFF_KIND_VETO,
+        self::HANDOFF_KIND_REPAIR,
+        self::HANDOFF_KIND_REVIEW_REQUEST,
+    ];
+
+    public const ACTION_NOOP = 'noop';
+
+    public const ACTION_PAUSE_DOWNSTREAM = 'pause_downstream';
+
+    public const ACTION_RETURN_UPSTREAM = 'return_upstream';
+
+    public const ACTION_OVERRIDE = 'override';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -32,10 +56,10 @@ class AtlasCrossDepartmentChoreographyService
      * @var array<string,array{propagates_to:array<int,string>, action:string, return_to:?string, final:bool}>
      */
     public const VETO_RULES = [
-        'security' => ['propagates_to' => ['dev', 'forge', 'delivery'], 'action' => 'pause_downstream', 'return_to' => null, 'final' => false],
-        'architect' => ['propagates_to' => ['product'], 'action' => 'return_upstream', 'return_to' => 'product', 'final' => false],
-        'review' => ['propagates_to' => ['dev', 'forge'], 'action' => 'return_upstream', 'return_to' => 'dev_or_forge', 'final' => false],
-        'operator' => ['propagates_to' => ['*'], 'action' => 'override', 'return_to' => null, 'final' => true],
+        'security' => ['propagates_to' => ['dev', 'forge', 'delivery'], 'action' => self::ACTION_PAUSE_DOWNSTREAM, 'return_to' => null, 'final' => false],
+        'architect' => ['propagates_to' => ['product'], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => 'product', 'final' => false],
+        'review' => ['propagates_to' => ['dev', 'forge'], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => 'dev_or_forge', 'final' => false],
+        'operator' => ['propagates_to' => ['*'], 'action' => self::ACTION_OVERRIDE, 'return_to' => null, 'final' => true],
     ];
 
     /**
@@ -54,7 +78,7 @@ class AtlasCrossDepartmentChoreographyService
                 'kind' => 'veto',
                 'recognized' => false,
                 'vetoing_department' => $dept,
-                'action' => 'noop',
+                'action' => self::ACTION_NOOP,
                 'reason' => 'unknown vetoing department; only security/architect/review/operator can veto',
             ];
         }
@@ -107,7 +131,7 @@ class AtlasCrossDepartmentChoreographyService
     {
         return [
             'schema_version' => self::HANDOFF_SCHEMA,
-            'kind' => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : 'delegation',
+            'kind' => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : self::HANDOFF_KIND_DELEGATION,
             'from_department' => $this->departmentId($from),
             'to_department' => $this->departmentId($to),
             'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),

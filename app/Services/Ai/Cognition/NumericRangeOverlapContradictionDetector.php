@@ -6,6 +6,20 @@ namespace App\Services\Ai\Cognition;
 
 final class NumericRangeOverlapContradictionDetector
 {
+    public const RELATION_INVALID = 'invalid';
+
+    public const RELATION_EQUAL = 'equal';
+
+    public const RELATION_DISJOINT = 'disjoint';
+
+    public const RELATION_TOUCHING = 'touching';
+
+    public const RELATION_A_CONTAINS_B = 'a_contains_b';
+
+    public const RELATION_B_CONTAINS_A = 'b_contains_a';
+
+    public const RELATION_OVERLAP = 'overlap';
+
     /**
      * Classify the relationship between two inclusive numeric ranges
      * [aMin, aMax] and [bMin, bMax].
@@ -24,29 +38,29 @@ final class NumericRangeOverlapContradictionDetector
     public function detect(float $aMin, float $aMax, float $bMin, float $bMax): string
     {
         if ($aMin > $aMax || $bMin > $bMax) {
-            return 'invalid';
+            return self::RELATION_INVALID;
         }
 
         if ($aMin === $bMin && $aMax === $bMax) {
-            return 'equal';
+            return self::RELATION_EQUAL;
         }
 
         if ($aMax < $bMin || $bMax < $aMin) {
-            return 'disjoint';
+            return self::RELATION_DISJOINT;
         }
 
         if ($aMax === $bMin || $bMax === $aMin) {
-            return 'touching';
+            return self::RELATION_TOUCHING;
         }
 
         if ($aMin <= $bMin && $aMax >= $bMax) {
-            return 'a_contains_b';
+            return self::RELATION_A_CONTAINS_B;
         }
 
         if ($bMin <= $aMin && $bMax >= $aMax) {
-            return 'b_contains_a';
+            return self::RELATION_B_CONTAINS_A;
         }
 
-        return 'overlap';
+        return self::RELATION_OVERLAP;
     }
 }

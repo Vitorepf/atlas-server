@@ -31,6 +31,16 @@ final class AtlasAaeosVetoPropagationResolver
      */
     public const REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD = 3;
 
+    public const REASON_OPERATOR_VETO_FINAL_OVERRIDE = 'operator_veto_is_final_override_always_passes';
+
+    public const REASON_SECURITY_VETO_PAUSE_DOWNSTREAM = 'security_veto_propagates_pause_to_dev_forge_delivery';
+
+    public const REASON_ARCHITECT_SPEC_VETO_UPSTREAM = 'architect_spec_veto_redirects_upstream_to_product';
+
+    public const REASON_REVIEW_DELIVERY_VETO_REPAIR = 'review_delivery_veto_redirects_to_dev_forge_for_repair';
+
+    public const REASON_NO_CANONICAL_VETO_RULE = 'no_canonical_veto_rule_matched_origin_and_kind';
+
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
      * Each key is a lowercase department id; the value is the ordered list of
@@ -139,7 +149,7 @@ final class AtlasAaeosVetoPropagationResolver
                 'escalation_target' => [],
                 'override' => true,
                 'matched_rule' => 'operator_override',
-                'reason' => 'operator_veto_is_final_override_always_passes',
+                'reason' => self::REASON_OPERATOR_VETO_FINAL_OVERRIDE,
             ];
         }
 
@@ -154,7 +164,7 @@ final class AtlasAaeosVetoPropagationResolver
                 'escalation_target' => $this->reachableTargets(['operator']),
                 'override' => false,
                 'matched_rule' => 'security_veto',
-                'reason' => 'security_veto_propagates_pause_to_dev_forge_delivery',
+                'reason' => self::REASON_SECURITY_VETO_PAUSE_DOWNSTREAM,
             ];
         }
 
@@ -167,7 +177,7 @@ final class AtlasAaeosVetoPropagationResolver
                 'escalation_target' => [],
                 'override' => false,
                 'matched_rule' => 'architect_spec_veto',
-                'reason' => 'architect_spec_veto_redirects_upstream_to_product',
+                'reason' => self::REASON_ARCHITECT_SPEC_VETO_UPSTREAM,
             ];
         }
 
@@ -180,7 +190,7 @@ final class AtlasAaeosVetoPropagationResolver
                 'escalation_target' => [],
                 'override' => false,
                 'matched_rule' => 'review_delivery_veto',
-                'reason' => 'review_delivery_veto_redirects_to_dev_forge_for_repair',
+                'reason' => self::REASON_REVIEW_DELIVERY_VETO_REPAIR,
             ];
         }
 
@@ -191,7 +201,7 @@ final class AtlasAaeosVetoPropagationResolver
             'escalation_target' => [],
             'override' => false,
             'matched_rule' => 'none',
-            'reason' => 'no_canonical_veto_rule_matched_origin_and_kind',
+            'reason' => self::REASON_NO_CANONICAL_VETO_RULE,
         ];
     }
 

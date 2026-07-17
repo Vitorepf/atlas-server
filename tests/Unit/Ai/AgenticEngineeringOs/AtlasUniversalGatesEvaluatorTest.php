@@ -3012,4 +3012,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['asef_remint_immune_ragx_status_floor_count']);
     }
 
+    public function test_decay_veto_numeric_choreography_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->decayVetoNumericChoreographyFloorsContractObserve([]);
+
+        $this->assertSame('archive', $payload['decay_decision_archive']);
+        $this->assertSame('fresh', $payload['decay_decision_fresh']);
+        $this->assertSame('stale_inactive_candidate', $payload['decay_decision_stale_inactive_candidate']);
+        $this->assertSame('operator_veto_is_final_override_always_passes', $payload['veto_reason_operator_final_override']);
+        $this->assertSame('no_canonical_veto_rule_matched_origin_and_kind', $payload['veto_reason_no_canonical_rule']);
+        $this->assertSame('invalid', $payload['numeric_relation_invalid']);
+        $this->assertSame('overlap', $payload['numeric_relation_overlap']);
+        $this->assertSame('a_contains_b', $payload['numeric_relation_a_contains_b']);
+        $this->assertSame('noop', $payload['choreography_action_noop']);
+        $this->assertSame('pause_downstream', $payload['choreography_action_pause_downstream']);
+        $this->assertSame('override', $payload['choreography_action_override']);
+        $this->assertSame('veto', $payload['choreography_handoff_kind_veto']);
+        $this->assertSame(20, $payload['decay_veto_numeric_choreography_floor_count']);
+    }
+
 }

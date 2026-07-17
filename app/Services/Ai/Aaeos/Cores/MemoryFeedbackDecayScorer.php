@@ -24,6 +24,20 @@ final class MemoryFeedbackDecayScorer
 
     public const DEGRADE_HEALTH_CEILING = 60;
 
+    public const DECISION_ARCHIVE = 'archive';
+
+    public const DECISION_INACTIVATE = 'inactivate';
+
+    public const DECISION_DEGRADE = 'degrade';
+
+    public const DECISION_KEEP = 'keep';
+
+    public const DECISION_STALE_INACTIVE_CANDIDATE = 'stale_inactive_candidate';
+
+    public const DECISION_STALE_REVIEW_RECOMMENDED = 'stale_review_recommended';
+
+    public const DECISION_FRESH = 'fresh';
+
     /**
      * @param  array<string, mixed>  $signals
      * @return array{
@@ -127,19 +141,19 @@ final class MemoryFeedbackDecayScorer
         if ($stale >= self::ARCHIVE_STALE_FEEDBACK_THRESHOLD) {
             $reasons[] = 'archived_by_stale_feedback';
 
-            return 'archive';
+            return self::DECISION_ARCHIVE;
         }
 
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD && $healthScore <= self::INACTIVATE_HEALTH_CEILING) {
             $reasons[] = 'inactivated_by_negative_feedback';
 
-            return 'inactivate';
+            return self::DECISION_INACTIVATE;
         }
 
         if ($staleness === 'stale_inactive_candidate') {
             $reasons[] = 'inactivated_by_stale_age';
 
-            return 'inactivate';
+            return self::DECISION_INACTIVATE;
         }
 
         // CONTRATO CONGELADO (AND-not-OR, teste de 01/06): wrong_context
@@ -151,22 +165,22 @@ final class MemoryFeedbackDecayScorer
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD || $wrongContext > 0 || $healthScore <= self::DEGRADE_HEALTH_CEILING) {
             $reasons[] = 'degraded_by_feedback_pressure';
 
-            return 'degrade';
+            return self::DECISION_DEGRADE;
         }
 
         if ($staleness === 'stale_review_recommended') {
             $reasons[] = 'degraded_by_stale_age';
 
-            return 'degrade';
+            return self::DECISION_DEGRADE;
         }
 
         if ($staleness === 'fresh' && $hitRate === 0.0) {
             $reasons[] = 'degraded_by_low_recall_hit_rate';
 
-            return 'degrade';
+            return self::DECISION_DEGRADE;
         }
 
-        return 'keep';
+        return self::DECISION_KEEP;
     }
 
     private function resolveStaleness(
@@ -176,11 +190,11 @@ final class MemoryFeedbackDecayScorer
         bool $lastUsedHardStale,
     ): string {
         if ($recordedHardStale && $lastUsedHardStale) {
-            return 'stale_inactive_candidate';
+            return self::DECISION_STALE_INACTIVE_CANDIDATE;
         }
 
         if ($recordedHardStale || $lastUsedHardStale) {
-            return 'stale_review_recommended';
+            return self::DECISION_STALE_REVIEW_RECOMMENDED;
         }
 
         // CONTRATO CONGELADO (teste de 01/06): banda SOFT-stale é AVISO
@@ -188,7 +202,7 @@ final class MemoryFeedbackDecayScorer
         // continua 'fresh'; só hard-stale muda staleness. Auto-merge do Loop
         // de 12/06 (9f8d214599, pré-O-3) promovia soft→review e quebrou o
         // teste congelado por 3 semanas — removido em 03/07.
-        return 'fresh';
+        return self::DECISION_FRESH;
     }
 
     private function softStale(?int $age): bool
