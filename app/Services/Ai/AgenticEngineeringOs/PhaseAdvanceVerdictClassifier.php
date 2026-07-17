@@ -25,6 +25,8 @@ final class PhaseAdvanceVerdictClassifier
 
     private const SEVERITY_HIGH = 'high';
 
+    private const SEVERITY_CRITICAL = 'critical';
+
     private const VERDICT_ADVANCE = 'advance';
 
     private const VERDICT_REPAIR = 'repair';
@@ -120,7 +122,8 @@ final class PhaseAdvanceVerdictClassifier
         array $highBlockerIds,
         ?string $operatorSignature,
     ): array {
-        // Rule 1: a high-severity blocker outranks repair and forces a block.
+        // Rule 1: a high/critical blocker outranks repair and forces a block
+        // (aligned with {@see AaeosBlockerSeverityGate} blocked signal).
         if ($highBlockerIds !== []) {
             return [self::VERDICT_BLOCK, 'high_severity_blocker_block'];
         }
@@ -180,6 +183,9 @@ final class PhaseAdvanceVerdictClassifier
     }
 
     /**
+     * Decisive (high or critical) blocker ids — schema key remains
+     * `high_blocker_ids` for envelope stability.
+     *
      * @param  array<int|string, mixed>  $blockers
      * @return list<string>
      */
@@ -192,7 +198,8 @@ final class PhaseAdvanceVerdictClassifier
                 continue;
             }
 
-            if ($this->severityOf($blocker) !== self::SEVERITY_HIGH) {
+            $severity = $this->severityOf($blocker);
+            if ($severity !== self::SEVERITY_HIGH && $severity !== self::SEVERITY_CRITICAL) {
                 continue;
             }
 

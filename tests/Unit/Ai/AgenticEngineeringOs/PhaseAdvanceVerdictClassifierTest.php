@@ -55,6 +55,26 @@ final class PhaseAdvanceVerdictClassifierTest extends TestCase
         $this->assertSame(['lint'], $result['missing_gates']);
     }
 
+    public function testCriticalSeverityBlockerAlsoForcesBlockLikeSeverityGate(): void
+    {
+        $result = $this->classifier->classify([
+            'phase_out' => 'policy_gate',
+            'gates' => [
+                'required' => ['policy_decision_allowed_true'],
+                'passed' => [],
+                'blocked' => ['policy_decision_allowed_true'],
+            ],
+            'blockers' => [
+                ['id' => 'sovereignty-breach', 'severity' => 'critical', 'owner' => 'security'],
+            ],
+            'operator_signature' => 'op-1',
+        ]);
+
+        $this->assertSame('block', $result['verdict']);
+        $this->assertSame('high_severity_blocker_block', $result['reason']);
+        $this->assertSame(['sovereignty-breach'], $result['high_blocker_ids']);
+    }
+
     // (2) HALT: policy_gate missing the decision token, no high blocker => 'halt' mentioning policy.
     public function testPolicyGateWithoutDecisionTokenHaltsAndMentionsPolicy(): void
     {
