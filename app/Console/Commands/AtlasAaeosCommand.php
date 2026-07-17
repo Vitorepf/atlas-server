@@ -151,6 +151,7 @@ final class AtlasAaeosCommand extends Command
         {--flywheel-funnel-stages= : JSON file (any object) to observe Atlas M flywheel funnel stages}
         {--mission-control-cockpit-schema= : JSON file (any object) to observe mission-control cockpit schema}
         {--evidence-vision-thesis-lifecycle= : JSON file (any object) to observe evidence-vision thesis lifecycle}
+        {--exploratory-bets-portfolio-contract= : JSON file (any object) to observe exploratory bets portfolio contract}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -458,6 +459,7 @@ final class AtlasAaeosCommand extends Command
             ['flywheel-funnel-stages', 'flywheel_funnel_stages', fn (array $p) => $gates->flywheelFunnelStagesObserve($p)],
             ['mission-control-cockpit-schema', 'mission_control_cockpit_schema', fn (array $p) => $gates->missionControlCockpitSchemaObserve($p)],
             ['evidence-vision-thesis-lifecycle', 'evidence_vision_thesis_lifecycle', fn (array $p) => $gates->evidenceVisionThesisLifecycleObserve($p)],
+            ['exploratory-bets-portfolio-contract', 'exploratory_bets_portfolio_contract', fn (array $p) => $gates->exploratoryBetsPortfolioContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

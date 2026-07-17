@@ -309,8 +309,8 @@ final class AtlasNCaptureDrillService
                 if ($line === '') {
                     continue;
                 }
-                $decoded = AiValueNormalizer::arrayOrEmpty(json_decode($line, true));
-                if ($decoded !== []) {
+                $decoded = json_decode($line, true);
+                if (is_array($decoded)) {
                     $rows[] = $decoded;
                 }
             }

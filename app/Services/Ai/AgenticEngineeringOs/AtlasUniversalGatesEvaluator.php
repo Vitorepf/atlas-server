@@ -2183,6 +2183,24 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only exploratory bets portfolio contract.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function exploratoryBetsPortfolioContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ExploratoryBetsPortfolio::SCHEMA_VERSION,
+            'default_k' => ExploratoryBetsPortfolio::DEFAULT_K,
+            'default_window_days' => ExploratoryBetsPortfolio::DEFAULT_WINDOW_DAYS,
+            'min_n' => ExploratoryBetsPortfolio::MIN_N,
+            'double_down_multiplier' => ExploratoryBetsPortfolio::DOUBLE_DOWN_MULTIPLIER,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

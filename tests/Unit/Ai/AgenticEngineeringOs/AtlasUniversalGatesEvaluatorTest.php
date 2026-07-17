@@ -1606,4 +1606,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('activeTheses', $payload['active_accessor']);
         $this->assertTrue($payload['supports_reset']);
     }
+
+    public function test_exploratory_bets_portfolio_contract_observe_reports_defaults(): void
+    {
+        $payload = $this->svc->exploratoryBetsPortfolioContractObserve([]);
+
+        $this->assertSame('atlas.originator.exploratory_bets_portfolio.v1', $payload['schema_version']);
+        $this->assertSame(3, $payload['default_k']);
+        $this->assertSame(7, $payload['default_window_days']);
+        $this->assertSame(5, $payload['min_n']);
+        $this->assertSame(2.0, $payload['double_down_multiplier']);
+    }
 }
