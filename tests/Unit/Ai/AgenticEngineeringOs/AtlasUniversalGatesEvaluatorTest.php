@@ -25,6 +25,7 @@ use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
+use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -574,5 +575,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertCount(1, $payload['candidates']);
         $this->assertContains('protected_class_omitted', $payload['omitted']);
+    }
+
+    public function test_structured_fact_schema_observe_reports_missing(): void
+    {
+        $payload = $this->svc->structuredFactSchemaObserve([
+            'memory_type' => 'decision',
+            'facts' => [
+                'contexto' => 'x',
+                'alternativas' => 'y',
+            ],
+        ]);
+
+        $this->assertSame(StructuredFactSchemaMap::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertFalse($payload['valid']);
+        $this->assertContains('porque', $payload['missing']);
+        $this->assertContains('expiry', $payload['missing']);
     }
 }

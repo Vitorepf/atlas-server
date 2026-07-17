@@ -688,6 +688,28 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_structured_facts(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-sfacts-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'memory_type' => 'gotcha',
+            'facts' => ['sintoma' => 'x'],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-sfacts',
+                '--structured-facts' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"structured_fact_schema"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

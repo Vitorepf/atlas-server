@@ -21,6 +21,7 @@ use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
+use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -692,6 +693,23 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $sources */
         return GatedCorpusCandidateMiner::mine($sources);
+    }
+
+    /**
+     * Observe-only structured fact schema validation.
+     * Accepts `{memory_type|type:string, facts:{...}}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function structuredFactSchemaObserve(array $input): array
+    {
+        $memoryType = AiValueNormalizer::trimmedString(
+            $input['memory_type'] ?? $input['type'] ?? '',
+        );
+        $facts = AiValueNormalizer::arrayOrEmpty($input['facts'] ?? null);
+
+        return StructuredFactSchemaMap::validate($memoryType, $facts);
     }
 
     /**

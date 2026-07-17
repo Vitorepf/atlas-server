@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class StructuredFactSchemaMap
 {
     public const SCHEMA_VERSION = 'atlas.memory.structured_facts.v1';
@@ -34,7 +36,7 @@ final class StructuredFactSchemaMap
 
         $missing = array_values(array_filter(
             $required,
-            static fn (string $field): bool => ! array_key_exists($field, $facts) || $facts[$field] === null || $facts[$field] === '',
+            static fn (string $field): bool => self::isMissingFact($facts[$field] ?? null),
         ));
 
         return [
@@ -48,5 +50,18 @@ final class StructuredFactSchemaMap
                 'llm_extraction_hot_path' => false,
             ],
         ];
+    }
+
+    private static function isMissingFact(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        if (is_string($value)) {
+            return AiValueNormalizer::trimmedStringOrNull($value) === null;
+        }
+
+        return false;
     }
 }

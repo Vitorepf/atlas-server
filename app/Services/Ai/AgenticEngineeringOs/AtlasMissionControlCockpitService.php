@@ -189,7 +189,7 @@ final class AtlasMissionControlCockpitService
      */
     private function outcomeCausalityFor(array $blockers, array $gateReport): ?array
     {
-        $outcome = (string) ($gateReport['outcome'] ?? '');
+        $outcome = AiValueNormalizer::trimmedString($gateReport['outcome'] ?? '');
         if ($blockers === [] && $outcome === 'green') {
             return null;
         }
