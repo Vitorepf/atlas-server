@@ -98,8 +98,8 @@ final class AtlasAaeosThresholdLadderNormalizer
             }
 
             $normalized[] = [
-                'metric' => AiValueNormalizer::trimmedString($threshold['metric']),
-                'comparator' => AiValueNormalizer::trimmedString($threshold['comparator']),
+                'metric' => AiValueNormalizer::trimmedStringOrNull($threshold['metric']) ?? '',
+                'comparator' => AiValueNormalizer::trimmedStringOrNull($threshold['comparator']) ?? '',
                 'value' => AiValueNormalizer::finiteFloatOrNull($threshold['value']) ?? 0.0,
             ];
         }

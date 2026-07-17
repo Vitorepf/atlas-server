@@ -37,7 +37,7 @@ final class AaeosPhaseHandoffService
     /** Parse L0..L7 (or bare digits) into an int autonomy rung. */
     public static function autonomyLevelInt(string $autonomyLevel): int
     {
-        return (int) ltrim(AiValueNormalizer::trimmedString($autonomyLevel), 'Ll');
+        return (int) ltrim(AiValueNormalizer::trimmedStringOrNull($autonomyLevel) ?? '', 'Ll');
     }
 
     public const PHASE_INTENT_CAPTURE = 'intent_capture';

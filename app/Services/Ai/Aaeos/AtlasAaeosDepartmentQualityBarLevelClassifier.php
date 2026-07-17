@@ -41,7 +41,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
      */
     public function classify(string $departmentId, array $measuredMetrics, array $bandLadder): array
     {
-        $departmentId = AiValueNormalizer::trimmedString($departmentId);
+        $departmentId = AiValueNormalizer::trimmedStringOrNull($departmentId) ?? '';
         $bands = AtlasAaeosThresholdLadderNormalizer::levelLadder($bandLadder);
         $evaluatedMetrics = $this->countMeasuredMetrics($measuredMetrics);
 

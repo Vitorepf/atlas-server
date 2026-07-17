@@ -36,8 +36,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
-        $episodeId = AiValueNormalizer::trimmedString($context['episode_id'] ?? $native['episode_id'] ?? '');
-        $runId = AiValueNormalizer::trimmedString($native['run_id'] ?? $native['scope_id'] ?? '');
+        $episodeId = AiValueNormalizer::trimmedStringOrNull($context['episode_id'] ?? $native['episode_id'] ?? null) ?? '';
+        $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? $native['scope_id'] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',

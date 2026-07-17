@@ -60,11 +60,11 @@ final readonly class RealityCompilerSlice
     public static function fromArray(array $input): self
     {
         $default = self::defaultShape();
-        $autonomy = AiValueNormalizer::trimmedString($input['autonomy_level'] ?? '');
+        $autonomy = AiValueNormalizer::trimmedStringOrNull($input['autonomy_level'] ?? null) ?? '';
         $phases = self::normalizePhases(AiValueNormalizer::arrayOrEmpty($input['output_phases'] ?? null));
 
         return new self(
-            AiValueNormalizer::trimmedString($input['intent'] ?? ''),
+            AiValueNormalizer::trimmedStringOrNull($input['intent'] ?? null) ?? '',
             $autonomy !== '' ? $autonomy : $default->autonomyLevel,
             $phases !== [] ? $phases : $default->outputPhases,
         );

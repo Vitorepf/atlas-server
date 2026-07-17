@@ -27,7 +27,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         $verifiedBasis = $this->deriveVerifiedBasis($provenReal, $fakeGreen, $verifiedSourcePresent);
         $verified = $provenReal && ! $fakeGreen && in_array($verifiedBasis, AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASES_WEIGHTED, true);
         $evidenceKinds = AiValueNormalizer::arrayOrEmpty($native['evidence_kinds'] ?? null);
-        $runId = AiValueNormalizer::trimmedString($native['run_id'] ?? '');
+        $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',

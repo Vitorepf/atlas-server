@@ -282,7 +282,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     private function stringValue(mixed $value): string
     {
         if (is_string($value) || is_int($value) || is_float($value)) {
-            return AiValueNormalizer::trimmedString($value);
+            return AiValueNormalizer::trimmedStringOrNull($value) ?? '';
         }
 
         return '';

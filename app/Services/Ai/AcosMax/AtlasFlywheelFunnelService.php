@@ -160,7 +160,7 @@ final class AtlasFlywheelFunnelService
 
         $rows = [];
         foreach (preg_split('/\r?\n/', $raw) ?: [] as $line) {
-            $line = AiValueNormalizer::trimmedString($line);
+            $line = AiValueNormalizer::trimmedStringOrNull($line) ?? '';
             if ($line === '') {
                 continue;
             }

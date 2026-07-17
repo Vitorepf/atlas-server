@@ -2140,4 +2140,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.acos_max.obra_retro.v1', $payload['obra_retro_schema']);
         $this->assertStringContainsString('scoreboard', $payload['obra_retro_scoreboard_path']);
     }
+
+    public function test_embedding_coverage_truth_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->embeddingCoverageTruthContractObserve([]);
+
+        $this->assertSame('atlas.acos_max.kb_embedding_coverage.v1', $payload['kb_embedding_schema']);
+        $this->assertSame('atlas.kb_embedding_coverage.v1', $payload['kb_embedding_measure_id']);
+        $this->assertSame('atlas.acos_max.code_symbol_embedding_coverage.v1', $payload['code_symbol_embedding_schema']);
+        $this->assertSame('atlas.code_symbol_embedding_coverage.v1', $payload['code_symbol_embedding_measure_id']);
+        $this->assertSame('atlas.acos_max.n_capture_drill.v1', $payload['n_capture_schema']);
+        $this->assertSame('atlas.n_capture_drill.v1', $payload['n_capture_measure_id']);
+        $this->assertStringContainsString('n-capture', $payload['n_capture_ledger_path']);
+        $this->assertSame('atlas.aaeos.implementation_state.v1', $payload['implementation_truth_schema']);
+        $this->assertSame('atlas.aaeos.capability_truth_ledger.v1', $payload['implementation_truth_ledger_schema']);
+        $this->assertArrayHasKey('verified', $payload['implementation_truth_rank']);
+        $this->assertSame('atlas.context.execution_cooccurrence.v1', $payload['execution_cooccurrence_schema']);
+        $this->assertSame('atlas.context.execution_cooccurrence.v1', $payload['execution_cooccurrence_measure_id']);
+    }
 }

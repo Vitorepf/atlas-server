@@ -20,7 +20,7 @@ final class AtlasAaeosArrayFieldReader
         }
 
         if (is_int($value) || is_float($value)) {
-            return AiValueNormalizer::trimmedString($value);
+            return AiValueNormalizer::trimmedStringOrNull($value) ?? '';
         }
 
         return '';

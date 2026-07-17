@@ -39,7 +39,7 @@ final class AtlasAaeosStringListNormalizer
                 continue;
             }
 
-            $value = AiValueNormalizer::trimmedString($value);
+            $value = AiValueNormalizer::trimmedStringOrNull($value) ?? '';
             if ($value !== '') {
                 $strings[] = $value;
             }

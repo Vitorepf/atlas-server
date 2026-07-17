@@ -36,7 +36,7 @@ final class ExecutionContextCooccurrenceService
             ],
         ];
 
-        if ($runsPath === null || AiValueNormalizer::trimmedString($runsPath) === '' || ! is_file($runsPath)) {
+        if ($runsPath === null || (AiValueNormalizer::trimmedStringOrNull($runsPath) ?? '') === '' || ! is_file($runsPath)) {
             return array_replace($base, [
                 'status' => 'unmeasurable',
                 'reason' => 'run_artifact_unavailable',
@@ -131,7 +131,7 @@ final class ExecutionContextCooccurrenceService
     {
         $out = [];
         foreach ($values as $value) {
-            $value = AiValueNormalizer::trimmedString($value);
+            $value = AiValueNormalizer::trimmedStringOrNull($value) ?? '';
             if ($value !== '' && ! in_array($value, $out, true)) {
                 $out[] = $value;
             }

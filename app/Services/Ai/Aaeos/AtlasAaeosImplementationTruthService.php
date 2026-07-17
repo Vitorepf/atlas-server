@@ -367,7 +367,7 @@ class AtlasAaeosImplementationTruthService
         // a stale green (code or test edited since the run) stops granting verified.
         // Unknown (no capability id) => null => evaluate() degrades safely to not-green.
         $greenTestRun = null;
-        if ($capabilityId !== null && AiValueNormalizer::trimmedString($capabilityId) !== '' && $resolvedTestRefs !== []) {
+        if ($capabilityId !== null && (AiValueNormalizer::trimmedStringOrNull($capabilityId) ?? '') !== '' && $resolvedTestRefs !== []) {
             $implFilesHash = $this->currentImplFilesHash($evidenceRefs);
             $greenTestRun = false;
             foreach ($resolvedTestRefs as $testRef) {
@@ -646,7 +646,7 @@ class AtlasAaeosImplementationTruthService
         return [
             'schema_version' => self::SCHEMA,
             'claimed_state' => $claimed,
-            'claimed_state_raw' => AiValueNormalizer::trimmedString($claimedState),
+            'claimed_state_raw' => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
             'computed_state' => $computed,
             'rank_claimed' => $rankClaimed,
             'rank_computed' => $rankComputed,

@@ -50,6 +50,6 @@ final class AtlasAaeosEvidenceRefNormalizer
 
     public function ref(mixed $ref): string
     {
-        return AiValueNormalizer::trimmedString($ref);
+        return AiValueNormalizer::trimmedStringOrNull($ref) ?? '';
     }
 }

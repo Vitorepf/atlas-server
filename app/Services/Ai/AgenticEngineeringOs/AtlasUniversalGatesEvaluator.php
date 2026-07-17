@@ -29,6 +29,7 @@ use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
+use App\Services\Ai\AcosMax\ExecutionContextCooccurrenceService;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
@@ -592,9 +593,9 @@ final class AtlasUniversalGatesEvaluator
         $required = AiValueNormalizer::arrayOrEmpty(
             $input['required_items'] ?? $input['required'] ?? null,
         );
-        $summary = AiValueNormalizer::trimmedString(
-            $input['summary_text'] ?? $input['summary'] ?? '',
-        );
+        $summary = AiValueNormalizer::trimmedStringOrNull(
+            $input['summary_text'] ?? $input['summary'] ?? null,
+        ) ?? '';
 
         /** @var list<array{id?: mixed, kind?: mixed, digest?: mixed}> $required */
         return $this->summaryFidelity->score($required, $summary);
@@ -753,7 +754,7 @@ final class AtlasUniversalGatesEvaluator
             return DomainLexicalNormalizer::contract();
         }
 
-        $query = AiValueNormalizer::trimmedString($input['query'] ?? '');
+        $query = AiValueNormalizer::trimmedStringOrNull($input['query'] ?? null) ?? '';
         $fields = AiValueNormalizer::arrayOrEmpty($input['fields'] ?? null);
 
         return [
@@ -792,9 +793,9 @@ final class AtlasUniversalGatesEvaluator
      */
     public function structuredFactSchemaObserve(array $input): array
     {
-        $memoryType = AiValueNormalizer::trimmedString(
-            $input['memory_type'] ?? $input['type'] ?? '',
-        );
+        $memoryType = AiValueNormalizer::trimmedStringOrNull(
+            $input['memory_type'] ?? $input['type'] ?? null,
+        ) ?? '';
         $facts = AiValueNormalizer::arrayOrEmpty($input['facts'] ?? null);
 
         return StructuredFactSchemaMap::validate($memoryType, $facts);
@@ -866,7 +867,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function beliefCascadeObserve(array $input): array
     {
-        $origin = AiValueNormalizer::trimmedString($input['origin'] ?? '');
+        $origin = AiValueNormalizer::trimmedStringOrNull($input['origin'] ?? null) ?? '';
         $graph = AiValueNormalizer::arrayOrEmpty($input['graph'] ?? null);
         $depthCap = max(0, (int) ($input['depth_cap'] ?? 3));
 
@@ -884,7 +885,7 @@ final class AtlasUniversalGatesEvaluator
     public function ledgerRotationObserve(array $input): array
     {
         $registry = new AcosMaxLedgerRotationRegistry;
-        $series = AiValueNormalizer::trimmedString($input['series'] ?? '');
+        $series = AiValueNormalizer::trimmedStringOrNull($input['series'] ?? null) ?? '';
         $policy = $series === '' ? null : $registry->policyFor($series);
 
         return [
@@ -1078,7 +1079,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function modelCapabilitySpecObserve(array $input = []): array
     {
-        $function = AiValueNormalizer::trimmedString($input['function'] ?? 'dense_embed');
+        $function = AiValueNormalizer::trimmedStringOrNull($input['function'] ?? null) ?? 'dense_embed';
         $model = AiValueNormalizer::arrayOrEmpty($input['model'] ?? null);
         $spec = AiValueNormalizer::arrayOrEmpty($input['spec'] ?? null);
         $service = $spec === []
@@ -1091,7 +1092,7 @@ final class AtlasUniversalGatesEvaluator
             return [
                 'status' => 'unknown_function',
                 'function' => AiValueNormalizer::lowerTrimmedString($function),
-                'model_id' => AiValueNormalizer::trimmedString($model['model_id'] ?? '') ?: 'unknown',
+                'model_id' => AiValueNormalizer::trimmedStringOrNull($model['model_id'] ?? null) ?? 'unknown',
                 'violations' => [[
                     'field' => 'function',
                     'reason' => 'unknown_model_function',
@@ -1154,7 +1155,7 @@ final class AtlasUniversalGatesEvaluator
     {
         $deps = [];
         foreach (AiValueNormalizer::arrayOrEmpty($input['deps'] ?? null) as $key => $value) {
-            $deps[AiValueNormalizer::trimmedString($key)] = (bool) $value;
+            $deps[AiValueNormalizer::trimmedStringOrNull($key) ?? ''] = (bool) $value;
         }
 
         return (new RagxChainMechanismService)->stageReport($deps);
@@ -1324,13 +1325,13 @@ final class AtlasUniversalGatesEvaluator
                 max(0, (int) ($input['max_iterations'] ?? AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS)),
             ),
             'handoff' => $svc->handoffEnvelope(
-                AiValueNormalizer::trimmedString($input['from'] ?? ''),
-                AiValueNormalizer::trimmedString($input['to'] ?? ''),
-                AiValueNormalizer::trimmedString($input['kind'] ?? 'delegation'),
+                AiValueNormalizer::trimmedStringOrNull($input['from'] ?? null) ?? '',
+                AiValueNormalizer::trimmedStringOrNull($input['to'] ?? null) ?? '',
+                AiValueNormalizer::trimmedStringOrNull($input['kind'] ?? null) ?? 'delegation',
                 AiValueNormalizer::arrayOrEmpty($input['payload'] ?? null),
             ),
             default => $svc->evaluateVeto(
-                AiValueNormalizer::trimmedString($input['department'] ?? $input['vetoing_department'] ?? ''),
+                AiValueNormalizer::trimmedStringOrNull($input['department'] ?? $input['vetoing_department'] ?? null) ?? '',
             ),
         };
     }
@@ -1344,7 +1345,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function docsAuthorityLocateObserve(array $input = []): array
     {
-        $needle = AiValueNormalizer::trimmedString($input['needle'] ?? '');
+        $needle = AiValueNormalizer::trimmedStringOrNull($input['needle'] ?? null) ?? '';
         $limit = max(1, (int) ($input['limit'] ?? 5));
 
         return (new AtlasDocsAuthorityGraphService(new CanonicalDocsFrontmatterParser))->locate($needle, $limit);
@@ -1360,7 +1361,7 @@ final class AtlasUniversalGatesEvaluator
     public function departmentLevelClassifierObserve(array $input = []): array
     {
         return (new AaeosDepartmentLevelClassifier)->classify(
-            AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
+            AiValueNormalizer::trimmedStringOrNull($input['department_id'] ?? null) ?? '',
             AiValueNormalizer::arrayOrEmpty($input['metrics_snapshot'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
         );
@@ -1376,7 +1377,7 @@ final class AtlasUniversalGatesEvaluator
     public function qualityBarLevelClassifierObserve(array $input = []): array
     {
         return (new AtlasAaeosDepartmentQualityBarLevelClassifier)->classify(
-            AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
+            AiValueNormalizer::trimmedStringOrNull($input['department_id'] ?? null) ?? '',
             AiValueNormalizer::arrayOrEmpty($input['measured_metrics'] ?? $input['metrics_snapshot'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
         );
@@ -1395,7 +1396,7 @@ final class AtlasUniversalGatesEvaluator
         $greenTestRun = is_bool($green) ? $green : null;
 
         return app(AtlasAaeosImplementationTruthService::class)->evaluate(
-            AiValueNormalizer::trimmedString($input['claimed_state'] ?? 'spec'),
+            AiValueNormalizer::trimmedStringOrNull($input['claimed_state'] ?? null) ?? 'spec',
             AiValueNormalizer::arrayOrEmpty($input['resolutions'] ?? null),
             $greenTestRun,
         );
@@ -1415,7 +1416,7 @@ final class AtlasUniversalGatesEvaluator
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => AaeosPhaseHandoffService::PHASES,
             'autonomy_level_int' => AaeosPhaseHandoffService::autonomyLevelInt(
-                AiValueNormalizer::trimmedString($input['autonomy_level'] ?? 'L0'),
+                AiValueNormalizer::trimmedStringOrNull($input['autonomy_level'] ?? null) ?? 'L0',
             ),
         ];
     }
@@ -1522,7 +1523,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function thresholdComparatorObserve(array $input = []): array
     {
-        $comparator = AiValueNormalizer::trimmedString($input['comparator'] ?? '>=');
+        $comparator = AiValueNormalizer::trimmedStringOrNull($input['comparator'] ?? null) ?? '>=';
         $observed = AiValueNormalizer::finiteFloatOrNull($input['observed'] ?? null) ?? 0.0;
         $threshold = AiValueNormalizer::finiteFloatOrNull($input['threshold'] ?? null) ?? 0.0;
 
@@ -1593,7 +1594,7 @@ final class AtlasUniversalGatesEvaluator
     public function arrayFieldReaderObserve(array $input = []): array
     {
         $row = AiValueNormalizer::arrayOrEmpty($input['row'] ?? []);
-        $key = AiValueNormalizer::trimmedString($input['key'] ?? 'id');
+        $key = AiValueNormalizer::trimmedStringOrNull($input['key'] ?? null) ?? 'id';
 
         return [
             'schema_version' => 'atlas.aaeos.array_field_reader.v1',
@@ -1611,8 +1612,8 @@ final class AtlasUniversalGatesEvaluator
      */
     public function vetoPropagationResolveObserve(array $input = []): array
     {
-        $origin = AiValueNormalizer::trimmedString($input['origin_department'] ?? $input['origin'] ?? '');
-        $kind = AiValueNormalizer::trimmedString($input['veto_kind'] ?? $input['kind'] ?? '');
+        $origin = AiValueNormalizer::trimmedStringOrNull($input['origin_department'] ?? $input['origin'] ?? null) ?? '';
+        $kind = AiValueNormalizer::trimmedStringOrNull($input['veto_kind'] ?? $input['kind'] ?? null) ?? '';
         $iteration = max(0, (int) ($input['repair_iteration'] ?? 0));
 
         return (new AtlasAaeosVetoPropagationResolver)->resolve($origin, $kind, $iteration);
@@ -1647,7 +1648,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function cognitiveImmuneClassifyObserve(array $input = []): array
     {
-        $text = AiValueNormalizer::trimmedString($input['text'] ?? '');
+        $text = AiValueNormalizer::trimmedStringOrNull($input['text'] ?? null) ?? '';
         $metadata = AiValueNormalizer::arrayOrEmpty($input['metadata'] ?? []);
 
         return (new AtlasAaeosCognitiveImmuneInputClassifier)->classify($text, $metadata);
@@ -3037,6 +3038,36 @@ final class AtlasUniversalGatesEvaluator
             'quality_bar_department_count' => count(AtlasAaeosQualityBarService::DEPARTMENT_DATA),
             'obra_retro_schema' => AcosMaxObraRetroService::SCHEMA_VERSION,
             'obra_retro_scoreboard_path' => AcosMaxObraRetroService::SCOREBOARD_RELATIVE_PATH,
+        ];
+    }
+
+    /**
+     * Observe-only embedding coverage + N-capture + implementation-truth floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function embeddingCoverageTruthContractObserve(array $input = []): array
+    {
+        return [
+            'kb_embedding_schema' => AtlasKnowledgeItemEmbeddingCoverageService::SCHEMA_VERSION,
+            'kb_embedding_measure_id' => AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID,
+            'kb_embedding_formula' => AtlasKnowledgeItemEmbeddingCoverageService::FORMULA_VERSION,
+            'code_symbol_embedding_schema' => AtlasCodeSymbolEmbeddingCoverageService::SCHEMA_VERSION,
+            'code_symbol_embedding_measure_id' => AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID,
+            'code_symbol_embedding_formula' => AtlasCodeSymbolEmbeddingCoverageService::FORMULA_VERSION,
+            'n_capture_schema' => AtlasNCaptureDrillService::SCHEMA_VERSION,
+            'n_capture_measure_id' => AtlasNCaptureDrillService::MEASURE_ID,
+            'n_capture_formula' => AtlasNCaptureDrillService::FORMULA_VERSION,
+            'n_capture_ledger_path' => AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH,
+            'implementation_truth_schema' => AtlasAaeosImplementationTruthService::SCHEMA,
+            'implementation_truth_ledger_schema' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'implementation_truth_hash_format' => AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT,
+            'implementation_truth_rank' => AtlasAaeosImplementationTruthService::RANK,
+            'execution_cooccurrence_schema' => ExecutionContextCooccurrenceService::SCHEMA_VERSION,
+            'execution_cooccurrence_measure_id' => ExecutionContextCooccurrenceService::MEASURE_ID,
+            'execution_cooccurrence_formula' => ExecutionContextCooccurrenceService::FORMULA_VERSION,
         ];
     }
 

@@ -159,8 +159,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             'formula_version' => self::FORMULA_VERSION,
             'generated_at' => now('UTC')->toIso8601String(),
             'freeze' => $freeze,
-            'status' => AiValueNormalizer::trimmedString($status),
-            'reason' => AiValueNormalizer::trimmedString($reason),
+            'status' => AiValueNormalizer::trimmedStringOrNull($status) ?? '',
+            'reason' => AiValueNormalizer::trimmedStringOrNull($reason) ?? '',
             'denominator_min' => (int) $freeze['denominator_min'],
             'aggregate' => $this->emptyAggregate(),
         ];

@@ -232,7 +232,7 @@ final class AtlasNCaptureDrillService
     {
         $violations = [];
 
-        $engineId = AiValueNormalizer::trimmedString($drill['engine_id'] ?? '');
+        $engineId = AiValueNormalizer::trimmedStringOrNull($drill['engine_id'] ?? null) ?? '';
         if ($engineId === '') {
             $violations[] = ['field' => 'engine_id', 'reason' => 'drill_receipt_incomplete'];
         }
@@ -305,7 +305,7 @@ final class AtlasNCaptureDrillService
         $rows = [];
         try {
             while (($line = fgets($handle)) !== false) {
-                $line = AiValueNormalizer::trimmedString($line);
+                $line = AiValueNormalizer::trimmedStringOrNull($line) ?? '';
                 if ($line === '') {
                     continue;
                 }
