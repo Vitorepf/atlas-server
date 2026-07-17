@@ -21,6 +21,8 @@ final class AmbitionRungPolicy
 
     public const RUNGS = [self::RUNG_TASK, self::RUNG_SLICE, self::RUNG_OBRA, self::RUNG_SALTO];
 
+    public const FIELD_ENABLED = 'enabled';
+
     /**
      * @param  list<array<string,mixed>>  $candidates
      * @param  array<string,mixed>  $context
@@ -32,7 +34,7 @@ final class AmbitionRungPolicy
         $selected = $candidates[0] ?? [];
         $basis = 'flag_disabled';
 
-        if (($context['enabled'] ?? false) === true) {
+        if (($context[self::FIELD_ENABLED] ?? false) === true) {
             $basis = 'not_saturated';
             if (($context['reactive_saturated'] ?? false) === true) {
                 $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? self::RUNG_TASK;

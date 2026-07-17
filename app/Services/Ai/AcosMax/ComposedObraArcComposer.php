@@ -26,6 +26,8 @@ final class ComposedObraArcComposer
 
     public const DEFAULT_JUDGE_ENGINE_ID = 'codex-independent-multn1702-judge';
 
+    public const FIELD_ENABLED = 'enabled';
+
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
      * @param  list<array<string,mixed>>  $clusterLeads  optional reactive obra-cluster leads
@@ -34,7 +36,7 @@ final class ComposedObraArcComposer
      */
     public static function compose(array $candidates, array $clusterLeads = [], array $context = []): array
     {
-        if (($context['enabled'] ?? false) !== true) {
+        if (($context[self::FIELD_ENABLED] ?? false) !== true) {
             return self::emptyResult('flag_disabled');
         }
 

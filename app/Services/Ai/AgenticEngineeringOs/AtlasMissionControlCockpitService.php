@@ -45,6 +45,8 @@ final class AtlasMissionControlCockpitService
 
     public const OUTCOME_EXCEPTION = 'exception';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
         private readonly AtlasUniversalGatesEvaluator $gates,

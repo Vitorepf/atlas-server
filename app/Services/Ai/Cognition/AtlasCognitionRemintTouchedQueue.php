@@ -39,6 +39,8 @@ final class AtlasCognitionRemintTouchedQueue
 
     public const REASON_QUEUED = 'queued';
 
+    public const FIELD_ERROR = 'error';
+
     /**
      * @param  list<string>  $paths
      * @param  array<string,mixed>  $metadata
@@ -96,7 +98,7 @@ final class AtlasCognitionRemintTouchedQueue
                 'queued' => false,
                 'reason' => self::REASON_QUEUE_WRITE_FAILED,
                 'mode' => self::MODE_DEFERRED_DISK_QUEUE,
-                'error' => mb_substr($e->getMessage(), 0, 200),
+                self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200),
             ];
         }
 

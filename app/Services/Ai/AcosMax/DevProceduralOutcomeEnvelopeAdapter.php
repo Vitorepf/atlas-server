@@ -18,6 +18,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
     public const FALLBACK_RUN_ID = 'unknown';
 
+    public const NATIVE_NEEDS_REVIEW = 'needs_review';
+
     /** @var list<string> */
     public const BOOL_FIELDS = ['proven_real', 'fake_green', 'should_promote_to_aemor'];
 
@@ -29,7 +31,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     /** @param array<string,mixed> $native @param array<string,mixed> $context */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? 'needs_review'));
+        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? self::NATIVE_NEEDS_REVIEW));
         $provenReal = (AiValueNormalizer::boolOrNull($native['proven_real'] ?? null) ?? false);
         $fakeGreen = (AiValueNormalizer::boolOrNull($native['fake_green'] ?? null) ?? false);
         $verifiedSourcePresent = array_key_exists('proven_real', $native);
@@ -71,7 +73,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         return [
             'schema_version' => self::NATIVE_SCHEMA_VERSION,
             'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? self::FALLBACK_RUN_ID),
-            'outcome_status' => AiValueNormalizer::trimmedStringOrNull($fields['outcome_status'] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin()),
+            'outcome_status' => AiValueNormalizer::trimmedStringOrNull($fields['outcome_status'] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
             'proven_real' => (AiValueNormalizer::boolOrNull($fields['proven_real'] ?? null) ?? false),
             'fake_green' => (AiValueNormalizer::boolOrNull($fields['fake_green'] ?? null) ?? false),
             'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($fields['proof_reason'] ?? null) ?? ''),

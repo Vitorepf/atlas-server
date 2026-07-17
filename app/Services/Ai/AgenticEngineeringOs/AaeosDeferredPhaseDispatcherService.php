@@ -40,6 +40,8 @@ final class AaeosDeferredPhaseDispatcherService
 
     public const STATUS_BLOCKED = 'blocked';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     public function __construct(
         private readonly CacheRepository $cache,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
@@ -189,7 +191,7 @@ final class AaeosDeferredPhaseDispatcherService
     private function observeCausality(array $envelope): ?array
     {
         $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
-        $blockedGates = AiValueNormalizer::arrayOrEmpty($gates['blocked'] ?? null);
+        $blockedGates = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
         $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
         if ($blockedGates === [] && $blockers === []) {
             return null;

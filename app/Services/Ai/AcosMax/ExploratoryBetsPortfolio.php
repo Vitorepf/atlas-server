@@ -27,6 +27,8 @@ final class ExploratoryBetsPortfolio
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
+    public const FIELD_ENABLED = 'enabled';
+
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
     public const STATUS_OK = 'ok';
@@ -61,7 +63,7 @@ final class ExploratoryBetsPortfolio
     public static function evaluate(array $originatedCandidates, AtlasBrainCausalEffectGate $gate, array $context = []): array
     {
         $source = self::source();
-        if (($context['enabled'] ?? false) !== true) {
+        if (($context[self::FIELD_ENABLED] ?? false) !== true) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'status' => self::STATUS_FLAG_DISABLED,

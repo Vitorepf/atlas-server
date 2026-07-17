@@ -16,6 +16,8 @@ final class AaeosRequiredGateCoverageChecker
 
     public const COVERAGE_COMPLETE = 'complete';
 
+    public const FIELD_MISSING = 'missing';
+
     /**
      * Pure set arithmetic over gates.{required,passed} of schema atlas.aaeos.phase.v1.
      *
@@ -39,7 +41,7 @@ final class AaeosRequiredGateCoverageChecker
         if ($required === []) {
             return [
                 'coverage' => self::COVERAGE_NO_GATE,
-                'missing' => [],
+                self::FIELD_MISSING => [],
                 'satisfied' => true,
                 'extra_passed_gates' => $extraPassed,
             ];
@@ -57,7 +59,7 @@ final class AaeosRequiredGateCoverageChecker
         if ($missing !== []) {
             return [
                 'coverage' => self::COVERAGE_INCOMPLETE,
-                'missing' => $missing,
+                self::FIELD_MISSING => $missing,
                 'satisfied' => false,
                 'extra_passed_gates' => $extraPassed,
             ];
@@ -65,7 +67,7 @@ final class AaeosRequiredGateCoverageChecker
 
         return [
             'coverage' => self::COVERAGE_COMPLETE,
-            'missing' => [],
+            self::FIELD_MISSING => [],
             'satisfied' => true,
             'extra_passed_gates' => $extraPassed,
         ];

@@ -5089,6 +5089,42 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: ragx/prereview/lote2/schema residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ragxPrereviewLote2SchemaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ragx_status_verified' => RagxChainMechanismService::STATUS_VERIFIED,
+            'ragx_status_ok' => RagxChainMechanismService::STATUS_OK,
+            'ragx_field_enabled' => RagxChainMechanismService::FIELD_ENABLED,
+            'ragx_field_pending_window' => RagxChainMechanismService::FIELD_PENDING_WINDOW,
+            'prereview_basis_insufficient_sample' => PreReviewAdvisoryBand::BASIS_INSUFFICIENT_SAMPLE,
+            'prereview_basis_measured' => PreReviewAdvisoryBand::BASIS_MEASURED,
+            'promotion_field_missing' => PromotionProtocol::FIELD_MISSING,
+            'structured_fact_status_unschematized' => StructuredFactSchemaMap::STATUS_UNSCHEMATIZED,
+            'structured_fact_field_missing' => StructuredFactSchemaMap::FIELD_MISSING,
+            'lote2_field_incomplete' => AcosMaxLote2MeasureService::FIELD_INCOMPLETE,
+            'lote2_mission_status_completed' => AcosMaxLote2MeasureService::MISSION_STATUS_COMPLETED,
+            'lote2_mission_status_success' => AcosMaxLote2MeasureService::MISSION_STATUS_SUCCESS,
+            'dev_procedural_native_needs_review' => DevProceduralOutcomeEnvelopeAdapter::NATIVE_NEEDS_REVIEW,
+            'outcome_status_blocked' => OutcomeEnvelope::STATUS_BLOCKED,
+            'program_cockpit_reason_source_unavailable' => AcosProgramCockpitService::REASON_SOURCE_UNAVAILABLE,
+            'program_cockpit_field_error' => AcosProgramCockpitService::FIELD_ERROR,
+            'ambition_field_enabled' => AmbitionRungPolicy::FIELD_ENABLED,
+            'composed_obra_field_enabled' => ComposedObraArcComposer::FIELD_ENABLED,
+            'exploratory_bets_field_enabled' => ExploratoryBetsPortfolio::FIELD_ENABLED,
+            'required_gate_field_missing' => AaeosRequiredGateCoverageChecker::FIELD_MISSING,
+            'remint_field_error' => AtlasCognitionRemintTouchedQueue::FIELD_ERROR,
+            'mission_control_field_blocked' => AtlasMissionControlCockpitService::FIELD_BLOCKED,
+            'deferred_field_blocked' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKED,
+            'ragx_prereview_lote2_schema_floor_count' => 23,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

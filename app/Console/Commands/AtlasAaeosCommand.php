@@ -251,6 +251,7 @@ final class AtlasAaeosCommand extends Command
         {--corpus-parallel-truth-blocked-floors-contract= : JSON file (any object) to observe corpus/parallel/truth/phase blocked residual floors}
         {--teto10-cockpit-ladder-promotion-floors-contract= : JSON file (any object) to observe teto10/cockpit/ladder/promotion residual floors}
         {--dead-series-miner-signature-adapter-floors-contract= : JSON file (any object) to observe dead-series/miner/signature/adapter residual floors}
+        {--ragx-prereview-lote2-schema-floors-contract= : JSON file (any object) to observe ragx/prereview/lote2/schema residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -658,6 +659,7 @@ final class AtlasAaeosCommand extends Command
             ['corpus-parallel-truth-blocked-floors-contract', 'corpus_parallel_truth_blocked_floors_contract', fn (array $p) => $gates->corpusParallelTruthBlockedFloorsContractObserve($p)],
             ['teto10-cockpit-ladder-promotion-floors-contract', 'teto10_cockpit_ladder_promotion_floors_contract', fn (array $p) => $gates->teto10CockpitLadderPromotionFloorsContractObserve($p)],
             ['dead-series-miner-signature-adapter-floors-contract', 'dead_series_miner_signature_adapter_floors_contract', fn (array $p) => $gates->deadSeriesMinerSignatureAdapterFloorsContractObserve($p)],
+            ['ragx-prereview-lote2-schema-floors-contract', 'ragx_prereview_lote2_schema_floors_contract', fn (array $p) => $gates->ragxPrereviewLote2SchemaFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

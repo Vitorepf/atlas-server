@@ -47,6 +47,10 @@ final class PreReviewAdvisoryBand
 
     public const TARGET_CLASS_UNKNOWN = 'unknown';
 
+    public const BASIS_INSUFFICIENT_SAMPLE = 'insufficient_sample';
+
+    public const BASIS_MEASURED = 'measured';
+
     /**
      * @param  array<string,mixed>  $features required keys:
      *   target_class: string (e.g. 'migrations', 'ops', 'debug', 'unknown')
@@ -146,7 +150,7 @@ final class PreReviewAdvisoryBand
                 'n' => $agg['n'],
                 'reverts' => $agg['reverted'],
                 'realized_revert_rate' => $agg['n'] > 0 ? $agg['reverted'] / $agg['n'] : null,
-                'basis' => $agg['n'] > 0 ? 'measured' : 'insufficient_sample',
+                'basis' => $agg['n'] > 0 ? self::BASIS_MEASURED : self::BASIS_INSUFFICIENT_SAMPLE,
             ];
         }
 

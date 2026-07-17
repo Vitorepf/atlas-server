@@ -131,6 +131,12 @@ final class RagxChainMechanismService
 
     public const STATUS_UNKNOWN = 'unknown';
 
+    public const STATUS_VERIFIED = 'verified';
+
+    public const FIELD_ENABLED = 'enabled';
+
+    public const FIELD_PENDING_WINDOW = 'pending_window';
+
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
     public const REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES = 'no_verified_maxf09_l2_summaries';
@@ -173,7 +179,7 @@ final class RagxChainMechanismService
             ),
         ];
 
-        $anyEnabled = collect($stages)->contains(static fn (array $stage): bool => (AiValueNormalizer::boolOrNull($stage['enabled'] ?? null) ?? false));
+        $anyEnabled = collect($stages)->contains(static fn (array $stage): bool => (AiValueNormalizer::boolOrNull($stage[self::FIELD_ENABLED] ?? null) ?? false));
 
         return [
             'schema_version' => self::SCHEMA,

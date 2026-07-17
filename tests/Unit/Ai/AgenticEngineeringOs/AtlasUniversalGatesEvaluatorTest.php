@@ -3427,4 +3427,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(27, $payload['dead_series_miner_signature_adapter_floor_count']);
     }
 
+    public function test_ragx_prereview_lote2_schema_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ragxPrereviewLote2SchemaFloorsContractObserve([]);
+
+        $this->assertSame('verified', $payload['ragx_status_verified']);
+        $this->assertSame('ok', $payload['ragx_status_ok']);
+        $this->assertSame('enabled', $payload['ragx_field_enabled']);
+        $this->assertSame('pending_window', $payload['ragx_field_pending_window']);
+        $this->assertSame('insufficient_sample', $payload['prereview_basis_insufficient_sample']);
+        $this->assertSame('measured', $payload['prereview_basis_measured']);
+        $this->assertSame('missing', $payload['promotion_field_missing']);
+        $this->assertSame('unschematized', $payload['structured_fact_status_unschematized']);
+        $this->assertSame('incomplete', $payload['lote2_field_incomplete']);
+        $this->assertSame('success', $payload['lote2_mission_status_success']);
+        $this->assertSame('needs_review', $payload['dev_procedural_native_needs_review']);
+        $this->assertSame('source_unavailable', $payload['program_cockpit_reason_source_unavailable']);
+        $this->assertSame('enabled', $payload['ambition_field_enabled']);
+        $this->assertSame('blocked', $payload['mission_control_field_blocked']);
+        $this->assertSame(23, $payload['ragx_prereview_lote2_schema_floor_count']);
+    }
+
 }

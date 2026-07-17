@@ -23,6 +23,10 @@ final class AcosProgramCockpitService
 
     public const REASON_SOURCE_NOT_LANDED_YET = 'source_not_landed_yet';
 
+    public const REASON_SOURCE_UNAVAILABLE = 'source_unavailable';
+
+    public const FIELD_ERROR = 'error';
+
 
     public function report(?string $scoreboardPath = null): array
     {
@@ -71,7 +75,7 @@ final class AcosProgramCockpitService
                 'payload' => $decoded,
             ];
         } catch (Throwable $e) {
-            return $this->unavailable($source, 'source_unavailable', ['error' => mb_substr($e->getMessage(), 0, 200)]);
+            return $this->unavailable($source, self::REASON_SOURCE_UNAVAILABLE, [self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200)]);
         }
     }
 
@@ -88,7 +92,7 @@ final class AcosProgramCockpitService
                 'payload' => $callback(),
             ];
         } catch (Throwable $e) {
-            return $this->unavailable($source, 'source_unavailable', ['error' => mb_substr($e->getMessage(), 0, 200)]);
+            return $this->unavailable($source, self::REASON_SOURCE_UNAVAILABLE, [self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200)]);
         }
     }
 

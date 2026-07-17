@@ -37,6 +37,8 @@ final class PromotionProtocol
 
     public const FIELD_OK = 'ok';
 
+    public const FIELD_MISSING = 'missing';
+
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
     /** @var list<string> */

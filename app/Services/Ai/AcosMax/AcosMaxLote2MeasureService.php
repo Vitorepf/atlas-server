@@ -70,6 +70,16 @@ final class AcosMaxLote2MeasureService
 
     public const FIELD_PARTIAL = 'partial';
 
+    public const FIELD_INCOMPLETE = 'incomplete';
+
+    public const MISSION_STATUS_COMPLETED = 'completed';
+
+    public const MISSION_STATUS_DELIVERED = 'delivered';
+
+    public const MISSION_STATUS_SUCCEEDED = 'succeeded';
+
+    public const MISSION_STATUS_SUCCESS = 'success';
+
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -671,7 +681,7 @@ final class AcosMaxLote2MeasureService
                 ],
                 'invalid_pairs' => [
                     'peek_policy_violation' => 0,
-                    'incomplete' => 0,
+                    self::FIELD_INCOMPLETE => 0,
                     'positive_lift_fabricated' => 0,
                 ],
             ]);
@@ -784,7 +794,7 @@ final class AcosMaxLote2MeasureService
             ],
             'invalid_pairs' => [
                 'peek_policy_violation' => $invalidPolicyPairs,
-                'incomplete' => $incompletePairs,
+                self::FIELD_INCOMPLETE => $incompletePairs,
                 'positive_lift_fabricated' => $positiveLiftFabricated,
             ],
             'claim_policy' => [
@@ -899,10 +909,10 @@ final class AcosMaxLote2MeasureService
         $rows = $query->get();
         $total = $rows->count();
         $completed = $rows->filter(static fn ($row): bool => in_array(AiValueNormalizer::lowerTrimmedString($row->status ?? ''), [
-            'completed',
-            'delivered',
-            'succeeded',
-            'success',
+            self::MISSION_STATUS_COMPLETED,
+            self::MISSION_STATUS_DELIVERED,
+            self::MISSION_STATUS_SUCCEEDED,
+            self::MISSION_STATUS_SUCCESS,
         ], true))->count();
 
         return [

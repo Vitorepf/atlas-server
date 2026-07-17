@@ -10,6 +10,10 @@ final class StructuredFactSchemaMap
 {
     public const SCHEMA_VERSION = 'atlas.memory.structured_facts.v1';
 
+    public const STATUS_UNSCHEMATIZED = 'unschematized';
+
+    public const FIELD_MISSING = 'missing';
+
     /** @var array<string,list<string>> */
     public const REQUIRED = [
         'decision' => ['contexto', 'alternativas', 'porque', 'expiry'],
@@ -27,9 +31,9 @@ final class StructuredFactSchemaMap
         if ($required === null) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'unschematized',
+                'status' => self::STATUS_UNSCHEMATIZED,
                 'valid' => true,
-                'missing' => [],
+                self::FIELD_MISSING => [],
                 'fail_open_entry_allowed' => true,
             ];
         }
@@ -43,7 +47,7 @@ final class StructuredFactSchemaMap
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $missing === [] ? 'valid' : 'missing_fields',
             'valid' => $missing === [],
-            'missing' => $missing,
+            self::FIELD_MISSING => $missing,
             'fail_open_entry_allowed' => true,
             'source' => [
                 'required_on_write' => false,
