@@ -72,6 +72,12 @@ final class AcosMaxLote2MeasureService
 
     public const FIELD_INCOMPLETE = 'incomplete';
 
+    public const FIELD_PROVEN_REAL = 'proven_real';
+
+    public const FIELD_FIXTURE = 'fixture';
+
+    public const FIELD_IS_FIXTURE = 'is_fixture';
+
     public const MISSION_STATUS_COMPLETED = 'completed';
 
     public const MISSION_STATUS_DELIVERED = 'delivered';
@@ -307,7 +313,7 @@ final class AcosMaxLote2MeasureService
             data_get($outcomePayload, 'decision_receipt_id'),
             data_get($outcomePayload, 'receipt_id'),
         ]);
-        $provenReal = data_get($outcomePayload, 'proven_real') === true;
+        $provenReal = data_get($outcomePayload, self::FIELD_PROVEN_REAL) === true;
         $fixture = $this->isFixtureMarked($outcome, $outcomePayload)
             || ($delivery !== null && $this->isFixtureMarked($delivery, $this->decodeJsonObject($delivery->payload ?? null)))
             || ($candidate !== null && $this->isFixtureMarked($candidate, $this->decodeJsonObject($candidate->payload ?? null)))
@@ -353,7 +359,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_PARTIAL => [
                     'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                     'chain' => $chain,
-                    'proven_real' => $provenReal,
+                    self::FIELD_PROVEN_REAL => $provenReal,
                     'fixture_free' => ! $fixture,
                     'blocked_by' => array_values(array_unique($blockedBy)),
                 ],
@@ -365,7 +371,7 @@ final class AcosMaxLote2MeasureService
             'loop' => [
                 'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                 'chain' => $chain,
-                'proven_real' => true,
+                self::FIELD_PROVEN_REAL => true,
                 'fixture_free' => true,
                 'time_to_recall_seconds' => $this->secondsBetween(
                     AiValueNormalizer::trimmedString($outcome->created_at ?? ''),
@@ -408,7 +414,7 @@ final class AcosMaxLote2MeasureService
      */
     private function isFixtureMarked(object $row, array $payload): bool
     {
-        if (data_get($payload, 'fixture') === true || data_get($payload, 'is_fixture') === true) {
+        if (data_get($payload, self::FIELD_FIXTURE) === true || data_get($payload, self::FIELD_IS_FIXTURE) === true) {
             return true;
         }
 

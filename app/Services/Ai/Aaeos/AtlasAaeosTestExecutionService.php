@@ -41,6 +41,8 @@ class AtlasAaeosTestExecutionService
 
     public const FIELD_PASSED = 'passed';
 
+    public const FIELD_RAN = 'ran';
+
     public function __construct(
         private readonly float $timeout = 180.0,
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver = new AtlasAaeosImplementationEvidenceResolver,
@@ -215,7 +217,7 @@ class AtlasAaeosTestExecutionService
             'impl_files_hash' => $implFilesHash,
             'output_tail' => $run['output_tail'],
             'runner' => $run['runner'],
-            'ran' => $run['ran'],
+            self::FIELD_RAN => $run[self::FIELD_RAN],
             'reason' => $run['reason'] ?? null,
             'ran_at' => now()->toJSON(),
         ];
@@ -408,7 +410,7 @@ class AtlasAaeosTestExecutionService
         $passed = $exitCode === 0 && $testsRun >= 1;
 
         return [
-            'ran' => true,
+            self::FIELD_RAN => true,
             self::FIELD_PASSED => $passed,
             'tests_run' => $testsRun,
             'exit_code' => $exitCode,
@@ -508,7 +510,7 @@ class AtlasAaeosTestExecutionService
     private function blockedRun(string $reason): array
     {
         return [
-            'ran' => false,
+            self::FIELD_RAN => false,
             self::FIELD_PASSED => false,
             'tests_run' => 0,
             'exit_code' => -1,
@@ -529,7 +531,7 @@ class AtlasAaeosTestExecutionService
     private function ambiguousRun(string $testRef): array
     {
         return [
-            'ran' => false,
+            self::FIELD_RAN => false,
             self::FIELD_PASSED => false,
             'tests_run' => 0,
             'exit_code' => -1,

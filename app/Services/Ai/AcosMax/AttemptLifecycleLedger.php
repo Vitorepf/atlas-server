@@ -36,6 +36,8 @@ final class AttemptLifecycleLedger
 
     public const REASON_INVALID_TERMINAL_STATE = 'invalid_terminal_state';
 
+    public const FIELD_ACCEPTED = 'accepted';
+
     /** @var array<string,array<string,mixed>> */
     private array $attempts = [];
 
@@ -45,10 +47,10 @@ final class AttemptLifecycleLedger
     public function start(string $attemptId, string $taskId, ?int $startedAt = null): array
     {
         if (AiValueNormalizer::trimmedStringOrNull($attemptId) === null || AiValueNormalizer::trimmedStringOrNull($taskId) === null) {
-            return ['accepted' => false, 'reason' => self::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE];
+            return [self::FIELD_ACCEPTED => false, 'reason' => self::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE];
         }
         if (isset($this->attempts[$attemptId])) {
-            return ['accepted' => false, 'reason' => self::REASON_DUPLICATE_ATTEMPT];
+            return [self::FIELD_ACCEPTED => false, 'reason' => self::REASON_DUPLICATE_ATTEMPT];
         }
 
         $this->attempts[$attemptId] = [
@@ -58,7 +60,7 @@ final class AttemptLifecycleLedger
             'started_at' => $startedAt ?? time(),
         ];
 
-        return ['accepted' => true, 'attempt' => $this->attempts[$attemptId]];
+        return [self::FIELD_ACCEPTED => true, 'attempt' => $this->attempts[$attemptId]];
     }
 
     /**
@@ -67,15 +69,15 @@ final class AttemptLifecycleLedger
     public function terminal(string $attemptId, string $state): array
     {
         if (! isset($this->attempts[$attemptId])) {
-            return ['accepted' => false, 'reason' => self::REASON_ATTEMPT_MISSING];
+            return [self::FIELD_ACCEPTED => false, 'reason' => self::REASON_ATTEMPT_MISSING];
         }
         if (! in_array($state, self::TERMINAL_STATES, true)) {
-            return ['accepted' => false, 'reason' => self::REASON_INVALID_TERMINAL_STATE];
+            return [self::FIELD_ACCEPTED => false, 'reason' => self::REASON_INVALID_TERMINAL_STATE];
         }
 
         $this->attempts[$attemptId]['state'] = $state;
 
-        return ['accepted' => true, 'attempt' => $this->attempts[$attemptId]];
+        return [self::FIELD_ACCEPTED => true, 'attempt' => $this->attempts[$attemptId]];
     }
 
     /**

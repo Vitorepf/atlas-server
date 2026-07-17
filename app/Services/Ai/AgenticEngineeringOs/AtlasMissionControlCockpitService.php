@@ -47,6 +47,8 @@ final class AtlasMissionControlCockpitService
 
     public const FIELD_BLOCKED = 'blocked';
 
+    public const FIELD_PASSED = 'passed';
+
     public const FIELD_MISSING = 'missing';
 
     public function __construct(
@@ -223,7 +225,7 @@ final class AtlasMissionControlCockpitService
             AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_MISSING] ?? null),
         );
         $hasEvidenceRefs = ! in_array('evidence_traceable', $blocked, true);
-        $testsPassed = in_array('tests_green', AiValueNormalizer::arrayOrEmpty($gateReport['passed'] ?? null), true)
+        $testsPassed = in_array('tests_green', AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_PASSED] ?? null), true)
             ? true
             : (in_array('tests_green', $blocked, true) ? false : null);
         $missingRequiredSources = in_array('decision_receipt_v2_signed', $blocked, true)
@@ -278,7 +280,7 @@ final class AtlasMissionControlCockpitService
             }
             $gates = AiValueNormalizer::arrayOrEmpty($env['gates'] ?? null);
             $blocked = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
-            $passed = AiValueNormalizer::arrayOrEmpty($gates['passed'] ?? null);
+            $passed = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null);
             $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
             $actor = AiValueNormalizer::arrayOrEmpty($env['actor'] ?? null);
             $skipped = ! empty($env['skip_reason']);

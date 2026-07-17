@@ -3563,4 +3563,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['queued_passed_advisory_absent_floor_count']);
     }
 
+    public function test_ran_accepted_keep_fixture_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ranAcceptedKeepFixtureFloorsContractObserve([]);
+
+        $this->assertSame('ran', $payload['test_execution_field_ran']);
+        $this->assertSame('accepted', $payload['department_runtime_field_accepted']);
+        $this->assertSame('verified', $payload['outcome_envelope_field_verified']);
+        $this->assertSame('fixture', $payload['long_horizon_field_fixture']);
+        $this->assertSame('queued', $payload['obra_retro_field_queued']);
+        $this->assertSame('accepted', $payload['attempt_lifecycle_field_accepted']);
+        $this->assertSame('keep', $payload['segment_decision_keep']);
+        $this->assertSame('drop', $payload['segment_decision_drop']);
+        $this->assertSame('proven_real', $payload['lote2_field_proven_real']);
+        $this->assertSame('fixture', $payload['lote2_field_fixture']);
+        $this->assertSame('is_fixture', $payload['lote2_field_is_fixture']);
+        $this->assertSame('passed', $payload['mission_control_field_passed']);
+        $this->assertSame('passed', $payload['test_execution_field_passed']);
+        $this->assertSame('live', $payload['long_horizon_fixture_live']);
+        $this->assertSame('started', $payload['attempt_state_started']);
+        $this->assertSame('recorded', $payload['obra_retro_status_recorded']);
+        $this->assertSame('missing', $payload['department_runtime_field_missing']);
+        $this->assertSame(17, $payload['ran_accepted_keep_fixture_floor_count']);
+    }
+
 }

@@ -56,6 +56,8 @@ final class AtlasAcosLongHorizonGateService
 
     public const FIXTURE_SHORT_WINDOW = 'short-window';
 
+    public const FIELD_FIXTURE = 'fixture';
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -64,7 +66,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $cfg = AiValueNormalizer::arrayOrEmpty(config(self::CONFIG_KEY, []));
         $enabled = AiValueNormalizer::boolOrNull($options[self::FIELD_ENABLED] ?? null) ?? AiValueNormalizer::boolOrNull($cfg[self::FIELD_ENABLED] ?? null) ?? self::DEFAULT_ENABLED;
-        $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? self::FIXTURE_LIVE;
+        $fixture = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_FIXTURE] ?? null) ?? self::FIXTURE_LIVE;
 
         if (! in_array($fixture, [self::FIXTURE_LIVE, self::FIXTURE_MATURE, self::FIXTURE_SHORT_WINDOW], true)) {
             return $this->payload(self::STATUS_BLOCKED, false, $fixture, [], [], [], ['unsupported_fixture'], []);

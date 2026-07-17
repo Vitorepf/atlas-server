@@ -22,6 +22,8 @@ final class AcosMaxObraRetroService
 
     public const STATUS_UNKNOWN = 'unknown';
 
+    public const FIELD_QUEUED = 'queued';
+
     public const REASON_NO_TERMINAL_SLICES_FOR_LOTE = 'no_terminal_slices_for_lote';
 
     public const KIND_FAILURE_PATTERN = 'failure_pattern';
@@ -65,7 +67,7 @@ final class AcosMaxObraRetroService
                 'outcomes' => [self::STATUS_RECORDED => 0, 'items' => []],
                 'lesson_candidates' => [
                     'path' => self::LESSON_PATH_NORMAL_CAPTURE,
-                    'queued' => 0,
+                    self::FIELD_QUEUED => 0,
                     'items' => [],
                 ],
             ];
@@ -100,7 +102,7 @@ final class AcosMaxObraRetroService
             ],
             'lesson_candidates' => [
                 'path' => self::LESSON_PATH_NORMAL_CAPTURE,
-                'queued' => count(array_filter(
+                self::FIELD_QUEUED => count(array_filter(
                     $lessonItems,
                     static fn (array $item): bool => ($item['status'] ?? null) === self::LESSON_STATUS_PENDING_REVIEW
                 )),

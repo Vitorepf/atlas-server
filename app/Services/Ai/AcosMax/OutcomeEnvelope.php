@@ -42,6 +42,8 @@ final class OutcomeEnvelope
 
     public const ADAPTER_ORIGINS = [self::ORIGIN_DEV_PROCEDURAL, self::ORIGIN_AEMOR, self::ORIGIN_COMPOUNDING];
 
+    public const FIELD_VERIFIED = 'verified';
+
     /**
      * Map divergent native status labels onto the shared envelope statuses.
      * Unknown / review-like values fail closed to blocked (never invent success).
@@ -164,7 +166,7 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_identity_fields_required');
         }
 
-        if (! is_bool($data['verified'] ?? null)) {
+        if (! is_bool($data[self::FIELD_VERIFIED] ?? null)) {
             throw new InvalidArgumentException('outcome_envelope_verified_invalid');
         }
         if (! is_bool($data['verified_source_present'] ?? null)) {
@@ -194,7 +196,7 @@ final class OutcomeEnvelope
             'task_category' => $taskCategory,
             'provider' => $provider,
             'status' => $status,
-            'verified' => (AiValueNormalizer::boolOrNull($data['verified'] ?? null) ?? false),
+            self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
             'verified_basis' => $basis,
             'verified_source_present' => (AiValueNormalizer::boolOrNull($data['verified_source_present'] ?? null) ?? false),
             'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,

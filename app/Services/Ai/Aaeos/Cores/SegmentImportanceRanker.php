@@ -43,6 +43,10 @@ final class SegmentImportanceRanker
 
     public const DROP_REASON_OVERSIZED_SEGMENT = 'oversized_segment';
 
+    public const DECISION_KEEP = 'keep';
+
+    public const DECISION_DROP = 'drop';
+
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
      *
@@ -101,15 +105,15 @@ final class SegmentImportanceRanker
             $tokenEstimate = $segment['token_estimate'];
 
             if ($tokenEstimate > $budget) {
-                $decision = 'drop';
+                $decision = self::DECISION_DROP;
                 $dropReason = self::DROP_REASON_OVERSIZED_SEGMENT;
             } elseif ($runningTotal + $tokenEstimate <= $budget) {
-                $decision = 'keep';
+                $decision = self::DECISION_KEEP;
                 $dropReason = null;
                 $runningTotal += $tokenEstimate;
                 $tokensKept += $tokenEstimate;
             } else {
-                $decision = 'drop';
+                $decision = self::DECISION_DROP;
                 $dropReason = self::DROP_REASON_BUDGET_EXCEEDED;
 
                 if ($boundaryIndex === null) {
@@ -117,7 +121,7 @@ final class SegmentImportanceRanker
                 }
             }
 
-            if ($decision === 'keep') {
+            if ($decision === self::DECISION_KEEP) {
                 $keptIds[] = $segment['id'];
             } else {
                 $droppedIds[] = $segment['id'];

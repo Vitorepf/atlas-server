@@ -5282,6 +5282,36 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: ran/accepted/keep/fixture residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ranAcceptedKeepFixtureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'test_execution_field_ran' => AtlasAaeosTestExecutionService::FIELD_RAN,
+            'department_runtime_field_accepted' => DepartmentContractRuntime::FIELD_ACCEPTED,
+            'outcome_envelope_field_verified' => OutcomeEnvelope::FIELD_VERIFIED,
+            'long_horizon_field_fixture' => AtlasAcosLongHorizonGateService::FIELD_FIXTURE,
+            'obra_retro_field_queued' => AcosMaxObraRetroService::FIELD_QUEUED,
+            'attempt_lifecycle_field_accepted' => AttemptLifecycleLedger::FIELD_ACCEPTED,
+            'segment_decision_keep' => SegmentImportanceRanker::DECISION_KEEP,
+            'segment_decision_drop' => SegmentImportanceRanker::DECISION_DROP,
+            'lote2_field_proven_real' => AcosMaxLote2MeasureService::FIELD_PROVEN_REAL,
+            'lote2_field_fixture' => AcosMaxLote2MeasureService::FIELD_FIXTURE,
+            'lote2_field_is_fixture' => AcosMaxLote2MeasureService::FIELD_IS_FIXTURE,
+            'mission_control_field_passed' => AtlasMissionControlCockpitService::FIELD_PASSED,
+            'test_execution_field_passed' => AtlasAaeosTestExecutionService::FIELD_PASSED,
+            'long_horizon_fixture_live' => AtlasAcosLongHorizonGateService::FIXTURE_LIVE,
+            'attempt_state_started' => AttemptLifecycleLedger::STATE_STARTED,
+            'obra_retro_status_recorded' => AcosMaxObraRetroService::STATUS_RECORDED,
+            'department_runtime_field_missing' => DepartmentContractRuntime::FIELD_MISSING,
+            'ran_accepted_keep_fixture_floor_count' => 17,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

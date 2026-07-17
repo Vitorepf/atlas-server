@@ -22,6 +22,8 @@ final class DepartmentContractRuntime
 {
     public const FIELD_MISSING = 'missing';
 
+    public const FIELD_ACCEPTED = 'accepted';
+
     public const SCHEMA_VERSION = 'atlas.aaeos.department.v1';
 
     public const SCHEMA_ACCEPTANCE_CRITERIA = 'atlas.acceptance_criteria.v1';
@@ -489,23 +491,23 @@ final class DepartmentContractRuntime
     public function validateHandoff(string $from, string $to): array
     {
         if (! isset(self::CATALOGUE[$from])) {
-            return ['from' => $from, 'to' => $to, 'accepted' => false, 'reason' => "unknown department '{$from}'"];
+            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, 'reason' => "unknown department '{$from}'"];
         }
         if (! isset(self::CATALOGUE[$to])) {
-            return ['from' => $from, 'to' => $to, 'accepted' => false, 'reason' => "unknown department '{$to}'"];
+            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, 'reason' => "unknown department '{$to}'"];
         }
         $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from]['emits_handoff_to'] ?? null);
         if (! in_array($to, $allowedDownstream, true)) {
             return [
                 'from' => $from,
                 'to' => $to,
-                'accepted' => false,
+                self::FIELD_ACCEPTED => false,
                 'reason' => sprintf('department "%s" does not emit handoff to "%s" (allowed: %s)',
                     $from, $to, implode(',', $allowedDownstream) ?: 'none'),
             ];
         }
 
-        return ['from' => $from, 'to' => $to, 'accepted' => true, 'reason' => null];
+        return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => true, 'reason' => null];
     }
 
     /** @return list<string> */
