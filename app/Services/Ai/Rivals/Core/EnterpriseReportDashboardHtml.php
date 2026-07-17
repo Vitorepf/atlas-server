@@ -642,10 +642,20 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       // ao operador quanto do número é dado e quanto é sorte.
       const wil = (lo, hi) => (lo === null || lo === undefined)
         ? '' : `<span class="sk-ci">${pct(lo)} a ${pct(hi)}</span>`;
+      // POR QUE o Atlas perdeu, em português — para "Atlas pior" nunca ler como
+      // "modelo incapaz" quando foi o Atlas rejeitando a resposta boa do modelo.
+      const CAUSA = {
+        provider_invalid_provider_contract: 'o modelo resolveu, mas o Atlas recusou o formato da resposta',
+        candidate_preparation_blocked: 'o Atlas recusou a resposta do modelo antes de aplicar',
+        governor_authority_absent: 'o Atlas gerou o patch, mas a governança não liberou',
+        model_failure: 'o modelo errou a tarefa',
+      };
+      const causa = (r.atlas_loss_cause && (r.atlas ?? 1) < (r.bare ?? 0))
+        ? `<span class="sk-fatia">por quê: ${CAUSA[r.atlas_loss_cause] || r.atlas_loss_cause}</span>` : '';
       rows += `<tr>
         <td><span class="sk-nome">${r.label || r.skill}</span>${fatia}</td>
         <td>${pct(r.bare)} <span class="subci">${r.bare_n} tarefas</span>${wil(r.bare_ci_low, r.bare_ci_high)}${teto}</td>
-        <td>${pct(r.atlas)} <span class="subci">${r.atlas_n} tarefas</span>${wil(r.atlas_ci_low, r.atlas_ci_high)}</td>
+        <td>${pct(r.atlas)} <span class="subci">${r.atlas_n} tarefas</span>${wil(r.atlas_ci_low, r.atlas_ci_high)}${causa}</td>
         <td>${regua(r)}${dcell}</td></tr>`;
       }
     }

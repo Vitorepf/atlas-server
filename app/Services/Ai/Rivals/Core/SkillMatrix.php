@@ -91,12 +91,28 @@ final class SkillMatrix
                 'task_type' => (string) ($receipt->data['task_type'] ?? ''),
                 'bare' => [],
                 'atlas' => [],
+                'atlas_causes' => [],
             ];
             // Guardado POR UNIDADE (caso|repetição), não empilhado: sem a chave
             // não há como saber se os dois braços viram a mesma coisa — e sem
             // isso a comparação é entre conjuntos diferentes.
-            $tally[$key][$arm][$caseId.'|'.($receipt->data['repetition'] ?? '')]
-                = ($receipt->data['status'] ?? null) === 'success' ? 1.0 : 0.0;
+            $success = ($receipt->data['status'] ?? null) === 'success';
+            $tally[$key][$arm][$caseId.'|'.($receipt->data['repetition'] ?? '')] = $success ? 1.0 : 0.0;
+            // POR QUE o Atlas perdeu — a família do erro, não o número cru. Sem
+            // isto o relatório mostra "Atlas 0%" e o operador lê "modelo
+            // incapaz". Mas o motivo dominante hoje é o Atlas Dev REJEITAR a
+            // resposta boa do modelo por formato (invalid_provider_contract: o
+            // kimi resolve e devolve código cru; o Atlas exige JSON patch_plan).
+            // Isso é o Atlas DEGRADANDO o modelo — real, mas por fricção de
+            // contrato, não por incapacidade. A causa vai para a tela.
+            if ($arm === 'atlas' && ! $success) {
+                foreach ((array) data_get($receipt->data, 'metadata.runtime_bridge.provider_call.error_codes', []) as $code) {
+                    $familia = explode(':', (string) $code)[0];
+                    if ($familia !== '') {
+                        $tally[$key]['atlas_causes'][$familia] = ($tally[$key]['atlas_causes'][$familia] ?? 0) + 1;
+                    }
+                }
+            }
         }
 
         // MESMA AMOSTRA NOS DOIS BRAÇOS — senão o delta compara conjuntos, não
@@ -178,6 +194,16 @@ final class SkillMatrix
                 'atlas_n' => count($t['atlas']),
                 'atlas_ci_low' => $t['atlas'] === [] ? null : StatisticalPolicy::wilson((int) array_sum($t['atlas']), count($t['atlas']))['low'],
                 'atlas_ci_high' => $t['atlas'] === [] ? null : StatisticalPolicy::wilson((int) array_sum($t['atlas']), count($t['atlas']))['high'],
+                // A causa dominante da perda do Atlas, para "Atlas pior" nunca
+                // ler como "modelo incapaz" quando foi o Atlas Dev rejeitando a
+                // resposta boa. Derivada do dado (error_codes dos recibos).
+                'atlas_loss_cause' => $t['atlas_causes'] === []
+                    ? null
+                    : array_key_first((static function (array $c): array {
+                        arsort($c);
+
+                        return $c;
+                    })($t['atlas_causes'])),
                 'delta' => $bare === null || $atlas === null ? null : round($atlas - $bare, 4),
                 'delta_ci_low' => $ci['ci_low'] ?? null,
                 'delta_ci_high' => $ci['ci_high'] ?? null,
