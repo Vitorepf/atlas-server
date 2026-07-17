@@ -6093,6 +6093,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function schemaDecomposerSurpriseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_field_change_kind' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_CHANGE_KIND,
+            'schema_field_proposed_effect' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_EFFECT,
+            'schema_field_scope' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCOPE,
+            'schema_field_privacy_class' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PRIVACY_CLASS,
+            'schema_field_actor' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACTOR,
+            'schema_field_current_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_CURRENT_SCHEMA,
+            'decomposer_field_reasoning' => AtlasCognitiveFunctionDecomposerService::FIELD_REASONING,
+            'decomposer_field_retrieval' => AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL,
+            'decomposer_field_generation' => AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION,
+            'decomposer_field_code' => AtlasCognitiveFunctionDecomposerService::FIELD_CODE,
+            'decomposer_field_vision' => AtlasCognitiveFunctionDecomposerService::FIELD_VISION,
+            'decomposer_field_audit' => AtlasCognitiveFunctionDecomposerService::FIELD_AUDIT,
+            'surprise_field_surprise' => AtlasSurpriseGateService::FIELD_SURPRISE,
+            'surprise_field_record' => AtlasSurpriseGateService::FIELD_RECORD,
+            'surprise_field_priority' => AtlasSurpriseGateService::FIELD_PRIORITY,
+            'surprise_field_predicted' => AtlasSurpriseGateService::FIELD_PREDICTED,
+            'surprise_field_gated' => AtlasSurpriseGateService::FIELD_GATED,
+            'schema_decomposer_surprise_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

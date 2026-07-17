@@ -295,6 +295,7 @@ final class AtlasAaeosCommand extends Command
         {--maturity-envelope-lifecycle-floors-contract= : JSON file (any object) to observe maturity/envelope/lifecycle residual floors}
         {--embedding-coverage-thesis-floors-contract= : JSON file (any object) to observe embedding-coverage/thesis residual floors}
         {--dept-level-evidence-floors-contract= : JSON file (any object) to observe department-level/evidence residual floors}
+        {--schema-decomposer-surprise-floors-contract= : JSON file (any object) to observe schema/decomposer/surprise residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -746,6 +747,7 @@ final class AtlasAaeosCommand extends Command
             ['maturity-envelope-lifecycle-floors-contract', 'maturity_envelope_lifecycle_floors_contract', fn (array $p) => $gates->maturityEnvelopeLifecycleFloorsContractObserve($p)],
             ['embedding-coverage-thesis-floors-contract', 'embedding_coverage_thesis_floors_contract', fn (array $p) => $gates->embeddingCoverageThesisFloorsContractObserve($p)],
             ['dept-level-evidence-floors-contract', 'dept_level_evidence_floors_contract', fn (array $p) => $gates->deptLevelEvidenceFloorsContractObserve($p)],
+            ['schema-decomposer-surprise-floors-contract', 'schema_decomposer_surprise_floors_contract', fn (array $p) => $gates->schemaDecomposerSurpriseFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

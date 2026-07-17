@@ -57,6 +57,14 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     ];
 
     public const EXTENSION_PRESSURE_THRESHOLD = 4;
+    public const FIELD_CHANGE_KIND = 'change_kind';
+    public const FIELD_PROPOSED_EFFECT = 'proposed_effect';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_CURRENT_SCHEMA = 'current_schema';
+    public const FIELD_PROPOSED_NEXT_SCHEMA = 'proposed_next_schema';
+    public const FIELD_KERNEL_DECISION = 'kernel_decision';
 
     private ?string $proposalsLogOverride = null;
 
@@ -90,7 +98,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function propose(array $input): array
     {
-        $currentSchema = (AiValueNormalizer::trimmedStringOrNull($input['current_schema'] ?? null) ?? '');
+        $currentSchema = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_CURRENT_SCHEMA] ?? null) ?? '');
         if ($currentSchema === '' || ! preg_match('/^atlas\.[a-z0-9_\.]+\.v\d+$/', $currentSchema)) {
             throw new InvalidArgumentException("current_schema must match 'atlas.*.v<n>' canon (got '{$currentSchema}').");
         }
@@ -101,24 +109,24 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         $rationale = (AiValueNormalizer::trimmedStringOrNull($input['rationale'] ?? null) ?? 'Operator-supplied schema evolution.');
         $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['added_fields'] ?? null));
         $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['deprecated_fields'] ?? null));
-        $actor = (AiValueNormalizer::trimmedStringOrNull($input['actor'] ?? null) ?? 'ACMF');
+        $actor = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_ACTOR] ?? null) ?? 'ACMF');
 
         $nextSchema = $this->bumpVersion($currentSchema);
 
         // Constitutional Kernel gate.
         $kernelEnv = $this->kernel->validateChange([
-            'change_kind' => 'schema_evolution',
-            'proposed_effect' => "propose evolution {$currentSchema} -> {$nextSchema} (trigger={$trigger})",
-            'scope' => ['privacy_class' => 'normal'],
-            'actor' => $actor,
+            self::FIELD_CHANGE_KIND => 'schema_evolution',
+            self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema} (trigger={$trigger})",
+            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => 'normal'],
+            self::FIELD_ACTOR => $actor,
         ]);
 
         // Autonomy admission.
         $admissionEnv = $this->admission->admit([
-            'change_kind' => 'schema_evolution',
-            'proposed_effect' => "propose evolution {$currentSchema} -> {$nextSchema}",
-            'scope' => ['privacy_class' => 'normal'],
-            'actor' => $actor,
+            self::FIELD_CHANGE_KIND => 'schema_evolution',
+            self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema}",
+            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => 'normal'],
+            self::FIELD_ACTOR => $actor,
             'requested_autonomy' => 'execute_with_approval',
         ]);
 
@@ -129,25 +137,25 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             'schema_version' => self::PROPOSAL_SCHEMA,
             'proposal_id' => $proposalId,
             'generated_at' => $generatedAt,
-            'current_schema' => $currentSchema,
-            'proposed_next_schema' => $nextSchema,
+            self::FIELD_CURRENT_SCHEMA => $currentSchema,
+            self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
             'trigger' => $trigger,
             'rationale' => $rationale,
             'added_fields' => $addedFields,
             'deprecated_fields' => $deprecatedFields,
             'doc_skeleton' => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
-            'kernel_decision' => $kernelEnv['decision'],
+            self::FIELD_KERNEL_DECISION => $kernelEnv['decision'],
             'admission_decision' => $admissionEnv['decision'],
             'requires_human_approval' => true,
             'is_proposal' => true,
         ];
         $proposal['proposal_hash'] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::PROPOSAL_SCHEMA,
-            'current_schema' => $currentSchema,
-            'proposed_next_schema' => $nextSchema,
+            self::FIELD_CURRENT_SCHEMA => $currentSchema,
+            self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
             'added_fields' => $addedFields,
             'deprecated_fields' => $deprecatedFields,
-            'kernel_decision' => $proposal['kernel_decision'],
+            self::FIELD_KERNEL_DECISION => $proposal[self::FIELD_KERNEL_DECISION],
         ], JSON_THROW_ON_ERROR));
 
         AppendOnlyJsonlStore::append($this->proposalsLogPath(), $proposal);

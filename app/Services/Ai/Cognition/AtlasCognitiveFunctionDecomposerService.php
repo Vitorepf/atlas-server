@@ -47,6 +47,14 @@ final class AtlasCognitiveFunctionDecomposerService
 
     public const REASON_NO_KEYWORD_SIGNAL = 'no_keyword_signal';
 
+    public const FIELD_REASONING = 'reasoning';
+    public const FIELD_RETRIEVAL = 'retrieval';
+    public const FIELD_GENERATION = 'generation';
+    public const FIELD_CODE = 'code';
+    public const FIELD_VISION = 'vision';
+    public const FIELD_AUDIT = 'audit';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_HITS = 'hits';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -64,22 +72,22 @@ final class AtlasCognitiveFunctionDecomposerService
      * @var array<string, array<int,string>>
      */
     public const RULES = [
-        'reasoning' => [
+        self::FIELD_REASONING => [
             'porque', 'por que', 'analise', 'analisa', 'explique', 'pense', 'pondere',
             'decida', 'decisao', 'compare', 'avalie', 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
-        'retrieval' => [
+        self::FIELD_RETRIEVAL => [
             'busque', 'procure', 'encontre', 'pesquise', 'mostre', 'liste',
             'recupere', 'lookup', 'qual e', 'quais sao', 'cite', 'cadastr',
             'documenta', 'memoria', 'search', 'find', 'show',
         ],
-        'generation' => [
+        self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', 'componha', 'rascunhe', 'gere',
             'sintetize', 'resuma', 'transforme', 'reescreva', 'continue',
             'narre', 'descreva', 'compose', 'write', 'draft', 'summarize',
         ],
-        'code' => [
+        self::FIELD_CODE => [
             'codigo', 'codifique', 'implemente', 'refatore', 'debug', 'teste',
             'compile', 'execute', 'rode', 'rodar', 'php', 'typescript', 'react',
             'componente', 'servico', 'classe', 'funcao', 'controller', 'cli',
@@ -87,12 +95,12 @@ final class AtlasCognitiveFunctionDecomposerService
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', 'build',
         ],
-        'vision' => [
+        self::FIELD_VISION => [
             'imagem', 'foto', 'screenshot', 'visualize', 'design', 'layout',
             'mockup', 'figma', 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
             'cor ', 'paleta', 'visual', 'screenshot', 'image', 'render',
         ],
-        'audit' => [
+        self::FIELD_AUDIT => [
             'audite', 'audita', 'audit', 'verifique', 'valide', 'cheque',
             'inspecione', 'governance', 'invariant', 'kernel', 'cartografia',
             'doc', 'documento', 'compliance', 'evidence', 'evidencia',
@@ -146,9 +154,9 @@ final class AtlasCognitiveFunctionDecomposerService
 
         if ($input === '') {
             // Empty input — neutral distribution + audit lean (something is wrong).
-            $weights['audit'] = 1.0;
+            $weights[self::FIELD_AUDIT] = 1.0;
 
-            return $this->envelope($input, $context, $weights, ['reason' => self::REASON_EMPTY_INPUT]);
+            return $this->envelope($input, $context, $weights, [self::FIELD_REASON => self::REASON_EMPTY_INPUT]);
         }
 
         // Score rules.
@@ -160,16 +168,16 @@ final class AtlasCognitiveFunctionDecomposerService
         $totalHits = array_sum($hits);
         if ($totalHits === 0) {
             // No signals — neutral but lean toward reasoning (default cognitive default).
-            $weights = ['reasoning' => 0.5, 'retrieval' => 0.2, 'generation' => 0.15, 'code' => 0.05, 'vision' => 0.05, 'audit' => 0.05];
+            $weights = [self::FIELD_REASONING => 0.5, self::FIELD_RETRIEVAL => 0.2, self::FIELD_GENERATION => 0.15, self::FIELD_CODE => 0.05, self::FIELD_VISION => 0.05, self::FIELD_AUDIT => 0.05];
 
-            return $this->envelope($input, $context, $weights, ['reason' => self::REASON_NO_KEYWORD_SIGNAL, 'hits' => $hits]);
+            return $this->envelope($input, $context, $weights, [self::FIELD_REASON => self::REASON_NO_KEYWORD_SIGNAL, self::FIELD_HITS => $hits]);
         }
 
         foreach (self::FUNCTIONS as $axis) {
             $weights[$axis] = $hits[$axis] / $totalHits;
         }
 
-        return $this->envelope($input, $context, $weights, ['hits' => $hits]);
+        return $this->envelope($input, $context, $weights, [self::FIELD_HITS => $hits]);
     }
 
     /**

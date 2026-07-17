@@ -4481,4 +4481,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['dept_level_evidence_floor_count']);
     }
 
+    public function test_schema_decomposer_surprise_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->schemaDecomposerSurpriseFloorsContractObserve([]);
+
+        $this->assertSame('change_kind', $payload['schema_field_change_kind']);
+        $this->assertSame('proposed_effect', $payload['schema_field_proposed_effect']);
+        $this->assertSame('scope', $payload['schema_field_scope']);
+        $this->assertSame('privacy_class', $payload['schema_field_privacy_class']);
+        $this->assertSame('actor', $payload['schema_field_actor']);
+        $this->assertSame('current_schema', $payload['schema_field_current_schema']);
+        $this->assertSame('reasoning', $payload['decomposer_field_reasoning']);
+        $this->assertSame('retrieval', $payload['decomposer_field_retrieval']);
+        $this->assertSame('generation', $payload['decomposer_field_generation']);
+        $this->assertSame('code', $payload['decomposer_field_code']);
+        $this->assertSame('vision', $payload['decomposer_field_vision']);
+        $this->assertSame('audit', $payload['decomposer_field_audit']);
+        $this->assertSame('surprise', $payload['surprise_field_surprise']);
+        $this->assertSame('record', $payload['surprise_field_record']);
+        $this->assertSame('priority', $payload['surprise_field_priority']);
+        $this->assertSame('predicted', $payload['surprise_field_predicted']);
+        $this->assertSame('gated', $payload['surprise_field_gated']);
+        $this->assertSame(17, $payload['schema_decomposer_surprise_floor_count']);
+    }
+
 }
