@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspacePrivacy;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
@@ -1040,8 +1041,11 @@ class AtlasOpenBrainGuardService
         if (is_int($raw)) {
             return max(0, $raw);
         }
-        if (is_string($raw) && is_numeric(trim($raw))) {
-            return (int) max(0, (int) floor((float) trim($raw)));
+        if (is_string($raw)) {
+            $numeric = AiValueNormalizer::finiteFloatOrNull(trim($raw));
+            if ($numeric !== null) {
+                return (int) max(0, (int) floor($numeric));
+            }
         }
 
         return max(0, $default);

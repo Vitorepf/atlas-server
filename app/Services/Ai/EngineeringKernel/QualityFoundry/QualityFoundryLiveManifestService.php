@@ -7,6 +7,7 @@ namespace App\Services\Ai\EngineeringKernel\QualityFoundry;
 use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use App\Services\Ai\EngineeringKernel\QualityFoundryModeParityService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Symfony\Component\Process\Process;
 
 /**
@@ -242,7 +243,7 @@ final class QualityFoundryLiveManifestService
             'kernel_routed' => $exitCode === 0,
             'coverage_percent' => $coverageEvidence['coverage_percent'] ?? 0,
             'mutation_coverage_percent' => $this->mutationSurfaceCoveragePercent($mutationCoverageEvidence),
-            'mutation_score_percent' => (float) ($mutationCoverageEvidence['mutation_score_percent'] ?? 0),
+            'mutation_score_percent' => AiValueNormalizer::finiteFloatOrNull($mutationCoverageEvidence['mutation_score_percent'] ?? null) ?? 0.0,
             'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
             'evidence' => [
                 'rollback_exercised' => in_array(self::ROLLBACK_EVIDENCE_TEST, $allTests, true) && $exitCode === 0,
@@ -392,7 +393,7 @@ final class QualityFoundryLiveManifestService
         $total = (int) ($evidence['total_mutants'] ?? 0);
         $killed = (int) ($evidence['killed_mutants'] ?? -1);
         $surviving = (int) ($evidence['surviving_mutants'] ?? -1);
-        $percent = (float) ($evidence['mutation_score_percent'] ?? -1);
+        $percent = AiValueNormalizer::finiteFloatOrNull($evidence['mutation_score_percent'] ?? null) ?? -1.0;
         $coveragePercent = (int) ($evidence['mutation_coverage_percent'] ?? 0);
         if (($evidence['status'] ?? null) !== 'observed'
             || $registered !== $canonical || $tested !== $canonical || $total <= 0

@@ -1615,6 +1615,22 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only AAEOS canonical department id list.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentCanonicalListObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAaeosDepartmentRegistryService::SCHEMA,
+            'canonical_departments' => AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS,
+            'count' => count(AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

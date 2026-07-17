@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\QualityFoundry;
 
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Composes the four mode manifests from runtime receipts.
@@ -50,7 +51,7 @@ final class QualityFoundryModeReadinessManifestService
                 'evidence' => is_array($receipt['evidence'] ?? null) ? $receipt['evidence'] : [],
                 'coverage_percent' => (int) ($receipt['coverage_percent'] ?? 0),
                 'mutation_coverage_percent' => (int) ($receipt['mutation_coverage_percent'] ?? 0),
-                'mutation_score_percent' => (float) ($receipt['mutation_score_percent'] ?? 0),
+                'mutation_score_percent' => AiValueNormalizer::finiteFloatOrNull($receipt['mutation_score_percent'] ?? null) ?? 0.0,
                 'blockers' => $modeBlockers,
                 'claim_eligible' => false,
             ];
@@ -211,7 +212,7 @@ final class QualityFoundryModeReadinessManifestService
             || (int) ($mutationCoverage['total_mutants'] ?? 0) <= 0
             || (int) ($mutationCoverage['killed_mutants'] ?? -1) < 0
             || (int) ($mutationCoverage['surviving_mutants'] ?? -1) !== (int) ($mutationCoverage['total_mutants'] ?? 0) - (int) ($mutationCoverage['killed_mutants'] ?? 0)
-            || (float) ($mutationCoverage['mutation_score_percent'] ?? -1) < self::MUTATION_SCORE_FLOOR_PERCENT) {
+            || (AiValueNormalizer::finiteFloatOrNull($mutationCoverage['mutation_score_percent'] ?? null) ?? -1.0) < self::MUTATION_SCORE_FLOOR_PERCENT) {
             $blockers[] = 'mutation_coverage_evidence_missing';
         }
 

@@ -1314,4 +1314,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertArrayHasKey('input_class', $payload);
         $this->assertArrayHasKey('default_destination', $payload);
     }
+
+    public function test_department_canonical_list_observe_reports_ids(): void
+    {
+        $payload = $this->svc->departmentCanonicalListObserve([]);
+
+        $this->assertSame('atlas.aaeos.department.v1', $payload['schema_version']);
+        $this->assertContains('dev', $payload['canonical_departments']);
+        $this->assertSame(count($payload['canonical_departments']), $payload['count']);
+    }
 }
