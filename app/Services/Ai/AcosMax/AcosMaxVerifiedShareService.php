@@ -38,6 +38,10 @@ final class AcosMaxVerifiedShareService
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_BELOW_THRESHOLD = 'below_threshold';
+
     public const REASON_MEASURE_FREEZE_NOT_RECORDED = 'measure_freeze_not_recorded';
 
     /** @return array<string,mixed> */
@@ -142,7 +146,7 @@ final class AcosMaxVerifiedShareService
             return self::STATUS_INSUFFICIENT_SIGNAL;
         }
 
-        return (AiValueNormalizer::finiteFloatOrNull($aggregate['verified_share'] ?? null) ?? 0.0) >= $shareMin ? 'ok' : 'below_threshold';
+        return (AiValueNormalizer::finiteFloatOrNull($aggregate['verified_share'] ?? null) ?? 0.0) >= $shareMin ? self::STATUS_OK : self::STATUS_BELOW_THRESHOLD;
     }
 
     /** @return array<string,int> */

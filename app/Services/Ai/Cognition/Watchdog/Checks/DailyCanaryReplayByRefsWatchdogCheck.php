@@ -53,6 +53,15 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
      * @param  callable():array<string,mixed>|null  $goldenReportProvider Injectable seam for tests; defaults to the LocalRagBenchmarkService report.
      * @param  callable():CarbonImmutable|null  $nowProvider Injectable clock for tests.
      */
+    public const STATUS_UNAVAILABLE = 'unavailable';
+
+    public const REASON_CANARY_DRIFT = 'canary_drift';
+
+    public const REASON_CANARY_WITHIN_FLOORS = 'canary_within_floors';
+
+    public const REASON_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+
     public function __construct(
         private readonly AtlasDeliveredPackLedger $deliveredPackLedger,
         private readonly ?LocalRagBenchmarkService $benchmark = null,
@@ -105,13 +114,13 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $this->assertProviderSafeEvidence($evidence);
 
         if ($window['flows_checked'] === 0 && $golden['recall_at_5'] === null) {
-            return AtlasWatchdogCheckResult::skipped($evidence + ['reason' => 'insufficient_signal']);
+            return AtlasWatchdogCheckResult::skipped($evidence + ['reason' => self::REASON_INSUFFICIENT_SIGNAL]);
         }
 
         $violations = $this->violations($refStability, $golden);
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => 'canary_drift'],
+                $evidence + ['reason' => self::REASON_CANARY_DRIFT],
                 [
                     'code' => 'daily_canary_drift',
                     'message' => 'MAXG-06 daily canary detected drift above frozen thresholds.',
@@ -120,7 +129,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             );
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'canary_within_floors']);
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_CANARY_WITHIN_FLOORS]);
     }
 
     /**
@@ -194,7 +203,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 'version' => null,
                 'recall_at_5' => null,
                 'improper_floor_discards' => null,
-                'status' => 'unavailable',
+                'status' => self::STATUS_UNAVAILABLE,
             ];
         }
 
@@ -203,7 +212,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 'version' => null,
                 'recall_at_5' => null,
                 'improper_floor_discards' => null,
-                'status' => 'unavailable',
+                'status' => self::STATUS_UNAVAILABLE,
             ];
         }
 
@@ -227,7 +236,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 'version' => null,
                 'recall_at_5' => null,
                 'improper_floor_discards' => null,
-                'status' => 'unavailable',
+                'status' => self::STATUS_UNAVAILABLE,
             ];
         }
 

@@ -4529,6 +4529,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: daily-canary + ledger-integrity + window-orchestrator + rotation-mode floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function canaryIntegrityWindowRotationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'canary_status_unavailable' => DailyCanaryReplayByRefsWatchdogCheck::STATUS_UNAVAILABLE,
+            'canary_reason_drift' => DailyCanaryReplayByRefsWatchdogCheck::REASON_CANARY_DRIFT,
+            'canary_reason_within_floors' => DailyCanaryReplayByRefsWatchdogCheck::REASON_CANARY_WITHIN_FLOORS,
+            'canary_reason_insufficient_signal' => DailyCanaryReplayByRefsWatchdogCheck::REASON_INSUFFICIENT_SIGNAL,
+            'integrity_reason_chains_intact' => EvidenceLedgerIntegrityWatchdogCheck::REASON_CHAINS_INTACT,
+            'integrity_reason_gap' => EvidenceLedgerIntegrityWatchdogCheck::REASON_GAP,
+            'integrity_reason_tampered' => EvidenceLedgerIntegrityWatchdogCheck::REASON_TAMPERED,
+            'integrity_reason_verifier_threw' => EvidenceLedgerIntegrityWatchdogCheck::REASON_VERIFIER_THREW,
+            'window_status_dead_window' => AcosMaxWindowOrchestratorService::STATUS_DEAD_WINDOW,
+            'window_status_unavailable' => AcosMaxWindowOrchestratorService::STATUS_UNAVAILABLE,
+            'window_reason_no_started_window' => AcosMaxWindowOrchestratorService::REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION,
+            'rotation_mode_append_forever' => AcosMaxLedgerRotationRegistry::MODE_APPEND_FOREVER,
+            'rotation_mode_rotate_hybrid' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_HYBRID,
+            'rotation_mode_rotate_size' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_SIZE,
+            'verified_share_status_ok' => AcosMaxVerifiedShareService::STATUS_OK,
+            'verified_share_status_below_threshold' => AcosMaxVerifiedShareService::STATUS_BELOW_THRESHOLD,
+            'attempt_state_completed' => AttemptLifecycleLedger::STATE_COMPLETED,
+            'attempt_state_crashed' => AttemptLifecycleLedger::STATE_CRASHED,
+            'attempt_state_timed_out' => AttemptLifecycleLedger::STATE_TIMED_OUT,
+            'attempt_state_abandoned' => AttemptLifecycleLedger::STATE_ABANDONED,
+            'canary_integrity_window_rotation_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

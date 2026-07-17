@@ -3071,4 +3071,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['verified_share_capability_truth_ambition_floor_count']);
     }
 
+    public function test_canary_integrity_window_rotation_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->canaryIntegrityWindowRotationFloorsContractObserve([]);
+
+        $this->assertSame('unavailable', $payload['canary_status_unavailable']);
+        $this->assertSame('canary_drift', $payload['canary_reason_drift']);
+        $this->assertSame('canary_within_floors', $payload['canary_reason_within_floors']);
+        $this->assertSame('chains_intact', $payload['integrity_reason_chains_intact']);
+        $this->assertSame('tampered', $payload['integrity_reason_tampered']);
+        $this->assertSame('dead_window', $payload['window_status_dead_window']);
+        $this->assertSame('no_started_window_with_numeric_duration', $payload['window_reason_no_started_window']);
+        $this->assertSame('append_forever', $payload['rotation_mode_append_forever']);
+        $this->assertSame('rotate_hybrid', $payload['rotation_mode_rotate_hybrid']);
+        $this->assertSame('rotate_size', $payload['rotation_mode_rotate_size']);
+        $this->assertSame('ok', $payload['verified_share_status_ok']);
+        $this->assertSame('below_threshold', $payload['verified_share_status_below_threshold']);
+        $this->assertSame('completed', $payload['attempt_state_completed']);
+        $this->assertSame('abandoned', $payload['attempt_state_abandoned']);
+        $this->assertSame(20, $payload['canary_integrity_window_rotation_floor_count']);
+    }
+
 }

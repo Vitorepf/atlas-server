@@ -19,6 +19,13 @@ final class AcosMaxWindowOrchestratorService
 
     public const BLOCKING_WINDOW_NOT_STARTED = 'window_not_started';
 
+    public const STATUS_DEAD_WINDOW = 'dead_window';
+
+    public const STATUS_UNAVAILABLE = 'unavailable';
+
+    public const REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION = 'no_started_window_with_numeric_duration';
+
+
     public function __construct(
         private readonly AcosMeasureSeriesFreshnessReader $freshness = new AcosMeasureSeriesFreshnessReader,
     ) {}
@@ -217,7 +224,7 @@ final class AcosMaxWindowOrchestratorService
         }
 
         return [
-            'status' => 'dead_window',
+            'status' => self::STATUS_DEAD_WINDOW,
             'flag_id' => $window['flag_id'],
             'slice' => $window['slice'],
             'series' => $series['series'] ?? null,
@@ -251,7 +258,7 @@ final class AcosMaxWindowOrchestratorService
             static fn (array $window): bool => ($window['days_remaining'] ?? null) !== null
         ));
         if ($withRemaining === []) {
-            return ['status' => 'unavailable', 'reason' => 'no_started_window_with_numeric_duration', 'days_remaining' => null, 'nodes' => []];
+            return ['status' => self::STATUS_UNAVAILABLE, 'reason' => self::REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION, 'days_remaining' => null, 'nodes' => []];
         }
         usort($withRemaining, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($b['days_remaining'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($a['days_remaining'] ?? null) ?? 0)));
         $top = $withRemaining[0];

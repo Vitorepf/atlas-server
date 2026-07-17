@@ -35,6 +35,15 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
      *   Injectable seam so tests can drive the check without touching the
      *   final verifier or the live ledger table.
      */
+    public const REASON_CHAINS_INTACT = 'chains_intact';
+
+    public const REASON_GAP = 'gap';
+
+    public const REASON_TAMPERED = 'tampered';
+
+    public const REASON_VERIFIER_THREW = 'verifier_threw';
+
+
     public function __construct(
         private readonly EvidenceLedgerHashChainIntegrityVerifier $verifier,
         private readonly ?string $ledgerPath = null,
@@ -62,7 +71,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::error([
                 'schema_version' => self::SCHEMA_VERSION,
                 'date' => $date,
-                'reason' => 'verifier_threw',
+                'reason' => self::REASON_VERIFIER_THREW,
             ], [
                 'code' => 'evidence_ledger_verifier_error',
                 'message' => 'Evidence ledger integrity verifier threw: '.$e->getMessage(),
@@ -123,7 +132,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
 
         if ($tamperedTotal > 0) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => 'tampered'],
+                $evidence + ['reason' => self::REASON_TAMPERED],
                 [
                     'code' => 'evidence_ledger_tampered',
                     'message' => 'Evidence ledger chain integrity verifier detected tampered events.',
@@ -134,7 +143,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
 
         if ($gapTotal > 0) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => 'gap'],
+                $evidence + ['reason' => self::REASON_GAP],
                 [
                     'code' => 'evidence_ledger_gap',
                     'message' => 'Evidence ledger chain integrity verifier detected chain gaps.',
@@ -143,7 +152,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             );
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'chains_intact']);
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_CHAINS_INTACT]);
     }
 
     public function path(): string
