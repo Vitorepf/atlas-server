@@ -20,6 +20,7 @@ use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
+use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -674,6 +675,23 @@ final class AtlasUniversalGatesEvaluator
             'tokens' => DomainLexicalNormalizer::tokens($query),
             'contract' => DomainLexicalNormalizer::contract(),
         ];
+    }
+
+    /**
+     * Observe-only gated corpus candidate mine (ASI-02 admission).
+     * Accepts a sources list or `{sources:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gatedCorpusCandidatesObserve(array $input): array
+    {
+        $sources = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['sources'] ?? null);
+
+        /** @var list<array<string,mixed>> $sources */
+        return GatedCorpusCandidateMiner::mine($sources);
     }
 
     /**

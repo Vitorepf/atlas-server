@@ -24,6 +24,7 @@ use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
+use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -558,5 +559,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(DomainLexicalNormalizer::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertGreaterThan(0.0, $payload['score']);
         $this->assertContains('memory', $payload['tokens']);
+    }
+
+    public function test_gated_corpus_candidates_observe_mines_sources(): void
+    {
+        $payload = $this->svc->gatedCorpusCandidatesObserve([
+            'sources' => [
+                ['ref' => 'doc:1', 'text' => 'normal corpus text', 'privacy_class' => 'normal', 'source' => 'vault'],
+                ['ref' => 'sec:1', 'text' => 'secret', 'privacy_class' => 'secret', 'source' => 'vault'],
+            ],
+        ]);
+
+        $this->assertSame(GatedCorpusCandidateMiner::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertCount(1, $payload['candidates']);
+        $this->assertContains('protected_class_omitted', $payload['omitted']);
     }
 }

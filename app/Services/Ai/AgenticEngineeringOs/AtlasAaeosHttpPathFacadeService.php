@@ -172,11 +172,11 @@ final class AtlasAaeosHttpPathFacadeService
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
                 $blockedWhen = array_values(array_map(
-                    static fn (array $b): string => (string) $b['id'],
+                    static fn (array $b): string => AiValueNormalizer::trimmedString($b['id'] ?? ''),
                     (array) $policyEnv['blockers'],
                 ));
                 if ($blockedWhen === [] && ($advance['reason'] ?? '') !== '') {
-                    $blockedWhen = [(string) $advance['reason']];
+                    $blockedWhen = [AiValueNormalizer::trimmedString($advance['reason'] ?? '')];
                 }
 
                 return $this->blockedResult(
@@ -350,15 +350,15 @@ final class AtlasAaeosHttpPathFacadeService
             'schema' => 'atlas.aaeos.http_path_request.v1',
             'intent_id' => $intentId,
             'phases_executed' => array_values(array_map(
-                static fn (array $env): string => (string) ($env['phase_out'] ?? 'unknown'),
+                static fn (array $env): string => AiValueNormalizer::trimmedString($env['phase_out'] ?? 'unknown') ?: 'unknown',
                 $envelopes,
             )),
             'phases_executed_count' => count($envelopes),
             'placement_decision' => [
-                'gate_status' => (string) ($placementResult['gate_status'] ?? 'unknown'),
-                'layer' => (string) ($placementResult['placement']['layer'] ?? 'unknown'),
-                'domain' => (string) ($placementResult['placement']['domain'] ?? 'unknown'),
-                'flow' => (string) ($placementResult['placement']['flow'] ?? 'unknown'),
+                'gate_status' => AiValueNormalizer::trimmedString($placementResult['gate_status'] ?? 'unknown') ?: 'unknown',
+                'layer' => AiValueNormalizer::trimmedString($placementResult['placement']['layer'] ?? 'unknown') ?: 'unknown',
+                'domain' => AiValueNormalizer::trimmedString($placementResult['placement']['domain'] ?? 'unknown') ?: 'unknown',
+                'flow' => AiValueNormalizer::trimmedString($placementResult['placement']['flow'] ?? 'unknown') ?: 'unknown',
                 'requires_ap' => (bool) ($placementResult['placement']['requires_ap'] ?? false),
             ],
             'envelopes' => $envelopes,

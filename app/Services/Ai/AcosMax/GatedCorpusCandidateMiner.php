@@ -35,7 +35,7 @@ final class GatedCorpusCandidateMiner
             $candidates[] = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'origin_ref' => $ref,
-                'source' => (string) ($source['source'] ?? 'unknown'),
+                'source' => AiValueNormalizer::trimmedString($source['source'] ?? 'unknown') ?: 'unknown',
                 'candidate_hash' => sha1($ref."\n".$text),
                 'admission' => [
                     'via_asi_02' => true,

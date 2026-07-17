@@ -665,6 +665,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_gated_corpus(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-gc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'sources' => [
+                ['ref' => 'doc:1', 'text' => 'ok', 'privacy_class' => 'normal'],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-gc',
+                '--gated-corpus' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"gated_corpus_candidates"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

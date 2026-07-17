@@ -89,10 +89,10 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.placement'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
-                'placement_layer' => (string) ($placementResult['placement']['layer'] ?? 'unknown'),
-                'placement_domain' => (string) ($placementResult['placement']['domain'] ?? 'unknown'),
-                'placement_flow' => (string) ($placementResult['placement']['flow'] ?? 'unknown'),
-                'gate_status' => (string) ($placementResult['gate_status'] ?? 'unknown'),
+                'placement_layer' => AiValueNormalizer::trimmedString($placementResult['placement']['layer'] ?? 'unknown') ?: 'unknown',
+                'placement_domain' => AiValueNormalizer::trimmedString($placementResult['placement']['domain'] ?? 'unknown') ?: 'unknown',
+                'placement_flow' => AiValueNormalizer::trimmedString($placementResult['placement']['flow'] ?? 'unknown') ?: 'unknown',
+                'gate_status' => AiValueNormalizer::trimmedString($placementResult['gate_status'] ?? 'unknown') ?: 'unknown',
             ],
             gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
             blockers: $placementOk ? [] : self::blockedWhenAsBlockers($placementResult),
@@ -135,9 +135,9 @@ final class AaeosHttpPathEnvelopeFactory
     public function policyGate(string $intentId, string $intentHash, array $data): array
     {
         $assisted = self::assistedExecutionQuality($data);
-        $target = (string) data_get($assisted, 'route.target', '');
+        $target = AiValueNormalizer::trimmedString(data_get($assisted, 'route.target', ''));
         $isDevTarget = $target === 'atlas_dev';
-        $status = (string) ($assisted['status'] ?? '');
+        $status = AiValueNormalizer::trimmedString($assisted['status'] ?? '');
         $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
 
         return $this->handoff->emit(
@@ -163,9 +163,9 @@ final class AaeosHttpPathEnvelopeFactory
     public function riskBand(array $data): string
     {
         $payload = self::requestPayload($data);
-        $intent = (string) (data_get($payload, 'atlas_ai_router.command_intent') ?? '');
-        $routingTask = (string) ($payload['routing_task'] ?? '');
-        $flowId = (string) (data_get($payload, 'atlas_ai_router.flow_id') ?? '');
+        $intent = AiValueNormalizer::trimmedString(data_get($payload, 'atlas_ai_router.command_intent') ?? '');
+        $routingTask = AiValueNormalizer::trimmedString($payload['routing_task'] ?? '');
+        $flowId = AiValueNormalizer::trimmedString(data_get($payload, 'atlas_ai_router.flow_id') ?? '');
 
         if (in_array($intent, ['plan', 'forge', 'obra'], true) || in_array($routingTask, ['plan', 'forge', 'obra'], true)) {
             return self::RISK_BAND_R3_PLUS;
